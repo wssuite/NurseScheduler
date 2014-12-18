@@ -66,12 +66,12 @@ std::map<char*,int> skillToInt_;
 //
 int nbShifts_;
 std::map<char*,int> shiftToInt_;
-std::vector<int> minConsShifts_, maxConsShifts_;
+vector<int> minConsShifts_, maxConsShifts_;
 
 // for each shift, the number of forbidden successors and a table containing
 // the indices of these forbidden successors
 //
-std::vector<int> nbForbiddenSuccessors_;
+vector<int> nbForbiddenSuccessors_;
 int** pForbiddenSuccessors_;
 
 // number of contracts, and map matching the name of each contrat to an index
@@ -86,21 +86,37 @@ std::map<char*,int> contractToInt_;
 // each set of attributes is followed by the penalty for the violation of
 // the corresponding soft constraints
 //
-std::vector<int> minTotalShifts_, maxTotalShifts_;
-std::vector<int> minConsDaysWork_, maxConsDaysWork_;
-std::vector<int> minConsDaysOff_, maxConsDaysOff_;
-std::vector<int> maxTotalWeekEnds_;
-int costTotalWeekEnds_;
-std::vector<bool> isCompleteWeekEnd_;
+vector<int> minTotalShifts_, maxTotalShifts_;
+vector<int> minConsDaysWork_, maxConsDaysWork_;
+vector<int> minConsDaysOff_, maxConsDaysOff_;
+vector<int> maxTotalWeekEnds_;
+vector<bool> isCompleteWeekEnd_;
 
 
 // number of nurses, and vector of all the nurses
 //
 int nbNurses_;
-std::vector<Nurse> theNurses_;
+vector<Nurse> theNurses_;
 
 
 public:
+  // getters for the class attributes
+  //
+  int nbWeeks() {return nbWeeks_;}
+  int thisWeek() {return thisWeek_;}
+
+
+   // getters for the attributes of the nurses
+   //
+   int minTotalShiftsOf(int whichNurse) {return theNurses_[whichNurse].minTotalShifts();}
+   int maxTotalShiftsOf(int whichNurse) {return theNurses_[whichNurse].maxTotalShifts();}
+   int minConsDaysWorkOf(int whichNurse) {return theNurses_[whichNurse].minConsDaysWork();}
+   int maxConsDaysWorkOf(int whichNurse) {return theNurses_[whichNurse].maxConsDaysWork();}
+   int minConsDaysOffOf(int whichNurse) {return theNurses_[whichNurse].maxConsDaysOff();}
+   int maxConsDaysOffOf(int whichNurse) {return theNurses_[whichNurse].maxConsDaysOff();}
+   int maxTotalWeekEndsOf(int whichNurse) {return theNurses_[whichNurse].maxTotalWeekEnds();}
+   bool isCompleteWeekEndsOf(int whichNurse) {return theNurses_[whichNurse].isCompleteWeekEnds();}
+
    // Initialize the attributes of the scenario with the content of the input
    // file
    //
