@@ -20,19 +20,21 @@
 
 using std::vector;
 
+static const DEBUG = 1;
 // definitions of multi-dimensional int vector types
 //
 typedef vector<vector<int>> vector2D;
 typedef std::vector<std::vector<std::vector<int>>> vector3D;
 
-class ToolsTimer
+namespace Tools{
+class Timer
 {
 public:
 
 	//constructor and destructor
 	//
-	ToolsTimer();
-	~ToolsTimer() {}
+	Timer();
+	~Timer() {}
 
 private:
 	timespec cpuInit_;
@@ -55,17 +57,17 @@ public:
 
 };
 
-class ToolsFormattedOutput
+class FormattedOutput
 {
 private:
 	int width;
 	std::ostream& stream_obj;
 
 public:
-	ToolsFormattedOutput(std::ostream& obj, int w): width(w), stream_obj(obj) {}
+	FormattedOutput(std::ostream& obj, int w): width(w), stream_obj(obj) {}
 
 	template<typename T>
-	ToolsFormattedOutput& operator<<(const T& output)
+	FormattedOutput& operator<<(const T& output)
 	{
 		stream_obj.width(width);
 		stream_obj << output;
@@ -73,7 +75,7 @@ public:
 		return *this;
 	}
 
-	ToolsFormattedOutput& operator<<(std::ostream& (*func)(std::ostream&))
+	FormattedOutput& operator<<(std::ostream& (*func)(std::ostream&))
 	{
 		func(stream_obj);
 		return *this;
@@ -82,16 +84,16 @@ public:
 
 // structure for a segment of R
 //
-struct ToolsSeg {
+struct Seg {
   double ini, end;
 
   // constructor
-  ToolsSeg(): ini(1.0), end(-1.0) {};
-  ToolsSeg (double d1, double d2): ini(d1), end(d2) {}
-  ToolsSeg (ToolsSeg const &seg): ini(seg.ini), end(seg.end) {}
+  Seg(): ini(1.0), end(-1.0) {};
+  Seg (double d1, double d2): ini(d1), end(d2) {}
+  Seg (Seg const &seg): ini(seg.ini), end(seg.end) {}
 
   // set the value of a segment
-  void setSeg(ToolsSeg seg) {
+  void setSeg(Seg seg) {
     ini = seg.ini;
     end = seg.end;
   }
@@ -102,8 +104,8 @@ struct ToolsSeg {
 
   // union and intersection with another segment
   //
-  void interSeg(ToolsSeg const& seg, ToolsSeg &segInter);
-  void unionSeg(ToolsSeg const& seg, ToolsSeg &segUnion1, ToolsSeg &segUnion2);
+  void interSeg(Seg const& seg, Seg &segInter);
+  void unionSeg(Seg const& seg, Seg &segUnion1, Seg &segUnion2);
 
   // test whether the segment in attribute is empty
   bool empty() const {return ini > end;}
@@ -113,19 +115,19 @@ struct ToolsSeg {
 
 // structure for an interval formed by a union of segments of R
 //
-struct ToolsInterval {
+struct Interval {
   int coSeg;
-  std::vector<ToolsSeg> vSeg;
+  std::vector<Seg> vSeg;
 
   // constructor/destructor
-  ToolsInterval (): coSeg(0) {}
-  ~ToolsInterval () {
+  Interval (): coSeg(0) {}
+  ~Interval () {
     vSeg.clear();
   }
 
   // add a segment at the end of the interval
   //
-  void addSeg(ToolsSeg const &seg) {
+  void addSeg(Seg const &seg) {
     vSeg.push_back(seg);
     coSeg++;
   }
@@ -139,7 +141,7 @@ struct ToolsInterval {
 
   // copy the content of an interval
   //
-  void copy(ToolsInterval const &interval);
+  void copy(Interval const &interval);
 
   // clear the content of the interval
   //
@@ -150,12 +152,12 @@ struct ToolsInterval {
 
   // union and intersection of a segment with the interval
   //
-  void interSeg(ToolsSeg const &seg, ToolsInterval &intervalInter);
-  void unionSeg(ToolsSeg const &seg);
+  void interSeg(Seg const &seg, Interval &intervalInter);
+  void unionSeg(Seg const &seg);
 
   // intersection with another segment (modifies the input interval)
   //
-  void interInterval(ToolsInterval const &interval, ToolsInterval &intervalInter);
+  void interInterval(Interval const &interval, Interval &intervalInter);
 
   // Wrap the interval to [-pi;pi[
   //
@@ -165,25 +167,29 @@ struct ToolsInterval {
 
 // norm of a two dimensions vector
 //
-inline double ToolsNorm(double x, double y)  {return sqrt(pow(x,2) + pow(y,2));}
+inline double norm(double x, double y)  {return sqrt(pow(x,2) + pow(y,2));}
 
 // Wrap an angle value to the interval [-pi;pi[
 //
-double ToolsWrapAnglePi(const double angle);
+double wrapAnglePi(const double angle);
 
 // Throw an exception with the input message
 //
-void ToolsThrow(const char* exceptionMsg);
+void throwError(const char* exceptionMsg);
 
 // Display a debug message
 //
-void ToolsDebugMsg(const char* debugMsg, int debugLevel);
+void debugMsg(const char* debugMsg, int debugLevel);
+
+// Read a file stream until the separating character is met
+//
+bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 
 // Solve the second degree equation ax^2+bx+c=0
 // Returns true when there is a solution in R and false otherwise
 //
-bool ToolsSecondDegree(const double &a, const double &b, const double &c,
+bool secondDegree(const double &a, const double &b, const double &c,
                        double& x1, double& x2);
 
-
+}
 #endif /* defined(__IDSReseau__MyTools__) */

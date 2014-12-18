@@ -46,10 +46,14 @@ public:
 // Constructor and destructor
 //
 Scenario(string name, int nbWeeks,
-int nbSkills, map<string,int> skillToInt, vector<string> intToSkill,
-int nbShifts, map<string,int> shiftToInt, vector<string> intToShift,
-vector<int> minConsShifts, vector<int> maxConsShifts,
-vector<int> nbForbiddenSuccessors, int**pForbiddenSuccessors) {
+         int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
+         int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
+         vector<int> minConsShifts, vector<int> maxConsShifts,
+         vector<int> nbForbiddenSuccessors, vector2D pForbiddenSuccessors) :
+        name_(name), nbWeeks_(nbWeeks),
+        nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
+        nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
+    nbForbiddenSuccessors_(nbForbiddenSuccessors), pForbiddenSuccessors_(pForbiddenSuccessors)  {
 }
 ~Scenario();
 
@@ -67,22 +71,24 @@ const int nbWeeks_;
 // index and reversely
 //
 const int nbSkills_;
-const std::map<char*,int> skillToInt_;
+const vector<string> intToSkill_;
+const map<string,int> skillToInt_;
 
-// number of shifts, a map and a vector matching the name of each skill to an
+// number of shifts, a map and a vector matching the name of each shift to an
 // index and reversely
 // minimum and maximum number consecutive assignments for each shift,
 // and penalty for violations of these bounds
 //
 const int nbShifts_;
-const std::map<char*,int> shiftToInt_;
+const vector<string> intToShift_;
+const map<string,int> shiftToInt_;
 const vector<int> minConsShifts_, maxConsShifts_;
 
 // for each shift, the number of forbidden successors and a table containing
 // the indices of these forbidden successors
 //
 const vector<int> nbForbiddenSuccessors_;
-const int** pForbiddenSuccessors_;
+const vector2D pForbiddenSuccessors_;
 
 // commenté ci-dessous pour alléger le code, plutôt mettre ces choses directement
 // dans le reader vu que c'est déjà dans les nurses
@@ -105,9 +111,9 @@ const int** pForbiddenSuccessors_;
 // vector<bool> isCompleteWeekEnd_;
 
 private:
-  // index of the week that is being scheduled
-  //
-  int thisWeek_;
+// index of the week that is being scheduled
+//
+int thisWeek_;
 
 // number of nurses, and vector of all the nurses
 //
@@ -156,7 +162,7 @@ bool isCompleteWeekEndsOf(int whichNurse) {
 // Initialize the attributes of the scenario with the content of the input
 // file
 //
-void readScenario(std::string fileName);
+void readScenario(string fileName);
 
 };
 

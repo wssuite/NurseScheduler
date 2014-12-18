@@ -20,11 +20,12 @@
 
 using namespace std;
 
-ToolsTimer::ToolsTimer():isInit_(0), isStarted_(0), isStopped_(0) {
+namespace Tools{
+Timer::Timer():isInit_(0), isStarted_(0), isStopped_(0) {
 	this->init();
 }
 
-void ToolsTimer::init()	{
+void Timer::init()	{
 	coStop_ = 0;
 	cpuInit_.tv_sec = 0;
 	cpuInit_.tv_nsec = 0;
@@ -36,10 +37,10 @@ void ToolsTimer::init()	{
 	isStarted_ = 0;
 	isStopped_ = 1;
 }
-void ToolsTimer::start()  {
+void Timer::start()  {
 
 	if (isStarted_)
-		ToolsThrow("Trying to start an already started timer!");
+		Throw("Trying to start an already started timer!");
 
 	//clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &this->cpuInit_);
 	cpuSinceStart_.tv_sec   = 0;
@@ -49,10 +50,10 @@ void ToolsTimer::start()  {
 
 }
 
-void ToolsTimer::stop() {
+void Timer::stop() {
 
 	if ( isStopped_ )
-		ToolsThrow("Trying to stop an already stopped timer!");
+		Throw("Trying to stop an already stopped timer!");
 
 	/*timespec cpuNow;
 	//clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
@@ -78,7 +79,7 @@ void ToolsTimer::stop() {
 	coStop_ ++;
 }
 
-const double ToolsTimer::dSinceInit() {
+const double Timer::dSinceInit() {
 
 	if (isStarted_) {
 		//timespec cpuNow;
@@ -109,16 +110,16 @@ const double ToolsTimer::dSinceInit() {
 		return (double) cpuSinceInit_.tv_sec + (double)cpuSinceInit_.tv_nsec/1.0e09;
 	}
 	else
-		ToolsThrow("Trying to get the value of an unitialized timer!");
+		Throw("Trying to get the value of an unitialized timer!");
 
   return 0.0;
 
 }
 
-const double ToolsTimer::dSinceStart() {
+const double Timer::dSinceStart() {
 
 	if (!isStarted_ && !isStopped_)
-		ToolsThrow("Trying to get the value of an unitialized timer!");
+		Throw("Trying to get the value of an unitialized timer!");
 	else if (isStarted_) {
 		//timespec cpuNow;
 		//clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
@@ -139,15 +140,15 @@ const double ToolsTimer::dSinceStart() {
 // intersection of two segments of R, sInter is set to NULL if the intersection
 // is empty
 //
-void ToolsSeg::interSeg(ToolsSeg const& seg, ToolsSeg &segInter)  {
+void Seg::interSeg(Seg const& seg, Seg &segInter)  {
 
   segInter.ini = std::max(this->ini, seg.ini);
   segInter.end = std::min(this->end, seg.end);
 
 }
 
-void ToolsSeg::unionSeg(ToolsSeg const& seg, ToolsSeg &segUnion1,
-                        ToolsSeg &segUnion2)  {
+void Seg::unionSeg(Seg const& seg, Seg &segUnion1,
+                        Seg &segUnion2)  {
   segUnion1.set(1.0,-1.0);
   segUnion2.set(1.0,-1.0);
 
@@ -169,7 +170,7 @@ void ToolsSeg::unionSeg(ToolsSeg const& seg, ToolsSeg &segUnion1,
 
 // copy the content of an interval
 //
-void ToolsInterval::copy(ToolsInterval const &interval) {
+void Interval::copy(Interval const &interval) {
 
   this->clear();
 
@@ -180,10 +181,10 @@ void ToolsInterval::copy(ToolsInterval const &interval) {
 
 // intersection of a segment with the interval
 //
-void ToolsInterval::interSeg(const ToolsSeg &seg, ToolsInterval &intervalInter) {
+void Interval::interSeg(const Seg &seg, Interval &intervalInter) {
 
   for (int i = 0; i < this->coSeg; i++) {
-    ToolsSeg segInter;
+    Seg segInter;
 
     vSeg[i].interSeg(seg, segInter);
 
@@ -193,14 +194,14 @@ void ToolsInterval::interSeg(const ToolsSeg &seg, ToolsInterval &intervalInter) 
 
 // union of a segment with the interval
 //
-void ToolsInterval::unionSeg(ToolsSeg const &seg){
+void Interval::unionSeg(Seg const &seg){
 
   if (seg.empty()) return;
 
   int count = 0;
-  ToolsSeg segUnion(seg);
+  Seg segUnion(seg);
   while (count < this->coSeg) {
-    ToolsSeg segTemp(vSeg[count]);
+    Seg segTemp(vSeg[count]);
 
     if ((segTemp.ini > segUnion.end+1.0e-09) || (segUnion.ini > segTemp.end+1.0e-09)) {
       //intervalUnion.addSeg(segTemp);
@@ -218,22 +219,22 @@ void ToolsInterval::unionSeg(ToolsSeg const &seg){
 
 // intersection with another segment
 //
-void ToolsInterval::interInterval(ToolsInterval const &interval,
-                                  ToolsInterval & intervalInter)  {
+void Interval::interInterval(Interval const &interval,
+                                  Interval & intervalInter)  {
 
   for (int i = 0; i < interval.coSeg; i++)  {
-    ToolsSeg segTemp(interval.vSeg[i]);
+    Seg segTemp(interval.vSeg[i]);
 
     // the intersection is added to the input interval, it is ok if the segments
     // included in this and in interval are disjoint
     this->interSeg(segTemp, intervalInter);
   }
-  
+
 }
 
 // Wrap the interval to [-pi;pi[
 //
-void ToolsInterval::wrapToPi() {
+void Interval::wrapToPi() {
 
   int count = 0;
   int coSegIni = this->coSeg;
@@ -242,14 +243,14 @@ void ToolsInterval::wrapToPi() {
     if (vSeg[count].end-vSeg[count].ini >= 2*M_PI)
       vSeg[count].set(-M_PI,M_PI);
     else {
-      double dIni = ToolsWrapAnglePi(vSeg[count].ini);
+      double dIni = WrapAnglePi(vSeg[count].ini);
       double dEnd = dIni + vSeg[count].end-vSeg[count].ini;
 
       if (dEnd > M_PI)  {
         vSeg[count].set(dIni, M_PI-1.0e-09);
 
-        dEnd = ToolsWrapAnglePi(dEnd);
-        ToolsSeg newSeg(-M_PI, dEnd);
+        dEnd = WrapAnglePi(dEnd);
+        Seg newSeg(-M_PI, dEnd);
         this->addSeg(newSeg);
       }
       else
@@ -259,7 +260,7 @@ void ToolsInterval::wrapToPi() {
     count++;
   }
 
-  ToolsInterval intervalTemp;
+  Interval intervalTemp;
   intervalTemp.copy(*this);
 
   while (intervalTemp.coSeg > 0) {
@@ -271,7 +272,7 @@ void ToolsInterval::wrapToPi() {
 
 // Wrap an angle value to the interval [-pi;pi[
 //
-double ToolsWrapAnglePi(const double angle) {
+double wrapAnglePi(const double angle) {
 
   double remainder = (double) fmod(angle, 2*M_PI) + ((angle >= 0) ? 0:2*M_PI);
   return  (remainder < M_PI) ? remainder:remainder-2*M_PI;
@@ -280,7 +281,7 @@ double ToolsWrapAnglePi(const double angle) {
 
 // Throw an exception with the input message
 //
-void ToolsThrow(const char* exceptionMsg)  {
+void throwError(const char* exceptionMsg)  {
 	try {
 		throw std::string(exceptionMsg);
 	} catch (const std::string str) {
@@ -292,15 +293,15 @@ void ToolsThrow(const char* exceptionMsg)  {
 
 // Display a debug message
 //
-void ToolsDebugMsg(const char* debugMsg, int debugLevel)	{
+void debugMsg(const char* debugMsg, int debugLevel)	{
 
-	if (debugLevel)
+	if (debugLevel >= DEBUG)
 		printf("%s\n", debugMsg);
 }
 
 // Read a file stream until the separating character is met
 //
-bool ToolsReadUntilChar(fstream *file, char separateur, string *pTitle) {
+bool readUntilChar(fstream *file, char separateur, string *pTitle) {
   char cTmp = 'A';
 
   // empty the title string if it is not
@@ -327,7 +328,7 @@ bool ToolsReadUntilChar(fstream *file, char separateur, string *pTitle) {
 // Solve the second degree equation ax^2+bx+c=0
 // Returns true when there is a solution in R and false otherwise
 //
-bool ToolsSecondDegree(const double &a, const double &b, const double &c,
+bool secondDegree(const double &a, const double &b, const double &c,
                        double& x1, double& x2)  {
   double delta = pow(b, 2) - 4*a*c;
 
@@ -342,6 +343,4 @@ bool ToolsSecondDegree(const double &a, const double &b, const double &c,
 
   return true;
 }
-
-
-
+}

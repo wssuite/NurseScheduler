@@ -12,6 +12,8 @@
 #include <math.h>
 #include <limits.h>
 
+#include "Scenario.h"
+
 #define TRUE 1
 #define FALSE 0
 
@@ -34,7 +36,7 @@
 
 // Read the scneario file and store the content in a Scenario instance
 //
-void readScenario(std::string strWeekFile, Scenario* pScenario);
+Scenario* readScenario(std::string strScenarioFile);
 
 // Read the Week file and store the content in a Scenario instance
 //
@@ -57,12 +59,12 @@ void readCustom(std::string strCustomInputFile, Scenario* pScenario);
 
 // Write the solution file for the current week
 //
-void writeSolution(std::string strCustomOutputFile, Solution* pSolution);
-
-// Write the output custom file from values in the scenario and the solution
-// instances
+// void writeSolution(std::string strCustomOutputFile, Solution* pSolution);
 //
-void writeCustom(std::string strCustomOutputFile, Scenario* pScenario, Solution* pSolution);
+// // Write the output custom file from values in the scenario and the solution
+// // instances
+// //
+// void writeCustom(std::string strCustomOutputFile, Scenario* pScenario, Solution* pSolution);
 
 //--------------------------------------------------------------------------
 
