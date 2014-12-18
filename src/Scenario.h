@@ -15,6 +15,8 @@
 #include "Nurse.h"
 
 using std::vector;
+using std::map;
+using std::string;
 
 // the penalties for violating the soft constraints on the nurses' schedules
 // are in the problem definition
@@ -43,55 +45,69 @@ public:
 
 // Constructor and destructor
 //
-Scenario() {}
+Scenario(string name, int nbWeeks,
+int nbSkills, map<string,int> skillToInt, vector<string> intToSkill,
+int nbShifts, map<string,int> shiftToInt, vector<string> intToShift,
+vector<int> minConsShifts, vector<int> maxConsShifts,
+vector<int> nbForbiddenSuccessors, int**pForbiddenSuccessors) {
+}
 ~Scenario();
 
-private:
+//constant attributes are public
+public:
 // name of the scenario
 //
-std::string name_;
+const std::string name_;
 
 // total number of weeks and current week being planned
 //
-int nbWeeks_, thisWeek_;
+const int nbWeeks_;
 
-// number of skills, and map matching the name of each skill to an index
+// number of skills, a map and a vector matching the name of each skill to an
+// index and reversely
 //
-int nbSkills_;
-std::map<char*,int> skillToInt_;
+const int nbSkills_;
+const std::map<char*,int> skillToInt_;
 
-// number of shifts, map matching the name of each shift to an index,
+// number of shifts, a map and a vector matching the name of each skill to an
+// index and reversely
 // minimum and maximum number consecutive assignments for each shift,
 // and penalty for violations of these bounds
 //
-int nbShifts_;
-std::map<char*,int> shiftToInt_;
-vector<int> minConsShifts_, maxConsShifts_;
+const int nbShifts_;
+const std::map<char*,int> shiftToInt_;
+const vector<int> minConsShifts_, maxConsShifts_;
 
 // for each shift, the number of forbidden successors and a table containing
 // the indices of these forbidden successors
 //
-vector<int> nbForbiddenSuccessors_;
-int** pForbiddenSuccessors_;
+const vector<int> nbForbiddenSuccessors_;
+const int** pForbiddenSuccessors_;
 
-// number of contracts, and map matching the name of each contrat to an index
+// commenté ci-dessous pour alléger le code, plutôt mettre ces choses directement
+// dans le reader vu que c'est déjà dans les nurses
+// // number of contracts, and map matching the name of each contrat to an index
+// //
+// int nbContracts_;
+// std::map<char*,int> contractToInt_;
 //
-int nbContracts_;
-std::map<char*,int> contractToInt_;
+// // descriptions of each contract: min and max numbers of total assignments,
+// // min and max consecutive working days, min and max consectuve days off,
+// // maximum number of working week-ends and presence of absence of the
+// // complete week end constraints
+// // each set of attributes is followed by the penalty for the violation of
+// // the corresponding soft constraints
+// //
+// vector<int> minTotalShifts_, maxTotalShifts_;
+// vector<int> minConsDaysWork_, maxConsDaysWork_;
+// vector<int> minConsDaysOff_, maxConsDaysOff_;
+// vector<int> maxTotalWeekEnds_;
+// vector<bool> isCompleteWeekEnd_;
 
-// descriptions of each contract: min and max numbers of total assignments,
-// min and max consecutive working days, min and max consectuve days off,
-// maximum number of working week-ends and presence of absence of the
-// complete week end constraints
-// each set of attributes is followed by the penalty for the violation of
-// the corresponding soft constraints
-//
-vector<int> minTotalShifts_, maxTotalShifts_;
-vector<int> minConsDaysWork_, maxConsDaysWork_;
-vector<int> minConsDaysOff_, maxConsDaysOff_;
-vector<int> maxTotalWeekEnds_;
-vector<bool> isCompleteWeekEnd_;
-
+private:
+  // index of the week that is being scheduled
+  //
+  int thisWeek_;
 
 // number of nurses, and vector of all the nurses
 //
@@ -100,27 +116,47 @@ vector<Nurse> theNurses_;
 
 
 public:
-  // getters for the class attributes
-  //
-  int nbWeeks() {return nbWeeks_;}
-  int thisWeek() {return thisWeek_;}
+// getters for the class attributes
+//
+int nbWeeks() {
+        return nbWeeks_;
+}
+int thisWeek() {
+        return thisWeek_;
+}
 
 
-   // getters for the attributes of the nurses
-   //
-   int minTotalShiftsOf(int whichNurse) {return theNurses_[whichNurse].minTotalShifts();}
-   int maxTotalShiftsOf(int whichNurse) {return theNurses_[whichNurse].maxTotalShifts();}
-   int minConsDaysWorkOf(int whichNurse) {return theNurses_[whichNurse].minConsDaysWork();}
-   int maxConsDaysWorkOf(int whichNurse) {return theNurses_[whichNurse].maxConsDaysWork();}
-   int minConsDaysOffOf(int whichNurse) {return theNurses_[whichNurse].maxConsDaysOff();}
-   int maxConsDaysOffOf(int whichNurse) {return theNurses_[whichNurse].maxConsDaysOff();}
-   int maxTotalWeekEndsOf(int whichNurse) {return theNurses_[whichNurse].maxTotalWeekEnds();}
-   bool isCompleteWeekEndsOf(int whichNurse) {return theNurses_[whichNurse].isCompleteWeekEnds();}
+// getters for the attributes of the nurses
+//
+int minTotalShiftsOf(int whichNurse) {
+        return theNurses_[whichNurse].minTotalShifts_;
+}
+int maxTotalShiftsOf(int whichNurse) {
+        return theNurses_[whichNurse].maxTotalShifts_;
+}
+int minConsDaysWorkOf(int whichNurse) {
+        return theNurses_[whichNurse].minConsDaysWork_;
+}
+int maxConsDaysWorkOf(int whichNurse) {
+        return theNurses_[whichNurse].maxConsDaysWork_;
+}
+int minConsDaysOffOf(int whichNurse) {
+        return theNurses_[whichNurse].maxConsDaysOff_;
+}
+int maxConsDaysOffOf(int whichNurse) {
+        return theNurses_[whichNurse].maxConsDaysOff_;
+}
+int maxTotalWeekEndsOf(int whichNurse) {
+        return theNurses_[whichNurse].maxTotalWeekEnds_;
+}
+bool isCompleteWeekEndsOf(int whichNurse) {
+        return theNurses_[whichNurse].isCompleteWeekEnds_;
+}
 
-   // Initialize the attributes of the scenario with the content of the input
-   // file
-   //
-   void readScenario(std::string fileName);
+// Initialize the attributes of the scenario with the content of the input
+// file
+//
+void readScenario(std::string fileName);
 
 };
 

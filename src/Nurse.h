@@ -45,11 +45,13 @@ public:
       }
       ~Nurse();
 
-private:
+
+// the constant attibutes of the nurses are public
+public:
 
 // name of the nurse
 //
-      std::string name_;
+      const std::string name_;
 
 //-----------------------------------------------------------------------------
 // Constant characteristics of the nurses (no set method)
@@ -71,34 +73,6 @@ private:
       const int maxTotalWeekEnds_;
       const int isCompleteWeekEnds_;
 
-
-public:
-      // getters of all the cosntant attributes
-      //
-      int minTotalShifts() {
-              return minTotalShifts_;
-      };
-      int maxTotalShifts() {
-              return maxTotalShifts_;
-      };
-      int minConsDaysWork() {
-              return minConsDaysWork_;
-      };
-      int maxConsDaysWork() {
-              return maxConsDaysWork_;
-      };
-      int minConsDaysOff() {
-              return minConsDaysOff_;
-      };
-      int maxConsDaysOff() {
-              return maxConsDaysOff_;
-      };
-      int maxTotalWeekEnds() {
-              return maxTotalWeekEnds_;
-      }
-      int isCompleteWeekEnds() {
-              return isCompleteWeekEnds_;
-      }
 
 
       };
