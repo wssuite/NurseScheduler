@@ -1,0 +1,61 @@
+!SESSION 2014-12-18 15:48:21.359 -----------------------------------------------
+eclipse.buildId=debbuild
+java.version=1.7.0_65
+java.vendor=Oracle Corporation
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=fr_FR
+Command-line arguments:  -os linux -ws gtk -arch x86_64
+
+!ENTRY org.eclipse.core.resources 4 77 2014-12-18 15:50:28.425
+!MESSAGE Invalid project description.
+!SUBENTRY 1 unknown 0 0 2014-12-18 15:50:28.425
+!MESSAGE OK
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:50:28.425
+!MESSAGE /home/samuel/Projects/2015_NurseRostering/src overlaps the location of another project: 'src'
+
+!ENTRY org.eclipse.core.resources 4 77 2014-12-18 15:51:12.457
+!MESSAGE Invalid project description.
+!SUBENTRY 1 unknown 0 0 2014-12-18 15:51:12.457
+!MESSAGE OK
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:51:12.457
+!MESSAGE /home/samuel/Projects/2015_NurseRostering/src overlaps the location of another project: 'src'
+
+!ENTRY org.eclipse.core.resources 4 77 2014-12-18 15:51:46.988
+!MESSAGE Invalid project description.
+!SUBENTRY 1 unknown 0 0 2014-12-18 15:51:46.988
+!MESSAGE OK
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:51:46.988
+!MESSAGE /home/samuel/Projects/2015_NurseRostering/src overlaps the location of another project: 'src'
+!SESSION 2014-12-18 15:52:12.844 -----------------------------------------------
+eclipse.buildId=debbuild
+java.version=1.7.0_65
+java.vendor=Oracle Corporation
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=fr_FR
+Command-line arguments:  -os linux -ws gtk -arch x86_64
+
+!ENTRY org.eclipse.core.resources 4 77 2014-12-18 15:53:00.755
+!MESSAGE Invalid project description.
+!SUBENTRY 1 unknown 0 0 2014-12-18 15:53:00.755
+!MESSAGE OK
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:53:00.755
+!MESSAGE /home/samuel/Projects/2015_NurseRostering/src overlaps the location of another project: 'src'
+
+!ENTRY org.eclipse.core.resources 4 77 2014-12-18 15:53:33.185
+!MESSAGE Invalid project description.
+!SUBENTRY 1 unknown 0 0 2014-12-18 15:53:33.185
+!MESSAGE OK
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:53:33.185
+!MESSAGE /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering
+
+!ENTRY org.eclipse.core.resources 4 77 2014-12-18 15:53:56.862
+!MESSAGE Invalid project description.
+!SUBENTRY 1 unknown 0 0 2014-12-18 15:53:56.862
+!MESSAGE OK
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:53:56.862
+!MESSAGE /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering
+
+!ENTRY org.eclipse.core.resources 4 77 2014-12-18 15:54:27.709
+!MESSAGE Invalid project description.
+!SUBENTRY 1 unknown 0 0 2014-12-18 15:54:27.710
+!MESSAGE OK
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:54:27.710
+!MESSAGE /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering
