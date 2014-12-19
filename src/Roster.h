@@ -45,9 +45,7 @@ public:
 
 // Constructor and destructor
 //
-Roster(Scenario* pScenario, vector<Nurse>* pTheNurses) :
-        pScenario_(pScenario), pTheNurses_(pTheNurses)
-}
+Roster(Scenario* pScenario, vector<Nurse>* pTheNurses);
 ~Roster();
 
 private:

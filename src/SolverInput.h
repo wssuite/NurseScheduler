@@ -36,8 +36,8 @@ public:
 
 
 
-
-private:
+// Attributes are public because they are const
+protected:
 
 	// Recall the "const" attributes as pointers : Nurses and Scenario informations
 	//
@@ -46,23 +46,14 @@ private:
 
 	// Pointers to the minimum and optimum demand for each day, shift and skill
 	//
-	vector3D<int>* pMinDemand_, pOptDemand_;
+	vector3D* pMinDemand_, pOptDemand_;
 
 	// pointer to the preferences of the nurses nurse (that vector must be of same length and in the same order as the nurses)
-	vector<Preference>* pPreferences_;
+	Preferences* pPreferences_;
 
 	// pointer to the state of each nurse at the beginning of the time horizon
 	//
 	vector<State>* pInitState_;
-
-
-	// Useful information on the demand vectors to be computed before running the algorithm if necessary
-	//
-	vector2D<int> totalMinDemandPerSkillPerDay_;			// Minimum aggregate number of nurses requested for a given skill for each day
-	vector2D<int> totalOptDemandPerSkillPerDay_;			// Idem for optimal coverage
-	int meanMinDemandPerSkill_; 							// Average minimum aggregate number of nurses requested for a given skill for one complete day over the horizon
-	int meanOptDemandPerSkill_; 							// Idem for optimal coverage
-
 
 };
 

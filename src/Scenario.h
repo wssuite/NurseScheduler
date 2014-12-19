@@ -31,6 +31,82 @@ static const int costCompleteWeekEnd_  = 30;
 static const int costTotalShifts_      = 20;
 static const int costTotalWeekEnds_    = 30;
 
+
+//-----------------------------------------------------------------------------
+//
+//  S t r u c t u r e   S t a t e
+//
+//  Describes the current (or initial) state of a nurse at D-day
+//
+//-----------------------------------------------------------------------------
+struct State{
+
+	// number of consecutive days worked ending at D, and of consecutive days worked on the same shift ending at D (including RESTSHIFT = 0)
+	// and shift worked on D-Day.
+	//
+	int consDaysWorked_, consShifts_;
+
+	// Type of shift worked on D-Day
+	//
+	int shift_;
+
+	// Constructor and Destructor
+	State();
+	~State();
+
+	// Constructor with attributes
+	State(int consDaysWorked, int consShifts, int shift) :
+		consDaysWorked_(consDaysWorked), consShifts_(consShifts), shift_(shift){};
+
+	// Function that appends a new day worked on a given shift to the previous ones
+	//
+	void updateWithNewDay(int newShift);
+};
+
+
+//-----------------------------------------------------------------------------
+//
+//  S t r u c t u r e   P r e f e r e n c e s
+//
+//  Describes the preferences of a nurse for a certain period of time
+//  They are given as a vector (entry = nurseId).
+//  Each element is a map<int,set<int>> whose keys are the days, and values are the sets of wished shift(s) OFF on that day.
+//
+//-----------------------------------------------------------------------------
+struct Preferences{
+
+	// Number of nurses
+	//
+	int nbNurses_;
+
+	// Total number of possible shifts
+	//
+	int nbShifts_;
+
+	// For each nurse, maps the day to the set of shifts that he/she wants to have off
+	//
+	vector<map<int,set<int>>> wishesOff_;
+
+	// Constructor and destructor
+	Preferences();
+	~Preferences();
+	// Constructor with initialization to a given number of nurses
+	Preferences(int nbNurses, int nbShifts);
+
+	// For a given day, and a given shift, adds it to the wish-list for OFF-SHIFT
+	void addShiftOff(int nurse, int day, int shift);
+
+	// Adds the whole day to the wish-list
+	void addDayOff(int nurse, int day);
+
+	// True if the nurses wants that shift off
+	bool wantsTheShiftOff(int nurse, int day, int shift);
+
+	// True if the nurses wants the whole day off
+	bool wantsTheDayOff(int nurse, int day);
+};
+
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S c e n a r i o
@@ -43,126 +119,128 @@ class Scenario {
 
 public:
 
-// Constructor and destructor
-//
-Scenario(string name, int nbWeeks,
-         int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
-         int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
-         vector<int> minConsShifts, vector<int> maxConsShifts,
-         vector<int> nbForbiddenSuccessors, vector2D pForbiddenSuccessors) :
-        name_(name), nbWeeks_(nbWeeks),
-        nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
-        nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
-    nbForbiddenSuccessors_(nbForbiddenSuccessors), pForbiddenSuccessors_(pForbiddenSuccessors)  {
-}
-~Scenario();
+	// Constructor and destructor
+	//
+	Scenario(string name, int nbWeeks,
+			 int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
+			 int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
+			 vector<int> minConsShifts, vector<int> maxConsShifts,
+			 vector<int> nbForbiddenSuccessors, vector2D pForbiddenSuccessors) :
+			name_(name), nbWeeks_(nbWeeks),
+			nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
+			nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
+		nbForbiddenSuccessors_(nbForbiddenSuccessors), pForbiddenSuccessors_(pForbiddenSuccessors)  {
+	}
+	~Scenario();
+
 
 //constant attributes are public
 public:
-// name of the scenario
-//
-const std::string name_;
 
-// total number of weeks and current week being planned
-//
-const int nbWeeks_;
+	// name of the scenario
+	//
+	const std::string name_;
 
-// number of skills, a map and a vector matching the name of each skill to an
-// index and reversely
-//
-const int nbSkills_;
-const vector<string> intToSkill_;
-const map<string,int> skillToInt_;
+	// total number of weeks and current week being planned
+	//
+	const int nbWeeks_;
 
-// number of shifts, a map and a vector matching the name of each shift to an
-// index and reversely
-// minimum and maximum number consecutive assignments for each shift,
-// and penalty for violations of these bounds
-//
-const int nbShifts_;
-const vector<string> intToShift_;
-const map<string,int> shiftToInt_;
-const vector<int> minConsShifts_, maxConsShifts_;
+	// number of skills, a map and a vector matching the name of each skill to an
+	// index and reversely
+	//
+	const int nbSkills_;
+	const vector<string> intToSkill_;
+	const map<string,int> skillToInt_;
 
-// for each shift, the number of forbidden successors and a table containing
-// the indices of these forbidden successors
-//
-const vector<int> nbForbiddenSuccessors_;
-const vector2D pForbiddenSuccessors_;
+	// number of shifts, a map and a vector matching the name of each shift to an
+	// index and reversely
+	// minimum and maximum number consecutive assignments for each shift,
+	// and penalty for violations of these bounds
+	//
+	const int nbShifts_;
+	const vector<string> intToShift_;
+	const map<string,int> shiftToInt_;
+	const vector<int> minConsShifts_, maxConsShifts_;
 
-// commenté ci-dessous pour alléger le code, plutôt mettre ces choses directement
-// dans le reader vu que c'est déjà dans les nurses
-// // number of contracts, and map matching the name of each contrat to an index
-// //
-// int nbContracts_;
-// std::map<char*,int> contractToInt_;
-//
-// // descriptions of each contract: min and max numbers of total assignments,
-// // min and max consecutive working days, min and max consectuve days off,
-// // maximum number of working week-ends and presence of absence of the
-// // complete week end constraints
-// // each set of attributes is followed by the penalty for the violation of
-// // the corresponding soft constraints
-// //
-// vector<int> minTotalShifts_, maxTotalShifts_;
-// vector<int> minConsDaysWork_, maxConsDaysWork_;
-// vector<int> minConsDaysOff_, maxConsDaysOff_;
-// vector<int> maxTotalWeekEnds_;
-// vector<bool> isCompleteWeekEnd_;
+	// for each shift, the number of forbidden successors and a table containing
+	// the indices of these forbidden successors
+	//
+	const vector<int> nbForbiddenSuccessors_;
+	const vector2D pForbiddenSuccessors_;
+
+	// commenté ci-dessous pour alléger le code, plutôt mettre ces choses directement
+	// dans le reader vu que c'est déjà dans les nurses
+	// // number of contracts, and map matching the name of each contrat to an index
+	// //
+	// int nbContracts_;
+	// std::map<char*,int> contractToInt_;
+	//
+	// // descriptions of each contract: min and max numbers of total assignments,
+	// // min and max consecutive working days, min and max consectuve days off,
+	// // maximum number of working week-ends and presence of absence of the
+	// // complete week end constraints
+	// // each set of attributes is followed by the penalty for the violation of
+	// // the corresponding soft constraints
+	// //
+	// vector<int> minTotalShifts_, maxTotalShifts_;
+	// vector<int> minConsDaysWork_, maxConsDaysWork_;
+	// vector<int> minConsDaysOff_, maxConsDaysOff_;
+	// vector<int> maxTotalWeekEnds_;
+	// vector<bool> isCompleteWeekEnd_;
 
 private:
-// index of the week that is being scheduled
-//
-int thisWeek_;
+	// index of the week that is being scheduled
+	//
+	int thisWeek_;
 
-// number of nurses, and vector of all the nurses
-//
-int nbNurses_;
-vector<Nurse> theNurses_;
-
-
-public:
-// getters for the class attributes
-//
-int nbWeeks() {
-        return nbWeeks_;
-}
-int thisWeek() {
-        return thisWeek_;
-}
+	// number of nurses, and vector of all the nurses
+	//
+	int nbNurses_;
+	vector<Nurse> theNurses_;
 
 
-// getters for the attributes of the nurses
-//
-int minTotalShiftsOf(int whichNurse) {
-        return theNurses_[whichNurse].minTotalShifts_;
-}
-int maxTotalShiftsOf(int whichNurse) {
-        return theNurses_[whichNurse].maxTotalShifts_;
-}
-int minConsDaysWorkOf(int whichNurse) {
-        return theNurses_[whichNurse].minConsDaysWork_;
-}
-int maxConsDaysWorkOf(int whichNurse) {
-        return theNurses_[whichNurse].maxConsDaysWork_;
-}
-int minConsDaysOffOf(int whichNurse) {
-        return theNurses_[whichNurse].maxConsDaysOff_;
-}
-int maxConsDaysOffOf(int whichNurse) {
-        return theNurses_[whichNurse].maxConsDaysOff_;
-}
-int maxTotalWeekEndsOf(int whichNurse) {
-        return theNurses_[whichNurse].maxTotalWeekEnds_;
-}
-bool isCompleteWeekEndsOf(int whichNurse) {
-        return theNurses_[whichNurse].isCompleteWeekEnds_;
-}
+	public:
+	// getters for the class attributes
+	//
+	int nbWeeks() {
+			return nbWeeks_;
+	}
+	int thisWeek() {
+			return thisWeek_;
+	}
 
-// Initialize the attributes of the scenario with the content of the input
-// file
-//
-void readScenario(string fileName);
+
+	// getters for the attributes of the nurses
+	//
+	int minTotalShiftsOf(int whichNurse) {
+			return theNurses_[whichNurse].minTotalShifts_;
+	}
+	int maxTotalShiftsOf(int whichNurse) {
+			return theNurses_[whichNurse].maxTotalShifts_;
+	}
+	int minConsDaysWorkOf(int whichNurse) {
+			return theNurses_[whichNurse].minConsDaysWork_;
+	}
+	int maxConsDaysWorkOf(int whichNurse) {
+			return theNurses_[whichNurse].maxConsDaysWork_;
+	}
+	int minConsDaysOffOf(int whichNurse) {
+			return theNurses_[whichNurse].maxConsDaysOff_;
+	}
+	int maxConsDaysOffOf(int whichNurse) {
+			return theNurses_[whichNurse].maxConsDaysOff_;
+	}
+	int maxTotalWeekEndsOf(int whichNurse) {
+			return theNurses_[whichNurse].maxTotalWeekEnds_;
+	}
+	bool isCompleteWeekEndsOf(int whichNurse) {
+			return theNurses_[whichNurse].isCompleteWeekEnds_;
+	}
+
+	// Initialize the attributes of the scenario with the content of the input
+	// file
+	//
+	void readScenario(string fileName);
 
 };
 

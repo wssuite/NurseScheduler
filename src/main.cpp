@@ -9,19 +9,26 @@
 #include "Scenario.h"
 #include "Nurse.h"
 
+// Function for testing parts of the code (Antoine)
+void testFunction_Antoine(){
+
+}
+
+// Function for testing parts of the code (Jeremy)
+void testFunction_Jeremy(){
+
+}
+
+// Function for testing parts of the code (Samuel)
+void testFunction_Samuel(){
+
+}
 
 int main(int argc, char** argv)
 {
-// check that the number of arguments is correct
-//
 
-// initialize the scenario from the input file
-//
-Scenario scenario;
-
-// initialize the
-
-
-
+	testFunction_Antoine();
+	testFunction_Jeremy();
+	testFunction_Samuel();
 
 }

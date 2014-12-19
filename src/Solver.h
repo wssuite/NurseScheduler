@@ -38,12 +38,11 @@ public:
 		pScenario_(pScenario), pTheNurses_(pTheNurses){
 	};
 
-	// Main method to solve the rostering problem
-	// minDemand: minimum number of nurses requested per day, per shift, per skill
-	// optDemand: optimal number of nurses requested per day, per shift, per skill
+	// Main method to solve the rostering problem for a given input
 	virtual Roster solve(SolverInput input) = 0;
 
-private:
+// Should be protected (and not private) because Solver will have subclasses
+protected:
 
    // pointer to the Scenario under consideration
    //
