@@ -37,7 +37,7 @@ void Timer::init()	{
 void Timer::start()  {
 
 	if (isStarted_)
-		Throw("Trying to start an already started timer!");
+		throwError("Trying to start an already started timer!");
 
 	//clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &this->cpuInit_);
 	cpuSinceStart_.tv_sec   = 0;
@@ -50,7 +50,7 @@ void Timer::start()  {
 void Timer::stop() {
 
 	if ( isStopped_ )
-		Throw("Trying to stop an already stopped timer!");
+		throwError("Trying to stop an already stopped timer!");
 
 	/*timespec cpuNow;
 	//clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
@@ -107,7 +107,7 @@ const double Timer::dSinceInit() {
 		return (double) cpuSinceInit_.tv_sec + (double)cpuSinceInit_.tv_nsec/1.0e09;
 	}
 	else
-		Throw("Trying to get the value of an unitialized timer!");
+		throwError("Trying to get the value of an unitialized timer!");
 
   return 0.0;
 
@@ -116,7 +116,7 @@ const double Timer::dSinceInit() {
 const double Timer::dSinceStart() {
 
 	if (!isStarted_ && !isStopped_)
-		Throw("Trying to get the value of an unitialized timer!");
+		throwError("Trying to get the value of an unitialized timer!");
 	else if (isStarted_) {
 		//timespec cpuNow;
 		//clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
@@ -240,13 +240,13 @@ void Interval::wrapToPi() {
     if (vSeg[count].end-vSeg[count].ini >= 2*M_PI)
       vSeg[count].set(-M_PI,M_PI);
     else {
-      double dIni = WrapAnglePi(vSeg[count].ini);
+      double dIni = wrapAnglePi(vSeg[count].ini);
       double dEnd = dIni + vSeg[count].end-vSeg[count].ini;
 
       if (dEnd > M_PI)  {
         vSeg[count].set(dIni, M_PI-1.0e-09);
 
-        dEnd = WrapAnglePi(dEnd);
+        dEnd = wrapAnglePi(dEnd);
         Seg newSeg(-M_PI, dEnd);
         this->addSeg(newSeg);
       }

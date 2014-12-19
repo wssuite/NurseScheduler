@@ -3,9 +3,10 @@
 #include <iostream>
 #include <fstream>
 #include <streambuf>
-#include <fstream>
 #include <math.h>
 #include <time.h>
+#include <stdio.h>
+#include <string.h>
 
 
 //--------------------------------------------------------------------------
@@ -15,7 +16,8 @@
 
 // Read the scenario file and store the content in a Scenario instance
 //
-static Scenario* ReadWrite::readScenario(string fileName) {
+Scenario* ReadWrite::readScenario(string fileName) {
+	Scenario* pScenario;
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << fileName << std::endl;
@@ -40,7 +42,7 @@ static Scenario* ReadWrite::readScenario(string fileName) {
 
 	// fill the attributes of the scenario structure
 	//
-	Tools::readUntilChar(&file, '=', &title);
+	readUntilChar(&file, '=', &title);
 	while ( file.good() ) {
 		if (!strcmp(title.c_str(), "SCENARIO")) {
 			file >> name;
@@ -62,10 +64,10 @@ static Scenario* ReadWrite::readScenario(string fileName) {
 				file >> strTmp;
 				intToShift.push_back(strTmp);
 				shiftToInt[strTmp] = i;
-				Tools::readUntilChar(&file, '(', &title);
+				readUntilChar(&file, '(', &title);
 				file >> intTmp;
 				minConsShifts.push_back(intTmp);
-				Tools::readUntilChar(&file, ',', &title);
+				readUntilChar(&file, ',', &title);
 				file >> intTmp;
 				maxConsShifts.push_back(intTmp);
 				file.getline(charTmp, 256);
@@ -84,11 +86,11 @@ static Scenario* ReadWrite::readScenario(string fileName) {
 				// terminer l'affectation du nombre de successeurs
 			}
 
-			Scenario* pScenario =
+			pScenario =
 				new Scenario(name, nbWeeks, nbSkills,  intToSkill, skillToInt,
 				nbShifts, intToShift, shiftToInt,
 				minConsShifts,  maxConsShifts,
-				nbForbiddenSuccessors, pForbiddenSuccessors)
+				nbForbiddenSuccessors, pForbiddenSuccessors);
 
 		}
 	}
@@ -103,7 +105,7 @@ static Scenario* ReadWrite::readScenario(string fileName) {
 // Read a file stream until the separating character is met
 // Store the characters read until the separating character in pStrRead
 //
-static bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead) {
+bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead) {
 	char cTmp = 'A';
 
 	// empty the title string if it is not
@@ -113,15 +115,15 @@ static bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::s
 
 	// go through the file until the delimiter is met
 	//
-	if (file->good()) {
-		cTmp = file->get();
+	if (pFile->good()) {
+		cTmp = pFile->get();
 	}
-	while (cTmp != separater && file->good() )  {
+	while (cTmp != separater && pFile->good() )  {
 		pStrRead->push_back(cTmp);
-		cTmp = file->get();
+		cTmp = pFile->get();
 	}
 
-	if (!file->good())
+	if (!pFile->good())
 		return false;
 
 	return true;

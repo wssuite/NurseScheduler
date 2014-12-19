@@ -14,9 +14,10 @@
 
 #include "Scenario.h"
 
-#define TRUE 1
-#define FALSE 0
+#define TRUE 1;
+#define FALSE 0;
 
+using std::string;
 
 //BADVALDBL used as a flag value (not initialised parameter) when there's no ambiguity.
 #define BADVALDBL -666.0
@@ -38,11 +39,11 @@
 //--------------------------------------------------------------------------
 
 class ReadWrite{
+
 	//--------------------------------------------------------------------------
 	// Methods that read all the input files and store the content in the
 	// input scenario instance
 	//
-
 	// Read the scenario file and store the content in a Scenario instance
 	//
 	static Scenario* readScenario(std::string strScenarioFile);
@@ -79,13 +80,10 @@ class ReadWrite{
 
 	//--------------------------------------------------------------------------
 	// Useful parsing functions
-
 	// Read a file stream until the separating character is met
 	// Store the characters read until the separating character in pStrRead
 	//
 	static bool readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead);
-
-
 
 	//--------------------------------------------------------------------------
 };
