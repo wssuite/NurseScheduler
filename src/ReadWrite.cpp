@@ -158,26 +158,17 @@ Scenario* ReadWrite::readScenario(string fileName) {
 				file >> isTotalWeekend;
 				readUntilChar(&file,'\n',&strTmp);
 
-				cout << "# [" << contractName << "]  --  ";
-				cout << "| [" << minDays << "<" << maxDays << "] ";
-				cout << "| [" << minConsWork << "<" << maxConsWork << "] ";
-				cout << "| [" << minConsRest << "<" << maxConsRest << "] ";
-				cout << "| [" << maxWeekends << "] ";
-				cout << "| [" << isTotalWeekend << "] ";
-				cout << endl;
-
 				Contract c (contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
 				contracts.insert(pair<string,Contract>(contractName,c));
 
 			}
-
-
-			cout << endl << endl << endl;
 		}
 
 		// Read all nurses
 		//
 		else if (strEndsWith(title, "NURSES ")) {
+
+
 		}
 
 		//getchar();
@@ -207,68 +198,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	for(map<string,Contract>::iterator itC = contracts.begin(); itC != contracts.end(); ++itC){
 		cout << "#   | " << (itC->second) << endl;
 	}
-	cout << endl;
 	cout << endl << endl << endl;
-
-	/*
-
-	cout << title << endl;
-	getchar();
-	while ( file.good() ) {
-		cout << "# File ok" << endl;
-		if (!strcmp(title.c_str(), "SCENARIO ")) {
-			file >> name;
-			cout << "# SCENARIO = " << name << endl;
-		}
-		else if (!strcmp(title.c_str(), "WEEKS")) {
-			file >> nbWeeks;
-			cout << "# nbWeeks = " << nbWeeks << endl;
-		}
-		else if (!strcmp(title.c_str(), "SKILLS"))   {
-			file >> nbSkills;
-			for (int i = 0; i < nbSkills; i++) {
-				file >> strTmp;
-				intToSkill.push_back(strTmp);
-				skillToInt[strTmp] = i;
-			}
-		}
-		else if (!strcmp(title.c_str(), "SHIFT_TYPES"))   {
-			file >> nbShifts;
-			for (int i = 0; i < nbShifts; i++) {
-				file >> strTmp;
-				intToShift.push_back(strTmp);
-				shiftToInt[strTmp] = i;
-				readUntilChar(&file, '(', &title);
-				file >> intTmp;
-				minConsShifts.push_back(intTmp);
-				readUntilChar(&file, ',', &title);
-				file >> intTmp;
-				maxConsShifts.push_back(intTmp);
-				file.getline(charTmp, 256);
-			}
-			file.getline(charTmp, 256);
-			file >> title;
-			if (!strcmp(title.c_str(), "FORBIDDEN_SHIFT_TYPES_SUCCESSIONS")) {
-				std::cout << "While trying to read " << fileName << std::endl;
-				std::cout << "It is presenty reading " << title << std::endl;
-				Tools::throwError("The reader has no idea what it is reading!");
-			}
-			for (int i =0; i < nbShifts; i++) {
-				file >> strTmp;
-				file >> intTmp;
-				nbForbiddenSuccessors.push_back(intTmp);
-				// terminer l'affectation du nombre de successeurs
-			}
-
-			pScenario =
-				new Scenario(name, nbWeeks, nbSkills,  intToSkill, skillToInt,
-				nbShifts, intToShift, shiftToInt,
-				minConsShifts,  maxConsShifts,
-				nbForbiddenSuccessors, pForbiddenSuccessors);
-
-		}
-	}
-	*/
 	return pScenario;
 }
 
