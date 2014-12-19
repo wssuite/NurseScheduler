@@ -27,7 +27,7 @@ void State::updateWithNewDay(int newShift){
 //
 //-----------------------------------------------------------------------------
 
-// Initialization with an vector or size nNurses with no wished Shift-Off
+// Initialization with an vector or size nNurses with no wished Shift-Off.
 Preferences::Preferences(int nNurses){
 	nNurses_ = nNurses;
 	vector<map<int,set<int>>> wishesOff
