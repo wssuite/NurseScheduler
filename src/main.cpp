@@ -6,8 +6,9 @@
 //  Copyright (c) 2014 Jérémy Omer. All rights reserved.
 //
 
-#include "Scenario.h"
-#include "Nurse.h"
+//#include "Scenario.h"
+//#include "Nurse.h"
+#include "ReadWrite.h"
 
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){

@@ -1,6 +1,7 @@
 #include "ReadWrite.h"
 #include "MyTools.h"
 #include <iostream>
+#include <fstream>
 #include <streambuf>
 #include <fstream>
 #include <math.h>
