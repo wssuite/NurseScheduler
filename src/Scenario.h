@@ -85,7 +85,7 @@ struct Preferences{
 
 	// For each nurse, maps the day to the set of shifts that he/she wants to have off
 	//
-	vector<map<int,set<int>>> wishesOff_;
+	vector<map<int,set<int> > > wishesOff_;
 
 	// Constructor and destructor
 	Preferences();

@@ -28,9 +28,9 @@ void testFunction_Samuel(){
 int main(int argc, char** argv)
 {
 
+	// Tests functions to check the functions one by one
 	testFunction_Antoine();
 	testFunction_Jeremy();
 	testFunction_Samuel();
-	blabla;
 
 }

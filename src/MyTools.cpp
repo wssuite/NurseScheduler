@@ -7,9 +7,6 @@
 //
 
 #include "MyTools.h"
-
-
-#include "MyTools.h"
 #include <stdlib.h>     /* rand */
 #include <stdio.h>
 #include <cstdio>

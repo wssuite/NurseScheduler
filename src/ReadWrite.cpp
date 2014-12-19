@@ -15,7 +15,7 @@
 
 // Read the scenario file and store the content in a Scenario instance
 //
-void ReadWrite::readScenario(string fileName) {
+static Scenario* ReadWrite::readScenario(string fileName) {
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << fileName << std::endl;
@@ -103,7 +103,7 @@ void ReadWrite::readScenario(string fileName) {
 // Read a file stream until the separating character is met
 // Store the characters read until the separating character in pStrRead
 //
-bool readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead) {
+static bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead) {
 	char cTmp = 'A';
 
 	// empty the title string if it is not

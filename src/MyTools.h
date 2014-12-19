@@ -20,11 +20,11 @@
 
 using std::vector;
 
-static const DEBUG = 1;
+static const int DEBUG = 1;
 // definitions of multi-dimensional int vector types
 //
-typedef vector<vector<int>> vector2D;
-typedef std::vector<std::vector<std::vector<int>>> vector3D;
+typedef vector<vector<int> > vector2D;
+typedef std::vector<std::vector<std::vector<int> > > vector3D;
 
 namespace Tools{
 class Timer

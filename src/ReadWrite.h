@@ -30,52 +30,64 @@
 
 
 //--------------------------------------------------------------------------
-// Methods that read all the input files and store the content in the
-// input scenario instance
 //
-
-// Read the scneario file and store the content in a Scenario instance
+//  C l a s s   R e a d W r i t e
 //
-Scenario* readScenario(std::string strScenarioFile);
-
-// Read the Week file and store the content in a Scenario instance
+//  Contains the (static) functions to read the input and write the output
 //
-void readWeek(std::string strWeekFile, Scenario* pScenario);
-
-
-// Read the history file
-//
-void readHistory(std::string strHistoryFile, Scenario* pScenario);
-
-// Read the input custom file and store the content in a Scenario instance
-//
-void readCustom(std::string strCustomInputFile, Scenario* pScenario);
-
 //--------------------------------------------------------------------------
 
+class ReadWrite{
+	//--------------------------------------------------------------------------
+	// Methods that read all the input files and store the content in the
+	// input scenario instance
+	//
 
-//--------------------------------------------------------------------------
-// Methods that write the ouputs of the solver
+	// Read the scenario file and store the content in a Scenario instance
+	//
+	static Scenario* readScenario(std::string strScenarioFile);
 
-// Write the solution file for the current week
-//
-// void writeSolution(std::string strCustomOutputFile, Solution* pSolution);
-//
-// // Write the output custom file from values in the scenario and the solution
-// // instances
-// //
-// void writeCustom(std::string strCustomOutputFile, Scenario* pScenario, Solution* pSolution);
+	// Read the Week file and store the content in a Scenario instance
+	//
+	static void readWeek(std::string strWeekFile, Scenario* pScenario);
 
-//--------------------------------------------------------------------------
 
-//--------------------------------------------------------------------------
-// Useful parsing functions
+	// Read the history file
+	//
+	static void readHistory(std::string strHistoryFile, Scenario* pScenario);
 
-// Read a file stream until the separating character is met
-// Store the characters read until the separating character in pStrRead
-//
-bool readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead);
-//--------------------------------------------------------------------------
+	// Read the input custom file and store the content in a Scenario instance
+	//
+	static void readCustom(std::string strCustomInputFile, Scenario* pScenario);
 
+	//--------------------------------------------------------------------------
+
+
+	//--------------------------------------------------------------------------
+	// Methods that write the ouputs of the solver
+
+	// Write the solution file for the current week
+	//
+	// void writeSolution(std::string strCustomOutputFile, Solution* pSolution);
+	//
+	// // Write the output custom file from values in the scenario and the solution
+	// // instances
+	// //
+	// void writeCustom(std::string strCustomOutputFile, Scenario* pScenario, Solution* pSolution);
+
+	//--------------------------------------------------------------------------
+
+	//--------------------------------------------------------------------------
+	// Useful parsing functions
+
+	// Read a file stream until the separating character is met
+	// Store the characters read until the separating character in pStrRead
+	//
+	static bool readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead);
+
+
+
+	//--------------------------------------------------------------------------
+};
 
 #endif
