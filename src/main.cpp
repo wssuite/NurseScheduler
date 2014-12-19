@@ -23,6 +23,14 @@ void testFunction_Jeremy(){
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel(){
 
+	/*
+	// Test : ReadWrite::strEndsWith
+	if (ReadWrite::strEndsWith("je suis un poisson", "poisson")) cout << "IDEM" << endl; else cout << "DIFFERENTS" << endl;
+	*/
+
+	// Test : ReadWrite::readScenario
+	ReadWrite::readScenario("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/Sc-n030w4.txt");
+
 }
 
 int main(int argc, char** argv)

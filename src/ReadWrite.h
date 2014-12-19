@@ -18,6 +18,8 @@
 #define FALSE 0;
 
 using std::string;
+using std::cout;
+using std::endl;
 
 //BADVALDBL used as a flag value (not initialised parameter) when there's no ambiguity.
 #define BADVALDBL -666.0
@@ -39,6 +41,9 @@ using std::string;
 //--------------------------------------------------------------------------
 
 class ReadWrite{
+
+// All functions in this class shall be public
+public:
 
 	//--------------------------------------------------------------------------
 	// Methods that read all the input files and store the content in the
@@ -84,6 +89,10 @@ class ReadWrite{
 	// Store the characters read until the separating character in pStrRead
 	//
 	static bool readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead);
+
+	// Checks if the string (sentence) ends with the given substring (word)
+	//
+	static bool strEndsWith(string sentence, string word);
 
 	//--------------------------------------------------------------------------
 };
