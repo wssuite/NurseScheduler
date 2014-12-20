@@ -10,18 +10,23 @@
 
 #include <iostream>
 #include <fstream>
+#include <map>
 #include <streambuf>
-#include <time.h>
 #include <string>
 #include <vector>
+#include <time.h>
 
 #define _USE_MATH_DEFINES // needed for the constant M_PI
 #include <math.h>
 
-using std::vector;
+using std::map;
 using std::string;
+using std::vector;
 
 static const int DEBUG = 1;
+static const string REST_SHIFT = "REST";
+
+
 // definitions of multi-dimensional int vector types
 //
 typedef vector<vector<int> > vector2D;
@@ -40,6 +45,17 @@ void debugMsg(const char* debugMsg, int debugLevel);
 // Read a file stream until the separating character is met
 //
 bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
+
+// Returns a 2D (or 3D) Vector of the given size (filled only with zeroes)
+//
+vector2D initVector2D(int m, int n);
+vector3D initVector3D(int m, int n, int p);
+
+// To get the day from its id and vice-versa
+// First day is always supposed to be a Monday
+//
+string intToDay(int dayId);
+int dayToInt(string day);
 
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed

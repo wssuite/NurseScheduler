@@ -55,7 +55,8 @@ void testFunction_Samuel(){
 	*/
 
 	// Test : ReadWrite::readScenario
-	ReadWrite::readScenario("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/Sc-n030w4.txt");
+	Scenario * s = ReadWrite::readScenario("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/Sc-n030w4.txt");
+	ReadWrite::readWeek("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/WD-n030w4-1.txt",s);
 
 }
 
@@ -63,8 +64,8 @@ int main(int argc, char** argv)
 {
 
 	// Tests functions to check the functions one by one
-	testFunction_Antoine();
-	testFunction_Jeremy();
+	//testFunction_Antoine();
+	//testFunction_Jeremy();
 	testFunction_Samuel();
 
 }

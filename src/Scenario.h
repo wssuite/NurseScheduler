@@ -52,13 +52,15 @@ public:
 			int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
 			vector<int> minConsShifts, vector<int> maxConsShifts,
 			vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
-			int nbContracts, map<string,Contract> contracts,
-			int nbNurses, vector<Nurse> theNurses) :
+			int nbContracts, map<string,Contract*> contracts,
+			int nbNurses, vector<Nurse> theNurses, map<string,int> nurseNameToInt) :
 				name_(name), nbWeeks_(nbWeeks),
 				nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
 				nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
+				minConsShifts_(minConsShifts), maxConsShifts_(maxConsShifts),
 				nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
-				nbContracts_(nbContracts), contracts_(contracts), nbNurses_(nbNurses), theNurses_(theNurses){
+				nbContracts_(nbContracts), contracts_(contracts),
+				nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt){
 	}
 	~Scenario();
 
@@ -100,18 +102,46 @@ public:
 	// Vector of possible contract types
 	//
 	const int nbContracts_;
-	const map<string, Contract> contracts_;
-
-private:
-	// index of the week that is being scheduled
-	//
-	int thisWeek_;
+	const map<string, Contract*> contracts_;
 
 	// number of nurses, and vector of all the nurses
 	//
-	int nbNurses_;
-	vector<Nurse> theNurses_;
+	const int nbNurses_;
+	const vector<Nurse> theNurses_;
+	map<string,int> nurseNameToInt_;
 
+
+private:
+	//------------------------------------------------
+	// From the Week data file
+	//------------------------------------------------
+	// Name of the week
+	string weekName_;
+	// Current week demand for each DAY, SHIFT, and SKILL
+	//
+	vector3D minWeekDemand_;
+	vector3D optWeekDemand_;
+	// Shift off requests : Preferences for each nurse : which (day,shift) do they want off ?
+	//
+	int nbShiftOffRequests_;
+	Preferences weekPreferences_;
+	//------------------------------------------------
+
+
+	//------------------------------------------------
+	// From the History data file
+	//------------------------------------------------
+
+	//------------------------------------------------
+
+
+	//------------------------------------------------
+	// From the custom file
+	//------------------------------------------------
+	// index of the week that is being scheduled
+	//
+	int thisWeek_;
+	//------------------------------------------------
 
 public:
 	// getters for the class attributes
@@ -150,6 +180,20 @@ public:
 	bool isCompleteWeekEndsOf(int whichNurse) {
 		return theNurses_[whichNurse].isCompleteWeekEnds_;
 	}
+
+	// Setters to class attributes
+
+	// When reading the week file (Demand and preferences
+	//
+	inline void setWeekName(string weekName){ weekName_ = weekName;}
+	inline void setMinWeekDemand(vector3D minWeekDemand){ minWeekDemand_ = minWeekDemand; }
+	inline void setOptWeekDemand(vector3D optWeekDemand){ optWeekDemand_ = optWeekDemand; }
+	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
+	inline void setWeekPreferences(Preferences weekPreferences){ weekPreferences_ = weekPreferences; }
+
+	// When reading the custom file
+	//
+	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
 
 	// Initialize the attributes of the scenario with the content of the input
 	// file

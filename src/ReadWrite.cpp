@@ -38,21 +38,11 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	string name;
 	int nbWeeks, nbSkills, nbShifts, nbContracts, nbNurses;
 	vector<string> intToSkill, intToShift;
-	map<string,int> skillToInt, shiftToInt;
+	map<string,int> skillToInt, shiftToInt, nurseNameToInt;
 	vector<int> minConsShifts, maxConsShifts, nbForbiddenSuccessors;
 	vector2D forbiddenSuccessors;
-	map<string,Contract> contracts;
+	map<string,Contract*> contracts;
 	vector<Nurse> theNurses;
-
-	// Booleans that say if the field has already been completely treated
-	//
-	bool isScenarioRead = false;
-	bool isWeeksRead = false;
-	bool isSkillsRead = false;
-	bool isShifTypesRead = false;
-	bool isForbiddenShiftSuccessionRead = false;
-	bool isContractsRead = false;
-	bool isNursesRead = false;
 
 
 	// fill the attributes of the scenario structure
@@ -87,10 +77,21 @@ Scenario* ReadWrite::readScenario(string fileName) {
 		//
 		else if (strEndsWith(title, "SHIFT_TYPES ")) {
 
-			// Shift types
+			// Number of shifts : Given number + REST_SHIFT
+			file >> intTmp;
+			nbShifts = intTmp+1;
+
+			// IMPORTANT : INSERT REST SHIFT !!!!!!
+			// It is given 0 and 99 as bounds so that they never perturbate the cost
 			//
-			file >> nbShifts;
-			for(int i=0; i<nbShifts; i++){
+			intToShift.push_back(REST_SHIFT);
+			shiftToInt.insert(pair<string,int>(REST_SHIFT,0));
+			minConsShifts.push_back(0);
+			maxConsShifts.push_back(99);
+
+			// Other shift types
+			//
+			for(int i=1; i<nbShifts; i++){
 				// Name
 				file >> strTmp;
 				intToShift.push_back(strTmp);
@@ -109,21 +110,26 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 			// Forbidden successions
 			//
-			for(int i=0; i<nbShifts; i++){ vector<int> v; forbiddenSuccessors.push_back(v);}
+			for(int i=0; i<nbShifts; i++){
+				vector<int> v;
+				forbiddenSuccessors.push_back(v);
+				nbForbiddenSuccessors.push_back(0);
+			}
 			while(!strEndsWith(title,"FORBIDDEN_SHIFT_TYPES_SUCCESSIONS"))
 				readUntilChar(&file,'\n',&title);
 			// Reading all lines
-			for(int i=0; i<nbShifts; i++){
+			for(int i=1; i<nbShifts; i++){
 				// Which current shift ?
 				string currentShift;
 				file >> currentShift;
+				int currentShiftId = shiftToInt.at(currentShift);
 				// How many forbidden after it ?
 				file >> intTmp;
-				nbForbiddenSuccessors.push_back(intTmp);
+				nbForbiddenSuccessors[currentShiftId] = intTmp;
 				// Which ones are forbidden ?
-				for(int j=0; j<nbForbiddenSuccessors[shiftToInt.at(currentShift)]; j++){
+				for(int j=0; j<nbForbiddenSuccessors[currentShiftId]; j++){
 					file >> strTmp;
-					forbiddenSuccessors[i].push_back(shiftToInt.at(strTmp));
+					forbiddenSuccessors[currentShiftId].push_back(shiftToInt.at(strTmp));
 				}
 				readUntilChar(&file,'\n',&strTmp);
 
@@ -158,8 +164,8 @@ Scenario* ReadWrite::readScenario(string fileName) {
 				file >> isTotalWeekend;
 				readUntilChar(&file,'\n',&strTmp);
 
-				Contract c (contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
-				contracts.insert(pair<string,Contract>(contractName,c));
+				Contract * pContract = new Contract (contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
+				contracts.insert(pair<string,Contract*>(contractName,pContract));
 
 			}
 		}
@@ -180,52 +186,126 @@ Scenario* ReadWrite::readScenario(string fileName) {
 					file >> strTmp;
 					skills.push_back(skillToInt.at(strTmp));
 				}
-				Contract * c;
-				c = &(contracts.at(contractName));
-				Nurse nurse (i, nurseName, nbSkills, skills, c);
-				theNurses.push_back(Nurse(i, nurseName, nbSkills, skills, c));
+				Nurse nurse (i, nurseName, nbSkills, skills, contracts.at(contractName));
+				theNurses.push_back(nurse);
+				nurseNameToInt.insert(pair<string,int>(nurseName,i));
 			}
 
 		}
-
-		//getchar();
-
-
-
 	}
-
-	cout << endl << endl << endl;
-	cout << "# Scenario_name = [" << name << "]" << endl;
-	cout << "# Number_of_weeks = [" << nbWeeks << "]" << endl;
-	cout << "# Number_of_skills = [" << nbSkills << "]" << endl;
-	cout << "# List of skills = "; for(int i=0; i<nbSkills; i++) {cout << "[" << i << ":" << intToSkill[i] << "] ";} cout << endl;
-	cout << "# Number_of_shifts = [" << nbShifts << "]" << endl;
-	cout << "# List of shifts = ["; for(int i=0; i<nbShifts; i++) {cout << "[" << intToShift[i] << "|" << minConsShifts[i] << "<" << maxConsShifts[i] << "]";} cout << endl;
-	cout << "# Forbidden successions : " << endl;
-	for(int i=0; i<nbShifts; i++){
-		cout << "#   | " << intToShift[i] << " [" << nbForbiddenSuccessors[i] << "]  ->  ";
-		for(int j=0; j<nbForbiddenSuccessors[i]; j++){
-			cout << "[" << intToShift[j] << "][" << j << "]  ";
-		}
-		cout << endl;
-	}
-	cout << "# Contracts : [" << nbContracts << "]" << endl;
-	for(map<string,Contract>::iterator itC = contracts.begin(); itC != contracts.end(); ++itC){
-		cout << "#   | " << (itC->second) << endl;
-	}
-	cout << "# Nurses : [" << nbNurses << "]" << endl;
-	for(int i=0; i<nbNurses; i++){
-		cout << theNurses[i] << endl;
-	}
-
-	cout << endl << endl << endl;
-
 	// VERIFICATION :
 	Scenario * scenario  = new Scenario(
 			name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts, intToShift, shiftToInt, minConsShifts, maxConsShifts,
-			nbForbiddenSuccessors, forbiddenSuccessors, nbContracts, contracts, nbNurses, theNurses) ;
+			nbForbiddenSuccessors, forbiddenSuccessors, nbContracts, contracts, nbNurses, theNurses, nurseNameToInt) ;
 	std::cout << endl << *scenario << endl;
 	return scenario;
+}
+
+// Read the Week file and store the content in a Scenario instance
+//
+void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
+	// open the file
+	std::fstream file;
+	std::cout << "Reading " << strWeekFile << std::endl;
+	file.open(strWeekFile.c_str(), std::fstream::in);
+	if (!file.is_open()) {
+		std::cout << "While trying to read " << strWeekFile << std::endl;
+		Tools::throwError("The input file was not opened properly!");
+	}
+
+	string title;
+	string strTmp;
+	int intTmp;
+
+	// declare the attributes to be updated in the scenario
+	//
+	string weekName;
+	vector3D minWeekDemand;
+	vector3D optWeekDemand;
+	int nbShiftOffRequests;
+	Preferences weekPreferences;
+
+
+	// fill the attributes of the scenario structure
+	//
+	while(file.good()){
+		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+
+		// Read the name of the scenario
+		//
+		if(strEndsWith(title, "WEEK_DATA")){
+			file >> weekName;
+		}
+
+		// Read the number of weeks in scenario
+		//
+		else if (strEndsWith(title, "REQUIREMENTS")) {
+			string shiftName, skillName;
+			int shiftId, skillId;
+			// init the vectors
+			minWeekDemand = Tools::initVector3D(7, pScenario->nbShifts_, pScenario->nbSkills_);
+			optWeekDemand = Tools::initVector3D(7, pScenario->nbShifts_, pScenario->nbSkills_);
+
+			// Do not take the rest shift into account here (by initialization, requirements already at 0
+			for(int i=1; i<pScenario->nbShifts_; i++){
+				for(int j=0; j<pScenario->nbSkills_; j++){
+					// Read shift and skill
+					file >> shiftName;
+					file >> skillName;
+					shiftId = pScenario->shiftToInt_.at(shiftName);
+					skillId = pScenario->skillToInt_.at(skillName);
+					// For every day in the week, read min and opt values
+					for (int day = 0; day<7; day++){
+						readUntilChar(&file,'(',&strTmp);
+						file >> intTmp;
+						minWeekDemand[day][shiftId][skillId] = intTmp;
+						readUntilChar(&file,',',&strTmp);
+						file >> intTmp;
+						optWeekDemand[day][shiftId][skillId] = intTmp;
+					}
+					readUntilChar(&file,')',&strTmp);
+				}
+			}
+					cout << strTmp << endl;
+		}
+
+		// Read the shift off requests
+		//
+		else if(strEndsWith(title,"SHIFT_OFF_REQUESTS ")){
+			Preferences pref (pScenario->nbNurses_, 7, pScenario->nbShifts_);
+			// Temporary vars
+			string nurseName, shift, day;
+			int nurseId, shiftId, dayId;
+			file >> nbShiftOffRequests;
+			cout << "SHIFT_OFF_REQUEST = " << nbShiftOffRequests << endl;
+			for (int i=0; i<nbShiftOffRequests; i++){
+				file >> nurseName;
+				file >> shift;
+				file >> day;
+				nurseId = pScenario->nurseNameToInt_.at(nurseName);
+				cout << "# Nurse " << nurseName << "   - id:" << pScenario->nurseNameToInt_.at(nurseName) << endl;
+				dayId = Tools::dayToInt(day);
+
+				if(shift == "Any")
+					pref.addDayOff(nurseId, dayId);
+				else {
+					shiftId = pScenario->shiftToInt_.at(shift);
+					pref.addShiftOff(nurseId, dayId, shiftId);
+				}
+				weekPreferences = pref;
+			}
+		}
+	}
+
+	// Now, add all these objects to the Scenario
+	pScenario->setWeekName(weekName);
+	pScenario->setMinWeekDemand(minWeekDemand);
+	pScenario->setOptWeekDemand(optWeekDemand);
+	pScenario->setTNbShiftOffRequests(nbShiftOffRequests);
+	pScenario->setWeekPreferences(weekPreferences);
+
+	std::cout << *pScenario << std::endl;
+
 }
 
 
@@ -250,6 +330,33 @@ bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *
 		cTmp = pFile->get();
 	}
 	while (cTmp != separater && pFile->good() )  {
+		pStrRead->push_back(cTmp);
+		cTmp = pFile->get();
+	}
+
+	if (!pFile->good())
+		return false;
+
+	return true;
+}
+
+// Read a file stream until the separating character is met
+// Store the characters read until the separating character in pStrRead
+//
+bool ReadWrite::readUntilOneOfTwoChar(std::fstream *pFile, char separater1, char separater2, std::string *pStrRead) {
+	char cTmp = 'A';
+
+	// empty the title string if it is not
+	//
+	if (!pStrRead->empty())
+		pStrRead->erase();
+
+	// go through the file until the delimiter is met
+	//
+	if (pFile->good()) {
+		cTmp = pFile->get();
+	}
+	while (cTmp != separater1 && cTmp != separater2 && pFile->good() )  {
 		pStrRead->push_back(cTmp);
 		cTmp = pFile->get();
 	}

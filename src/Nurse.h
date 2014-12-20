@@ -58,8 +58,7 @@ struct Contract{
     		int minConsDaysWork, int maxConsDaysWork,
     		int minConsDaysOff, int maxConsDaysOff,
     		int maxTotalWeekends, int isCompleteWeekends) :
-    			name_(name),
-    			minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
+    			name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
     			minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
     			minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
     			maxTotalWeekends_(maxTotalWeekends), isCompleteWeekends_(isCompleteWeekends) {
@@ -119,6 +118,10 @@ struct Preferences{
 	//
 	int nbNurses_;
 
+	// Number of days considered in that case
+	//
+	int nbDays_;
+
 	// Total number of possible shifts
 	//
 	int nbShifts_;
@@ -131,7 +134,7 @@ struct Preferences{
 	Preferences();
 	~Preferences();
 	// Constructor with initialization to a given number of nurses
-	Preferences(int nbNurses, int nbShifts);
+	Preferences(int nbNurses, int nbDays, int nbShifts);
 
 	// For a given day, and a given shift, adds it to the wish-list for OFF-SHIFT
 	void addShiftOff(int nurse, int day, int shift);
@@ -144,6 +147,11 @@ struct Preferences{
 
 	// True if the nurses wants the whole day off
 	bool wantsTheDayOff(int nurse, int day);
+
+    // Display methods: toString + override operator<< (easier)
+    //
+    string toString();
+    friend std::ostream& operator<< (std::ostream& outs, Preferences obj) {return outs << obj.toString();}
 };
 
 
@@ -168,9 +176,9 @@ public:
 	//        non-const)
 	//
 	Nurse(int id, string name, int nbSkills, std::vector<int> skills, Contract* contract) :
-				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), contract_(contract){}
+				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){}
 	Nurse(int id, string name, int nbSkills, std::vector<int> skills, const Contract* contract) :
-				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), contract_(contract){}
+				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){}
 	~Nurse();
 
 
@@ -196,7 +204,7 @@ public:
 
 	// Her contract type
 	//
-	const Contract* contract_;
+	const Contract* pContract_;
 
 	// soft constraints of the nurse: min and max numbers of total assignments,
 	// min and max consecutive working days, min and max consectuve days off,

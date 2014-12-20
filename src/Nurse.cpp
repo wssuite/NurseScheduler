@@ -20,13 +20,13 @@
 //
 string Contract::toString(){
 	std::stringstream rep;
-	rep << "CONTRACT = [NAME=" << name_ << "|";
-	rep << "Tot:" << minTotalShifts_ << "<" << maxTotalShifts_ << "|";
-	rep << "Work:" << minConsDaysWork_ << "<" << maxConsDaysWork_ << "|";
-	rep << "Rest:" << minConsDaysOff_ << "<" << maxConsDaysOff_ << "|";
-	rep << "WE:" << maxTotalWeekends_ << "+";
+	rep << name_ << "  -  ";
+	rep << "Tot:" << minTotalShifts_ << "<" << maxTotalShifts_ << "  |  ";
+	rep << "Work:" << minConsDaysWork_ << "<" << maxConsDaysWork_ << "  |  ";
+	rep << "Rest:" << minConsDaysOff_ << "<" << maxConsDaysOff_ << "  |  ";
+	rep << "WE:" << maxTotalWeekends_ << "  |  ";
 	if(!isCompleteWeekends_) rep << "NOT";
-	rep << "complete]";
+	rep << "complete";
 	return rep.str();
 };
 
@@ -60,12 +60,15 @@ void State::updateWithNewDay(int newShift){
 //
 //-----------------------------------------------------------------------------
 
+// Void constructor
+Preferences::Preferences(){}
+
 // Destructor
 Preferences::~Preferences(){}
 
 // Initialization with an vector or size nNurses with no wished Shift-Off.
-Preferences::Preferences(int nbNurses, int nbShifts) :
-	nbNurses_(nbNurses), nbShifts_(nbShifts){
+Preferences::Preferences(int nbNurses, int nbDays, int nbShifts) :
+	nbNurses_(nbNurses), nbDays_(nbDays), nbShifts_(nbShifts){
 	// Wish lists are initialized to empty
 	vector<map<int,set<int> > > wishesOff;
 	for(int i=0; i<nbNurses_; i++){
@@ -120,6 +123,34 @@ bool Preferences::wantsTheDayOff(int nurse, int day){
 		return true;
 }
 
+// Display method: toString()
+//
+string Preferences::toString(){
+	std::stringstream rep;
+	rep << " (" << nbNurses_ << " nurses, " << nbDays_ << " days, " << nbShifts_ << " shifts)" << std::endl;
+
+
+
+	rep << "# SHIFT_OFF_REQUESTS:" << std::endl;
+	rep << " (" << nbNurses_ << " nurses, " << nbDays_ << " days, " << nbShifts_ << " shifts)" << std::endl;
+	for(int n=0; n<nbNurses_; n++){
+		rep << "#   | " << n << ": \t";
+		map<int,set<int> > pr = wishesOff_[n];
+		for(map<int,set<int> >::iterator itWishes = pr.begin(); itWishes != pr.end(); ++itWishes){
+			int dayId = itWishes->first;
+			rep << "[" << Tools::intToDay(dayId) << ": ";
+			set<int> shiftSet = itWishes->second;
+			for(set<int>::iterator itShift = shiftSet.begin(); itShift != shiftSet.end(); ++itShift){
+				rep << *itShift << " ";
+			}
+			rep << "] ";
+		}
+		rep << std::endl;
+	}
+
+	return rep.str();
+}
+
 
 
 //-----------------------------------------------------------------------------
@@ -142,9 +173,14 @@ Nurse::~Nurse(){
 //
 string Nurse::toString(){
 	std::stringstream rep;
-	rep << "# NURSE[" << id_ << "]\t" << name_ << "\t" << nbSkills_ << "[ ";
+	rep << id_ << ": ";
+	if(id_<10) rep << " ";
+	if(id_<100) rep << " ";
+	rep << name_ << "\t" << nbSkills_ << " [ ";
 	for(int i=0; i<nbSkills_; i++) rep << skills_[i] << " ";
-	rep << "]\t" << contract_->name_;
+	rep << "]\t";
+	if(nbSkills_==1) rep << "\t";
+	rep << pContract_->name_;
 	return rep.str();
 }
 
@@ -156,7 +192,7 @@ Nurse& Nurse::operator=(const Nurse& n){
 	int nbSkills = n.nbSkills_;
 	vector<int> skills = n.skills_;
 	const Contract* contract;
-	contract = n.contract_;
+	contract = n.pContract_;
 	Nurse * n2 = new Nurse(id, name, nbSkills, skills, contract);
 	return *n2;
 }

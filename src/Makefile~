@@ -7,9 +7,9 @@ LIBFORMAT = static_pic
 
 CXX		= g++
 #CXXFLAGS	= -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD $(INCLUDESFLAGS)
-CXXFLAGS	= -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD #$(INCLUDESFLAGS)
-OBJECTS		= MyTools.o Nurse.o Scenario.h ReadWrite.o main.o
-TARGET		= roster
+CXXFLAGS	= -g -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD -std=c++0x
+OBJECTS		= MyTools.o Nurse.o Scenario.o ReadWrite.o main.o
+TARGET		= ../bin/roster
 
 $(TARGET):	$(OBJECTS)
 	$(CXX) -o $(TARGET) $(OBJECTS) $(CXXFLAGS) #$(OTHERFLAGS)

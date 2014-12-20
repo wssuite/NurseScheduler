@@ -71,6 +71,56 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 	return true;
 }
 
+
+// Returns a vector2D of the given size (filled only with zeroes)
+//
+vector2D initVector2D(int m, int n){
+	vector2D rep;
+	for (int i=0; i<m; i++){
+		vector<int> v;
+		for(int j=0; j<n; j++){
+			v.push_back(0);
+		}
+		rep.push_back(v);
+	}
+	return rep;
+}
+
+// Returns a vector3D of the given size (filled only with zeroes)
+//
+vector3D initVector3D(int m, int n, int p){
+	vector3D rep;
+	for (int i=0; i<m; i++){
+		vector2D vv = initVector2D(n,p);
+		rep.push_back(vv);
+	}
+	return rep;
+}
+
+// To get the day from its id and vice-versa
+// First day is always supposed to be a Monday
+//
+string intToDay(int dayId){
+	if((dayId%7)==0) return "Mon";
+	else if((dayId%7)==1) return "Tue";
+	else if((dayId%7)==2) return "Wed";
+	else if((dayId%7)==3) return "Thu";
+	else if((dayId%7)==4) return "Fri";
+	else if((dayId%7)==5) return "Sat";
+	else return "Sun";
+}
+int dayToInt(string day){
+	if(day=="Mon") return 0;
+	if(day=="Tue") return 1;
+	if(day=="Wed") return 2;
+	if(day=="Thu") return 3;
+	if(day=="Fri") return 4;
+	if(day=="Sat") return 5;
+	if(day=="Sun") return 6;
+	else return -1;
+}
+
+
 // constructor of Timer
 //
 Timer::Timer():isInit_(0), isStarted_(0), isStopped_(0) {

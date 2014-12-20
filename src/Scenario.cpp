@@ -13,9 +13,6 @@
 #include "MyTools.h"
 #include "Nurse.h"
 
-using std::cout;
-using std::endl;
-
 Scenario::~Scenario(){
 
 }
@@ -23,59 +20,84 @@ Scenario::~Scenario(){
 // Display methods: toString + override operator<< (easier)
 //
 string Scenario::toString(){
-	//return "\ntoto\n";
-	//std::stringstream std::cout;
-	std::cout << "# Scenario_name = [" << name_ << "]" << std::endl;
-	std::cout << "# Number_of_weeks = [" << nbWeeks_ << "]" << std::endl;
-	std::cout << "# Number_of_skills = [" << nbSkills_ << "]" << std::endl;
-	std::cout << "# List of skills = "; for(int i=0; i<nbSkills_; i++){
-		std::cout << "[" << i << ":" << intToSkill_[i] << "] ";
+	std::stringstream rep;
+	rep << "############################################################################" << std::endl;
+	rep << "##############################    Scenario    ##############################" << std::endl;
+	rep << "############################################################################" << std::endl;
+	rep << "# " << std::endl;
+	rep << "# NAME             \t= " << name_ << std::endl;
+	rep << "# NUMBER_OF_WEEKS  \t= " << nbWeeks_ <<std::endl;
+	rep << "# " << std::endl;
+	rep << "# SKILLS           \t= " << nbSkills_ << std::endl;
+	for(int i=0; i<nbSkills_; i++){
+		rep << "#                  \t= " << i << ":" << intToSkill_[i] << std::endl;
 	}
-	std::cout << std::endl;
-	std::cout << "# Number_of_shifts = [" << nbShifts_ << "]" << std::endl;
-
-	cout << endl;
-	std::cout << intToShift_[0] << endl;
-	std::cout << intToShift_[1] << endl;
-	std::cout << intToShift_[2] << endl;
-	std::cout << intToShift_[3] << endl;
-
-	std::cout << "More to be printed in the end... debug in progress" << endl;
-
-	/*
-	cout << endl;
-	cout << minConsShifts_[0] << endl;;
-	cout << minConsShifts_[1] << endl;;
-	cout << minConsShifts_[2] << endl;;
-	cout << minConsShifts_[3] << endl;;
-	*/
-
-	// @TODO : finish here to debug... probably need to change the data structure either to (nonconst) vector<int> or maybe to const vector<int>* (the former seems better)
-
-	/*
-	std::cout << "# List of shifts = [";
+	rep << "# " << std::endl;
+	rep << "# SHIFTS           \t= " << nbShifts_ << std::endl;
 	for(int i=0; i<nbShifts_; i++){
-		std::cout << "[" << intToShift_[i] << "|" << minConsShifts_[i] << "<" << maxConsShifts_[i] << "]";
+		rep << "#                  \t= ";
+		rep << i << ":" << intToShift_[i] << " \t(" << minConsShifts_[i] << "," << maxConsShifts_[i] << ")" << std::endl;
 	}
-	std::cout << std::endl;
-	std::cout << "# Forbidden successions : " << std::endl;
+	rep << "# " << std::endl;
+	rep << "# FORBIDDEN        " << std::endl;
 	for(int i=0; i<nbShifts_; i++){
-		std::cout << "#   | " << intToShift_[i] << " [" << nbForbiddenSuccessors_[i] << "]  ->  ";
+		rep << "#\t\t\t" << intToShift_[i] << "\t-> ";
 		for(int j=0; j<nbForbiddenSuccessors_[i]; j++){
-			std::cout << "[" << intToShift_[j] << "][" << j << "]  ";
+			rep << intToShift_[forbiddenSuccessors_[i][j]] << " ";
 		}
-		std::cout << std::endl;
+		rep << std::endl;
 	}
-	std::cout << "# Contracts : [" << nbContracts_ << "]" << std::endl;
-	for(map<string,Contract>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
-		std::cout << "#   | " << (itC->second) << std::endl;
+	rep << "# CONTRACTS        " << std::endl;
+	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
+		rep << "#\t\t\t" << *(itC->second) << std::endl;
 	}
-	std::cout << "# Nurses : [" << nbNurses_ << "]" << std::endl;
+	rep << "# " << std::endl;
+	rep << "# NURSES           \t= " << nbNurses_ << std::endl;
 	for(int i=0; i<nbNurses_; i++){
-		std::cout << theNurses_[i] << std::endl;
+		rep << "#\t\t\t" << theNurses_[i] << std::endl;
 	}
-	//return std::cout.str();
-	*/
-	return "";
+	if (weekName_!=""){
+		rep << "# " << std::endl;
+		rep << "# DEMAND" << std::endl;
+
+		rep << "#\t\t\t";
+		for(int dayId=0; dayId<7; dayId++){
+			rep << " " << Tools::intToDay(dayId) << "\t";
+		}
+		rep << "# " << std::endl;
+		for(int sh = 0; sh < nbShifts_; sh ++){
+			for (int sk = 0; sk < nbSkills_; sk++){
+				string s = "#   " + intToShift_[sh] + " " + intToSkill_[sk] + " ";
+				rep << s;
+				if(s.length() < 16) rep << "\t";
+				for(int day = 0; day < 7; day ++){
+					rep << "\t(" << minWeekDemand_[day][sh][sk] << "," << optWeekDemand_[day][sh][sk] << ")";
+				}
+				rep << std::endl;
+			}
+			rep << "# " << std::endl;
+		}
+		rep << "# " << std::endl;
+		rep << "# WISHED SHIFTS OFF" << std::endl;
+		for(int n=0; n<nbNurses_; n++){
+			// cout only if the nurse has preferences
+			map<int,set<int> > prefNurse = weekPreferences_.wishesOff_[n];
+			if(!prefNurse.empty()){
+				rep << "#\t\t\t" << n << "\t" << theNurses_[n].name_ << "\t";
+				for(map<int,set<int> >::iterator itWishlist = prefNurse.begin(); itWishlist != prefNurse.end(); ++itWishlist){
+					rep << Tools::intToDay(itWishlist->first) << ": ";
+					set<int> dayList = itWishlist->second;
+					for(set<int>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
+						rep << *itShift << " ";
+						//rep << intToShift_[*itShift] << ",";
+					}
+					rep << "    ";
+				}
+				rep << std::endl;
+			}
+		}
+	}
+	rep << "############################################################################" << std::endl;
+	return rep.str();
 }
 
