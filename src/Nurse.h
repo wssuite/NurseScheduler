@@ -73,19 +73,29 @@ struct Contract{
 
 //-----------------------------------------------------------------------------
 //
-//  S t r u c t u r e   S t a t e
+//  S t r u c t u r e   H i s t o r y
 //
 //  Describes the current (or initial) state of a nurse at D-day
 //
 //-----------------------------------------------------------------------------
 struct State{
 
+	// Index of the day in the planning horizon
+	// WARNING : THE FIRST DAY IS ALWAYS SUPPOSED TO BE A MONDAY !!!!!!!!!!!!!
+	//           If it may not be the case, the code should be modified, namely when counting the weekends worked
+	//
+	int dayId_;
+
+	// Total nummber of days and weekends worked
+	//
+	int totalDaysWorked_, totalWeekendsWorked_;
+
 	// number of consecutive days worked ending at D, and of consecutive days worked on the same shift ending at D (including RESTSHIFT = 0)
 	// and shift worked on D-Day.
 	//
 	int consDaysWorked_, consShifts_;
 
-	// Type of shift worked on D-Day
+	// Type of shift worked on D-Day. It can be a rest shift (=0).
 	//
 	int shift_;
 
@@ -94,12 +104,21 @@ struct State{
 	~State();
 
 	// Constructor with attributes
-	State(int consDaysWorked, int consShifts, int shift) :
-		consDaysWorked_(consDaysWorked), consShifts_(consShifts), shift_(shift){};
+	State(int dayId, int totalDaysWorked, int totalWeekendsWorked,
+			int consDaysWorked, int consShifts, int shift) :
+				dayId_(dayId), totalDaysWorked_(totalDaysWorked), totalWeekendsWorked_(totalWeekendsWorked),
+				consDaysWorked_(consDaysWorked), consShifts_(consShifts), shift_(shift){};
 
 	// Function that appends a new day worked on a given shift to the previous ones
 	//
-	void updateWithNewDay(int newShift);
+	void addNewDay(int newShift);
+
+
+    // Display methods: toString + override operator<< (easier)
+    //
+    string toString();
+    friend std::ostream& operator<< (std::ostream& outs, State obj) {return outs << obj.toString();}
+
 };
 
 

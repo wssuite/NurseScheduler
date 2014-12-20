@@ -40,7 +40,16 @@ string Contract::toString(){
 State::~State(){}
 
 // Updates the state if a new day is worked on shift newShift
-void State::updateWithNewDay(int newShift){
+void State::addNewDay(int newShift){
+
+	// Total shifts worked if it is a worked day
+	totalDaysWorked_ += (newShift ? 1 : 0);
+
+	// Total weekends worked :
+	// +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
+	if( newShift and
+			( (dayId_/7==4) or ((dayId_/7==5) and !shift_)))
+		totalWeekendsWorked_ ++;
 
 	// Consecutives : +1 iff it is the same as the previous one
 	consShifts_ = (shift_==newShift) ? (consShifts_ + 1) : 1;
@@ -50,6 +59,20 @@ void State::updateWithNewDay(int newShift){
 
 	// Current shift worked : updated with the new one
 	shift_ = newShift;
+
+	// Finally, the day index
+	dayId_++;
+}
+
+// Display method: toString
+//
+string State::toString(){
+	std::stringstream rep;
+	rep << totalDaysWorked_ << " " << totalWeekendsWorked_ << " " << shift_ << " ";
+	if(shift_) rep << consShifts_ << " " << consDaysWorked_; else rep << "0 0";
+	if(shift_) rep << " 0"; else rep << " " << consShifts_;
+	rep << std::endl;
+	return rep.str();
 }
 
 
@@ -127,27 +150,7 @@ bool Preferences::wantsTheDayOff(int nurse, int day){
 //
 string Preferences::toString(){
 	std::stringstream rep;
-	rep << " (" << nbNurses_ << " nurses, " << nbDays_ << " days, " << nbShifts_ << " shifts)" << std::endl;
-
-
-
-	rep << "# SHIFT_OFF_REQUESTS:" << std::endl;
-	rep << " (" << nbNurses_ << " nurses, " << nbDays_ << " days, " << nbShifts_ << " shifts)" << std::endl;
-	for(int n=0; n<nbNurses_; n++){
-		rep << "#   | " << n << ": \t";
-		map<int,set<int> > pr = wishesOff_[n];
-		for(map<int,set<int> >::iterator itWishes = pr.begin(); itWishes != pr.end(); ++itWishes){
-			int dayId = itWishes->first;
-			rep << "[" << Tools::intToDay(dayId) << ": ";
-			set<int> shiftSet = itWishes->second;
-			for(set<int>::iterator itShift = shiftSet.begin(); itShift != shiftSet.end(); ++itShift){
-				rep << *itShift << " ";
-			}
-			rep << "] ";
-		}
-		rep << std::endl;
-	}
-
+	rep << "# Preference display not implemented yet..." << std::endl;
 	return rep.str();
 }
 

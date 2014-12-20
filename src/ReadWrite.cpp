@@ -193,11 +193,9 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 		}
 	}
-	// VERIFICATION :
 	Scenario * scenario  = new Scenario(
 			name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts, intToShift, shiftToInt, minConsShifts, maxConsShifts,
 			nbForbiddenSuccessors, forbiddenSuccessors, nbContracts, contracts, nbNurses, theNurses, nurseNameToInt) ;
-	std::cout << endl << *scenario << endl;
 	return scenario;
 }
 
@@ -217,7 +215,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 	string strTmp;
 	int intTmp;
 
-	// declare the attributes to be updated in the scenario
+	// declare the attributes to be updated in the Scenario*
 	//
 	string weekName;
 	vector3D minWeekDemand;
@@ -226,18 +224,18 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 	Preferences weekPreferences;
 
 
-	// fill the attributes of the scenario structure
+	// fill the attributes when reading the week file
 	//
 	while(file.good()){
 		readUntilOneOfTwoChar(&file, '\n', '=', &title);
 
-		// Read the name of the scenario
+		// Read the name of the week
 		//
 		if(strEndsWith(title, "WEEK_DATA")){
 			file >> weekName;
 		}
 
-		// Read the number of weeks in scenario
+		// Read the requirements
 		//
 		else if (strEndsWith(title, "REQUIREMENTS")) {
 			string shiftName, skillName;
@@ -266,7 +264,6 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 					readUntilChar(&file,')',&strTmp);
 				}
 			}
-					cout << strTmp << endl;
 		}
 
 		// Read the shift off requests
@@ -277,13 +274,11 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 			string nurseName, shift, day;
 			int nurseId, shiftId, dayId;
 			file >> nbShiftOffRequests;
-			cout << "SHIFT_OFF_REQUEST = " << nbShiftOffRequests << endl;
 			for (int i=0; i<nbShiftOffRequests; i++){
 				file >> nurseName;
 				file >> shift;
 				file >> day;
 				nurseId = pScenario->nurseNameToInt_.at(nurseName);
-				cout << "# Nurse " << nurseName << "   - id:" << pScenario->nurseNameToInt_.at(nurseName) << endl;
 				dayId = Tools::dayToInt(day);
 
 				if(shift == "Any")
@@ -304,8 +299,73 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 	pScenario->setTNbShiftOffRequests(nbShiftOffRequests);
 	pScenario->setWeekPreferences(weekPreferences);
 
-	std::cout << *pScenario << std::endl;
+}
 
+// Read the history file
+//
+void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
+	// open the file
+	std::fstream file;
+	std::cout << "Reading " << strHistoryFile << std::endl;
+	file.open(strHistoryFile.c_str(), std::fstream::in);
+	if (!file.is_open()) {
+		std::cout << "While trying to read " << strHistoryFile << std::endl;
+		Tools::throwError("The input file was not opened properly!");
+	}
+
+	string title;
+	string strTmp;
+	int intTmp;
+
+	// declare the attributes to be updated in the Scenario*
+	//
+	int thisWeek;
+	string weekName;
+	vector<State> initialState;
+
+
+	// fill the attributes of the week structure
+	//
+	while(file.good()){
+		readUntilChar(&file,'\n', &title);
+
+		// Read the index and name of the week
+		//
+		if(!strcmp(title.c_str(), "HISTORY")){
+			file >> thisWeek;
+			file >> weekName;
+			// Raise exception if it does not match the week previously read !
+			if (strcmp(weekName.c_str(),(pScenario->weekName()).c_str())) {
+				std::cout << "The given history file requires week " << weekName << std::endl;
+				std::cout << " but a different one (" << pScenario->weekName() << ") has been given!" << std::endl;
+				Tools::throwError("History file and week data file do not match!");
+			}
+		}
+
+		// Read each nurse's initial state
+		//
+		else if (strEndsWith(title, "NURSE_HISTORY")) {
+			for(int n=0; n<pScenario->nbNurses_; n++){
+				string nurseName, shiftName;
+				int nurseId, shiftId, totalDaysWorked, totalWeekendsWorked, consDaysWorked, consShiftWorked, consRest, consShifts;
+				file >> nurseName;
+				nurseId = pScenario->nurseNameToInt_.at(nurseName);
+				file >> totalDaysWorked;
+				file >> totalWeekendsWorked;
+				file >> shiftName;
+				shiftId = pScenario->shiftToInt_.at(shiftName);
+				file >> consShiftWorked;
+				file >> consDaysWorked;
+				file >> consRest;
+
+				consShifts = (shiftId == 0) ? consRest : consShiftWorked;
+				State nurseState (-1, totalDaysWorked, totalWeekendsWorked, consDaysWorked, consShifts, shiftId);
+				initialState.push_back(nurseState);
+			}
+		}
+	}
+	pScenario->setThisWeek(thisWeek);
+	pScenario->setInitialState(initialState);
 }
 
 

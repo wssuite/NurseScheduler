@@ -24,7 +24,7 @@ using std::string;
 using std::vector;
 
 static const int DEBUG = 1;
-static const string REST_SHIFT = "REST";
+static const string REST_SHIFT = "None";
 
 
 // definitions of multi-dimensional int vector types

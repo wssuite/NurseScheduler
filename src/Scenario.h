@@ -61,6 +61,10 @@ public:
 				nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
 				nbContracts_(nbContracts), contracts_(contracts),
 				nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt){
+
+		// To make sure that it is modified later when reading the history data file
+		//
+		thisWeek_ = -1;
 	}
 	~Scenario();
 
@@ -131,27 +135,26 @@ private:
 	//------------------------------------------------
 	// From the History data file
 	//------------------------------------------------
-
+	// Initial historical state of the nurses
+	//
+	vector<State> initialState_;
+	// index of the week that is being scheduled
+	//
+	int thisWeek_;
 	//------------------------------------------------
 
 
 	//------------------------------------------------
 	// From the custom file
 	//------------------------------------------------
-	// index of the week that is being scheduled
-	//
-	int thisWeek_;
 	//------------------------------------------------
 
 public:
 	// getters for the class attributes
 	//
-	int nbWeeks() {
-		return nbWeeks_;
-	}
-	int thisWeek() {
-		return thisWeek_;
-	}
+	int nbWeeks() {return nbWeeks_;}
+	int thisWeek() {return thisWeek_;}
+	string weekName() {return weekName_;}
 
 
 	// getters for the attributes of the nurses
@@ -191,9 +194,10 @@ public:
 	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
 	inline void setWeekPreferences(Preferences weekPreferences){ weekPreferences_ = weekPreferences; }
 
-	// When reading the custom file
+	// When reading the history file
 	//
 	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
+	inline void setInitialState(vector<State> initialState){ initialState_ = initialState;}
 
 	// Initialize the attributes of the scenario with the content of the input
 	// file

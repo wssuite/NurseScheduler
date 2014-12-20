@@ -49,14 +49,23 @@ void testFunction_Jeremy(){
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel(){
 
-	/*
-	// Test : ReadWrite::strEndsWith
-	if (ReadWrite::strEndsWith("je suis un poisson", "poisson")) cout << "IDEM" << endl; else cout << "DIFFERENTS" << endl;
-	*/
+	Tools::Timer* timertest = new Tools::Timer();
+	timertest->init();
+	timertest->start();
 
-	// Test : ReadWrite::readScenario
 	Scenario * s = ReadWrite::readScenario("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/Sc-n030w4.txt");
 	ReadWrite::readWeek("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/WD-n030w4-1.txt",s);
+	ReadWrite::readHistory("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/H0-n030w4-0.txt",s);
+
+	timertest->stop();
+
+	string logFile = "../logfiles/samuel_test.log";
+	Tools::LogOutput logStream(logFile);
+
+	logStream << *s << std::endl;;
+	logStream.print("Total time spent in the algorithm : ");
+	logStream.print(timertest->dSinceInit());
+	logStream.print("\n");
 
 }
 
@@ -64,8 +73,8 @@ int main(int argc, char** argv)
 {
 
 	// Tests functions to check the functions one by one
-	//testFunction_Antoine();
-	//testFunction_Jeremy();
+	testFunction_Antoine();
+	testFunction_Jeremy();
 	testFunction_Samuel();
 
 }

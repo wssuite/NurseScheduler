@@ -80,21 +80,34 @@ string Scenario::toString(){
 		rep << "# " << std::endl;
 		rep << "# WISHED SHIFTS OFF" << std::endl;
 		for(int n=0; n<nbNurses_; n++){
-			// cout only if the nurse has preferences
+			// Display only if the nurse has preferences
 			map<int,set<int> > prefNurse = weekPreferences_.wishesOff_[n];
 			if(!prefNurse.empty()){
 				rep << "#\t\t\t" << n << "\t" << theNurses_[n].name_ << "\t";
 				for(map<int,set<int> >::iterator itWishlist = prefNurse.begin(); itWishlist != prefNurse.end(); ++itWishlist){
 					rep << Tools::intToDay(itWishlist->first) << ": ";
 					set<int> dayList = itWishlist->second;
+					bool first = true;
 					for(set<int>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
-						rep << *itShift << " ";
-						//rep << intToShift_[*itShift] << ",";
+						if(first) first = false; else rep << ",";
+						rep << intToShift_[*itShift];
 					}
 					rep << "    ";
 				}
 				rep << std::endl;
 			}
+		}
+	}
+	if(thisWeek_ > -1){
+		rep << "# " << std::endl;
+		rep << "# INITIAL STATE    \t= WEEK Nb " << thisWeek_ << std::endl;
+		for(int n=0; n<nbNurses_; n++){
+			rep << "#\t\t\t" << theNurses_[n].name_ << " ";
+			State s = initialState_[n];
+			rep << s.totalDaysWorked_ << " " << s.totalWeekendsWorked_ << " " << intToShift_[s.shift_] << " ";
+			if(s.shift_) rep << s.consShifts_ << " " << s.consDaysWorked_; else	rep << "0 0";
+			if(s.shift_) rep << " 0"; else rep << " " << s.consShifts_;
+			rep << std::endl;
 		}
 	}
 	rep << "############################################################################" << std::endl;
