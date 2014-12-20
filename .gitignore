@@ -1,5 +1,3 @@
-src/*.o
-src/*.log
 *.log
 *.o
 src/roster

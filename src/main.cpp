@@ -30,7 +30,7 @@ void testFunction_Jeremy(){
 
 	timertest->stop();
 
-	string logFile = "test.log";
+	string logFile = "../logfiles/test.log";
 	Tools::LogOutput logStream(logFile);
 
 	logStream << "Total time spent in the algorithm : ";

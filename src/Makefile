@@ -9,7 +9,7 @@ CXX		= g++
 #CXXFLAGS	= -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD $(INCLUDESFLAGS)
 CXXFLAGS	= -g -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD #$(INCLUDESFLAGS)
 OBJECTS		= MyTools.o Nurse.o Scenario.o ReadWrite.o main.o
-TARGET		= roster
+TARGET		= ../bin/roster
 
 $(TARGET):	$(OBJECTS)
 	$(CXX) -o $(TARGET) $(OBJECTS) $(CXXFLAGS) #$(OTHERFLAGS)
