@@ -1,3 +1,5 @@
-*.o
+src/*.o
+src/*.log
 *.log
-roster
+*.o
+src/roster
