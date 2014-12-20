@@ -9,6 +9,7 @@
 //#include "Scenario.h"
 //#include "Nurse.h"
 #include "ReadWrite.h"
+#include "MyTools.h"
 
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
@@ -17,7 +18,32 @@ void testFunction_Antoine(){
 
 // Function for testing parts of the code (Jeremy)
 void testFunction_Jeremy(){
+	Tools::Timer* timertest = new Tools::Timer();
 
+	timertest->init();
+	timertest->start();
+
+	double x;
+	for (int i = 0; i < 100000000;i++) 	{
+	 x = 1005*190;
+	}
+
+	timertest->stop();
+
+	string logFile = "test.log";
+	Tools::LogOutput logStream(logFile);
+
+	logStream << "Total time spent in the algorithm : ";
+
+	logStream.switchToFormatted(25);
+	logStream << timertest->dSinceInit();
+
+	logStream.switchToUnformatted();
+	logStream << " seconds" << std::endl;
+
+	logStream.print("Total time spent in the algorithm : ");
+	logStream.print(timertest->dSinceInit());
+	logStream.print("\n");
 }
 
 // Function for testing parts of the code (Samuel)
