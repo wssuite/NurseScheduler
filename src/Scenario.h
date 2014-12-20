@@ -52,12 +52,13 @@ public:
 			int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
 			vector<int> minConsShifts, vector<int> maxConsShifts,
 			vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
-			int nbContracts, map<string,Contract> contracts) :
+			int nbContracts, map<string,Contract> contracts,
+			int nbNurses, vector<Nurse> theNurses) :
 				name_(name), nbWeeks_(nbWeeks),
 				nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
 				nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
 				nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
-				nbContracts_(nbContracts), contracts_(contracts){
+				nbContracts_(nbContracts), contracts_(contracts), nbNurses_(nbNurses), theNurses_(theNurses){
 	}
 	~Scenario();
 
@@ -100,26 +101,6 @@ public:
 	//
 	const int nbContracts_;
 	const map<string, Contract> contracts_;
-
-	// commenté ci-dessous pour alléger le code, plutôt mettre ces choses directement
-	// dans le reader vu que c'est déjà dans les nurses
-	// // number of contracts, and map matching the name of each contrat to an index
-	// //
-	// int nbContracts_;
-	// std::map<char*,int> contractToInt_;
-	//
-	// // descriptions of each contract: min and max numbers of total assignments,
-	// // min and max consecutive working days, min and max consectuve days off,
-	// // maximum number of working week-ends and presence of absence of the
-	// // complete week end constraints
-	// // each set of attributes is followed by the penalty for the violation of
-	// // the corresponding soft constraints
-	// //
-	// vector<int> minTotalShifts_, maxTotalShifts_;
-	// vector<int> minConsDaysWork_, maxConsDaysWork_;
-	// vector<int> minConsDaysOff_, maxConsDaysOff_;
-	// vector<int> maxTotalWeekEnds_;
-	// vector<bool> isCompleteWeekEnd_;
 
 private:
 	// index of the week that is being scheduled
@@ -175,6 +156,10 @@ public:
 	//
 	void readScenario(string fileName);
 
+    // Display methods: toString + override operator<< (easier)
+    //
+    string toString();
+    friend std::ostream& operator<< (std::ostream& outs, Scenario obj) {return outs << obj.toString();}
 };
 
 

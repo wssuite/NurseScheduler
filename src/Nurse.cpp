@@ -8,6 +8,27 @@
 #include <time.h>
 
 
+//-----------------------------------------------------------------------------
+//
+//  S t r u c t u r e   C o n t r a c t
+//
+//  A contract as defined in the subject
+//
+//-----------------------------------------------------------------------------
+
+// Print method
+//
+string Contract::toString(){
+	std::stringstream rep;
+	rep << "CONTRACT = [NAME=" << name_ << "|";
+	rep << "Tot:" << minTotalShifts_ << "<" << maxTotalShifts_ << "|";
+	rep << "Work:" << minConsDaysWork_ << "<" << maxConsDaysWork_ << "|";
+	rep << "Rest:" << minConsDaysOff_ << "<" << maxConsDaysOff_ << "|";
+	rep << "WE:" << maxTotalWeekends_ << "+";
+	if(!isCompleteWeekends_) rep << "NOT";
+	rep << "complete]";
+	return rep.str();
+};
 
 //-----------------------------------------------------------------------------
 //
@@ -98,3 +119,63 @@ bool Preferences::wantsTheDayOff(int nurse, int day){
 	else
 		return true;
 }
+
+
+
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   N u r s e
+//
+//  Class that contains all the attributes describing the characteristics and
+//  the planning of each nurse
+//
+//-----------------------------------------------------------------------------
+
+// Destructor
+//
+Nurse::~Nurse(){
+	// WARNING: Do NOT delete Contract* contract (eventhough it is a pointer.
+	//          Contracts are common to all nurses and don't "belong" to them -> should not be deleted.
+}
+
+// Print method
+//
+string Nurse::toString(){
+	std::stringstream rep;
+	rep << "# NURSE[" << id_ << "]\t" << name_ << "\t" << nbSkills_ << "[ ";
+	for(int i=0; i<nbSkills_; i++) rep << skills_[i] << " ";
+	rep << "]\t" << contract_->name_;
+	return rep.str();
+}
+
+// Assignment operator -> vector request
+//
+Nurse& Nurse::operator=(const Nurse& n){
+	int id = n.id_;
+	string name = n.name_;
+	int nbSkills = n.nbSkills_;
+	vector<int> skills = n.skills_;
+	const Contract* contract;
+	contract = n.contract_;
+	Nurse * n2 = new Nurse(id, name, nbSkills, skills, contract);
+	return *n2;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

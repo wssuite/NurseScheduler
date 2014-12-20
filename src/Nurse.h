@@ -63,25 +63,12 @@ struct Contract{
     			minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
     			minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
     			maxTotalWeekends_(maxTotalWeekends), isCompleteWeekends_(isCompleteWeekends) {
-    }
+    };
 
-    // Print method
+    // Display methods: toString + override operator<< (easier)
     //
-    string toString(){
-    	std::stringstream rep;
-    	rep << "Contract : [NAME=" << name_ << "|";
-    	rep << "Tot:" << minTotalShifts_ << "<" << maxTotalShifts_ << "|";
-    	rep << "Work:" << minConsDaysWork_ << "<" << maxConsDaysWork_ << "|";
-    	rep << "Rest:" << minConsDaysOff_ << "<" << maxConsDaysOff_ << "|";
-    	rep << "WE:" << maxTotalWeekends_ << "+";
-    	if(!isCompleteWeekends_) rep << "NOT";
-    	rep << "complete]";
-    	return rep.str();
-    }
-
-    friend std::ostream& operator<< ( std::ostream& outs, Contract obj ) {
-    	return outs << obj.toString();
-    }
+    string toString();
+    friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
 };
 
 
@@ -175,18 +162,15 @@ class Nurse {
 public:
 
 	// Constructor and destructor
+	// Note : need both with const Contract and (non-const) Contract because non-const is used in our code,
+	//        and const is needed so that we can override the operator= and have vector<Nurse>. We need to
+	//        override it because vector members should have some properties (assignable a.o., which implies
+	//        non-const)
 	//
-	Nurse(char* name, int nbSkills, std::vector<int> skills,
-			int minTotalShifts, int maxTotalShifts,
-			int minConsDaysWork, int maxConsDaysWork,
-			int minConsDaysOff, int maxConsDaysOff,
-			int maxTotalWeekEnds, int isCompleteWeekEnds) :
-				name_(name), nbSkills_(nbSkills), skills_(skills),
-				minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
-				minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
-				minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
-				maxTotalWeekEnds_(maxTotalWeekEnds), isCompleteWeekEnds_(isCompleteWeekEnds) {
-	}
+	Nurse(int id, string name, int nbSkills, std::vector<int> skills, Contract* contract) :
+				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), contract_(contract){}
+	Nurse(int id, string name, int nbSkills, std::vector<int> skills, const Contract* contract) :
+				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), contract_(contract){}
 	~Nurse();
 
 
@@ -197,6 +181,10 @@ public:
 	//-----------------------------------------------------------------------------
 	// Constant characteristics of the nurses (no set method)
 	//-----------------------------------------------------------------------------
+	// Id of the nurse (=entry in the vector<Nurse> theNurse of the Scenario)
+	//
+	const int id_;
+
 	// name of the nurse
 	//
 	const std::string name_;
@@ -207,24 +195,48 @@ public:
 	const vector<int> skills_;
 
 	// Her contract type
-	const Contract* contract;
-
-
+	//
+	const Contract* contract_;
 
 	// soft constraints of the nurse: min and max numbers of total assignments,
 	// min and max consecutive working days, min and max consectuve days off,
 	// maximum number of working week-ends and presence of absence of the
 	// complete week end constraints
 	//
-	const int minTotalShifts_, maxTotalShifts_;
-	const int minConsDaysWork_, maxConsDaysWork_;
-	const int minConsDaysOff_, maxConsDaysOff_;
-	const int maxTotalWeekEnds_;
-	const int isCompleteWeekEnds_;
+	int minTotalShifts_, maxTotalShifts_;
+	int minConsDaysWork_, maxConsDaysWork_;
+	int minConsDaysOff_, maxConsDaysOff_;
+	int maxTotalWeekEnds_;
+	int isCompleteWeekEnds_;
+
+    // Display methods: toString + override operator<< (easier)
+    //
+    string toString();
+    friend std::ostream& operator<< (std::ostream& outs, Nurse obj) {return outs << obj.toString();}
+
+    // Assignment (requested to build a vector<Nurse>)
+    //
+    Nurse& operator=(const Nurse& n);
 
 
 
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #endif /* defined(__ATCSolver__CftSolver__) */
