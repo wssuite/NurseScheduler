@@ -19,6 +19,7 @@
 #include <math.h>
 
 using std::vector;
+using std::string;
 
 static const int DEBUG = 1;
 // definitions of multi-dimensional int vector types
@@ -27,6 +28,24 @@ typedef vector<vector<int> > vector2D;
 typedef std::vector<std::vector<std::vector<int> > > vector3D;
 
 namespace Tools{
+
+// Throw an exception with the input message
+//
+void throwError(const char* exceptionMsg);
+
+// Display a debug message
+//
+void debugMsg(const char* debugMsg, int debugLevel);
+
+// Read a file stream until the separating character is met
+//
+bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
+
+// High resolution timer class to profile the performance of the algorithms
+// Warning : the timer class of the stl to not seem to be portable I observed
+// problems on windows for instance and it requires some precompiler
+// instructions to work on mac
+//
 class Timer
 {
 public:
@@ -41,7 +60,7 @@ private:
 	timespec cpuSinceStart_;
 	timespec cpuSinceInit_;
 
-	int coStop_;
+	int coStop_;	//number of times the timer was stopped
 	bool isInit_;
 	bool isStarted_;
 	bool isStopped_;
@@ -52,11 +71,83 @@ public:
 	void start();
 	void stop();
 
+	// get the time spent since the initialization of the timer and since the last
+	// time it was started
+	//
 	const double dSinceInit();
 	const double dSinceStart();
 
 };
 
+// Instantiate an obect of this class to write directly in the attribute log
+// file.
+// The class can be initialized with an arbitrary width if all the outputs must
+// have the same minimum width. Precision can be set to force a maximum width
+// as far as floating numbers are concerned.
+//
+class LogOutput
+{
+private:
+	std::fstream logStream_;
+  bool isFormatted_;
+	int width_;
+
+public:
+	LogOutput(string logName):width_(0) {
+		logStream_.open(logName.c_str(), std::fstream::out);
+	}
+	LogOutput(string logName, int width):width_(width){
+		logStream_.open(logName.c_str(), std::fstream::out);
+	}
+
+	~LogOutput() {logStream_.close();}
+
+	// switch from unformatted to formatted inputs and reversely
+	//
+	void switchToFormatted(int width) {
+		width_ = width;
+	}
+	void switchToUnformatted() {
+		width_=0;
+	}
+
+	// set flags in the log stream
+	//
+	void setFlags(std::ios_base::fmtflags flag) {logStream_.flags(flag);}
+
+	// modify the precision used to write in the stream
+	//
+	void setPrecision(int precision) {logStream_.precision(precision);}
+
+	// redefine the output function
+	//
+	template<typename T>
+	LogOutput& operator<<(const T& output)
+	{
+		logStream_.width(width_);
+		logStream_ << output;
+
+		return *this;
+	}
+
+	// write in the command window as well as in the log file
+	//
+	template<typename T>
+	void print(const T& output) {
+		logStream_ << output;
+		std::cout << output;
+	}
+
+	LogOutput& operator<<(std::ostream& (*func)(std::ostream&)) {
+
+		func(logStream_);
+		return *this;
+	}
+};
+
+// Can be used to create an output stream that writes with a
+// constant width in all future calls of << operator
+//
 class FormattedOutput
 {
 private:
@@ -81,115 +172,6 @@ public:
 		return *this;
 	}
 };
-
-// structure for a segment of R
-//
-struct Seg {
-  double ini, end;
-
-  // constructor
-  Seg(): ini(1.0), end(-1.0) {};
-  Seg (double d1, double d2): ini(d1), end(d2) {}
-  Seg (Seg const &seg): ini(seg.ini), end(seg.end) {}
-
-  // set the value of a segment
-  void setSeg(Seg seg) {
-    ini = seg.ini;
-    end = seg.end;
-  }
-  void set(double dIni, double dEnd)  {
-    ini = dIni;
-    end = dEnd;
-  }
-
-  // union and intersection with another segment
-  //
-  void interSeg(Seg const& seg, Seg &segInter);
-  void unionSeg(Seg const& seg, Seg &segUnion1, Seg &segUnion2);
-
-  // test whether the segment in attribute is empty
-  bool empty() const {return ini > end;}
-};
-
-
-
-// structure for an interval formed by a union of segments of R
-//
-struct Interval {
-  int coSeg;
-  std::vector<Seg> vSeg;
-
-  // constructor/destructor
-  Interval (): coSeg(0) {}
-  ~Interval () {
-    vSeg.clear();
-  }
-
-  // add a segment at the end of the interval
-  //
-  void addSeg(Seg const &seg) {
-    vSeg.push_back(seg);
-    coSeg++;
-  }
-
-  // remove the last segment of the interval
-  //
-  void removeLastSeg() {
-    vSeg.pop_back();
-    coSeg--;
-  }
-
-  // copy the content of an interval
-  //
-  void copy(Interval const &interval);
-
-  // clear the content of the interval
-  //
-  void clear()  {
-    coSeg = 0;
-    vSeg.clear();
-  }
-
-  // union and intersection of a segment with the interval
-  //
-  void interSeg(Seg const &seg, Interval &intervalInter);
-  void unionSeg(Seg const &seg);
-
-  // intersection with another segment (modifies the input interval)
-  //
-  void interInterval(Interval const &interval, Interval &intervalInter);
-
-  // Wrap the interval to [-pi;pi[
-  //
-  void wrapToPi();
-
-};
-
-// norm of a two dimensions vector
-//
-inline double norm(double x, double y)  {return sqrt(pow(x,2) + pow(y,2));}
-
-// Wrap an angle value to the interval [-pi;pi[
-//
-double wrapAnglePi(const double angle);
-
-// Throw an exception with the input message
-//
-void throwError(const char* exceptionMsg);
-
-// Display a debug message
-//
-void debugMsg(const char* debugMsg, int debugLevel);
-
-// Read a file stream until the separating character is met
-//
-bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
-
-// Solve the second degree equation ax^2+bx+c=0
-// Returns true when there is a solution in R and false otherwise
-//
-bool secondDegree(const double &a, const double &b, const double &c,
-                       double& x1, double& x2);
 
 }
 #endif /* defined(__IDSReseau__MyTools__) */
