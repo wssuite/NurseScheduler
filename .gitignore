@@ -1,3 +1,6 @@
 *.log
 *.o
 src/roster
+bin/*
+logfiles/*
+datasets/*
