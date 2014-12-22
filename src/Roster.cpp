@@ -5,19 +5,14 @@
 
 
 // Constructor
-Roster::Roster(Scenario* pScenario, vector<Nurse>* pTheNurses):
-        pScenario_(pScenario), pTheNurses_(pTheNurses){
+//
+Roster::Roster(int nbDays):nbDays_(nbDays){
 
-	// Known attributes initializede from args
-	//
-	nbShifts_ = pScenario->nbShifts_;
-
-	// Others initialized to 0
-	//
-	nbDays_ = 0;
-	totalCostUnderStaffing_ = 0;
-
-}
+  // initialize the roster with a rest week
+  for (int i = 0; i < nbDays; i++) {
+    tasks_.push_back(std::pair<int,int> (0,0));
+  }
+};
 
 // Destructor
 Roster::~Roster(){}

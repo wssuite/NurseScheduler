@@ -155,6 +155,50 @@ string Preferences::toString(){
 }
 
 
+//-----------------------------------------------------------------------------
+//
+//	C l a s s  D e m a n d
+//
+// All the information relative to a particular demand
+//
+//-----------------------------------------------------------------------------
+
+// constructor and destructor
+//
+Demand::Demand(int nbDays, int nbShifts, int nbSkills,
+	vector3D minDemand, vector3D optDemand):
+		nbDays_(nbDays), nbShifts_(nbShifts), nbSkills_(nbSkills),
+		minDemand_(minDemand), optDemand_(optDemand),
+		minTotal_(0), optTotal_(0)
+		{
+			// initialize the preprocessed vectors 
+			this->preprocessDemand();
+		}
+
+Demand::~Demand()
+{}
+
+// compute all the potentially helpful attributes of a demand
+// this includes the total demand per skill, per shift,
+//
+void Demand::preprocessDemand() {
+	for (int day = 0; day < nbDays_; day++)	{
+		for (int shift = 0; shift < nbShifts_; shift++) {
+			for (int skill = 0; skill < nbSkills_; skill++)	{
+				// update the total demand
+				minTotal_ += minDemand_[day][shift][skill];
+				optTotal_ += optDemand_[day][shift][skill];
+
+				// update the demand per day
+				minPerDay_[day] +=
+
+
+			}
+		}
+	}
+}
+
+
 
 //-----------------------------------------------------------------------------
 //
@@ -199,22 +243,3 @@ Nurse& Nurse::operator=(const Nurse& n){
 	Nurse * n2 = new Nurse(id, name, nbSkills, skills, contract);
 	return *n2;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

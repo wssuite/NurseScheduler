@@ -1,8 +1,8 @@
 /*
  * Solver.h
  *
- *  Created on: 18 déc. 2014
- *      Author: samuel
+ *  Created on: 22 déc. 2014
+ *      Author: jeremy
  */
 
 #ifndef SOLVER_H_
@@ -30,32 +30,51 @@ class Solver{
 public:
 
 	// Generic constructor and destructor
-	Solver();
+	Solver() {}
 	virtual ~Solver();
 
 	// Specific constructor
-	Solver(Scenario* pScenario, vector<Nurse>* pTheNurses) :
-		pScenario_(pScenario), pTheNurses_(pTheNurses){
-	};
+	Solver(Scenario* pScenario, vector<Nurse>* pTheNurses, int nbDays_,
+		vector3D* pMinDemand, vector3D* pOptDemand, Preferences* pPreferences,
+		vector<State>* pInitState_);
 
 	// Main method to solve the rostering problem for a given input
-	virtual Roster solve(SolverInput input) = 0;
+	virtual void solve(SolverInput input) = 0;
 
 // Should be protected (and not private) because Solver will have subclasses
 protected:
 
-   // pointer to the Scenario under consideration
-   //
-   Scenario* pScenario_;
+	//-----------------------------------------------------------------------------
+	// Inputs of the solver: they are all recorded as pointers
+	//-----------------------------------------------------------------------------
 
-   // pointer to the vector of nurses
-   //
-   vector<Nurse>* pTheNurses_;
+	// Recall the "const" attributes as pointers : Nurses and Scenario informations
+	//
+	Scenario* pScenario_;
+	vector<Nurse>* pTheNurses_;
 
-   // roster that shall be returned in the end of the solve function.
-   // inserted here as an attribute in case it should iteratively be modified during the algorithm (easier to store as an attribute)
-   //
-   Roster currentRoster_;
+	// Minimum and optimum demand for each day, shift and skill
+	//
+	int nbDays_;
+	vector3D* pMinDemand_, pOptDemand_;
+
+	// Preferences of the nurses (that vector must be of same length and in the
+	// same order as the nurses)
+	//
+	Preferences* pPreferences_;
+
+	// pointer to the state of each nurse at the beginning of the time horizon
+	//
+	vector<State>* pInitState_;
+
+	//-----------------------------------------------------------------------------
+	// Outputs of the solver
+	//-----------------------------------------------------------------------------
+
+	// a solution is a vector of rosters, one for each nurse
+	// it is recorded in a vector (roster i in the vector corresponds to nurse i)
+	//
+	vector<Roster> solution_;
 
 };
 

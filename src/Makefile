@@ -7,7 +7,7 @@ LIBFORMAT = static_pic
 
 CXX		= g++
 #CXXFLAGS	= -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD $(INCLUDESFLAGS)
-CXXFLAGS	= -g -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD #$(INCLUDESFLAGS)
+CXXFLAGS	= -g -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD -std=c++11#$(INCLUDESFLAGS)
 OBJECTS		= MyTools.o Nurse.o Scenario.o ReadWrite.o main.o
 TARGET		= ../bin/roster
 

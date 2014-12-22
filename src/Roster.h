@@ -3,8 +3,8 @@
 //  RosterDesNurses
 //
 
-#ifndef __Roster__
-#define __Roster__
+#ifndef __Solver__
+#define __Solver__
 
 #include <iostream>
 #include <string>
@@ -14,6 +14,7 @@
 #include "MyTools.h"
 #include "Scenario.h"
 #include "Nurse.h"
+#include "Roster.h"
 
 using std::vector;
 
@@ -24,14 +25,58 @@ using std::vector;
 //
 //-----------------------------------------------------------------------------
 struct task {
-   int day;
-   int shift;
-   int skill;
+  int day;
+  int shift;
+  int skill;
 };
 
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   R o s t e r
+//
+//  Schedule of a single nurse
+//
+//-----------------------------------------------------------------------------
+
+class Roster{
+
+public:
+
+  // Constructor and destructor
+  //
+  Roster(int nbDays);
+  ~Roster();
+
+private:
+
+  // number of days in the roster
+  //
+  int nbDays_;
+
+  // pointer to the nurse under consideration
+  //
+  Nurse* pNurse_;
+
+  // vector containing for each day the assignment of the nurse
+  // the size is exactly the number of days of the roster
+  //
+  vector<std::pair<int, int>> tasks_;
+
+  // vector containing for each day the state of the nurse
+  // the size is the number of days of the roster plus one, since the initial
+  // and the final states are of importance
+  //
+  vector<State> states_;
+
+public:
+
+  // assign a task and update the states of the nurse
+
+};
+
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   S o l u t i o n
 //
 //  Overall schedule for all the nurses
 //  Necessary to check the linking constraints on multiple nurses (insufficient
@@ -39,64 +84,62 @@ struct task {
 //
 //-----------------------------------------------------------------------------
 
-class Roster {
+class Solution {
 
-public:
 
-// Constructor and destructor
-//
-Roster(Scenario* pScenario, vector<Nurse>* pTheNurses);
-~Roster();
 
 private:
 
-   // pointer to the Scenario under consideration
-   //
-   Scenario* pScenario_;
+  // pointer to the Scenario under consideration
+  //
+  Scenario* pScenario_;
 
-   // pointer to the vector of nurses
-   //
-   vector<Nurse>* pTheNurses_;
+  // pointer to the vector of nurses
+  //
+  vector<Nurse>* pTheNurses_;
 
-   // number of days and number of shifts per day
-   //
-   int nbShifts_, nbDays_;
+  // number of days and number of shifts per day
+  //
+  int nbShifts_, nbDays_;
 
-   // staffing in the roster : a 3D vector that contains the number of nurses
-   //  for each task (i.e. each triple (day,shift,skill))
-   //
-   vector3D totalStaffing_;
+  // Schedule of each nurse
+  //
+  vector<task> schedule;
 
-   // total cost under-staffing cost and under staffing cost for task
-   //
-   int totalCostUnderStaffing_;
-   vector3D costUnderStaffing_;
+  // staffing in the roster : a 3D vector that contains the number of nurses
+  //  for each task (i.e. each triple (day,shift,skill))
+  //
+  vector3D totalStaffing_;
+
+  // total cost under-staffing cost and under staffing cost for task
+  //
+  int totalCostUnderStaffing_;
+  vector3D costUnderStaffing_;
 
 public:
-   // update the roster by assigning a task to a nurse, removing a task from
-   // the roster, or swapping activity from one removed task to one added task
-   inline void addAssignment(task t) {
-      totalStaffing[t.day][t.shift][t.skill]++;}
-   void removeAssignement(task taskRemoved);
-   void swapAssignement(task taskRemoved, task taskAdded);
+  // update the roster by assigning a task to a nurse, or removing a task from
+  // the schedule of a nurse
+  //
+  void addTask(int nurse, task t);
+  void removeTast(int nurse, task t);
 
-   // compute the constraint violation costs of all the nurses from scratch
-   //  the method computes both costNurse_ and totalCostNurse_
-   void computeNurseCost();
+  // compute the constraint violation costs of all the nurses from scratch
+  //  the method computes both costNurse_ and totalCostNurse_
+  void computeNurseCost();
 
-   // compute the staffing cost of the current planning from scratch
-   // the method computes both costUnderStaffing_ and totalCostUnderStaffing_
-   //
-   void computeStaffingCost();
+  // compute the staffing cost of the current planning from scratch
+  // the method computes both costUnderStaffing_ and totalCostUnderStaffing_
+  //
+  void computeStaffingCost();
 
-   // update the cost of the planning after a simple modification in the roster
-   // dayShiftAdded is the
-   //
-   void updateCost(dayshift dayShiftAdded, dayshift dayShiftRemoved);
+  // update the cost of the planning after a simple modification in the roster
+  // dayShiftAdded is the
+  //
+  void updateCost();
 
-   // Write the solution corresponding to the current roster
-   //
-   void writeSolution(std::string strCustomOutputFile);
+  // Write the solution corresponding to the current roster
+  //
+  void writeSolution(std::string strCustomOutputFile);
 
 };
 

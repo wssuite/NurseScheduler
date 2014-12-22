@@ -29,7 +29,7 @@ using std::vector;
 //  A contract as defined in the subject
 //
 //-----------------------------------------------------------------------------
-struct Contract{
+class Contract{
 
 	// Name of the contract
 	//
@@ -78,7 +78,7 @@ struct Contract{
 //  Describes the current (or initial) state of a nurse at D-day
 //
 //-----------------------------------------------------------------------------
-struct State{
+class State{
 
 	// Index of the day in the planning horizon
 	// WARNING : THE FIRST DAY IS ALWAYS SUPPOSED TO BE A MONDAY !!!!!!!!!!!!!
@@ -131,29 +131,36 @@ struct State{
 //  Each element is a map<int,set<int>> whose keys are the days, and values are the sets of wished shift(s) OFF on that day.
 //
 //-----------------------------------------------------------------------------
-struct Preferences{
+class Preferences{
 
-	// Number of nurses
-	//
-	int nbNurses_;
-
-	// Number of days considered in that case
-	//
-	int nbDays_;
-
-	// Total number of possible shifts
-	//
-	int nbShifts_;
-
-	// For each nurse, maps the day to the set of shifts that he/she wants to have off
-	//
-	vector<map<int,set<int> > > wishesOff_;
-
+public:
 	// Constructor and destructor
 	Preferences();
 	~Preferences();
+
 	// Constructor with initialization to a given number of nurses
 	Preferences(int nbNurses, int nbDays, int nbShifts);
+
+public:
+	// Number of nurses
+	//
+	const int nbNurses_;
+
+	// Number of days considered in that case
+	//
+	const int nbDays_;
+
+	// Total number of possible shifts
+	//
+	const int nbShifts_;
+
+private:
+
+	// For each nurse, maps the day to the set of shifts that he/she wants to have off
+	//
+	vector<map<int,std::set<int> > > wishesOff_;
+
+public:
 
 	// For a given day, and a given shift, adds it to the wish-list for OFF-SHIFT
 	void addShiftOff(int nurse, int day, int shift);
@@ -173,6 +180,65 @@ struct Preferences{
     friend std::ostream& operator<< (std::ostream& outs, Preferences obj) {return outs << obj.toString();}
 };
 
+
+//-----------------------------------------------------------------------------
+//
+//	C l a s s  D e m a n d
+//
+// All the information relative to a particular demand
+//
+//-----------------------------------------------------------------------------
+
+class Demand {
+
+public:
+
+	// generic constructor and destructor
+	Demand(int nbDays, int nbShifts, int nbSkills,
+		vector3D minDemand, vector3D optDemand);
+	~Demand();
+
+// constant attributes of the demand
+//
+public:
+
+	// number of days covered by the demand
+	//
+	const int nbDays_, nbShifts_, nbSkills_;
+
+	// minimum and optimal demand for each day, shift and skill
+	//
+	const vector3D minDemand_;
+	const vector3D optDemand_;
+
+// preprocessed attributes aggregating the information of the demand
+//
+public:
+	// total demand in the minimal and optimal demands
+	//
+	int minTotal_, optTotal_;
+
+	// total demand per skill in the minimal and optimal demands
+	//
+	vector<int> minPerSkill_, optPerSkill_;
+
+	// total demand per shift in the minimal and optimal demands
+	//
+	vector<int> minPerShift_, optPerShift_;
+
+	// total demand per day in the minimal and optimal demands
+	//
+	vector<int> minPerDay_, optPerDay_;
+
+	// highest demand
+
+public:
+
+	// compute all the potentially helpful attributes of a demand
+	// this includes the total demand per skill, per shift,
+	void preprocessDemand();
+
+};
 
 
 //-----------------------------------------------------------------------------
@@ -194,9 +260,9 @@ public:
 	//        override it because vector members should have some properties (assignable a.o., which implies
 	//        non-const)
 	//
-	Nurse(int id, string name, int nbSkills, std::vector<int> skills, Contract* contract) :
+	Nurse(int id, string name, int nbSkills, vector<int> skills, Contract* contract) :
 				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){}
-	Nurse(int id, string name, int nbSkills, std::vector<int> skills, const Contract* contract) :
+	Nurse(int id, string name, int nbSkills, vector<int> skills, const Contract* contract) :
 				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){}
 	~Nurse();
 

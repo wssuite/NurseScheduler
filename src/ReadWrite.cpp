@@ -36,7 +36,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	// declare the attributes that will intialize the Scenario instance
 	//
 	string name;
-	int nbWeeks, nbSkills, nbShifts, nbContracts, nbNurses;
+	int nbWeeks=-1, nbSkills=-1, nbShifts=-1, nbContracts=-1, nbNurses=-1;
 	vector<string> intToSkill, intToShift;
 	map<string,int> skillToInt, shiftToInt, nurseNameToInt;
 	vector<int> minConsShifts, maxConsShifts, nbForbiddenSuccessors;
@@ -193,10 +193,16 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 		}
 	}
-	Scenario * scenario  = new Scenario(
-			name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts, intToShift, shiftToInt, minConsShifts, maxConsShifts,
-			nbForbiddenSuccessors, forbiddenSuccessors, nbContracts, contracts, nbNurses, theNurses, nurseNameToInt) ;
-	return scenario;
+
+	// Check that all fields were initialized before initializing the scenario
+	//
+	if ( nbWeeks==-1 || nbSkills==-1 || nbShifts==-1 || nbContracts==-1 || nbNurses==-1 ) {
+		Tools::throwError("In readScenario: missing fields in the initialization");
+	}
+
+	return new Scenario(name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts,
+		intToShift, shiftToInt, minConsShifts, maxConsShifts,	nbForbiddenSuccessors,
+		forbiddenSuccessors, nbContracts, contracts, nbNurses, theNurses, nurseNameToInt) ;
 }
 
 // Read the Week file and store the content in a Scenario instance
