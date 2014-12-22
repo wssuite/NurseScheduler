@@ -46,10 +46,11 @@ void debugMsg(const char* debugMsg, int debugLevel);
 //
 bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 
-// Returns a 2D (or 3D) Vector of the given size (filled only with zeroes)
+// initializes a 1D, 2D or 3D Vector of the given size (filled only with zeroes)
 //
-vector2D initVector2D(int m, int n);
-vector3D initVector3D(int m, int n, int p);
+void initVector(vector<int>* v1D, int m);
+void initVector2D(vector2D* v2D, int m, int n);
+void initVector3D(vector3D* v3D, int m, int n, int p);
 
 // To get the day from its id and vice-versa
 // First day is always supposed to be a Monday

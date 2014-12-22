@@ -247,8 +247,8 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 			string shiftName, skillName;
 			int shiftId, skillId;
 			// init the vectors
-			minWeekDemand = Tools::initVector3D(7, pScenario->nbShifts_, pScenario->nbSkills_);
-			optWeekDemand = Tools::initVector3D(7, pScenario->nbShifts_, pScenario->nbSkills_);
+			Tools::initVector3D(&minWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_);
+			Tools::initVector3D(&optWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_);
 
 			// Do not take the rest shift into account here (by initialization, requirements already at 0
 			for(int i=1; i<pScenario->nbShifts_; i++){
@@ -298,10 +298,13 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 		}
 	}
 
+	// Define a new instance of demand
+	Demand* pDemand = new Demand(7, pScenario->nbShifts_,pScenario->nbSkills_,
+	minWeekDemand, optWeekDemand);
+
 	// Now, add all these objects to the Scenario
 	pScenario->setWeekName(weekName);
-	pScenario->setMinWeekDemand(minWeekDemand);
-	pScenario->setOptWeekDemand(optWeekDemand);
+	pScenario->setWeekDemand(pDemand);
 	pScenario->setTNbShiftOffRequests(nbShiftOffRequests);
 	pScenario->setWeekPreferences(weekPreferences);
 

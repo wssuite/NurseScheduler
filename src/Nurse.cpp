@@ -83,10 +83,9 @@ string State::toString(){
 //
 //-----------------------------------------------------------------------------
 
-// Void constructor
-Preferences::Preferences(){}
 
-// Destructor
+// Default constructor and destructor
+Preferences::Preferences(){}
 Preferences::~Preferences(){}
 
 // Initialization with an vector or size nNurses with no wished Shift-Off.
@@ -171,7 +170,17 @@ Demand::Demand(int nbDays, int nbShifts, int nbSkills,
 		minDemand_(minDemand), optDemand_(optDemand),
 		minTotal_(0), optTotal_(0)
 		{
-			// initialize the preprocessed vectors 
+			// initialize the preprocessed vectors
+			Tools::initVector(&minPerDay_, nbDays_);
+			Tools::initVector(&optPerDay_, nbDays_);
+			Tools::initVector(&minPerShift_, nbShifts_);
+			Tools::initVector(&optPerShift_, nbShifts_);
+			Tools::initVector(&minPerSkill_, nbSkills_);
+			Tools::initVector(&optPerSkill_, nbSkills_);
+			Tools::initVector(&minHighestPerSkill_, nbSkills_);
+			Tools::initVector(&optHighestPerSkill_, nbSkills_);
+
+			// run the preprocessing
 			this->preprocessDemand();
 		}
 
@@ -190,9 +199,22 @@ void Demand::preprocessDemand() {
 				optTotal_ += optDemand_[day][shift][skill];
 
 				// update the demand per day
-				minPerDay_[day] +=
+				minPerDay_[day] += minDemand_[day][shift][skill];
+				optPerDay_[day] += optDemand_[day][shift][skill];
 
+				// update the demand per shift
+				minPerShift_[shift] += minDemand_[day][shift][skill];
+				optPerShift_[shift] += optDemand_[day][shift][skill];
 
+				// update the demand per skill
+				minPerSkill_[skill] += minDemand_[day][shift][skill];
+				optPerSkill_[skill] += optDemand_[day][shift][skill];
+
+				// update the demand per day
+				minHighestPerSkill_[skill] +=
+					std::max(minDemand_[day][shift][skill],minHighestPerSkill_[skill]);
+				optHighestPerSkill_[skill] +=
+					std::max(optDemand_[day][shift][skill],optHighestPerSkill_[skill]);
 			}
 		}
 	}

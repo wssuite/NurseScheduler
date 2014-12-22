@@ -71,30 +71,32 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 	return true;
 }
 
-
-// Returns a vector2D of the given size (filled only with zeroes)
+// Initializes  a vector of the given size (filled only with zeroes)
 //
-vector2D initVector2D(int m, int n){
-	vector2D rep;
+void initVector(vector<int>* v1D, int m){
+		for(int i=0; i < m; i++){
+			v1D->push_back(0);
+		}
+}
+
+// initializes a vector2D of the given size (filled only with zeroes)
+//
+void initVector2D(vector2D* v2D, int m, int n){
 	for (int i=0; i<m; i++){
 		vector<int> v;
-		for(int j=0; j<n; j++){
-			v.push_back(0);
-		}
-		rep.push_back(v);
+		initVector(&v, n);
+		v2D->push_back(v);
 	}
-	return rep;
 }
 
 // Returns a vector3D of the given size (filled only with zeroes)
 //
-vector3D initVector3D(int m, int n, int p){
-	vector3D rep;
+void initVector3D(vector3D* v3D, int m, int n, int p){
 	for (int i=0; i<m; i++){
-		vector2D vv = initVector2D(n,p);
-		rep.push_back(vv);
+		vector2D v2D;
+		initVector2D(&v2D, n,p);
+		v3D->push_back(v2D);
 	}
-	return rep;
 }
 
 // To get the day from its id and vice-versa

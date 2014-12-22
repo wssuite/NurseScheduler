@@ -123,8 +123,8 @@ private:
 	string weekName_;
 	// Current week demand for each DAY, SHIFT, and SKILL
 	//
-	vector3D minWeekDemand_;
-	vector3D optWeekDemand_;
+	Demand* pWeekDemand_;
+
 	// Shift off requests : Preferences for each nurse : which (day,shift) do they want off ?
 	//
 	int nbShiftOffRequests_;
@@ -189,8 +189,7 @@ public:
 	// When reading the week file (Demand and preferences
 	//
 	inline void setWeekName(string weekName){ weekName_ = weekName;}
-	inline void setMinWeekDemand(vector3D minWeekDemand){ minWeekDemand_ = minWeekDemand; }
-	inline void setOptWeekDemand(vector3D optWeekDemand){ optWeekDemand_ = optWeekDemand; }
+	inline void setWeekDemand(Demand* pDemand) {pWeekDemand_ = pDemand;}
 	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
 	inline void setWeekPreferences(Preferences weekPreferences){ weekPreferences_ = weekPreferences; }
 

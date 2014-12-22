@@ -17,41 +17,6 @@
 
 //-----------------------------------------------------------------------------
 //
-//	C l a s s  D e m a n d
-//
-// All the information relative to a particular demand
-//
-//-----------------------------------------------------------------------------
-
-class Demand {
-
-public:
-
-	// generic constructor and destructor
-	Demand(int nbDays, vector3D minDemand, vector3D optDemand);
-	~Demand();
-
-private:
-
-	// number of days covered by the demand
-	//
-	const int nbDays_;
-
-	// minimum and optimal demand for each day, shift and skill
-	//
-	const vector3D minDemand_;
-	const vector3D optDemand_;
-
-public:
-
-	// compute all the potentially helpful attributes of a demand
-	// this includes the total demand per skill, per shift,
-	void preprocessDemand();
-
-};
-
-//-----------------------------------------------------------------------------
-//
 //  C l a s s   S o l v e r I n p u t
 //
 //  All the information to make an instance

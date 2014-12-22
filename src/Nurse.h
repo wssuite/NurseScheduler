@@ -31,6 +31,7 @@ using std::vector;
 //-----------------------------------------------------------------------------
 class Contract{
 
+public:
 	// Name of the contract
 	//
 	const string name_;
@@ -41,33 +42,33 @@ class Contract{
 
 	// Minimum and maximum number of consecutive days worked
 	//
-    const int minConsDaysWork_, maxConsDaysWork_;
+  const int minConsDaysWork_, maxConsDaysWork_;
 
-    // Minimum and maximum number of consecutive days off
-    //
-    const int minConsDaysOff_, maxConsDaysOff_;
+  // Minimum and maximum number of consecutive days off
+  //
+  const int minConsDaysOff_, maxConsDaysOff_;
 
-    // Maximum number of weekends worked, and complete weekend constraint
-    //
-    const int maxTotalWeekends_;
-    const int isCompleteWeekends_;
+  // Maximum number of weekends worked, and complete weekend constraint
+  //
+  const int maxTotalWeekends_;
+  const int isCompleteWeekends_;
 
-    // Constructor and Destructor
-    //
-    Contract(string name, int minTotalShifts, int maxTotalShifts,
-    		int minConsDaysWork, int maxConsDaysWork,
-    		int minConsDaysOff, int maxConsDaysOff,
-    		int maxTotalWeekends, int isCompleteWeekends) :
-    			name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
-    			minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
-    			minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
-    			maxTotalWeekends_(maxTotalWeekends), isCompleteWeekends_(isCompleteWeekends) {
-    };
+  // Constructor and Destructor
+  //
+  Contract(string name, int minTotalShifts, int maxTotalShifts,
+  		int minConsDaysWork, int maxConsDaysWork,
+  		int minConsDaysOff, int maxConsDaysOff,
+  		int maxTotalWeekends, int isCompleteWeekends) :
+  			name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
+  			minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
+  			minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
+  			maxTotalWeekends_(maxTotalWeekends), isCompleteWeekends_(isCompleteWeekends) {
+  };
 
-    // Display methods: toString + override operator<< (easier)
-    //
-    string toString();
-    friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
+  // Display methods: toString + override operator<< (easier)
+  //
+  string toString();
+  friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
 };
 
 
@@ -80,6 +81,7 @@ class Contract{
 //-----------------------------------------------------------------------------
 class State{
 
+public:
 	// Index of the day in the planning horizon
 	// WARNING : THE FIRST DAY IS ALWAYS SUPPOSED TO BE A MONDAY !!!!!!!!!!!!!
 	//           If it may not be the case, the code should be modified, namely when counting the weekends worked
@@ -99,6 +101,7 @@ class State{
 	//
 	int shift_;
 
+public:
 	// Constructor and Destructor
 	State();
 	~State();
@@ -144,17 +147,15 @@ public:
 public:
 	// Number of nurses
 	//
-	const int nbNurses_;
+	int nbNurses_;
 
 	// Number of days considered in that case
 	//
-	const int nbDays_;
+	int nbDays_;
 
 	// Total number of possible shifts
 	//
-	const int nbShifts_;
-
-private:
+	int nbShifts_;
 
 	// For each nurse, maps the day to the set of shifts that he/she wants to have off
 	//
@@ -230,7 +231,9 @@ public:
 	//
 	vector<int> minPerDay_, optPerDay_;
 
-	// highest demand
+	// highest demands per skill over the considered period
+	//
+	vector<int> minHighestPerSkill_, optHighestPerSkill_;
 
 public:
 
