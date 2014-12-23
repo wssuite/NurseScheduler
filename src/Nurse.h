@@ -95,7 +95,7 @@ public:
 	// number of consecutive days worked ending at D, and of consecutive days worked on the same shift ending at D (including RESTSHIFT = 0)
 	// and shift worked on D-Day.
 	//
-	int consDaysWorked_, consShifts_;
+	int consDaysWorked_, consShifts_, consDaysOff_;
 
 	// Type of shift worked on D-Day. It can be a rest shift (=0).
 	//
@@ -108,13 +108,20 @@ public:
 
 	// Constructor with attributes
 	State(int dayId, int totalDaysWorked, int totalWeekendsWorked,
-			int consDaysWorked, int consShifts, int shift) :
+			int consDaysWorked, int consShifts, int consDaysOff, int shift) :
 				dayId_(dayId), totalDaysWorked_(totalDaysWorked), totalWeekendsWorked_(totalWeekendsWorked),
-				consDaysWorked_(consDaysWorked), consShifts_(consShifts), shift_(shift){};
+				consDaysWorked_(consDaysWorked), consShifts_(consShifts),
+				consDaysOff_(consDaysOff), shift_(shift){};
 
 	// Function that appends a new day worked on a given shift to the previous ones
 	//
 	void addNewDay(int newShift);
+
+	// Function that appends a new day worked on a given shift to an input state
+	// to update this state
+	//
+	void addDayToState(const State& prevState, int newShift);
+
 
 
     // Display methods: toString + override operator<< (easier)

@@ -14,6 +14,7 @@
 #include "Nurse.h"
 
 Scenario::~Scenario(){
+	delete pWeekDemand_;
 
 }
 
@@ -71,7 +72,7 @@ string Scenario::toString(){
 				rep << s;
 				if(s.length() < 16) rep << "\t";
 				for(int day = 0; day < 7; day ++){
-					rep << "\t(" << minWeekDemand_[day][sh][sk] << "," << optWeekDemand_[day][sh][sk] << ")";
+					rep << "\t(" << pWeekDemand_->minDemand_[day][sh][sk] << "," << pWeekDemand_->optDemand_[day][sh][sk] << ")";
 				}
 				rep << std::endl;
 			}
@@ -113,4 +114,3 @@ string Scenario::toString(){
 	rep << "############################################################################" << std::endl;
 	return rep.str();
 }
-

@@ -55,8 +55,7 @@ protected:
 
 	// Minimum and optimum demand for each day, shift and skill
 	//
-	int nbDays_;
-	vector3D* pMinDemand_, pOptDemand_;
+	Demand *pDemand_;
 
 	// Preferences of the nurses (that vector must be of same length and in the
 	// same order as the nurses)
@@ -75,6 +74,19 @@ protected:
 	// it is recorded in a vector (roster i in the vector corresponds to nurse i)
 	//
 	vector<Roster> solution_;
+
+	// staffing in the solution : a 3D vector that contains the number of nurses
+	//  for each triple (day,shift,skill)
+	//
+	vector3D totalStaffing_;
+
+	// total cost under-staffing cost and under staffing cost for each triple
+	// (day,shift,skill)
+	//
+	int totalCostUnderStaffing_;
+	vector3D costUnderStaffing_;
+
+public:
 
 };
 

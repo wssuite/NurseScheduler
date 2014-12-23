@@ -42,13 +42,16 @@ State::~State(){}
 // Updates the state if a new day is worked on shift newShift
 void State::addNewDay(int newShift){
 
+	// increment the day index
+	dayId_++;
+
 	// Total shifts worked if it is a worked day
 	totalDaysWorked_ += (newShift ? 1 : 0);
 
 	// Total weekends worked :
 	// +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
 	if( newShift and
-			( (dayId_/7==4) or ((dayId_/7==5) and !shift_)))
+			( (dayId_%7==5) or ((dayId_%7==6) and !shift_)))
 		totalWeekendsWorked_ ++;
 
 	// Consecutives : +1 iff it is the same as the previous one
@@ -59,9 +62,37 @@ void State::addNewDay(int newShift){
 
 	// Current shift worked : updated with the new one
 	shift_ = newShift;
+}
 
-	// Finally, the day index
-	dayId_++;
+// Function that appends a new day worked on a given shift to an input state
+// to update this state
+//
+void State::addDayToState(const State& prevState, int newShift)	{
+
+	// increment the day index
+	dayId_ = prevState.dayId_+1;
+
+	// Total shifts worked if it is a worked day
+	totalDaysWorked_ = prevState.totalDaysWorked_+(newShift ? 1 : 0);
+
+	// Total weekends worked :
+	// +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
+	if( newShift and
+		( (dayId_%7==5) or ((dayId_%7==6) and !prevState.shift_)))
+		totalWeekendsWorked_ ++;
+
+	// Consecutives : +1 iff it is the same as the previous one
+	consShifts_ = (newShift==prevState.shift_) ? (prevState.consShifts_ + 1) : 1;
+
+	// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
+	consDaysWorked_ = prevState.shift_ ? (prevState.consDaysWorked_ + 1) : 0;
+
+	// Consecutive Days off : +1 if the new one is off (==0), 0 if it is worked (!=0)
+	consDaysOff_ = prevState.shift_ ? 0 : (prevState.consDaysOff_ + 1);
+
+	// Current shift worked : updated with the new one
+	shift_ = newShift;
+
 }
 
 // Display method: toString

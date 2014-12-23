@@ -368,7 +368,8 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 				file >> consRest;
 
 				consShifts = (shiftId == 0) ? consRest : consShiftWorked;
-				State nurseState (-1, totalDaysWorked, totalWeekendsWorked, consDaysWorked, consShifts, shiftId);
+				State nurseState (-1, totalDaysWorked, totalWeekendsWorked,
+					consDaysWorked, consShifts, consRest, shiftId);
 				initialState.push_back(nurseState);
 			}
 		}

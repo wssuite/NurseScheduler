@@ -24,11 +24,7 @@ using std::vector;
 // a task is a shift performed on a given day with a given skill
 //
 //-----------------------------------------------------------------------------
-struct task {
-  int day;
-  int shift;
-  int skill;
-};
+typedef struct {int shift; int skill;} task;
 
 //-----------------------------------------------------------------------------
 //
@@ -42,25 +38,38 @@ class Roster{
 
 public:
 
-  // Constructor and destructor
+  // Constructor form no particular planning
   //
-  Roster(int nbDays);
+  Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
+  std::map<int,std::set<int>>* pWishesOff, const State& initialState);
+
+  // Constructor: initialize planning from an input set of tasks for the nurse
+  //
+  Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
+  std::map<int,std::set<int>>* pWishesOff, const State& initialState,
+  vector<task> inputTasks);
+
+  // Destructor
   ~Roster();
 
 private:
 
-  // number of days in the roster
+  // number of days in the roster and index of the first day
   //
-  int nbDays_;
+  int nbDays_, firstDay_;
 
-  // pointer to the nurse under consideration
+  // pointer to the scenario, the nurse under consideration and her wishes in
+  // terms of days off
+  // (the key of the map is the day and the value is the set of wishes)
   //
+  const Scenario* pScenario_;
   Nurse* pNurse_;
+  std::map<int,std::set<int>>* pWishesOff_;
 
-  // vector containing for each day the assignment of the nurse
+  // vector containing for each day the assignment (shift,skill) of the nurse
   // the size is exactly the number of days of the roster
   //
-  vector<std::pair<int, int>> tasks_;
+  vector<task> tasks_;
 
   // vector containing for each day the state of the nurse
   // the size is the number of days of the roster plus one, since the initial
@@ -68,78 +77,41 @@ private:
   //
   vector<State> states_;
 
-public:
-
-  // assign a task and update the states of the nurse
-
-};
-
-//-----------------------------------------------------------------------------
-//
-//  C l a s s   S o l u t i o n
-//
-//  Overall schedule for all the nurses
-//  Necessary to check the linking constraints on multiple nurses (insufficient
-//  staffing for optimal coverage)
-//
-//-----------------------------------------------------------------------------
-
-class Solution {
-
-
-
-private:
-
-  // pointer to the Scenario under consideration
+  // vectors of booleans that for each day, is equal to 1 if the nurse is about
+  // to go from a working day to a day off or from a day off to a working day
   //
-  Scenario* pScenario_;
+  vector<bool> switchOff_;
 
-  // pointer to the vector of nurses
+  // vectors of booleans that for each day, is equal to 1 if the nurse is about
+  // to take another type of shift
   //
-  vector<Nurse>* pTheNurses_;
+  vector<bool> switchShift_;
 
-  // number of days and number of shifts per day
+  // costs for the violation of soft constraints
   //
-  int nbShifts_, nbDays_;
+  vector<int> costConsDays_; // the same vector also accounts for consecutive days off
+  vector<int> costConsShifts_;
+  vector<int> costPreferences_;
+  vector<int> costCompleteWeekEnd_;
 
-  // Schedule of each nurse
+  // vector of booleans equal to true if the shift assigned on each day
+  // violates the consecutive shift-type succession constraint
   //
-  vector<task> schedule;
-
-  // staffing in the roster : a 3D vector that contains the number of nurses
-  //  for each task (i.e. each triple (day,shift,skill))
-  //
-  vector3D totalStaffing_;
-
-  // total cost under-staffing cost and under staffing cost for task
-  //
-  int totalCostUnderStaffing_;
-  vector3D costUnderStaffing_;
+  vector<bool> violationSuccShifts_; 
 
 public:
-  // update the roster by assigning a task to a nurse, or removing a task from
-  // the schedule of a nurse
+  // assign a task at on a given day and update the states of the nurse
   //
-  void addTask(int nurse, task t);
-  void removeTast(int nurse, task t);
+  void assignTask(task t, int day);
 
-  // compute the constraint violation costs of all the nurses from scratch
-  //  the method computes both costNurse_ and totalCostNurse_
-  void computeNurseCost();
-
-  // compute the staffing cost of the current planning from scratch
-  // the method computes both costUnderStaffing_ and totalCostUnderStaffing_
+  // check the satisfaction of the hard constraints and record the violations
   //
-  void computeStaffingCost();
+  void checkHardConstraints();
 
-  // update the cost of the planning after a simple modification in the roster
-  // dayShiftAdded is the
+  // check the soft constraints and record the costs of the violations and the
+  // remaining margin for the satisfied ones.
   //
-  void updateCost();
-
-  // Write the solution corresponding to the current roster
-  //
-  void writeSolution(std::string strCustomOutputFile);
+  void checkSoftConstraints();
 
 };
 
