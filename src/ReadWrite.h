@@ -55,7 +55,7 @@ public:
 
 	// Read the Week file and store the content in a Scenario instance
 	//
-	static void readWeek(std::string strWeekFile, Scenario* pScenario);
+	static Demand* readWeek(std::string strWeekFile, Scenario* pScenario);
 
 
 	// Read the history file

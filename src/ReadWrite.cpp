@@ -207,7 +207,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 // Read the Week file and store the content in a Scenario instance
 //
-void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
+Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << strWeekFile << std::endl;
@@ -307,6 +307,9 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 	pScenario->setWeekDemand(pDemand);
 	pScenario->setTNbShiftOffRequests(nbShiftOffRequests);
 	pScenario->setWeekPreferences(weekPreferences);
+
+	// return the demand
+	return pDemand;
 
 }
 

@@ -115,7 +115,7 @@ public:
 	map<string,int> nurseNameToInt_;
 
 
-private:
+public:
 	//------------------------------------------------
 	// From the Week data file
 	//------------------------------------------------

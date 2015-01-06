@@ -210,6 +210,10 @@ public:
 //
 public:
 
+	// name of the demand
+	//
+	std::string name_;
+
 	// number of days covered by the demand
 	//
 	const int nbDays_, nbShifts_, nbSkills_;
@@ -247,6 +251,10 @@ public:
 	// compute all the potentially helpful attributes of a demand
 	// this includes the total demand per skill, per shift,
 	void preprocessDemand();
+
+	// write the preprocessed information in the input stream
+	//
+	void displayPreprocess(Tools::LogOutput* outs);
 
 };
 

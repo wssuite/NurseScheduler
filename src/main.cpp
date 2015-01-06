@@ -18,31 +18,28 @@ void testFunction_Antoine(){
 
 // Function for testing parts of the code (Jeremy)
 void testFunction_Jeremy(){
-	Tools::Timer* timertest = new Tools::Timer();
 
-	timertest->init();
-	timertest->start();
+	// Time the complete execution of the algorithm
+	Tools::Timer* timertotal = new Tools::Timer();
+	timertotal->init();
+	timertotal->start();
 
-	double x;
-	for (int i = 0; i < 100000000;i++) 	{
-	 x = 1005*190;
-	}
-
-	timertest->stop();
-
+	// Create a log file
 	string logFile = "../logfiles/test.log";
 	Tools::LogOutput logStream(logFile);
 
-	logStream << "Total time spent in the algorithm : ";
+	// Read the input data from files
+	Scenario* pScen = ReadWrite::readScenario("../datasets/n030w4/Sc-n030w4.txt");
+	Demand* pWeekDemand = ReadWrite::readWeek("../datasets/n030w4/WD-n030w4-1.txt", pScen);
+	ReadWrite::readHistory("../datasets/n030w4/H0-n030w4-0.txt",pScen);
 
-	logStream.switchToFormatted(25);
-	logStream << timertest->dSinceInit();
+	// logStream << *pScen << std::endl;
+	pWeekDemand->displayPreprocess(&logStream);
 
-	logStream.switchToUnformatted();
-	logStream << " seconds" << std::endl;
-
+	// Display the total time spent in the algorithm
+	timertotal->stop();
 	logStream.print("Total time spent in the algorithm : ");
-	logStream.print(timertest->dSinceInit());
+	logStream.print(timertotal->dSinceInit());
 	logStream.print("\n");
 }
 
@@ -54,7 +51,7 @@ void testFunction_Samuel(){
 	timertest->start();
 
 	Scenario * s = ReadWrite::readScenario("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/Sc-n030w4.txt");
-	ReadWrite::readWeek("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/WD-n030w4-1.txt",s);
+	Demand* pWeekDemand = ReadWrite::readWeek("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/WD-n030w4-1.txt",s);
 	ReadWrite::readHistory("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/H0-n030w4-0.txt",s);
 
 	timertest->stop();
@@ -62,7 +59,7 @@ void testFunction_Samuel(){
 	string logFile = "../logfiles/samuel_test.log";
 	Tools::LogOutput logStream(logFile);
 
-	logStream << *s << std::endl;;
+	logStream << *s << std::endl;
 	logStream.print("Total time spent in the algorithm : ");
 	logStream.print(timertest->dSinceInit());
 	logStream.print("\n");
@@ -73,8 +70,8 @@ int main(int argc, char** argv)
 {
 
 	// Tests functions to check the functions one by one
-	testFunction_Antoine();
+	// testFunction_Antoine();
 	testFunction_Jeremy();
-	testFunction_Samuel();
+	// testFunction_Samuel();
 
 }
