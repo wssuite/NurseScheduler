@@ -103,7 +103,7 @@ public:
 
 public:
 	// Constructor and Destructor
-	State();
+	State() {}
 	~State();
 
 	// Constructor with attributes

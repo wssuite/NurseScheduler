@@ -7,13 +7,14 @@
 // Constructor: initialize planning from nothing
 //
 Roster::Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
-  std::map<int,std::set<int>>* pWishesOff, const State& initialState):
+  std::map<int,std::set<int> >* pWishesOff, const State& initialState):
     nbDays_(nbDays), firstDay_(firstDay),
     pScenario_(pScenario), pNurse_(pNurse), pWishesOff_(pWishesOff) {
 
   // initialize the roster with a rest week
   for (int i = 0; i < nbDays; i++) {
-    tasks_.push_back({0,0});
+    task t = {0,0};
+    tasks_.push_back(t);
   }
 
   // initialize the states at each day
@@ -36,7 +37,7 @@ Roster::Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
 // Constructor: initialize planning from an input set of tasks for the nurse
 //
 Roster::Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
-std::map<int,std::set<int>>* pWishesOff, const State& initialState,
+std::map<int,std::set<int> >* pWishesOff, const State& initialState,
 vector<task> inputTasks):
 nbDays_(nbDays), firstDay_(firstDay), pScenario_(pScenario),
 pNurse_(pNurse), pWishesOff_(pWishesOff), tasks_(inputTasks) {

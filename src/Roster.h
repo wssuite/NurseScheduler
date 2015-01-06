@@ -41,12 +41,12 @@ public:
   // Constructor form no particular planning
   //
   Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
-  std::map<int,std::set<int>>* pWishesOff, const State& initialState);
+  std::map< int,std::set<int> >* pWishesOff, const State& initialState);
 
   // Constructor: initialize planning from an input set of tasks for the nurse
   //
   Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
-  std::map<int,std::set<int>>* pWishesOff, const State& initialState,
+  std::map< int,std::set<int> >* pWishesOff, const State& initialState,
   vector<task> inputTasks);
 
   // Destructor
@@ -64,7 +64,7 @@ private:
   //
   const Scenario* pScenario_;
   Nurse* pNurse_;
-  std::map<int,std::set<int>>* pWishesOff_;
+  std::map< int,std::set<int> >* pWishesOff_;
 
   // vector containing for each day the assignment (shift,skill) of the nurse
   // the size is exactly the number of days of the roster
@@ -97,7 +97,7 @@ private:
   // vector of booleans equal to true if the shift assigned on each day
   // violates the consecutive shift-type succession constraint
   //
-  vector<bool> violationSuccShifts_; 
+  vector<bool> violationSuccShifts_;
 
 public:
   // assign a task at on a given day and update the states of the nurse

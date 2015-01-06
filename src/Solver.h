@@ -34,9 +34,8 @@ public:
 	virtual ~Solver();
 
 	// Specific constructor
-	Solver(Scenario* pScenario, vector<Nurse>* pTheNurses, int nbDays_,
-		vector3D* pMinDemand, vector3D* pOptDemand, Preferences* pPreferences,
-		vector<State>* pInitState_);
+	Solver(Scenario* pScenario, vector<Nurse>* pTheNurses, Demand* pDemand,
+	Preferences* pPreferences, vector<State>* pInitState);
 
 	// Main method to solve the rostering problem for a given input
 	virtual void solve(SolverInput input) = 0;
