@@ -155,7 +155,8 @@ public:
 	int nbWeeks() {return nbWeeks_;}
 	int thisWeek() {return thisWeek_;}
 	string weekName() {return weekName_;}
-
+	Preferences* pWeekPreferences() {return &weekPreferences_;}
+	vector<State>* pInitialState() {return &initialState_;}
 
 	// getters for the attributes of the nurses
 	//
@@ -184,6 +185,7 @@ public:
 		return theNurses_[whichNurse].isCompleteWeekEnds_;
 	}
 
+
 	// Setters to class attributes
 
 	// When reading the week file (Demand and preferences
@@ -198,15 +200,10 @@ public:
 	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
 	inline void setInitialState(vector<State> initialState){ initialState_ = initialState;}
 
-	// Initialize the attributes of the scenario with the content of the input
-	// file
-	//
-	void readScenario(string fileName);
-
-    // Display methods: toString + override operator<< (easier)
-    //
-    string toString();
-    friend std::ostream& operator<< (std::ostream& outs, Scenario obj) {return outs << obj.toString();}
+  // Display methods: toString + override operator<< (easier)
+  //
+  string toString();
+  friend std::ostream& operator<< (std::ostream& outs, Scenario obj) {return outs << obj.toString();}
 };
 
 

@@ -1,0 +1,16 @@
+##################################################
+Je mets dans ce fichier toutes les actions à faire
+et dont j'ai peur de ne pas me souvenir.
+Lorsqu'une action est faite, il faut la mettre 
+entre parenthèses et la déplacer à la fin de la 
+liste.
+##################################################
+
+1) Traquer la segfault dans l'écriture du scénario.
+
+2) Écrire des informations sur la capacité totale des nurses à combler des demandes par jour, shift et skill. Une fonction avancée devrait pouvoir tenir compte les successions impossibles. 
+
+3) Construire une liste de plannings de coût nul pour chaque nurse.
+Pénaliser éventuellement les plannings qui représentent un danger vis-à-vis du nombre total de shifts.
+
+4) Écrire une première heuristique pour construire un planning initial (partir sur quelque chose du type DSATUR). 

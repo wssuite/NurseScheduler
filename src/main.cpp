@@ -9,6 +9,7 @@
 //#include "Scenario.h"
 //#include "Nurse.h"
 #include "ReadWrite.h"
+#include "Solver.h"
 #include "MyTools.h"
 
 // Function for testing parts of the code (Antoine)
@@ -33,8 +34,21 @@ void testFunction_Jeremy(){
 	Demand* pWeekDemand = ReadWrite::readWeek("../datasets/n030w4/WD-n030w4-1.txt", pScen);
 	ReadWrite::readHistory("../datasets/n030w4/H0-n030w4-0.txt",pScen);
 
+	// Check that the scenario was read properly
+	//
 	// logStream << *pScen << std::endl;
+
+	// Write the aggregate information on the demand
+	//
 	pWeekDemand->displayPreprocess(&logStream);
+
+	// Write aggregate information on the cover capacity of the staff
+	// (TBD)
+
+	// Instantiate the solver class as a test
+	//
+	Solver* pSolverTest =
+	new Solver(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
 
 	// Display the total time spent in the algorithm
 	timertotal->stop();

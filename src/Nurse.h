@@ -24,7 +24,7 @@ using std::vector;
 
 //-----------------------------------------------------------------------------
 //
-//  S t r u c t u r e   C o n t r a c t
+//  C l a s s   C o n t r a c t
 //
 //  A contract as defined in the subject
 //
@@ -74,7 +74,7 @@ public:
 
 //-----------------------------------------------------------------------------
 //
-//  S t r u c t u r e   H i s t o r y
+//  C l a s s   H i s t o r y
 //
 //  Describes the current (or initial) state of a nurse at D-day
 //
@@ -134,7 +134,7 @@ public:
 
 //-----------------------------------------------------------------------------
 //
-//  S t r u c t u r e   P r e f e r e n c e s
+//  C l a s s   P r e f e r e n c e s
 //
 //  Describes the preferences of a nurse for a certain period of time
 //  They are given as a vector (entry = nurseId).

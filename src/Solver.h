@@ -34,11 +34,11 @@ public:
 	virtual ~Solver();
 
 	// Specific constructor
-	Solver(Scenario* pScenario, vector<Nurse>* pTheNurses, Demand* pDemand,
+	Solver(Scenario* pScenario, Demand* pDemand,
 	Preferences* pPreferences, vector<State>* pInitState);
 
 	// Main method to solve the rostering problem for a given input
-	virtual void solve(SolverInput input) = 0;
+	void solve(SolverInput input) {}
 
 // Should be protected (and not private) because Solver will have subclasses
 protected:
@@ -47,10 +47,10 @@ protected:
 	// Inputs of the solver: they are all recorded as pointers
 	//-----------------------------------------------------------------------------
 
-	// Recall the "const" attributes as pointers : Nurses and Scenario informations
+	// Recall the "const" attributes as pointers : Scenario informations
 	//
 	Scenario* pScenario_;
-	vector<Nurse>* pTheNurses_;
+	// vector<Nurse>* pTheNurses_;
 
 	// Minimum and optimum demand for each day, shift and skill
 	//

@@ -10,9 +10,9 @@
 
 
 // Specific constructor
-Solver::Solver(Scenario* pScenario, vector<Nurse>* pTheNurses, Demand* pDemand,
+Solver::Solver(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState):
-  pScenario_(pScenario), pTheNurses_(pTheNurses), pDemand_(pDemand),
+  pScenario_(pScenario),  pDemand_(pDemand),
   pPreferences_(pPreferences), pInitState_(pInitState) {
 
   }
