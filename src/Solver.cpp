@@ -91,6 +91,8 @@ void Solver::preprocessTheNurses() {
     maxTotalStaffNoPenalty_ += maxWorkDays_[n];
     maxTotalStaff_ += nbDays;
     for (int i = 0; i < pScenario_->theNurses_[n].nbSkills_; i++) {
+      // RqJO: the staffing per skill is very rough here since Nurses can have
+      // multiple skills. A better data structure should be found.
       int sk = pScenario_->theNurses_[n].skills_[i];
       maxStaffPerSkill_[sk] += nbDays;
       maxStaffPerSkillNoPenalty_[sk] += maxWorkDays_[n];

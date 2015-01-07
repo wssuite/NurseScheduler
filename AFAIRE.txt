@@ -4,6 +4,9 @@ et dont j'ai peur de ne pas me souvenir.
 Lorsqu'une action est faite, il faut la mettre 
 entre parenthèses et la déplacer à la fin de la 
 liste.
+Aussi dans le code, je débute par RqJO tous les
+commentaires qui parlent de choses à améliorer ou
+vérifier dans le code.
 ##################################################
 
 
