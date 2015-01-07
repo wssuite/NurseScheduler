@@ -14,8 +14,11 @@
 #include "Nurse.h"
 
 Scenario::~Scenario(){
-	delete pWeekDemand_;
-
+	// delete the contracts
+	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
+		delete (itC->second);
+	}
+	//delete pWeekDemand_;
 }
 
 // Display methods: toString + override operator<< (easier)

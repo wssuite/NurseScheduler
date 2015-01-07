@@ -52,14 +52,14 @@ public:
 			int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
 			vector<int> minConsShifts, vector<int> maxConsShifts,
 			vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
-			int nbContracts, map<string,Contract*> contracts,
+			int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
 			int nbNurses, vector<Nurse> theNurses, map<string,int> nurseNameToInt) :
 				name_(name), nbWeeks_(nbWeeks),
 				nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
 				nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
 				minConsShifts_(minConsShifts), maxConsShifts_(maxConsShifts),
 				nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
-				nbContracts_(nbContracts), contracts_(contracts),
+				nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
 				nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt){
 
 		// To make sure that it is modified later when reading the history data file
@@ -106,6 +106,7 @@ public:
 	// Vector of possible contract types
 	//
 	const int nbContracts_;
+	const vector<string> intToContract_;
 	const map<string, Contract*> contracts_;
 
 	// number of nurses, and vector of all the nurses
@@ -203,7 +204,6 @@ public:
   // Display methods: toString + override operator<< (easier)
   //
   string toString();
-  friend std::ostream& operator<< (std::ostream& outs, Scenario obj) {return outs << obj.toString();}
 };
 
 

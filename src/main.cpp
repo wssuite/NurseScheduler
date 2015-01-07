@@ -37,10 +37,12 @@ void testFunction_Jeremy(){
 	// Check that the scenario was read properly
 	//
 	// logStream << *pScen << std::endl;
+	logStream << pScen->toString() << std::endl;
+	pWeekDemand->displayPreprocess(&logStream);
 
 	// Write the aggregate information on the demand
 	//
-	pWeekDemand->displayPreprocess(&logStream);
+
 
 	// Write aggregate information on the cover capacity of the staff
 	// (TBD)
@@ -55,6 +57,15 @@ void testFunction_Jeremy(){
 	logStream.print("Total time spent in the algorithm : ");
 	logStream.print(timertotal->dSinceInit());
 	logStream.print("\n");
+
+	// free the allocated pointers
+	//
+	delete timertotal;
+	delete pWeekDemand;
+	delete pScen;
+	delete pSolverTest;
+
+
 }
 
 // Function for testing parts of the code (Samuel)
@@ -73,7 +84,7 @@ void testFunction_Samuel(){
 	string logFile = "../logfiles/samuel_test.log";
 	Tools::LogOutput logStream(logFile);
 
-	logStream << *s << std::endl;
+	logStream << s->toString() << std::endl;
 	logStream.print("Total time spent in the algorithm : ");
 	logStream.print(timertest->dSinceInit());
 	logStream.print("\n");

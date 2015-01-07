@@ -37,7 +37,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	//
 	string name;
 	int nbWeeks=-1, nbSkills=-1, nbShifts=-1, nbContracts=-1, nbNurses=-1;
-	vector<string> intToSkill, intToShift;
+	vector<string> intToSkill, intToShift, intToContract;
 	map<string,int> skillToInt, shiftToInt, nurseNameToInt;
 	vector<int> minConsShifts, maxConsShifts, nbForbiddenSuccessors;
 	vector2D forbiddenSuccessors;
@@ -166,7 +166,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 				Contract * pContract = new Contract (contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
 				contracts.insert(pair<string,Contract*>(contractName,pContract));
-
+				intToContract.push_back(contractName);
 			}
 		}
 
@@ -201,8 +201,9 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	}
 
 	return new Scenario(name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts,
-		intToShift, shiftToInt, minConsShifts, maxConsShifts,	nbForbiddenSuccessors,
-		forbiddenSuccessors, nbContracts, contracts, nbNurses, theNurses, nurseNameToInt) ;
+		intToShift, shiftToInt, minConsShifts, maxConsShifts,
+		nbForbiddenSuccessors,forbiddenSuccessors,
+		nbContracts, intToContract, contracts, nbNurses, theNurses, nurseNameToInt) ;
 }
 
 // Read the Week file and store the content in a Scenario instance
@@ -299,7 +300,7 @@ Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 	}
 
 	// Define a new instance of demand
-	Demand* pDemand = new Demand(7, pScenario->nbShifts_,pScenario->nbSkills_,
+	Demand* pDemand = new Demand(7, 0, pScenario->nbShifts_,pScenario->nbSkills_,
 	minWeekDemand, optWeekDemand);
 
 	// Now, add all these objects to the Scenario

@@ -202,7 +202,7 @@ class Demand {
 public:
 
 	// generic constructor and destructor
-	Demand(int nbDays, int nbShifts, int nbSkills,
+	Demand(int nbDays, int firstDay, int nbShifts, int nbSkills,
 		vector3D minDemand, vector3D optDemand);
 	~Demand();
 
@@ -214,9 +214,12 @@ public:
 	//
 	std::string name_;
 
-	// number of days covered by the demand
+	// number of days covered by the demand and index of the first day
 	//
-	const int nbDays_, nbShifts_, nbSkills_;
+	const int nbDays_, firstDay_;
+
+	// number of shifts per day and number of skills to cover
+	const int nbShifts_, nbSkills_;
 
 	// minimum and optimal demand for each day, shift and skill
 	//
