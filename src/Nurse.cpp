@@ -1,4 +1,3 @@
-#include "MyTools.h"
 #include "Nurse.h"
 
 #include <fstream>
@@ -185,127 +184,6 @@ string Preferences::toString(){
 }
 
 
-//-----------------------------------------------------------------------------
-//
-//	C l a s s  D e m a n d
-//
-// All the information relative to a particular demand
-//
-//-----------------------------------------------------------------------------
-
-// constructor and destructor
-//
-Demand::Demand(int nbDays, int firstDay, int nbShifts, int nbSkills,
-	vector3D minDemand, vector3D optDemand): name_("demand"),
-		nbDays_(nbDays), firstDay_(firstDay), nbShifts_(nbShifts), nbSkills_(nbSkills),
-		minDemand_(minDemand), optDemand_(optDemand),
-		minTotal_(0), optTotal_(0)
-		{
-			// initialize the preprocessed vectors
-			Tools::initVector(&minPerDay_, nbDays_);
-			Tools::initVector(&optPerDay_, nbDays_);
-			Tools::initVector(&minPerShift_, nbShifts_);
-			Tools::initVector(&optPerShift_, nbShifts_);
-			Tools::initVector(&minPerSkill_, nbSkills_);
-			Tools::initVector(&optPerSkill_, nbSkills_);
-			Tools::initVector(&minHighestPerSkill_, nbSkills_);
-			Tools::initVector(&optHighestPerSkill_, nbSkills_);
-
-			// run the preprocessing
-			this->preprocessDemand();
-		}
-
-Demand::~Demand()
-{}
-
-// compute all the potentially helpful attributes of a demand
-// this includes the total demand per skill, per shift,
-//
-void Demand::preprocessDemand() {
-	for (int day = 0; day < nbDays_; day++)	{
-		for (int shift = 0; shift < nbShifts_; shift++) {
-			for (int skill = 0; skill < nbSkills_; skill++)	{
-				// update the total demand
-				minTotal_ += minDemand_[day][shift][skill];
-				optTotal_ += optDemand_[day][shift][skill];
-
-				// update the demand per day
-				minPerDay_[day] += minDemand_[day][shift][skill];
-				optPerDay_[day] += optDemand_[day][shift][skill];
-
-				// update the demand per shift
-				minPerShift_[shift] += minDemand_[day][shift][skill];
-				optPerShift_[shift] += optDemand_[day][shift][skill];
-
-				// update the demand per skill
-				minPerSkill_[skill] += minDemand_[day][shift][skill];
-				optPerSkill_[skill] += optDemand_[day][shift][skill];
-
-				// update the demand per day
-				minHighestPerSkill_[skill] =
-					std::max(minDemand_[day][shift][skill],minHighestPerSkill_[skill]);
-				optHighestPerSkill_[skill] =
-					std::max(optDemand_[day][shift][skill],optHighestPerSkill_[skill]);
-			}
-		}
-	}
-}
-
-// write the preprocessed information in the input stream
-//
-void Demand::displayPreprocess(Tools::LogOutput* outs) {
-
-	// describe the demand being written
-	//
-	*outs << "############################################################################" << std::endl;
-	*outs << "############## WRITING GLOBAL INFORMATION ABOUT THE DEMAND #################" << std::endl;
-	*outs << "############################################################################" << std::endl;
-
-	int nbSkills = nbSkills_;
-	*outs << "# The demand refers to " << nbSkills_ << " skills for " ;
-	*outs << nbShifts_-1 << " shifts per day on "<< nbDays_ << " days" << std::endl;
-	*outs << std::endl;
-
-	// enumerate the global indicators
-	//
-	*outs << "# Total minimum demand = " << minTotal_ << std::endl;
-	*outs << "# Total optimal demand = " << optTotal_ << std::endl;
-
-	*outs << "# " << std::endl;
-	*outs  << "# Demand per day" << std::endl;
-	for (int i = 0; i < nbDays_; i++)	{
-		*outs << "#\t\t" << Tools::intToDay(i+firstDay_) << " (" << i+firstDay_ << ")" << ": ";
-		*outs << "minimum = " << minPerDay_[i] << " ; optimal = " << optPerDay_[i];
-		*outs << std::endl;
-	}
-
-	*outs << "# " << std::endl;
-	*outs  << "# Demand per shift" << std::endl;
-	*outs << "#\t\tShift 0 is rest;" << std::endl;
-	for (int i = 1; i < nbShifts_; i++)	{
-		*outs << "#\t\tShift " << i << ": ";
-		*outs << "minimum = " << minPerShift_[i] << " ; optimal = " << optPerShift_[i];
-		*outs << std::endl;
-	}
-
-	*outs << "# " << std::endl;
-	*outs  << "# Demand per skill" << std::endl;
-	for (int i = 0; i < nbSkills_; i++)	{
-		*outs << "#\t\tSkill " << i << ": ";
-		*outs << "minimum = " << minPerSkill_[i] << " ; optimal = " << optPerSkill_[i];
-		*outs << std::endl;
-	}
-
-	*outs << "# " << std::endl;
-	*outs <<  "# Highest demand per skill for one shift" << std::endl;
-	for (int i = 0; i < nbSkills_; i++)	{
-		*outs << "#\t\tSkill " << i << ": ";
-		*outs << "minimum = " << minHighestPerSkill_[i] << " ; optimal = " << optHighestPerSkill_[i];
-		*outs << std::endl;
-	}
-}
-
-
 
 //-----------------------------------------------------------------------------
 //
@@ -323,9 +201,17 @@ Nurse::~Nurse(){
 	//          Contracts are common to all nurses and don't "belong" to them -> should not be deleted.
 }
 
+// Check that the nurse has a given skill
+//
+bool Nurse::hasSkill(int skill) {
+	for (int i = 0; i < nbSkills_; i++)	{
+		if (skills_[i] == skill)	return true;
+	}
+	return false;
+}
 // Print method
 //
-string Nurse::toString(){
+string Nurse::toString() const{
 	std::stringstream rep;
 	rep << id_ << ": ";
 	if(id_<10) rep << " ";

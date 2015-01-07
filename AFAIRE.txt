@@ -6,7 +6,6 @@ entre parenthèses et la déplacer à la fin de la
 liste.
 ##################################################
 
-1) Traquer la segfault dans l'écriture du scénario.
 
 2) Écrire des informations sur la capacité totale des nurses à combler des demandes par jour, shift et skill. Une fonction avancée devrait pouvoir tenir compte les successions impossibles. 
 
@@ -14,3 +13,5 @@ liste.
 Pénaliser éventuellement les plannings qui représentent un danger vis-à-vis du nombre total de shifts.
 
 4) Écrire une première heuristique pour construire un planning initial (partir sur quelque chose du type DSATUR). 
+
+(Traquer la segfault dans l'écriture du scénario.)

@@ -87,6 +87,35 @@ protected:
 
 public:
 
+	//------------------------------------------------
+	// Preprocess the data
+	//------------------------------------------------
+
+	// maximum and minimum number of working days for each nurse in the period of
+	// the demand without getting any penalty for consecutive shifts
+	// RqJO: this neglects the constraint of complete week-ends and the
+	// preferences ; they should be added later
+	//
+	vector<int> maxWorkDays_, minWorkDays_;
+
+	// total potential staffing with and without penalty
+	//
+	int maxTotalStaffNoPenalty_;
+	int maxTotalStaff_;
+
+	// potential staffing for each skill, with and without penalt
+	vector<int> maxStaffPerSkill_;
+	vector<int> maxStaffPerSkillNoPenalty_;
+
+	// go through the nurses to collect data regarding the potential shift and
+	// skill coverage of the nurses
+	//
+	void preprocessTheNurses();
+
+	// check the feasibility of the demand with these nurses
+	//
+	bool checkFeasibility() {return true;};
+
 };
 
 #endif /* SOLVER_H_ */

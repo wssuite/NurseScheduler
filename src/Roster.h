@@ -43,11 +43,17 @@ public:
   Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
   std::map< int,std::set<int> >* pWishesOff, const State& initialState);
 
-  // Constructor: initialize planning from an input set of tasks for the nurse
+  // Constructor: initialize planning from an input set of shifts for the nurse
   //
   Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
   std::map< int,std::set<int> >* pWishesOff, const State& initialState,
-  vector<task> inputTasks);
+  vector<int> shifts);
+
+  // Constructor: initialize planning from an input set of shifts and skills
+  //
+  Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
+  std::map< int,std::set<int> >* pWishesOff, const State& initialState,
+  vector<int> shifts, vector<int> skills);
 
   // Destructor
   ~Roster();
@@ -66,10 +72,17 @@ private:
   Nurse* pNurse_;
   std::map< int,std::set<int> >* pWishesOff_;
 
-  // vector containing for each day the assignment (shift,skill) of the nurse
-  // the size is exactly the number of days of the roster
+  // vector containing for each day the shift assigned to the nurse
+  // the vector contains exactly one element per day
+  // the shift 0 corresponds to a rest
   //
-  vector<task> tasks_;
+  vector<int> shifts_;
+
+  // vector containing for each day the shift assigned to the nurse
+  // the vector contains exactly one element per day
+  // if the nurse is resting, the skill has no importance
+  //
+  vector<int> skills_;
 
   // vector containing for each day the state of the nurse
   // the size is the number of days of the roster plus one, since the initial
@@ -94,10 +107,11 @@ private:
   vector<int> costPreferences_;
   vector<int> costCompleteWeekEnd_;
 
-  // vector of booleans equal to true if the shift assigned on each day
-  // violates the consecutive shift-type succession constraint
+  // vector of booleans equal to true if the corresponding hard contraint is
+  // violated on each day
   //
-  vector<bool> violationSuccShifts_;
+  vector<bool> violationSuccShifts_; // forbidden successive shifts
+  vector<bool> violationSkill_; // missing required skill
 
 public:
   // assign a task at on a given day and update the states of the nurse

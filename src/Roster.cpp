@@ -13,8 +13,8 @@ Roster::Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
 
   // initialize the roster with a rest week
   for (int i = 0; i < nbDays; i++) {
-    task t = {0,0};
-    tasks_.push_back(t);
+    shifts_.push_back(0);
+    skills_.push_back(pNurse_->skills_[0]);
   }
 
   // initialize the states at each day
@@ -32,21 +32,23 @@ Roster::Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
 
   // initialize the violation vector
   for (int day = 0; day < nbDays_; day++) violationSuccShifts_.push_back(false);
+  for (int day = 0; day < nbDays_; day++) violationSkill_.push_back(false);
+
 }
 
-// Constructor: initialize planning from an input set of tasks for the nurse
+// Constructor: initialize planning from an input set of shifts for the nurse
 //
 Roster::Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
 std::map<int,std::set<int> >* pWishesOff, const State& initialState,
-vector<task> inputTasks):
+vector<int> shifts):
 nbDays_(nbDays), firstDay_(firstDay), pScenario_(pScenario),
-pNurse_(pNurse), pWishesOff_(pWishesOff), tasks_(inputTasks) {
+pNurse_(pNurse), pWishesOff_(pWishesOff), shifts_(shifts) {
 
   // initialize the states at each day
   states_.push_back(initialState);
   for (int day = 0; day < nbDays_; day++) {
     State nextState;
-    nextState.addDayToState(states_[day], tasks_[day].shift);
+    nextState.addDayToState(states_[day], shifts_[day]);
     states_.push_back(nextState);
   }
 
@@ -56,12 +58,24 @@ pNurse_(pNurse), pWishesOff_(pWishesOff), tasks_(inputTasks) {
   Tools::initVector(&costPreferences_, nbDays_);
   Tools::initVector(&costCompleteWeekEnd_, nbDays_);
 
+  // initialize the skills with the first skill of the nurse
+  for (int day = 0; day < nbDays_; day++) skills_.push_back(pNurse_->skills_[0]);
+
   // initialize the violation vector
   for (int day = 0; day < nbDays_; day++) violationSuccShifts_.push_back(false);
+  for (int day = 0; day < nbDays_; day++) violationSkill_.push_back(false);
 
-  // check the soft and hard constraints
-  checkSoftConstraints();
-  checkHardConstraints();
+}
+
+// Constructor: initialize planning from an input set of shifts and skills
+//
+Roster::Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
+std::map<int,std::set<int> >* pWishesOff, const State& initialState,
+vector<int> shifts, vector<int> skills):
+Roster::Roster(nbDays, firstDay, pScenario, pNurse, pWishesOff, initialState, shifts) {
+
+  // set the skill assignment
+  for (int day = 0; day < nbDays_; day++) skills_[day] = skills[day];
 
 }
 
@@ -75,11 +89,16 @@ void Roster::checkHardConstraints() {
 
   for (int day = 0; day < nbDays_; day++) {
 
-    // last shift assigned to the nurse
-    int lastShift = states_[day].shift_;
-    // shift assigned on this day
-    int thisShift = tasks_[day].shift;
+    // Check that the nurse has the assigned skill
+    //
+    violationSkill_[day] = pNurse_->hasSkill(skills_[day]);
 
+    // Check the forbidden successor constraint
+    //
+    int lastShift = states_[day].shift_;   // last shift assigned to the nurse
+    int thisShift = shifts_[day];    // shift assigned on this day
+
+    violationSuccShifts_[day] = false;
     for (int nbShift = 0; nbShift < pScenario_->nbForbiddenSuccessors_[lastShift]; nbShift++) {
        if (thisShift == pScenario_->forbiddenSuccessors_[lastShift][nbShift])  {
          violationSuccShifts_[day] = true;

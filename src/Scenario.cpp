@@ -58,29 +58,16 @@ string Scenario::toString(){
 	rep << "# " << std::endl;
 	rep << "# NURSES           \t= " << nbNurses_ << std::endl;
 	for(int i=0; i<nbNurses_; i++){
-		rep << "#\t\t\t" << theNurses_[i] << std::endl;
+		rep << "#\t\t\t" << theNurses_[i].toString() << std::endl;
 	}
 	if (weekName_!=""){
-		rep << "# " << std::endl;
-		rep << "# DEMAND" << std::endl;
+		// write the demand using the member method toString
+		// do not write the preprocessed information at this stage
+		//
+		rep << pWeekDemand_->toString(false) << std::endl;
 
-		rep << "#\t\t\t";
-		for(int dayId=0; dayId<7; dayId++){
-			rep << " " << Tools::intToDay(dayId) << "\t";
-		}
-		rep << "# " << std::endl;
-		for(int sh = 0; sh < nbShifts_; sh ++){
-			for (int sk = 0; sk < nbSkills_; sk++){
-				string s = "#   " + intToShift_[sh] + " " + intToSkill_[sk] + " ";
-				rep << s;
-				if(s.length() < 16) rep << "\t";
-				for(int day = 0; day < 7; day ++){
-					rep << "\t(" << pWeekDemand_->minDemand_[day][sh][sk] << "," << pWeekDemand_->optDemand_[day][sh][sk] << ")";
-				}
-				rep << std::endl;
-			}
-			rep << "# " << std::endl;
-		}
+		// write the preferences
+		//
 		rep << "# " << std::endl;
 		rep << "# WISHED SHIFTS OFF" << std::endl;
 		for(int n=0; n<nbNurses_; n++){

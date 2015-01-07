@@ -38,7 +38,7 @@ void testFunction_Jeremy(){
 	//
 	// logStream << *pScen << std::endl;
 	logStream << pScen->toString() << std::endl;
-	pWeekDemand->displayPreprocess(&logStream);
+	logStream << pWeekDemand->toString(true) << std::endl;
 
 	// Write the aggregate information on the demand
 	//

@@ -151,6 +151,11 @@ public:
 	//------------------------------------------------
 
 public:
+
+	//------------------------------------------------
+	// Getters and setters
+	//------------------------------------------------
+
 	// getters for the class attributes
 	//
 	int nbWeeks() {return nbWeeks_;}
@@ -189,21 +194,30 @@ public:
 
 	// Setters to class attributes
 
-	// When reading the week file (Demand and preferences
+	// when reading the week file (Demand and preferences
 	//
 	inline void setWeekName(string weekName){ weekName_ = weekName;}
 	inline void setWeekDemand(Demand* pDemand) {pWeekDemand_ = pDemand;}
 	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
 	inline void setWeekPreferences(Preferences weekPreferences){ weekPreferences_ = weekPreferences; }
 
-	// When reading the history file
+	// when reading the history file
 	//
 	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
 	inline void setInitialState(vector<State> initialState){ initialState_ = initialState;}
 
-  // Display methods: toString + override operator<< (easier)
+public:
+
+	//------------------------------------------------
+	// Display functions
+	//------------------------------------------------
+
+  // display the whole scenario
   //
   string toString();
+
+
+
 };
 
 
