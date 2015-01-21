@@ -13,6 +13,34 @@
 #include "MyTools.h"
 #include "Nurse.h"
 
+// Constructor and destructor
+//
+Scenario::Scenario(string name, int nbWeeks,
+int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
+int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
+vector<int> minConsShifts, vector<int> maxConsShifts,
+vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
+int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
+int nbNurses, vector<Nurse> theNurses, map<string,int> nurseNameToInt) :
+name_(name), nbWeeks_(nbWeeks),
+nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
+nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
+minConsShifts_(minConsShifts), maxConsShifts_(maxConsShifts),
+nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
+nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
+nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
+nbPositions_(0) {
+
+	// To make sure that it is modified later when reading the history data file
+	//
+	thisWeek_ = -1;
+
+	// Preprocess the vector of nurses
+	// This creates the positions
+	//
+	this->preprocessTheNurses();
+}
+
 Scenario::~Scenario(){
 	// delete the contracts
 	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
@@ -60,6 +88,19 @@ string Scenario::toString(){
 	for(int i=0; i<nbNurses_; i++){
 		rep << "#\t\t\t" << theNurses_[i].toString() << std::endl;
 	}
+	rep << "# " << std::endl;
+	rep << "# POSITIONS        \t= " << nbPositions_ << std::endl;
+	for (int i=0; i<nbPositions_; i++) {
+		rep << "#\t\t\t" << pPositions_[i]->toString() << std::endl;
+		for (int j=0; j<nbPositions_; j++) {
+			if(pPositions_[i]->compare(*pPositions_[j]) == 1) {
+				rep << "#\t\t\t\t\tdominates position " << j << std::endl;
+			}
+			if(pPositions_[i]->compare(*pPositions_[j]) == -1) {
+				rep << "#\t\t\t\t\tis dominated by position " << j << std::endl;
+			}
+		}
+	}
 	if (weekName_!=""){
 		// write the demand using the member method toString
 		// do not write the preprocessed information at this stage
@@ -103,4 +144,52 @@ string Scenario::toString(){
 	}
 	rep << "############################################################################" << std::endl;
 	return rep.str();
+}
+
+
+//------------------------------------------------
+// Preprocess functions
+//------------------------------------------------
+
+// preprocess the nurses to get the types
+//
+void Scenario::preprocessTheNurses() {
+
+	if (nbPositions_) {
+		Tools::throwError("The nurse preprocessing is run for the second time!");
+	}
+
+	// Go through the nurses, and created their positions when it has not already
+	// been done
+	//
+	vector<Nurse>::const_iterator itNurse = theNurses_.begin();
+	for (itNurse = theNurses_.begin(); itNurse != theNurses_.end(); itNurse++)	{
+		bool positionExists = nbPositions_? true:false;
+		int nbSkills = (*itNurse).nbSkills_;
+		vector<int> skills = (*itNurse).skills_;
+		vector<Position*>::iterator itPos = pPositions_.begin();
+
+		// go through every existing position to see if the position of this nurse
+		// has already been created
+		for (itPos = pPositions_.begin(); itPos != pPositions_.end(); itPos++)	{
+			positionExists = true;
+			if ((*itPos)->nbSkills_ == nbSkills) {
+				for (int i = 0; i < nbSkills; i++) {
+					if (skills[i] != (*itPos)->skills_[i])	{
+						positionExists = false;
+						break;
+					}
+				}
+			}
+			else positionExists = false;
+			if (positionExists) break;
+		}
+
+		// create the position if if doesn't exist
+		if (!positionExists) {
+			pPositions_.push_back(new Position(nbPositions_, nbSkills, skills));
+			nbPositions_++;
+		}
+	}
+
 }

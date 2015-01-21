@@ -53,19 +53,8 @@ public:
 			vector<int> minConsShifts, vector<int> maxConsShifts,
 			vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
 			int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
-			int nbNurses, vector<Nurse> theNurses, map<string,int> nurseNameToInt) :
-				name_(name), nbWeeks_(nbWeeks),
-				nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
-				nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
-				minConsShifts_(minConsShifts), maxConsShifts_(maxConsShifts),
-				nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
-				nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
-				nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt){
+			int nbNurses, vector<Nurse> theNurses, map<string,int> nurseNameToInt);
 
-		// To make sure that it is modified later when reading the history data file
-		//
-		thisWeek_ = -1;
-	}
 	~Scenario();
 
 
@@ -150,6 +139,16 @@ public:
 	//------------------------------------------------
 	//------------------------------------------------
 
+	//------------------------------------------------
+	// From the preprocessing of the nurses
+	//------------------------------------------------
+	// Vector of existing positions
+	//
+	int nbPositions_;
+	vector<Position*> pPositions_;
+
+	//------------------------------------------------
+
 public:
 
 	//------------------------------------------------
@@ -216,6 +215,13 @@ public:
   //
   string toString();
 
+	//------------------------------------------------
+	// Preprocess functions
+	//------------------------------------------------
+
+	// preprocess the nurses to get the types
+	//
+	void preprocessTheNurses();
 
 
 };

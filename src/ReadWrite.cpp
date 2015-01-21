@@ -186,6 +186,9 @@ Scenario* ReadWrite::readScenario(string fileName) {
 					file >> strTmp;
 					skills.push_back(skillToInt.at(strTmp));
 				}
+				// sort the skill indices before initializing the nurse
+				std::sort (skills.begin(), skills.end());
+
 				Nurse nurse (i, nurseName, nbSkills, skills, contracts.at(contractName));
 				theNurses.push_back(nurse);
 				nurseNameToInt.insert(pair<string,int>(nurseName,i));

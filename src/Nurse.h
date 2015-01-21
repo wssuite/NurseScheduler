@@ -210,10 +210,8 @@ public:
 	//        override it because vector members should have some properties (assignable a.o., which implies
 	//        non-const)
 	//
-	Nurse(int id, string name, int nbSkills, vector<int> skills, Contract* contract) :
-				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){}
-	Nurse(int id, string name, int nbSkills, vector<int> skills, const Contract* contract) :
-				id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){}
+	Nurse(int id, string name, int nbSkills, vector<int> skills, Contract* contract);
+	Nurse(int id, string name, int nbSkills, vector<int> skills, const Contract* contract);
 	~Nurse();
 
 
@@ -233,6 +231,7 @@ public:
 	const std::string name_;
 
 	// number of skills and vector of the skills indices
+	// for simplicity, the vector of skills is sorted
 	//
 	const int nbSkills_;
 	const vector<int> skills_;
@@ -266,7 +265,66 @@ public:
 };
 
 
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   P o s i t i o n
+//
+//  A position (job) is a set of skills that a nurse may possess
+//
+//-----------------------------------------------------------------------------
+class Position{
 
+public:
+	// Constructor and Destructor
+	//
+	Position(int index, int nbSkills, vector<int> skills);
+
+	~Position();
+
+public:
+	// Index of the position
+	//
+	const int id_;
+
+	// Number of skills
+	//
+	const int nbSkills_;
+
+	// Vector of skills for this position.
+	// For simplicity, the skill indices are sorted.
+	//
+	const vector<int> skills_;
+
+private:
+
+	// Vector of nurses at this position
+	//
+	vector<Nurse*> pNurses_;
+
+public:
+
+	// Add a nurse at this position
+	//
+	void addNurse(Nurse* pNurse) {pNurses_.push_back(pNurse);}
+
+	// Get the vector of nurses
+	//
+	const vector<Nurse*>* pNurses() {return &pNurses_;}
+
+	// Display method: toString
+	//
+	string toString() const;
+
+	// Compare this position with the input position
+	// The dominance criterion is that a position p1 with skills sk1 dominates p2
+	// with skills sk2 if and only if (sk1 contains sk2) and sk1 has more skills
+	// than sk2
+	// The function returns 1 if this position dominates, -1 if it is dominated
+	// and 0 if there is no dominance
+	//
+	int compare(const Position &p);
+
+};
 
 
 

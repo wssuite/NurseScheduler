@@ -29,6 +29,7 @@ void testFunction_Jeremy(){
 	string logFile = "../logfiles/test.log";
 	Tools::LogOutput logStream(logFile);
 
+
 	// Read the input data from files
 	Scenario* pScen = ReadWrite::readScenario("../datasets/n030w4/Sc-n030w4.txt");
 	Demand* pWeekDemand = ReadWrite::readWeek("../datasets/n030w4/WD-n030w4-1.txt", pScen);
@@ -84,6 +85,8 @@ void testFunction_Samuel(){
 	string logFile = "../logfiles/samuel_test.log";
 	Tools::LogOutput logStream(logFile);
 
+  // RqJO : attention, j'ai enlevé ta surcharge de << parce qu'elle me faisait
+	// des segfaults
 	logStream << s->toString() << std::endl;
 	logStream.print("Total time spent in the algorithm : ");
 	logStream.print(timertest->dSinceInit());
