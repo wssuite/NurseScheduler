@@ -146,6 +146,7 @@ private:
 	//
 	int nbPositions_;
 	vector<Position*> pPositions_;
+	vector<vector<Nurse*> > nursesPerPosition_;
 
 	//------------------------------------------------
 

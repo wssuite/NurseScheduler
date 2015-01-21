@@ -29,10 +29,51 @@ vector<Position*> Greedy::sortPositions() {
 
   vector<Position*> pPositions = pScenario_->pPositions();
 
-  // First, organize the positions in ranks
-  // rank i contains all the positions that are dominated only by positions
-  // with a rank smaller than i
+  //---------------------------------------------------------------------------
+  // A rank has been computed for each position
+  // The greedy is going to treat the positions in ascending rank value
+  // For a given rank, start with the position that contains the rarest skills
+  // Rarity is defined by the number of nurse shifts available for this skill
+  //---------------------------------------------------------------------------
+
+  // initialize the vector of position order
   //
+  vector<int> order;
+  for (int i= 0; i < pScenario_->nbPositions(); i++)  order.push_back(0);
+
+  // compute the maximum value of rarity among the skills of each position
+  //
+  for (int i= 0; i < pScenario_->nbPositions(); i++)  {
+    int rarity = 0;
+    // compute the highest rarity for the skills of the position
+    // it has to be done in the preprocessing function of Solver, because it
+    // depends on the history
+    //
+
+    // if rarity is higher
+  }
+
+  // get the maximum rank
+  //
+  int rankMax;
+  for (int i= 0; i < pScenario_->nbPositions(); i++)  {
+    rankMax = std::max(rankMax,pPositions[i]->rank());
+  }
+
+  // go through the positions for each rank value and set their order of
+  // treatment.
+  // the positions are already sorted in descending rarity, so they order is
+  // set directly
+  //
+  int nextTreated = 0;
+  for (int rank = 0; rank <= rankMax; rank++) {
+    for (int i= 0; i < pScenario_->nbPositions(); i++)  {
+      if (pPositions[i]->rank() == rank)  {
+        order[pPositions[i]->id_] = nextTreated++;
+      }
+    }
+  }
+
 
 
 }

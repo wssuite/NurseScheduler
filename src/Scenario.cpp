@@ -188,8 +188,8 @@ void Scenario::preprocessTheNurses() {
 	for (int i=0; i<nbPositions_; i++) {
 		for (int j=i+1; j<nbPositions_; j++) {
 			if(pPositions_[i]->compare(*pPositions_[j]) == 1) {
-				pPositions_[i]->addAbove(pPositions_[j]);
-				pPositions_[j]->addBelow(pPositions_[i]);
+				pPositions_[i]->addBelow(pPositions_[j]);
+				pPositions_[j]->addAbove(pPositions_[i]);
 			}
 			if(pPositions_[i]->compare(*pPositions_[j]) == -1) {
 				pPositions_[i]->addAbove(pPositions_[j]);
@@ -222,6 +222,7 @@ void Scenario::preprocessTheNurses() {
 		}
 
 		// check if all the positions are ranked
+		isAllRanked = true;
 		for (int i=0; i<nbPositions_; i++) {
 			if (!isRanked[i]) {
 				isAllRanked = false;

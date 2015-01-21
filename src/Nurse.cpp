@@ -71,14 +71,14 @@ string Position::toString() const{
 		rep << std::endl;
 		rep << "#\t\t\t\t\tdominates positions:      ";
 		for (vector<Position*>::const_iterator it=positionsBelow_.begin(); it!=positionsBelow_.end();it++) {
-			rep << "\t" << (*it);
+			rep << "\t" << (*it)->id_;
 		}
 	}
 	if (!positionsAbove_.empty())	{
 		rep << std::endl;
 		rep << "#\t\t\t\t\tis dominated by positions:";
 		for (vector<Position*>::const_iterator it=positionsAbove_.begin(); it!=positionsAbove_.end();it++) {
-			rep << "\t" << (*it);
+			rep << "\t" << (*it)->id_;
 		}
 	}
 	return rep.str();
