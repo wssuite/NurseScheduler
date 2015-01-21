@@ -125,16 +125,16 @@ void Roster::checkSoftConstraints() {
 
       // compute the violations of consecutive working days
       if (shift) {
-        missingDays = pNurse_->minConsDaysWork_-states_[day].consDaysWorked_;
-        extraDays = states_[day].consDaysWorked_-pNurse_->maxConsDaysWork_;
+        missingDays = pNurse_->minConsDaysWork()-states_[day].consDaysWorked_;
+        extraDays = states_[day].consDaysWorked_-pNurse_->maxConsDaysWork();
 
         costConsDays_[day] = (missingDays>0) ? WEIGHT_CONS_DAYS_WORK*missingDays:0;
         costConsDays_[day] += (extraDays>0) ? WEIGHT_CONS_DAYS_WORK*extraDays:0;
       }
       // compute the violations of consecutive days off
       else {
-        missingDays = pNurse_->minConsDaysOff_-states_[day].consDaysOff_;
-        extraDays = states_[day].consDaysOff_-pNurse_->maxConsDaysOff_;
+        missingDays = pNurse_->minConsDaysOff()-states_[day].consDaysOff_;
+        extraDays = states_[day].consDaysOff_-pNurse_->maxConsDaysOff();
 
         costConsDays_[day] = (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
         costConsDays_[day] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF*extraDays:0;
@@ -180,7 +180,7 @@ void Roster::checkSoftConstraints() {
     // check the complete week-end (only if the nurse requires them)
     // this cost is only assigned to the sundays
     //
-    if ( (day+this->firstDay_)%7 == 6 && pNurse_->isCompleteWeekEnds_) {
+    if ( (day+this->firstDay_)%7 == 6 && pNurse_->needCompleteWeekEnds()) {
       if (states_[day].consDaysWorked_==1 || states_[day].consDaysOff_==1) {
         costCompleteWeekEnd_[day] = WEIGHT_COMPLETE_WEEKEND;
       }

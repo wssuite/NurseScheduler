@@ -105,7 +105,7 @@ public:
 	map<string,int> nurseNameToInt_;
 
 
-public:
+private:
 	//------------------------------------------------
 	// From the Week data file
 	//------------------------------------------------
@@ -155,39 +155,43 @@ public:
 	// Getters and setters
 	//------------------------------------------------
 
-	// getters for the class attributes
+	// getters for the private class attributes
 	//
 	int nbWeeks() {return nbWeeks_;}
 	int thisWeek() {return thisWeek_;}
 	string weekName() {return weekName_;}
+	Demand* pWeekDemand() {return pWeekDemand_;}
+	int nbShiftOffRequests() {return nbShiftOffRequests_;}
 	Preferences* pWeekPreferences() {return &weekPreferences_;}
 	vector<State>* pInitialState() {return &initialState_;}
+	int nbPositions() {return nbPositions_;}
+	vector<Position*> pPositions() {return pPositions_;}
 
 	// getters for the attributes of the nurses
 	//
-	int minTotalShiftsOf(int whichNurse) {
-		return theNurses_[whichNurse].minTotalShifts_;
+	const int minTotalShiftsOf(int whichNurse) {
+		return theNurses_[whichNurse].minTotalShifts();
 	}
 	int maxTotalShiftsOf(int whichNurse) {
-		return theNurses_[whichNurse].maxTotalShifts_;
+		return theNurses_[whichNurse].maxTotalShifts();
 	}
 	int minConsDaysWorkOf(int whichNurse) {
-		return theNurses_[whichNurse].minConsDaysWork_;
+		return theNurses_[whichNurse].minConsDaysWork();
 	}
 	int maxConsDaysWorkOf(int whichNurse) {
-		return theNurses_[whichNurse].maxConsDaysWork_;
+		return theNurses_[whichNurse].maxConsDaysWork();
 	}
 	int minConsDaysOffOf(int whichNurse) {
-		return theNurses_[whichNurse].maxConsDaysOff_;
+		return theNurses_[whichNurse].maxConsDaysOff();
 	}
 	int maxConsDaysOffOf(int whichNurse) {
-		return theNurses_[whichNurse].maxConsDaysOff_;
+		return theNurses_[whichNurse].maxConsDaysOff();
 	}
 	int maxTotalWeekEndsOf(int whichNurse) {
-		return theNurses_[whichNurse].maxTotalWeekEnds_;
+		return theNurses_[whichNurse].maxTotalWeekEnds();
 	}
 	bool isCompleteWeekEndsOf(int whichNurse) {
-		return theNurses_[whichNurse].isCompleteWeekEnds_;
+		return theNurses_[whichNurse].needCompleteWeekEnds();
 	}
 
 

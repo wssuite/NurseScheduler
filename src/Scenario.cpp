@@ -92,14 +92,6 @@ string Scenario::toString(){
 	rep << "# POSITIONS        \t= " << nbPositions_ << std::endl;
 	for (int i=0; i<nbPositions_; i++) {
 		rep << "#\t\t\t" << pPositions_[i]->toString() << std::endl;
-		for (int j=0; j<nbPositions_; j++) {
-			if(pPositions_[i]->compare(*pPositions_[j]) == 1) {
-				rep << "#\t\t\t\t\tdominates position " << j << std::endl;
-			}
-			if(pPositions_[i]->compare(*pPositions_[j]) == -1) {
-				rep << "#\t\t\t\t\tis dominated by position " << j << std::endl;
-			}
-		}
 	}
 	if (weekName_!=""){
 		// write the demand using the member method toString
@@ -191,5 +183,52 @@ void Scenario::preprocessTheNurses() {
 			nbPositions_++;
 		}
 	}
+
+	// build the list of position dominance
+	for (int i=0; i<nbPositions_; i++) {
+		for (int j=i+1; j<nbPositions_; j++) {
+			if(pPositions_[i]->compare(*pPositions_[j]) == 1) {
+				pPositions_[i]->addAbove(pPositions_[j]);
+				pPositions_[j]->addBelow(pPositions_[i]);
+			}
+			if(pPositions_[i]->compare(*pPositions_[j]) == -1) {
+				pPositions_[i]->addAbove(pPositions_[j]);
+				pPositions_[j]->addBelow(pPositions_[i]);
+			}
+		}
+	}
+
+	// compute the rank of each position
+	vector<bool> isRanked;
+	bool isAllRanked = false;
+	for (int i =0; i < nbPositions_; i++)	{
+		isRanked.push_back(false);
+	}
+	while (!isAllRanked) {
+		for (int i=0; i<nbPositions_; i++) {
+			if (!isRanked[i]) {
+				int rankIni = pPositions_[i]->rank();
+
+				// go through the positions above the considered position to increment
+				// its rank
+				for (vector<Position*>::iterator it=pPositions_[i]->positionsAbove().begin();
+					it!=pPositions_[i]->positionsAbove().end(); it++){
+						pPositions_[i]->rank(std::max(pPositions_[i]->rank(), (*it)->rank()+1));
+				}
+
+				// the position is treated when the rank is not modified by the loop above
+				if (pPositions_[i]->rank() == rankIni) isRanked[i] = true;
+			}
+		}
+
+		// check if all the positions are ranked
+		for (int i=0; i<nbPositions_; i++) {
+			if (!isRanked[i]) {
+				isAllRanked = false;
+				break;
+			}
+		}
+	}
+
 
 }

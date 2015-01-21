@@ -52,24 +52,102 @@ public:
   // Maximum number of weekends worked, and complete weekend constraint
   //
   const int maxTotalWeekends_;
-  const int isCompleteWeekends_;
+  const int needCompleteWeekends_;
 
   // Constructor and Destructor
   //
   Contract(string name, int minTotalShifts, int maxTotalShifts,
   		int minConsDaysWork, int maxConsDaysWork,
   		int minConsDaysOff, int maxConsDaysOff,
-  		int maxTotalWeekends, int isCompleteWeekends) :
+  		int maxTotalWeekends, int needCompleteWeekends) :
   			name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
   			minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
   			minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
-  			maxTotalWeekends_(maxTotalWeekends), isCompleteWeekends_(isCompleteWeekends) {
+  			maxTotalWeekends_(maxTotalWeekends), needCompleteWeekends_(needCompleteWeekends) {
   };
 
   // Display methods: toString + override operator<< (easier)
   //
   string toString();
   friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
+};
+
+
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   P o s i t i o n
+//
+//  A position (job) is a set of skills that a nurse may possess
+//
+//-----------------------------------------------------------------------------
+
+class Position{
+
+public:
+	// Constructor and Destructor
+	//
+	Position(int index, int nbSkills, vector<int> skills);
+
+	~Position();
+
+public:
+	// Index of the position
+	//
+	const int id_;
+
+	// Number of skills
+	//
+	const int nbSkills_;
+
+	// Vector of skills for this position.
+	// For simplicity, the skill indices are sorted.
+	//
+	const vector<int> skills_;
+
+private:
+	// Positions that are below and above this one in the hierarchy
+	// this is deduced from the dominance criterion implemented in compare()
+	//
+	vector<Position*> positionsBelow_;
+	vector<Position*> positionsAbove_;
+
+	// Ranks of the position with regard to the dominance criterion in compare()
+	// rank i contains all the positions that are dominated only by positions
+	// with a rank smaller than i (the smaller rank is 0)
+	//
+	int rank_;
+
+
+public:
+
+	// Display method: toString
+	//
+	string toString() const;
+
+	// Compare this position with the input position
+	// The dominance criterion is that a position p1 with skills sk1 dominates p2
+	// with skills sk2 if and only if (sk1 contains sk2) and sk1 has more skills
+	// than sk2
+	// The function returns 1 if this position dominates, -1 if it is dominated
+	// and 0 if there is no dominance
+	//
+	int compare(const Position &p);
+
+	// set positions above and below
+	//
+	void addBelow(Position* pPosition) {positionsBelow_.push_back(pPosition);}
+	void addAbove(Position* pPosition) {positionsAbove_.push_back(pPosition);}
+
+	// get positions above and below
+	//
+	vector<Position*> positionsBelow() {return positionsBelow_;}
+	vector<Position*> positionsAbove() {return positionsAbove_;}
+
+	// get and set rank
+	//
+	void rank(int i) {rank_ = i;}
+	int rank() {return rank_;}
+
 };
 
 
@@ -218,7 +296,6 @@ public:
 	// the constant attibutes of the nurses are public
 public:
 
-
 	//-----------------------------------------------------------------------------
 	// Constant characteristics of the nurses (no set method)
 	//-----------------------------------------------------------------------------
@@ -240,6 +317,13 @@ public:
 	//
 	const Contract* pContract_;
 
+private:
+	//-----------------------------------------------------------------------------
+	// Other constant Characteristics of the nurses that could not be set in the
+	// constructor
+	// (only getters for these fields)
+	//-----------------------------------------------------------------------------
+
 	// soft constraints of the nurse: min and max numbers of total assignments,
 	// min and max consecutive working days, min and max consectuve days off,
 	// maximum number of working week-ends and presence of absence of the
@@ -249,7 +333,24 @@ public:
 	int minConsDaysWork_, maxConsDaysWork_;
 	int minConsDaysOff_, maxConsDaysOff_;
 	int maxTotalWeekEnds_;
-	int isCompleteWeekEnds_;
+	int needCompleteWeekEnds_;
+
+	// position of the nurse: this field is deduced from the list of skills
+	//
+	Position* pPosition_;
+
+public:
+	// Basic getters
+	//
+	int minTotalShifts() const  {return minTotalShifts_;}
+	int maxTotalShifts() const {return maxTotalShifts_;}
+	int minConsDaysWork() const {return minConsDaysWork_;}
+	int maxConsDaysWork() const {return maxConsDaysWork_;}
+	int minConsDaysOff() const {return minConsDaysOff_;}
+	int maxConsDaysOff() const {return maxConsDaysOff_;}
+	int maxTotalWeekEnds() const {return maxTotalWeekEnds_;}
+	int needCompleteWeekEnds() const {return needCompleteWeekEnds_;}
+	Position* pPosition() const {return pPosition_;}
 
 	// Avanced getters
 	//
@@ -263,81 +364,6 @@ public:
   //
   Nurse& operator=(const Nurse& n);
 };
-
-
-//-----------------------------------------------------------------------------
-//
-//  C l a s s   P o s i t i o n
-//
-//  A position (job) is a set of skills that a nurse may possess
-//
-//-----------------------------------------------------------------------------
-class Position{
-
-public:
-	// Constructor and Destructor
-	//
-	Position(int index, int nbSkills, vector<int> skills);
-
-	~Position();
-
-public:
-	// Index of the position
-	//
-	const int id_;
-
-	// Number of skills
-	//
-	const int nbSkills_;
-
-	// Vector of skills for this position.
-	// For simplicity, the skill indices are sorted.
-	//
-	const vector<int> skills_;
-
-private:
-
-	// Vector of nurses at this position
-	//
-	vector<Nurse*> pNurses_;
-
-public:
-
-	// Add a nurse at this position
-	//
-	void addNurse(Nurse* pNurse) {pNurses_.push_back(pNurse);}
-
-	// Get the vector of nurses
-	//
-	const vector<Nurse*>* pNurses() {return &pNurses_;}
-
-	// Display method: toString
-	//
-	string toString() const;
-
-	// Compare this position with the input position
-	// The dominance criterion is that a position p1 with skills sk1 dominates p2
-	// with skills sk2 if and only if (sk1 contains sk2) and sk1 has more skills
-	// than sk2
-	// The function returns 1 if this position dominates, -1 if it is dominated
-	// and 0 if there is no dominance
-	//
-	int compare(const Position &p);
-
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 #endif /* defined(__ATCSolver__CftSolver__) */

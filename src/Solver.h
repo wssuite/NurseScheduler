@@ -38,7 +38,7 @@ public:
 	Preferences* pPreferences, vector<State>* pInitState);
 
 	// Main method to solve the rostering problem for a given input
-	void solve(SolverInput input) {}
+	virtual void solve() {}
 
 // Should be protected (and not private) because Solver will have subclasses
 protected:
@@ -117,5 +117,6 @@ public:
 	bool checkFeasibility() {return true;};
 
 };
+
 
 #endif /* SOLVER_H_ */

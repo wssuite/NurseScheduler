@@ -24,10 +24,108 @@ string Contract::toString(){
 	rep << "Work:" << minConsDaysWork_ << "<" << maxConsDaysWork_ << "  |  ";
 	rep << "Rest:" << minConsDaysOff_ << "<" << maxConsDaysOff_ << "  |  ";
 	rep << "WE:" << maxTotalWeekends_ << "  |  ";
-	if(!isCompleteWeekends_) rep << "NOT";
+	if(!needCompleteWeekends_) rep << "NOT";
 	rep << "complete";
 	return rep.str();
 };
+
+
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   P o s i t i o n
+//
+//  A position (job) is a set of skills that a nurse may possess
+//
+//-----------------------------------------------------------------------------
+
+// Constructor and Destructor
+//
+Position::Position(int index, int nbSkills, vector<int> skills):
+id_(index), nbSkills_(nbSkills), skills_(skills) {
+	// Verify that the vecor of skills is sorted
+	//
+	for (vector<int>::const_iterator it=skills_.begin(); it!=skills_.end()-1; ++it) {
+		if (*it >= *(it+1))	{
+			Tools::throwError("The skills in a position are not sorted or some skill is repeated!");
+		}
+	}
+}
+
+// Print method
+//
+string Position::toString() const{
+	std::stringstream rep;
+	rep << id_ << ": ";
+	if(id_<10) rep << " ";
+	if(id_<100) rep << " ";
+
+	// print the rank and the list of skills
+	rep << ": rank = " << rank_;
+	rep << " ; skills = [ ";
+	for(int i=0; i<nbSkills_; i++) rep << skills_[i] << " ";
+	rep << "]\t";
+
+	// print the rank
+	// print the list of positions above and below this one
+	if (!positionsBelow_.empty())	{
+		rep << std::endl;
+		rep << "#\t\t\t\t\tdominates positions:      ";
+		for (vector<Position*>::const_iterator it=positionsBelow_.begin(); it!=positionsBelow_.end();it++) {
+			rep << "\t" << (*it);
+		}
+	}
+	if (!positionsAbove_.empty())	{
+		rep << std::endl;
+		rep << "#\t\t\t\t\tis dominated by positions:";
+		for (vector<Position*>::const_iterator it=positionsAbove_.begin(); it!=positionsAbove_.end();it++) {
+			rep << "\t" << (*it);
+		}
+	}
+	return rep.str();
+}
+
+// Compare this position with the input position
+// The dominance criterion is that a position p1 with skills sk1 dominates p2
+// with skills sk2 if and only if (sk1 contains sk2) and sk1 has more skills
+// than sk2
+// The function returns 1 if this position dominates, -1 if it is dominated
+// and 0 if there is no dominance
+//
+int Position::compare(const Position &p)	{
+	vector<int>::const_iterator it1;
+	vector<int>::const_iterator it2;
+
+	// no possible dominance if both positions have as many skills
+	if (p.nbSkills_ == this->nbSkills_)	{
+		return 0;
+	}
+	// only p can dominate if it has more skills
+	// the comparison of the two skill lists is based on the fact that they are
+	// both sorted
+	else if(p.nbSkills_ > this->nbSkills_)	{
+		it1 = p.skills_.begin();
+		for (it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++)	{
+			while (*it1 < *it2) {
+				if (it1 == p.skills_.end()-1) return 0;
+				else it1++;
+			}
+			if (*it1 != *it2) return 0;
+		}
+		return -1;
+	}
+	// only this position can dominate if it has more skills
+	else if(this->nbSkills_ > p.nbSkills_)	{
+		it1 = this->skills_.begin();
+		for (it2 = p.skills_.begin(); it2 != p.skills_.end(); it2++)	{
+			while (*it1 < *it2) {
+				if (it1 == this->skills_.end()-1) return 0;
+				else it1++;
+			}
+			if (*it1 != *it2) return 0;
+		}
+		return 1;
+	}
+}
 
 
 //-----------------------------------------------------------------------------
@@ -261,81 +359,4 @@ Nurse& Nurse::operator=(const Nurse& n){
 	contract = n.pContract_;
 	Nurse * n2 = new Nurse(id, name, nbSkills, skills, contract);
 	return *n2;
-}
-
-//-----------------------------------------------------------------------------
-//
-//  C l a s s   P o s i t i o n
-//
-//  A position (job) is a set of skills that a nurse may possess
-//
-//-----------------------------------------------------------------------------
-
-// Constructor and Destructor
-//
-Position::Position(int index, int nbSkills, vector<int> skills):
-id_(index), nbSkills_(nbSkills), skills_(skills) {
-	// Verify that the vecor of skills is sorted
-	//
-	for (vector<int>::const_iterator it=skills_.begin(); it!=skills_.end()-1; ++it) {
-		if (*it >= *(it+1))	{
-			Tools::throwError("The skills in a position are not sorted or some skill is repeated!");
-		}
-	}
-}
-
-// Print method
-//
-string Position::toString() const{
-	std::stringstream rep;
-	rep << id_ << ": ";
-	if(id_<10) rep << " ";
-	if(id_<100) rep << " ";
-	rep << ": skills = [ ";
-	for(int i=0; i<nbSkills_; i++) rep << skills_[i] << " ";
-	rep << "]\t";
-	return rep.str();
-}
-
-// Compare this position with the input position
-// The dominance criterion is that a position p1 with skills sk1 dominates p2
-// with skills sk2 if and only if (sk1 contains sk2) and sk1 has more skills
-// than sk2
-// The function returns 1 if this position dominates, -1 if it is dominated
-// and 0 if there is no dominance
-//
-int Position::compare(const Position &p)	{
-	vector<int>::const_iterator it1;
-	vector<int>::const_iterator it2;
-
-	// no possible dominance if both positions have as many skills
-	if (p.nbSkills_ == this->nbSkills_)	{
-		return 0;
-	}
-	// only p can dominate if it has more skills
-	// the comparison of the two skill lists is based on the fact that they are
-	// both sorted
-	else if(p.nbSkills_ > this->nbSkills_)	{
-		it1 = p.skills_.begin();
-		for (it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++)	{
-			while (*it1 < *it2) {
-				if (it1 == p.skills_.end()-1) return 0;
-				else it1++;
-			}
-			if (*it1 != *it2) return 0;
-		}
-		return -1;
-	}
-	// only this position can dominate if it has more skills
-	else if(this->nbSkills_ > p.nbSkills_)	{
-		it1 = this->skills_.begin();
-		for (it2 = p.skills_.begin(); it2 != p.skills_.end(); it2++)	{
-			while (*it1 < *it2) {
-				if (it1 == this->skills_.end()-1) return 0;
-				else it1++;
-			}
-			if (*it1 != *it2) return 0;
-		}
-		return 1;
-	}
 }
