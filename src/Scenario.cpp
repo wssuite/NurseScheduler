@@ -211,9 +211,12 @@ void Scenario::preprocessTheNurses() {
 
 				// go through the positions above the considered position to increment
 				// its rank
-				for (vector<Position*>::iterator it=pPositions_[i]->positionsAbove().begin();
-					it!=pPositions_[i]->positionsAbove().end(); it++){
-						pPositions_[i]->rank(std::max(pPositions_[i]->rank(), (*it)->rank()+1));
+				if (pPositions_[i]->nbAbove()) {
+					for (int j = 0; j < pPositions_[i]->nbAbove(); j++) {
+							int currentRank = pPositions_[i]->rank();
+							int newRank = pPositions_[j]->rank()+1;
+							pPositions_[i]->rank(std::max(currentRank, newRank));
+					}
 				}
 
 				// the position is treated when the rank is not modified by the loop above

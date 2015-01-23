@@ -16,16 +16,41 @@
 //
 //-----------------------------------------------------------------------------
 
+// Specific constructor
+Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
+  Preferences* pPreferences, vector<State>* pInitState):
+  Solver(pScenario, pDemand, pPreferences, pInitState) {
+
+  // copy the live nurses in the sorted nurses vector
+  //
+  for (int i=0; i < pScenario_->nbNurses_; i++) {
+    theNursesSorted_.push_back(theLiveNurses_[i]);
+  }
+
+}
 
 // Main method to solve the rostering problem for a given input
 //
 void Greedy::solve() {}
 
 
+// compare functions that can be used to sort the nurse before assigning them
+// schedules in the greedy algorithm
+//
+bool compareNurses(const LiveNurse  &n1, const LiveNurse &n2) {
+
+  // the first parameter for ordering the nurses is their positions
+  // if they have different position, the position priority of the position
+  // is sufficient to compare the nurses
+  //
+
+  return true;
+}
+
 // Build the sequence of positions reflecting the order in which the positions
 // will be treated in the greedy
 //
-vector<Position*> Greedy::sortPositions() {
+void Greedy::sortPositions() {
 
   vector<Position*> pPositions = pScenario_->pPositions();
 
@@ -73,7 +98,4 @@ vector<Position*> Greedy::sortPositions() {
       }
     }
   }
-
-
-
 }

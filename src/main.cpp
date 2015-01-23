@@ -52,6 +52,7 @@ void testFunction_Jeremy(){
 	//
 	Solver* pSolverTest =
 	new Solver(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
+	pSolverTest->preprocessTheNurses();
 
 	// Display the total time spent in the algorithm
 	timertotal->stop();

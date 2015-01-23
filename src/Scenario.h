@@ -188,11 +188,11 @@ public:
 	int maxConsDaysOffOf(int whichNurse) {
 		return theNurses_[whichNurse].maxConsDaysOff();
 	}
-	int maxTotalWeekEndsOf(int whichNurse) {
-		return theNurses_[whichNurse].maxTotalWeekEnds();
+	int maxTotalWeekendsOf(int whichNurse) {
+		return theNurses_[whichNurse].maxTotalWeekends();
 	}
-	bool isCompleteWeekEndsOf(int whichNurse) {
-		return theNurses_[whichNurse].needCompleteWeekEnds();
+	bool isCompleteWeekendsOf(int whichNurse) {
+		return theNurses_[whichNurse].needCompleteWeekends();
 	}
 
 

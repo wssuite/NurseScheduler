@@ -180,7 +180,7 @@ void Roster::checkSoftConstraints() {
     // check the complete week-end (only if the nurse requires them)
     // this cost is only assigned to the sundays
     //
-    if ( (day+this->firstDay_)%7 == 6 && pNurse_->needCompleteWeekEnds()) {
+    if ( (day+this->firstDay_)%7 == 6 && pNurse_->needCompleteWeekends()) {
       if (states_[day].consDaysWorked_==1 || states_[day].consDaysOff_==1) {
         costCompleteWeekEnd_[day] = WEIGHT_COMPLETE_WEEKEND;
       }

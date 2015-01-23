@@ -110,6 +110,7 @@ private:
 	//
 	vector<Position*> positionsBelow_;
 	vector<Position*> positionsAbove_;
+	int nbBelow_, nbAbove_;
 
 	// Ranks of the position with regard to the dominance criterion in compare()
 	// rank i contains all the positions that are dominated only by positions
@@ -135,13 +136,18 @@ public:
 
 	// set positions above and below
 	//
-	void addBelow(Position* pPosition) {positionsBelow_.push_back(pPosition);}
-	void addAbove(Position* pPosition) {positionsAbove_.push_back(pPosition);}
+	void addBelow(Position* pPosition);
+	void addAbove(Position* pPosition);
 
 	// get positions above and below
 	//
-	vector<Position*> positionsBelow() {return positionsBelow_;}
-	vector<Position*> positionsAbove() {return positionsAbove_;}
+	Position* positionsBelow(int i) {return positionsBelow_[i];}
+	Position* positionsAbove(int i) {return positionsAbove_[i];}
+
+	// basic getters
+	//
+	int nbBelow() {return nbBelow_;}
+	int nbAbove() {return nbAbove_;}
 
 	// get and set rank
 	//
@@ -317,23 +323,12 @@ public:
 	//
 	const Contract* pContract_;
 
-private:
+protected:
 	//-----------------------------------------------------------------------------
-	// Other constant Characteristics of the nurses that could not be set in the
+	// Other constant characteristics of the nurses that could not be set in the
 	// constructor
 	// (only getters for these fields)
 	//-----------------------------------------------------------------------------
-
-	// soft constraints of the nurse: min and max numbers of total assignments,
-	// min and max consecutive working days, min and max consectuve days off,
-	// maximum number of working week-ends and presence of absence of the
-	// complete week end constraints
-	//
-	int minTotalShifts_, maxTotalShifts_;
-	int minConsDaysWork_, maxConsDaysWork_;
-	int minConsDaysOff_, maxConsDaysOff_;
-	int maxTotalWeekEnds_;
-	int needCompleteWeekEnds_;
 
 	// position of the nurse: this field is deduced from the list of skills
 	//
@@ -342,14 +337,14 @@ private:
 public:
 	// Basic getters
 	//
-	int minTotalShifts() const  {return minTotalShifts_;}
-	int maxTotalShifts() const {return maxTotalShifts_;}
-	int minConsDaysWork() const {return minConsDaysWork_;}
-	int maxConsDaysWork() const {return maxConsDaysWork_;}
-	int minConsDaysOff() const {return minConsDaysOff_;}
-	int maxConsDaysOff() const {return maxConsDaysOff_;}
-	int maxTotalWeekEnds() const {return maxTotalWeekEnds_;}
-	int needCompleteWeekEnds() const {return needCompleteWeekEnds_;}
+	int minTotalShifts() const  {return pContract_->minTotalShifts_;}
+	int maxTotalShifts() const {return pContract_->maxTotalShifts_;}
+	int minConsDaysWork() const {return pContract_->minConsDaysWork_;}
+	int maxConsDaysWork() const {return pContract_->maxConsDaysWork_;}
+	int minConsDaysOff() const {return pContract_->minConsDaysOff_;}
+	int maxConsDaysOff() const {return pContract_->maxConsDaysOff_;}
+	int maxTotalWeekends() const {return pContract_->maxTotalWeekends_;}
+	int needCompleteWeekends() const {return pContract_->needCompleteWeekends_;}
 	Position* pPosition() const {return pPosition_;}
 
 	// Avanced getters

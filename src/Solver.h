@@ -15,6 +15,59 @@
 #include "SolverInput.h"
 
 
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   L i v e N u r s e
+//
+// A live nurse is a nurse whose characteristics can evolve depending on
+// the demand and on the planning that is being built
+// They are needed in the solvers to duplicate the static nurses and define new
+// attribute that can be modified.
+//
+// The attributes are left public, because they are meant to be modified at will
+// by the solver, and because the live nurses are protected in the solver
+// with no get or set method
+//
+//-----------------------------------------------------------------------------
+class LiveNurse : public Nurse {
+
+public:
+
+	// Constructor and destructor
+	//
+	LiveNurse(const Nurse& nurse);
+	~LiveNurse();
+
+public:
+
+	//----------------------------------------------------------------------------
+	// Informative data
+	//----------------------------------------------------------------------------
+
+	// maximum and minimum number of working days for each nurse in the period of
+	// the demand without getting any penalty for consecutive shifts
+	// RqJO: this neglects the constraint of complete week-ends and the
+	// preferences ; they should be added later
+	//
+	int maxWorkDays_, minWorkDays_;
+
+	//----------------------------------------------------------------------------
+	// Planning data
+	//----------------------------------------------------------------------------
+
+	// the current roster assigned to the nurse
+	//
+	Roster roster_;
+
+	// a vector of rosters with no penalty and a maximum number of worked days
+	//
+	vector<Roster> maxFreeRosters_;
+
+
+};
+
+
+
 
 //-----------------------------------------------------------------------------
 //
@@ -50,7 +103,6 @@ protected:
 	// Recall the "const" attributes as pointers : Scenario informations
 	//
 	Scenario* pScenario_;
-	// vector<Nurse>* pTheNurses_;
 
 	// Minimum and optimum demand for each day, shift and skill
 	//
@@ -64,6 +116,15 @@ protected:
 	// pointer to the state of each nurse at the beginning of the time horizon
 	//
 	vector<State>* pInitState_;
+
+	//-----------------------------------------------------------------------------
+	// Manipulated data
+	//-----------------------------------------------------------------------------
+
+	// vector of LiveNurses. Initially a copy of the scenario nurses, they may
+	// then be preprocessed and get enw attributes
+	//
+	vector<LiveNurse*> theLiveNurses_;
 
 	//-----------------------------------------------------------------------------
 	// Outputs of the solver
@@ -91,13 +152,6 @@ public:
 	// Preprocess the data
 	//------------------------------------------------
 
-	// maximum and minimum number of working days for each nurse in the period of
-	// the demand without getting any penalty for consecutive shifts
-	// RqJO: this neglects the constraint of complete week-ends and the
-	// preferences ; they should be added later
-	//
-	vector<int> maxWorkDays_, minWorkDays_;
-
 	// total potential staffing with and without penalty
 	//
 	int maxTotalStaffNoPenalty_;
@@ -107,10 +161,22 @@ public:
 	vector<int> maxStaffPerSkill_;
 	vector<int> maxStaffPerSkillNoPenalty_;
 
+	// rarity of the skills
+	// it may depend on how many nurses have a skill and what the demand for this
+	// skill is
+	vector<int> skillRarity_;
+
+
+public:
+
 	// go through the nurses to collect data regarding the potential shift and
 	// skill coverage of the nurses
 	//
 	void preprocessTheNurses();
+
+	// compute the rarity indicator for each skill
+	//
+	void getSkillsRarity();
 
 	// check the feasibility of the demand with these nurses
 	//

@@ -41,7 +41,7 @@ string Contract::toString(){
 // Constructor and Destructor
 //
 Position::Position(int index, int nbSkills, vector<int> skills):
-id_(index), nbSkills_(nbSkills), skills_(skills) {
+id_(index), nbSkills_(nbSkills), skills_(skills), nbBelow_(0), nbAbove_(0), rank_(0)  {
 	// Verify that the vecor of skills is sorted
 	//
 	for (vector<int>::const_iterator it=skills_.begin(); it!=skills_.end()-1; ++it) {
@@ -49,6 +49,17 @@ id_(index), nbSkills_(nbSkills), skills_(skills) {
 			Tools::throwError("The skills in a position are not sorted or some skill is repeated!");
 		}
 	}
+}
+
+// Set positions above and below
+//
+void Position::addBelow(Position* pPosition) {
+	positionsBelow_.push_back(pPosition);
+	nbBelow_++;
+}
+void Position::addAbove(Position* pPosition) {
+	positionsAbove_.push_back(pPosition);
+	nbAbove_++;
 }
 
 // Print method
