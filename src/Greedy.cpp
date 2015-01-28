@@ -29,6 +29,64 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
 
 }
 
+//----------------------------------------------------------------------------
+// Protected intermediate methods for the constructive greedy
+//----------------------------------------------------------------------------
+
+// Returns true if the input nurse will respect the hard constraints if she is
+// assigned the input task
+//
+bool isFeasibleTask(const LiveNurse &nurse, int shift, int skill)  {
+  return true;
+}
+
+// Method that return the cost for completing the input task with the input
+// nurse
+// The cost depends on the state of the nurse, but the method will not check
+// the feasibility of the task
+//
+double costTask(const LiveNurse &nurse, int shift, int skill) {
+  return 0;
+}
+
+
+//----------------------------------------------------------------------------
+// Constructive greedy algorithm
+//
+// Goes through the the demands in a chronoligcal order and assign the nurse
+// that seems most appropriate to each task (shift/skill)
+//----------------------------------------------------------------------------
+
+void Greedy::constructiveGreedy() {
+
+  int nbDays = pDemand_->nbDays_, nbShifts = pScenario_->nbShifts_;
+  int nbSkills = pScenario_->nbSkills_, nbNurses = pScenario_->nbNurses_;
+
+  // First satisfy the minimum demand
+  //
+  for (int day = 0; day < nbDays; day++) {
+    for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
+      for (int sk = 0; sk < nbSkills; sk++) {
+        double costMin = 1.0e6;
+        for (int n = 0; n < nbNurses; n++)  {
+          LiveNurse* pNurse = theLiveNurses_[n];
+          if (isFeasibleTask(*pNurse, sh, sk)) {
+            double cost = costTask(*pNurse, sh, sk);
+            costMin = std::min(costMin, cost);
+          }
+        }
+      }
+    }
+    // Once all the tasks of the day are treated, give a rest to those that
+    // have reached the maximum number of working days
+    // By doing this after assigning all the tasks, we get a chance to give an
+    // extra working day to a nurse in exchange of the corresponding penalty
+    //
+  }
+}
+
+
+
 // Main method to solve the rostering problem for a given input
 //
 void Greedy::solve() {}

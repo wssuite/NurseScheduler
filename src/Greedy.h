@@ -31,6 +31,13 @@ public:
   // Main method to solve the rostering problem for a given input
   void solve();
 
+  // Constructive greedy algorithm
+  // Goes through the the demands in a chronoligcal order and assign the nurse
+  // that seems most appropriate to each task (shift/skill)
+  //
+  void constructiveGreedy();
+
+
 protected:
   // vector of live nurses that will be sorted based on the compare function
   //
@@ -42,6 +49,26 @@ protected:
   vector<int> sequencePosition_;
 
 private:
+
+  //----------------------------------------------------------------------------
+  // For the constructive greedy
+  //----------------------------------------------------------------------------
+
+  // Returns true if the input nurse will respect the hard constraints if she is
+  // assigned the input task
+  //
+  bool isFeasibleTask(const LiveNurse &nurse, int shift, int skill);
+
+  // Method that return the cost for completing the input task with the input
+  // nurse
+  // The cost depends on the state of the nurse, but the method will not check
+  // the feasibility of the task
+  //
+  double costTask(const LiveNurse &nurse, int shift, int skill);
+
+  //----------------------------------------------------------------------------
+  // For the complete roster greedy
+  //----------------------------------------------------------------------------
 
   // compare functions that can be used to sort the nurse before assigning them
   // schedules in the greedy algorithm
