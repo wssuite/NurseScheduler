@@ -36,7 +36,7 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
 // Returns true if the input nurse will respect the hard constraints if she is
 // assigned the input task
 //
-bool isFeasibleTask(const LiveNurse &nurse, int shift, int skill)  {
+bool Greedy::isFeasibleTask(const LiveNurse &nurse, int shift, int skill)  {
   return true;
 }
 
@@ -45,7 +45,7 @@ bool isFeasibleTask(const LiveNurse &nurse, int shift, int skill)  {
 // The cost depends on the state of the nurse, but the method will not check
 // the feasibility of the task
 //
-double costTask(const LiveNurse &nurse, int shift, int skill) {
+double Greedy::costTask(const LiveNurse &nurse, int shift, int skill) {
   return 0;
 }
 

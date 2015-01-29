@@ -38,6 +38,10 @@ class Roster{
 
 public:
 
+  // Default constructor
+  //
+  Roster() {}
+  
   // Constructor form no particular planning
   //
   Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
