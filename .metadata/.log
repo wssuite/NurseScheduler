@@ -59,3 +59,65 @@ Command-line arguments:  -os linux -ws gtk -arch x86_64
 !MESSAGE OK
 !SUBENTRY 1 org.eclipse.core.resources 4 77 2014-12-18 15:54:27.710
 !MESSAGE /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering
+!SESSION 2015-01-20 10:13:03.832 -----------------------------------------------
+eclipse.buildId=debbuild
+java.version=1.7.0_65
+java.vendor=Oracle Corporation
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=fr_FR
+Command-line arguments:  -os linux -ws gtk -arch x86_64
+
+!ENTRY org.eclipse.egit.ui 4 0 2015-01-20 10:15:07.354
+!MESSAGE Invalid project description.
+!STACK 1
+org.eclipse.core.internal.resources.ResourceException: Invalid project description.
+	at org.eclipse.core.internal.resources.Project.checkDescription(Project.java:175)
+	at org.eclipse.core.internal.resources.Project.assertCreateRequirements(Project.java:53)
+	at org.eclipse.core.internal.resources.Project.create(Project.java:287)
+	at org.eclipse.core.internal.resources.Project.create(Project.java:269)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.createExistingProject(ProjectUtils.java:174)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.access$0(ProjectUtils.java:137)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils$1.run(ProjectUtils.java:96)
+	at org.eclipse.core.internal.resources.Workspace.run(Workspace.java:2344)
+	at org.eclipse.core.internal.resources.Workspace.run(Workspace.java:2326)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.createProjects(ProjectUtils.java:129)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.createProjects(ProjectUtils.java:60)
+	at org.eclipse.egit.ui.internal.clone.GitImportWizard.importProjects(GitImportWizard.java:246)
+	at org.eclipse.egit.ui.internal.clone.GitImportWizard.access$2(GitImportWizard.java:229)
+	at org.eclipse.egit.ui.internal.clone.GitImportWizard$4.run(GitImportWizard.java:199)
+	at org.eclipse.jface.operation.ModalContext$ModalContextThread.run(ModalContext.java:121)
+Contains: OK
+Contains: /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2015-01-20 10:15:07.356
+!MESSAGE Invalid project description.
+!SUBENTRY 2 unknown 0 0 2015-01-20 10:15:07.356
+!MESSAGE OK
+!SUBENTRY 2 org.eclipse.core.resources 4 77 2015-01-20 10:15:07.356
+!MESSAGE /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering
+
+!ENTRY org.eclipse.egit.ui 4 0 2015-01-20 10:15:29.012
+!MESSAGE Invalid project description.
+!STACK 1
+org.eclipse.core.internal.resources.ResourceException: Invalid project description.
+	at org.eclipse.core.internal.resources.Project.checkDescription(Project.java:175)
+	at org.eclipse.core.internal.resources.Project.assertCreateRequirements(Project.java:53)
+	at org.eclipse.core.internal.resources.Project.create(Project.java:287)
+	at org.eclipse.core.internal.resources.Project.create(Project.java:269)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.createExistingProject(ProjectUtils.java:174)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.access$0(ProjectUtils.java:137)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils$1.run(ProjectUtils.java:96)
+	at org.eclipse.core.internal.resources.Workspace.run(Workspace.java:2344)
+	at org.eclipse.core.internal.resources.Workspace.run(Workspace.java:2326)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.createProjects(ProjectUtils.java:129)
+	at org.eclipse.egit.ui.internal.clone.ProjectUtils.createProjects(ProjectUtils.java:60)
+	at org.eclipse.egit.ui.internal.clone.GitImportWizard.importProjects(GitImportWizard.java:246)
+	at org.eclipse.egit.ui.internal.clone.GitImportWizard.access$2(GitImportWizard.java:229)
+	at org.eclipse.egit.ui.internal.clone.GitImportWizard$4.run(GitImportWizard.java:199)
+	at org.eclipse.jface.operation.ModalContext$ModalContextThread.run(ModalContext.java:121)
+Contains: OK
+Contains: /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering
+!SUBENTRY 1 org.eclipse.core.resources 4 77 2015-01-20 10:15:29.013
+!MESSAGE Invalid project description.
+!SUBENTRY 2 unknown 0 0 2015-01-20 10:15:29.013
+!MESSAGE OK
+!SUBENTRY 2 org.eclipse.core.resources 4 77 2015-01-20 10:15:29.013
+!MESSAGE /home/samuel/Projects/2015_NurseRostering overlaps the workspace location: /home/samuel/Projects/2015_NurseRostering

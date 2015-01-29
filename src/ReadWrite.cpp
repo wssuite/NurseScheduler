@@ -199,7 +199,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 	// Check that all fields were initialized before initializing the scenario
 	//
-	if ( nbWeeks==-1 || nbSkills==-1 || nbShifts==-1 || nbContracts==-1 || nbNurses==-1 ) {
+	if ( nbWeeks==-1 || nbSkills==-1 || nbShifts==-1 || nbContracts==-1 || nbNurses==-1 ) {
 		Tools::throwError("In readScenario: missing fields in the initialization");
 	}
 

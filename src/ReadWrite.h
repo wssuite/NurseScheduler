@@ -2,6 +2,7 @@
 #ifndef _ReadWrite_h
 #define _ReadWrite_h
 
+#include <algorithm>
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
