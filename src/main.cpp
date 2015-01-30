@@ -93,6 +93,7 @@ void testFunction_Samuel(){
 	logStream.print(timertest->dSinceInit());
 	logStream.print("\n");
 
+
 }
 
 int main(int argc, char** argv)
@@ -101,6 +102,6 @@ int main(int argc, char** argv)
 	// Tests functions to check the functions one by one
 	// testFunction_Antoine();
 	testFunction_Jeremy();
-	// testFunction_Samuel();
+	testFunction_Samuel();
 
 }
