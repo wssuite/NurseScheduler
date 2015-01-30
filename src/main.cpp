@@ -93,6 +93,9 @@ void testFunction_Samuel(){
 	logStream.print(timertest->dSinceInit());
 	logStream.print("\n");
 
+	SubProblem sp;
+	sp.testGraph_spprc();
+
 
 }
 

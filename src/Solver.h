@@ -13,6 +13,7 @@
 #include "Roster.h"
 #include "Scenario.h"
 #include "SolverInput.h"
+#include "SubProblem.h"
 
 
 //-----------------------------------------------------------------------------

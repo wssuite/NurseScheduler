@@ -85,9 +85,9 @@ typedef boost::adjacency_list< boost::vecS, boost::vecS, boost::directedS, SPPRC
 //
 // The following functions / data structures are used for spp without resource constraints (cost only):
 //   Resource container ("resource" = cost)
-//   Comparison override
+//   Comparison override --> in SubProblem.cpp
 //   Cost extension function
-//   Cominance function
+//   Dominance function
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -111,16 +111,6 @@ struct spp_no_rc_res_cont{
 	//
 	int cost;
 };
-
-// Resource comparisons (== and <)
-//
-bool operator==( const spp_no_rc_res_cont& res_cont_1, const spp_no_rc_res_cont& res_cont_2 ){
-	return ( res_cont_1.cost == res_cont_2.cost );
-}
-
-bool operator<( const spp_no_rc_res_cont& res_cont_1, const spp_no_rc_res_cont& res_cont_2 ){
-	return ( res_cont_1.cost < res_cont_2.cost );
-}
 
 // Cost extension
 //
@@ -159,15 +149,15 @@ public:
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// The following functions / data structures are used for the time ressource:
+// The following functions / data structures are used for the time resource:
 //   Resource container ("resource" = cost + time)
-//   Comparison override
+//   Comparison override --> in SubProblem.cpp
 //   Cost extension function
-//   Cominance function
+//   Dominance function
 //
 /////////////////////////////////////////////////////////////////////////////
 
-// data structures for shortest path problem with time windows (spptw)
+// data structures for shortest path problem with time windows (spp_tw)
 // ResourceContainer model
 
 struct spp_spptw_res_cont{
@@ -193,17 +183,6 @@ struct spp_spptw_res_cont{
 	//
 	int time;
 };
-
-// 1cost + 1ressource comparisons (== and <)
-bool operator==( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& res_cont_2 ){
-	return ( res_cont_1.cost == res_cont_2.cost	and res_cont_1.time == res_cont_2.time );
-}
-
-bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& res_cont_2 ){
-	if( res_cont_1.cost > res_cont_2.cost )	return false;
-	else if( res_cont_1.cost == res_cont_2.cost ) return res_cont_1.time < res_cont_2.time;
-	else return true;
-}
 
 // Resources extension model (arc has cost + travel time)
 class ref_spptw{
@@ -245,6 +224,10 @@ public:
 
 class SubProblem {
 
+	// En travaux...
+
+public:
+	void testGraph_spprc();
 
 
 
