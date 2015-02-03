@@ -13,7 +13,6 @@
 #include "Roster.h"
 #include "Scenario.h"
 #include "SolverInput.h"
-#include "SubProblem.h"
 
 
 //-----------------------------------------------------------------------------
@@ -68,8 +67,6 @@ public:
 };
 
 
-
-
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S o l v e r
@@ -107,7 +104,7 @@ protected:
 
 	// Minimum and optimum demand for each day, shift and skill
 	//
-	Demand *pDemand_;
+	Demand* pDemand_;
 
 	// Preferences of the nurses (that vector must be of same length and in the
 	// same order as the nurses)

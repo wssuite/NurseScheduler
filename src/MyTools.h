@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <set>
 #include <streambuf>
 #include <string>
 #include <vector>
@@ -22,6 +23,7 @@
 using std::map;
 using std::string;
 using std::vector;
+using std::set;
 
 static const int DEBUG = 1;
 static const string REST_SHIFT = "None";

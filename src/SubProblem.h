@@ -8,9 +8,15 @@
 #ifndef SUBPROBLEM_H_
 #define SUBPROBLEM_H_
 
+#include "MyTools.h"
+#include "Solver.h"
+#include "MasterProblem.h"
+
 #include <boost/config.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/r_c_shortest_paths.hpp>
+
+static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
 
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
@@ -222,14 +228,58 @@ public:
 
 /////////////////////////////////////////////////////////////////////////////
 
+
+
+
+
+//---------------------------------------------------------------------------
+//
+// C l a s s   S u b P r o b l e m
+//
+// Contains the shortest paths with resource constraints
+//
+//---------------------------------------------------------------------------
 class SubProblem {
 
-	// En travaux...
-
 public:
+
+	SubProblem();
+	~SubProblem();
+
+	// Constructeur du graphe (seulement le graphe; pas de couts / bornes / temps de trajet)
+	//
+	SubProblem(Scenario* scenario);
+
+	// Fonction de test de l'algor de plus courts chemins
+	//
 	void testGraph_spprc();
 
+	// Solve : Retourne true si des chemins de couts reduit negatif ont ete trouves; false sinon.
+	//
+	bool solve(LiveNurse* nurse, vector<vector<double> > * dualCosts, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false);
 
+	// Retourne l'ensemble des rotations mises en memoire par le SP
+	//
+	vector< Rotation > getRotations();
+
+
+protected:
+
+	// Nombre de chemins (minimum) a retourner au MP
+	//
+	int nPathsMin_;
+
+	// Nombre de chemins trouves
+	//
+	int nPaths_;
+
+	// 1 cout / jour / shift travaille
+	//
+	vector<vector<double> > * costs_;
+
+	// Les Rotations sauvegardees
+	//
+	vector< Rotation > lesRotations;
 
 };
 

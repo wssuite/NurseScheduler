@@ -48,12 +48,16 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 
 
 
+//---------------------------------------------------------------------------
+//
+// C l a s s   S u b P r o b l e m
+//
+// Contains the shortest paths with resource constraints
+//
+//---------------------------------------------------------------------------
+SubProblem::SubProblem(){}
 
-
-
-
-
-
+SubProblem::~SubProblem(){}
 
 
 

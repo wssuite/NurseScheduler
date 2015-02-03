@@ -43,33 +43,33 @@ public:
 
 	// Minimum and maximum number of consecutive days worked
 	//
-  const int minConsDaysWork_, maxConsDaysWork_;
+	const int minConsDaysWork_, maxConsDaysWork_;
 
-  // Minimum and maximum number of consecutive days off
-  //
-  const int minConsDaysOff_, maxConsDaysOff_;
+	// Minimum and maximum number of consecutive days off
+	//
+	const int minConsDaysOff_, maxConsDaysOff_;
 
-  // Maximum number of weekends worked, and complete weekend constraint
-  //
-  const int maxTotalWeekends_;
-  const int needCompleteWeekends_;
+	// Maximum number of weekends worked, and complete weekend constraint
+	//
+	const int maxTotalWeekends_;
+	const int needCompleteWeekends_;
 
-  // Constructor and Destructor
-  //
-  Contract(string name, int minTotalShifts, int maxTotalShifts,
-  		int minConsDaysWork, int maxConsDaysWork,
-  		int minConsDaysOff, int maxConsDaysOff,
-  		int maxTotalWeekends, int needCompleteWeekends) :
-  			name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
-  			minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
-  			minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
-  			maxTotalWeekends_(maxTotalWeekends), needCompleteWeekends_(needCompleteWeekends) {
-  };
+	// Constructor and Destructor
+	//
+	Contract(string name, int minTotalShifts, int maxTotalShifts,
+			int minConsDaysWork, int maxConsDaysWork,
+			int minConsDaysOff, int maxConsDaysOff,
+			int maxTotalWeekends, int needCompleteWeekends) :
+				name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
+				minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
+				minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
+				maxTotalWeekends_(maxTotalWeekends), needCompleteWeekends_(needCompleteWeekends) {
+	};
 
-  // Display methods: toString + override operator<< (easier)
-  //
-  string toString();
-  friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
+	// Display methods: toString + override operator<< (easier)
+	//
+	string toString();
+	friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
 };
 
 

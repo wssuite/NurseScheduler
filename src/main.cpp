@@ -10,6 +10,7 @@
 //#include "Nurse.h"
 #include "ReadWrite.h"
 #include "Solver.h"
+#include "SubProblem.h"
 #include "MyTools.h"
 
 // Function for testing parts of the code (Antoine)
