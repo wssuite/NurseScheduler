@@ -14,6 +14,47 @@
 #include "Scenario.h"
 #include "SolverInput.h"
 
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   S t a t N u r s e C t
+//
+// The instances of this class gather the status of the constraints that relate
+// to the nurses.
+//
+//-----------------------------------------------------------------------------
+
+class StatCtNurse{
+
+public:
+	// Constructor and destructor
+	//
+	StatCtNurse();
+	~StatCtNurse();
+
+	// number of days of the associated demand
+	//
+	int nbDays_;
+
+	// costs for the violation of soft constraints
+	//
+	vector<int> costConsDays_; // the same vector also accounts for consecutive days off
+	vector<int> costConsShifts_;
+	vector<int> costPref_;
+	vector<int> costWeekEnd_;
+
+	// vector of booleans equal to true if the corresponding hard contraint is
+	// violated on each day
+	//
+	vector<bool> violSuccShifts_; // forbidden successive shifts
+	vector<bool> violSkill_; // missing required skill
+
+public:
+	// initialize the statuses
+	//
+	void init(int nbDays);
+
+
+};
 
 //-----------------------------------------------------------------------------
 //
@@ -35,10 +76,29 @@ public:
 
 	// Constructor and destructor
 	//
-	LiveNurse(const Nurse& nurse);
+	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
+	State* pStateIni,	map<int,set<int> >* pWishesOff);
 	~LiveNurse();
 
 public:
+
+	//----------------------------------------------------------------------------
+	// Pointers to background data
+	//----------------------------------------------------------------------------
+
+	// Scenario under consideration
+	Scenario* pScenario_;
+
+	//----------------------------------------------------------------------------
+	// Data of the the particular period the live nurse is going to work
+	//----------------------------------------------------------------------------
+	int nbDays_, firstDay_;
+
+	// Initial state
+	State* pStateIni_;
+
+	// Wishes of days off
+	map<int,set<int> >* pWishesOff_;
 
 	//----------------------------------------------------------------------------
 	// Informative data
@@ -55,13 +115,41 @@ public:
 	// Planning data
 	//----------------------------------------------------------------------------
 
-	// the current roster assigned to the nurse
+	// the current roster assigned to the nurse and the associated status of the
+	// nurse constraints
 	//
 	Roster roster_;
+	StatCtNurse statCt_;
 
 	// a vector of rosters with no penalty and a maximum number of worked days
 	//
 	vector<Roster> maxFreeRosters_;
+
+	// vector containing for each day the state of the nurse
+	// the size is the number of days of the roster plus one, since the initial
+	// and the final states are of importance
+	//
+	vector<State> states_;
+
+
+public:
+	//----------------------------------------------------------------------------
+	// Methods that relate to the rosters of a nurse
+	//----------------------------------------------------------------------------
+
+	// assign a task at on a given day and update the states of the nurse
+	//
+	void assignTask(task t, int day);
+
+	// check the satisfaction of the hard constraints and record the violations
+	// for the input roster and resulting states
+	//
+	void checkConstraints(const Roster& roster, const vector<State>& states, StatCtNurse& stat);
+
+	// check the soft constraints and record the costs of the violations and the
+	// remaining margin for the satisfied ones.
+	//
+	void checkSoftConstraints();
 
 
 };

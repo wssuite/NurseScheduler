@@ -41,23 +41,18 @@ public:
   // Default constructor
   //
   Roster() {}
-  
+
   // Constructor form no particular planning
   //
-  Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
-  std::map< int,std::set<int> >* pWishesOff, const State& initialState);
+  Roster(int nbDays, int firstDay);
 
   // Constructor: initialize planning from an input set of shifts for the nurse
   //
-  Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
-  std::map< int,std::set<int> >* pWishesOff, const State& initialState,
-  vector<int> shifts);
+  Roster(int nbDays, int firstDay, vector<int> shifts);
 
   // Constructor: initialize planning from an input set of shifts and skills
   //
-  Roster(int nbDays, int firstDay, Scenario* pScenario, Nurse* pNurse,
-  std::map< int,std::set<int> >* pWishesOff, const State& initialState,
-  vector<int> shifts, vector<int> skills);
+  Roster(int nbDays, int firstDay, vector<int> shifts, vector<int> skills);
 
   // Destructor
   ~Roster();
@@ -88,12 +83,6 @@ private:
   //
   vector<int> skills_;
 
-  // vector containing for each day the state of the nurse
-  // the size is the number of days of the roster plus one, since the initial
-  // and the final states are of importance
-  //
-  vector<State> states_;
-
   // vectors of booleans that for each day, is equal to 1 if the nurse is about
   // to go from a working day to a day off or from a day off to a working day
   //
@@ -104,32 +93,26 @@ private:
   //
   vector<bool> switchShift_;
 
-  // costs for the violation of soft constraints
-  //
-  vector<int> costConsDays_; // the same vector also accounts for consecutive days off
-  vector<int> costConsShifts_;
-  vector<int> costPreferences_;
-  vector<int> costCompleteWeekEnd_;
-
-  // vector of booleans equal to true if the corresponding hard contraint is
-  // violated on each day
-  //
-  vector<bool> violationSuccShifts_; // forbidden successive shifts
-  vector<bool> violationSkill_; // missing required skill
-
 public:
+  // Basic getters
+  //
+  int shift(int day) const {return shifts_[day];}
+  int skill(int day) const {return skills_[day];}
+  bool switchOff(int day) const {return switchOff_[day];}
+  int switchShift(int day) const {return switchShift_[day];}
+
+  // initialize the roster
+  //
+  void init(int nbDays, int firstDay, int shiftDefault=0);
+
+  // get a vector of consecutive states that will result from applying the
+  // the roster from a given initial state
+  //
+  vector<State> getStates(const State& pStateIni);
+
   // assign a task at on a given day and update the states of the nurse
   //
   void assignTask(task t, int day);
-
-  // check the satisfaction of the hard constraints and record the violations
-  //
-  void checkHardConstraints();
-
-  // check the soft constraints and record the costs of the violations and the
-  // remaining margin for the satisfied ones.
-  //
-  void checkSoftConstraints();
 
 };
 

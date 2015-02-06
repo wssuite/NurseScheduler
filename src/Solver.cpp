@@ -11,6 +11,37 @@
 
 //-----------------------------------------------------------------------------
 //
+//  C l a s s   S t a t N u r s e C t
+//
+// The instances of this class gather the status of the constraints that relate
+// to the nurses.
+//
+//-----------------------------------------------------------------------------
+
+// Constructor and destructor
+//
+StatCtNurse::StatCtNurse() {}
+StatCtNurse::~StatCtNurse() {}
+
+// initialize the statuses
+//
+void StatCtNurse::init(int nbDays) {
+  nbDays_ = nbDays;
+
+  // initialize all the cost vectors
+  Tools::initVector(&costConsShifts_, nbDays_);
+  Tools::initVector(&costConsDays_, nbDays_);
+  Tools::initVector(&costPref_, nbDays_);
+  Tools::initVector(&costWeekEnd_, nbDays_);
+
+  // initialize the violation vector
+  for (int day = 0; day < nbDays_; day++) violSuccShifts_.push_back(false);
+  for (int day = 0; day < nbDays_; day++) violSkill_.push_back(false);
+}
+
+
+//-----------------------------------------------------------------------------
+//
 //  C l a s s   L i v e N u r s e
 //
 // A live nurse is a nurse whose characteristics can evolve depending on
@@ -24,8 +55,133 @@
 
 // Constructor
 //
-LiveNurse::LiveNurse(const Nurse& nurse):
-Nurse(nurse.id_, nurse.name_, nurse.nbSkills_, nurse.skills_, nurse.pContract_){
+LiveNurse::LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
+State* pStateIni,	map<int,set<int> >* pWishesOff):
+Nurse(nurse.id_, nurse.name_, nurse.nbSkills_, nurse.skills_, nurse.pContract_),
+pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay),
+pStateIni_(pStateIni), pWishesOff_(pWishesOff) {
+
+  roster_.init(nbDays, firstDay);
+  statCt_.init(nbDays);
+
+  // initialize the states at each day
+  states_.push_back(*pStateIni);
+  for (int day = 0; day < nbDays_; day++) {
+    State nextState;
+    nextState.addDayToState(states_[day], 0);
+    states_.push_back(nextState);
+  }
+}
+
+
+// check the satisfaction of the hard constraints and record the violations
+// check the soft constraints and record the costs of the violations and the
+// remaining margin for the satisfied ones.
+//
+void LiveNurse::checkConstraints(const Roster& roster,
+  const vector<State>& states, StatCtNurse& stat) {
+
+  // check the satisfaction of the hard constraints and record the violations
+  //
+  for (int day = 0; day < nbDays_; day++) {
+
+    // Check that the nurse has the assigned skill
+    //
+    stat.violSkill_[day] = hasSkill(roster.skill(day));
+
+    // Check the forbidden successor constraint
+    //
+    int lastShift = states[day].shift_;   // last shift assigned to the nurse
+    int thisShift = roster.shift(day);    // shift assigned on this day
+
+    stat.violSuccShifts_[day] = false;
+    for (int shift = 0; shift < pScenario_->nbForbiddenSuccessors_[lastShift]; shift++) {
+       if (thisShift == pScenario_->forbiddenSuccessors_[lastShift][shift])  {
+         stat.violSuccShifts_[day] = true;
+         break;
+       }
+    }
+  }
+
+  // initialize the
+  // check the soft constraints and record the costs of the violations and the
+  // remaining margin for the satisfied ones.
+  //
+  for (int day = 1; day <= nbDays_; day++) {
+
+    // shift assigned on this day
+    int shift = states[day].shift_;
+
+    // first look at consecutive working days or days off
+    //
+    if (roster.switchOff(day))  {
+      int missingDays=0, extraDays=0;
+
+      // compute the violations of consecutive working days
+      if (shift) {
+        missingDays = minConsDaysWork()-states[day].consDaysWorked_;
+        extraDays = states[day].consDaysWorked_-maxConsDaysWork();
+
+        stat.costConsDays_[day] = (missingDays>0) ? WEIGHT_CONS_DAYS_WORK*missingDays:0;
+        stat.costConsDays_[day] += (extraDays>0) ? WEIGHT_CONS_DAYS_WORK*extraDays:0;
+      }
+      // compute the violations of consecutive days off
+      else {
+        missingDays =minConsDaysOff()-states[day].consDaysOff_;
+        extraDays = states[day].consDaysOff_-maxConsDaysOff();
+
+        stat.costConsDays_[day] = (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
+        stat.costConsDays_[day] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF*extraDays:0;
+      }
+    }
+    else  {
+      stat.costConsDays_[day] = 0;
+    }
+
+    // check the consecutive same shifts
+    //
+    if (roster.switchShift(day))  {
+      int missingShifts = 0, extraShifts = 0;
+
+      // it only makes sense if the nurse is working that day
+      if (shift) {
+        missingShifts = pScenario_->minConsShifts_[shift]-states[day].consShifts_;
+        extraShifts =  states[day].consShifts_-pScenario_->maxConsShifts_[shift];
+
+        stat.costConsShifts_[day] = (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
+        stat.costConsShifts_[day] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
+      }
+    }
+    else {
+      stat.costConsShifts_[day] = 0;
+    }
+
+    // check the preferences
+    //
+    map<int,set<int> >::iterator itM = pWishesOff_->find(day);
+    // If the day is not in the wish-list, no possible violation
+    if(itM == pWishesOff_->end())  {
+      stat.costPref_[day] = 0;
+    }
+    // no preference either in the wish-list for that day
+    else if(itM->second.find(shift) == itM->second.end()) {
+      stat.costPref_[day] = 0;
+    }
+    else {
+      stat.costPref_[day] = WEIGHT_PREFERENCES;
+    }
+
+    // check the complete week-end (only if the nurse requires them)
+    // this cost is only assigned to the sundays
+    //
+    if ( (day+this->firstDay_)%7 == 6 && needCompleteWeekends()) {
+      if (states[day].consDaysWorked_==1 || states[day].consDaysOff_==1) {
+        stat.costWeekEnd_[day] = WEIGHT_COMPLETE_WEEKEND;
+      }
+    }
+
+  } // end for day
+
 }
 
 
@@ -53,7 +209,9 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
 
     // copy the nurses in the live nurses vector
     for (int i = 0; i < pScenario_->nbNurses_; i++) {
-      theLiveNurses_.push_back(new LiveNurse( (pScenario_->theNurses_[i]) ) );
+      theLiveNurses_.push_back(
+        new LiveNurse( (pScenario_->theNurses_[i]), pScenario_, pDemand_->nbDays_,
+        pDemand_->firstDay_, &(*pInitState_)[i], &(pPreferences_->wishesOff_[i])  ) );
     }
 
 
