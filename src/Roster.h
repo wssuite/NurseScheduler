@@ -110,9 +110,9 @@ public:
   //
   vector<State> getStates(const State& pStateIni);
 
-  // assign a task at on a given day and update the states of the nurse
+  // assign a task at on a given day
   //
-  void assignTask(task t, int day);
+  void assignTask(int day, int shift, int skill=0);
 
 };
 

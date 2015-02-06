@@ -210,6 +210,10 @@ public:
 	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
 	inline void setInitialState(vector<State> initialState){ initialState_ = initialState;}
 
+	// return true if the shift shNext is a forbidden successor of sh
+	//
+	bool isForbiddenSuccessor(int shNext, int sh);
+
 public:
 
 	//------------------------------------------------

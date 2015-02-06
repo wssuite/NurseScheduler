@@ -49,6 +49,17 @@ Scenario::~Scenario(){
 	//delete pWeekDemand_;
 }
 
+// return true if the shift shNext is a forbidden successor of sh
+//
+bool Scenario::isForbiddenSuccessor(int shNext, int sh) {
+	for (int shift = 0; shift < nbForbiddenSuccessors_[sh]; shift++) {
+		if (shNext == forbiddenSuccessors_[sh][shNext])  {
+			return true;
+		}
+	}
+	return false;
+}
+
 // Display methods: toString + override operator<< (easier)
 //
 string Scenario::toString(){

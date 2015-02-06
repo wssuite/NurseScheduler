@@ -94,13 +94,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
     int lastShift = states[day].shift_;   // last shift assigned to the nurse
     int thisShift = roster.shift(day);    // shift assigned on this day
 
-    stat.violSuccShifts_[day] = false;
-    for (int shift = 0; shift < pScenario_->nbForbiddenSuccessors_[lastShift]; shift++) {
-       if (thisShift == pScenario_->forbiddenSuccessors_[lastShift][shift])  {
-         stat.violSuccShifts_[day] = true;
-         break;
-       }
-    }
+    stat.violSuccShifts_[day] = pScenario_->isForbiddenSuccessor(thisShift,lastShift);
   }
 
   // initialize the

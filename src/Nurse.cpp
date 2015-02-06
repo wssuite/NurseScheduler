@@ -175,6 +175,8 @@ void State::addNewDay(int newShift){
 
 // Function that appends a new day worked on a given shift to an input state
 // to update this state
+// RqJO: I slghtly modified the method to take into account the possibility to
+// add in the state that no task has been assigned on this day
 //
 void State::addDayToState(const State& prevState, int newShift)	{
 
@@ -182,25 +184,25 @@ void State::addDayToState(const State& prevState, int newShift)	{
 	dayId_ = prevState.dayId_+1;
 
 	// Total shifts worked if it is a worked day
-	totalDaysWorked_ = prevState.totalDaysWorked_+(newShift ? 1 : 0);
+	totalDaysWorked_ = prevState.totalDaysWorked_+(newShift > 0 ? 1 : 0);
 
 	// Total weekends worked :
 	// +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
-	if( newShift and
+	if( newShift > 0 and
 		( (dayId_%7==5) or ((dayId_%7==6) and !prevState.shift_)))
 		totalWeekendsWorked_ ++;
 
 	// Consecutives : +1 iff it is the same as the previous one
-	consShifts_ = (newShift==prevState.shift_) ? (prevState.consShifts_ + 1) : 1;
+	consShifts_ = (newShift>0 && newShift==prevState.shift_) ? (prevState.consShifts_ + 1) : 1;
 
 	// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
-	consDaysWorked_ = prevState.shift_ ? (prevState.consDaysWorked_ + 1) : 0;
+	consDaysWorked_ = newShift>0 ? (prevState.consDaysWorked_ + 1) : 0;
 
 	// Consecutive Days off : +1 if the new one is off (==0), 0 if it is worked (!=0)
-	consDaysOff_ = prevState.shift_ ? 0 : (prevState.consDaysOff_ + 1);
+	consDaysOff_ = newShift ? 0 : (prevState.consDaysOff_ + 1);
 
 	// Current shift worked : updated with the new one
-	shift_ = newShift;
+	shift_ = newShift>=0 ? newShift:prevState.shift_-1;
 
 }
 
@@ -338,7 +340,7 @@ Nurse::~Nurse(){
 
 // Check that the nurse has a given skill
 //
-bool Nurse::hasSkill(int skill) {
+bool Nurse::hasSkill(int skill) const {
 	for (int i = 0; i < nbSkills_; i++)	{
 		if (skills_[i] == skill)	return true;
 	}

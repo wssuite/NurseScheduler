@@ -71,3 +71,10 @@ vector<State> Roster::getStates(const State& stateIni) {
 
   return states;
 }
+
+// assign a task at on a given day
+//
+void Roster::assignTask(int day, int shift, int skill) {
+  shifts_[day] = shift;
+  skills_[day] = skill;
+}

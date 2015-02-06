@@ -183,6 +183,8 @@ public:
 	int consDaysWorked_, consShifts_, consDaysOff_;
 
 	// Type of shift worked on D-Day. It can be a rest shift (=0).
+	// A negative value -d means that the nurse has not been assigned a task for
+	// the last d days
 	//
 	int shift_;
 
@@ -349,7 +351,7 @@ public:
 
 	// Avanced getters
 	//
-	bool hasSkill(int skill);
+	bool hasSkill(int skill) const;
 
   // Display methods: toString
   //
