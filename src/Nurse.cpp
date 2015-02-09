@@ -186,20 +186,32 @@ void State::addDayToState(const State& prevState, int newShift)	{
 	// Total shifts worked if it is a worked day
 	totalDaysWorked_ = prevState.totalDaysWorked_+(newShift > 0 ? 1 : 0);
 
-	// Total weekends worked :
-	// +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
-	if( newShift > 0 and
-		( (dayId_%7==5) or ((dayId_%7==6) and !prevState.shift_)))
-		totalWeekendsWorked_ ++;
+	// Treat the case in which no shift is assigned to the nurse on this day
+	if (newShift < 0) {
+		totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+		consShifts_ = prevState.consShifts_;
+		consDaysWorked_ = prevState.consDaysWorked_;
+		consDaysOff_ = prevState.consDaysOff_;
+	}
+	else {
+		// Total weekends worked :
+		// +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
+		if( newShift and
+			( (dayId_%7==5) or ((dayId_%7==6) and !prevState.shift_)))
+			totalWeekendsWorked_ = prevState.totalWeekendsWorked_+1;
+		else {
+			totalWeekendsWorked_ = 0;
+		}
 
-	// Consecutives : +1 iff it is the same as the previous one
-	consShifts_ = (newShift>0 && newShift==prevState.shift_) ? (prevState.consShifts_ + 1) : 1;
+		// Consecutives : +1 iff it is the same as the previous one
+		consShifts_ = (newShift && newShift==prevState.shift_) ? (prevState.consShifts_ + 1) : 1;
 
-	// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
-	consDaysWorked_ = newShift>0 ? (prevState.consDaysWorked_ + 1) : 0;
+		// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
+		consDaysWorked_ = newShift ? (prevState.consDaysWorked_ + 1) : 0;
 
-	// Consecutive Days off : +1 if the new one is off (==0), 0 if it is worked (!=0)
-	consDaysOff_ = newShift ? 0 : (prevState.consDaysOff_ + 1);
+		// Consecutive Days off : +1 if the new one is off (==0), 0 if it is worked (!=0)
+		consDaysOff_ = newShift ? 0 : (prevState.consDaysOff_ + 1);
+	}
 
 	// Current shift worked : updated with the new one
 	shift_ = newShift>=0 ? newShift:prevState.shift_-1;

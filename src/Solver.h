@@ -141,6 +141,10 @@ public:
 	//
 	void assignTask(task t, int day);
 
+	// returns true if the nurse wishes the day-shift off
+	//
+	bool wishesOff(int day, int shift) const;
+
 	// check the satisfaction of the hard constraints and record the violations
 	// for the input roster and resulting states
 	//
@@ -250,7 +254,7 @@ public:
 	// rarity of the skills
 	// it may depend on how many nurses have a skill and what the demand for this
 	// skill is
-	vector<int> skillRarity_;
+	vector<double> skillRarity_;
 
 
 public:
@@ -267,6 +271,14 @@ public:
 	// check the feasibility of the demand with these nurses
 	//
 	bool checkFeasibility() {return true;};
+
+	//------------------------------------------------
+	// Display functions
+	//------------------------------------------------
+
+	// display the whole solution
+	//
+	string solutionToString();
 
 };
 

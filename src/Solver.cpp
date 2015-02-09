@@ -73,6 +73,22 @@ pStateIni_(pStateIni), pWishesOff_(pWishesOff) {
   }
 }
 
+// returns true if the nurse wishes the day-shift off
+//
+bool LiveNurse::wishesOff(int day, int shift) const {
+  map<int,set<int> >::iterator itM = pWishesOff_->find(day);
+  // If the day is not in the wish-list, no possible violation
+  if(itM == pWishesOff_->end())  {
+    return false;
+  }
+  // no preference either in the wish-list for that day
+  else if(itM->second.find(shift) == itM->second.end()) {
+    return false;
+  }
+  else {
+    return true;
+  }
+}
 
 // check the satisfaction of the hard constraints and record the violations
 // check the soft constraints and record the costs of the violations and the
@@ -198,7 +214,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
     for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
       maxStaffPerSkill_.push_back(0);
       maxStaffPerSkillNoPenalty_.push_back(0);
-      skillRarity_.push_back(0);
+      skillRarity_.push_back(1.0);
     }
 
     // copy the nurses in the live nurses vector
@@ -300,4 +316,53 @@ void Solver::preprocessTheNurses() {
   }
 
   // Compute the
+}
+
+//------------------------------------------------
+// Display functions
+//------------------------------------------------
+
+// display the whole solution
+//
+string Solver::solutionToString() {
+  std::stringstream rep;
+  int nbNurses = pScenario_->nbNurses_;
+  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nbDays_;
+
+  // write to stringstream that can then be printed in any output file
+  // follow the template described by the competition
+  rep << "SOLUTION" << std::endl;
+  rep << pScenario_->nbWeeks_ << " " << pScenario_->name_ << std::endl;
+  rep << std::endl;
+
+  // compute the total number of assignments that are not rests
+  // if no shift is assigned to a nurse on given, it still counts
+  int nbAssignments = 0;
+  for (int n = 0; n < nbNurses; n ++) {
+    for (int day = firstDay; day < firstDay+nbDays; day++){
+      if (theLiveNurses_[n]->roster_.shift(day) > 0) nbAssignments++;
+    }
+  }
+
+  rep << "ASSIGNMENTS = " << nbAssignments << std::endl;
+  for (int n = 0; n < nbNurses; n ++) {
+    for (int day = firstDay; day < firstDay+nbDays; day++){
+      int shift = theLiveNurses_[n]->roster_.shift(day);
+      if (shift != 0) {
+        rep << theLiveNurses_[n]->name_ << " "<< Tools::intToDay(day) << " ";
+        if (shift > 0) {
+          int skill = theLiveNurses_[n]->roster_.skill(day);
+          rep << pScenario_->intToShift_[shift] << " ";
+          rep << pScenario_->intToSkill_[skill] << std::endl;
+        }
+        else { // shift < 0 so no shif is assigned
+          rep << "Unassigned TBD"<< std::endl;
+        }
+      }
+    }
+  }
+
+
+
+  return rep.str();
 }

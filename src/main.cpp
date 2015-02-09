@@ -9,7 +9,7 @@
 //#include "Scenario.h"
 //#include "Nurse.h"
 #include "ReadWrite.h"
-#include "Solver.h"
+#include "Greedy.h"
 #include "SubProblem.h"
 #include "MyTools.h"
 
@@ -51,9 +51,15 @@ void testFunction_Jeremy(){
 
 	// Instantiate the solver class as a test
 	//
-	Solver* pSolverTest =
-	new Solver(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
+	Greedy* pSolverTest =
+	new Greedy(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
 	pSolverTest->preprocessTheNurses();
+	pSolverTest->constructiveGreedy();
+
+	// Write the solution in an output file
+	string outFile = "../outfiles/test.out";
+	Tools::LogOutput outStream(outFile);
+	outStream << pSolverTest->solutionToString();
 
 	// Display the total time spent in the algorithm
 	timertotal->stop();
@@ -106,6 +112,6 @@ int main(int argc, char** argv)
 	// Tests functions to check the functions one by one
 	// testFunction_Antoine();
 	testFunction_Jeremy();
-	testFunction_Samuel();
+	// testFunction_Samuel();
 
 }

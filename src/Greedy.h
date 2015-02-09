@@ -64,7 +64,12 @@ private:
   // The cost depends on the state of the nurse, but the method will not check
   // the feasibility of the task
   //
-  double costTask(const LiveNurse &nurse, int shift, int skill);
+  double costTask(const LiveNurse &nurse, int day, int shift, int skill);
+
+  // Assign the unassigned nurses with best costs to the demand input tasks
+  // nbAssigned is the number of nurses that have actually obtained a new task
+  void assignBestNursesToTask(int day, int shift, int skills, int demand,
+    vector<LiveNurse*> pUnassignedNurses, int &nbAssigned);
 
   //----------------------------------------------------------------------------
   // For the complete roster greedy

@@ -8,6 +8,21 @@
 
 #include "Greedy.h"
 
+// method that insert a value and the associated index in vectros of values and
+// indices so that the value vector is sorted in ascending order
+void insertInVectors(double value, int index,
+  vector<double>& valVect, vector<int>& indVect, int maxLength) {
+  for (int i = 0; i < maxLength; i++) {
+    if (value < valVect[i]) {
+      valVect.insert(valVect.begin()+i, value);
+      valVect.pop_back();
+      indVect.insert(indVect.begin()+i, index);
+      indVect.pop_back();
+    }
+  }
+}
+
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   G r e e d y
@@ -54,8 +69,159 @@ bool Greedy::isFeasibleTask(const LiveNurse &nurse, int shift, int skill)  {
 // The cost depends on the state of the nurse, but the method will not check
 // the feasibility of the task
 //
-double Greedy::costTask(const LiveNurse &nurse, int shift, int skill) {
-  return 0;
+double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill) {
+
+  double cost = 0.0;
+
+  // Count with a positive value the penalties associated with the assignement
+  // of this task
+  //
+  State state = nurse.states_[day];
+
+  // consecutive shifts
+  int lastShift = state.shift_;
+  int ecartShift, ecartOff, ecartDay;
+  if (shift == lastShift  && state.consShifts_ >= pScenario_->maxConsShifts_[shift]) {
+    cost += WEIGHT_CONS_SHIFTS;
+  }
+  else if (shift != lastShift && state.consShifts_ < pScenario_->minConsShifts_[shift]) {
+    ecartShift = pScenario_->minConsShifts_[shift]-state.consShifts_;
+    cost += WEIGHT_CONS_SHIFTS*ecartShift;
+  }
+
+  // maximum working days and minimum resting days
+  if (shift == 0 && state.consDaysOff_ < nurse.minConsDaysOff()) {
+    ecartOff = nurse.minConsDaysOff()-state.consDaysOff_;
+    cost += ecartOff * WEIGHT_CONS_DAYS_OFF;
+  }
+  else if (shift != 0 && state.consDaysWorked_ >= nurse.maxConsDaysWork()) {
+    cost += WEIGHT_CONS_DAYS_WORK;
+  }
+
+  // treat the cases in which the nurse had no assigned task on the last day
+  if (shift < 0) {
+    ecartOff = nurse.minConsDaysOff()-state.consDaysOff_;
+    ecartDay = nurse.maxConsDaysWork()-state.consDaysWorked_;
+
+    if (-shift >= ecartDay && -shift < ecartOff) {
+      cost += std::min((-shift-ecartDay+1)*WEIGHT_CONS_DAYS_WORK,
+        (ecartOff+shift) * WEIGHT_CONS_DAYS_OFF);
+    }
+  }
+
+
+  // preferences
+  if (nurse.wishesOff(day,shift)) {
+    cost += WEIGHT_PREFERENCES;
+  }
+
+  // complete week-ends
+  if (nurse.needCompleteWeekends() && day%7 == 6) {
+    if (lastShift == 0) {
+      cost += WEIGHT_COMPLETE_WEEKEND;
+    }
+  }
+
+  // Penalize the violations of the limits in the total assignment and total
+  // working week-ends
+  // This must take into account the position of the day in the complete
+  // scheduling process with an extra stochastic penalty if the nurse is
+  // clearly below or above the average number of working days and working
+  // week-ends (the penalty is not counted twice for the week-ends if the day
+  // is sunday and saturday has been worked)
+  //
+
+  // get the average target number of working days for this week
+  double avgMinDays, avgMaxDays, avgMaxWeekends, minDays, maxDays, maxWeekends;
+  double factorWeek = (double)pScenario_->thisWeek()/(double) pScenario_->nbWeeks_;
+  avgMinDays = factorWeek * (double) nurse.minTotalShifts();
+  avgMaxDays = factorWeek * (double) nurse.maxTotalShifts();
+  avgMaxWeekends = factorWeek*(double) nurse.maxTotalWeekends();
+  minDays = (int) (avgMinDays-(1.0-factorWeek)*((double)nurse.minTotalShifts()/(double) pScenario_->nbWeeks_-(double)(day%7)));
+  maxDays = (int) (avgMaxDays+(1.0-factorWeek)*((double)nurse.maxTotalShifts()/(double) pScenario_->nbWeeks_-(double)(day%7)));
+  maxWeekends = (int) avgMaxWeekends;
+
+  if (state.totalDaysWorked_ >= maxDays) {
+    cost += factorWeek*WEIGHT_TOTAL_SHIFTS;
+  }
+  if (state.totalWeekendsWorked_ >= maxWeekends) {
+    cost += factorWeek*WEIGHT_TOTAL_WEEKENDS;
+  }
+  // if the nurse is below the number of total assignments, getting a shift is
+  // rewarded with a negative cost
+  // RqJO: not sure yet
+
+  // Add a small penalty when the considered skill is not the rarest in the
+  // skill list of the nurse
+  double maxRarity = skillRarity_[skill];
+  double arbitraryWeight = 5;
+  for (int sk = 0; sk < nurse.nbSkills_; sk++) {
+    maxRarity = std::max(skillRarity_[sk],maxRarity);
+  }
+  cost += (maxRarity/skillRarity_[skill]-1)*arbitraryWeight;
+
+
+  return cost;
+}
+
+// Assign the unassigned nurses with best costs to the demand input tasks
+// nbAssigned is the number of nurses that have actually obtained a new task
+void Greedy::assignBestNursesToTask(int day, int sh, int sk, int demand,
+  vector<LiveNurse*> pNursesUnassigned, int &nbAssigned) {
+
+  // initialize the indices and the costs of the nurses most interesting
+  // for the task
+  vector<double> costMin;
+  vector<int> nMin;
+  for (int i = 0; i < demand; i++) {
+    costMin.push_back(1.0e06);
+    nMin.push_back(-1);
+  }
+  int nbUnassigned = pNursesUnassigned.size();
+  for (int n = 0; n < nbUnassigned; n++)  {
+    LiveNurse* pNurse = pNursesUnassigned[n];
+    // consider the nurse only if the task respects the hard constraints
+    if (isFeasibleTask(*pNurse, sh, sk)) {
+      double cost = costTask(*pNurse, day, sh, sk);
+
+      // insert the nurse in the vector of interesting choices if its cost
+      // deserves it
+      if (cost < costMin.back()) {
+        insertInVectors(cost, n, costMin, nMin, demand);
+
+        // the minimum achievable cost is 0, so stop the loop here if the
+        // the cost is zero
+        if (costMin.back() == 0) break;
+      }
+    }
+  }
+
+  // assign the task to each selected nurse
+  nbAssigned = demand;
+  while (!nMin.empty()) {
+    if (nMin.back() < 0) {
+      nMin.pop_back();
+      nbAssigned--;
+    }
+    else break;
+  }
+  for (int i=0; i < nbAssigned; i++) {
+    LiveNurse* pNurse = pNursesUnassigned[nMin[i]];
+    pNurse->roster_.assignTask(day, sh, sk);
+    State nextState;
+    nextState.addDayToState(pNurse->states_[day], sh);
+    pNurse->states_[day+1] = nextState;
+  }
+
+  // delete the nurses with a task
+  // first sort nMin by ascending order to delete the higher indices
+  // first (necessary to maintain the indices of the other nurses to
+  // erase)
+  std::sort(nMin.begin(), nMin.end());
+  while (!nMin.empty()) {
+    pNursesUnassigned.erase(pNursesUnassigned.begin()+nMin.back());
+    nMin.pop_back();
+  }
 }
 
 
@@ -70,12 +236,14 @@ void Greedy::constructiveGreedy() {
 
   int nbDays = pDemand_->nbDays_, nbShifts = pScenario_->nbShifts_;
   int nbSkills = pScenario_->nbSkills_, nbNurses = pScenario_->nbNurses_;
+  vector3D satisfiedDemand;
+  Tools::initVector3D(&satisfiedDemand, nbDays, nbShifts,nbSkills);
 
   // First satisfy the minimum demand
   //
   for (int day = 0; day < nbDays; day++) {
     // Initialize the set of nurses that are not assigned
-    int nbUnassigned = 0;
+    // we use this vector to avoid going through the nurses with a task
     vector<LiveNurse*> pNursesUnassigned;
     for (int n = 0; n < nbNurses; n++) {
       pNursesUnassigned.push_back(theLiveNurses_[n]);
@@ -85,37 +253,20 @@ void Greedy::constructiveGreedy() {
     // ceux qui sont les plus critiques
     for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
       for (int sk = 0; sk < nbSkills; sk++) {
+        // demand for the task
         int demand = pDemand_->minDemand_[day][sh][sk];
         if (!demand) continue;
-        // RqJO : changer ci-dessous pour que l'on affecte directement
-        // l'ensemble des n nurses les plus intéressantes
-        double costMin = 1.0e6;
-        int nMin = -1;
-        for (int n = 0; n < nbUnassigned; n++)  {
-          LiveNurse* pNurse = pNursesUnassigned[n];
-          // consider the nurse only if the task respects the hard constraints
-          // and no task has been assigned yet
-          // RqJO : this part of the code could be optimized to avoid going
-          // through all the nurses for each task
-          if (isFeasibleTask(*pNurse, sh, sk) && pNurse->states_.back().dayId_==day) {
-            double cost = costTask(*pNurse, sh, sk);
-            if (cost < costMin) {
-              nMin = n;
-              costMin = cost;
-            }
-          }
-        }
-        if (nMin < -1) Tools::throwError("there is no nurse for the task!");
-        else {
-          LiveNurse* pNurse = theLiveNurses_[nMin];
-          pNurse->roster_.assignTask(day, sh, sk);
-          State nextState;
-          nextState.addDayToState(pNurse->states_.back(), sh);
-          pNurse->states_.push_back(nextState);
-        }
+
+        int nbAssigned = 0;
+        assignBestNursesToTask(day, sh, sk, demand, pNursesUnassigned, nbAssigned);
+        if (nbAssigned <= 0) Tools::throwError("there is not enough nurse for the task!");
+        satisfiedDemand[day][sh][sk] = nbAssigned;
       }
     }
+
     // Once all the tasks of the day are assigned, treat the nurses with no task
+    // After this step, the nurses with no assigned task are those that are
+    // free to either take another working shift or a rest without penalty
     //
     for (int n = 0; n < nbNurses; n++)  {
       LiveNurse* pNurse = theLiveNurses_[n];
@@ -133,7 +284,7 @@ void Greedy::constructiveGreedy() {
           pNurse->roster_.assignTask(day, 0);
           State nextState;
           nextState.addDayToState(*pState, 0);
-          pNurse->states_.push_back(nextState);
+          pNurse->states_[day+1] = nextState;
         }
         // Nurses who did not reach their minimum number of working days :
         // assign the task that maximizes the reward
@@ -144,7 +295,7 @@ void Greedy::constructiveGreedy() {
             // do not consider the shift if it creates a forbidden sequence
             if (pScenario_->isForbiddenSuccessor(sh,pState->shift_)) continue;
             for (int sk = 0; sk < nbSkills; sk++) {
-              double cost = costTask(*pNurse, sh, sk);
+              double cost = costTask(*pNurse, day, sh, sk);
               if (cost < costMin) {
                 shMin = sh;
                 skMin = sk;
@@ -157,7 +308,8 @@ void Greedy::constructiveGreedy() {
             pNurse->roster_.assignTask(day, shMin, skMin);
             State nextState;
             nextState.addDayToState(*pState, shMin);
-            pNurse->states_.push_back(nextState);
+            pNurse->states_[day+1] = nextState;
+            satisfiedDemand[day][shMin][skMin] ++;
           }
         }
         // the other nurses simply get an unassigned state
@@ -167,6 +319,37 @@ void Greedy::constructiveGreedy() {
           nextState.addDayToState(*pState, -1);
           pNurse->states_.push_back(nextState);
         }
+      }
+    }
+  }
+
+  // Try and satisfy the optimum demand with the unassigned nurses
+  //
+  for (int day = 0; day < nbDays; day++) {
+    // initialize the set of nurses that are not assigned on this day yet
+    vector<LiveNurse*> pNursesUnassigned;
+    for (int n = 0; n < nbNurses; n++) {
+      State state = theLiveNurses_[n]->states_.back();
+      if (state.shift_ < 0) {
+        pNursesUnassigned.push_back(theLiveNurses_[n]);
+      }
+    }
+
+    // RqJO : l'ordre des skills/shifts pourrait être changé pour commencer par
+    // ceux qui sont les plus critiques
+    for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
+      for (int sk = 0; sk < nbSkills; sk++) {
+        // demand for the task
+        int demand = pDemand_->optDemand_[day][sh][sk]-satisfiedDemand[day][sh][sk];
+        if (!demand) continue;
+
+        // initialize the indices and the costs of the nurses most interesting
+        // for the task
+        int nbAssigned = 0;
+        assignBestNursesToTask(day, sh, sk, demand, pNursesUnassigned, nbAssigned);
+        std::cout << "Shift " << sh << ", skill " << sk << " : ";
+        std::cout << nbAssigned << " nurses are assigned for an extra demand of " << demand << std::endl;
+        satisfiedDemand[day][sh][sk] += nbAssigned;
       }
     }
   }
