@@ -53,7 +53,6 @@ void testFunction_Jeremy(){
 	//
 	Greedy* pSolverTest =
 	new Greedy(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
-	pSolverTest->preprocessTheNurses();
 	pSolverTest->constructiveGreedy();
 
 	// Write the solution in an output file

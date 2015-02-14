@@ -90,6 +90,56 @@ bool LiveNurse::wishesOff(int day, int shift) const {
   }
 }
 
+// returns true if the nurses reached the maximum number of consecutive worked
+// days or is resting and did not reach the minimum number of resting days yet
+// if consecutive number of shifts will only be reached by violating maximum
+// number of worked days, go to rest only if consecutive working days penalty
+// is the the larger
+//
+bool LiveNurse::needRest(int day) {
+  State state = states_[day];
+
+  if (state.shift_>0 && state.consDaysWorked_ >= maxConsDaysWork()) {
+    if (state.consShifts_ < pScenario_->minConsShifts_[state.shift_]) {
+      return WEIGHT_CONS_SHIFTS > WEIGHT_CONS_DAYS_WORK ? false:true;
+    }
+    return true;
+  }
+  if (state.shift_==0 && state.consDaysOff_ <= minConsDaysOff()) {
+    return true;
+  }
+  return false;
+}
+
+// returns true if the nurse needs to work one more day to reach the minimum
+// number of consecutive working days or consecutive shifts
+// if consecutive number of shifts will only be reached by violating maximum
+// number of worked days, go to work only if consecutive shift penalty is
+// the larger
+bool LiveNurse::needWork(int day) {
+  State state = states_[day];
+
+  if (state.shift_>0) {
+    if (state.consDaysWorked_ < minConsDaysWork()) {
+      return true;
+    }
+    else if (state.consShifts_ < pScenario_->minConsShifts_[state.shift_]) {
+      if (state.consDaysWorked_ >= maxConsDaysWork()) {
+        return WEIGHT_CONS_SHIFTS > WEIGHT_CONS_DAYS_WORK ? true:false;
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// return true if the nurse is free to go to rest or work more without penalty
+//
+bool LiveNurse::isFreeToChoose(int day) {
+  return !needWork(day) && !needRest(day);
+}
+
 // check the satisfaction of the hard constraints and record the violations
 // check the soft constraints and record the costs of the violations and the
 // remaining margin for the satisfied ones.
@@ -308,6 +358,32 @@ void Solver::preprocessTheNurses() {
       int sk = pNurse->skills_[i];
       maxStaffPerSkill_[sk] += nbDays;
       maxStaffPerSkillNoPenalty_[sk] += pNurse->maxWorkDays_;
+    }
+
+    // assign its position to the nurse
+    // go through every existing position to see if the position of this nurse
+    // has already been created
+    bool isPosition = true;
+    for (int i = 0; i < pScenario_->nbPositions() ; i++)	{
+      Position* pPosition = pScenario_->pPositions()[i];
+      isPosition = true;
+      if (pPosition->nbSkills_ == pNurse->nbSkills_) {
+        for (int i = 0; i < pNurse->nbSkills_; i++) {
+          if (pNurse->skills_[i] != pPosition->skills_[i])	{
+            isPosition = false;
+            break;
+          }
+        }
+      }
+      else isPosition = false;
+
+      if (isPosition) {
+        pNurse->pPosition_ = pPosition;
+        break;
+      }
+    }
+    if (!isPosition) {
+      Tools::throwError("The nurse has no position!");
     }
   }
 

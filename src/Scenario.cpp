@@ -51,9 +51,11 @@ Scenario::~Scenario(){
 
 // return true if the shift shNext is a forbidden successor of sh
 //
-bool Scenario::isForbiddenSuccessor(int shNext, int sh) {
-	for (int shift = 0; shift < nbForbiddenSuccessors_[sh]; shift++) {
-		if (shNext == forbiddenSuccessors_[sh][shNext])  {
+bool Scenario::isForbiddenSuccessor(int shNext, int shLast) {
+	if (shLast <= 0) return false;
+
+	for (int i = 0; i < nbForbiddenSuccessors_[shLast]; i++) {
+		if (shNext == forbiddenSuccessors_[shLast][i])  {
 			return true;
 		}
 	}

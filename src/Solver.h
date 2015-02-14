@@ -131,8 +131,13 @@ public:
 	//
 	vector<State> states_;
 
+	// position of the nurse: this field is deduced from the list of skills
+	//
+	Position* pPosition_;
+
 
 public:
+	
 	//----------------------------------------------------------------------------
 	// Methods that relate to the rosters of a nurse
 	//----------------------------------------------------------------------------
@@ -144,6 +149,25 @@ public:
 	// returns true if the nurse wishes the day-shift off
 	//
 	bool wishesOff(int day, int shift) const;
+
+	// returns true if the nurses reached the maximum number of consecutive worked
+	// days or is resting and did not reach the minimum number of resting days yet
+	// if consecutive number of shifts will only be reached by violating maximum
+	// number of worked days, go to rest only if consecutive working days penalty
+	// is the the larger
+	//
+	bool needRest(int day);
+
+	// returns true if the nurse needs to work one more day to reach the minimum
+	// number of consecutive working days or consecutive shifts
+	// if consecutive number of shifts will only be reached by violating maximum
+	// number of worked days, go to work only if consecutive shift penalty is
+	// the larger
+	bool needWork(int day);
+
+	// return true if the nurse is free to go to rest or work more without penalty
+	//
+	bool isFreeToChoose(int day);
 
 	// check the satisfaction of the hard constraints and record the violations
 	// for the input roster and resulting states

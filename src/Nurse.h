@@ -88,7 +88,7 @@ public:
 	//
 	Position(int index, int nbSkills, vector<int> skills);
 
-	~Position();
+	~Position() {}
 
 public:
 	// Index of the position
@@ -332,10 +332,6 @@ protected:
 	// (only getters for these fields)
 	//-----------------------------------------------------------------------------
 
-	// position of the nurse: this field is deduced from the list of skills
-	//
-	Position* pPosition_;
-
 public:
 	// Basic getters
 	//
@@ -347,7 +343,6 @@ public:
 	int maxConsDaysOff() const {return pContract_->maxConsDaysOff_;}
 	int maxTotalWeekends() const {return pContract_->maxTotalWeekends_;}
 	int needCompleteWeekends() const {return pContract_->needCompleteWeekends_;}
-	Position* pPosition() const {return pPosition_;}
 
 	// Avanced getters
 	//
@@ -357,7 +352,7 @@ public:
   //
   string toString() const;
 
-  // Assignment (requested to build a vector<Nurse>)
+	// Assignment (requested to build a vector<Nurse>)
   //
   Nurse& operator=(const Nurse& n);
 };

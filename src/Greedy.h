@@ -48,6 +48,10 @@ protected:
   // the vector contains the indices of the positions
   vector<int> sequencePosition_;
 
+  // maximum rank for a nurse
+  //
+  int rankMax_;
+
 private:
 
   //----------------------------------------------------------------------------
@@ -57,7 +61,7 @@ private:
   // Returns true if the input nurse will respect the hard constraints if she is
   // assigned the input task
   //
-  bool isFeasibleTask(const LiveNurse &nurse, int shift, int skill);
+  bool isFeasibleTask(const LiveNurse &nurse, int day, int shift, int skill);
 
   // Method that return the cost for completing the input task with the input
   // nurse
@@ -69,7 +73,7 @@ private:
   // Assign the unassigned nurses with best costs to the demand input tasks
   // nbAssigned is the number of nurses that have actually obtained a new task
   void assignBestNursesToTask(int day, int shift, int skills, int demand,
-    vector<LiveNurse*> pUnassignedNurses, int &nbAssigned);
+    vector<LiveNurse*>& pUnassignedNurses, int &nbAssigned);
 
   //----------------------------------------------------------------------------
   // For the complete roster greedy
