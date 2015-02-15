@@ -25,6 +25,7 @@ using std::vector;
 // they are set as static constant values in case they need to be shared with
 // other classes (e.g. solvers)
 //
+static const int WEIGHT_OPTIMAL_DEMAND    = 30;
 static const int WEIGHT_CONS_SHIFTS       = 15;
 static const int WEIGHT_CONS_DAYS_WORK    = 30;
 static const int WEIGHT_CONS_DAYS_OFF	   	= 30;

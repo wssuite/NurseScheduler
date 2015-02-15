@@ -18,6 +18,7 @@ void insertInVectors(double value, int index,
       valVect.pop_back();
       indVect.insert(indVect.begin()+i, index);
       indVect.pop_back();
+      break;
     }
   }
 }
@@ -273,7 +274,7 @@ void Greedy::constructiveGreedy() {
       for (int sk = 0; sk < nbSkills; sk++) {
         // demand for the task
         int demand = pDemand_->minDemand_[day][sh][sk];
-        if (!demand) continue;
+        if (demand <= 0) continue;
 
         int nbAssigned = 0;
         assignBestNursesToTask(day, sh, sk, demand, pNursesUnassigned, nbAssigned);
@@ -309,7 +310,10 @@ void Greedy::constructiveGreedy() {
             // do not consider the shift if it creates a forbidden sequence
             if (pScenario_->isForbiddenSuccessor(sh,pState->shift_)) continue;
             for (int sk = 0; sk < nbSkills; sk++) {
+              if( !isFeasibleTask(*pNurse, day, sh, sk) ) continue;
               double cost = costTask(*pNurse, day, sh, sk);
+              cost -= WEIGHT_OPTIMAL_DEMAND
+                *(pDemand_->minDemand_[day][sh][sk]-satisfiedDemand[day][sh][sk]);
               if (cost < costMin) {
                 shMin = sh;
                 skMin = sk;
@@ -357,7 +361,7 @@ void Greedy::constructiveGreedy() {
       for (int sk = 0; sk < nbSkills; sk++) {
         // demand for the task
         int demand = pDemand_->optDemand_[day][sh][sk]-satisfiedDemand[day][sh][sk];
-        if (!demand) continue;
+        if (demand <= 0) continue;
 
         // initialize the indices and the costs of the nurses most interesting
         // for the task
@@ -396,7 +400,10 @@ void Greedy::constructiveGreedy() {
             // do not consider the shift if it creates a forbidden sequence
             if (pScenario_->isForbiddenSuccessor(sh,pState->shift_)) continue;
             for (int sk = 0; sk < nbSkills; sk++) {
+              if( !isFeasibleTask(*pNurse, day, sh, sk) ) continue;
               double cost = costTask(*pNurse, day, sh, sk);
+              cost -= WEIGHT_OPTIMAL_DEMAND
+                *(pDemand_->minDemand_[day][sh][sk]-satisfiedDemand[day][sh][sk]);
               if (cost < costMin) {
                 shMin = sh;
                 skMin = sk;
