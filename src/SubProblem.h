@@ -294,10 +294,51 @@ protected:
 	//
 	//----------------------------------------------------------------
 
+	// LE GRAPHE
+	Graph g;
+
+
+	// Types de noeuds
+	//
+	enum nodeType {SOURCE, SINK, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH};
+	vector<nodeType> theNodesTypes_;
+
+	// Total number of nodes/arcs in the graph (is also the id of the node to add if a new node is to be added)
+	//
+	int nNodes_, nArcs_;
+
 	// Noeuds "uniques"
 	//
+	int sourceNode_;
+	int sinkNode_;
+
+	// Nodes of the SHORT_ROTATION subnetwork
+	//
+	vector< vector<int> > shortRotationsNodes_;		// For each length (#days), the list of all nodes that correspond to short rotations of this length
+	map<int,int> lastShiftOfShort_;					// For each short rotation, the id of the last shift worked
+	map<int,int> nLastShiftOfShort_;				// The number of consecutive similar shifts that ends the short rotation
 
 
+	// Nodes of the PRINCIPAL_NETWORK subnetwork
+	//
+	vector3D principalNetworkNodes_;				// For each DAY, SHIFT, and # of CONSECUTIVE, the corresponding node
+
+	// Nodes of the ROTATION_LENGTH subnetwork
+	vector<int> rotationLengthNodes_;				// !!! Numbering may be tricky -> pay attention to the number of days worked
+
+
+
+
+
+	//----------------------------------------------------------------
+	//
+	// Protected functions: creation of the nodes, of the arcs, and
+	// computation of the costs / resource consumption for the arcs.
+	//
+	//----------------------------------------------------------------
+
+	void createNodes();
+	void createArcs();
 
 
 

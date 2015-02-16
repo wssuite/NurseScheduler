@@ -32,7 +32,7 @@ public:
   void solve();
 
   // Constructive greedy algorithm
-  // Goes through the the demands in a chronoligcal order and assign the nurse
+  // Goes through the the demands in a chronological order and assign the nurse
   // that seems most appropriate to each task (shift/skill)
   //
   void constructiveGreedy();

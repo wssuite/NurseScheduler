@@ -55,9 +55,45 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 // Contains the shortest paths with resource constraints
 //
 //---------------------------------------------------------------------------
-SubProblem::SubProblem(){}
+SubProblem::SubProblem(Scenario * scenario):
+	scenario_(scenario) {
+
+	createNodes();
+	createArcs();
+
+	nPathsMin_ = 0;
+
+
+}
 
 SubProblem::~SubProblem(){}
+
+
+// Function that creates the nodes of the network
+void SubProblem::createNodes(){
+	nNodes_ = 0;
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
