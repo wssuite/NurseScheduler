@@ -67,22 +67,6 @@ SubProblem::~SubProblem(){}
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 const int num_nodes = 5;
 enum nodes { A, B, C, D, E };
 char name[] = "ABCDE";
@@ -96,23 +80,23 @@ void SubProblem::testGraph_spprc(){
 	std::cout << "# ====================================================================================" << std::endl;
 	std::cout << "# " << std::endl;
 
-	SPPRC_Example_Graph g;
+	Graph g;
 
-	add_vertex( SPPRC_Example_Graph_Vert_Prop( A, 0, 0 ), g );
-	add_vertex( SPPRC_Example_Graph_Vert_Prop( B, 5, 20 ), g );
-	add_vertex( SPPRC_Example_Graph_Vert_Prop( C, 6, 10 ), g );
-	add_vertex( SPPRC_Example_Graph_Vert_Prop( D, 3, 12 ), g );
-	add_vertex( SPPRC_Example_Graph_Vert_Prop( E, 0, 100 ), g );
+	add_vertex( Vertex_Properties( A, 0, 0 ), g );
+	add_vertex( Vertex_Properties( B, 5, 20 ), g );
+	add_vertex( Vertex_Properties( C, 6, 10 ), g );
+	add_vertex( Vertex_Properties( D, 3, 12 ), g );
+	add_vertex( Vertex_Properties( E, 0, 100 ), g );
 
-	add_edge( A, C, SPPRC_Example_Graph_Arc_Prop( 0, 1, 5 ), g );
-	add_edge( B, B, SPPRC_Example_Graph_Arc_Prop( 1, 2, 5 ), g );
-	add_edge( B, D, SPPRC_Example_Graph_Arc_Prop( 2, 1, 2 ), g );
-	add_edge( B, E, SPPRC_Example_Graph_Arc_Prop( 3, 2, 7 ), g );
-	add_edge( C, B, SPPRC_Example_Graph_Arc_Prop( 4, 7, 3 ), g );
-	add_edge( C, D, SPPRC_Example_Graph_Arc_Prop( 5, 3, 8 ), g );
-	add_edge( D, E, SPPRC_Example_Graph_Arc_Prop( 6, 1, 3 ), g );
-	add_edge( E, A, SPPRC_Example_Graph_Arc_Prop( 7, 1, 5 ), g );
-	add_edge( E, B, SPPRC_Example_Graph_Arc_Prop( 8, 1, 4 ), g );
+	add_edge( A, C, Arc_Properties( 0, 1, 5 ), g );
+	add_edge( B, B, Arc_Properties( 1, 2, 5 ), g );
+	add_edge( B, D, Arc_Properties( 2, 1, 2 ), g );
+	add_edge( B, E, Arc_Properties( 3, 2, 7 ), g );
+	add_edge( C, B, Arc_Properties( 4, 7, 3 ), g );
+	add_edge( C, D, Arc_Properties( 5, 3, 8 ), g );
+	add_edge( D, E, Arc_Properties( 6, 1, 3 ), g );
+	add_edge( E, A, Arc_Properties( 7, 1, 5 ), g );
+	add_edge( E, B, Arc_Properties( 8, 1, 4 ), g );
 
 
 	// the unique shortest path from A to E in the dijkstra-example.cpp is
@@ -130,16 +114,16 @@ void SubProblem::testGraph_spprc(){
 	// therefore, the code below returns only the former path
 
 	// spp without resource constraints
-	boost::graph_traits<SPPRC_Example_Graph>::vertex_descriptor s = A;
-	boost::graph_traits<SPPRC_Example_Graph>::vertex_descriptor t = E;
+	boost::graph_traits<Graph>::vertex_descriptor s = A;
+	boost::graph_traits<Graph>::vertex_descriptor t = E;
 
-	vector< vector< boost::graph_traits< SPPRC_Example_Graph>::edge_descriptor> > opt_solutions;
+	vector< vector< boost::graph_traits< Graph>::edge_descriptor> > opt_solutions;
 	vector<spp_no_rc_res_cont> pareto_opt_rcs_no_rc;
 
 	boost::r_c_shortest_paths(
 			g,
-			get( &SPPRC_Example_Graph_Vert_Prop::num, g ),
-			get( &SPPRC_Example_Graph_Arc_Prop::num, g ),
+			get( &Vertex_Properties::num, g ),
+			get( &Arc_Properties::num, g ),
 			s,
 			t,
 			opt_solutions,
@@ -147,7 +131,7 @@ void SubProblem::testGraph_spprc(){
 			spp_no_rc_res_cont( 0 ),
 			ref_no_res_cont(),
 			dominance_no_res_cont(),
-			std::allocator< boost::r_c_shortest_paths_label<SPPRC_Example_Graph, spp_no_rc_res_cont> >(), boost::default_r_c_shortest_paths_visitor() );
+			std::allocator< boost::r_c_shortest_paths_label<Graph, spp_no_rc_res_cont> >(), boost::default_r_c_shortest_paths_visitor() );
 
 	std::cout << "SPP without resource constraints:" << std::endl;
 	std::cout << "Number of optimal solutions: ";
@@ -164,13 +148,13 @@ void SubProblem::testGraph_spprc(){
 	std::cout << std::endl;
 
 	// spptw
-	vector< vector< boost::graph_traits<SPPRC_Example_Graph>::edge_descriptor> > opt_solutions_spptw;
+	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
 
 	r_c_shortest_paths(
 			g,
-			get( &SPPRC_Example_Graph_Vert_Prop::num, g ),
-			get( &SPPRC_Example_Graph_Arc_Prop::num, g ),
+			get( &Vertex_Properties::num, g ),
+			get( &Arc_Properties::num, g ),
 			s,
 			t,
 			opt_solutions_spptw,
@@ -178,7 +162,7 @@ void SubProblem::testGraph_spprc(){
 			spp_spptw_res_cont( 0, 0 ),
 			ref_spptw(),
 			dominance_spptw(),
-			std::allocator< boost::r_c_shortest_paths_label< SPPRC_Example_Graph, spp_spptw_res_cont> >(),
+			std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 			boost::default_r_c_shortest_paths_visitor() );
 
 	std::cout << "SPP with time windows:" << std::endl;
@@ -203,7 +187,7 @@ void SubProblem::testGraph_spprc(){
 	bool b_feasible = false;
 	bool b_correctly_extended = false;
 	spp_spptw_res_cont actual_final_resource_levels( 0, 0 );
-	boost::graph_traits<SPPRC_Example_Graph>::edge_descriptor ed_last_extended_arc;
+	boost::graph_traits<Graph>::edge_descriptor ed_last_extended_arc;
 	check_r_c_path( g,
 			opt_solutions_spptw[0],
 			spp_spptw_res_cont( 0, 0 ),

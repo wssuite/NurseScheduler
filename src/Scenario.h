@@ -28,9 +28,9 @@ using std::vector;
 static const int WEIGHT_OPTIMAL_DEMAND    = 30;
 static const int WEIGHT_CONS_SHIFTS       = 15;
 static const int WEIGHT_CONS_DAYS_WORK    = 30;
-static const int WEIGHT_CONS_DAYS_OFF	   	= 30;
-static const int WEIGHT_PREFERENCES      	= 10;
-static const int WEIGHT_COMPLETE_WEEKEND 	= 30;
+static const int WEIGHT_CONS_DAYS_OFF	  = 30;
+static const int WEIGHT_PREFERENCES       = 10;
+static const int WEIGHT_COMPLETE_WEEKEND  = 30;
 static const int WEIGHT_TOTAL_SHIFTS      = 20;
 static const int WEIGHT_TOTAL_WEEKENDS    = 30;
 

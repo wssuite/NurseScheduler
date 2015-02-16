@@ -40,11 +40,11 @@ static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
 
 // Nodes specific properties for RC
 //
-struct SPPRC_Example_Graph_Vert_Prop{
+struct Vertex_Properties{
 
 	// Constructor
 	//
-	SPPRC_Example_Graph_Vert_Prop( int n = 0, int e = 0, int l = 0 ) : num( n ), eat( e ), lat( l ) {}
+	Vertex_Properties( int n = 0, int e = 0, int l = 0 ) : num( n ), eat( e ), lat( l ) {}
 
 	// id
 	//
@@ -61,11 +61,11 @@ struct SPPRC_Example_Graph_Vert_Prop{
 
 // Arcs specific properties for RC
 //
-struct SPPRC_Example_Graph_Arc_Prop{
+struct Arc_Properties{
 
 	// Constructor
 	//
-	SPPRC_Example_Graph_Arc_Prop( int n = 0, int c = 0, int t = 0 ) : num( n ), cost( c ), time( t ) {}
+	Arc_Properties( int n = 0, int c = 0, int t = 0 ) : num( n ), cost( c ), time( t ) {}
 
 	// id
 	//
@@ -82,7 +82,7 @@ struct SPPRC_Example_Graph_Arc_Prop{
 
 // Graph with RC generic structure
 //
-typedef boost::adjacency_list< boost::vecS, boost::vecS, boost::directedS, SPPRC_Example_Graph_Vert_Prop, SPPRC_Example_Graph_Arc_Prop> SPPRC_Example_Graph;
+typedef boost::adjacency_list< boost::vecS, boost::vecS, boost::directedS, Vertex_Properties, Arc_Properties> Graph;
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -122,7 +122,7 @@ struct spp_no_rc_res_cont{
 //
 class ref_no_res_cont{
 public:
-	inline bool operator()(const SPPRC_Example_Graph& g, spp_no_rc_res_cont& new_cont, const spp_no_rc_res_cont& old_cont, boost::graph_traits<SPPRC_Example_Graph>::edge_descriptor ed ) const{
+	inline bool operator()(const Graph& g, spp_no_rc_res_cont& new_cont, const spp_no_rc_res_cont& old_cont, boost::graph_traits<Graph>::edge_descriptor ed ) const{
 		new_cont.cost = old_cont.cost + g[ed].cost;
 		return true;
 	}
@@ -193,9 +193,9 @@ struct spp_spptw_res_cont{
 // Resources extension model (arc has cost + travel time)
 class ref_spptw{
 public:
-	inline bool operator()( const SPPRC_Example_Graph& g, spp_spptw_res_cont& new_cont,	const spp_spptw_res_cont& old_cont,	boost::graph_traits<SPPRC_Example_Graph>::edge_descriptor ed ) const{
-		const SPPRC_Example_Graph_Arc_Prop& arc_prop = get( boost::edge_bundle, g )[ed];
-		const SPPRC_Example_Graph_Vert_Prop& vert_prop = get( boost::vertex_bundle, g )[target( ed, g )];
+	inline bool operator()( const Graph& g, spp_spptw_res_cont& new_cont,	const spp_spptw_res_cont& old_cont,	boost::graph_traits<Graph>::edge_descriptor ed ) const{
+		const Arc_Properties& arc_prop = get( boost::edge_bundle, g )[ed];
+		const Vertex_Properties& vert_prop = get( boost::vertex_bundle, g )[target( ed, g )];
 		new_cont.cost = old_cont.cost + arc_prop.cost;
 		int& i_time = new_cont.time;
 		i_time = old_cont.time + arc_prop.time;
@@ -260,10 +260,14 @@ public:
 
 	// Retourne l'ensemble des rotations mises en memoire par le SP
 	//
-	vector< Rotation > getRotations();
+	inline vector< Rotation > getRotations(){return lesRotations_;}
 
 
 protected:
+
+	// Pointeur vers le scenario a resoudre
+	//
+	Scenario * scenario_;
 
 	// Nombre de chemins (minimum) a retourner au MP
 	//
@@ -279,7 +283,23 @@ protected:
 
 	// Les Rotations sauvegardees
 	//
-	vector< Rotation > lesRotations;
+	vector< Rotation > lesRotations_;
+
+
+	//----------------------------------------------------------------
+	//
+	// Attributs du graphe, servent a stocker les sommets, quelques
+	// informations importantes, l'acces aux sommets via des tableaux,
+	// et eventuellement des informations sur les couts.
+	//
+	//----------------------------------------------------------------
+
+	// Noeuds "uniques"
+	//
+
+
+
+
 
 };
 

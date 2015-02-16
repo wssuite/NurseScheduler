@@ -5,6 +5,7 @@
 *      Author: jeremy
 */
 
+#include <algorithm>
 
 #include "Greedy.h"
 

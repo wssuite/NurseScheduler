@@ -16,20 +16,20 @@
 // Constructor and destructor
 //
 Scenario::Scenario(string name, int nbWeeks,
-int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
-int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
-vector<int> minConsShifts, vector<int> maxConsShifts,
-vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
-int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
-int nbNurses, vector<Nurse> theNurses, map<string,int> nurseNameToInt) :
-name_(name), nbWeeks_(nbWeeks),
-nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
-nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
-minConsShifts_(minConsShifts), maxConsShifts_(maxConsShifts),
-nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
-nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
-nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
-nbPositions_(0) {
+		int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
+		int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
+		vector<int> minConsShifts, vector<int> maxConsShifts,
+		vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
+		int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
+		int nbNurses, vector<Nurse> theNurses, map<string,int> nurseNameToInt) :
+		name_(name), nbWeeks_(nbWeeks),
+		nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
+		nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
+		minConsShifts_(minConsShifts), maxConsShifts_(maxConsShifts),
+		nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
+		nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
+		nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
+		nbPositions_(0) {
 
 	// To make sure that it is modified later when reading the history data file
 	//
@@ -226,9 +226,9 @@ void Scenario::preprocessTheNurses() {
 				// its rank
 				if (pPositions_[i]->nbAbove()) {
 					for (int j = 0; j < pPositions_[i]->nbAbove(); j++) {
-							int currentRank = pPositions_[i]->rank();
-							int newRank = pPositions_[j]->rank()+1;
-							pPositions_[i]->rank(std::max(currentRank, newRank));
+						int currentRank = pPositions_[i]->rank();
+						int newRank = pPositions_[j]->rank()+1;
+						pPositions_[i]->rank(std::max(currentRank, newRank));
 					}
 				}
 
