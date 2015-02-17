@@ -16,6 +16,9 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/r_c_shortest_paths.hpp>
 
+enum nodeType {SOURCE_NODE, SINK_NODE, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH_, NONE};
+
+static const vector<string> nodeTypeName = {"SOURCE_NODE", "SINK_NODE  ", "SHORT_ROTAT", "PPL_NETWORK", "ROTAT_SIZE  ", "NONE       "};
 static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
 
 /////////////////////////////////////////////////////////////////
@@ -44,11 +47,14 @@ struct Vertex_Properties{
 
 	// Constructor
 	//
-	Vertex_Properties( int n = 0, int e = 0, int l = 0 ) : num( n ), eat( e ), lat( l ) {}
+	Vertex_Properties( int n = 0, nodeType t = NONE, int e = 0, int l = 0 ) : num( n ), type( t ), eat( e ), lat( l ) {}
 
 	// id
 	//
 	int num;
+
+	// type
+	nodeType type;
 
 	// earliest arrival time
 	//
@@ -231,7 +237,6 @@ public:
 
 
 
-
 //---------------------------------------------------------------------------
 //
 // C l a s s   S u b P r o b l e m
@@ -324,12 +329,6 @@ protected:
 	// LE GRAPHE
 	Graph g_;
 
-
-	// Types de noeuds
-	//
-	enum nodeType {SOURCE, SINK, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH};
-	vector<nodeType> theNodesTypes_;
-
 	// Total number of nodes/arcs in the graph (is also the id of the node to add if a new node is to be added)
 	//
 	int nNodes_, nArcs_;
@@ -341,10 +340,11 @@ protected:
 
 	// Nodes of the SHORT_ROTATION subnetwork
 	//
-	vector< vector<Rotation> > shortRotations_;		// List of all short rotations (contains their sequence of tasks)
-	vector< vector<int> > shortRotationsNodes_;		// For each length (#days), the list of all nodes that correspond to short rotations of this length
-	map<int,int> lastShiftOfShort_;					// For each short rotation, the id of the last shift worked
-	map<int,int> nLastShiftOfShort_;				// The number of consecutive similar shifts that ends the short rotation
+	vector< vector<Rotation*> > shortRotations_;		// List of all short rotations (contains their sequence of tasks)
+	vector< vector<int> > shortRotationsNodes_;			// For each length (#days), the list of all nodes that correspond to short rotations of this length
+	map<int,int> lastShiftOfShort_;						// For each short rotation, the id of the last shift worked
+	map<int,int> nLastShiftOfShort_;					// The number of consecutive similar shifts that ends the short rotation
+	map<int,Rotation> nodeToShortRotation_;				// Maps the node ID to the corresponding short rotation
 
 
 	// Nodes of the PRINCIPAL_NETWORK subnetwork
@@ -354,6 +354,7 @@ protected:
 	// Nodes of the ROTATION_LENGTH subnetwork
 	vector<int> rotationLengthNodes_;				// !!! Numbering may be tricky -> pay attention to the number of days worked
 
+	boost::graph_traits<Graph>::vertex_descriptor getNode(int id) {return boost::vertex(id, g_);}
 
 
 
@@ -381,10 +382,15 @@ protected:
 	// Add a short rotation to the graph, that starts at k0 and contains the given succession of tasks of duration length
 	void addShortRotationToGraph(int k0, vector<int> shiftSuccession, int length);
 
-
-
+	// Update the arcs (their cost in particular)
 	void updateArcs();
 
+
+public:
+
+	// Print functions.
+	//
+	void printGraph();
 
 
 };

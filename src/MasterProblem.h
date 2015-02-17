@@ -25,14 +25,20 @@ struct Rotation {
 	// Specific constructors and destructors
 	//
 
-	Rotation(map<int,int> shift, double cost = 999999, double dualCost = 999999) : cost_(cost), shifts_(shift), dualCost_(dualCost) {};
+	Rotation(map<int,int> shift, double cost = 999999, double dualCost = 999999) :
+		cost_(cost), shifts_(shift), dualCost_(dualCost), length_(shift.size())
+	{
+		firstDay_ = 999;
+		for(map<int,int>::iterator itS = shift.begin(); itS != shift.end(); ++itS)
+			if(itS->first < firstDay_) firstDay_ = itS->first;
+	};
 
-	Rotation(int firstDay, vector<int> shiftSuccession){
+	Rotation(int firstDay, vector<int> shiftSuccession, double cost = 999999, double dualCost = 999999) :
+		cost_(cost), dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size())
+	{
 		map<int,int> m;
 		for(int k=0; k<shiftSuccession.size(); k++) m.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
 		shifts_ = m;
-		cost_ = 999999;
-		dualCost_ = 999999;
 	}
 
 	~Rotation(){};
@@ -43,11 +49,19 @@ struct Rotation {
 
 	// Dual cost as found in the subproblem
 	//
-	const double dualCost_;
+	double dualCost_;
 
 	// Shifts to be performed
 	//
-	const map<int,int> shifts_;
+	map<int,int> shifts_;
+
+	// First worked day
+	//
+	int firstDay_;
+
+	// Duration
+	//
+	int length_;
 
 };
 

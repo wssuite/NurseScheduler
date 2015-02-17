@@ -8,12 +8,15 @@
 #include "SubProblem.h"
 
 #include <iostream>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include <boost/config.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/r_c_shortest_paths.hpp>
 
+using std::stringstream;
 using std::vector;
 
 
@@ -91,7 +94,7 @@ void SubProblem::createNodes(){
 	// 1. Source node
 	//
 	sourceNode_ = nNodes_;
-	add_vertex( Vertex_Properties( nNodes_, 0, maxRotationLength_ ), g_ );
+	add_vertex( Vertex_Properties( nNodes_, SOURCE_NODE, 0, maxRotationLength_ ), g_ );
 	nNodes_ ++;
 
 	// 2. Subnetwork for short rotations (depends on CD_min)
@@ -115,7 +118,7 @@ void SubProblem::createNodes(){
 	}
 
 
-	// 3. Principal network-s
+	// 3. Principal network(s) [one per shift type]
 	//
 
 
@@ -127,8 +130,11 @@ void SubProblem::createNodes(){
 	// 5. Sink node
 	//
 	sinkNode_ = nNodes_;
-	add_vertex( Vertex_Properties( nNodes_, 0, maxRotationLength_ ), g_ );
+	add_vertex( Vertex_Properties( nNodes_, SINK_NODE, 0, maxRotationLength_ ), g_ );
 	nNodes_ ++;
+
+	printGraph();
+
 
 }
 
@@ -196,7 +202,7 @@ vector3D SubProblem::allowedShortSuccessions(){
 void SubProblem::initShortRotations(){
 	int CD_min = pContract_->minConsDaysWork_;
 	for(int c=0; c<=CD_min; c++){
-		vector<Rotation> vr; shortRotations_.push_back(vr);
+		vector<Rotation*> vr; shortRotations_.push_back(vr);
 		vector<int> vi; shortRotationsNodes_.push_back(vi);
 	}
 }
@@ -208,10 +214,11 @@ void SubProblem::addShortRotationToGraph(int k0, vector<int> shiftSuccession, in
 	Rotation rot (k0, shiftSuccession);
 
 	// Add it to the list and create the node simultaneously
-	shortRotations_[length].push_back(rot);
+	nodeToShortRotation_.insert(pair<int,Rotation> (nNodes_, rot));
+	shortRotations_[length].push_back( & nodeToShortRotation_.at(nNodes_) );
 
 	// Create the node
-	add_vertex( Vertex_Properties( nNodes_, 0, maxRotationLength_ ), g_ );
+	add_vertex( Vertex_Properties( nNodes_, SHORT_ROTATION, 0, maxRotationLength_ ), g_ );
 	shortRotationsNodes_[length].push_back(nNodes_);
 
 	// Store the last shift
@@ -228,13 +235,50 @@ void SubProblem::addShortRotationToGraph(int k0, vector<int> shiftSuccession, in
 }
 
 
-
 // Function that creates the arcs of the network
 void SubProblem::createArcs(){}
 
 // To change the costs of the arcs
 void SubProblem::updateArcs(){}
 
+
+
+// PRINT FUNCTIONS
+
+// Print for the graph
+void SubProblem::printGraph(){
+	stringstream rep;
+
+	rep << "# " << std::endl;
+	rep << "# GRAPH OF THE SUBPROBLEM " << std::endl;
+	rep << "# " << std::endl;
+	rep << "#   NODES " << std::endl;
+
+
+
+	for(int i=0; i<nNodes_; i++){
+		boost::graph_traits<Graph>::vertex_descriptor v = getNode(i);
+
+		nodeType type_v = get( &Vertex_Properties::type, g_)[v];
+		string nameType_v = nodeTypeName[type_v];
+		int eat_v = get( &Vertex_Properties::eat, g_)[v];
+		int lat_v = get( &Vertex_Properties::lat, g_)[v];
+
+
+		rep << v << " " << nameType_v << " [" << eat_v << " " << lat_v << "]";
+
+		if(type_v == SHORT_ROTATION){
+			Rotation r = nodeToShortRotation_.at(i);
+			rep << "  k0= " << r.firstDay_ << "  ";
+			for(int k=0; k<r.length_; k++) rep << " " << pScenario_->intToShift_[r.shifts_.at(r.firstDay_+k)];
+		}
+
+		rep << std::endl;
+
+	}
+
+	std::cout << rep.str();
+}
 
 
 
@@ -275,11 +319,11 @@ void SubProblem::testGraph_spprc(){
 
 	Graph g;
 
-	add_vertex( Vertex_Properties( A, 0, 0 ), g );
-	add_vertex( Vertex_Properties( B, 5, 20 ), g );
-	add_vertex( Vertex_Properties( C, 6, 10 ), g );
-	add_vertex( Vertex_Properties( D, 3, 12 ), g );
-	add_vertex( Vertex_Properties( E, 0, 100 ), g );
+	add_vertex( Vertex_Properties( A, NONE, 0, 0 ), g );
+	add_vertex( Vertex_Properties( B, NONE, 5, 20 ), g );
+	add_vertex( Vertex_Properties( C, NONE, 6, 10 ), g );
+	add_vertex( Vertex_Properties( D, NONE, 3, 12 ), g );
+	add_vertex( Vertex_Properties( E, NONE, 0, 100 ), g );
 
 	add_edge( A, C, Arc_Properties( 0, 1, 5 ), g );
 	add_edge( B, B, Arc_Properties( 1, 2, 5 ), g );
