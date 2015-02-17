@@ -248,7 +248,7 @@ public:
 
 	// Constructeur du graphe (seulement le graphe; pas de couts / bornes / temps de trajet)
 	//
-	SubProblem(Scenario* scenario);
+	SubProblem(Scenario* scenario, Contract* contract);
 
 	// Fonction de test de l'algor de plus courts chemins
 	//
@@ -260,30 +260,57 @@ public:
 
 	// Retourne l'ensemble des rotations mises en memoire par le SP
 	//
-	inline vector< Rotation > getRotations(){return lesRotations_;}
+	inline vector< Rotation > getRotations(){return theRotations_;}
 
 
 protected:
 
+
+
+	//----------------------------------------------------------------
+	//
+	// Necessary information: Scenario, contract type, minimum number
+	// of paths to return, reduced costs.
+	//
+	// Optional information: Max rotation length.
+	//
+	//----------------------------------------------------------------
+
+
 	// Pointeur vers le scenario a resoudre
 	//
-	Scenario * scenario_;
+	Scenario * pScenario_;
+
+	// Contract type
+	//
+	Contract * pContract_;
 
 	// Nombre de chemins (minimum) a retourner au MP
 	//
 	int nPathsMin_;
 
-	// Nombre de chemins trouves
-	//
-	int nPaths_;
-
 	// 1 cout / jour / shift travaille
 	//
 	vector<vector<double> > * costs_;
 
+	// Maximum length of a rotation (in consecutive worked days)
+	//
+	int maxRotationLength_;
+
+
+	//----------------------------------------------------------------
+	//
+	// Answers: rotations, number of paths found
+	//
+	//----------------------------------------------------------------
+
 	// Les Rotations sauvegardees
 	//
-	vector< Rotation > lesRotations_;
+	vector< Rotation > theRotations_;
+
+	// Nombre de chemins trouves
+	//
+	int nPaths_;
 
 
 	//----------------------------------------------------------------
@@ -295,7 +322,7 @@ protected:
 	//----------------------------------------------------------------
 
 	// LE GRAPHE
-	Graph g;
+	Graph g_;
 
 
 	// Types de noeuds
@@ -314,6 +341,7 @@ protected:
 
 	// Nodes of the SHORT_ROTATION subnetwork
 	//
+	vector< vector<Rotation> > shortRotations_;		// List of all short rotations (contains their sequence of tasks)
 	vector< vector<int> > shortRotationsNodes_;		// For each length (#days), the list of all nodes that correspond to short rotations of this length
 	map<int,int> lastShiftOfShort_;					// For each short rotation, the id of the last shift worked
 	map<int,int> nLastShiftOfShort_;				// The number of consecutive similar shifts that ends the short rotation
@@ -337,8 +365,25 @@ protected:
 	//
 	//----------------------------------------------------------------
 
+	// Creates all nodes of the graph (including resource window)
 	void createNodes();
+
+	// Creates all arcs of the graph
 	void createArcs();
+
+	// Returns a vector3D: For each duration from 0 (empty) to CD_min, returns the list of LEGID shift successions.
+	// They do not depend on the starting date, only allowed successions w.r.t. the forbidden successors.
+	vector3D allowedShortSuccessions();
+
+	// Initiate variables for short rotations
+	void initShortRotations();
+
+	// Add a short rotation to the graph, that starts at k0 and contains the given succession of tasks of duration length
+	void addShortRotationToGraph(int k0, vector<int> shiftSuccession, int length);
+
+
+
+	void updateArcs();
 
 
 

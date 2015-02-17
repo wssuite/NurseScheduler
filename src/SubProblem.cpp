@@ -60,8 +60,10 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 //
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario * scenario):
-	scenario_(scenario) {
+SubProblem::SubProblem(Scenario * scenario, Contract * contract):
+	pScenario_(scenario), pContract_ (contract){
+
+	maxRotationLength_ = 999;
 
 	createNodes();
 	createArcs();
@@ -76,14 +78,162 @@ SubProblem::~SubProblem(){}
 
 // Function that creates the nodes of the network
 void SubProblem::createNodes(){
+
+	// Primary information needed
+	int CD_min = pContract_->minConsDaysWork_;		// Minimum consecutive days worked for free
+	int CD_max = pContract_->maxConsDaysWork_;		// Maximum consecutive days worked for free
+	int nDays  = pScenario_->nbWeeks_ * 7;			// Number of days in the time period
+	int nShifts= pScenario_->nbShifts_;			// Number of different shifts
+
+
 	nNodes_ = 0;
 
+	// 1. Source node
+	//
+	sourceNode_ = nNodes_;
+	add_vertex( Vertex_Properties( nNodes_, 0, maxRotationLength_ ), g_ );
+	nNodes_ ++;
+
+	// 2. Subnetwork for short rotations (depends on CD_min)
+	//
+
+	// A- INITIALIZE THE VECTORS
+	initShortRotations();
+
+	// A- COMPUTE ALL ALLOWED SUCCESSIONS OF SHIFTS OF LENGTH <= CD_min
+	vector3D allowedShortShiftSuccessionsBySize = allowedShortSuccessions();
+
+	// B- DUPLICATE THEM SO THAT THEY CAN POTENTIALLY START EACH DAY
+	for(int c=1; c<=CD_min; c++){											// For each short succession length
+		vector2D successions = allowedShortShiftSuccessionsBySize[c];
+		for(int k0=0; k0<nDays-c+1; k0++){									// For each possible starting date
+			for(int m=0; m<allowedShortShiftSuccessionsBySize[c].size(); m++){
+				// Creation of the node
+				addShortRotationToGraph(k0, successions[m], c);
+			}
+		}
+	}
+
+
+	// 3. Principal network-s
+	//
+
+
+	// 4. Rotation length check
+	//
+
+
+
+	// 5. Sink node
+	//
+	sinkNode_ = nNodes_;
+	add_vertex( Vertex_Properties( nNodes_, 0, maxRotationLength_ ), g_ );
+	nNodes_ ++;
+
 }
+
+// Function that returns the vector of all allowed successions (by length from 0 [empty] to CD_min)
+vector3D SubProblem::allowedShortSuccessions(){
+	vector3D ans;
+
+	// Primary information needed
+	int CD_min = pContract_->minConsDaysWork_;		// Minimum consecutive days worked for free
+	int nShifts= pScenario_->nbShifts_;				// Number of different shifts
+
+	vector2D v;
+	ans.push_back(v);		// Put an empty list of size 0
+
+	// For all size from 1 to CD_min, compute all allowed shift successions.
+	for(int c=1; c<=CD_min; c++){
+		vector< vector<int> > allowedShortShiftSuccessionsOfSizeC;
+		// Size 1 -> special case, initialization
+		if(c==1){
+			for(int s=1; s<nShifts; s++){
+				vector<int> shiftSuccession;
+				shiftSuccession.push_back(s);
+				allowedShortShiftSuccessionsOfSizeC.push_back(shiftSuccession);
+			}
+		}
+		// Larger -> extend the previous one
+		else {
+			vector< vector<int> > legidShortShiftSuccessionsOfSizeCMinusOne = ans[c-1];
+			for(int i=0; i<legidShortShiftSuccessionsOfSizeCMinusOne.size(); i++){
+				vector<int> succ = legidShortShiftSuccessionsOfSizeCMinusOne[i];
+				int sh = succ[succ.size()-1];
+				for(int newSh=1; newSh<nShifts; newSh++){
+					if(! pScenario_->isForbiddenSuccessor(newSh,sh)){
+						vector<int> newSucc;
+						for(int s=0; s<succ.size(); s++) newSucc.push_back(succ[s]);
+						newSucc.push_back(newSh);
+						allowedShortShiftSuccessionsOfSizeC.push_back(newSucc);
+					}
+				}
+			}
+		}
+		// For all values of c, add the vector of possible successions of size c to the list
+		ans.push_back(allowedShortShiftSuccessionsOfSizeC);
+	}
+
+	for(int i=1; i<ans.size(); i++){
+		std::cout << "#   +-----------------------+" << std::endl;
+		std::cout << "#   | SUCCESSIONS OF SIZE " << i << " |" << std::endl;
+		std::cout << "#   +-----------------------+" << std::endl;
+		vector2D succs = ans[i];
+		for(int j=0; j<succs.size(); j++){
+			vector<int> succ = succs[j];
+			std::cout << "#    | ";
+			for(int k=0; k<succ.size(); k++){
+				std::cout << " " << pScenario_->intToShift_[succ[k]];
+			}
+			std::cout << std::endl;
+		}
+	}
+
+	return ans;
+}
+
+// Function to initialize the data for short rotations
+void SubProblem::initShortRotations(){
+	int CD_min = pContract_->minConsDaysWork_;
+	for(int c=0; c<=CD_min; c++){
+		vector<Rotation> vr; shortRotations_.push_back(vr);
+		vector<int> vi; shortRotationsNodes_.push_back(vi);
+	}
+}
+
+// Function that adds a short succession to the graph, that starts at k0, and consists in performing the given shift succession
+void SubProblem::addShortRotationToGraph(int k0, vector<int> shiftSuccession, int length){
+
+	// Create the effective rotation depending on starting date
+	Rotation rot (k0, shiftSuccession);
+
+	// Add it to the list and create the node simultaneously
+	shortRotations_[length].push_back(rot);
+
+	// Create the node
+	add_vertex( Vertex_Properties( nNodes_, 0, maxRotationLength_ ), g_ );
+	shortRotationsNodes_[length].push_back(nNodes_);
+
+	// Store the last shift
+	int lastShift = shiftSuccession[length-1];
+	lastShiftOfShort_.insert(pair<int,int>( nNodes_, lastShift ));
+
+	// Store the number of successive similar shifts in the end of that rotation
+	int n=0;
+	while(n<length-1 and shiftSuccession[length-1-n]==lastShift)n++;
+	nLastShiftOfShort_.insert(pair<int,int>( nNodes_ , n ));
+
+	// Increase the number of nodes
+	nNodes_ ++;
+}
+
+
 
 // Function that creates the arcs of the network
-void SubProblem::createArcs() {
+void SubProblem::createArcs(){}
 
-}
+// To change the costs of the arcs
+void SubProblem::updateArcs(){}
 
 
 

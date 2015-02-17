@@ -83,24 +83,43 @@ void testFunction_Samuel(){
 	timertest->init();
 	timertest->start();
 
-	Scenario * s = ReadWrite::readScenario("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/Sc-n030w4.txt");
-	Demand* pWeekDemand = ReadWrite::readWeek("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/WD-n030w4-1.txt",s);
-	ReadWrite::readHistory("/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/n030w4/H0-n030w4-0.txt",s);
+	string inst = "n100w4";
+
+	string scenar = "/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/" + inst + "/Sc-" + inst + ".txt";
+	string firstWeek = "/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/" + inst + "/WD-" + inst + "-1.txt";
+	string firstHistory = "/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/" + inst + "/H0-" + inst + "-0.txt";
+
+	Scenario * s = ReadWrite::readScenario(scenar);
+	Demand* pWeekDemand = ReadWrite::readWeek(firstWeek,s);
+	ReadWrite::readHistory(firstHistory,s);
+
+	cout << s->toString() << endl;
 
 	timertest->stop();
 
 	string logFile = "../logfiles/samuel_test.log";
 	Tools::LogOutput logStream(logFile);
 
-  // RqJO : attention, j'ai enlevé ta surcharge de << parce qu'elle me faisait
+    // RqJO : attention, j'ai enlevé ta surcharge de << parce qu'elle me faisait
 	// des segfaults
 	logStream << s->toString() << std::endl;
 	logStream.print("Total time spent in the algorithm : ");
 	logStream.print(timertest->dSinceInit());
 	logStream.print("\n");
 
-	SubProblem sp;
-	sp.testGraph_spprc();
+	for(map<string,Contract*>::const_iterator it = s->contracts_.begin(); it != s->contracts_.end(); ++it){
+		Contract * c = it->second;
+		cout << "# +----------------------------------------------------------------------------------------" << endl;
+		cout << "# " << endl;
+		cout << "# CONTRACT : " << c->toString() << endl;
+		cout << "# " << endl;
+		SubProblem sp (s, c);
+		cout << "# " << endl;
+		cout << "# +----------------------------------------------------------------------------------------" << endl;
+	}
+
+	//SubProblem sp;
+	//sp.testGraph_spprc();
 
 
 }
@@ -110,7 +129,7 @@ int main(int argc, char** argv)
 
 	// Tests functions to check the functions one by one
 	// testFunction_Antoine();
-	testFunction_Jeremy();
-	// testFunction_Samuel();
+	// testFunction_Jeremy();
+	testFunction_Samuel();
 
 }

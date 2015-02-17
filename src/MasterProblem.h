@@ -22,9 +22,19 @@
 //-----------------------------------------------------------------------------
 struct Rotation {
 
-	// Specific constructor and destructor
+	// Specific constructors and destructors
 	//
-	Rotation(double cost, map<int,int> shift, double dualCost = 999999) : cost_(cost), shifts_(shift), dualCost_(dualCost) {};
+
+	Rotation(map<int,int> shift, double cost = 999999, double dualCost = 999999) : cost_(cost), shifts_(shift), dualCost_(dualCost) {};
+
+	Rotation(int firstDay, vector<int> shiftSuccession){
+		map<int,int> m;
+		for(int k=0; k<shiftSuccession.size(); k++) m.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
+		shifts_ = m;
+		cost_ = 999999;
+		dualCost_ = 999999;
+	}
+
 	~Rotation(){};
 
 	// Cost
