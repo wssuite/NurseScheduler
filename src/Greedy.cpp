@@ -90,49 +90,83 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill) {
   //
   State state = nurse.states_[day];
 
-  // consecutive shifts
+  // Consecutive shifts
+  //
+  // penalize violation of maximum and minimum numbers of shifts
   int lastShift = state.shift_;
   int ecartShift, ecartOff, ecartDay;
-  if (shift == lastShift  && state.consShifts_ >= pScenario_->maxConsShifts_[shift]) {
+  if (lastShift > 0 && shift == lastShift  && state.consShifts_ >= pScenario_->maxConsShifts_[shift]) {
     cost += WEIGHT_CONS_SHIFTS;
   }
-  else if (shift != lastShift && state.consShifts_ < pScenario_->minConsShifts_[shift]) {
+  else if (lastShift > 0 && shift != lastShift && state.consShifts_ < pScenario_->minConsShifts_[shift]) {
     ecartShift = pScenario_->minConsShifts_[shift]-state.consShifts_;
     cost += WEIGHT_CONS_SHIFTS*ecartShift;
   }
+  // penalize the action of taking a new shift whose number of minimum succesive
+  // shifts will nont be reached before the maximum number of worked days
+  if (lastShift > 0 && shift != lastShift) {
+    int maxDays = nurse.maxConsDaysWork()-state.consDaysWorked_;
+    if (maxDays < pScenario_->minConsShifts_[shift]) {
+      cost += WEIGHT_CONS_SHIFTS*(pScenario_->minConsShifts_[shift] - maxDays);
+    }
+  }
+  // penalize the action to go from a shift with a lot of possible successors to
+  // a shift with more forbidden successors
+  double weightNbForbidden = 5;
+  cost += weightNbForbidden*
+    (pScenario_->nbForbiddenSuccessors_[shift] - pScenario_->nbForbiddenSuccessors_[lastShift]);
 
-  // maximum working days and minimum resting days
-  if (shift == 0 && state.consDaysOff_ < nurse.minConsDaysOff()) {
+  // Maximum working days and minimum resting days
+  //
+  if (lastShift == 0 && state.consDaysOff_ < nurse.minConsDaysOff()) {
     ecartOff = nurse.minConsDaysOff()-state.consDaysOff_;
     cost += ecartOff * WEIGHT_CONS_DAYS_OFF;
   }
-  else if (shift != 0 && state.consDaysWorked_ >= nurse.maxConsDaysWork()) {
+  else if ( state.consDaysWorked_ >= nurse.maxConsDaysWork()) {
     cost += WEIGHT_CONS_DAYS_WORK;
   }
 
   // treat the cases in which the nurse had no assigned task on the last day
-  if (shift < 0) {
+  if (lastShift < 0) {
     ecartOff = nurse.minConsDaysOff()-state.consDaysOff_;
     ecartDay = nurse.maxConsDaysWork()-state.consDaysWorked_;
 
-    if (-shift >= ecartDay && -shift < ecartOff) {
-      cost += std::min((-shift-ecartDay+1)*WEIGHT_CONS_DAYS_WORK,
-        (ecartOff+shift) * WEIGHT_CONS_DAYS_OFF);
+    if (-lastShift >= ecartDay && -lastShift < ecartOff) {
+      cost += std::min((-lastShift-ecartDay+1)*WEIGHT_CONS_DAYS_WORK,
+        (ecartOff+lastShift) * WEIGHT_CONS_DAYS_OFF);
     }
   }
 
 
-  // preferences
+  // Preferences
+  //
   if (nurse.wishesOff(day,shift)) {
     cost += WEIGHT_PREFERENCES;
   }
 
-  // complete week-ends
+  // Complete week-ends
+  //
+  // penalize uncomplete week-ends when needed
   if (nurse.needCompleteWeekends() && day%7 == 6) {
     if (lastShift == 0) {
       cost += WEIGHT_COMPLETE_WEEKEND;
     }
   }
+  // when complete week-ends are needed and it is saturday, add a penalty if
+  // working on sunday will create a violation in the maximum number of worked
+  // days
+  if (nurse.needCompleteWeekends() && day%7 == 5) {
+    if (state.consDaysWorked_+1 == nurse.maxConsDaysWork() ) {
+      cost += std::min(WEIGHT_COMPLETE_WEEKEND,WEIGHT_CONS_DAYS_WORK);
+    }
+  }
+
+  // Penalize the rank of the nurse : the higher the rank the less we want it
+  // to work on tasks other nurses can do
+  //
+  double weightRank = 5; // valeur arbitraire à régler en fonction des autres pénalités
+  Position position = *(nurse.pPosition_);
+  cost += (rankMax_-nurse.pPosition_->rank())*weightRank;
 
   // Penalize the violations of the limits in the total assignment and total
   // working week-ends
@@ -156,7 +190,7 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill) {
   if (state.totalDaysWorked_ >= maxDays) {
     cost += factorWeek*WEIGHT_TOTAL_SHIFTS;
   }
-  if (state.totalWeekendsWorked_ >= maxWeekends) {
+  if ( (day%7==5 || (day%7==6 && lastShift==0)) && state.totalWeekendsWorked_ >= maxWeekends) {
     cost += factorWeek*WEIGHT_TOTAL_WEEKENDS;
   }
   // if the nurse is below the number of total assignments, getting a shift is
@@ -171,13 +205,6 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill) {
   //   maxRarity = std::max(skillRarity_[sk],maxRarity);
   // }
   // cost += (maxRarity/skillRarity_[skill]-1)*arbitraryWeight;
-
-  // Penalize the rank of the nurse : the higher the rank the less we want it
-  // to work on tasks other nurses can do
-  double weightRank = 5; // valeur arbitraire à régler en fonction des autres pénalités
-  Position position = *(nurse.pPosition_);
-  cost += (rankMax_-nurse.pPosition_->rank())*weightRank;
-
 
 
   return cost;

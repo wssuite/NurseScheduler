@@ -204,7 +204,7 @@ void State::addDayToState(const State& prevState, int newShift)	{
 		}
 
 		// Consecutives : +1 iff it is the same as the previous one
-		consShifts_ = (newShift && newShift==prevState.shift_) ? (prevState.consShifts_ + 1) : 1;
+		consShifts_ = (newShift && newShift==prevState.shift_) ? prevState.consShifts_+1 : (newShift? 1:0);
 
 		// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
 		consDaysWorked_ = newShift ? (prevState.consDaysWorked_ + 1) : 0;
