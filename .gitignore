@@ -3,3 +3,4 @@
 src/roster
 bin/*
 logfiles/*
+src/Makefile
