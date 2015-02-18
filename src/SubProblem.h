@@ -12,32 +12,38 @@
 #include "Solver.h"
 #include "MasterProblem.h"
 
+
 #include <boost/config.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/r_c_shortest_paths.hpp>
 
-enum nodeType {SOURCE_NODE, SINK_NODE, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH_, NONE};
 
-static const vector<string> nodeTypeName = {"SOURCE_NODE", "SINK_NODE  ", "SHORT_ROTAT", "PPL_NETWORK", "ROTAT_SIZE  ", "NONE       "};
+static int MAX_COST = 99999;
+
+// Different node types and their names
+//
+enum NodeType {SOURCE_NODE, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE, ROTATION_LENGTH, ROTATION_LENGTH_EXIT, SINK_NODE, NONE_NODE};
+static const vector<string> nodeTypeName = {"SOURCE_NODE", "SHORT_ROTAT", "PPL_NETWORK", "ROTSIZE__IN", "ROTSIZE     ", "ROTSIZE_OUT", "SINK_NODE  ", "NONE       "};
+
+
+// Different arc types and their names
+//
+enum ArcType{SOURCE_TO_SHORT, SHORT_TO_SINK, SHORT_TO_PRINCIPAL, PRINCIPAL_TO_SINK,
+	SHIFT_TO_NEWSHIFT, SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE, REPEATSHIFT,
+	ROTSIZEIN_TO_ROTSIZE, ROTSIZE_TO_ROTSIZEOUT, ROTSIZEOUT_TO_SINK, NONE_ARC};
+static const vector<string> arcTypeName = {"SOURCE_TO_SHORT", "SHORT_TO_SINK  ", "SHORT_TO_PRPAL ", "PRPAL_TO_SINK  ",
+		"SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ", "REPEATSHIFT    ",
+		"ROTSZIN_TO_RTSZ", "ROTSZ_TO_RSZOUT", "RTSZOUT_TO_SINK", "NONE           "};
+
 static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
-
-/////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////
-//
-// Pour l'instant cette classe n'est pas reliee au reste du
-// projet. Ne sert qu'a tester Boost et les algos de plus courts
-// chemins avec contraintes de ressources.
-//
-/////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////
 //
 // The following structures are the properties of the nodes and arcs:
 //   For the nodes: id, earliest arrival time, and latest arrival time
-//   For the arcs : id, cost and time (time is the ressource here)
-//   For the graph: usual stuff + nodes and ard special properties
+//   For the arcs : id, cost and time (time is the resource here)
+//   For the graph: usual stuff + nodes and and special properties
 //
 //////////////////////////////////////////////////////////////////////////
 
@@ -47,14 +53,15 @@ struct Vertex_Properties{
 
 	// Constructor
 	//
-	Vertex_Properties( int n = 0, nodeType t = NONE, int e = 0, int l = 0 ) : num( n ), type( t ), eat( e ), lat( l ) {}
+	Vertex_Properties( int n = 0, NodeType t = NONE_NODE, int e = 0, int l = 0 ) : num( n ), type( t ), eat( e ), lat( l ) {}
 
 	// id
 	//
 	int num;
 
 	// type
-	nodeType type;
+	//
+	NodeType type;
 
 	// earliest arrival time
 	//
@@ -71,11 +78,15 @@ struct Arc_Properties{
 
 	// Constructor
 	//
-	Arc_Properties( int n = 0, int c = 0, int t = 0 ) : num( n ), cost( c ), time( t ) {}
+	Arc_Properties( int n = 0, ArcType ty = NONE_ARC, int c = 0, int t = 0 ) : num( n ), type(ty), cost( c ), time( t ) {}
 
 	// id
 	//
 	int num;
+
+	// type
+	//
+	ArcType type;
 
 	// traversal cost
 	//
@@ -93,15 +104,15 @@ typedef boost::adjacency_list< boost::vecS, boost::vecS, boost::directedS, Verte
 //////////////////////////////////////////////////////////////////////////
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// The following functions / data structures are used for spp without resource constraints (cost only):
+// The following functions / data structures are used for shortest path problem without resource constraints (cost only):
 //   Resource container ("resource" = cost)
 //   Comparison override --> in SubProblem.cpp
 //   Cost extension function
 //   Dominance function
 //
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Cost Container
 //
@@ -157,7 +168,7 @@ public:
 	}
 };
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -318,25 +329,29 @@ protected:
 	int nPaths_;
 
 
-	//----------------------------------------------------------------
-	//
-	// Attributs du graphe, servent a stocker les sommets, quelques
-	// informations importantes, l'acces aux sommets via des tableaux,
-	// et eventuellement des informations sur les couts.
-	//
-	//----------------------------------------------------------------
-
 	// LE GRAPHE
 	Graph g_;
 
-	// Total number of nodes/arcs in the graph (is also the id of the node to add if a new node is to be added)
-	//
-	int nNodes_, nArcs_;
 
-	// Noeuds "uniques"
+
+	//----------------------------------------------------------------
+	//
+	// Data and functions for the NODES of the network
+	//
+	//----------------------------------------------------------------
+
+	//-----------------//
+	// DATA STRUCTURES //
+	//-----------------//
+
+	// Total number of nodes in the graph (is also the id of the node to add if a new node is to be added) and the vector of their types
+	//
+	int nNodes_;
+	vector<NodeType> allNodesTypes_;
+
+	// Source
 	//
 	int sourceNode_;
-	int sinkNode_;
 
 	// Nodes of the SHORT_ROTATION subnetwork
 	//
@@ -349,41 +364,103 @@ protected:
 
 	// Nodes of the PRINCIPAL_NETWORK subnetwork
 	//
-	vector3D principalNetworkNodes_;				// For each DAY, SHIFT, and # of CONSECUTIVE, the corresponding node
+	vector3D principalNetworkNodes_;					// For each SHIFT, DAY, and # of CONSECUTIVE, the corresponding node
+	map<int,int> principalToShift_;						// For each node of the principal network, maps it ID to the shift it represents
+	map<int,int> principalToDay_;						// For each node of the principal network, maps it ID to the day it represents
+	map<int,int> principalToCons_;						// For each node of the principal network, maps it ID to the number of consecutive shifts it represents
 
 	// Nodes of the ROTATION_LENGTH subnetwork
-	vector<int> rotationLengthNodes_;				// !!! Numbering may be tricky -> pay attention to the number of days worked
+	int rotationLengthEntrance_;						// Entrance node to the ROTATION_LENGTH subnetwork
+	map<int,int> rotationLengthNodes_;					// Maps the length of the rotation to the corresponding check node
+	int rotationLengthExit_;							// Exit node to the ROTATION_LENGTH subnetwork
 
-	boost::graph_traits<Graph>::vertex_descriptor getNode(int id) {return boost::vertex(id, g_);}
-
-
-
-
-	//----------------------------------------------------------------
+	// Sink Node
 	//
-	// Protected functions: creation of the nodes, of the arcs, and
-	// computation of the costs / resource consumption for the arcs.
-	//
-	//----------------------------------------------------------------
+	int sinkNode_;
+
+	//-----------//
+	// FUNCTIONS //
+	//-----------//
 
 	// Creates all nodes of the graph (including resource window)
+	//
 	void createNodes();
 
-	// Creates all arcs of the graph
-	void createArcs();
+	// Basic function for adding a node
+	//
+	void addSingleNode(NodeType type, int eat, int lat);
+
+	// Initiate variables for the nodes structures (vectors, etc.)
+	// nDays : length of the scenario
+	//
+	void initNodesStructures(int nDays);
 
 	// Returns a vector3D: For each duration from 0 (empty) to CD_min, returns the list of LEGID shift successions.
 	// They do not depend on the starting date, only allowed successions w.r.t. the forbidden successors.
+	//
 	vector3D allowedShortSuccessions();
 
-	// Initiate variables for short rotations
-	void initShortRotations();
-
 	// Add a short rotation to the graph, that starts at k0 and contains the given succession of tasks of duration length
+	//
 	void addShortRotationToGraph(int k0, vector<int> shiftSuccession, int length);
 
+	// Add a node to the principal network of the graph, for shift sh, day k, and number of consecutive similar shifts cons
+	//
+	void addNodeToPrincipalNetwork(int sh, int k, int cons);
+
+
+
+	//----------------------------------------------------------------
+	//
+	// Data and functions for the ARCS of the network
+	//
+	//----------------------------------------------------------------
+
+
+	//-----------------//
+	// DATA STRUCTURES //
+	//-----------------//
+
+	// Total number of arcs in the graph (is also the id of the arc to add if a new node is to be added) and the vector of their types
+	//
+	int nArcs_;
+	vector<ArcType> allArcsTypes_;
+
+	// Vector of all arcs whose origin is the source node
+	//
+	vector<int> arcsFromSource_;
+
+
+
+	//-----------//
+	// FUNCTIONS //
+	//-----------//
+
+	// Creates all arcs of the graph
+	//
+	void createArcs();
+
+	// Basic function for adding an arc
+	//
+	void addSingleArc(int origin, int destination, int cost, int travelTime, ArcType type);
+
+	// Initiate variables for the arcs structures (integers, vectors, etc.)
+	//
+	void initArcsStructures();
+
+	// Creates the specific types of arcs
+	void createArcsFromSource();
+
 	// Update the arcs (their cost in particular)
+	//
 	void updateArcs();
+
+	// Get info with the arc ID
+	inline ArcType arcType(int a) {return allArcsTypes_[a];}
+	//inline int arcOrigin(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return source(id, g_);}
+	//inline int arcDestination(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return target(id, g_);}
+	//inline int arcLength(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return get( &Arc_Properties::time, g_, id);}
+	//inline int arcCost(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return get( &Arc_Properties::cost, g_, id);}
 
 
 public:

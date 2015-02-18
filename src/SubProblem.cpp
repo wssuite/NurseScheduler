@@ -66,7 +66,7 @@ SubProblem::SubProblem() {}
 SubProblem::SubProblem(Scenario * scenario, Contract * contract):
 	pScenario_(scenario), pContract_ (contract){
 
-	maxRotationLength_ = 999;
+	maxRotationLength_ = pScenario_->nbWeeks_*7;
 
 	createNodes();
 	createArcs();
@@ -74,67 +74,88 @@ SubProblem::SubProblem(Scenario * scenario, Contract * contract):
 	nPathsMin_ = 0;
 
 
+
+	printGraph();
+
+
 }
 
 SubProblem::~SubProblem(){}
 
 
+//--------------------------------------------
+//
+// Functions for the NODES of the graph
+//
+//--------------------------------------------
+
 // Function that creates the nodes of the network
 void SubProblem::createNodes(){
 
 	// Primary information needed
-	int CD_min = pContract_->minConsDaysWork_;		// Minimum consecutive days worked for free
-	int CD_max = pContract_->maxConsDaysWork_;		// Maximum consecutive days worked for free
-	int nDays  = pScenario_->nbWeeks_ * 7;			// Number of days in the time period
-	int nShifts= pScenario_->nbShifts_;			// Number of different shifts
+	int CD_min = pContract_->minConsDaysWork_;									// Minimum consecutive days worked for free
+	int CD_max = pContract_->maxConsDaysWork_;									// Maximum consecutive days worked for free
+	int nDays  = pScenario_->nbWeeks_ * 7;										// Number of days in the time period
+	int nShifts= pScenario_->nbShifts_;											// Number of different shifts
 
-
+	// INITIALIZATION
 	nNodes_ = 0;
+	initNodesStructures(nDays);
 
-	// 1. Source node
+	// 1. SOURCE NODE
 	//
 	sourceNode_ = nNodes_;
-	add_vertex( Vertex_Properties( nNodes_, SOURCE_NODE, 0, maxRotationLength_ ), g_ );
-	nNodes_ ++;
+	addSingleNode(SOURCE_NODE, 0, maxRotationLength_);
 
-	// 2. Subnetwork for short rotations (depends on CD_min)
+	// 2. SUBNETWORK FOR SHORT ROTATIONS (DEPENDS ON CD_min)
 	//
-
-	// A- INITIALIZE THE VECTORS
-	initShortRotations();
-
-	// A- COMPUTE ALL ALLOWED SUCCESSIONS OF SHIFTS OF LENGTH <= CD_min
-	vector3D allowedShortShiftSuccessionsBySize = allowedShortSuccessions();
-
-	// B- DUPLICATE THEM SO THAT THEY CAN POTENTIALLY START EACH DAY
-	for(int c=1; c<=CD_min; c++){											// For each short succession length
+	vector3D allowedShortShiftSuccessionsBySize = allowedShortSuccessions();	// A- Compute all allowed successions of shifts of length <= CD_min
+	for(int c=1; c<=CD_min; c++){												// B- Duplication for different starting days: For each short succession length (c)
 		vector2D successions = allowedShortShiftSuccessionsBySize[c];
-		for(int k0=0; k0<nDays-c+1; k0++){									// For each possible starting date
-			for(int m=0; m<allowedShortShiftSuccessionsBySize[c].size(); m++){
-				// Creation of the node
-				addShortRotationToGraph(k0, successions[m], c);
+		for(int k0=0; k0<nDays-c+1; k0++){										// For each possible starting date (k0)
+			for(int m=0; m<allowedShortShiftSuccessionsBySize[c].size(); m++){	// For each allowed succession of length c
+				addShortRotationToGraph(k0, successions[m], c);					// Creation of the node for that short rotation with starting date k0
 			}
 		}
 	}
 
 
-	// 3. Principal network(s) [one per shift type]
+	// 3. PRINCIPAL NETWORK(S) [ONE PER SHIFT TYPE]
 	//
+	for(int sh=1; sh<nShifts; sh++){											// For each possible worked shift
+		int maxConsForShift = pScenario_->maxConsShifts_.at(sh);
+		for(int k=0; k<nDays; k++){												// For each date
+			for(int cons=0; cons<maxConsForShift; cons++){						// For each level of network
+				addNodeToPrincipalNetwork(sh, k, cons);							// Add a node to the principal network
+			}
+		}
+	}
 
-
-	// 4. Rotation length check
+	// 4. ROTATION LENGTH CHECK
 	//
+	// Entrance
+	rotationLengthEntrance_ = nNodes_;											// Single node for the entrance in subnetwork
+	addSingleNode(ROTATION_LENGTH_ENTRANCE, 0, maxRotationLength_);
+	// Check nodes
+	for(int l=CD_max; l<maxRotationLength_; l++){								// Check nodes: from CD_max (longest free) to maximum rotation length
+		rotationLengthNodes_.insert(pair<int,int>(l,nNodes_));
+		addSingleNode(ROTATION_LENGTH, l, maxRotationLength_);
+	}
+	// Exit
+	rotationLengthExit_ = nNodes_;												// Single node for the exit (could probably be replaced by the sink)
+	addSingleNode(ROTATION_LENGTH_EXIT, 0, maxRotationLength_);
 
-
-
-	// 5. Sink node
+	// 5. SINK NODE
 	//
 	sinkNode_ = nNodes_;
-	add_vertex( Vertex_Properties( nNodes_, SINK_NODE, 0, maxRotationLength_ ), g_ );
-	nNodes_ ++;
+	addSingleNode(SINK_NODE, 0, maxRotationLength_);
+}
 
-	printGraph();
-
+// Addition of a single node (101)
+void SubProblem::addSingleNode(NodeType type, int eat, int lat){
+	add_vertex( Vertex_Properties( nNodes_, type, eat, lat ), g_ );
+	allNodesTypes_.push_back(type);
+	nNodes_++;
 
 }
 
@@ -143,31 +164,31 @@ vector3D SubProblem::allowedShortSuccessions(){
 	vector3D ans;
 
 	// Primary information needed
-	int CD_min = pContract_->minConsDaysWork_;		// Minimum consecutive days worked for free
-	int nShifts= pScenario_->nbShifts_;				// Number of different shifts
+	//
+	int CD_min = pContract_->minConsDaysWork_;											// Minimum consecutive days worked for free
+	int nShifts= pScenario_->nbShifts_;													// Number of different shifts
 
 	vector2D v;
-	ans.push_back(v);		// Put an empty list of size 0
+	ans.push_back(v);																	// Put an empty list of size 0
 
 	// For all size from 1 to CD_min, compute all allowed shift successions.
+	//
 	for(int c=1; c<=CD_min; c++){
 		vector< vector<int> > allowedShortShiftSuccessionsOfSizeC;
-		// Size 1 -> special case, initialization
-		if(c==1){
+		if(c==1){																		// Size 1 -> special case, initialization -> add all single shift rotations
 			for(int s=1; s<nShifts; s++){
 				vector<int> shiftSuccession;
 				shiftSuccession.push_back(s);
 				allowedShortShiftSuccessionsOfSizeC.push_back(shiftSuccession);
 			}
 		}
-		// Larger -> extend the previous one
-		else {
+		else {																			// Larger -> extend the previous one
 			vector< vector<int> > legidShortShiftSuccessionsOfSizeCMinusOne = ans[c-1];
-			for(int i=0; i<legidShortShiftSuccessionsOfSizeCMinusOne.size(); i++){
+			for(int i=0; i<legidShortShiftSuccessionsOfSizeCMinusOne.size(); i++){		// For each short rotation of size c-1
 				vector<int> succ = legidShortShiftSuccessionsOfSizeCMinusOne[i];
 				int sh = succ[succ.size()-1];
-				for(int newSh=1; newSh<nShifts; newSh++){
-					if(! pScenario_->isForbiddenSuccessor(newSh,sh)){
+				for(int newSh=1; newSh<nShifts; newSh++){								// For each possible shift at date c
+					if(! pScenario_->isForbiddenSuccessor(newSh,sh)){					// IF the succession is allowed, then add it
 						vector<int> newSucc;
 						for(int s=0; s<succ.size(); s++) newSucc.push_back(succ[s]);
 						newSucc.push_back(newSh);
@@ -176,10 +197,12 @@ vector3D SubProblem::allowedShortSuccessions(){
 				}
 			}
 		}
-		// For all values of c, add the vector of possible successions of size c to the list
-		ans.push_back(allowedShortShiftSuccessionsOfSizeC);
+		ans.push_back(allowedShortShiftSuccessionsOfSizeC);								// For all values of c, add the vector of possible successions of size c to the list
 	}
 
+
+	// Print for debug
+	//
 	for(int i=1; i<ans.size(); i++){
 		std::cout << "#   +-----------------------+" << std::endl;
 		std::cout << "#   | SUCCESSIONS OF SIZE " << i << " |" << std::endl;
@@ -198,12 +221,40 @@ vector3D SubProblem::allowedShortSuccessions(){
 	return ans;
 }
 
-// Function to initialize the data for short rotations
-void SubProblem::initShortRotations(){
-	int CD_min = pContract_->minConsDaysWork_;
+// Initiate variables for the nodes structures (vectors, etc.)
+void SubProblem::initNodesStructures(int nDays){
+
+	// Data
+	//
+	int CD_min = pContract_->minConsDaysWork_;		// Minimum consecutive days worked for free
+	int nShifts= pScenario_->nbShifts_;				// Number of different shifts
+
+	// All nodes
+	//
+	nNodes_ = 0;
+	vector<NodeType> v; allNodesTypes_ = v;
+
+	// Short rotations
+	//
 	for(int c=0; c<=CD_min; c++){
 		vector<Rotation*> vr; shortRotations_.push_back(vr);
 		vector<int> vi; shortRotationsNodes_.push_back(vi);
+	}
+
+	// Principal networks
+	//
+	for(int sh=0; sh<nShifts; sh++){
+		vector2D v2D;
+		if(sh!=0){
+			for(int k=0; k<nDays; k++){
+				vector<int> v1D;
+				for(int cons=0; cons<pScenario_->maxConsShifts_.at(sh); cons++){
+					v1D.push_back(-1);
+				}
+				v2D.push_back(v1D);
+			}
+		}
+		principalNetworkNodes_.push_back(v2D);
 	}
 }
 
@@ -211,32 +262,98 @@ void SubProblem::initShortRotations(){
 void SubProblem::addShortRotationToGraph(int k0, vector<int> shiftSuccession, int length){
 
 	// Create the effective rotation depending on starting date
+	//
 	Rotation rot (k0, shiftSuccession);
 
 	// Add it to the list and create the node simultaneously
+	//
 	nodeToShortRotation_.insert(pair<int,Rotation> (nNodes_, rot));
 	shortRotations_[length].push_back( & nodeToShortRotation_.at(nNodes_) );
 
-	// Create the node
-	add_vertex( Vertex_Properties( nNodes_, SHORT_ROTATION, 0, maxRotationLength_ ), g_ );
-	shortRotationsNodes_[length].push_back(nNodes_);
-
 	// Store the last shift
+	//
 	int lastShift = shiftSuccession[length-1];
 	lastShiftOfShort_.insert(pair<int,int>( nNodes_, lastShift ));
 
 	// Store the number of successive similar shifts in the end of that rotation
+	//
 	int n=0;
-	while(n<length-1 and shiftSuccession[length-1-n]==lastShift)n++;
+	while(n<length and shiftSuccession[length-1-n]==lastShift)n++;
 	nLastShiftOfShort_.insert(pair<int,int>( nNodes_ , n ));
 
-	// Increase the number of nodes
-	nNodes_ ++;
+	// Store the id
+	//
+	shortRotationsNodes_[length].push_back(nNodes_);
+
+	// Create the node
+	//
+	addSingleNode(SHORT_ROTATION, 0, maxRotationLength_);
+}
+
+// Add a node to the principal network of the graph, for shift sh, day k, and number of consecutive similar shifts cons
+void SubProblem::addNodeToPrincipalNetwork(int sh, int k, int cons){
+
+	// Store its ID in the vector3D
+	//
+	allNodesTypes_.push_back(PRINCIPAL_NETWORK);
+	principalNetworkNodes_[sh][k][cons] = nNodes_;
+
+	// Store the information backwards
+	//
+	principalToShift_.insert(pair<int,int>(nNodes_, sh));
+	principalToDay_.insert(pair<int,int>(nNodes_, k));
+	principalToCons_.insert(pair<int,int>(nNodes_, cons));
+
+	// Create the node
+	//
+	addSingleNode(PRINCIPAL_NETWORK, 0, maxRotationLength_);
 }
 
 
+//--------------------------------------------
+//
+// Functions for the ARCS of the graph
+//
+//--------------------------------------------
+
 // Function that creates the arcs of the network
-void SubProblem::createArcs(){}
+void SubProblem::createArcs(){
+	initArcsStructures();
+	createArcsFromSource();
+}
+
+// Adds a single arc (origin, destination, cost, travel time, type)
+void SubProblem::addSingleArc(int o, int d, int c, int t, ArcType type){
+	add_edge( o, d, Arc_Properties( nArcs_, type, c, t ), g_ );
+	allArcsTypes_.push_back(type);
+	nArcs_++;
+}
+
+// Initializes the data structures used for the arcs
+void SubProblem::initArcsStructures(){
+	nArcs_ = 0;
+	vector<int> v; arcsFromSource_ = v;
+}
+
+// Create all arcs whose origin is the source nodes (all go to short rotations nodes)
+void SubProblem::createArcsFromSource(){
+
+	int CD_min = pContract_->minConsDaysWork_;									// Minimum consecutive days worked for free
+	int CD_max = pContract_->maxConsDaysWork_;									// Maximum consecutive days worked for free
+	int nDays  = pScenario_->nbWeeks_ * 7;										// Number of days in the time period
+	int nShifts= pScenario_->nbShifts_;											// Number of different shifts
+
+	for(int length=1; length<CD_min; length++){
+		vector<int> shortRotLengthC = shortRotationsNodes_[length];
+		for(int m=0; m<shortRotLengthC.size(); m++){
+			int dest = shortRotLengthC[m];
+			addSingleArc(sourceNode_, dest, MAX_COST, length, SOURCE_TO_SHORT);
+		}
+	}
+
+
+
+}
 
 // To change the costs of the arcs
 void SubProblem::updateArcs(){}
@@ -245,7 +362,7 @@ void SubProblem::updateArcs(){}
 
 // PRINT FUNCTIONS
 
-// Print for the graph
+// Print the graph
 void SubProblem::printGraph(){
 	stringstream rep;
 
@@ -254,28 +371,51 @@ void SubProblem::printGraph(){
 	rep << "# " << std::endl;
 	rep << "#   NODES " << std::endl;
 
+	// THE NODES
 
+	for(int v=0; v<nNodes_; v++){
 
-	for(int i=0; i<nNodes_; i++){
-		boost::graph_traits<Graph>::vertex_descriptor v = getNode(i);
-
-		nodeType type_v = get( &Vertex_Properties::type, g_)[v];
+		NodeType type_v = get( &Vertex_Properties::type, g_)[v];
 		string nameType_v = nodeTypeName[type_v];
 		int eat_v = get( &Vertex_Properties::eat, g_)[v];
 		int lat_v = get( &Vertex_Properties::lat, g_)[v];
 
 
-		rep << v << " " << nameType_v << " [" << eat_v << " " << lat_v << "]";
+		rep << "# NODE  " << v << " \t" << nameType_v << " \t[" << eat_v << " " << lat_v << "] \t";
 
 		if(type_v == SHORT_ROTATION){
-			Rotation r = nodeToShortRotation_.at(i);
+			string lastShiftName = pScenario_->intToShift_.at(lastShiftOfShort_.at(v));
+			int nLastShiftCons = nLastShiftOfShort_.at(v);
+			Rotation r = nodeToShortRotation_.at(v);
 			rep << "  k0= " << r.firstDay_ << "  ";
 			for(int k=0; k<r.length_; k++) rep << " " << pScenario_->intToShift_[r.shifts_.at(r.firstDay_+k)];
+			rep << "    --    FIN= " << lastShiftName << "-" << nLastShiftCons;
+
+		}
+
+		else if (type_v == PRINCIPAL_NETWORK){
+			string shiftName = pScenario_->intToShift_[principalToShift_.at(v)];
+			int k = principalToDay_.at(v);
+			int cons = principalToCons_.at(v);
+
+			rep << "  " << shiftName << "_" << k << "-" << cons;
 		}
 
 		rep << std::endl;
 
 	}
+
+	rep << std::endl;
+
+	// THE ARCS
+
+	for(int a=0; a<nArcs_; a++){
+		rep << "# ARC   " << a << " \t" << arcTypeName[arcType(a)];
+		//rep << " \t(" << arcOrigin(a) << "," << arcDestination(a) << ") \t";
+		//rep << "c= " << arcCost(a) << " \tt=" << arcLength(a);
+		rep << std::endl;
+	}
+
 
 	std::cout << rep.str();
 }
@@ -319,21 +459,21 @@ void SubProblem::testGraph_spprc(){
 
 	Graph g;
 
-	add_vertex( Vertex_Properties( A, NONE, 0, 0 ), g );
-	add_vertex( Vertex_Properties( B, NONE, 5, 20 ), g );
-	add_vertex( Vertex_Properties( C, NONE, 6, 10 ), g );
-	add_vertex( Vertex_Properties( D, NONE, 3, 12 ), g );
-	add_vertex( Vertex_Properties( E, NONE, 0, 100 ), g );
+	add_vertex( Vertex_Properties( A, NONE_NODE, 0, 0 ), g );
+	add_vertex( Vertex_Properties( B, NONE_NODE, 5, 20 ), g );
+	add_vertex( Vertex_Properties( C, NONE_NODE, 6, 10 ), g );
+	add_vertex( Vertex_Properties( D, NONE_NODE, 3, 12 ), g );
+	add_vertex( Vertex_Properties( E, NONE_NODE, 0, 100 ), g );
 
-	add_edge( A, C, Arc_Properties( 0, 1, 5 ), g );
-	add_edge( B, B, Arc_Properties( 1, 2, 5 ), g );
-	add_edge( B, D, Arc_Properties( 2, 1, 2 ), g );
-	add_edge( B, E, Arc_Properties( 3, 2, 7 ), g );
-	add_edge( C, B, Arc_Properties( 4, 7, 3 ), g );
-	add_edge( C, D, Arc_Properties( 5, 3, 8 ), g );
-	add_edge( D, E, Arc_Properties( 6, 1, 3 ), g );
-	add_edge( E, A, Arc_Properties( 7, 1, 5 ), g );
-	add_edge( E, B, Arc_Properties( 8, 1, 4 ), g );
+	add_edge( A, C, Arc_Properties( 0, NONE_ARC, 1, 5 ), g );
+	add_edge( B, B, Arc_Properties( 1, NONE_ARC, 2, 5 ), g );
+	add_edge( B, D, Arc_Properties( 2, NONE_ARC, 1, 2 ), g );
+	add_edge( B, E, Arc_Properties( 3, NONE_ARC, 2, 7 ), g );
+	add_edge( C, B, Arc_Properties( 4, NONE_ARC, 7, 3 ), g );
+	add_edge( C, D, Arc_Properties( 5, NONE_ARC, 3, 8 ), g );
+	add_edge( D, E, Arc_Properties( 6, NONE_ARC, 1, 3 ), g );
+	add_edge( E, A, Arc_Properties( 7, NONE_ARC, 1, 5 ), g );
+	add_edge( E, B, Arc_Properties( 8, NONE_ARC, 1, 4 ), g );
 
 
 	// the unique shortest path from A to E in the dijkstra-example.cpp is
