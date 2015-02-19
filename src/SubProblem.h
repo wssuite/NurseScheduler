@@ -22,17 +22,23 @@ static int MAX_COST = 99999;
 
 // Different node types and their names
 //
-enum NodeType {SOURCE_NODE, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE, ROTATION_LENGTH, ROTATION_LENGTH_EXIT, SINK_NODE, NONE_NODE};
-static const vector<string> nodeTypeName = {"SOURCE_NODE", "SHORT_ROTAT", "PPL_NETWORK", "ROTSIZE__IN", "ROTSIZE     ", "ROTSIZE_OUT", "SINK_NODE  ", "NONE       "};
+enum NodeType {
+	SOURCE_NODE, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE,
+	ROTATION_LENGTH, ROTATION_LENGTH_EXIT, SINK_NODE, NONE_NODE};
+static const vector<string> nodeTypeName = {
+		"SOURCE_NODE", "SHORT_ROTAT", "PPL_NETWORK", "ROTSIZE__IN",
+		"ROTSIZE    ", "ROTSIZE_OUT", "SINK_NODE  ", "NONE       "};
 
 
 // Different arc types and their names
 //
-enum ArcType{SOURCE_TO_SHORT, SHORT_TO_SINK, SHORT_TO_PRINCIPAL, PRINCIPAL_TO_SINK,
-	SHIFT_TO_NEWSHIFT, SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE, REPEATSHIFT,
+enum ArcType{
+	SOURCE_TO_SHORT, SHORT_TO_SINK, SHORT_TO_PRINCIPAL,	SHIFT_TO_NEWSHIFT,
+	SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE, REPEATSHIFT, PRINCIPAL_TO_ROTSIZE,
 	ROTSIZEIN_TO_ROTSIZE, ROTSIZE_TO_ROTSIZEOUT, ROTSIZEOUT_TO_SINK, NONE_ARC};
-static const vector<string> arcTypeName = {"SOURCE_TO_SHORT", "SHORT_TO_SINK  ", "SHORT_TO_PRPAL ", "PRPAL_TO_SINK  ",
-		"SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ", "REPEATSHIFT    ",
+static const vector<string> arcTypeName = {
+		"SOURCE_TO_SHORT", "SHORT_TO_SINK  ", "SHORT_TO_PRPAL ", "SHIFT_TO_NEWSH ",
+		"SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ", "REPEATSHIFT    ", "PPL_TO_ROTSIZE ",
 		"ROTSZIN_TO_RTSZ", "ROTSZ_TO_RSZOUT", "RTSZOUT_TO_SINK", "NONE           "};
 
 static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
@@ -262,21 +268,29 @@ public:
 	SubProblem();
 	~SubProblem();
 
-	// Constructeur du graphe (seulement le graphe; pas de couts / bornes / temps de trajet)
+	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
 	SubProblem(Scenario* scenario, Contract* contract);
 
-	// Fonction de test de l'algor de plus courts chemins
+	// Initialization function for all global variables (not those of the graph)
+	//
+	void init();
+
+	// Test function for Shortest Path Problem with Resource Constraint
 	//
 	void testGraph_spprc();
 
-	// Solve : Retourne true si des chemins de couts reduit negatif ont ete trouves; false sinon.
+	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
 	bool solve(LiveNurse* nurse, vector<vector<double> > * dualCosts, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false);
 
-	// Retourne l'ensemble des rotations mises en memoire par le SP
+	// Returns all rotations saved during the process of solving the SPPRC
 	//
 	inline vector< Rotation > getRotations(){return theRotations_;}
+
+	// Returns true if the corresponding shift has no maximum limit of consecutive worked days
+	//
+	inline bool isUnlimited(int sh){return isUnlimited_[sh];}
 
 
 protected:
@@ -293,25 +307,33 @@ protected:
 	//----------------------------------------------------------------
 
 
-	// Pointeur vers le scenario a resoudre
+	// Pointer to the scenario considered
 	//
 	Scenario * pScenario_;
+
+	// Number of days of the scenario (usually a multiple of 7)
+	//
+	int nDays_;
 
 	// Contract type
 	//
 	Contract * pContract_;
 
-	// Nombre de chemins (minimum) a retourner au MP
+	// (Minimum) number of paths to return to the MP
 	//
 	int nPathsMin_;
 
-	// 1 cout / jour / shift travaille
+	// 1 cost / day / worked shift
 	//
 	vector<vector<double> > * costs_;
 
 	// Maximum length of a rotation (in consecutive worked days)
 	//
 	int maxRotationLength_;
+
+	// Vector that contains a boolean for each shift. TRUE if the maximum consecutive number of these shifts is higher than the maximal rotation length (or number of days); false otherwise
+	//
+	vector<bool> isUnlimited_;
 
 
 	//----------------------------------------------------------------
@@ -320,11 +342,11 @@ protected:
 	//
 	//----------------------------------------------------------------
 
-	// Les Rotations sauvegardees
+	// Saved Rotations
 	//
 	vector< Rotation > theRotations_;
 
-	// Nombre de chemins trouves
+	// Number of paths found
 	//
 	int nPaths_;
 
@@ -359,12 +381,14 @@ protected:
 	vector< vector<int> > shortRotationsNodes_;			// For each length (#days), the list of all nodes that correspond to short rotations of this length
 	map<int,int> lastShiftOfShort_;						// For each short rotation, the id of the last shift worked
 	map<int,int> nLastShiftOfShort_;					// The number of consecutive similar shifts that ends the short rotation
+	map<int,int> lastDayOfShort_;
 	map<int,Rotation> nodeToShortRotation_;				// Maps the node ID to the corresponding short rotation
 
 
 	// Nodes of the PRINCIPAL_NETWORK subnetwork
 	//
 	vector3D principalNetworkNodes_;					// For each SHIFT, DAY, and # of CONSECUTIVE, the corresponding node
+	vector<int> maxvalConsByShift_;						// For each shift, number of levels that the subnetwork contains
 	map<int,int> principalToShift_;						// For each node of the principal network, maps it ID to the shift it represents
 	map<int,int> principalToDay_;						// For each node of the principal network, maps it ID to the day it represents
 	map<int,int> principalToCons_;						// For each node of the principal network, maps it ID to the number of consecutive shifts it represents
@@ -393,7 +417,7 @@ protected:
 	// Initiate variables for the nodes structures (vectors, etc.)
 	// nDays : length of the scenario
 	//
-	void initNodesStructures(int nDays);
+	void initNodesStructures();
 
 	// Returns a vector3D: For each duration from 0 (empty) to CD_min, returns the list of LEGID shift successions.
 	// They do not depend on the starting date, only allowed successions w.r.t. the forbidden successors.
@@ -407,6 +431,12 @@ protected:
 	// Add a node to the principal network of the graph, for shift sh, day k, and number of consecutive similar shifts cons
 	//
 	void addNodeToPrincipalNetwork(int sh, int k, int cons);
+
+	// Get info from the node ID
+	//
+	inline NodeType nodeType(int v){return get( &Vertex_Properties::type, g_)[v];}
+	inline int nodeEat(int v){return get( &Vertex_Properties::eat, g_)[v];}
+	inline int nodeLat(int v){return get( &Vertex_Properties::lat, g_)[v];}
 
 
 
@@ -424,6 +454,7 @@ protected:
 	// Total number of arcs in the graph (is also the id of the arc to add if a new node is to be added) and the vector of their types
 	//
 	int nArcs_;
+	vector< boost::graph_traits< Graph>::edge_descriptor > arcsDescriptors_;
 	vector<ArcType> allArcsTypes_;
 
 	// Vector of all arcs whose origin is the source node
@@ -448,19 +479,26 @@ protected:
 	//
 	void initArcsStructures();
 
-	// Creates the specific types of arcs
-	void createArcsFromSource();
-
-	// Update the arcs (their cost in particular)
+	// Create the specific types of arcs
 	//
-	void updateArcs();
+	void createArcsSourceToShort();
+	void createArcsShortToSink();
+	void createArcsShortToPrincipal();
+	void createArcsPrincipalToPrincipal();
+	void createArcsAllRotationSize();
+
+	// Initialize and update the costs of the arcs.
+	// Some arcs always have the same cost (0). Hence, their cost may not be changed
+	//
+	void initCostArcs();
+	void updateCostArcs();
 
 	// Get info with the arc ID
 	inline ArcType arcType(int a) {return allArcsTypes_[a];}
-	//inline int arcOrigin(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return source(id, g_);}
-	//inline int arcDestination(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return target(id, g_);}
-	//inline int arcLength(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return get( &Arc_Properties::time, g_, id);}
-	//inline int arcCost(int a) {boost::graph_traits<Graph>::edge_descriptor id = a; return get( &Arc_Properties::cost, g_, id);}
+	inline int arcOrigin(int a) {return source(arcsDescriptors_[a], g_);}
+	inline int arcDestination(int a) {return target(arcsDescriptors_[a], g_);}
+	inline int arcLength(int a) {return get( &Arc_Properties::time, g_, arcsDescriptors_[a]);}
+	inline int arcCost(int a) {return get( &Arc_Properties::cost, g_, arcsDescriptors_[a]);}
 
 
 public:
@@ -468,6 +506,10 @@ public:
 	// Print functions.
 	//
 	void printGraph();
+	string printNode(int v);
+	string printArc(int a);
+	string shortNameNode(int v);
+	string printSummaryOfGraph();
 
 
 };

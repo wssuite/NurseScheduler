@@ -109,13 +109,15 @@ void testFunction_Samuel(){
 
 	for(map<string,Contract*>::const_iterator it = s->contracts_.begin(); it != s->contracts_.end(); ++it){
 		Contract * c = it->second;
-		cout << "# +----------------------------------------------------------------------------------------" << endl;
 		cout << "# " << endl;
+		cout << "# " << endl;
+		cout << "# +----------------------------------------------------------------------------------------" << endl;
 		cout << "# CONTRACT : " << c->toString() << endl;
-		cout << "# " << endl;
-		SubProblem sp (s, c);
-		cout << "# " << endl;
 		cout << "# +----------------------------------------------------------------------------------------" << endl;
+		SubProblem sp (s, c);
+		cout << "# +----------------------------------------------------------------------------------------" << endl;
+		cout << "# " << endl;
+		cout << "# " << endl;
 	}
 
 	//SubProblem sp;

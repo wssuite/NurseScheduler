@@ -15,9 +15,6 @@
 
 #include "Scenario.h"
 
-#define TRUE 1;
-#define FALSE 0;
-
 using std::string;
 using std::cout;
 using std::endl;
