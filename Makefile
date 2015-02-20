@@ -24,10 +24,22 @@
 #-----------------------------------------------------------------------------
 # paths
 #-----------------------------------------------------------------------------
-
-# SCIPDIR should have been initialized in the bashrc, but it could very well 
-# be set here as well. Best in the bashrc if you use several different computers
+#Should be define in bashrc or profile
 #SCIPDIR         =       ../..
+
+#-----------------------------------------------------------------------------
+# add user flags
+#-----------------------------------------------------------------------------
+INCLUDESFLAGS	=	-I$(BOOST_DIR)
+
+USRFLAGS	=
+USROFLAGS	=
+USRCFLAGS	=
+USRCXXFLAGS	=	-w -fPIC -fexceptions -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
+USRLDFLAGS	= 	-g -lrt 
+USRARFLAGS	=
+USRDFLAGS	=
+
 
 
 #-----------------------------------------------------------------------------
@@ -43,7 +55,7 @@ include $(SCIPDIR)/make/make.project
 #-----------------------------------------------------------------------------
 
 MAINNAME	=	roster
-MAINOBJ		=	MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o SubProblem.o Solver.o Greedy.o main.o
+MAINOBJ		=	main.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o SubProblem.o Solver.o Greedy.o Pricer_vrp.o Vrp.o
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)
 
@@ -52,9 +64,6 @@ MAIN		=	$(MAINNAME).$(BASE).$(LPS)$(EXEEXTENSION)
 MAINFILE	=	$(BINDIR)/$(MAIN)
 MAINSHORTLINK	=	$(BINDIR)/$(MAINNAME)
 MAINOBJFILES	=	$(addprefix $(OBJDIR)/,$(MAINOBJ))
-
-INCLUDESFLAGS = -I$(BOOST_DIR)
-CXXFLAGS	+= -g -m64 -w -fPIC -fexceptions -DNDEBUG -DIL_STD $(INCLUDESFLAGS)
 
 #-----------------------------------------------------------------------------
 # Rules
@@ -73,7 +82,7 @@ lint:		$(MAINSRC)
 		$(SHELL) -ec 'for i in $^; \
 			do \
 			echo $$i; \
-			$(LINT) -I$(SCIPDIR) lint/main-gcc.lnt +os\(lint.out\) -u -zero \
+			$(LINT) $(SCIPDIR)/lint/scip.lnt +os\(lint.out\) -u -zero \
 			$(FLAGS) -UNDEBUG -UWITH_READLINE -UROUNDING_FE $$i; \
 			done'
 
@@ -131,18 +140,18 @@ depend:		$(SCIPDIR)
 $(MAINFILE):	$(BINDIR) $(OBJDIR) $(SCIPLIBFILE) $(LPILIBFILE) $(NLPILIBFILE) $(MAINOBJFILES)
 		@echo "-> linking $@"
 		$(LINKCXX) $(MAINOBJFILES) \
-		$(CXXFLAGS) \
 		$(LINKCXX_L)$(SCIPDIR)/lib $(LINKCXX_l)$(SCIPLIB)$(LINKLIBSUFFIX) \
                 $(LINKCXX_l)$(OBJSCIPLIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(LPILIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(NLPILIB)$(LINKLIBSUFFIX) \
                 $(OFLAGS) $(LPSLDFLAGS) \
-		$(LDFLAGS) $(LINKCXX_o)$@ 
+		$(LDFLAGS) $(LINKCXX_o)$@
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c
 		@echo "-> compiling $@"
 		$(CC) $(FLAGS) $(OFLAGS) $(BINOFLAGS) $(CFLAGS) -c $< $(CC_o)$@
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.cpp
-		@echo "-> compiling fucking $@"
+		@echo "-> compiling $@"
+		@echo $(CXX) $(FLAGS) $(OFLAGS) $(BINOFLAGS) $(CXXFLAGS) -c $< $(CXX_o)$@
 		$(CXX) $(FLAGS) $(OFLAGS) $(BINOFLAGS) $(CXXFLAGS) -c $< $(CXX_o)$@
 
 #---- EOF --------------------------------------------------------------------

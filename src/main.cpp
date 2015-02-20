@@ -12,9 +12,69 @@
 #include "Greedy.h"
 #include "SubProblem.h"
 #include "MyTools.h"
+#include "Vrp.h"
 
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
+
+   // Time the complete execution of the algorithm
+   Tools::Timer* timertotal = new Tools::Timer();
+   timertotal->init();
+   timertotal->start();
+
+   // Create a log file
+   string logFile = "../logfiles/test.log";
+   Tools::LogOutput logStream(logFile);
+
+
+   // Read the input data from files
+   Scenario* pScen = ReadWrite::readScenario("datasets/n030w4/Sc-n030w4.txt");
+   Demand* pWeekDemand = ReadWrite::readWeek("datasets/n030w4/WD-n030w4-1.txt", pScen);
+   ReadWrite::readHistory("datasets/n030w4/H0-n030w4-0.txt",pScen);
+
+   // Check that the scenario was read properly
+   //
+   // logStream << *pScen << std::endl;
+   logStream << pScen->toString() << std::endl;
+   logStream << pWeekDemand->toString(true) << std::endl;
+
+   // Write the aggregate information on the demand
+   //
+
+
+   // Write aggregate information on the cover capacity of the staff
+   // (TBD)
+
+   // Instantiate the solver class as a test
+   //
+   Greedy* pSolverTest =
+   new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
+   pSolverTest->constructiveGreedy();
+
+   // Write the solution in an output file
+   string outFile = "../outfiles/test.out";
+   Tools::LogOutput outStream(outFile);
+   outStream << pSolverTest->solutionToString();
+
+   // Display the total time spent in the algorithm
+   timertotal->stop();
+   logStream.print("Total time spent in the algorithm : ");
+   logStream.print(timertotal->dSinceInit());
+   logStream.print("\n");
+
+
+   //test vrp example of scip
+   string dataFile = "datasets/vrp/eil7.vrp";
+   Vrp* vrp = new Vrp(dataFile);
+
+   // free the allocated pointers
+   //
+   delete vrp;
+   delete timertotal;
+   delete pWeekDemand;
+   delete pScen;
+   delete pSolverTest;
+
 
 }
 
@@ -130,8 +190,8 @@ int main(int argc, char** argv)
 {
 
 	// Tests functions to check the functions one by one
-	// testFunction_Antoine();
+	 testFunction_Antoine();
 	// testFunction_Jeremy();
-	testFunction_Samuel();
+//	testFunction_Samuel();
 
 }

@@ -4,3 +4,13 @@ src/roster
 bin/*
 logfiles/*
 src/Makefile
+/Default/
+Makefile
+obj/*
+
+#For eclipse
+.cproject*
+.project*
+formatter*
+.metadata/*
+.settings/*
