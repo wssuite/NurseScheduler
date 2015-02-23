@@ -55,7 +55,7 @@ include $(SCIPDIR)/make/make.project
 #-----------------------------------------------------------------------------
 
 MAINNAME	=	roster
-MAINOBJ		=	main.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o SubProblem.o Solver.o Greedy.o Pricer_vrp.o Vrp.o
+MAINOBJ		=	main.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o Pricer_vrp.o Vrp.o
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)
 

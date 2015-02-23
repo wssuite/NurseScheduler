@@ -236,7 +236,7 @@ protected:
 	//-----------------------------------------------------------------------------
 
 	// vector of LiveNurses. Initially a copy of the scenario nurses, they may
-	// then be preprocessed and get enw attributes
+	// then be preprocessed and get new attributes
 	//
 	vector<LiveNurse*> theLiveNurses_;
 

@@ -23,7 +23,7 @@ void testFunction_Antoine(){
    timertotal->start();
 
    // Create a log file
-   string logFile = "../logfiles/test.log";
+   string logFile = "logs/test.log";
    Tools::LogOutput logStream(logFile);
 
 
@@ -64,7 +64,7 @@ void testFunction_Antoine(){
 
 
    //test vrp example of scip
-   string dataFile = "datasets/vrp/eil7.vrp";
+   string dataFile = "datasets/vrp/eil22.vrp";
    Vrp* vrp = new Vrp(dataFile);
 
    // free the allocated pointers
