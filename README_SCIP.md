@@ -46,10 +46,18 @@ II. Modifier l'environnement
   +--------------------------------------------------------------------------------------
 
 
-III. Utiliser le Makefile donnez par SCIP et modifié pour notre projet (il est à la racine de Git)
+III. Utiliser le Makefile donné par SCIP et modifié pour notre projet (il est à la racine de Git)
 
+IV. Si besoin de DEBUGER
+  |
+  | 1. Recompiler SCIP avec la commande :
+  |       make OPT=dbg
+  |
+  | 2. Compiler le projet avec l'option OPT=dbg (ex: make OPT=dbg)
+  |
+  +--------------------------------------------------------------------------------------
 
-IV. Me dire si ça merde.
+V. Me dire si ça merde.
 
 
 
