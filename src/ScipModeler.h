@@ -1,6 +1,8 @@
 /*
  * ScipModeler.h:
- *    Tools to create a SCIP problem
+ *    Tools to create a SCIP problem.
+ *    In general, when you want to create a new scip object,
+ *    you have to give a pointer to the pointer of the object.
  *
  *  Created on: 2015-02-23
  *      Author: legraina
@@ -70,34 +72,38 @@ public:
    }
 
    /*
-    * Add variables
+    * Create variable:
+    *    var is a pointer to the pointer of the variable
+    *    var_name is the name of the variable
+    *    lhs, rhs are the lower and upper bound of the variable
+    *    vartype is the type of the variable: SCIP_VARTYPE_CONTINUOUS, SCIP_VARTYPE_INTEGER, SCIP_VARTYPE_BINARY
     */
 
-   int createVar(SCIP_VAR* var, const char* var_name, double lhs, double rhs, double objCoeff, SCIP_VARTYPE vartype){
+   int createVar(SCIP_VAR** var, const char* var_name, double objCoeff, double lhs, double rhs, SCIP_VARTYPE vartype){
       if(rhs==DBL_MAX)
-         SCIP_CALL( SCIPcreateVar(scip_, &var, var_name, lhs, SCIPinfinity(scip_), objCoeff, vartype,
+         SCIP_CALL( SCIPcreateVar(scip_, var, var_name, lhs, SCIPinfinity(scip_), objCoeff, vartype,
             true, false, 0, 0, 0, 0, 0) );
       else
-         SCIP_CALL( SCIPcreateVar(scip_, &var, var_name, lhs, rhs, objCoeff, vartype,
+         SCIP_CALL( SCIPcreateVar(scip_, var, var_name, lhs, rhs, objCoeff, vartype,
             true, false, 0, 0, 0, 0, 0) );
+      SCIP_CALL( SCIPaddVar(scip_, var[0]) );
    }
 
-   void createPositiveVar(SCIP_VAR* var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
-         createVar(var, var_name, 0.0, rhs, objCoeff, SCIP_VARTYPE_CONTINUOUS);
+   void createPositiveVar(SCIP_VAR** var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
+      createVar(var, var_name, objCoeff, 0.0, rhs, SCIP_VARTYPE_CONTINUOUS);
    }
 
-   void createIntVar(SCIP_VAR* var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
-      createVar(var, var_name, 0, rhs, objCoeff, SCIP_VARTYPE_INTEGER);
+   void createIntVar(SCIP_VAR** var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
+      createVar(var, var_name, objCoeff, 0, rhs, SCIP_VARTYPE_INTEGER);
    }
 
-   void createBoolVar(SCIP_VAR* var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
-      createVar(var, var_name, 0.0, SCIPinfinity(scip_), objCoeff, SCIP_VARTYPE_BINARY);
+   void createBinaryVar(SCIP_VAR** var, const char* var_name, double objCoeff){
+      createVar(var, var_name, objCoeff, 0.0, 1.0, SCIP_VARTYPE_BINARY);
    }
 
    /*
-    * Add linear constraints:
-    *    scip is a pointer to the problem
-    *    con is a pointer to the constraint
+    * Create linear constraint:
+    *    con is a pointer to the pointer of the constraint
     *    con_name is the name of the constraint
     *    lhs, rhs are the lower and upper bound of the constraint
     *    nonZeroVars is the number of non-zero coefficients to add to the constraint
@@ -105,58 +111,138 @@ public:
     *    coeffs is the array of coefficient to add to the constraints
     */
 
-   int createConsLinear(SCIP_CONS* con, const char* con_name, double lhs, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
-      SCIP_CALL( SCIPcreateConsLinear(scip_, &con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
+   int createConsLinear(SCIP_CONS** con, const char* con_name, double lhs, double rhs,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
+      SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
          true, false, true, true, true, false, true, false, false, false) );
+      SCIP_CALL( SCIPaddCons(scip_, con[0]) );
    }
 
    //Add a lower or equal constraint
-   void createLEConsLinear(SCIP_CONS* con, const char* con_name, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
+   void createLEConsLinear(SCIP_CONS** con, const char* con_name, double rhs,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       createConsLinear(con, con_name, -SCIPinfinity(scip_), rhs, nonZeroVars, vars, coeffs);
    }
 
    //Add a greater or equal constraint
-   void createGEConsLinear(SCIP_CONS* con, const char* con_name, double lhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
+   void createGEConsLinear(SCIP_CONS** con, const char* con_name, double lhs,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       createConsLinear(con, con_name, lhs, SCIPinfinity(scip_), nonZeroVars, vars, coeffs);
    }
 
    //Add an equality constraint
-   void createEQConsLinear(SCIP_CONS* con, const char* con_name, double eq,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
+   void createEQConsLinear(SCIP_CONS** con, const char* con_name, double eq,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       createConsLinear(con, con_name, eq, eq, nonZeroVars, vars, coeffs);
    }
 
    //Add final linear constraints
-   int createFinalConsLinear(SCIP_CONS* con, const char* con_name, double lhs, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
-      SCIP_CALL( SCIPcreateConsLinear(scip_, &con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
+   int createFinalConsLinear(SCIP_CONS** con, const char* con_name, double lhs, double rhs,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
+      SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
          true, false, true, true, true, false, false, false, false, false) );
+      SCIP_CALL( SCIPaddCons(scip_, con[0]) );
    }
 
-   void createFinalLEConsLinear(SCIP_CONS* con, const char* con_name, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
+   void createFinalLEConsLinear(SCIP_CONS** con, const char* con_name, double rhs,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       createFinalConsLinear(con, con_name, -SCIPinfinity(scip_), rhs, nonZeroVars, vars, coeffs);
    }
 
-   void createFinalGEConsLinear(SCIP_CONS* con, const char* con_name, double lhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
+   void createFinalGEConsLinear(SCIP_CONS** con, const char* con_name, double lhs,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       createFinalConsLinear(con, con_name, lhs, SCIPinfinity(scip_), nonZeroVars, vars, coeffs);
    }
 
-   void createFinalEQConsLinear(SCIP_CONS* con, const char* con_name, double eq,
-      int nonZeroVars = 0, SCIP_VAR** vars = NULL, double* coeffs = NULL){
+   void createFinalEQConsLinear(SCIP_CONS** con, const char* con_name, double eq,
+      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       createFinalConsLinear(con, con_name, eq, eq, nonZeroVars, vars, coeffs);
    }
 
+   /*
+    * Add variables to constraints
+    */
+
+   int addCoefLinear(SCIP_CONS* cons, SCIP_VAR* var, double coeff){
+      SCIP_CALL( SCIPaddCoefLinear(scip_, cons, var, coeff) );
+   }
+
+   /*
+    * Add new Column to the SCIP problem
+    */
+
+   void createColumn(SCIP_VAR** var, const char* var_name, double objCoeff, SCIP_VARTYPE vartype,
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
+      switch(vartype){
+      case SCIP_VARTYPE_BINARY:
+         createBinaryVar(var, var_name, objCoeff);
+         break;
+      case SCIP_VARTYPE_INTEGER:
+         createIntVar(var, var_name, objCoeff);
+         break;
+      default:
+         createPositiveVar(var, var_name, objCoeff);
+         break;
+      }
+
+      for(int i=0; i<nonZeroCons; i++){
+         if(transformed)
+            getTransformedCons(cons[i]);
+         addCoefLinear(cons[i], var[0], coeffs[i]);
+      }
+   }
+
+   void createBinaryColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_BINARY, nonZeroCons, cons, coeffs, transformed);
+   }
+
+   void createIntColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_INTEGER, nonZeroCons, cons, coeffs, transformed);
+   }
+
+   /*
+    * Get the transformed variables and constraints
+    *
+    *  Because SCIP transforms the original problem in preprocessing, we need to get the references to
+    *  the variables and constraints in the transformed problem from the references in the original
+    *  problem.
+    */
+
+   int getTransformedVar(SCIP_VAR* var){
+      SCIP_CALL( SCIPgetTransformedVar(scip_, var, &var) );
+   }
+
+   int getTransformedCons(SCIP_CONS* cons){
+      SCIP_CALL( SCIPgetTransformedCons(scip_, cons, &cons) );
+   }
+
    /**************
-    * Statistics *
+    * Parameters *
+    *************/
+   int setVerbosity(int v){
+      SCIP_CALL( SCIPsetIntParam(scip_, "display/verblevel", v) );
+      /* SCIP_CALL( SCIPsetBoolParam(scip, "display/lpinfo", TRUE) ); */
+   }
+
+   /**************
+    * Outputs *
     *************/
    int printStats(){
       SCIP_CALL( SCIPprintStatistics(scip_, NULL) );
+   }
+
+   int printBestSol(){
       SCIP_CALL( SCIPprintBestSol(scip_, NULL, FALSE) );
+   }
+
+   int writeProblem(string fileName){
+      SCIP_CALL( SCIPwriteOrigProblem(scip_, fileName.c_str(), "lp", FALSE) );
+   }
+
+   int writeLP(string fileName){
+      SCIP_CALL( SCIPwriteLP(scip_, fileName.c_str()) );
    }
 
 private:

@@ -26,25 +26,24 @@
 #include "MyTools.h"
 #include "Nurse.h"
 
-class MasterProblem : Solver{
+class MasterProblem : public Solver{
 
 
 public:
    // Specific constructor and destructor
    MasterProblem(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState);
+      Preferences* pPreferences, vector<State>* pInitState, vector<Roster> solution = {});
    ~MasterProblem(){}
 
    // Main method to solve the rostering problem for a given input
    void solve();
 
-   // Main method to build the rostering problem for a given input
-   void build();
-
    /*
     * Solving parameters
     */
-   static int solvingTime;
+   char* PB_NAME = "GenCol";
+   int solvingTime;
+   int bigM = 10000;
 
 private:
    ScipModeler scip_;
@@ -81,6 +80,30 @@ private:
    vector< vector< vector<SCIP_CONS*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
    vector< vector< vector<SCIP_CONS*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
    vector< vector< vector<SCIP_CONS*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
+
+   /*
+    * Methods
+    */
+
+   // Main method to build the rostering problem for a given input
+   void build();
+
+   //Initialization of the rostering problem with/without solution
+   void initialize(vector<Roster> solution);
+
+   //add the correct constraints and coefficients for the nurse i working on day k on shift s
+   //if s=-1, the nurse works on all shifts
+   //return the number of constraints added
+   int addConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, int s=-1);
+
+   /* Build each set of constraints - Add also the coefficient of a column for each set */
+   void buildRotationCons();
+   int addRotationConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k);
+   void buildMinMaxCons();
+   int addMinMaxConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k);
+   void buildSkillsCoverageCons();
+   int addSkillsCoverageConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, int s=-1);
+
 };
 
 //-----------------------------------------------------------------------------

@@ -102,6 +102,7 @@ void initVector3D(vector3D* v3D, int m, int n, int p){
 // To get the day from its id and vice-versa
 // First day is always supposed to be a Monday
 //
+
 string intToDay(int dayId){
 	if((dayId%7)==0) return "Mon";
 	else if((dayId%7)==1) return "Tue";
@@ -120,6 +121,11 @@ int dayToInt(string day){
 	if(day=="Sat") return 5;
 	if(day=="Sun") return 6;
 	else return -1;
+}
+
+bool isWeekend(int dayId){
+   if((dayId%7)==5 || (dayId%7)==6) return true;
+   return false;
 }
 
 

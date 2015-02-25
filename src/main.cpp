@@ -47,9 +47,9 @@ void testFunction_Antoine(){
 
    // Instantiate the solver class as a test
    //
-   Greedy* pSolverTest =
-   new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
-   pSolverTest->constructiveGreedy();
+   MasterProblem* pSolverTest =
+   new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
+   pSolverTest->solve();
 
    // Write the solution in an output file
    string outFile = "../outfiles/test.out";
@@ -64,12 +64,12 @@ void testFunction_Antoine(){
 
 
    //test vrp example of scip
-   string dataFile = "datasets/vrp/eil22.vrp";
-   Vrp* vrp = new Vrp(dataFile);
+//   string dataFile = "datasets/vrp/eil22.vrp";
+//   Vrp* vrp = new Vrp(dataFile);
 
    // free the allocated pointers
    //
-   delete vrp;
+//   delete vrp;
    delete timertotal;
    delete pWeekDemand;
    delete pScen;

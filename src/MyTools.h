@@ -59,6 +59,7 @@ void initVector3D(vector3D* v3D, int m, int n, int p);
 //
 string intToDay(int dayId);
 int dayToInt(string day);
+bool isWeekend(int dayId);
 
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed
