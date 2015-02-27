@@ -68,10 +68,12 @@ private:
    /*
     * Constraints
     */
-   vector< vector<SCIP_CONS*> > restFlowCons_; //transmission of the flow on the resting nodes
-   vector< vector<SCIP_CONS*> > workFlowCons_; //transmission of the flow on the working nodes
-   vector<SCIP_CONS*> sourceFlowCons_; //initialization of the flow
-   vector<SCIP_CONS*> sinkFlowCons_; //end of the flow
+   //transmission of the flow on the resting nodes
+   //initialization of the flow constraint at the first position of each restFlowCons_[i] (i=nurse)
+   vector< vector<SCIP_CONS*> > restFlowCons_;
+   //transmission of the flow on the working nodes
+   //end of the flow constraint at the last position of each workFlowCons_[i] (i=nurse)
+   vector< vector<SCIP_CONS*> > workFlowCons_;
 
    vector<SCIP_CONS*> minWorkedDaysCons_; //count the number of missing worked days per nurse
    vector<SCIP_CONS*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
@@ -93,12 +95,14 @@ private:
 
    //add the correct constraints and coefficients for the nurse i working on day k on shift s
    //if s=-1, the nurse works on all shifts
+   //if firstDay, add a working arc starting on day k in the rotation network
+   //if lastDay, add a working arc ending on day k+1 in the rotation network
    //return the number of constraints added
-   int addConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, int s=-1);
+   int addConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, int s=-1, bool firstDay = false, bool lastDay = false);
 
    /* Build each set of constraints - Add also the coefficient of a column for each set */
    void buildRotationCons();
-   int addRotationConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k);
+   int addRotationConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, bool firstDay, bool lastDay);
    void buildMinMaxCons();
    int addMinMaxConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k);
    void buildSkillsCoverageCons();

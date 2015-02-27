@@ -50,6 +50,7 @@ public:
       SCIP_CALL( SCIPcreateProb(scip_, name, 0, 0, 0, 0, 0, 0, 0) );
    }
 
+   //delete all the model built by scip
    int deleteSCIP(){
       SCIP_CALL( SCIPfree(&scip_) );
       BMScheckEmptyMemory();
@@ -86,7 +87,7 @@ public:
       else
          SCIP_CALL( SCIPcreateVar(scip_, var, var_name, lhs, rhs, objCoeff, vartype,
             true, false, 0, 0, 0, 0, 0) );
-      SCIP_CALL( SCIPaddVar(scip_, var[0]) );
+      SCIP_CALL( SCIPaddVar(scip_, *var) );
    }
 
    void createPositiveVar(SCIP_VAR** var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
@@ -115,7 +116,7 @@ public:
       int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
          true, false, true, true, true, false, true, false, false, false) );
-      SCIP_CALL( SCIPaddCons(scip_, con[0]) );
+      SCIP_CALL( SCIPaddCons(scip_, *con) );
    }
 
    //Add a lower or equal constraint
@@ -141,7 +142,7 @@ public:
       int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
       SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
          true, false, true, true, true, false, false, false, false, false) );
-      SCIP_CALL( SCIPaddCons(scip_, con[0]) );
+      SCIP_CALL( SCIPaddCons(scip_, *con) );
    }
 
    void createFinalLEConsLinear(SCIP_CONS** con, const char* con_name, double rhs,
@@ -188,8 +189,13 @@ public:
       for(int i=0; i<nonZeroCons; i++){
          if(transformed)
             getTransformedCons(cons[i]);
-         addCoefLinear(cons[i], var[0], coeffs[i]);
+         addCoefLinear(cons[i], *var, coeffs[i]);
       }
+   }
+
+   void createPositiveColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_CONTINUOUS, nonZeroCons, cons, coeffs, transformed);
    }
 
    void createBinaryColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
