@@ -451,6 +451,9 @@ void Greedy::constructiveGreedy() {
       }
     }
   }
+
+  for(LiveNurse* pNurse: theLiveNurses_)
+     solution_.push_back(pNurse->roster_);
 }
 
 

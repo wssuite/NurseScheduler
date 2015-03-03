@@ -33,11 +33,9 @@ class ScipModeler {
 public:
    ScipModeler(const char* name){
       initializeSCIP(name);
-   };
+   }
 
-   ~ScipModeler(){
-      deleteSCIP();
-   };
+   ~ScipModeler(){ }
 
    int initializeSCIP(const char* name){
       /* initialize SCIP environment */
@@ -65,11 +63,11 @@ public:
    }
 
    //Add a pricer
-   int addObjPricer(ObjPricer* pricer, const char* name){
+   int addObjPricer(ObjPricer* pricer){
       /* include the pricer */
       SCIP_CALL( SCIPincludeObjPricer(scip_, pricer, true) );
       /* activate the pricer */
-      SCIP_CALL( SCIPactivatePricer(scip_, SCIPfindPricer(scip_, name)) );
+      SCIP_CALL( SCIPactivatePricer(scip_, SCIPfindPricer(scip_, pricer->scip_name_)) );
    }
 
    /*
@@ -80,26 +78,29 @@ public:
     *    vartype is the type of the variable: SCIP_VARTYPE_CONTINUOUS, SCIP_VARTYPE_INTEGER, SCIP_VARTYPE_BINARY
     */
 
-   int createVar(SCIP_VAR** var, const char* var_name, double objCoeff, double lhs, double rhs, SCIP_VARTYPE vartype){
+   int createVar(SCIP_VAR** var, const char* var_name, double objCoeff, double lhs, double rhs, SCIP_VARTYPE vartype, double score){
       if(rhs==DBL_MAX)
          SCIP_CALL( SCIPcreateVar(scip_, var, var_name, lhs, SCIPinfinity(scip_), objCoeff, vartype,
             true, false, 0, 0, 0, 0, 0) );
       else
          SCIP_CALL( SCIPcreateVar(scip_, var, var_name, lhs, rhs, objCoeff, vartype,
             true, false, 0, 0, 0, 0, 0) );
-      SCIP_CALL( SCIPaddVar(scip_, *var) );
+
+      if(score > 0)
+         SCIP_CALL( SCIPaddPricedVar(scip_, *var, score) );
+      else SCIP_CALL( SCIPaddVar(scip_, *var) );
    }
 
-   void createPositiveVar(SCIP_VAR** var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
-      createVar(var, var_name, objCoeff, 0.0, rhs, SCIP_VARTYPE_CONTINUOUS);
+   void createPositiveVar(SCIP_VAR** var, const char* var_name, double objCoeff, double score = 0, double rhs = DBL_MAX){
+      createVar(var, var_name, objCoeff, 0.0, rhs, SCIP_VARTYPE_CONTINUOUS, score);
    }
 
-   void createIntVar(SCIP_VAR** var, const char* var_name, double objCoeff, double rhs = DBL_MAX){
-      createVar(var, var_name, objCoeff, 0, rhs, SCIP_VARTYPE_INTEGER);
+   void createIntVar(SCIP_VAR** var, const char* var_name, double objCoeff, double score = 0, double rhs = DBL_MAX){
+      createVar(var, var_name, objCoeff, 0, rhs, SCIP_VARTYPE_INTEGER, score);
    }
 
-   void createBinaryVar(SCIP_VAR** var, const char* var_name, double objCoeff){
-      createVar(var, var_name, objCoeff, 0.0, 1.0, SCIP_VARTYPE_BINARY);
+   void createBinaryVar(SCIP_VAR** var, const char* var_name, double objCoeff, double score = 0){
+      createVar(var, var_name, objCoeff, 0.0, 1.0, SCIP_VARTYPE_BINARY, score);
    }
 
    /*
@@ -173,39 +174,39 @@ public:
     */
 
    void createColumn(SCIP_VAR** var, const char* var_name, double objCoeff, SCIP_VARTYPE vartype,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
       switch(vartype){
       case SCIP_VARTYPE_BINARY:
-         createBinaryVar(var, var_name, objCoeff);
+         createBinaryVar(var, var_name, objCoeff, score);
          break;
       case SCIP_VARTYPE_INTEGER:
-         createIntVar(var, var_name, objCoeff);
+         createIntVar(var, var_name, objCoeff, score);
          break;
       default:
-         createPositiveVar(var, var_name, objCoeff);
+         createPositiveVar(var, var_name, objCoeff, score);
          break;
       }
 
       for(int i=0; i<nonZeroCons; i++){
          if(transformed)
-            getTransformedCons(cons[i]);
+            getTransformedCons(cons[i], &(cons[i]));
          addCoefLinear(cons[i], *var, coeffs[i]);
       }
    }
 
    void createPositiveColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
-      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_CONTINUOUS, nonZeroCons, cons, coeffs, transformed);
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_CONTINUOUS, nonZeroCons, cons, coeffs, transformed, score);
    }
 
    void createBinaryColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
-      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_BINARY, nonZeroCons, cons, coeffs, transformed);
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_BINARY, nonZeroCons, cons, coeffs, transformed, score);
    }
 
    void createIntColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false){
-      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_INTEGER, nonZeroCons, cons, coeffs, transformed);
+      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_INTEGER, nonZeroCons, cons, coeffs, transformed, score);
    }
 
    /*
@@ -216,12 +217,48 @@ public:
     *  problem.
     */
 
-   int getTransformedVar(SCIP_VAR* var){
-      SCIP_CALL( SCIPgetTransformedVar(scip_, var, &var) );
+   int getTransformedVar(SCIP_VAR* var, SCIP_VAR** var2){
+      SCIP_CALL( SCIPgetTransformedVar(scip_, var, var2) );
    }
 
-   int getTransformedCons(SCIP_CONS* cons){
-      SCIP_CALL( SCIPgetTransformedCons(scip_, cons, &cons) );
+   int getTransformedCons(SCIP_CONS* cons, SCIP_CONS** cons2){
+      SCIP_CALL( SCIPgetTransformedCons(scip_, cons, cons2) );
+   }
+
+   /*
+    * get the primal values
+    */
+
+   SCIP_SOL* getBestSol(){
+      return SCIPgetBestSol(scip_);
+   }
+
+   double getVarValue(SCIP_SOL* sol, SCIP_VAR* var){
+      SCIPgetSolVal(scip_, sol, var);
+   }
+
+   vector<double> getVarValues(SCIP_SOL* sol, vector<SCIP_VAR*> vars){
+      vector<double> values(vars.size());
+      for(int i=0; i<vars.size(); ++i)
+         values[i] = getVarValue(sol, vars[i]);
+      return values;
+   }
+
+   /*
+    * Get the dual variables
+    */
+
+   double getDual(SCIP_CONS* cons, bool transformed = false){
+      if(transformed)
+         getTransformedCons(cons, &cons);
+      SCIPgetDualsolLinear(scip_, cons);
+   }
+
+   vector<double> getDuals(vector<SCIP_CONS*> cons, bool transformed = false){
+      vector<double> dualValues(cons.size());
+      for(int i=0; i<cons.size(); ++i)
+         dualValues[i] = getDual(cons[i], transformed);
+      return dualValues;
    }
 
    /**************
@@ -249,6 +286,10 @@ public:
 
    int writeLP(string fileName){
       SCIP_CALL( SCIPwriteLP(scip_, fileName.c_str()) );
+   }
+
+   SCIP* getScip(){
+      return scip_;
    }
 
 private:

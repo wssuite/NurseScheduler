@@ -2,8 +2,8 @@
 //  MyTools.cxx
 //  IDSReseau
 //
-//  Created by Jérémy Omer on 19/11/2013.
-//  Copyright (c) 2013 Jérémy Omer. All rights reserved.
+//  Created by J��r��my Omer on 19/11/2013.
+//  Copyright (c) 2013 J��r��my Omer. All rights reserved.
 //
 
 #include "MyTools.h"
@@ -123,8 +123,18 @@ int dayToInt(string day){
 	else return -1;
 }
 
+bool isSaturday(int dayId){
+   if( (dayId%7)==5 ) return true;
+   return false;
+}
+
+bool isSunday(int dayId){
+   if( (dayId%7)==6 ) return true;
+   return false;
+}
+
 bool isWeekend(int dayId){
-   if((dayId%7)==5 || (dayId%7)==6) return true;
+   if(isSaturday(dayId) || isSunday(dayId)) return true;
    return false;
 }
 

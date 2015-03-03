@@ -6,6 +6,7 @@
  */
 
 #include "MasterProblem.h"
+#include "RotationPricer.h"
 
 /* namespace usage */
 using namespace std;
@@ -22,16 +23,16 @@ using namespace scip;
 
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    Preferences* pPreferences, vector<State>* pInitState, vector<Roster> solution):
-                                                            Solver(pScenario, pDemand, pPreferences, pInitState),
-                                                            scip_(PB_NAME), positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()),
+                                                                                                                  Solver(pScenario, pDemand, pPreferences, pInitState),
+                                                                                                                  scip_(PB_NAME), positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), rotations_(pScenario->nbNurses_),
 
-                                                            columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
-                                                            minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
-                                                            optDemandVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
+                                                                                                                  columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
+                                                                                                                  minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
+                                                                                                                  optDemandVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
 
-                                                            restFlowCons_(pScenario->nbNurses_), workFlowCons_(pScenario->nbNurses_),
-                                                            minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
-                                                            minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
+                                                                                                                  restFlowCons_(pScenario->nbNurses_), workFlowCons_(pScenario->nbNurses_),
+                                                                                                                  minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
+                                                                                                                  minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
 {
 
    this->preprocessTheNurses();
@@ -62,6 +63,8 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    scip_.writeProblem("outfiles/model.lp");
 }
 
+MasterProblem::~MasterProblem(){ }
+
 //build the rostering problem
 void MasterProblem::build(){
    /* Rotation constraints */
@@ -72,6 +75,10 @@ void MasterProblem::build(){
 
    /* Skills coverage constraints */
    buildSkillsCoverageCons();
+
+   /* Rotation pricer */
+   pPricer_ = new RotationPricer(this, "pricer");
+   scip_.addObjPricer(pPricer_);
 }
 
 //solve the rostering problem
@@ -79,6 +86,8 @@ void MasterProblem::solve(){
    scip_.solve();
    //   scip_.printStats();
    scip_.printBestSol();
+   storeSolution();
+   scip_.deleteSCIP();
 }
 
 //initialize the rostering problem with one column to be feasible if there is no initial solution
@@ -86,57 +95,148 @@ void MasterProblem::solve(){
 void MasterProblem::initialize(vector<Roster> solution){
    int nbVars(0);
    vector<SCIP_VAR*> initialVar(pScenario_->nbNurses_);
-   char name[255];
+   const char* baseName = "initialRotation";
    vector<char*> names(pScenario_->nbNurses_);
    vector<double> initialObjCoeffs(pScenario_->nbNurses_);
    vector<int> nbCons(pScenario_->nbNurses_);
    vector< vector<SCIP_CONS*> > initialCons(pScenario_->nbNurses_);
    vector< vector<double> > initialCoeffs(pScenario_->nbNurses_);
 
-   //if there is no initial solution, we add a column with 1 everywhere to be feasible
+   //if there is no initial solution, we add a column with 1 everywhere for each nurse to be feasible
    if(solution.size() == 0){
-      ++nbVars;
-      SCIPsnprintf(name, 255, "InitialGlobalNurse");
-      names[0] = name;
-      initialObjCoeffs[0] = bigM;
-      vector<SCIP_CONS*> initialCons2(0);
-      vector<double> initialCoeffs2(0);
-      nbCons[0] = 0;
-      for(int i=0; i<pScenario_->nbNurses_; i++)
-         for(int k=0; k<pDemand_->nbDays_; k++)
-            nbCons[0] += addConsToCol(&initialCons2, &initialCoeffs2, i, k, -1, (k==0), (k==pDemand_->nbDays_-1));
-      initialCons[0] = initialCons2;
-      initialCoeffs[0] = initialCoeffs2;
+      //builg a map of shift -1 everywhere
+      map<int,int> shifts;
+      for(int k=0; k<pDemand_->nbDays_; ++k)
+         shifts.insert(pair<int,int>( k , -1 ));
+
+      for(int i=0; i<pScenario_->nbNurses_; ++i){
+         Rotation rotation(shifts, theLiveNurses_[i], bigM);
+         addRotation(rotation, baseName);
+      }
    }
-   //otherwise, a column is added for each nurse of the initial solution
+   //otherwise, rotations are added for each nurse of the initial solution
    else{
+      //build the rotations of each nurse
+      for(int i=0; i<pScenario_->nbNurses_; ++i){
+         //load the roster of nurse i
+         Roster roster = solution[i];
 
-   }
-
-   //we create the initial column(s)
-   for(int i=0; i<nbVars; ++i){
-      scip_.createPositiveColumn(&(initialVar)[i], names[i], initialObjCoeffs[i],
-         nbCons[i], &(initialCons[i])[0], &(initialCoeffs[i])[0]);
+         bool workedLastDay = false;
+         int lastShift = 0;
+         map<int,int> shifts;
+         //build all the successive rotation of this nurse
+         for(int k=0; k<pDemand_->nbDays_; ++k){
+            //shift=0 => rest
+            int shift = roster.shift(k);
+            //if work, insert the shift in the map
+            if(shift>0){
+               shifts.insert(pair<int,int>(k, shift));
+               lastShift = shift;
+               workedLastDay = true;
+            }
+            else if(shift<0 && lastShift>0){
+               shifts.insert(pair<int,int>(k, lastShift));
+               workedLastDay = true;
+            }
+            //if stop to work, build the rotation
+            else if(workedLastDay){
+               Rotation rotation(shifts, theLiveNurses_[i]);
+               rotation.computeCost(pScenario_, pPreferences_, pDemand_->nbDays_);
+               addRotation(rotation, baseName);
+               shifts.clear();
+               lastShift = shift;
+               workedLastDay = false;
+            }
+         }
+         //if work on the last day, build the rotation
+         if(workedLastDay){
+            Rotation rotation(shifts, theLiveNurses_[i]);
+            rotation.computeCost(pScenario_, pPreferences_, pDemand_->nbDays_);
+            addRotation(rotation, baseName);
+            shifts.clear();
+         }
+      }
    }
 }
 
-//compute the coefficient for each constraint of a column for the nurse i, the day k and the shift s
+void MasterProblem::storeSolution(){
+   //retieve best solution
+   SCIP_SOL* sol = scip_.getBestSol();
+
+   //retrieve a feasible allocation of skills
+   vector< vector< vector< vector<double> > > > skillsAllocation(pDemand_->nbDays_);
+
+   for(int k=0; k<pDemand_->nbDays_; ++k){
+      vector< vector< vector<double> > > skillsAllocation2(pScenario_->nbShifts_-1);
+
+      for(int s=0; s<pScenario_->nbShifts_-1; ++s){
+         vector< vector<double> > skillsAllocation3(pScenario_->nbSkills_);
+
+         for(int sk=0; sk<pScenario_->nbSkills_; ++sk)
+            skillsAllocation3[sk] = scip_.getVarValues(sol, skillsAllocVars_[k][s][sk]);
+
+         skillsAllocation2[s] = skillsAllocation3;
+      }
+      skillsAllocation[k] = skillsAllocation2;
+   }
+
+   //build the rosters
+   for(LiveNurse* pNurse: theLiveNurses_)
+      for(pair<SCIP_VAR*, Rotation> p: rotations_[pNurse->id_])
+         if(scip_.getVarValue(sol, p.first) > 0)
+            for(int k=p.second.firstDay_; k<p.second.firstDay_+p.second.length_; ++k)
+               for(int sk=0; sk<pScenario_->nbSkills_; ++sk)
+                  if(skillsAllocation[k][p.second.shifts_[k]-1][sk][pNurse->pPosition_->id_] > 0){
+                     pNurse->roster_.assignTask(k,p.second.shifts_[k],sk);
+                     skillsAllocation[k][p.second.shifts_[k]-1][sk][pNurse->pPosition_->id_] --;
+                  }
+}
+
+//build the variable of the rotation as well as all the affected constraints with their coefficients
 //if s=-1, the nurse i works on all shifts
-int MasterProblem::addConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, int s, bool firstDay, bool lastDay){
+void MasterProblem::addRotation(Rotation rotation, const char* baseName){
    int nbCons(0);
+   //nurse index
+   int i = rotation.pNurse_->id_;
+
+   //SCIP column var, its name, and affected constraints with their coefficients
+   SCIP_VAR* var;
+   char name[255];
+   vector<SCIP_CONS*> cons;
+   vector<double> coeffs;
+
+   /* Rotation constraints */
+   nbCons += addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_, true, false);
+   nbCons += addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_+rotation.length_-1, false, true);
 
    /* Min/Max constraints */
-   nbCons += addRotationConsToCol(cons, coeffs, i, k, firstDay, lastDay);
-
-   /* Min/Max constraints */
-   nbCons += addMinMaxConsToCol(cons, coeffs, i, k);
+   for(int k=rotation.pNurse_->firstDay_; k<rotation.pNurse_->firstDay_+rotation.length_; ++k){
+      //check if the nurse works on a saturday and add it in the constraints
+      //not yet added in the constraints maxWorkedWeekend
+      if(Tools::isSaturday(k))
+         nbCons += addMinMaxConsToCol(&cons, &coeffs, i, k, true);
+      //check if the nurse works on a sunday and does not work on a saturday
+      //not yet added in the constraints maxWorkedWeekend
+      else if( (k==rotation.pNurse_->firstDay_) && Tools::isSunday(k) )
+         nbCons += addMinMaxConsToCol(&cons, &coeffs, i, k, true);
+      //otherwise, do not add in the constraints maxWorkedWeekend
+      else
+         nbCons += addMinMaxConsToCol(&cons, &coeffs, i, k);
+   }
 
    /* Skills coverage constraints */
-   nbCons += addSkillsCoverageConsToCol(cons, coeffs, i, k, s);
+   for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k)
+      nbCons += addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
 
-   return nbCons;
+   SCIPsnprintf(name, 255, "%s_N%d_%d",baseName , i, rotations_[i].size());
+   scip_.createPositiveColumn(&var, name, rotation.cost_,
+      nbCons, &(cons)[0], &(coeffs)[0]);
+   rotations_[i].insert(pair<SCIP_VAR*,Rotation>(var, rotation));
 }
 
+/*
+ * Rotation constraints
+ */
 void MasterProblem::buildRotationCons(){
    char name[255];
    //build the rotation network for each nurse
@@ -363,24 +463,31 @@ int MasterProblem::addRotationConsToCol(vector<SCIP_CONS*>* cons, vector<double>
  * Min/Max constraints
  */
 void MasterProblem::buildMinMaxCons(){
+   char name[255];
    for(int i=0; i<pScenario_->nbNurses_; i++){
-      scip_.createPositiveVar(&(minWorkedDaysVars_[i]), "minWorkedDaysVar_N"+i, WEIGHT_TOTAL_SHIFTS);
-      scip_.createPositiveVar(&(maxWorkedDaysVars_[i]), "maxWorkedDaysVar_N"+i, WEIGHT_TOTAL_SHIFTS);
-      scip_.createPositiveVar(&(maxWorkedWeekendVars_[i]), "maxWorkedWeekendVar_N"+i, WEIGHT_TOTAL_WEEKENDS);
+      SCIPsnprintf(name, 255, "minWorkedDaysVar_N%d", i);
+      scip_.createPositiveVar(&(minWorkedDaysVars_[i]), name, WEIGHT_TOTAL_SHIFTS);
+      SCIPsnprintf(name, 255, "maxWorkedDaysVar_N%d", i);
+      scip_.createPositiveVar(&(maxWorkedDaysVars_[i]), name, WEIGHT_TOTAL_SHIFTS);
+      SCIPsnprintf(name, 255, "maxWorkedWeekendVar_N%d", i);
+      scip_.createPositiveVar(&(maxWorkedWeekendVars_[i]), name, WEIGHT_TOTAL_WEEKENDS);
 
       double coeff1(1);
-      scip_.createGEConsLinear(&(minWorkedDaysCons_[i]), "minWorkedDaysCons_N"+i, theLiveNurses_[i]->minTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
+      SCIPsnprintf(name, 255, "minWorkedDaysCons_N%d", i);
+      scip_.createGEConsLinear(&(minWorkedDaysCons_[i]), name, theLiveNurses_[i]->minTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
          1, &minWorkedDaysVars_[i], &coeff1);
       double coeff2(-1);
-      scip_.createLEConsLinear(&(maxWorkedDaysCons_[i]), "maxWorkedDaysCons_N"+i, theLiveNurses_[i]->maxTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
+      SCIPsnprintf(name, 255, "maxWorkedDaysCons_N%d", i);
+      scip_.createLEConsLinear(&(maxWorkedDaysCons_[i]), name, theLiveNurses_[i]->maxTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
          1, &maxWorkedDaysVars_[i], &coeff2);
       double coeff3(-1);
-      scip_.createLEConsLinear(&(maxWorkedWeekendCons_[i]), "maxWorkedWeekendCons_N"+i, theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
+      SCIPsnprintf(name, 255, "maxWorkedWeekendCons_N%d", i);
+      scip_.createLEConsLinear(&(maxWorkedWeekendCons_[i]), name, theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
          1, &maxWorkedWeekendVars_[i], &coeff3);
    }
 }
 
-int MasterProblem::addMinMaxConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k){
+int MasterProblem::addMinMaxConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, bool weekend){
    int nbCons(0);
 
    ++nbCons;
@@ -389,8 +496,7 @@ int MasterProblem::addMinMaxConsToCol(vector<SCIP_CONS*>* cons, vector<double>* 
    ++nbCons;
    cons->push_back(maxWorkedDaysCons_[i]);
    coeffs->push_back(1.0);
-   string day(Tools::intToDay(i));
-   if(day == "Sun" || day == "Sat"){
+   if(weekend){
       ++nbCons;
       cons->push_back(maxWorkedWeekendCons_[i]);
       coeffs->push_back(1.0);
@@ -406,13 +512,14 @@ void MasterProblem::buildSkillsCoverageCons(){
    char name[255];
    for(int k=0; k<pDemand_->nbDays_; k++){
       //initialize vectors
-      vector< vector<SCIP_VAR*> > optDemandVars1(pScenario_->nbShifts_);
-      vector< vector< vector<SCIP_VAR*> > > skillsAllocVars1(pScenario_->nbShifts_);
-      vector< vector<SCIP_CONS*> > minDemandCons1(pScenario_->nbShifts_);
-      vector< vector<SCIP_CONS*> > optDemandCons1(pScenario_->nbShifts_);
-      vector< vector<SCIP_CONS*> > feasibleSkillsAllocCons1(pScenario_->nbShifts_);
+      vector< vector<SCIP_VAR*> > optDemandVars1(pScenario_->nbShifts_-1);
+      vector< vector< vector<SCIP_VAR*> > > skillsAllocVars1(pScenario_->nbShifts_-1);
+      vector< vector<SCIP_CONS*> > minDemandCons1(pScenario_->nbShifts_-1);
+      vector< vector<SCIP_CONS*> > optDemandCons1(pScenario_->nbShifts_-1);
+      vector< vector<SCIP_CONS*> > feasibleSkillsAllocCons1(pScenario_->nbShifts_-1);
 
-      for(int s=0; s<pScenario_->nbShifts_; s++){
+      //forget s=0, it's a resting shift
+      for(int s=1; s<pScenario_->nbShifts_; s++){
          //initialize vectors
          vector<SCIP_VAR*> optDemandVars2(pScenario_->nbSkills_);
          vector< vector<SCIP_VAR*> > skillsAllocVars2(pScenario_->nbSkills_);
@@ -472,11 +579,11 @@ void MasterProblem::buildSkillsCoverageCons(){
          }
 
          //store vectors
-         optDemandVars1[s] = optDemandVars2;
-         skillsAllocVars1[s] = skillsAllocVars2;
-         minDemandCons1[s] = minDemandCons2;
-         optDemandCons1[s] = optDemandCons2;
-         feasibleSkillsAllocCons1[s] = feasibleSkillsAllocCons2;
+         optDemandVars1[s-1] = optDemandVars2;
+         skillsAllocVars1[s-1] = skillsAllocVars2;
+         minDemandCons1[s-1] = minDemandCons2;
+         optDemandCons1[s-1] = optDemandCons2;
+         feasibleSkillsAllocCons1[s-1] = feasibleSkillsAllocCons2;
       }
 
       //store vectors
@@ -493,19 +600,115 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<SCIP_CONS*>* cons, vector<d
 
    int p(theLiveNurses_[i]->pPosition_->id_);
    if(s==-1){
-      for(int s0=0; s0<pScenario_->nbShifts_; ++s0){
+      for(int s0=1; s0<pScenario_->nbShifts_; ++s0){
          ++nbCons;
-         cons->push_back(feasibleSkillsAllocCons_[k][s0][p]);
+         cons->push_back(feasibleSkillsAllocCons_[k][s0-1][p]);
          coeffs->push_back(1.0);
       }
    }
    else{
       ++nbCons;
-      cons->push_back(feasibleSkillsAllocCons_[k][s][p]);
+      cons->push_back(feasibleSkillsAllocCons_[k][s-1][p]);
       coeffs->push_back(1.0);
    }
 
    return nbCons;
+}
+
+void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int horizon){
+   //check if pNurse points to a nurse
+   if(pNurse_ == NULL)
+      Tools::throwError("LiveNurse = NULL");
+
+   /************************************************
+    * Compute all the costs of a rotation:
+    ************************************************/
+
+   //if first day of the planning, check on the past, otherwise 0 (rest)
+   int lastShift = (firstDay_==0) ? pNurse_->pStateIni_->shift_ : 0;
+   //nbConsShift = number of consecutive shift
+   //if first day of the planning, check on the past, otherwise 0
+   int nbConsShifts = (firstDay_==0) ? pNurse_->pStateIni_->consShifts_ : 0;
+   //consShiftCost = cost of be outside of the interval [min,max] of the consecutives shifts
+   double consShiftsCost = 0;
+
+   //nbConsWorked = number of consecutive worked days
+   //if first day of the planning, check on the past , otherwise 0
+   int nbConsDaysWorked = (firstDay_==0) ? pNurse_->pStateIni_->consDaysWorked_ : 0;
+   //consWorkedCost = cost of be outside of the interval [min,max] of the consecutives worked days
+   double consDaysWorkedCost = 0;
+
+   //cost of not doing the whole weekend
+   double completeWeekendCost = 0;
+
+   //preferencesCost = cost of not respecting preferences
+   double preferenceCost = 0;
+
+   /*
+    * Compute consShiftCost
+    */
+
+   for(int k=firstDay_; k<firstDay_+length_; ++k){
+      if(lastShift == shifts_[k]){
+         nbConsShifts ++;
+         continue;
+      }
+      if(lastShift > 0){
+         int diff = max(pScenario->minConsShifts_[lastShift] - nbConsShifts,
+            nbConsShifts-pScenario->maxConsShifts_[lastShift]);
+         if(diff>0)
+            consShiftsCost += diff * WEIGHT_CONS_SHIFTS;
+      }
+      //initialize nbConsShifts and lastShift
+      nbConsShifts = 1;
+      lastShift = shifts_[k];
+   }
+
+   //compute consShiftsCost for the last shift
+   int diff = max((firstDay_+length_-1 == horizon) ? 0 : pScenario->minConsShifts_[lastShift] - nbConsShifts,
+      nbConsShifts-pScenario->maxConsShifts_[lastShift]);
+   if(diff>0)
+      consShiftsCost += diff * WEIGHT_CONS_SHIFTS;
+
+   /*
+    * Compute consDaysWorkedCost
+    */
+
+   nbConsDaysWorked += length_;
+   //check if nbConsDaysWorked < min
+   if(nbConsDaysWorked < pNurse_->minConsDaysWork())
+      consDaysWorkedCost += (pNurse_->minConsDaysWork() - nbConsDaysWorked) * WEIGHT_CONS_DAYS_WORK;
+   //check if nbConsDaysWorked > max
+   else if(nbConsDaysWorked > pNurse_->maxConsDaysWork())
+      consDaysWorkedCost += (nbConsDaysWorked - pNurse_->maxConsDaysWork()) * WEIGHT_CONS_DAYS_WORK;
+
+   /*
+    * Compute completeWeekendCost
+    */
+   if(pNurse_->pContract_->needCompleteWeekends_){
+      //if first day is a Sunday, the saturday is not worked
+      if(Tools::isSunday(firstDay_))
+         completeWeekendCost += WEIGHT_COMPLETE_WEEKEND;
+      //if last day + 1 is a Sunday, the sunday is not worked
+      if(Tools::isSunday(firstDay_+length_))
+         completeWeekendCost += WEIGHT_COMPLETE_WEEKEND;
+   }
+
+   /*
+    * Compute preferencesCost
+    */
+
+   for(int k=firstDay_; k<firstDay_+length_; ++k)
+      if(pPreferences->wantsTheShiftOff(pNurse_->id_, k, shifts_[k]))
+         preferenceCost += WEIGHT_PREFERENCES;
+
+   int nbDaysOff = pPreferences->howManyDaysOff(pNurse_->id_, firstDay_, firstDay_+length_-1);
+
+   /*
+    * Compute the sum of the cost and stores it in cost_
+    */
+
+   cost_ = consShiftsCost + consDaysWorkedCost + completeWeekendCost + preferenceCost;
 }
 
 

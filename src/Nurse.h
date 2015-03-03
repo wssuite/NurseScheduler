@@ -269,6 +269,9 @@ public:
 	// True if the nurses wants the whole day off
 	bool wantsTheDayOff(int nurse, int day);
 
+	// Number of whole days off that the nurse wants
+	int howManyDaysOff(int nurse, int dayMin, int dayMax);
+
     // Display methods: toString + override operator<< (easier)
     //
     string toString();

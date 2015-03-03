@@ -274,7 +274,7 @@ void Preferences::addDayOff(int nurse, int day){
 	wishesOff_[nurse].insert(pair<int,set<int> >(day,wishList));
 }
 
-// Returns true if the nurses wants that shift off
+// Returns true if the nurse wants that shift off
 bool Preferences::wantsTheShiftOff(int nurse, int day, int shift){
 	// If the day is not in the wish-list, return false
 	map<int,set<int> >::iterator itM = wishesOff_[nurse].find(day);
@@ -287,7 +287,7 @@ bool Preferences::wantsTheShiftOff(int nurse, int day, int shift){
 		return true;
 }
 
-// True if the nurses wants the whole day off
+// True if the nurse wants the whole day off
 bool Preferences::wantsTheDayOff(int nurse, int day){
 	// If the day is not in the wish-list, return false
 	map<int,set<int> >::iterator itM = wishesOff_[nurse].find(day);
@@ -297,6 +297,15 @@ bool Preferences::wantsTheDayOff(int nurse, int day){
 		return false;
 	else
 		return true;
+}
+
+// Number of whole days off that the nurse wants
+int Preferences::howManyDaysOff(int nurse, int dayMin, int dayMax){
+   int nbDayOff = 0;
+   // look at every wishes of the nurse
+   for( pair<int,set<int> > itDayOff: wishesOff_[nurse])
+      nbDayOff += ( (itDayOff.first >= dayMin) && (itDayOff.first <= dayMax) );
+   return nbDayOff;
 }
 
 // Display method: toString()

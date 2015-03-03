@@ -344,7 +344,7 @@ protected:
 
 	// Saved Rotations
 	//
-	vector< Rotation > theRotations_;
+	vector< Rotation > theRotations_ = {};
 
 	// Number of paths found
 	//
