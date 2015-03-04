@@ -36,7 +36,12 @@ USRFLAGS	=
 USROFLAGS	=
 USRCFLAGS	=
 USRCXXFLAGS	=	-w -fPIC -fexceptions -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
-USRLDFLAGS	= 	-g -O0 -lrt 
+USRLDFLAGS	= 	-g -O0
+OS = $(shell uname -s)
+ifeq ($(OS),Linux)
+	USRLDFLAGS += -lrt
+endif
+
 USRARFLAGS	=
 USRDFLAGS	=
 
@@ -56,7 +61,7 @@ include $(SCIPDIR)/make/make.project
 #-----------------------------------------------------------------------------
 
 MAINNAME	=	roster
-MAINOBJ		=	main.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o SubProblem.o Solver.o Greedy.o Pricer_vrp.o Vrp.o
+MAINOBJ		=	main.o main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o SubProblem.o Solver.o Greedy.o Pricer_vrp.o Vrp.o
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)
 

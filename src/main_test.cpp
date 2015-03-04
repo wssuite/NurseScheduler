@@ -1,13 +1,12 @@
 //
-//  main.cpp
-//  CftSolver
+//  main_test.cpp
+//  RosterDesNurses
 //
-//  Created by Jérémy Omer on 16/01/2014.
-//  Copyright (c) 2014 Jérémy Omer. All rights reserved.
+//  Created by Jérémy Omer on 04/03/2015.
+//  Copyright (c) 2015 Jérémy Omer. All rights reserved.
 //
 
-//#include "Scenario.h"
-//#include "Nurse.h"
+#include "main_test.h"
 #include "ReadWrite.h"
 #include "Greedy.h"
 #include "SubProblem.h"
@@ -17,6 +16,13 @@
 /* scip includes */
 #include "objscip/objscip.h"
 #include "objscip/objscipdefplugins.h"
+
+void main_test()
+{
+	 testFunction_Antoine();
+	// testFunction_Jeremy();
+	//	testFunction_Samuel();
+}
 
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
@@ -191,15 +197,4 @@ void testFunction_Samuel(){
 
 	//SubProblem sp;
 	//sp.testGraph_spprc();
-
-
-}
-
-int main(int argc, char** argv)
-{
-	// Tests functions to check the functions one by one
-	 testFunction_Antoine();
-	// testFunction_Jeremy();
-//	testFunction_Samuel();
-
 }
