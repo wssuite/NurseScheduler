@@ -483,7 +483,7 @@ string Solver::solutionToString() {
   // write to stringstream that can then be printed in any output file
   // follow the template described by the competition
   rep << "SOLUTION" << std::endl;
-  rep << pScenario_->nbWeeks_ << " " << pScenario_->name_ << std::endl;
+  rep << pScenario_->thisWeek() << " " << pScenario_->name_ << std::endl;
   rep << std::endl;
 
   // compute the total number of assignments that are not rests

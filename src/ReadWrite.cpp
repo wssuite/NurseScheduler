@@ -386,6 +386,12 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 }
 
 
+// Read the input custom file and store the content in a Scenario instance
+//
+void ReadWrite::readCustom(std::string strCustomInputFile, Scenario* pScenario) {
+
+}
+
 //--------------------------------------------------------------------------
 // Useful parsing functions
 //
