@@ -14,6 +14,10 @@
 #include "MyTools.h"
 #include "Vrp.h"
 
+/* scip includes */
+#include "objscip/objscip.h"
+#include "objscip/objscipdefplugins.h"
+
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
 
@@ -92,9 +96,9 @@ void testFunction_Jeremy(){
 
 
 	// Read the input data from files
-	Scenario* pScen = ReadWrite::readScenario("../datasets/n030w4/Sc-n030w4.txt");
-	Demand* pWeekDemand = ReadWrite::readWeek("../datasets/n030w4/WD-n030w4-1.txt", pScen);
-	ReadWrite::readHistory("../datasets/n030w4/H0-n030w4-0.txt",pScen);
+	Scenario* pScen = ReadWrite::readScenario("datasets/n030w4/Sc-n030w4.txt");
+	Demand* pWeekDemand = ReadWrite::readWeek("datasets/n030w4/WD-n030w4-1.txt", pScen);
+	ReadWrite::readHistory("datasets/n030w4/H0-n030w4-0.txt",pScen);
 
 	// Check that the scenario was read properly
 	//
@@ -115,10 +119,15 @@ void testFunction_Jeremy(){
 	new Greedy(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
 	pSolverTest->constructiveGreedy();
 
-	// Write the solution in an output file
-	string outFile = "../outfiles/test.out";
+	// Write the solution in the required output format
+	string outFile = "outfiles/solution.out";
 	Tools::LogOutput outStream(outFile);
 	outStream << pSolverTest->solutionToString();
+
+	// Write the solution and advanced information in a more convenient format
+	string outLog = "outfiles/log.out";
+	Tools::LogOutput outLogStream(outLog);
+	outLogStream << pSolverTest->solutionToLogString();
 
 	// Display the total time spent in the algorithm
 	timertotal->stop();
@@ -188,7 +197,6 @@ void testFunction_Samuel(){
 
 int main(int argc, char** argv)
 {
-
 	// Tests functions to check the functions one by one
 	 testFunction_Antoine();
 	// testFunction_Jeremy();

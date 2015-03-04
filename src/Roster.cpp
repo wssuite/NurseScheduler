@@ -3,7 +3,6 @@
 #include "Nurse.h"
 #include "Roster.h"
 
-
 // Constructor: initialize planning from nothing
 //
 Roster::Roster(int nbDays, int firstDay) {
@@ -30,7 +29,7 @@ nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
 // Constructor: initialize planning from an input set of shifts and skills
 //
 Roster::Roster(int nbDays, int firstDay, vector<int> shifts, vector<int> skills):
-Roster::Roster(nbDays, firstDay, shifts) {
+nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
 
   // set the skill assignment
   for (int day = 0; day < nbDays_; day++) skills_.push_back(skills[day]);

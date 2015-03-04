@@ -41,6 +41,8 @@ public:
 	vector<int> costConsShifts_;
 	vector<int> costPref_;
 	vector<int> costWeekEnd_;
+	int costTotalDays_;
+	int costTotalWeekEnds_;
 
 	// vector of booleans equal to true if the corresponding hard contraint is
 	// violated on each day
@@ -137,7 +139,7 @@ public:
 
 
 public:
-	
+
 	//----------------------------------------------------------------------------
 	// Methods that relate to the rosters of a nurse
 	//----------------------------------------------------------------------------
@@ -173,11 +175,6 @@ public:
 	// for the input roster and resulting states
 	//
 	void checkConstraints(const Roster& roster, const vector<State>& states, StatCtNurse& stat);
-
-	// check the soft constraints and record the costs of the violations and the
-	// remaining margin for the satisfied ones.
-	//
-	void checkSoftConstraints();
 
 
 };
@@ -252,7 +249,7 @@ protected:
 	// staffing in the solution : a 3D vector that contains the number of nurses
 	//  for each triple (day,shift,skill)
 	//
-	vector3D totalStaffing_;
+	vector3D satisfiedDemand_;
 
 	// total cost under-staffing cost and under staffing cost for each triple
 	// (day,shift,skill)
@@ -294,15 +291,24 @@ public:
 
 	// check the feasibility of the demand with these nurses
 	//
-	bool checkFeasibility() {return true;};
+	bool checkFeasibility();
+
+	// get the total cost of the current solution
+	// the solution is simply given by the roster of each nurse
+	double solutionCost();
 
 	//------------------------------------------------
 	// Display functions
 	//------------------------------------------------
 
-	// display the whole solution
+	// display the whole solution in the required format
 	//
 	string solutionToString();
+
+	// display the solution in a more readable format and append advanced
+	// information on the solution quality
+	//
+	string solutionToLogString();
 
 };
 

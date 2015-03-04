@@ -1,0 +1,55 @@
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| N | - | - | N | N | N | N |
+HN_1	| L | L | L | L | - | D | D |
+HN_2	| E | E | E | E | - | - | - |
+HN_3	| D | D | D | - | - | E | E |
+NU_4	| L | L | L | L | - | - | - |
+NU_5	| N | N | N | N | - | - | - |
+NU_6	| - | - | L | L | L | L | L |
+NU_7	| E | E | - | - | E | E | E |
+NU_8	| N | - | - | D | D | D | D |
+NU_9	| - | D | D | L | L | - | - |
+NU_10	| - | - | - | L | L | L | L |
+NU_11	| E | L | - | - | N | N | N |
+NU_12	| D | D | D | N | N | - | - |
+NU_13	| L | L | - | - | - | N | N |
+NU_14	| E | E | E | - | - | - | N |
+NU_15	| - | D | L | L | L | - | - |
+NU_16	| - | N | N | N | - | - | - |
+CT_17	| E | E | E | E | E | - | - |
+CT_18	| E | E | E | - | - | E | E |
+CT_19	| N | - | D | D | D | D | L |
+CT_20	| D | D | D | D | D | - | - |
+CT_21	| D | D | D | - | E | E | E |
+CT_22	| L | L | L | - | - | L | L |
+CT_23	| N | N | N | N | N | - | - |
+CT_24	| N | N | N | - | E | E | D |
+TR_25	| D | D | D | D | D | - | - |
+TR_26	| E | E | - | - | E | E | E |
+TR_27	| L | L | - | - | L | L | L |
+TR_28	| - | N | N | N | - | D | D |
+TR_29	| N | - | - | - | - | N | N |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive constraints: 195
+Non working days constraints: 
+Preferences: 10
+Max working weekend: 0
+Complete weekends: 30
+Optimal coverage constraints: 240
+
+---------------------------
+
+Total cost: 475

@@ -36,9 +36,10 @@ USRFLAGS	=
 USROFLAGS	=
 USRCFLAGS	=
 USRCXXFLAGS	=	-w -fPIC -fexceptions -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
-USRLDFLAGS	= 	-g -lrt 
+USRLDFLAGS	= 	-g -O0 -lrt 
 USRARFLAGS	=
 USRDFLAGS	=
+
 
 
 
@@ -65,6 +66,12 @@ MAINFILE	=	$(BINDIR)/$(MAIN)
 MAINSHORTLINK	=	$(BINDIR)/$(MAINNAME)
 MAINOBJFILES	=	$(addprefix $(OBJDIR)/,$(MAINOBJ))
 
+# <<<<<<< HEAD
+# =======
+# INCLUDESFLAGS = -I$(BOOST_DIR)
+# CXXFLAGS	+= -g -O0 -m64 -w -fPIC -fexceptions  -DIL_STD -std=c++98 $(INCLUDESFLAGS)
+
+# >>>>>>> Fin-du-greedy-et-ouputs
 #-----------------------------------------------------------------------------
 # Rules
 #-----------------------------------------------------------------------------
@@ -83,6 +90,9 @@ lint:		$(MAINSRC)
 			do \
 			echo $$i; \
 			$(LINT) $(SCIPDIR)/lint/scip.lnt +os\(lint.out\) -u -zero \
+# =======
+# 			$(LINT) -I$(SCIPDIR) lint/main-gcc.lnt +os\(lint.out\) -u -zero \
+# >>>>>>> Fin-du-greedy-et-ouputs
 			$(FLAGS) -UNDEBUG -UWITH_READLINE -UROUNDING_FE $$i; \
 			done'
 
@@ -144,6 +154,13 @@ $(MAINFILE):	$(BINDIR) $(OBJDIR) $(SCIPLIBFILE) $(LPILIBFILE) $(NLPILIBFILE) $(M
                 $(LINKCXX_l)$(OBJSCIPLIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(LPILIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(NLPILIB)$(LINKLIBSUFFIX) \
                 $(OFLAGS) $(LPSLDFLAGS) \
 		$(LDFLAGS) $(LINKCXX_o)$@
+# =======
+# 		$(CXXFLAGS) \
+# 		$(LINKCXX_L)$(SCIPDIR)/lib $(LINKCXX_l)$(SCIPLIB)$(LINKLIBSUFFIX) \
+#                 $(LINKCXX_l)$(OBJSCIPLIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(LPILIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(NLPILIB)$(LINKLIBSUFFIX) \
+#                 $(OFLAGS) $(LPSLDFLAGS) \
+# 		$(LDFLAGS) $(LINKCXX_o)$@ 
+# >>>>>>> Fin-du-greedy-et-ouputs
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c
 		@echo "-> compiling $@"

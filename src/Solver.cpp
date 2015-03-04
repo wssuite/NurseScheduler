@@ -153,7 +153,12 @@ void LiveNurse::checkConstraints(const Roster& roster,
 
     // Check that the nurse has the assigned skill
     //
-    stat.violSkill_[day] = hasSkill(roster.skill(day));
+    if (roster.shift(day)) {
+      stat.violSkill_[day] = !hasSkill(roster.skill(day));
+    }
+    else {
+      stat.violSkill_[day] = false;
+    }
 
     // Check the forbidden successor constraint
     //
@@ -163,85 +168,99 @@ void LiveNurse::checkConstraints(const Roster& roster,
     stat.violSuccShifts_[day] = pScenario_->isForbiddenSuccessor(thisShift,lastShift);
   }
 
-  // initialize the
   // check the soft constraints and record the costs of the violations and the
   // remaining margin for the satisfied ones.
   //
   for (int day = 1; day <= nbDays_; day++) {
 
-    // shift assigned on this day
+    // shift assigned on the previous day
     int shift = states[day].shift_;
+    int prevShift = states[day-1].shift_;
 
     // first look at consecutive working days or days off
     //
-    if (roster.switchOff(day))  {
-      int missingDays=0, extraDays=0;
+    int missingDays=0, extraDays=0;
+    stat.costConsDays_[day-1] = 0;
 
-      // compute the violations of consecutive working days
-      if (shift) {
-        missingDays = minConsDaysWork()-states[day].consDaysWorked_;
-        extraDays = states[day].consDaysWorked_-maxConsDaysWork();
-
-        stat.costConsDays_[day] = (missingDays>0) ? WEIGHT_CONS_DAYS_WORK*missingDays:0;
-        stat.costConsDays_[day] += (extraDays>0) ? WEIGHT_CONS_DAYS_WORK*extraDays:0;
+    // compute the violations of consecutive working days
+    if (shift) {
+      if (prevShift == 0) {
+        missingDays = minConsDaysOff()-states[day-1].consDaysOff_;
       }
-      // compute the violations of consecutive days off
-      else {
-        missingDays =minConsDaysOff()-states[day].consDaysOff_;
-        extraDays = states[day].consDaysOff_-maxConsDaysOff();
+      extraDays = states[day].consDaysWorked_-maxConsDaysWork();
 
-        stat.costConsDays_[day] = (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
-        stat.costConsDays_[day] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF*extraDays:0;
+      stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_WORK*missingDays:0;
+      stat.costConsDays_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_WORK:0;
+    }
+    // compute the violations of consecutive days off
+    else {
+      if (prevShift > 0) {
+        missingDays =minConsDaysWork()-states[day-1].consDaysWorked_;
       }
+      extraDays = states[day].consDaysOff_-maxConsDaysOff();
+
+      stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
+      stat.costConsDays_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF:0;
     }
-    else  {
-      stat.costConsDays_[day] = 0;
-    }
+
 
     // check the consecutive same shifts
     //
-    if (roster.switchShift(day))  {
+    stat.costConsShifts_[day-1] = 0;
+    if (shift != prevShift)  {
       int missingShifts = 0, extraShifts = 0;
 
-      // it only makes sense if the nurse is working that day
-      if (shift) {
-        missingShifts = pScenario_->minConsShifts_[shift]-states[day].consShifts_;
-        extraShifts =  states[day].consShifts_-pScenario_->maxConsShifts_[shift];
+      // it only makes sense if the nurse was working last day
+      if (prevShift) {
+        missingShifts = pScenario_->minConsShifts_[shift]-states[day-1].consShifts_;
+        extraShifts =  states[day-1].consShifts_-pScenario_->maxConsShifts_[shift];
 
-        stat.costConsShifts_[day] = (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
-        stat.costConsShifts_[day] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
+        stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
+        stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
       }
-    }
-    else {
-      stat.costConsShifts_[day] = 0;
     }
 
     // check the preferences
     //
-    map<int,set<int> >::iterator itM = pWishesOff_->find(day);
+    map<int,set<int> >::iterator itM = pWishesOff_->find(day-1);
     // If the day is not in the wish-list, no possible violation
     if(itM == pWishesOff_->end())  {
-      stat.costPref_[day] = 0;
+      stat.costPref_[day-1] = 0;
     }
     // no preference either in the wish-list for that day
     else if(itM->second.find(shift) == itM->second.end()) {
-      stat.costPref_[day] = 0;
+      stat.costPref_[day-1] = 0;
     }
     else {
-      stat.costPref_[day] = WEIGHT_PREFERENCES;
+      stat.costPref_[day-1] = WEIGHT_PREFERENCES;
     }
 
     // check the complete week-end (only if the nurse requires them)
     // this cost is only assigned to the sundays
     //
     if ( (day+this->firstDay_)%7 == 6 && needCompleteWeekends()) {
-      if (states[day].consDaysWorked_==1 || states[day].consDaysOff_==1) {
+      if ( (roster.shift(day-1) > 0 && roster.shift(day) == 0) ||
+       ( roster.shift(day-1) == 0 && roster.shift(day) > 0 )) {
         stat.costWeekEnd_[day] = WEIGHT_COMPLETE_WEEKEND;
       }
     }
 
   } // end for day
 
+  // get the costs due to total number of working days and week-ends
+  //
+  stat.costTotalDays_ = 0;
+  stat.costTotalWeekEnds_ = 0;
+  if (pScenario_->thisWeek() == pScenario_->nbWeeks_) {
+    int missingDays=0, extraDays=0;
+    missingDays = std::max(0, minTotalShifts() - states[nbDays_].totalDaysWorked_);
+    extraDays = std::max(0, states[nbDays_].totalDaysWorked_-maxTotalShifts());
+    stat.costTotalDays_ = WEIGHT_TOTAL_SHIFTS*(extraDays+missingDays);
+
+    int extraWeekEnds = 0;
+    extraWeekEnds = std::max(0, states[nbDays_].totalWeekendsWorked_-maxTotalWeekends());
+    stat.costTotalWeekEnds_ = WEIGHT_TOTAL_WEEKENDS * extraWeekEnds;
+  }
 }
 
 
@@ -394,6 +413,62 @@ void Solver::preprocessTheNurses() {
   // Compute the
 }
 
+
+// check the feasibility of the demand with these nurses
+//
+bool checkFeasibility() {
+  return true;
+}
+
+// get the total cost of the current solution
+// the solution is simply given by the roster of each nurse
+double Solver::solutionCost() {
+  double totalCost = 0.0;
+  int nbNurses = pScenario_->nbNurses_, nbDays = pDemand_->nbDays_;
+  int nbShifts = pScenario_->nbShifts_, nbSkills = pScenario_->nbSkills_;
+
+  // reset the satisfied demand to compute it from scratch
+  for(int day = 0; day < nbDays; day++) {
+    for (int sh = 1; sh < nbShifts ; sh++) {
+      for (int sk = 0; sk < nbSkills; sk++) {
+        satisfiedDemand_[day][sh][sk] = 0;
+      }
+    }
+  }
+
+  // first add the individual cost of each nurse
+  for (int n = 0; n < nbNurses; n++) {
+    LiveNurse *pNurse = theLiveNurses_[n];
+    pNurse->checkConstraints(pNurse->roster_, pNurse->states_, pNurse->statCt_);
+    StatCtNurse stat = pNurse->statCt_;
+
+    for (int day = 0; day < nbDays ; day++) {
+      totalCost += stat.costConsDays_[day]+stat.costConsShifts_[day]
+        +stat.costPref_[day]+stat.costWeekEnd_[day];
+
+      if (pNurse->roster_.shift(day) > 0) {
+        satisfiedDemand_[day][pNurse->roster_.shift(day)][pNurse->roster_.skill(day)]++;
+      }
+    }
+
+    totalCost += stat.costTotalDays_+stat.costTotalWeekEnds_;
+  }
+  std::cout << "Total cost due to individual soft constraints = " << totalCost << std::endl;
+
+  // add the cost of non-optimal demand
+  for(int day = 0; day < nbDays; day++) {
+    for (int sh = 1; sh < nbShifts ; sh++) {
+      for (int sk = 0; sk < nbSkills; sk++) {
+        int missingStaff;
+        missingStaff = std::max(0, pDemand_->optDemand_[day][sh][sk] - satisfiedDemand_[day][sh][sk]);
+        totalCost += WEIGHT_OPTIMAL_DEMAND*missingStaff;
+      }
+    }
+  }
+
+  return totalCost;
+}
+
 //------------------------------------------------
 // Display functions
 //------------------------------------------------
@@ -433,12 +508,118 @@ string Solver::solutionToString() {
         }
         else { // shift < 0 so no shif is assigned
           rep << "Unassigned TBD"<< std::endl;
+          LiveNurse* pNurse = theLiveNurses_[n];
+          std::cout  << "This shift " << pNurse->states_[day+1].shift_ << std::endl;
         }
       }
     }
   }
 
 
+
+  return rep.str();
+}
+
+
+// display the solution in a more readable format and append advanced
+// information on the solution quality
+//
+string Solver::solutionToLogString() {
+  std::stringstream rep;
+  int nbNurses = pScenario_->nbNurses_, nbShifts = pScenario_->nbShifts_;
+  int nbSkills = pScenario_->nbSkills_;
+  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nbDays_;
+
+  rep << "Complete shift schedule" << std::endl << std::endl;
+  rep << "\t\t\t";
+  for (int day = firstDay; day < firstDay+nbDays; day++) {
+    rep << "| " << Tools::intToDay(day).at(0) << " ";
+  }
+  rep << "|" << std::endl;
+  rep << "-------------------------------------"<< std::endl;
+
+  for (int n = 0; n < nbNurses; n ++) {
+    LiveNurse* pNurse = theLiveNurses_[n];
+    rep << pNurse->name_ << "\t";
+    for (int day = firstDay; day < firstDay+nbDays; day++){
+      int shift = pNurse->roster_.shift(day);
+      if (shift != 0) {
+        rep << "| " <<  pScenario_->intToShift_[shift].at(0) << " ";
+      }
+      else {
+        rep << "| - ";
+      }
+    }
+    rep << "|" << std::endl;
+  }
+  rep << std::endl;
+
+  // compute the total cost and in the mean time update the structures of each
+  // live nurse that contains all the required information on soft and hard
+  // constraints satisfaction
+  //
+  double totalCost = solutionCost();
+
+  // store temporarily the data that is about to be written
+  //
+  int violMinCover = 0, violReqSkill = 0, violForbiddenSucc = 0;
+  double costOptCover = 0, costTotalDays = 0, costTotalWeekEnds = 0;
+  double costConsDays = 0, costConsShifts = 0, costPref = 0, costWeekEnds = 0;
+
+  // constraints related to the demand
+  for (int day = firstDay; day < firstDay+nbDays; day++) {
+    for (int sh = 1; sh < nbShifts; sh++) {
+      for (int sk = 0; sk < nbSkills; sk++) {
+        violMinCover += std::max(0,pDemand_->minDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]);
+        costOptCover += WEIGHT_OPTIMAL_DEMAND
+          * std::max(0,pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]);
+      }
+    }
+  }
+
+
+  for (int n = 0; n < nbNurses; n ++) {
+    LiveNurse* pNurse = theLiveNurses_[n];
+    costTotalDays += pNurse->statCt_.costTotalDays_;
+    costTotalWeekEnds += pNurse->statCt_.costTotalWeekEnds_;
+
+    for (int day = firstDay; day < firstDay+nbDays; day++){
+      // record the violations
+      int skill = pNurse->roster_.skill(day);
+      int shift = pNurse->roster_.shift(day);
+      int prevShift = pNurse->states_[day].shift_;
+      violReqSkill += shift == 0 ? 0 : (pNurse->hasSkill(skill)? 0:1);
+      violForbiddenSucc += pScenario_->isForbiddenSuccessor(shift, prevShift)? 1: 0;
+
+      // the other costs per soft constraint can be read from the stat structure
+      costConsDays += pNurse->statCt_.costConsDays_[day];
+      costConsShifts += pNurse->statCt_.costConsShifts_[day];
+      costPref += pNurse->statCt_.costPref_[day];
+      costWeekEnds += pNurse->statCt_.costWeekEnd_[day];
+    }
+  }
+
+  // write the status of hard and soft constraints
+  //
+  rep << "Hard constraints violations\n";
+  rep << "---------------------------\n";
+  rep << "Minimal coverage constraints: " << violMinCover << std::endl;
+  rep << "Required skill constraints: " << violReqSkill << std::endl;
+  rep << "Illegal shift type succession constraints: " << violForbiddenSucc << std::endl;
+  rep << "Single assignment per day: 0" << std::endl;
+
+  rep << "\nCost per constraint type\n";
+  rep << "------------------------\n";
+  rep << "Total assignment constraints: " << costTotalDays << std::endl;
+  rep << "Consecutive constraints: " << costConsDays+costConsShifts << std::endl;
+  rep << "Non working days constraints: " << std::endl;
+  rep << "Preferences: " << costPref << std::endl;
+  rep << "Max working weekend: " << costTotalWeekEnds << std::endl;
+  rep << "Complete weekends: " << costWeekEnds << std::endl;
+  rep << "Optimal coverage constraints: " << costOptCover << std::endl;
+
+  rep << "\n---------------------------\n";
+  rep << "\nTotal cost: " << totalCost << std::endl;
 
   return rep.str();
 }

@@ -186,12 +186,17 @@ void State::addDayToState(const State& prevState, int newShift)	{
 	// Total shifts worked if it is a worked day
 	totalDaysWorked_ = prevState.totalDaysWorked_+(newShift > 0 ? 1 : 0);
 
+	// index of the previous shift
+	int prevShift = prevState.shift_;
+
 	// Treat the case in which no shift is assigned to the nurse on this day
 	if (newShift < 0) {
 		totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
 		consShifts_ = prevState.consShifts_;
 		consDaysWorked_ = prevState.consDaysWorked_;
 		consDaysOff_ = prevState.consDaysOff_;
+
+		shift_ = prevShift < 0 ? prevShift-1:-1;
 	}
 	else {
 		// Total weekends worked :
@@ -211,11 +216,9 @@ void State::addDayToState(const State& prevState, int newShift)	{
 
 		// Consecutive Days off : +1 if the new one is off (==0), 0 if it is worked (!=0)
 		consDaysOff_ = newShift ? 0 : (prevState.consDaysOff_ + 1);
+
+		shift_ = newShift;
 	}
-
-	// Current shift worked : updated with the new one
-	shift_ = newShift>=0 ? newShift:prevState.shift_-1;
-
 }
 
 // Display method: toString
