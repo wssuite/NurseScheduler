@@ -52,6 +52,19 @@ protected:
   //
   int rankMax_;
 
+  // weights that are used to penalize future violations when computing the cost
+  // of an assignment
+  //
+  double weightNbForbidden_;
+  double weightRank_;
+  double weightCoverMin_;
+
+  // vector of excess in available nurses for a task with respect to minimum
+  // demand
+  // necessary to avoid affecting tasks to higher ranked nurses for better cost
+  // and then risk to hit an infeasible solution
+  vector3D shiftDemand_;
+
 private:
 
   //----------------------------------------------------------------------------

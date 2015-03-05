@@ -292,8 +292,6 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
         new LiveNurse( (pScenario_->theNurses_[i]), pScenario_, pDemand_->nbDays_,
         pDemand_->firstDay_, &(*pInitState_)[i], &(pPreferences_->wishesOff_[i])  ) );
     }
-
-
   }
 
 // Destructor

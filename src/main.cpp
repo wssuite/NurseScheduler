@@ -11,6 +11,7 @@
 #include "ReadWrite.h"
 #include "Solver.h"
 #include "Greedy.h"
+#include <exception>
 
 int main(int argc, char** argv)
 {
@@ -40,34 +41,46 @@ int main(int argc, char** argv)
 		int narg = 1;
 		string scenarioFile, initialHistoryFile, weekDataFile, solutionFile;
 		string customInputFile, customOutputFile, randSeed;
+
 		while (narg < argc) {
 			std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
+			// Attention usine à gaz: problem with the java simulator that add quote
+			// marks in the arguments, which fucks up the open file methods
+			// the code below is here to remove these quote marks
+			//
+			string str(argv[narg+1]);
+			std::size_t found = str.find("\"");
+			while (found!=std::string::npos) {
+				str.erase(found,1);
+				found = str.find("\"");
+			}
+
 			if (!strcmp(argv[narg],"--sce")) {
-				scenarioFile = argv[narg+1];
+				scenarioFile = str;
 				narg += 2;
 			}
 			else if (!strcmp(argv[narg],"--his")) {
-				initialHistoryFile = argv[narg+1];
+				initialHistoryFile = str;
 				narg += 2;
 			}
 			else if (!strcmp(argv[narg],"--week")) {
-				weekDataFile = argv[narg+1];
+				weekDataFile = str;
 				narg += 2;
 			}
-			else if (!strcmp(argv[narg],"--out")) {
-				solutionFile = argv[narg+1];
+			else if (!strcmp(argv[narg],"--sol")) {
+				solutionFile = str;
 				narg += 2;
 			}
 			else if (!strcmp(argv[narg],"--cusIn")) {
-				customInputFile = argv[narg+1];
+				customInputFile = str;
 				narg += 2;
 			}
 			else if (!strcmp(argv[narg],"--cusOut")) {
-				customOutputFile = argv[narg+1];
+				customOutputFile = str;
 				narg += 2;
 			}
 			else if (!strcmp(argv[narg],"--rand")) {
-				randSeed = argv[narg+1];
+				randSeed = str;
 				narg += 2;
 			}
 			else {
@@ -77,12 +90,13 @@ int main(int argc, char** argv)
 		// Throw an error if a necessary input file is missing
 		if ( scenarioFile.empty() || initialHistoryFile.empty()
 				|| weekDataFile.empty() || solutionFile.empty() ) {
-			Tools::throwError("A necessary file name is missing!");
+			throw Tools::myException("A necessary file name is missing!",__LINE__);
 		}
 
 		// Read the input files
 		//
 		Scenario* pScen = ReadWrite::readScenario(scenarioFile);
+		std::cout << "Scenario file is read\n";
 		Demand* pWeekDemand = ReadWrite::readWeek(weekDataFile, pScen);
 		ReadWrite::readHistory(initialHistoryFile,pScen);
 		if (!customInputFile.empty()) {

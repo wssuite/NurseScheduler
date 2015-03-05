@@ -25,8 +25,10 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	std::cout << "Reading " << fileName << std::endl;
 	file.open(fileName.c_str(), std::fstream::in);
 	if (!file.is_open()) {
-		std::cout << "While trying to read " << fileName << std::endl;
-		Tools::throwError("The input file was not opened properly!");
+		std::cout << "While trying to read fucking " << fileName << std::endl;
+		std::cout << "The input file was not opened properly!" << std::endl;
+
+		throw Tools::myException("The input file was not opened properly!",__LINE__);
 	}
 
 	string title;
@@ -116,7 +118,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 				nbForbiddenSuccessors.push_back(0);
 			}
 			while(!strEndsWith(title,"FORBIDDEN_SHIFT_TYPES_SUCCESSIONS"))
-				readUntilChar(&file,'\n',&title);
+				file >> title;
 			// Reading all lines
 			for(int i=1; i<nbShifts; i++){
 				// Which current shift ?
@@ -217,8 +219,9 @@ Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 	std::cout << "Reading " << strWeekFile << std::endl;
 	file.open(strWeekFile.c_str(), std::fstream::in);
 	if (!file.is_open()) {
-		std::cout << "While trying to read " << strWeekFile << std::endl;
-		Tools::throwError("The input file was not opened properly!");
+		std::cout << "While trying to read fucking " << strWeekFile << std::endl;
+		std::cout << "The input file was not opened properly!" << std::endl;
+		throw Tools::myException("The input file was not opened properly!",__LINE__);
 	}
 
 	string title;

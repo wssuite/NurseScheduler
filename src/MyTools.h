@@ -9,6 +9,7 @@
 #define __MyTools__
 
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include <map>
 #include <set>
@@ -16,6 +17,7 @@
 #include <string>
 #include <vector>
 #include <time.h>
+#include <exception>
 
 #define _USE_MATH_DEFINES // needed for the constant M_PI
 #include <math.h>
@@ -36,9 +38,32 @@ typedef std::vector<std::vector<std::vector<int> > > vector3D;
 
 namespace Tools{
 
+
+// class defining my own type of exceptions
+//
+class myException : public std::exception
+{
+public:
+  myException( const char * Msg, int Line )
+  {
+      std::ostringstream oss;
+      oss << "Erreur ligne " << Line << " : "
+          << Msg;
+      this->msg = oss.str();
+  }
+
+  virtual ~myException() throw() {}
+
+  virtual const char * what() const throw() { return this->msg.c_str();}
+
+private:
+    std::string msg;
+};
+
 // Throw an exception with the input message
 //
 void throwError(const char* exceptionMsg);
+
 
 // Display a debug message
 //

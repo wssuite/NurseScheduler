@@ -7,6 +7,9 @@ src/Makefile
 /Default/
 Makefile
 obj/*
+outfiles/history*
+outfiles/result*
+outfiles/sol*
 
 #For eclipse
 .cproject*

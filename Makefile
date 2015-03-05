@@ -35,7 +35,7 @@ INCLUDESFLAGS	=	-I$(BOOST_DIR)
 USRFLAGS	=
 USROFLAGS	=
 USRCFLAGS	=
-USRCXXFLAGS	=	-w -fPIC -fexceptions -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
+USRCXXFLAGS	=	-g -O0 -w -fPIC -fexceptions -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
 USRLDFLAGS	= 	-g -O0
 OS = $(shell uname -s)
 ifeq ($(OS),Linux)

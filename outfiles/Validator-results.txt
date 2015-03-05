@@ -1,0 +1,33 @@
+java -jar validator.jar --sce /Users/jeremy/Recherche/Implementations/RosterDesNurses/testdatasets/n005w4/Sc-n005w4.txt --his /Users/jeremy/Recherche/Implementations/RosterDesNurses/testdatasets/n005w4/H0-n005w4-0.txt --weeks /Users/jeremy/Recherche/Implementations/RosterDesNurses/testdatasets/n005w4/WD-n005w4-1.txt /Users/jeremy/Recherche/Implementations/RosterDesNurses/testdatasets/n005w4/WD-n005w4-2.txt /Users/jeremy/Recherche/Implementations/RosterDesNurses/testdatasets/n005w4/WD-n005w4-3.txt /Users/jeremy/Recherche/Implementations/RosterDesNurses/testdatasets/n005w4/WD-n005w4-3.txt  --sols /Users/jeremy/Recherche/Implementations/RosterDesNurses/outfiles/sol-week0.txt /Users/jeremy/Recherche/Implementations/RosterDesNurses/outfiles/sol-week1.txt /Users/jeremy/Recherche/Implementations/RosterDesNurses/outfiles/sol-week2.txt /Users/jeremy/Recherche/Implementations/RosterDesNurses/outfiles/sol-week3.txt 
+        |M|T|W|T|F|S|S| |M|T|W|T|F|S|S| |M|T|W|T|F|S|S| |M|T|W|T|F|S|S|
+-------------------------------------------------------------------------
+Patrick |N|-|E|N|-|L|L| |L|L|L|-|N|N|N| |N|N|-|-|E|N|N| |N|N|-|E|E|E|L|
+Andrea  |E|E|N|N|-|-|-| |E|E|E|L|L|-|E| |E|L|L|L|-|-|L| |L|L|L|L|-|N|N|
+Stefaan |L|L|L|-|E|N|N| |N|N|N|N|N|-|L| |L|L|L|-|L|N|N| |-|L|L|L|L|L|-|
+Sara    |-|-|-|E|E|E|E| |-|-|-|L|L|-|E| |E|E|E|E|-|-|-| |-|N|N|N|-|E|E|
+Nguyen  |N|N|-|L|L|L|L| |N|-|-|E|E|E|L| |-|N|N|N|-|E|E| |E|E|E|-|-|N|N|
+
+
+Hard constraint violations
+--------------------------
+
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+
+Cost per constraint type
+------------------------
+
+Total assignment constraints: 340
+Consecutive constraints: 720
+Non working days constraints: 660
+Preferences: 60
+Max working weekend: 240
+Complete weekends: 150
+Optimal coverage constraints: 360
+
+------------------------
+
+Total cost: 2530
