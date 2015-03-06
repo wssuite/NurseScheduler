@@ -27,10 +27,10 @@ void testFunction_Antoine(){
    Tools::LogOutput logStream(logFile);
 
    //Create an output file
-   string outFile = "../outfiles/test.out";
+   string outFile = "outfiles/test.out";
    Tools::LogOutput outStream(outFile);
 
-   string inst = "n030w4";//n100w4
+   string inst = "n100w4";//n030w4
 
    string scenarPath = "datasets/" + inst + "/Sc-" + inst + ".txt";
    string firstWeekPath = "datasets/" + inst + "/WD-" + inst + "-1.txt";

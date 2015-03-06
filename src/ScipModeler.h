@@ -114,51 +114,51 @@ public:
     */
 
    int createConsLinear(SCIP_CONS** con, const char* con_name, double lhs, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, vars.size(), &(vars)[0], &(coeffs)[0], lhs, rhs,
          true, false, true, true, true, false, true, false, false, false) );
       SCIP_CALL( SCIPaddCons(scip_, *con) );
    }
 
    //Add a lower or equal constraint
    void createLEConsLinear(SCIP_CONS** con, const char* con_name, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      createConsLinear(con, con_name, -SCIPinfinity(scip_), rhs, nonZeroVars, vars, coeffs);
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      createConsLinear(con, con_name, -SCIPinfinity(scip_), rhs, vars, coeffs);
    }
 
    //Add a greater or equal constraint
    void createGEConsLinear(SCIP_CONS** con, const char* con_name, double lhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      createConsLinear(con, con_name, lhs, SCIPinfinity(scip_), nonZeroVars, vars, coeffs);
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      createConsLinear(con, con_name, lhs, SCIPinfinity(scip_), vars, coeffs);
    }
 
    //Add an equality constraint
    void createEQConsLinear(SCIP_CONS** con, const char* con_name, double eq,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      createConsLinear(con, con_name, eq, eq, nonZeroVars, vars, coeffs);
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      createConsLinear(con, con_name, eq, eq, vars, coeffs);
    }
 
    //Add final linear constraints
    int createFinalConsLinear(SCIP_CONS** con, const char* con_name, double lhs, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, nonZeroVars, vars, coeffs, lhs, rhs,
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      SCIP_CALL( SCIPcreateConsLinear(scip_, con, con_name, vars.size(), &(vars)[0], &(coeffs)[0], lhs, rhs,
          true, false, true, true, true, false, false, false, false, false) );
       SCIP_CALL( SCIPaddCons(scip_, *con) );
    }
 
    void createFinalLEConsLinear(SCIP_CONS** con, const char* con_name, double rhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      createFinalConsLinear(con, con_name, -SCIPinfinity(scip_), rhs, nonZeroVars, vars, coeffs);
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      createFinalConsLinear(con, con_name, -SCIPinfinity(scip_), rhs, vars, coeffs);
    }
 
    void createFinalGEConsLinear(SCIP_CONS** con, const char* con_name, double lhs,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      createFinalConsLinear(con, con_name, lhs, SCIPinfinity(scip_), nonZeroVars, vars, coeffs);
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      createFinalConsLinear(con, con_name, lhs, SCIPinfinity(scip_), vars, coeffs);
    }
 
    void createFinalEQConsLinear(SCIP_CONS** con, const char* con_name, double eq,
-      int nonZeroVars = 0, SCIP_VAR** vars = {}, double* coeffs = {}){
-      createFinalConsLinear(con, con_name, eq, eq, nonZeroVars, vars, coeffs);
+      vector<SCIP_VAR*> vars = {}, vector<double> coeffs = {}){
+      createFinalConsLinear(con, con_name, eq, eq, vars, coeffs);
    }
 
    /*
@@ -174,7 +174,7 @@ public:
     */
 
    void createColumn(SCIP_VAR** var, const char* var_name, double objCoeff, SCIP_VARTYPE vartype,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
+      vector<SCIP_CONS*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       switch(vartype){
       case SCIP_VARTYPE_BINARY:
          createBinaryVar(var, var_name, objCoeff, score);
@@ -187,26 +187,27 @@ public:
          break;
       }
 
-      for(int i=0; i<nonZeroCons; i++){
+      for(int i=0; i<cons.size(); i++){
+         SCIP_CONS* con = cons[i];
          if(transformed)
-            getTransformedCons(cons[i], &(cons[i]));
-         addCoefLinear(cons[i], *var, coeffs[i]);
+            getTransformedCons(con, &con);
+         addCoefLinear(con, *var, coeffs[i]);
       }
    }
 
    void createPositiveColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
-      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_CONTINUOUS, nonZeroCons, cons, coeffs, transformed, score);
+      vector<SCIP_CONS*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_CONTINUOUS, cons, coeffs, transformed, score);
    }
 
    void createBinaryColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
-      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_BINARY, nonZeroCons, cons, coeffs, transformed, score);
+      vector<SCIP_CONS*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_BINARY, cons, coeffs, transformed, score);
    }
 
    void createIntColumn(SCIP_VAR** var, const char* var_name, double objCoeff,
-      int nonZeroCons = 0, SCIP_CONS** cons = {}, double* coeffs = {}, bool transformed = false, double score = 0){
-      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_INTEGER, nonZeroCons, cons, coeffs, transformed, score);
+      vector<SCIP_CONS*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
+      createColumn(var, var_name, objCoeff, SCIP_VARTYPE_INTEGER, cons, coeffs, transformed, score);
    }
 
    /*
