@@ -1,8 +1,8 @@
 //
 //  MyTools.h
 //
-//  Created by Jérémy Omer on 19/11/2013.
-//  Copyright (c) 2013 Jérémy Omer. All rights reserved.
+//  Created by J��r��my Omer on 19/11/2013.
+//  Copyright (c) 2013 J��r��my Omer. All rights reserved.
 //
 
 #ifndef __MyTools__
@@ -85,6 +85,9 @@ void initVector3D(vector3D* v3D, int m, int n, int p);
 //
 string intToDay(int dayId);
 int dayToInt(string day);
+bool isSaturday(int dayId);
+bool isSunday(int dayId);
+bool isWeekend(int dayId);
 
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed

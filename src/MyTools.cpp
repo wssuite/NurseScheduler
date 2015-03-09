@@ -2,8 +2,8 @@
 //  MyTools.cxx
 //  IDSReseau
 //
-//  Created by Jérémy Omer on 19/11/2013.
-//  Copyright (c) 2013 Jérémy Omer. All rights reserved.
+//  Created by J��r��my Omer on 19/11/2013.
+//  Copyright (c) 2013 J��r��my Omer. All rights reserved.
 //
 
 #include "MyTools.h"
@@ -102,6 +102,7 @@ void initVector3D(vector3D* v3D, int m, int n, int p){
 // To get the day from its id and vice-versa
 // First day is always supposed to be a Monday
 //
+
 string intToDay(int dayId){
 	if((dayId%7)==0) return "Mon";
 	else if((dayId%7)==1) return "Tue";
@@ -120,6 +121,21 @@ int dayToInt(string day){
 	if(day=="Sat") return 5;
 	if(day=="Sun") return 6;
 	else return -1;
+}
+
+bool isSaturday(int dayId){
+   if( (dayId%7)==5 ) return true;
+   return false;
+}
+
+bool isSunday(int dayId){
+   if( (dayId%7)==6 ) return true;
+   return false;
+}
+
+bool isWeekend(int dayId){
+   if(isSaturday(dayId) || isSunday(dayId)) return true;
+   return false;
 }
 
 

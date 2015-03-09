@@ -32,7 +32,7 @@
 #-----------------------------------------------------------------------------
 INCLUDESFLAGS	=	-I$(BOOST_DIR)
 
-USRFLAGS	=
+USRFLAGS	=	
 USROFLAGS	=
 USRCFLAGS	=
 USRCXXFLAGS	=	-g -O0 -w -fPIC -fexceptions -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
@@ -61,7 +61,11 @@ include $(SCIPDIR)/make/make.project
 #-----------------------------------------------------------------------------
 
 MAINNAME	=	roster
+<<<<<<< HEAD
 MAINOBJ		=	main.o main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o SubProblem.o Solver.o Greedy.o Pricer_vrp.o Vrp.o
+=======
+MAINOBJ		=	main.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o RotationPricer.o
+>>>>>>> refs/remotes/origin/AL-SCIP.0
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)
 

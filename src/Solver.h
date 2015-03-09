@@ -301,6 +301,10 @@ public:
 	// Display functions
 	//------------------------------------------------
 
+   // return solution_
+   //
+   vector<Roster> getSolution() { return solution_; }
+
 	// display the whole solution in the required format
 	//
 	string solutionToString();

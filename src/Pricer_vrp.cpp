@@ -27,6 +27,8 @@
 
 #include "Pqueue.h"
 #include "scip/cons_linear.h"
+#include "objscip/objscip.h"
+#include "scip/pub_var.h"
 
 using namespace std;
 using namespace scip;
