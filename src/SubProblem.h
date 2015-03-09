@@ -270,7 +270,7 @@ public:
 
 	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
-	SubProblem(Scenario* scenario, Contract* contract);
+	SubProblem(Scenario* scenario, Demand * demand, Contract* contract);
 
 	// Initialization function for all global variables (not those of the graph)
 	//
@@ -282,7 +282,7 @@ public:
 
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
-	bool solve(LiveNurse* nurse, vector<vector<double> > * dualCosts, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false);
+	bool solve(LiveNurse* nurse, vector<vector<double> > * dualCosts, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=-1);
 
 	// Returns all rotations saved during the process of solving the SPPRC
 	//
@@ -310,6 +310,9 @@ protected:
 	// Pointer to the scenario considered
 	//
 	Scenario * pScenario_;
+
+	// Pointer to the demand
+	Demand* pDemand_;
 
 	// Number of days of the scenario (usually a multiple of 7)
 	//

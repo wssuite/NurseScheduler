@@ -19,9 +19,9 @@
 
 void main_test()
 {
-  // testFunction_Antoine();
-	testFunction_Jeremy();
-	//	testFunction_Samuel();
+	// testFunction_Antoine();
+	// testFunction_Jeremy();
+	testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
@@ -189,7 +189,7 @@ void testFunction_Samuel(){
 		cout << "# +----------------------------------------------------------------------------------------" << endl;
 		cout << "# CONTRACT : " << c->toString() << endl;
 		cout << "# +----------------------------------------------------------------------------------------" << endl;
-		SubProblem sp (s, c);
+		SubProblem sp (s, pWeekDemand, c);
 		cout << "# +----------------------------------------------------------------------------------------" << endl;
 		cout << "# " << endl;
 		cout << "# " << endl;

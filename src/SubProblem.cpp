@@ -61,11 +61,11 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario * scenario, Contract * contract):
-	pScenario_(scenario), pContract_ (contract){
+SubProblem::SubProblem(Scenario * scenario, Demand * demand, Contract * contract):
+	pScenario_(scenario), pDemand_(demand), pContract_ (contract){
 
-	maxRotationLength_ = pScenario_->nbWeeks_*7;
-	nDays_  = pScenario_->nbWeeks_ * 7;
+	maxRotationLength_ = pDemand_->nbDays_;
+	nDays_  = pDemand_->nbDays_;
 	init();
 
 	createNodes();
@@ -73,6 +73,7 @@ SubProblem::SubProblem(Scenario * scenario, Contract * contract):
 
 	nPathsMin_ = 0;
 
+	printGraph();
 	std::cout << printSummaryOfGraph();
 
 
@@ -88,6 +89,7 @@ void SubProblem::init(){
 	vector<bool> v; isUnlimited_ = v; isUnlimited_.push_back(false);
 	vector<int> w; maxvalConsByShift_ = w; maxvalConsByShift_.push_back(0);
 	for(int sh=1; sh<pScenario_->nbShifts_; sh++){
+		// TODO : modifier ligne suivante -> en fonction des historiques initiaux des nurses du scenario
 		isUnlimited_.push_back( pScenario_->maxConsShifts_[sh] >= nDays_ );
 		int nl = isUnlimited_[sh] ? pScenario_->minConsShifts_[sh] : pScenario_->maxConsShifts_[sh];
 		maxvalConsByShift_.push_back( nl );
@@ -195,12 +197,11 @@ vector3D SubProblem::allowedShortSuccessions(){
 		else {																			// Larger -> extend the previous one
 			vector< vector<int> > legidShortShiftSuccessionsOfSizeCMinusOne = ans[c-1];
 			for(int i=0; i<legidShortShiftSuccessionsOfSizeCMinusOne.size(); i++){		// For each short rotation of size c-1
-				vector<int> succ = legidShortShiftSuccessionsOfSizeCMinusOne[i];
+				vector<int> succ (legidShortShiftSuccessionsOfSizeCMinusOne[i]);
 				int sh = succ[succ.size()-1];
 				for(int newSh=1; newSh<nShifts; newSh++){								// For each possible shift at date c
 					if(! pScenario_->isForbiddenSuccessor(newSh,sh)){					// IF the succession is allowed, then add it
-						vector<int> newSucc;
-						for(int s=0; s<succ.size(); s++) newSucc.push_back(succ[s]);
+						vector<int> newSucc (succ);
 						newSucc.push_back(newSh);
 						allowedShortShiftSuccessionsOfSizeC.push_back(newSucc);
 					}
@@ -477,7 +478,7 @@ void SubProblem::createArcsAllRotationSize(){
 		// From checknode to exit
 		origin = itRLN->second;
 		destin = rotationLengthExit_;
-		addSingleArc(origin, destin, 0, 0, ROTSIZE_TO_ROTSIZEOUT);
+		addSingleArc(origin, destin, MAX_COST, 0, ROTSIZE_TO_ROTSIZEOUT);
 
 	}
 
