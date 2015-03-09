@@ -27,66 +27,80 @@ void main_test()
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
 
-   // Time the complete execution of the algorithm
-   Tools::Timer* timertotal = new Tools::Timer();
-   timertotal->init();
-   timertotal->start();
+	// Time the complete execution of the algorithm
+	Tools::Timer* timertotal = new Tools::Timer();
+	timertotal->init();
+	timertotal->start();
 
-   // Create a log file
-   string logFile = "../logfiles/test.log";
-   Tools::LogOutput logStream(logFile);
+	// Create a log file
+	string logFile = "logs/test.log";
+	Tools::LogOutput logStream(logFile);
 
+	//Create an output file
+	string outFile = "outfiles/test.out";
+	Tools::LogOutput outStream(outFile);
 
-   // Read the input data from files
-   Scenario* pScen = ReadWrite::readScenario("datasets/n030w4/Sc-n030w4.txt");
-   Demand* pWeekDemand = ReadWrite::readWeek("datasets/n030w4/WD-n030w4-1.txt", pScen);
-   ReadWrite::readHistory("datasets/n030w4/H0-n030w4-0.txt",pScen);
+	string inst = "n100w4";//n030w4
 
-   // Check that the scenario was read properly
-   //
-   // logStream << *pScen << std::endl;
-   logStream << pScen->toString() << std::endl;
-   logStream << pWeekDemand->toString(true) << std::endl;
+	string scenarPath = "datasets/" + inst + "/Sc-" + inst + ".txt";
+	string firstWeekPath = "datasets/" + inst + "/WD-" + inst + "-1.txt";
+	string firstHistoryPath = "datasets/" + inst + "/H0-" + inst + "-0.txt";
 
-   // Write the aggregate information on the demand
-   //
+	// Read the input data from files
+	Scenario* pScen = ReadWrite::readScenario(scenarPath);
+	Demand* pWeekDemand = ReadWrite::readWeek(firstWeekPath, pScen);
+	ReadWrite::readHistory(firstHistoryPath,pScen);
 
+	// Check that the scenario was read properly
+	//
+	// logStream << *pScen << std::endl;
+	logStream << pScen->toString() << std::endl;
+	logStream << pWeekDemand->toString(true) << std::endl;
 
-   // Write aggregate information on the cover capacity of the staff
-   // (TBD)
-
-   // Instantiate the solver class as a test
-   //
-   Greedy* pSolverTest =
-   new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
-   pSolverTest->constructiveGreedy();
-
-   // Write the solution in an output file
-   string outFile = "../outfiles/test.out";
-   Tools::LogOutput outStream(outFile);
-   outStream << pSolverTest->solutionToString();
-
-   // Display the total time spent in the algorithm
-   timertotal->stop();
-   logStream.print("Total time spent in the algorithm : ");
-   logStream.print(timertotal->dSinceInit());
-   logStream.print("\n");
+	// Write the aggregate information on the demand
+	//
 
 
-   //test vrp example of scip
-   string dataFile = "datasets/vrp/eil7.vrp";
-   Vrp* vrp = new Vrp(dataFile);
+	// Write aggregate information on the cover capacity of the staff
+	// (TBD)
 
-   // free the allocated pointers
-   //
-   delete vrp;
-   delete timertotal;
-   delete pWeekDemand;
-   delete pScen;
-   delete pSolverTest;
+	//Compute initial solution
+	//
+	Greedy* pGreedy =
+			new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
+	pGreedy->constructiveGreedy();
+	outStream << pGreedy->solutionToString();
+
+	// Instantiate the solver class as a test
+	//
+	MasterProblem* pSolverTest =
+			new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), pGreedy->getSolution());
+	pSolverTest->solve();
+
+	// Write the solution in an output file
+	outStream << pSolverTest->solutionToString();
+
+	// Display the total time spent in the algorithm
+	timertotal->stop();
+	logStream.print("Total time spent in the algorithm : ");
+	logStream.print(timertotal->dSinceInit());
+	logStream.print("\n");
 
 
+	//test vrp example of scip
+	//   string dataFile = "datasets/vrp/eil22.vrp";
+	//   Vrp* vrp = new Vrp(dataFile);
+
+	// free the allocated pointers
+	//
+	//   delete vrp;
+	delete timertotal;
+	delete pWeekDemand;
+	delete pScen;
+	delete pGreedy;
+	delete pSolverTest;
 }
+
 
 // Function for testing parts of the code (Jeremy)
 void testFunction_Jeremy(){
@@ -183,11 +197,11 @@ void testFunction_Samuel(){
 	logStream.print("\n");
 
 	for(map<string,Contract*>::const_iterator it = s->contracts_.begin(); it != s->contracts_.end(); ++it){
-		Contract * c = it->second;
+		const Contract * c = it->second;
 		cout << "# " << endl;
 		cout << "# " << endl;
 		cout << "# +----------------------------------------------------------------------------------------" << endl;
-		cout << "# CONTRACT : " << c->toString() << endl;
+		cout << "# CONTRACT : " << ((Contract *) c)->toString() << endl;
 		cout << "# +----------------------------------------------------------------------------------------" << endl;
 		SubProblem sp (s, pWeekDemand, c);
 		cout << "# +----------------------------------------------------------------------------------------" << endl;

@@ -273,14 +273,6 @@ void MasterProblem::buildRotationCons(){
       vector<SCIP_CONS*> workFlowCons2(pDemand_->nbDays_);
 
       /*****************************************
-       * short resting arcs
-       *****************************************/
-      for(int k=0; k<nbRestingArcs; ++k){
-         SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, indexStartRestArc+k, indexStartRestArc+k+1);
-         scip_.createPositiveVar(&(restingVars2[k]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
-      }
-
-      /*****************************************
        * long resting arcs without the first ones
        *****************************************/
       for(int k=1; k<pDemand_->nbDays_; ++k){
@@ -367,6 +359,14 @@ void MasterProblem::buildRotationCons(){
          //Create flow constraints. out flow = 1 if source node (k=0)
          scip_.createEQConsLinear(&(restFlowCons2[k]), name, (k==0) ? 1 : 0,
             longRestingVars2[k], coeffs);
+      }
+
+      /*****************************************
+       * short resting arcs
+       *****************************************/
+      for(int k=0; k<nbRestingArcs; ++k){
+         SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, indexStartRestArc+k, indexStartRestArc+k+1);
+         scip_.createPositiveVar(&(restingVars2[k]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
       }
 
       /*****************************************

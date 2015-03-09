@@ -41,7 +41,7 @@ static const vector<string> arcTypeName = {
 		"SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ", "REPEATSHIFT    ", "PPL_TO_ROTSIZE ",
 		"ROTSZIN_TO_RTSZ", "ROTSZ_TO_RSZOUT", "RTSZOUT_TO_SINK", "NONE           "};
 
-static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
+static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST = {};
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -253,6 +253,29 @@ public:
 
 
 
+struct Costs{
+public:
+
+	Costs(){}
+	Costs(vector< vector<double> > * workCosts, vector<double> * startWorkCosts, vector<double> * endWorkCosts, double workedWeekendCost):
+		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), pWorkedWeekendCost_(workedWeekendCost) {}
+
+protected:
+	// Indexe par : (jour, shift) !! 0 = shift 1 !!
+    vector< vector<double> > * pWorkCosts_;
+    // Indexe par : jour
+    vector<double> * pStartWorkCosts_;
+    // Indexe par : jour
+    vector<double> * pEndWorkCosts_;
+    //
+    double pWorkedWeekendCost_;
+
+    /*
+     * Possibilité d'ajouter des couts différents, typiquement des couts de base (non duaux)
+     */
+
+};
+
 
 //---------------------------------------------------------------------------
 //
@@ -270,7 +293,7 @@ public:
 
 	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
-	SubProblem(Scenario* scenario, Demand * demand, Contract* contract);
+	SubProblem(Scenario* scenario, Demand * demand, const Contract* contract);
 
 	// Initialization function for all global variables (not those of the graph)
 	//
@@ -282,7 +305,7 @@ public:
 
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
-	bool solve(LiveNurse* nurse, vector<vector<double> > * dualCosts, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=-1);
+	bool solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=-1);
 
 	// Returns all rotations saved during the process of solving the SPPRC
 	//
@@ -320,7 +343,7 @@ protected:
 
 	// Contract type
 	//
-	Contract * pContract_;
+	const Contract * pContract_;
 
 	// (Minimum) number of paths to return to the MP
 	//

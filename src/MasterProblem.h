@@ -40,7 +40,6 @@ struct Rotation {
 
    // Specific constructors and destructors
    //
-
    Rotation(map<int,int> shift, LiveNurse* nurse = NULL, double cost = 999999, double dualCost = 999999) :
       shifts_(shift), pNurse_(nurse), cost_(cost), dualCost_(dualCost), length_(shift.size())
    {

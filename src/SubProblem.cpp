@@ -61,19 +61,21 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario * scenario, Demand * demand, Contract * contract):
+SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * contract):
 	pScenario_(scenario), pDemand_(demand), pContract_ (contract){
 
 	maxRotationLength_ = pDemand_->nbDays_;
 	nDays_  = pDemand_->nbDays_;
 	init();
 
+	nDays_ = 56;
+
 	createNodes();
 	createArcs();
 
 	nPathsMin_ = 0;
 
-	printGraph();
+	//printGraph();
 	std::cout << printSummaryOfGraph();
 
 
@@ -95,6 +97,21 @@ void SubProblem::init(){
 		maxvalConsByShift_.push_back( nl );
 	}
 
+}
+
+
+
+
+
+//--------------------------------------------
+//
+// Solve function
+//
+//--------------------------------------------
+
+// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
+bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
+	return false;
 }
 
 
