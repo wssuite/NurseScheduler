@@ -63,11 +63,6 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
     theNursesSorted_.push_back(theLiveNurses_[i]);
   }
 
-  // initialize to zero the satisfied demand
-  //
-  Tools::initVector3D(&satisfiedDemand_, pDemand_->nbDays_,
-    pScenario_->nbShifts_, pScenario_->nbSkills_);
-
   // initialize weights that are used to penalize future violations
   //
   weightNbForbidden_ = (double) 1* WEIGHT_CONS_SHIFTS;
@@ -609,7 +604,7 @@ void Greedy::constructiveGreedy() {
     }
     int nbUnassigned = nbNurses;
 
-    // RqJO : l'ordre des skills/shifts pourrait être changé pour commencer par
+    // RqJO : l'ordre des skills/shifts pourrait ��tre chang�� pour commencer par
     // ceux qui sont les plus critiques
     for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
       for (int sk = 0; sk < nbSkills; sk++) {
@@ -697,7 +692,7 @@ void Greedy::constructiveGreedy() {
       }
     }
 
-    // RqJO : l'ordre des skills/shifts pourrait être changé pour commencer par
+    // RqJO : l'ordre des skills/shifts pourrait ��tre chang�� pour commencer par
     // ceux qui sont les plus critiques
     for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
       for (int sk = 0; sk < nbSkills; sk++) {

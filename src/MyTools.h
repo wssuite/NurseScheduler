@@ -16,9 +16,12 @@
 #include <streambuf>
 #include <string>
 #include <string.h>
+#include <stdio.h>
 #include <vector>
 #include <time.h>
 #include <exception>
+#include <algorithm>
+#include <cfloat>
 
 #define _USE_MATH_DEFINES // needed for the constant M_PI
 #include <math.h>

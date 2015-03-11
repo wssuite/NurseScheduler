@@ -1,7 +1,7 @@
 /*
 * Solver.cpp
 *
-*  Created on: 22 déc. 2014
+*  Created on: 22 d��c. 2014
 *      Author: jeremy
 */
 
@@ -263,6 +263,16 @@ void LiveNurse::checkConstraints(const Roster& roster,
   }
 }
 
+// Build States from the roster
+//
+void LiveNurse::buildStates(){
+   State previousState = *pStateIni_;
+   for(State state: states_){
+      state.addDayToState((const State) previousState, roster_.shift(previousState.dayId_+1));
+      previousState = state;
+   }
+}
+
 
 //-----------------------------------------------------------------------------
 //
@@ -408,7 +418,10 @@ void Solver::preprocessTheNurses() {
     std::cout << "Skill " << sk << " : " << maxStaffPerSkillNoPenalty_[sk] << std::endl;
   }
 
-  // Compute the
+  // initialize to zero the satisfied demand
+  //
+  Tools::initVector3D(&satisfiedDemand_, pDemand_->nbDays_,
+    pScenario_->nbShifts_, pScenario_->nbSkills_);
 }
 
 

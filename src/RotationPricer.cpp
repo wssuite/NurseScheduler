@@ -11,7 +11,7 @@
 #include "objscip/objscip.h"
 #include "scip/pub_var.h"
 
-static const char* baseName = "rotation";
+static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):

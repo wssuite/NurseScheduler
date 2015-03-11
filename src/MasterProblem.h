@@ -11,16 +11,6 @@
 /* Inheritance */
 #include "Solver.h"
 
-/* standard library includes */
-#include<algorithm>
-#include <cfloat>
-#include <stdio.h>
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <cmath>
-
 /* Tools include */
 #include "MyTools.h"
 
@@ -177,7 +167,7 @@ private:
    //add the correct constraints and coefficients for the nurse i working on a rotation
    //if s=-1, the nurse works on all shifts
    //store the rotation in rotations_
-   void addRotation(Rotation rotation, const char* baseName);
+   void addRotation(Rotation rotation, char* baseName);
 
    /* Build each set of constraints - Add also the coefficient of a column for each set */
    void buildRotationCons();
@@ -186,6 +176,9 @@ private:
    int addMinMaxConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, bool weekend = false);
    void buildSkillsCoverageCons();
    int addSkillsCoverageConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, int s=-1);
+
+   /* Display functions */
+   string costsConstrainstsToString();
 
 };
 

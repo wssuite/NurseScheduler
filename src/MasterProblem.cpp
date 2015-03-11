@@ -23,16 +23,16 @@ using namespace scip;
 
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    Preferences* pPreferences, vector<State>* pInitState, vector<Roster> solution):
-                                    Solver(pScenario, pDemand, pPreferences, pInitState),
-                                    scip_(PB_NAME), positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), rotations_(pScenario->nbNurses_),
+                                          Solver(pScenario, pDemand, pPreferences, pInitState),
+                                          scip_(PB_NAME), positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), rotations_(pScenario->nbNurses_),
 
-                                    columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
-                                    minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
-                                    optDemandVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
+                                          columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
+                                          minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
+                                          optDemandVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
 
-                                    restFlowCons_(pScenario->nbNurses_), workFlowCons_(pScenario->nbNurses_),
-                                    minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
-                                    minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
+                                          restFlowCons_(pScenario->nbNurses_), workFlowCons_(pScenario->nbNurses_),
+                                          minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
+                                          minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
 {
 
    this->preprocessTheNurses();
@@ -85,22 +85,15 @@ void MasterProblem::build(){
 void MasterProblem::solve(){
    scip_.solve();
    //   scip_.printStats();
-   scip_.printBestSol();
+//   scip_.printBestSol();
    storeSolution();
-   scip_.deleteSCIP();
+   costsConstrainstsToString();
 }
 
 //initialize the rostering problem with one column to be feasible if there is no initial solution
 //otherwise build the columns corresponding to the initial solution
 void MasterProblem::initialize(vector<Roster> solution){
-   int nbVars(0);
-   vector<SCIP_VAR*> initialVar(pScenario_->nbNurses_);
-   const char* baseName = "initialRotation";
-   vector<char*> names(pScenario_->nbNurses_);
-   vector<double> initialObjCoeffs(pScenario_->nbNurses_);
-   vector<int> nbCons(pScenario_->nbNurses_);
-   vector< vector<SCIP_CONS*> > initialCons(pScenario_->nbNurses_);
-   vector< vector<double> > initialCoeffs(pScenario_->nbNurses_);
+   char* baseName = "initialRotation";
 
    //if there is no initial solution, we add a column with 1 everywhere for each nurse to be feasible
    if(solution.size() == 0){
@@ -184,7 +177,7 @@ void MasterProblem::storeSolution(){
    for(LiveNurse* pNurse: theLiveNurses_)
       for(pair<SCIP_VAR*, Rotation> p: rotations_[pNurse->id_])
          if(scip_.getVarValue(sol, p.first) > 0)
-            findSkill:for(int k=p.second.firstDay_; k<p.second.firstDay_+p.second.length_; ++k){
+            for(int k=p.second.firstDay_; k<p.second.firstDay_+p.second.length_; ++k){
                bool assigned = false;
                for(int sk=0; sk<pScenario_->nbSkills_; ++sk)
                   if(skillsAllocation[k][p.second.shifts_[k]-1][sk][pNurse->pPosition_->id_] > 0){
@@ -199,12 +192,15 @@ void MasterProblem::storeSolution(){
                   Tools::throwError((const char*) error);
                }
             }
+
+   //build the states of each nurse
+   for(LiveNurse* pNurse: theLiveNurses_)
+      pNurse->buildStates();
 }
 
 //build the variable of the rotation as well as all the affected constraints with their coefficients
 //if s=-1, the nurse i works on all shifts
-void MasterProblem::addRotation(Rotation rotation, const char* baseName){
-   int nbCons(0);
+void MasterProblem::addRotation(Rotation rotation, char* baseName){
    //nurse index
    int i = rotation.pNurse_->id_;
 
@@ -215,27 +211,27 @@ void MasterProblem::addRotation(Rotation rotation, const char* baseName){
    vector<double> coeffs;
 
    /* Rotation constraints */
-   nbCons += addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_, true, false);
-   nbCons += addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_+rotation.length_-1, false, true);
+   addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_, true, false);
+   addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_+rotation.length_-1, false, true);
 
    /* Min/Max constraints */
    for(int k=rotation.pNurse_->firstDay_; k<rotation.pNurse_->firstDay_+rotation.length_; ++k){
       //check if the nurse works on a saturday and add it in the constraints
       //not yet added in the constraints maxWorkedWeekend
       if(Tools::isSaturday(k))
-         nbCons += addMinMaxConsToCol(&cons, &coeffs, i, k, true);
+         addMinMaxConsToCol(&cons, &coeffs, i, k, true);
       //check if the nurse works on a sunday and does not work on a saturday
       //not yet added in the constraints maxWorkedWeekend
       else if( (k==rotation.pNurse_->firstDay_) && Tools::isSunday(k) )
-         nbCons += addMinMaxConsToCol(&cons, &coeffs, i, k, true);
+         addMinMaxConsToCol(&cons, &coeffs, i, k, true);
       //otherwise, do not add in the constraints maxWorkedWeekend
       else
-         nbCons += addMinMaxConsToCol(&cons, &coeffs, i, k);
+         addMinMaxConsToCol(&cons, &coeffs, i, k);
    }
 
    /* Skills coverage constraints */
    for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k)
-      nbCons += addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
+      addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
 
    SCIPsnprintf(name, 255, "%s_N%d_%d",baseName , i, rotations_[i].size());
    scip_.createPositiveColumn(&var, name, rotation.cost_, cons, coeffs);
@@ -273,80 +269,92 @@ void MasterProblem::buildRotationCons(){
       vector<SCIP_CONS*> workFlowCons2(pDemand_->nbDays_);
 
       /*****************************************
-       * long resting arcs without the first ones
+       * Creating arcs
        *****************************************/
-      for(int k=1; k<pDemand_->nbDays_; ++k){
-         //number of long resting arcs = min(nbLongRestingArcs, number of possible long resting arcs)
-         int nbLongRestingArcs2( min(nbLongRestingArcs, pDemand_->nbDays_-k) );
-         //initialize cost
-         //if the arc finishes the last day, the cost is 0. Indeed it will be computed on the next planning
-         int cost = minConsDaysOff * WEIGHT_CONS_DAYS_OFF;
+      for(int k=0; k<pDemand_->nbDays_; ++k){
+         /*****************************************
+          * first long resting arcs
+          *****************************************/
+         if(k==0){
+            //number of min long resting arcs
+            int nbMinRestArcs( max(0, minConsDaysOff - initConsDaysOff) );
+            //initialize cost
+            int cost (nbMinRestArcs * WEIGHT_CONS_DAYS_OFF);
 
-         //initialize vectors
-         vector<SCIP_VAR*> longRestingVars3(nbLongRestingArcs2);
+            //initialize vectors
+            //Must have a minimum of one long resting arcs
+            vector<SCIP_VAR*> longRestingVars3_0(indexStartRestArc);
 
-         //create minRest arcs
-         for(int l=1; l<=minConsDaysOff; ++l){
-            cost -= WEIGHT_CONS_DAYS_OFF;
-            SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, k, k+l);
-            //if arc ends before the last day: normal cost
-            if(l < pDemand_->nbDays_-k)
-               scip_.createPositiveVar(&(longRestingVars3[l-1]), name, cost);
-            //otherwise, arc finishes on last day
-            //so: cost=0 and we break the loop
-            else{
-               scip_.createPositiveVar(&(longRestingVars3[l-1]), name, 0);
-               break;
+            //create minRest arcs
+            for(int l=1; l<=nbMinRestArcs; ++l){
+               cost -= WEIGHT_CONS_DAYS_OFF;
+               SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
+               scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, cost);
             }
-         }
 
-         //create maxRest arcs, if maxRest=true
-         if(maxRest)
-            for(int l=1+minConsDaysOff; l<=maxConsDaysOff; ++l){
-               //if exceed last days, break
-               if(l > pDemand_->nbDays_-k)
-                  break;
+            //create maxRest arcs, if maxRest=true
+            if(maxRest){
+               for(int l=1+nbMinRestArcs; l<=firstRestArc; ++l){
+                  SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
+                  scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, 0);
+               }
+            }
+
+            //create the only resting arc (same as a short resting arcs)
+            if(firstRestArc == 0){
+               SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, 0, 1);
+               scip_.createPositiveVar(&(longRestingVars3_0[0]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
+            }
+            //store vectors
+            longRestingVars2[0] = longRestingVars3_0;
+         }
+         /*****************************************
+          * long resting arcs without the first ones
+          *****************************************/
+         else{
+            //number of long resting arcs = min(nbLongRestingArcs, number of possible long resting arcs)
+            int nbLongRestingArcs2( min(nbLongRestingArcs, pDemand_->nbDays_-k) );
+            //initialize cost
+            //if the arc finishes the last day, the cost is 0. Indeed it will be computed on the next planning
+            int cost = minConsDaysOff * WEIGHT_CONS_DAYS_OFF;
+
+            //initialize vectors
+            vector<SCIP_VAR*> longRestingVars3(nbLongRestingArcs2);
+
+            //create minRest arcs
+            for(int l=1; l<=minConsDaysOff; ++l){
+               cost -= WEIGHT_CONS_DAYS_OFF;
                SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, k, k+l);
-               scip_.createPositiveVar(&(longRestingVars3[l-1]), name, 0);
+               //if arc ends before the last day: normal cost
+               if(l < pDemand_->nbDays_-k)
+                  scip_.createPositiveVar(&(longRestingVars3[l-1]), name, cost);
+               //otherwise, arc finishes on last day
+               //so: cost=0 and we break the loop
+               else{
+                  scip_.createPositiveVar(&(longRestingVars3[l-1]), name, 0);
+                  break;
+               }
             }
-         //store vectors
-         longRestingVars2[k] = longRestingVars3;
-      }
-
-      /*****************************************
-       * first long resting arcs
-       *****************************************/
-      //number of min long resting arcs
-      int nbMinRestArcs( max(0, minConsDaysOff - initConsDaysOff) );
-      //initialize cost
-      int cost (nbMinRestArcs * WEIGHT_CONS_DAYS_OFF);
-
-      //initialize vectors
-      //Must have a minimum of one long resting arcs
-      vector<SCIP_VAR*> longRestingVars3_0(indexStartRestArc);
-
-      //create minRest arcs
-      for(int l=1; l<=nbMinRestArcs; ++l){
-         cost -= WEIGHT_CONS_DAYS_OFF;
-         SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
-         scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, cost);
-      }
-
-      //create maxRest arcs, if maxRest=true
-      if(maxRest){
-         for(int l=1+nbMinRestArcs; l<=firstRestArc; ++l){
-            SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
-            scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, 0);
+            //create maxRest arcs, if maxRest=true
+            if(maxRest)
+               for(int l=1+minConsDaysOff; l<=maxConsDaysOff; ++l){
+                  //if exceed last days, break
+                  if(l > pDemand_->nbDays_-k)
+                     break;
+                  SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, k, k+l);
+                  scip_.createPositiveVar(&(longRestingVars3[l-1]), name, 0);
+               }
+            //store vectors
+            longRestingVars2[k] = longRestingVars3;
+         }
+         /*****************************************
+          * short resting arcs
+          *****************************************/
+         if(k>=indexStartRestArc){
+            SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, k, k+1);
+            scip_.createPositiveVar(&(restingVars2[k-indexStartRestArc]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
          }
       }
-
-      //create the only resting arc (same as a short resting arcs)
-      if(firstRestArc == 0){
-         SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, 0, 1);
-         scip_.createPositiveVar(&(longRestingVars3_0[0]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
-      }
-      //store vectors
-      longRestingVars2[0] = longRestingVars3_0;
 
       /*****************************************
        * Resting nodes constraints
@@ -359,14 +367,6 @@ void MasterProblem::buildRotationCons(){
          //Create flow constraints. out flow = 1 if source node (k=0)
          scip_.createEQConsLinear(&(restFlowCons2[k]), name, (k==0) ? 1 : 0,
             longRestingVars2[k], coeffs);
-      }
-
-      /*****************************************
-       * short resting arcs
-       *****************************************/
-      for(int k=0; k<nbRestingArcs; ++k){
-         SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, indexStartRestArc+k, indexStartRestArc+k+1);
-         scip_.createPositiveVar(&(restingVars2[k]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
       }
 
       /*****************************************
@@ -620,6 +620,22 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<SCIP_CONS*>* cons, vector<d
    return nbCons;
 }
 
+string MasterProblem::costsConstrainstsToString(){
+   SCIP_SOL* sol = scip_.getBestSol();
+   stringstream rep;
+
+   rep << printf("%-25s %10.0f \n","Column costs", scip_.getTotalCost(sol, rotations_));
+   rep << printf("%-25s %10.0f \n","Resting costs", scip_.getTotalCost(sol, restingVars_)+scip_.getTotalCost(sol, longRestingVars_));
+   rep << printf("%-25s %10.0f \n","Min worked days costs", scip_.getTotalCost(sol, minWorkedDaysVars_));
+   rep << printf("%-25s %10.0f \n","Max worked days costs", scip_.getTotalCost(sol, maxWorkedDaysVars_));
+   rep << printf("%-25s %10.0f \n","Max worked weekend costs", scip_.getTotalCost(sol, maxWorkedWeekendVars_));
+   rep << printf("%-25s %10.0f \n","Coverage costs", scip_.getTotalCost(sol, optDemandVars_));
+
+   cout << rep.str();
+
+   return rep.str();
+}
+
 void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int horizon){
    //check if pNurse points to a nurse
    if(pNurse_ == NULL)
@@ -706,8 +722,6 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    for(int k=firstDay_; k<firstDay_+length_; ++k)
       if(pPreferences->wantsTheShiftOff(pNurse_->id_, k, shifts_[k]))
          preferenceCost += WEIGHT_PREFERENCES;
-
-   int nbDaysOff = pPreferences->howManyDaysOff(pNurse_->id_, firstDay_, firstDay_+length_-1);
 
    /*
     * Compute the sum of the cost and stores it in cost_

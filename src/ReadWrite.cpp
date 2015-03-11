@@ -300,20 +300,18 @@ Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
 					shiftId = pScenario->shiftToInt_.at(shift);
 					pref.addShiftOff(nurseId, dayId, shiftId);
 				}
-				weekPreferences = pref;
 			}
+         weekPreferences = pref;
 		}
 	}
 
 	// Define a new instance of demand
-	Demand* pDemand = new Demand(7, 0, pScenario->nbShifts_,pScenario->nbSkills_,
+	Demand* pDemand = new Demand(7, 0, pScenario->nbShifts_,pScenario->nbSkills_, weekName,
 	minWeekDemand, optWeekDemand);
 
 	// Now, add all these objects to the Scenario
-	pScenario->setWeekName(weekName);
-	pScenario->setWeekDemand(pDemand);
-	pScenario->setTNbShiftOffRequests(nbShiftOffRequests);
-	pScenario->setWeekPreferences(weekPreferences);
+	pScenario->linkWithDemand(pDemand);
+	pScenario->linkWithPreferences(weekPreferences);
 
 	// return the demand
 	return pDemand;

@@ -199,7 +199,7 @@ public:
 
 	// Setters to class attributes
 
-	// when reading the week file (Demand and preferences
+	// when reading the week file (Demand and preferences)
 	//
 	inline void setWeekName(string weekName){ weekName_ = weekName;}
 	inline void setWeekDemand(Demand* pDemand) {pWeekDemand_ = pDemand;}
@@ -214,6 +214,20 @@ public:
 	// return true if the shift shNext is a forbidden successor of sh
 	//
 	bool isForbiddenSuccessor(int shNext, int sh);
+
+	// Link the scenario with the Demand and the Preferences
+	//
+	inline void linkWithDemand(Demand* pDemand){
+	   weekName_ = pDemand->name_;
+	   pWeekDemand_ = pDemand;
+	}
+
+	inline void linkWithPreferences(Preferences pPreferences){
+      nbShiftOffRequests_ = 0;
+      for(int i=0; i<pPreferences.wishesOff_.size(); ++i)
+         nbShiftOffRequests_ += pPreferences.wishesOff_[i].size();
+      weekPreferences_ = pPreferences;
+   }
 
 public:
 
