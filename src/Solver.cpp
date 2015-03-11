@@ -266,11 +266,8 @@ void LiveNurse::checkConstraints(const Roster& roster,
 // Build States from the roster
 //
 void LiveNurse::buildStates(){
-   State previousState = *pStateIni_;
-   for(State state: states_){
-      state.addDayToState((const State) previousState, roster_.shift(previousState.dayId_+1));
-      previousState = state;
-   }
+   for(int k=1; k<states_.size(); ++k)
+      states_[k].addDayToState(states_[k-1], roster_.shift(k));
 }
 
 
