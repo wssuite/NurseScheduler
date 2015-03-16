@@ -41,7 +41,7 @@ static const vector<string> arcTypeName = {
 		"SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ", "REPEATSHIFT    ", "PPL_TO_ROTSIZE ",
 		"ROTSZIN_TO_RTSZ", "ROTSZ_TO_RSZOUT", "RTSZOUT_TO_SINK", "NONE           "};
 
-static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST = {};
+static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
 
 
 //////////////////////////////////////////////////////////////////////////

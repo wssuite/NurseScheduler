@@ -187,10 +187,9 @@ void LiveNurse::checkConstraints(const Roster& roster,
       if (prevShift == 0) {
         missingDays = minConsDaysOff()-states[day-1].consDaysOff_;
       }
-      extraDays = states[day].consDaysWorked_-maxConsDaysWork();
 
       stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
-      stat.costConsDays_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_WORK:0;
+      stat.costConsDays_[day-1] += (states[day].consDaysWorked_>maxConsDaysWork()) ? WEIGHT_CONS_DAYS_WORK:0;
     }
     // compute the violations of consecutive days off
     else {
@@ -207,28 +206,46 @@ void LiveNurse::checkConstraints(const Roster& roster,
     // check the consecutive same shifts
     //
     stat.costConsShifts_[day-1] = 0;
-    if (shift != prevShift)  {
-      int missingShifts = 0, extraShifts = 0;
+    int missingShifts = 0, extraShifts = 0;
+
+    // count the penalty for minimum consecutive shifts only for the previous day
+    // when the new shift is different
+    if (shift != prevShift && prevShift > 0)  {
+      missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
+      stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
+
+      if (missingShifts>0)
+        std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; missing= " << missingShifts << std::endl;
+    } 
+
+    // count the penalty for maximum consecutive shifts when the shift is worked
+    // the last day will then be counted
+    if (shift > 0) {
+      stat.costConsShifts_[day-1] += 
+        (states[day].consShifts_>pScenario_->maxConsShifts_[shift]) ? WEIGHT_CONS_SHIFTS:0;
+
+        if (states[day].consShifts_>pScenario_->maxConsShifts_[shift])
+          std::cout << "Day = " << day-1 << " ; nurse = " << id_ << " ; One extra shift" << std::endl;
+    }
 
       // it only makes sense if the nurse was working last day
-      if (prevShift > 0) {
-        missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
-        extraShifts =  states[day-1].consShifts_-pScenario_->maxConsShifts_[prevShift];
+    //   if (prevShift > 0) {
+    //     missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
+    //     extraShifts =  states[day-1].consShifts_-pScenario_->maxConsShifts_[prevShift];
 
-        stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
-        stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
+    //     stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
 
-        if (extraShifts>0||missingShifts>0)
-        std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << " ; missing= " << missingShifts << std::endl;
-      }
-    }
+    //     if (extraShifts>0||missingShifts>0)
+    //     std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << " ; missing= " << missingShifts << std::endl;
+    //   }
+    // }
 
-    if (shift > 0 && day == nbDays_) {
-       int extraShifts =  states[day].consShifts_-pScenario_->maxConsShifts_[shift];
-       stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
-       if (extraShifts>0)
-          std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << std::endl;
-    }
+    // if (shift > 0 && day == nbDays_) {
+    //    int extraShifts =  states[day].consShifts_-pScenario_->maxConsShifts_[shift];
+    //    stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
+    //    if (extraShifts>0)
+    //       std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << std::endl;
+    // }
 
     // check the preferences
     //

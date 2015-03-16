@@ -19,9 +19,9 @@
 
 void main_test()
 {
-   testFunction_Antoine();
-   // testFunction_Jeremy();
-   //	testFunction_Samuel();
+	testFunction_Antoine();
+	// testFunction_Jeremy();
+	//testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
