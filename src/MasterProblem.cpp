@@ -281,6 +281,12 @@ void MasterProblem::buildRotationCons(){
             //initialize cost
             int cost (nbMinRestArcs * WEIGHT_CONS_DAYS_OFF);
 
+            //compute cost for previous worked shifts
+            int lastShift = theLiveNurses_[i]->pStateIni_->shift_;
+            int nbConsShifts = (lastShift==0) ? 99 : theLiveNurses_[i]->pStateIni_->consShifts_;
+            int diff = pScenario_->minConsShifts_[lastShift] - nbConsShifts;
+            int costPreviousConsShifts = (diff>0) ? diff*WEIGHT_CONS_SHIFTS : 0;
+
             //initialize vectors
             //Must have a minimum of one long resting arcs
             vector<SCIP_VAR*> longRestingVars3_0(indexStartRestArc);
@@ -289,21 +295,21 @@ void MasterProblem::buildRotationCons(){
             for(int l=1; l<=nbMinRestArcs; ++l){
                cost -= WEIGHT_CONS_DAYS_OFF;
                SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
-               scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, cost);
+               scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, cost+costPreviousConsShifts);
             }
 
             //create maxRest arcs, if maxRest=true
             if(maxRest){
                for(int l=1+nbMinRestArcs; l<=firstRestArc; ++l){
                   SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
-                  scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, 0);
+                  scip_.createPositiveVar(&(longRestingVars3_0[l-1]), name, costPreviousConsShifts);
                }
             }
 
             //create the only resting arc (same as a short resting arcs)
             if(firstRestArc == 0){
                SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, 0, 1);
-               scip_.createPositiveVar(&(longRestingVars3_0[0]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
+               scip_.createPositiveVar(&(longRestingVars3_0[0]), name, (maxRest) ? WEIGHT_CONS_DAYS_OFF+costPreviousConsShifts : costPreviousConsShifts);
             }
             //store vectors
             longRestingVars2[0] = longRestingVars3_0;
@@ -677,8 +683,10 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
       if(lastShift > 0){
          int diff = max(pScenario->minConsShifts_[lastShift] - nbConsShifts,
             nbConsShifts-pScenario->maxConsShifts_[lastShift]);
-         if(diff>0)
+         if(diff>0) {
             consShiftsCost += diff * WEIGHT_CONS_SHIFTS;
+         cout << "Day = " << k-1 << " ; nurse = " << pNurse_->id_ << " ; diff = " << diff << endl;
+         }
       }
       //initialize nbConsShifts and lastShift
       nbConsShifts = 1;
@@ -688,8 +696,12 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    //compute consShiftsCost for the last shift
    int diff = max((firstDay_+length_ == horizon) ? 0 : pScenario->minConsShifts_[lastShift] - nbConsShifts,
       nbConsShifts-pScenario->maxConsShifts_[lastShift]);
-   if(diff>0)
+   if(diff>0) {
       consShiftsCost += diff * WEIGHT_CONS_SHIFTS;
+      cout << "Day = " << firstDay_+length_-nbConsShifts << " ; nurse = " << pNurse_->id_ << " ; diff = " << diff  << endl;
+
+   }
+
 
    /*
     * Compute consDaysWorkedCost

@@ -189,7 +189,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
       }
       extraDays = states[day].consDaysWorked_-maxConsDaysWork();
 
-      stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_WORK*missingDays:0;
+      stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
       stat.costConsDays_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_WORK:0;
     }
     // compute the violations of consecutive days off
@@ -199,7 +199,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
       }
       extraDays = states[day].consDaysOff_-maxConsDaysOff();
 
-      stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
+      stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_WORK*missingDays:0;
       stat.costConsDays_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF:0;
     }
 
@@ -211,13 +211,23 @@ void LiveNurse::checkConstraints(const Roster& roster,
       int missingShifts = 0, extraShifts = 0;
 
       // it only makes sense if the nurse was working last day
-      if (prevShift) {
-        missingShifts = pScenario_->minConsShifts_[shift]-states[day-1].consShifts_;
-        extraShifts =  states[day-1].consShifts_-pScenario_->maxConsShifts_[shift];
+      if (prevShift > 0) {
+        missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
+        extraShifts =  states[day-1].consShifts_-pScenario_->maxConsShifts_[prevShift];
 
         stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
         stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
+
+        if (extraShifts>0||missingShifts>0)
+        std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << " ; missing= " << missingShifts << std::endl;
       }
+    }
+
+    if (shift > 0 && day == nbDays_) {
+       int extraShifts =  states[day].consShifts_-pScenario_->maxConsShifts_[shift];
+       stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
+       if (extraShifts>0)
+          std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << std::endl;
     }
 
     // check the preferences
@@ -238,10 +248,9 @@ void LiveNurse::checkConstraints(const Roster& roster,
     // check the complete week-end (only if the nurse requires them)
     // this cost is only assigned to the sundays
     //
-    if ( (day+this->firstDay_)%7 == 6 && needCompleteWeekends()) {
-      if ( (roster.shift(day-1) > 0 && roster.shift(day) == 0) ||
-       ( roster.shift(day-1) == 0 && roster.shift(day) > 0 )) {
-        stat.costWeekEnd_[day] = WEIGHT_COMPLETE_WEEKEND;
+    if ( Tools::isSunday(day) && needCompleteWeekends()) {
+      if ( (shift > 0 && prevShift == 0) || ( shift == 0 && prevShift > 0 )) {
+        stat.costWeekEnd_[day-1] = WEIGHT_COMPLETE_WEEKEND;
       }
     }
 
@@ -251,7 +260,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
   //
   stat.costTotalDays_ = 0;
   stat.costTotalWeekEnds_ = 0;
-  if (pScenario_->thisWeek() == pScenario_->nbWeeks_) {
+  if (true) {//pScenario_->thisWeek() == pScenario_->nbWeeks_) {
     int missingDays=0, extraDays=0;
     missingDays = std::max(0, minTotalShifts() - states[nbDays_].totalDaysWorked_);
     extraDays = std::max(0, states[nbDays_].totalDaysWorked_-maxTotalShifts());
@@ -267,7 +276,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
 //
 void LiveNurse::buildStates(){
    for(int k=1; k<states_.size(); ++k)
-      states_[k].addDayToState(states_[k-1], roster_.shift(k));
+      states_[k].addDayToState(states_[k-1], roster_.shift(k-1));
 }
 
 
@@ -619,7 +628,9 @@ string Solver::solutionToLogString() {
   rep << "\nCost per constraint type\n";
   rep << "------------------------\n";
   rep << "Total assignment constraints: " << costTotalDays << std::endl;
-  rep << "Consecutive constraints: " << costConsDays+costConsShifts << std::endl;
+  //rep << "Consecutive constraints: " << costConsDays+costConsShifts << std::endl;
+  rep << "Consecutive Days constraints: " << costConsDays << std::endl;
+  rep << "Consecutive Shifts constraints: " << costConsShifts << std::endl;
   rep << "Non working days constraints: " << std::endl;
   rep << "Preferences: " << costPref << std::endl;
   rep << "Max working weekend: " << costTotalWeekEnds << std::endl;
