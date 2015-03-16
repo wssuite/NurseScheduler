@@ -51,7 +51,6 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
 
   // get the maximum rank
   //
-
   rankMax_ = 0;
   for (int i= 0; i < pScenario_->nbPositions(); i++)  {
     rankMax_ = std::max(rankMax_, pScenario_->pPositions()[i]->rank());

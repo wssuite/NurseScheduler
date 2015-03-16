@@ -37,7 +37,8 @@ public:
 
    // costs for the violation of soft constraints
    //
-   vector<int> costConsDays_; // the same vector also accounts for consecutive days off
+   vector<int> costConsDays_;
+   vector<int> costConsDaysOff_;
    vector<int> costConsShifts_;
    vector<int> costPref_;
    vector<int> costWeekEnd_;

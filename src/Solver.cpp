@@ -31,6 +31,7 @@ void StatCtNurse::init(int nbDays) {
   // initialize all the cost vectors
   Tools::initVector(&costConsShifts_, nbDays_);
   Tools::initVector(&costConsDays_, nbDays_);
+  Tools::initVector(&costConsDaysOff_, nbDays_);
   Tools::initVector(&costPref_, nbDays_);
   Tools::initVector(&costWeekEnd_, nbDays_);
 
@@ -181,17 +182,17 @@ void LiveNurse::checkConstraints(const Roster& roster,
     //
     int missingDays=0, extraDays=0;
     stat.costConsDays_[day-1] = 0;
+    stat.costConsDaysOff_[day-1] = 0;
 
-    // compute the violations of consecutive working days
+    // compute the violations of consecutive working days an
     if (shift) {
       if (prevShift == 0) {
         missingDays = minConsDaysOff()-states[day-1].consDaysOff_;
       }
 
-      stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
+      stat.costConsDaysOff_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_OFF*missingDays:0;
       stat.costConsDays_[day-1] += (states[day].consDaysWorked_>maxConsDaysWork()) ? WEIGHT_CONS_DAYS_WORK:0;
     }
-    // compute the violations of consecutive days off
     else {
       if (prevShift > 0) {
         missingDays =minConsDaysWork()-states[day-1].consDaysWorked_;
@@ -199,7 +200,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
       extraDays = states[day].consDaysOff_-maxConsDaysOff();
 
       stat.costConsDays_[day-1] += (missingDays>0) ? WEIGHT_CONS_DAYS_WORK*missingDays:0;
-      stat.costConsDays_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF:0;
+      stat.costConsDaysOff_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF:0;
     }
 
 
@@ -477,8 +478,8 @@ double Solver::solutionCost() {
     StatCtNurse stat = pNurse->statCt_;
 
     for (int day = 0; day < nbDays ; day++) {
-      totalCost += stat.costConsDays_[day]+stat.costConsShifts_[day]
-        +stat.costPref_[day]+stat.costWeekEnd_[day];
+      totalCost += stat.costConsDays_[day]+stat.costConsDaysOff_[day]+ 
+        stat.costConsShifts_[day]+stat.costPref_[day]+stat.costWeekEnd_[day];
 
       if (pNurse->roster_.shift(day) > 0) {
         satisfiedDemand_[day][pNurse->roster_.shift(day)][pNurse->roster_.skill(day)]++;
@@ -598,7 +599,7 @@ string Solver::solutionToLogString() {
   //
   int violMinCover = 0, violReqSkill = 0, violForbiddenSucc = 0;
   double costOptCover = 0, costTotalDays = 0, costTotalWeekEnds = 0;
-  double costConsDays = 0, costConsShifts = 0, costPref = 0, costWeekEnds = 0;
+  double costConsDays = 0, costConsDaysOff=0, costConsShifts = 0, costPref = 0, costWeekEnds = 0;
 
   // constraints related to the demand
   for (int day = firstDay; day < firstDay+nbDays; day++) {
@@ -627,6 +628,7 @@ string Solver::solutionToLogString() {
 
       // the other costs per soft constraint can be read from the stat structure
       costConsDays += pNurse->statCt_.costConsDays_[day];
+      costConsDaysOff += pNurse->statCt_.costConsDaysOff_[day];
       costConsShifts += pNurse->statCt_.costConsShifts_[day];
       costPref += pNurse->statCt_.costPref_[day];
       costWeekEnds += pNurse->statCt_.costWeekEnd_[day];
@@ -646,8 +648,9 @@ string Solver::solutionToLogString() {
   rep << "------------------------\n";
   rep << "Total assignment constraints: " << costTotalDays << std::endl;
   //rep << "Consecutive constraints: " << costConsDays+costConsShifts << std::endl;
-  rep << "Consecutive Days constraints: " << costConsDays << std::endl;
-  rep << "Consecutive Shifts constraints: " << costConsShifts << std::endl;
+  rep << "Consecutive working days constraints: " << costConsDays << std::endl;
+  rep << "Consecutive days off constraints: " << costConsDaysOff << std::endl;
+  rep << "Consecutive shifts constraints: " << costConsShifts << std::endl;
   rep << "Non working days constraints: " << std::endl;
   rep << "Preferences: " << costPref << std::endl;
   rep << "Max working weekend: " << costTotalWeekEnds << std::endl;
