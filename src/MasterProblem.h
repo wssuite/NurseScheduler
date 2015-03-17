@@ -15,8 +15,9 @@
 #include "MyTools.h"
 
 /* My includes */
-#include "ScipModeler.h"
 #include "Nurse.h"
+#include "ScipModeler.h"
+#include "Modeler.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -26,6 +27,8 @@
 //  It has a cost and a dual cost (tbd).
 //
 //-----------------------------------------------------------------------------
+enum CostType {TOTAL_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST, COMPLETE_WEEKEND_COST, PREFERENCE_COST, INIT_REST_COST};
+
 struct Rotation {
 
    // Specific constructors and destructors
@@ -55,6 +58,7 @@ struct Rotation {
    // Cost
    //
    double cost_;
+   double consShiftsCost_ , consDaysWorkedCost_, completeWeekendCost_, preferenceCost_, initRestCost_ ;
 
    // Dual cost as found in the subproblem
    //
@@ -95,12 +99,12 @@ public:
       Preferences* pPreferences, vector<State>* pInitState, vector<Roster> solution = {});
    ~MasterProblem();
 
-   // Main method to solve the rostering problem for a given input
+   //solve the rostering problem
    void solve();
 
    //get the pointer to scip
-   SCIP* getScip(){
-      return scip_.getScip();
+   Modeler* getModel(){
+      return pModel_;
    }
 
    /*
@@ -111,44 +115,44 @@ public:
    int bigM = 10000;
 
 private:
-   ScipModeler scip_;
+   Modeler* pModel_;
    vector2D positionsPerSkill_;//link positions to skills
    vector2D skillsPerPosition_;//link skills to positions
-   ObjPricer* pPricer_;//prices the rotations
-   vector< map<SCIP_VAR*, Rotation> > rotations_;//stores the scip variables and the rotations for each nurse
+   MyPricer* pPricer_;//prices the rotations
+   vector< map<MyVar*, Rotation> > rotations_;//stores the scip variables and the rotations for each nurse
 
    /*
     * Variables
     */
-   vector< vector<SCIP_VAR*> > columnVars_; //binary variables for the columns
+   vector< vector<MyVar*> > columnVars_; //binary variables for the columns
 
-   vector< vector<SCIP_VAR*> > restingVars_; //binary variables for the resting arcs in the rotation network
-   vector< vector< vector<SCIP_VAR*> > > longRestingVars_; //binary variables for the resting arcs in the rotation network
+   vector< vector<MyVar*> > restingVars_; //binary variables for the resting arcs in the rotation network
+   vector< vector< vector<MyVar*> > > longRestingVars_; //binary variables for the resting arcs in the rotation network
 
-   vector<SCIP_VAR*> minWorkedDaysVars_; //count the number of missing worked days per nurse
-   vector<SCIP_VAR*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
-   vector<SCIP_VAR*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
+   vector<MyVar*> minWorkedDaysVars_; //count the number of missing worked days per nurse
+   vector<MyVar*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
+   vector<MyVar*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
 
-   vector< vector< vector<SCIP_VAR*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
-   vector< vector< vector< vector<SCIP_VAR*> > > > skillsAllocVars_; //makes the allocation of the skills
+   vector< vector< vector<MyVar*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
+   vector< vector< vector< vector<MyVar*> > > > skillsAllocVars_; //makes the allocation of the skills
 
    /*
     * Constraints
     */
    //transmission of the flow on the resting nodes
    //initialization of the flow constraint at the first position of each restFlowCons_[i] (i=nurse)
-   vector< vector<SCIP_CONS*> > restFlowCons_;
+   vector< vector<MyCons*> > restFlowCons_;
    //transmission of the flow on the working nodes
    //end of the flow constraint at the last position of each workFlowCons_[i] (i=nurse)
-   vector< vector<SCIP_CONS*> > workFlowCons_;
+   vector< vector<MyCons*> > workFlowCons_;
 
-   vector<SCIP_CONS*> minWorkedDaysCons_; //count the number of missing worked days per nurse
-   vector<SCIP_CONS*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
-   vector<SCIP_CONS*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
+   vector<MyCons*> minWorkedDaysCons_; //count the number of missing worked days per nurse
+   vector<MyCons*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
+   vector<MyCons*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
 
-   vector< vector< vector<SCIP_CONS*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
-   vector< vector< vector<SCIP_CONS*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
-   vector< vector< vector<SCIP_CONS*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
+   vector< vector< vector<MyCons*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
+   vector< vector< vector<MyCons*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
+   vector< vector< vector<MyCons*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
 
    /*
     * Methods
@@ -169,13 +173,19 @@ private:
    //store the rotation in rotations_
    void addRotation(Rotation rotation, char* baseName);
 
+   //compute and add the last rotation finishing on the day just before the first one
+   Rotation computeInitStateRotation(LiveNurse* pNurse);
+
+   //get the cost of all shosen rotations in solution sol for a certain CostType
+   double getRotationCosts(CostType costType = TOTAL_COST, bool initStateRotation = false);
+
    /* Build each set of constraints - Add also the coefficient of a column for each set */
    void buildRotationCons();
-   int addRotationConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, bool firstDay, bool lastDay);
+   int addRotationConsToCol(vector<MyCons*>* cons, vector<double>* coeffs, int i, int k, bool firstDay, bool lastDay);
    void buildMinMaxCons();
-   int addMinMaxConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, bool weekend = false);
+   int addMinMaxConsToCol(vector<MyCons*>* cons, vector<double>* coeffs, int i, int k, bool weekend = false);
    void buildSkillsCoverageCons();
-   int addSkillsCoverageConsToCol(vector<SCIP_CONS*>* cons, vector<double>* coeffs, int i, int k, int s=-1);
+   int addSkillsCoverageConsToCol(vector<MyCons*>* cons, vector<double>* coeffs, int i, int k, int s=-1);
 
    /* Display functions */
    string costsConstrainstsToString();

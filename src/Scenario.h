@@ -129,9 +129,10 @@ private:
 	// Initial historical state of the nurses
 	//
 	vector<State> initialState_;
-	// index of the week that is being scheduled
+	// range of the weeks that are being scheduled
 	//
 	int thisWeek_;
+	int nbWeeksLoaded_;
 	//------------------------------------------------
 
 
@@ -160,7 +161,8 @@ public:
 	// getters for the private class attributes
 	//
 	int nbWeeks() {return nbWeeks_;}
-	int thisWeek() {return thisWeek_;}
+   int thisWeek() {return thisWeek_;}
+	int nbWeeksLoaded() {return nbWeeksLoaded_;}
 	string weekName() {return weekName_;}
 	Demand* pWeekDemand() {return pWeekDemand_;}
 	int nbShiftOffRequests() {return nbShiftOffRequests_;}
@@ -209,6 +211,7 @@ public:
 	// when reading the history file
 	//
 	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
+   inline void addAWeek(){ ++nbWeeksLoaded_; }
 	inline void setInitialState(vector<State> initialState){ initialState_ = initialState;}
 
 	// return true if the shift shNext is a forbidden successor of sh

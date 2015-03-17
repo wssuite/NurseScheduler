@@ -266,7 +266,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
     // check the complete week-end (only if the nurse requires them)
     // this cost is only assigned to the sundays
     //
-    if ( Tools::isSunday(day) && needCompleteWeekends()) {
+    if ( Tools::isSunday(day-1) && needCompleteWeekends()) {
       if ( (shift > 0 && prevShift == 0) || ( shift == 0 && prevShift > 0 )) {
         stat.costWeekEnd_[day-1] = WEIGHT_COMPLETE_WEEKEND;
       }

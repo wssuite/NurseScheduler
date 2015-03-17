@@ -11,7 +11,6 @@
 #include "Greedy.h"
 #include "SubProblem.h"
 #include "MyTools.h"
-#include "Vrp.h"
 
 /* scip includes */
 #include "objscip/objscip.h"
@@ -64,6 +63,7 @@ void testFunction_Antoine(){
       else{
          pWeekDemand->push_back(ReadWrite::readWeek(demandPath, pScen));
          preferences.push_back(pScen->pWeekPreferences());
+         pScen->addAWeek();
       }
    pScen->linkWithDemand(pWeekDemand);
    pScen->linkWithPreferences(preferences);

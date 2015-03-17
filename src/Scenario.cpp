@@ -2,8 +2,8 @@
 //  Scenario.cpp
 //  Project:RosterDesNurses
 //
-//  Created by Jérémy Omer on 18/12/2013.
-//  Copyright (c) 2014 Jérémy Omer. All rights reserved.
+//  Created by J��r��my Omer on 18/12/2013.
+//  Copyright (c) 2014 J��r��my Omer. All rights reserved.
 //
 
 #include <sstream>
@@ -34,6 +34,7 @@ Scenario::Scenario(string name, int nbWeeks,
 	// To make sure that it is modified later when reading the history data file
 	//
 	thisWeek_ = -1;
+	nbWeeksLoaded_ = 1;
 
 	// Preprocess the vector of nurses
 	// This creates the positions
