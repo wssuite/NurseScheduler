@@ -29,33 +29,20 @@ using namespace std;
 /*
  * My Variables
  */
-struct MyVar {
-   MyVar(){ }
-   ~MyVar(){ }
-};
+class MyObject {
+public:
+   MyObject():id(s_count) { ++s_count; }
+   ~MyObject(){ }
+   template<typename O> void get(O object) {}
+   template<typename O> void set(O object) {}
 
-/*
- * My Constraints
- */
-struct MyCons {
-   MyCons(){ }
-   ~MyCons(){ }
-};
+   //count object
+   static unsigned int s_count;
+   int operator < (const MyObject& m) const { return this->id < m.id; }
 
-/*
- * My Pricer
- */
-struct MyPricer {
-   MyPricer(){ }
-   ~MyPricer(){ }
-};
-
-/*
- * My Branching Rule
- */
-struct MyRule {
-   MyRule(){ }
-   ~MyRule(){ }
+protected:
+   //for the map rotations_
+   const unsigned int id;
 };
 
 /*
@@ -68,34 +55,38 @@ public:
 
    Modeler(){ }
 
-   virtual ~Modeler(){ }
+   virtual ~Modeler(){
+      for(MyObject* object: objects_)
+         delete object;
+   }
 
    //solve the model
-   virtual int solve(bool relaxation = false);
+   virtual int solve(bool relaxation = false)=0;
 
    //Add a pricer
-   virtual int addObjPricer(MyPricer pPricer);
+   virtual int addObjPricer(MyObject* pPricer)=0;
 
    /*
     * Create variable:
     *    var is a pointer to the pointer of the variable
     *    var_name is the name of the variable
     *    lhs, rhs are the lower and upper bound of the variable
-    *    vartype is the type of the variable: SCIP_VARTYPE_CONTINUOUS, SCIP_VARTYPE_INTEGER, SCIP_VARTYPE_BINARY
+    *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
     */
 
-   virtual void createVar(MyVar* var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score);
+   virtual int createVar(MyObject** var, const char* var_name, double objCoeff,
+      double lb, double ub, VarType vartype, double score)=0;
 
-   inline void createPositiveVar(MyVar* var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
-      return createVar(var, var_name, objCoeff, 0.0, ub, VARTYPE_CONTINUOUS, score);
+   inline void createPositiveVar(MyObject** var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
+      createVar(var, var_name, objCoeff, 0.0, ub, VARTYPE_CONTINUOUS, score);
    }
 
-   inline void createIntVar(MyVar* var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
-      return createVar(var, var_name, objCoeff, 0, ub, VARTYPE_INTEGER, score);
+   inline void createIntVar(MyObject** var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
+      createVar(var, var_name, objCoeff, 0, ub, VARTYPE_INTEGER, score);
    }
 
-   inline void createBinaryVar(MyVar* var, const char* var_name, double objCoeff, double score = 0){
-      return createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, score);
+   inline void createBinaryVar(MyObject** var, const char* var_name, double objCoeff, double score = 0){
+      createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, score);
    }
 
    /*
@@ -108,43 +99,43 @@ public:
     *    coeffs is the array of coefficient to add to the constraints
     */
 
-   virtual int createConsLinear(MyCons* cons, const char* con_name, double lhs, double rhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {});
+   virtual int createConsLinear(MyObject** cons, const char* con_name, double lhs, double rhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {})=0;
 
    //Add a lower or equal constraint
-   inline void createLEConsLinear(MyCons* cons, const char* con_name, double rhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+   inline void createLEConsLinear(MyObject** cons, const char* con_name, double rhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {}){
       createConsLinear(cons, con_name, DBL_MIN, rhs, vars, coeffs);
    }
 
    //Add a greater or equal constraint
-   inline void createGEConsLinear(MyCons* cons, const char* con_name, double lhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+   inline void createGEConsLinear(MyObject** cons, const char* con_name, double lhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {}){
       createConsLinear(cons, con_name, lhs, DBL_MAX, vars, coeffs);
    }
 
    //Add an equality constraint
-   inline void createEQConsLinear(MyCons* cons, const char* con_name, double eq,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+   inline void createEQConsLinear(MyObject** cons, const char* con_name, double eq,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {}){
       createConsLinear(cons, con_name, eq, eq, vars, coeffs);
    }
 
    //Add final linear constraints
-   virtual int createFinalConsLinear(MyCons* cons, const char* con_name, double lhs, double rhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {});
+   virtual int createFinalConsLinear(MyObject** cons, const char* con_name, double lhs, double rhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {})=0;
 
-   inline void createFinalLEConsLinear(MyCons* cons, const char* con_name, double rhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+   inline void createFinalLEConsLinear(MyObject** cons, const char* con_name, double rhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {}){
       createFinalConsLinear(cons, con_name, DBL_MIN, rhs, vars, coeffs);
    }
 
-   inline void createFinalGEConsLinear(MyCons* cons, const char* con_name, double lhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+   inline void createFinalGEConsLinear(MyObject** cons, const char* con_name, double lhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {}){
       createFinalConsLinear(cons, con_name, lhs, DBL_MAX, vars, coeffs);
    }
 
-   inline void createFinalEQConsLinear(MyCons* cons, const char* con_name, double eq,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+   inline void createFinalEQConsLinear(MyObject** cons, const char* con_name, double eq,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {}){
       createFinalConsLinear(cons, con_name, eq, eq, vars, coeffs);
    }
 
@@ -152,14 +143,14 @@ public:
     * Add variables to constraints
     */
 
-   virtual int addCoefLinear(MyCons cons, MyVar var, double coeff);
+   virtual int addCoefLinear(MyObject* cons, MyObject* var, double coeff, bool transformed=false)=0;
 
    /*
     * Add new Column to the problem
     */
 
-   inline void createColumn(MyVar* var, const char* var_name, double objCoeff, VarType vartype,
-      vector<MyCons*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
+   inline void createColumn(MyObject** var, const char* var_name, double objCoeff, VarType vartype,
+      vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       switch(vartype){
       case VARTYPE_BINARY:
          createBinaryVar(var, var_name, objCoeff, score);
@@ -172,24 +163,22 @@ public:
          break;
       }
 
-      for(int i=0; i<cons.size(); i++){
-         MyCons con = *(cons[i]);
-         addCoefLinear(con, *var, coeffs[i]);
-      }
+      for(int i=0; i<cons.size(); i++)
+         addCoefLinear(cons[i], *var, coeffs[i], transformed);
    }
 
-   inline void createPositiveColumn(MyVar* var, const char* var_name, double objCoeff,
-      vector<MyCons*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
+   inline void createPositiveColumn(MyObject** var, const char* var_name, double objCoeff,
+      vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       createColumn(var, var_name, objCoeff, VARTYPE_CONTINUOUS, cons, coeffs, transformed, score);
    }
 
-   inline void createBinaryColumn(MyVar* var, const char* var_name, double objCoeff,
-      vector<MyCons*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
+   inline void createBinaryColumn(MyObject** var, const char* var_name, double objCoeff,
+      vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       createColumn(var, var_name, objCoeff, VARTYPE_BINARY, cons, coeffs, transformed, score);
    }
 
-   inline void createIntColumn(MyVar* var, const char* var_name, double objCoeff,
-      vector<MyCons*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
+   inline void createIntColumn(MyObject** var, const char* var_name, double objCoeff,
+      vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       createColumn(var, var_name, objCoeff, VARTYPE_INTEGER, cons, coeffs, transformed, score);
    }
 
@@ -197,12 +186,12 @@ public:
     * get the primal values
     */
 
-   virtual double getVarValue(MyVar var);
+   virtual double getVarValue(MyObject* var)=0;
 
-   inline vector<double> getVarValues(vector<MyVar*> vars){
+   inline vector<double> getVarValues(vector<MyObject*> vars){
       vector<double> values(vars.size());
       for(int i=0; i<vars.size(); ++i)
-         values[i] = getVarValue(*(vars[i]));
+         values[i] = getVarValue(vars[i]);
       return values;
    }
 
@@ -210,36 +199,36 @@ public:
     * Get the dual variables
     */
 
-   virtual  double getDual(MyCons cons, bool transformed = false);
+   virtual double getDual(MyObject* cons, bool transformed = false)=0;
 
-   inline vector<double> getDuals(vector<MyCons*> cons, bool transformed = false){
+   inline vector<double> getDuals(vector<MyObject*> cons, bool transformed = false){
       vector<double> dualValues(cons.size());
       for(int i=0; i<cons.size(); ++i)
-         dualValues[i] = getDual(*(cons[i]), transformed);
+         dualValues[i] = getDual(cons[i], transformed);
       return dualValues;
    }
 
    /**************
     * Parameters *
     *************/
-   virtual int setVerbosity(int v);
+   virtual int setVerbosity(int v)=0;
 
    /**************
     * Outputs *
     *************/
 
-   //compute the total cost of MyVar in the solution
-   virtual double getTotalCost(MyVar* var);
+   //compute the total cost of MyObject* in the solution
+   virtual double getTotalCost(MyObject* var)=0;
 
-   //compute the total cost of a vector of MyVar in the solution
-   template<typename T>  inline double getTotalCost(map<MyVar*, T> map0){
+   //compute the total cost of a vector of MyObject* in the solution
+   template<typename T>  inline double getTotalCost(map<MyObject*, T> map0){
       double value = 0 ;
-      for(pair<MyVar*, T> var: map0)
+      for(pair<MyObject*, T> var: map0)
          value += getTotalCost(var.first);
       return value;
    }
 
-   //compute the total cost of a multiple vectors of MyVar in the solution
+   //compute the total cost of a multiple vectors of MyObject* in the solution
    template<typename V> inline double getTotalCost(vector<V> vector){
       double value = 0 ;
       for(V vect: vector)
@@ -247,13 +236,13 @@ public:
       return value;
    }
 
-   virtual int printStats();
+   virtual int printStats()=0;
 
-   virtual int printBestSol();
+   virtual int printBestSol()=0;
 
-   virtual int writeProblem(string fileName);
+   virtual int writeProblem(string fileName)=0;
 
-   virtual int writeLP(string fileName);
+   virtual int writeLP(string fileName)=0;
 
    /**************
     * Getters *
@@ -263,6 +252,10 @@ public:
       string error = "This template has not been implemented.";
       Tools::throwError(error.c_str());
    }
+
+protected:
+   //store all MyObject*
+   vector<MyObject*> objects_;
 };
 
 

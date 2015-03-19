@@ -49,7 +49,7 @@ private:
    //
    Scenario* pScenario_;
    Demand* pDemand_;
-   Modeler* pScip_;
+   Modeler* pModel_;
 
    //map of the contract and sub problems
    //one subproblem per type of contract

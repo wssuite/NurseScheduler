@@ -7,7 +7,7 @@
 
 #include "ScipModeler.h"
 
-ScipModeler::ScipModeler(const char* name)
+ScipModeler::ScipModeler(const char* name): Modeler()
 {
    initializeSCIP(name);
 }
@@ -18,7 +18,7 @@ ScipModeler::~ScipModeler()
 }
 
 //solve the model
-int ScipModeler::solve(bool relaxation = false){
+int ScipModeler::solve(bool relaxation){
    if(relaxation)
       SCIP_CALL( SCIPsolve(scip_) );
    else
@@ -26,12 +26,15 @@ int ScipModeler::solve(bool relaxation = false){
 }
 
 //Add a pricer
-int ScipModeler::addObjPricer(MyPricer pricer){
-   ObjPricer* pricer2 = ((ScipPricer)pricer).pricer_;
+int ScipModeler::addObjPricer(MyObject* pricer){
+   ScipPricer* pricer2 = (ScipPricer*)pricer;
+   ObjPricer* pricer3;
+   pricer2->get(&pricer3);
    /* include the pricer */
-   SCIP_CALL( SCIPincludeObjPricer(scip_, pricer2, true) );
+   SCIP_CALL( SCIPincludeObjPricer(scip_, pricer3, true) );
    /* activate the pricer */
-   SCIP_CALL( SCIPactivatePricer(scip_, SCIPfindPricer(scip_, pricer2->scip_name_)) );
+   SCIP_CALL( SCIPactivatePricer(scip_, SCIPfindPricer(scip_, pricer3->scip_name_)) );
+   objects_.push_back(pricer);
 }
 
 /*
@@ -41,21 +44,35 @@ int ScipModeler::addObjPricer(MyPricer pricer){
  *    lhs, rhs are the lower and upper bound of the variable
  *    vartype is the type of the variable: SCIP_VARTYPE_CONTINUOUS, SCIP_VARTYPE_INTEGER, SCIP_VARTYPE_BINARY
  */
-int ScipModeler::createVar(MyVar* var, const char* var_name, double objCoeff, double lb, double ub, SCIP_VARTYPE vartype, double score){
+int ScipModeler::createVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score){
    if(lb==DBL_MIN)
       lb = -SCIPinfinity(scip_);
    if(ub==DBL_MAX)
       ub = SCIPinfinity(scip_);
 
+   SCIP_VARTYPE type;
+   switch(vartype){
+   case VARTYPE_BINARY:
+      type = SCIP_VARTYPE_BINARY;
+      break;
+   case VARTYPE_INTEGER:
+      type = SCIP_VARTYPE_INTEGER;
+      break;
+   default:
+      type = SCIP_VARTYPE_CONTINUOUS;
+      break;
+   }
+
    SCIP_VAR* var2;
-   SCIP_CALL( SCIPcreateVar(scip_, &(var2), var_name, lb, ub, objCoeff, vartype,
+   SCIP_CALL( SCIPcreateVar(scip_, &(var2), var_name, lb, ub, objCoeff, type,
       true, false, 0, 0, 0, 0, 0) );
 
    if(score > 0)
       SCIP_CALL( SCIPaddPricedVar(scip_, var2, score) );
    else SCIP_CALL( SCIPaddVar(scip_, var2) );
 
-   var = new ScipVar(var2);
+   *var = new ScipVar(var2);
+   objects_.push_back(*var);
 }
 
 /*
@@ -68,40 +85,60 @@ int ScipModeler::createVar(MyVar* var, const char* var_name, double objCoeff, do
  *    coeffs is the array of coefficient to add to the constraints
  */
 
-int ScipModeler::createConsLinear(MyCons* con, const char* con_name, double lhs, double rhs,
-   vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+int ScipModeler::createConsLinear(MyObject** con, const char* con_name, double lhs, double rhs,
+   vector<MyObject*> vars, vector<double> coeffs){
    vector<SCIP_VAR*> vars2;
-   for(ScipVar* var: vars)
-      vars2.push_back(var->var_);
-   SCIP_CONS* con2 = ((ScipCons*)con)->cons_;
+   for(MyObject* var: vars){
+      ScipVar* var2 = (ScipVar*) var;
+      SCIP_VAR* var3;
+      var2->get(&var3);
+      vars2.push_back(var3);
+   }
+
+   SCIP_CONS* con2;
    SCIP_CALL( SCIPcreateConsLinear(scip_, &( con2 ), con_name, vars2.size(), &(vars2)[0], &(coeffs)[0], lhs, rhs,
       true, false, true, true, true, false, true, false, false, false) );
    SCIP_CALL( SCIPaddCons(scip_, con2) );
 
-   con = new ScipCons(con2);
+   *con = new ScipCons(con2);
+   objects_.push_back(*con);
 }
 
 //Add final linear constraints
-int ScipModeler::createFinalConsLinear(MyCons* con, const char* con_name, double lhs, double rhs,
-   vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+int ScipModeler::createFinalConsLinear(MyObject** con, const char* con_name, double lhs, double rhs,
+   vector<MyObject*> vars, vector<double> coeffs){
    vector<SCIP_VAR*> vars2;
-   for(ScipVar* var: vars)
-      vars2.push_back(var->var_);
-   SCIP_CONS* con2 = ((ScipCons*)con)->cons_;
+   for(MyObject* var: vars){
+      ScipVar* var2 = (ScipVar*) var;
+      SCIP_VAR* var3;
+      var2->get(&var3);
+      vars2.push_back(var3);
+   }
+
+   SCIP_CONS* con2;
    SCIP_CALL( SCIPcreateConsLinear(scip_, &(con2), con_name, vars2.size(), &(vars2)[0], &(coeffs)[0], lhs, rhs,
       true, false, true, true, true, false, false, false, false, false) );
    SCIP_CALL( SCIPaddCons(scip_, con2) );
 
-   con = new ScipCons(con2);
+   *con = new ScipCons(con2);
+   objects_.push_back(*con);
 }
 
 /*
  * Add variables to constraints
  */
 
-int ScipModeler::addCoefLinear(MyCons cons, MyVar var, double coeff){
-   getTransformedCons(((ScipCons)cons).cons_, &(((ScipCons)cons).cons_));
-   SCIP_CALL( SCIPaddCoefLinear(scip_, ((ScipCons)cons).cons_, ((ScipVar)var).var_, coeff) );
+int ScipModeler::addCoefLinear(MyObject* cons, MyObject* var, double coeff, bool transformed){
+   ScipCons* cons2 = (ScipCons*) cons;
+   SCIP_CONS* cons3;
+   cons2->get(&cons3);
+   ScipVar* var2 = (ScipVar*) var;
+   SCIP_VAR* var3;
+   var2->get(&var3);
+
+   if(transformed)
+      getTransformedCons(cons3, &(cons3));
+   SCIP_CALL( SCIPaddCoefLinear(scip_, cons3, var3, coeff) );
 }
 
 /*
@@ -128,18 +165,26 @@ SCIP_SOL* ScipModeler::getBestSol(){
    return SCIPgetBestSol(scip_);
 }
 
-double ScipModeler::getVarValue(MyVar var){
-   SCIPgetSolVal(scip_, getBestSol(), ((ScipVar)var).var_);
+double ScipModeler::getVarValue(MyObject* var){
+   ScipVar* var2 = (ScipVar*) var;
+   SCIP_VAR* var3;
+   var2->get(&var3);
+
+   SCIPgetSolVal(scip_, getBestSol(), var3);
 }
 
 /*
  * Get the dual variables
  */
 
-double ScipModeler::getDual(MyCons cons, bool transformed = false){
+double ScipModeler::getDual(MyObject* cons, bool transformed){
+   ScipCons* cons2 = (ScipCons*) cons;
+   SCIP_CONS* cons3;
+   cons2->get(&cons3);
+
    if(transformed)
-      getTransformedCons(((ScipCons)cons).cons_, &(((ScipCons)cons).cons_));
-   SCIPgetDualsolLinear(scip_, ((ScipCons)cons).cons_);
+      getTransformedCons(cons3, &(cons3));
+   SCIPgetDualsolLinear(scip_, cons3);
 }
 
 /**************
@@ -155,9 +200,13 @@ int ScipModeler::setVerbosity(int v){
  *************/
 
 //compute the total cost of SCIP_VAR* in the solution sol*
-double ScipModeler::getTotalCost(MyVar* var){
-   double value = getVarValue(*var);
-   return value *  ((ScipVar*)var)->var_->branchfactor;
+double ScipModeler::getTotalCost(MyObject* var){
+   ScipVar* var2 = (ScipVar*) var;
+   SCIP_VAR* var3;
+   var2->get(&var3);
+
+   double value = getVarValue(var);
+   return value *  var3->branchfactor;
 }
 
 int ScipModeler::printStats(){

@@ -20,27 +20,39 @@ using namespace scip;
 /*
  * My Variables
  */
-struct ScipVar: public MyVar {
-   ScipVar(SCIP_VAR* var){ var_=var; }
+class ScipVar: public MyObject {
+public:
+   ScipVar(SCIP_VAR* var):MyObject(){ var_=var; }
    ~ScipVar(){ }
+   void get(SCIP_VAR** var){ *var = var_; }
+   void set(SCIP_VAR* var){ var_ = var; }
+protected:
    SCIP_VAR* var_;
 };
 
 /*
  * My Constraints
  */
-struct ScipCons: public MyCons  {
-   ScipCons(SCIP_CONS* cons){ cons_=cons; }
+struct ScipCons: public MyObject  {
+public:
+   ScipCons(SCIP_CONS* cons):MyObject(){ cons_=cons; }
    ~ScipCons(){ }
+   void get(SCIP_CONS** cons){ *cons = cons_; }
+   void set(SCIP_CONS* cons){ cons_ = cons; }
+protected:
    SCIP_CONS* cons_;
 };
 
 /*
  * My Pricer
  */
-struct ScipPricer: public MyPricer  {
-   ScipPricer(ObjPricer* pricer){ pricer_=pricer; }
+struct ScipPricer: public MyObject  {
+public:
+   ScipPricer(ObjPricer* pricer):MyObject(){ pricer_=pricer; }
    ~ScipPricer(){ }
+   void get(ObjPricer** pricer){ *pricer = pricer_; }
+   void set(ObjPricer* pricer){ pricer_ = pricer; }
+protected:
    ObjPricer* pricer_;
 };
 
@@ -63,7 +75,7 @@ public:
    int solve(bool relaxation = false);
 
    //Add a pricer
-   int addObjPricer(MyPricer pPricer);
+   int addObjPricer(MyObject* pPricer);
 
    /*
     * Create variable:
@@ -72,7 +84,7 @@ public:
     *    lhs, rhs are the lower and upper bound of the variable
     *    vartype is the type of the variable: SCIP_VARTYPE_CONTINUOUS, SCIP_VARTYPE_INTEGER, SCIP_VARTYPE_BINARY
     */
-   int createVar(MyVar* var, const char* var_name, double objCoeff, double lb, double ub, SCIP_VARTYPE vartype, double score);
+   int createVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score);
 
    /*
     * Create linear constraint:
@@ -84,18 +96,18 @@ public:
     *    coeffs is the array of coefficient to add to the constraints
     */
 
-   int createConsLinear(MyCons* con, const char* con_name, double lhs, double rhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {});
+   int createConsLinear(MyObject** con, const char* con_name, double lhs, double rhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {});
 
    //Add final linear constraints
-   int createFinalConsLinear(MyCons* con, const char* con_name, double lhs, double rhs,
-      vector<MyVar*> vars = {}, vector<double> coeffs = {});
+   int createFinalConsLinear(MyObject** con, const char* con_name, double lhs, double rhs,
+      vector<MyObject*> vars = {}, vector<double> coeffs = {});
 
    /*
     * Add variables to constraints
     */
 
-   int addCoefLinear(MyCons cons, MyVar var, double coeff);
+   int addCoefLinear(MyObject* cons, MyObject* var, double coeff, bool transformed=false);
 
    /*
     * Get the transformed variables and constraints
@@ -109,33 +121,33 @@ public:
 
    int getTransformedCons(SCIP_CONS* cons, SCIP_CONS** cons2);
 
-   double getVarValue(MyVar var);
+   double getVarValue(MyObject* var);
 
    /*
     * Get the dual variables
     */
 
-   double getDual(MyCons cons, bool transformed = false);
+   double getDual(MyObject* cons, bool transformed = false);
 
    /**************
     * Parameters *
     *************/
-   virtual int setVerbosity(int v);
+   int setVerbosity(int v);
 
    /**************
     * Outputs *
     *************/
 
    //compute the total cost of SCIP_VAR* in the solution sol*
-   double getTotalCost(MyVar* var);
+   double getTotalCost(MyObject* var);
 
-   virtual int printStats();
+   int printStats();
 
-   virtual int printBestSol();
+   int printBestSol();
 
-   virtual int writeProblem(string fileName);
+   int writeProblem(string fileName);
 
-   virtual int writeLP(string fileName);
+   int writeLP(string fileName);
 
    /**************
     * Getters *

@@ -19,7 +19,7 @@ static char* baseName = "rotation";
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
     		              ObjPricer( ((ScipModeler*)(master->getModel()))->getScip(), name, "Finds rotations with negative reduced cost.", 0, TRUE),
     		              master_(master), name_(name),
-    		              pScenario_(master->pScenario_), pDemand_(master->pDemand_), pScip_(master->getModel()) { }
+    		              pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel()) { }
 
 /* Destructs the pricer object. */
 RotationPricer::~RotationPricer() {
@@ -117,8 +117,8 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
    int i = pNurse->id_;
 
    /* Min/Max constraints */
-   double minWorkedDays = pScip_->getDual(*(master_->minWorkedDaysCons_[i]), true);
-   double maxWorkedDays = pScip_->getDual(*(master_->maxWorkedDaysCons_[i]), true);
+   double minWorkedDays = pModel_->getDual(master_->minWorkedDaysCons_[i], true);
+   double maxWorkedDays = pModel_->getDual(master_->maxWorkedDaysCons_[i], true);
 
    for(int k=0; k<pDemand_->nbDays_; ++k){
       //initialize vector
@@ -130,8 +130,8 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
          dualValues2[s-1] += maxWorkedDays;
 
          /* Skills coverage */
-         dualValues2[s-1] += pScip_->getDual(
-            *(master_->feasibleSkillsAllocCons_[k][s-1][pNurse->pPosition_->id_]), true);
+         dualValues2[s-1] += pModel_->getDual(
+            master_->feasibleSkillsAllocCons_[k][s-1][pNurse->pPosition_->id_], true);
       }
 
       //store vector
@@ -147,11 +147,11 @@ vector<double> RotationPricer::getStartWorkDualValues(LiveNurse* pNurse){
    vector<double> dualValues(pDemand_->nbDays_);
 
    //get dual value associated to the source
-   dualValues[0] =  pScip_->getDual(*(master_->restFlowCons_[i][0]), true);
+   dualValues[0] =  pModel_->getDual(master_->restFlowCons_[i][0], true);
    //get dual values associated to the work flow constraints
    //don't take into account the last which is the sink
    for(int k=1; k<pDemand_->nbDays_; ++k)
-      dualValues[k] = pScip_->getDual(*(master_->workFlowCons_[i][k-1]), true);
+      dualValues[k] = pModel_->getDual(master_->workFlowCons_[i][k-1], true);
 
    return dualValues;
 }
@@ -163,17 +163,17 @@ vector<double> RotationPricer::getEndWorkDualValues(LiveNurse* pNurse){
    //get dual values associated to the work flow constraints
    //don't take into account the first which is the source
    for(int k=0; k<pDemand_->nbDays_-1; ++k)
-      dualValues[k] = -pScip_->getDual(*(master_->restFlowCons_[i][k+1]), true);
+      dualValues[k] = -pModel_->getDual(master_->restFlowCons_[i][k+1], true);
 
    //get dual value associated to the sink
-   dualValues[pDemand_->nbDays_-1] =  pScip_->getDual(
-      *(master_->workFlowCons_[i][pDemand_->nbDays_-1]), true);
+   dualValues[pDemand_->nbDays_-1] =  pModel_->getDual(
+      master_->workFlowCons_[i][pDemand_->nbDays_-1], true);
 
    return dualValues;
 }
 
 double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
-   return pScip_->getDual(*(master_->maxWorkedWeekendCons_[pNurse->id_]), true);
+   return pModel_->getDual(master_->maxWorkedWeekendCons_[pNurse->id_], true);
 }
 
 

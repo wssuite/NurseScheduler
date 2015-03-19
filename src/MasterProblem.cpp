@@ -7,6 +7,7 @@
 
 #include "MasterProblem.h"
 #include "RotationPricer.h"
+#include "ScipModeler.h"
 
 /* namespace usage */
 using namespace std;
@@ -19,7 +20,6 @@ using namespace scip;
 // Build and solve the master problem of the column generation scheme
 //
 //-----------------------------------------------------------------------------
-
 
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    Preferences* pPreferences, vector<State>* pInitState, vector<Roster> solution):
@@ -80,11 +80,12 @@ void MasterProblem::build(){
 
    /* Rotation pricer */
    pPricer_ = new ScipPricer(new RotationPricer(this, "pricer"));
-   pModel_->addObjPricer(*pPricer_);
+   pModel_->addObjPricer(pPricer_);
 }
 
 //solve the rostering problem
 void MasterProblem::solve(){
+   pModel_->setVerbosity(1);
    pModel_->solve();
    //   scip_.printStats();
    //   scip_.printBestSol();
@@ -174,8 +175,8 @@ void MasterProblem::storeSolution(){
 
    //build the rosters
    for(LiveNurse* pNurse: theLiveNurses_)
-      for(pair<MyVar*, Rotation> p: rotations_[pNurse->id_])
-         if(pModel_->getVarValue(*(p.first)) > 0)
+      for(pair<MyObject*, Rotation> p: rotations_[pNurse->id_])
+         if(pModel_->getVarValue(p.first) > 0)
             for(int k=p.second.firstDay_; k<p.second.firstDay_+p.second.length_; ++k){
                bool assigned = false;
                for(int sk=0; sk<pScenario_->nbSkills_; ++sk)
@@ -204,9 +205,9 @@ void MasterProblem::addRotation(Rotation rotation, char* baseName){
    int i = rotation.pNurse_->id_;
 
    //SCIP column var, its name, and affected constraints with their coefficients
-   MyVar* var;
+   MyObject* var;
    char name[255];
-   vector<MyCons*> cons;
+   vector<MyObject*> cons;
    vector<double> coeffs;
 
    /* Rotation constraints */
@@ -233,8 +234,8 @@ void MasterProblem::addRotation(Rotation rotation, char* baseName){
       addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
 
    SCIPsnprintf(name, 255, "%s_N%d_%d",baseName , i, rotations_[i].size());
-   pModel_->createPositiveColumn(var, name, rotation.cost_, cons, coeffs);
-   rotations_[i].insert(pair<MyVar*,Rotation>(var, rotation));
+   pModel_->createPositiveColumn(&var, name, rotation.cost_, cons, coeffs);
+   rotations_[i].insert(pair<MyObject*,Rotation>(var, rotation));
 }
 
 /*
@@ -262,10 +263,10 @@ void MasterProblem::buildRotationCons(){
       int const nbRestingArcs( pDemand_->nbDays_- indexStartRestArc );
 
       //initialize vectors
-      vector< MyVar* > restingVars2(nbRestingArcs);
-      vector< vector<MyVar*> > longRestingVars2(pDemand_->nbDays_);
-      vector<MyCons*> restFlowCons2(pDemand_->nbDays_);
-      vector<MyCons*> workFlowCons2(pDemand_->nbDays_);
+      vector< MyObject* > restingVars2(nbRestingArcs);
+      vector< vector<MyObject*> > longRestingVars2(pDemand_->nbDays_);
+      vector<MyObject*> restFlowCons2(pDemand_->nbDays_);
+      vector<MyObject*> workFlowCons2(pDemand_->nbDays_);
 
       /*****************************************
        * Creating arcs
@@ -283,30 +284,31 @@ void MasterProblem::buildRotationCons(){
 
             //initialize vectors
             //Must have a minimum of one long resting arcs
-            vector<MyVar*> longRestingVars3_0(indexStartRestArc);
+            vector<MyObject*> longRestingVars3_0(indexStartRestArc);
 
             //create minRest arcs
             for(int l=1; l<=nbMinRestArcs; ++l){
                cost -= WEIGHT_CONS_DAYS_OFF;
                SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
-               pModel_->createPositiveVar(longRestingVars3_0[l-1], name, cost+rot.cost_);
-               rotations_[i].insert(pair<MyVar*,Rotation>(longRestingVars3_0[l-1], rot));
+               pModel_->createPositiveVar(&longRestingVars3_0[l-1], name, cost+rot.cost_);
+               ScipVar* var = (ScipVar*)longRestingVars3_0[l-1];
+               rotations_[i].insert(pair<MyObject*,Rotation>(longRestingVars3_0[l-1], rot));
             }
 
             //create maxRest arcs, if maxRest=true
             if(maxRest){
                for(int l=1+nbMinRestArcs; l<=firstRestArc; ++l){
                   SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, 0, l);
-                  pModel_->createPositiveVar(longRestingVars3_0[l-1], name, rot.cost_);
-                  rotations_[i].insert(pair<MyVar*,Rotation>(longRestingVars3_0[l-1], rot));
+                  pModel_->createPositiveVar(&longRestingVars3_0[l-1], name, rot.cost_);
+                  rotations_[i].insert(pair<MyObject*,Rotation>(longRestingVars3_0[l-1], rot));
                }
             }
 
             //create the only resting arc (same as a short resting arcs)
             if(firstRestArc == 0){
                SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, 0, 1);
-               pModel_->createPositiveVar(longRestingVars3_0[0], name, (maxRest) ? WEIGHT_CONS_DAYS_OFF+rot.cost_ : rot.cost_);
-               rotations_[i].insert(pair<MyVar*,Rotation>(longRestingVars3_0[0], rot));
+               pModel_->createPositiveVar(&longRestingVars3_0[0], name, (maxRest) ? WEIGHT_CONS_DAYS_OFF+rot.cost_ : rot.cost_);
+               rotations_[i].insert(pair<MyObject*,Rotation>(longRestingVars3_0[0], rot));
             }
             //store vectors
             longRestingVars2[0] = longRestingVars3_0;
@@ -322,7 +324,7 @@ void MasterProblem::buildRotationCons(){
             int cost = minConsDaysOff * WEIGHT_CONS_DAYS_OFF;
 
             //initialize vectors
-            vector<MyVar*> longRestingVars3(nbLongRestingArcs2);
+            vector<MyObject*> longRestingVars3(nbLongRestingArcs2);
 
             //create minRest arcs
             for(int l=1; l<=minConsDaysOff; ++l){
@@ -330,11 +332,11 @@ void MasterProblem::buildRotationCons(){
                SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, k, k+l);
                //if arc ends before the last day: normal cost
                if(l < pDemand_->nbDays_-k)
-                  pModel_->createPositiveVar(longRestingVars3[l-1], name, cost);
+                  pModel_->createPositiveVar(&longRestingVars3[l-1], name, cost);
                //otherwise, arc finishes on last day
                //so: cost=0 and we break the loop
                else{
-                  pModel_->createPositiveVar(longRestingVars3[l-1], name, 0);
+                  pModel_->createPositiveVar(&longRestingVars3[l-1], name, 0);
                   break;
                }
             }
@@ -345,7 +347,7 @@ void MasterProblem::buildRotationCons(){
                   if(l > pDemand_->nbDays_-k)
                      break;
                   SCIPsnprintf(name, 255, "longRestingVars_N%d_%d_%d", i, k, k+l);
-                  pModel_->createPositiveVar(longRestingVars3[l-1], name, 0);
+                  pModel_->createPositiveVar(&longRestingVars3[l-1], name, 0);
                }
             //store vectors
             longRestingVars2[k] = longRestingVars3;
@@ -355,7 +357,7 @@ void MasterProblem::buildRotationCons(){
           *****************************************/
          if(k>=indexStartRestArc){
             SCIPsnprintf(name, 255, "restingVars_N%d_%d_%d", i, k, k+1);
-            pModel_->createPositiveVar(restingVars2[k-indexStartRestArc], name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
+            pModel_->createPositiveVar(&restingVars2[k-indexStartRestArc], name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
          }
       }
 
@@ -368,7 +370,7 @@ void MasterProblem::buildRotationCons(){
             coeffs[l] = 1;
          SCIPsnprintf(name, 255, "restingNodes_N%d_%d", i, k);
          //Create flow constraints. out flow = 1 if source node (k=0)
-         pModel_->createEQConsLinear(restFlowCons2[k], name, (k==0) ? 1 : 0,
+         pModel_->createEQConsLinear(&restFlowCons2[k], name, (k==0) ? 1 : 0,
             longRestingVars2[k], coeffs);
       }
 
@@ -379,7 +381,7 @@ void MasterProblem::buildRotationCons(){
          //take the min between the number of long resting arcs and the number of possible in arcs
          int nbLongRestingArcs2 = min(nbLongRestingArcs,k);
 
-         vector<MyVar*> vars;
+         vector<MyObject*> vars;
          vector<double> coeffs;
          //add long resting arcs
          for(int l=0; l<nbLongRestingArcs2; ++l){
@@ -418,7 +420,7 @@ void MasterProblem::buildRotationCons(){
          }
          SCIPsnprintf(name, 255, "workingNodes_N%d_%d", i, k);
          //Create flow constraints. in flow = 1 if sink node (k==pDemand_->nbDays_)
-         pModel_->createEQConsLinear(workFlowCons2[k-1], name, (k==pDemand_->nbDays_) ? 1 : 0,
+         pModel_->createEQConsLinear(&workFlowCons2[k-1], name, (k==pDemand_->nbDays_) ? 1 : 0,
             vars, coeffs);
       }
 
@@ -430,7 +432,7 @@ void MasterProblem::buildRotationCons(){
    }
 }
 
-int MasterProblem::addRotationConsToCol(vector<MyCons*>* cons, vector<double>* coeffs, int i, int k, bool firstDay, bool lastDay){
+int MasterProblem::addRotationConsToCol(vector<MyObject*>* cons, vector<double>* coeffs, int i, int k, bool firstDay, bool lastDay){
    //check if the rotation starts on day k
    if(firstDay){
       //compute out-flow
@@ -473,33 +475,33 @@ void MasterProblem::buildMinMaxCons(){
    char name[255];
    for(int i=0; i<pScenario_->nbNurses_; i++){
       SCIPsnprintf(name, 255, "minWorkedDaysVar_N%d", i);
-      pModel_->createPositiveVar(minWorkedDaysVars_[i], name, WEIGHT_TOTAL_SHIFTS);
+      pModel_->createPositiveVar(&minWorkedDaysVars_[i], name, WEIGHT_TOTAL_SHIFTS);
       SCIPsnprintf(name, 255, "maxWorkedDaysVar_N%d", i);
-      pModel_->createPositiveVar(maxWorkedDaysVars_[i], name, WEIGHT_TOTAL_SHIFTS);
+      pModel_->createPositiveVar(&maxWorkedDaysVars_[i], name, WEIGHT_TOTAL_SHIFTS);
       SCIPsnprintf(name, 255, "maxWorkedWeekendVar_N%d", i);
-      pModel_->createPositiveVar(maxWorkedWeekendVars_[i], name, WEIGHT_TOTAL_WEEKENDS);
+      pModel_->createPositiveVar(&maxWorkedWeekendVars_[i], name, WEIGHT_TOTAL_WEEKENDS);
 
       SCIPsnprintf(name, 255, "minWorkedDaysCons_N%d", i);
-      vector<MyVar*> vars1 = {minWorkedDaysVars_[i]};
+      vector<MyObject*> vars1 = {minWorkedDaysVars_[i]};
       vector<double> coeffs1 = {1};
-      pModel_->createGEConsLinear(minWorkedDaysCons_[i], name, theLiveNurses_[i]->minTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
+      pModel_->createGEConsLinear(&minWorkedDaysCons_[i], name, theLiveNurses_[i]->minTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
          vars1, coeffs1);
 
       SCIPsnprintf(name, 255, "maxWorkedDaysCons_N%d", i);
-      vector<MyVar*> vars2 = {maxWorkedDaysVars_[i]};
+      vector<MyObject*> vars2 = {maxWorkedDaysVars_[i]};
       vector<double> coeffs2 = {-1};
-      pModel_->createLEConsLinear(maxWorkedDaysCons_[i], name, theLiveNurses_[i]->maxTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
+      pModel_->createLEConsLinear(&maxWorkedDaysCons_[i], name, theLiveNurses_[i]->maxTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_,
          vars2, coeffs2);
 
       SCIPsnprintf(name, 255, "maxWorkedWeekendCons_N%d", i);
-      vector<MyVar*> vars3 = {maxWorkedWeekendVars_[i]};
+      vector<MyObject*> vars3 = {maxWorkedWeekendVars_[i]};
       vector<double> coeffs3 = {-1};
-      pModel_->createLEConsLinear(maxWorkedWeekendCons_[i], name, theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
+      pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
          vars3, coeffs3);
    }
 }
 
-int MasterProblem::addMinMaxConsToCol(vector<MyCons*>* cons, vector<double>* coeffs, int i, int k, bool weekend){
+int MasterProblem::addMinMaxConsToCol(vector<MyObject*>* cons, vector<double>* coeffs, int i, int k, bool weekend){
    int nbCons(0);
 
    ++nbCons;
@@ -524,65 +526,65 @@ void MasterProblem::buildSkillsCoverageCons(){
    char name[255];
    for(int k=0; k<pDemand_->nbDays_; k++){
       //initialize vectors
-      vector< vector<MyVar*> > optDemandVars1(pScenario_->nbShifts_-1);
-      vector< vector< vector<MyVar*> > > skillsAllocVars1(pScenario_->nbShifts_-1);
-      vector< vector<MyCons*> > minDemandCons1(pScenario_->nbShifts_-1);
-      vector< vector<MyCons*> > optDemandCons1(pScenario_->nbShifts_-1);
-      vector< vector<MyCons*> > feasibleSkillsAllocCons1(pScenario_->nbShifts_-1);
+      vector< vector<MyObject*> > optDemandVars1(pScenario_->nbShifts_-1);
+      vector< vector< vector<MyObject*> > > skillsAllocVars1(pScenario_->nbShifts_-1);
+      vector< vector<MyObject*> > minDemandCons1(pScenario_->nbShifts_-1);
+      vector< vector<MyObject*> > optDemandCons1(pScenario_->nbShifts_-1);
+      vector< vector<MyObject*> > feasibleSkillsAllocCons1(pScenario_->nbShifts_-1);
 
       //forget s=0, it's a resting shift
       for(int s=1; s<pScenario_->nbShifts_; s++){
          //initialize vectors
-         vector<MyVar*> optDemandVars2(pScenario_->nbSkills_);
-         vector< vector<MyVar*> > skillsAllocVars2(pScenario_->nbSkills_);
-         vector<MyCons*> minDemandCons2(pScenario_->nbSkills_);
-         vector<MyCons*> optDemandCons2(pScenario_->nbSkills_);
-         vector<MyCons*> feasibleSkillsAllocCons2(pScenario_->nbPositions());
+         vector<MyObject*> optDemandVars2(pScenario_->nbSkills_);
+         vector< vector<MyObject*> > skillsAllocVars2(pScenario_->nbSkills_);
+         vector<MyObject*> minDemandCons2(pScenario_->nbSkills_);
+         vector<MyObject*> optDemandCons2(pScenario_->nbSkills_);
+         vector<MyObject*> feasibleSkillsAllocCons2(pScenario_->nbPositions());
 
          for(int sk=0; sk<pScenario_->nbSkills_; sk++){
             //initialize vectors
-            vector<MyVar*> skillsAllocVars3(pScenario_->nbPositions());
+            vector<MyObject*> skillsAllocVars3(pScenario_->nbPositions());
 
             //create variables
             SCIPsnprintf(name, 255, "optDemandVar_%d_%d_%d", k, s, sk);
-            pModel_->createPositiveVar(optDemandVars2[sk], name, WEIGHT_OPTIMAL_DEMAND);
+            pModel_->createPositiveVar(&optDemandVars2[sk], name, WEIGHT_OPTIMAL_DEMAND);
             for(int p=0; p<pScenario_->nbPositions(); p++){
                SCIPsnprintf(name, 255, "skillsAllocVar_%d_%d_%d_%d", k, s, sk,p);
-               pModel_->createIntVar(skillsAllocVars3[p], name, 0);
+               pModel_->createIntVar(&skillsAllocVars3[p], name, 0);
             }
             //store vectors
             skillsAllocVars2[sk] = skillsAllocVars3;
 
             //adding variables and building minimum demand constraints
-            vector<MyVar*> vars1(positionsPerSkill_[sk].size());
+            vector<MyObject*> vars1(positionsPerSkill_[sk].size());
             vector<double> coeffs1(positionsPerSkill_[sk].size());
             for(int p=0; p<positionsPerSkill_[sk].size(); ++p){
                vars1[p] = skillsAllocVars3[positionsPerSkill_[sk][p]];
                coeffs1[p] = 1;
             }
             SCIPsnprintf(name, 255, "minDemandCons_%d_%d_%d", k, s, sk);
-            pModel_->createFinalGEConsLinear(minDemandCons2[sk], name, pDemand_->minDemand_[k][s][sk],
+            pModel_->createFinalGEConsLinear(&minDemandCons2[sk], name, pDemand_->minDemand_[k][s][sk],
                vars1, coeffs1);
 
             //adding variables and building optimal demand constraints
             vars1.push_back(optDemandVars2[sk]);
             coeffs1.push_back(1);
             SCIPsnprintf(name, 255, "optDemandCons_%d_%d_%d", k, s, sk);
-            pModel_->createFinalGEConsLinear(optDemandCons2[sk], name, pDemand_->optDemand_[k][s][sk],
+            pModel_->createFinalGEConsLinear(&optDemandCons2[sk], name, pDemand_->optDemand_[k][s][sk],
                vars1, coeffs1);
          }
 
          for(int p=0; p<pScenario_->nbPositions(); p++){
             //adding variables and building skills allocation constraints
             int const nonZeroVars3(skillsPerPosition_[p].size());
-            vector<MyVar*> vars3(nonZeroVars3);
+            vector<MyObject*> vars3(nonZeroVars3);
             vector<double> coeff3(nonZeroVars3);
             for(int sk=0; sk<nonZeroVars3; ++sk){
                vars3[sk] = skillsAllocVars2[skillsPerPosition_[p][sk]][p];
                coeff3[sk] =-1;
             }
             SCIPsnprintf(name, 255, "feasibleSkillsAllocCons_%d_%d_%d", k, s, p);
-            pModel_->createEQConsLinear(feasibleSkillsAllocCons2[p], name, 0,
+            pModel_->createEQConsLinear(&feasibleSkillsAllocCons2[p], name, 0,
                vars3, coeff3);
          }
 
@@ -603,7 +605,7 @@ void MasterProblem::buildSkillsCoverageCons(){
    }
 }
 
-int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons*>* cons, vector<double>* coeffs, int i, int k, int s){
+int MasterProblem::addSkillsCoverageConsToCol(vector<MyObject*>* cons, vector<double>* coeffs, int i, int k, int s){
    int nbCons(0);
 
    int p(theLiveNurses_[i]->pPosition_->id_);
@@ -647,12 +649,12 @@ string MasterProblem::costsConstrainstsToString(){
 
 double MasterProblem::getRotationCosts(CostType costType, bool initStateRotation){
    double cost = 0;
-   for(map<MyVar*, Rotation> map0: rotations_){
-      for(pair<MyVar*, Rotation> rot: map0){
+   for(map<MyObject*, Rotation> map0: rotations_){
+      for(pair<MyObject*, Rotation> rot: map0){
          //if(initStateRotation), search for empty rotation (=rotation for initial state)
          if(initStateRotation && rot.second.shifts_.size()>0)
             continue;
-         double value = pModel_->getVarValue(*(rot.first));
+         double value = pModel_->getVarValue(rot.first);
          switch(costType){
          case CONS_SHIFTS_COST: cost += rot.second.consShiftsCost_*value;
          break;
