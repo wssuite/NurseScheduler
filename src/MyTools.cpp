@@ -74,14 +74,16 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 // Initializes  a vector of the given size (filled only with zeroes)
 //
 void initVector(vector<int>* v1D, int m){
-		for(int i=0; i < m; i++){
-			v1D->push_back(0);
-		}
+	(*v1D).clear();
+	for(int i=0; i < m; i++){
+		v1D->push_back(0);
+	}
 }
 
 // initializes a vector2D of the given size (filled only with zeroes)
 //
 void initVector2D(vector2D* v2D, int m, int n){
+	(*v2D).clear();
 	for (int i=0; i<m; i++){
 		vector<int> v;
 		initVector(&v, n);
@@ -92,10 +94,31 @@ void initVector2D(vector2D* v2D, int m, int n){
 // Returns a vector3D of the given size (filled only with zeroes)
 //
 void initVector3D(vector3D* v3D, int m, int n, int p){
+	(*v3D).clear();
 	for (int i=0; i<m; i++){
 		vector2D v2D;
 		initVector2D(&v2D, n,p);
 		v3D->push_back(v2D);
+	}
+}
+
+// Initializes  a vector of the given size (filled only with zeroes), for double vectors
+//
+void initDoubleVector(vector<double>* v1D, int m){
+	(*v1D).clear();
+	for(int i=0; i < m; i++){
+		v1D->push_back(0);
+	}
+}
+
+// Initializes  a vector< vector< double > > of the given size (filled only with zeroes), for double vectors
+//
+void initDoubleVector2D(vector< vector< double > > * v2D, int m, int n){
+	(*v2D).clear();
+	for(int i=0; i < m; i++){
+		vector<double> v1D;
+		initDoubleVector(&v1D, n);
+		v2D->push_back(v1D);
 	}
 }
 
@@ -138,6 +161,12 @@ bool isWeekend(int dayId){
    return false;
 }
 
+bool containsWeekend(int start, int end){
+	for(int i=start; i<=end; i++)
+		if(isWeekend(i))
+			return true;
+	return false;
+}
 
 // constructor of Timer
 //

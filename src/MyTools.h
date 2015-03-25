@@ -82,6 +82,8 @@ bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 void initVector(vector<int>* v1D, int m);
 void initVector2D(vector2D* v2D, int m, int n);
 void initVector3D(vector3D* v3D, int m, int n, int p);
+void initDoubleVector(vector<double>* v1D, int m);
+void initDoubleVector2D(vector< vector< double > >* v2D, int m, int n);
 
 // To get the day from its id and vice-versa
 // First day is always supposed to be a Monday
@@ -91,6 +93,7 @@ int dayToInt(string day);
 bool isSaturday(int dayId);
 bool isSunday(int dayId);
 bool isWeekend(int dayId);
+bool containsWeekend(int startDate, int endDate);
 
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed

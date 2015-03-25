@@ -23,25 +23,25 @@ static int MAX_COST = 99999;
 // Different node types and their names
 //
 enum NodeType {
-	SOURCE_NODE, SHORT_ROTATION, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE,
-	ROTATION_LENGTH, ROTATION_LENGTH_EXIT, SINK_NODE, NONE_NODE};
+	SOURCE_NODE, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE,
+	ROTATION_LENGTH, SINK_NODE, NONE_NODE};
 static const vector<string> nodeTypeName = {
-		"SOURCE_NODE", "SHORT_ROTAT", "PPL_NETWORK", "ROTSIZE__IN",
-		"ROTSIZE    ", "ROTSIZE_OUT", "SINK_NODE  ", "NONE       "};
+		"SOURCE_NODE", "PPL_NETWORK", "ROTSIZE__IN",
+		"ROTSIZE    ", "SINK_NODE  ", "NONE       "};
 
 
 // Different arc types and their names
 //
 enum ArcType{
-	SOURCE_TO_SHORT, SHORT_TO_SINK, SHORT_TO_PRINCIPAL,	SHIFT_TO_NEWSHIFT,
-	SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE, REPEATSHIFT, PRINCIPAL_TO_ROTSIZE,
-	ROTSIZEIN_TO_ROTSIZE, ROTSIZE_TO_ROTSIZEOUT, ROTSIZEOUT_TO_SINK, NONE_ARC};
+	SOURCE_TO_PRINCIPAL, SHIFT_TO_NEWSHIFT, SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE,
+	REPEATSHIFT, PRINCIPAL_TO_ROTSIZE, ROTSIZEIN_TO_ROTSIZE, ROTSIZE_TO_SINK,
+	NONE_ARC};
 static const vector<string> arcTypeName = {
-		"SOURCE_TO_SHORT", "SHORT_TO_SINK  ", "SHORT_TO_PRPAL ", "SHIFT_TO_NEWSH ",
-		"SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ", "REPEATSHIFT    ", "PPL_TO_ROTSIZE ",
-		"ROTSZIN_TO_RTSZ", "ROTSZ_TO_RSZOUT", "RTSZOUT_TO_SINK", "NONE           "};
+		"SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ",
+		"REPEATSHIFT    ", "PPL_TO_ROTSIZE ", "ROTSZIN_TO_RTSZ", "ROTSIZE_TO_SINK",
+		"NONE           "};
 
-static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST = {};
+static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -258,21 +258,43 @@ public:
 
 	Costs(){}
 	Costs(vector< vector<double> > * workCosts, vector<double> * startWorkCosts, vector<double> * endWorkCosts, double workedWeekendCost):
-		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), pWorkedWeekendCost_(workedWeekendCost) {}
+		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
+
+	// GETTERS
+	//
+	inline double dayShiftWorkCost(int day, int shift){return ((*pWorkCosts_)[day][shift]);}
+	inline double startWorkCost(int day){return ((*pStartWorkCosts_)[day]);}
+	inline double endWorkCost(int day){return ((*pEndWorkCosts_)[day]);}
+	inline double workedWeekendCost(){return workedWeekendCost_;}
+
+
+	// SETTERS
+	//
+	inline void setPreferenceCosts(vector< vector<double> > * v){preferenceCosts_ = v;}
+
 
 protected:
-	// Indexe par : (jour, shift) !! 0 = shift 1 !!
+
+	// Indexed by : (day, shift) !! 0 = shift 1 !!
     vector< vector<double> > * pWorkCosts_;
-    // Indexe par : jour
+
+    // Indexed by : day
     vector<double> * pStartWorkCosts_;
-    // Indexe par : jour
+
+    // Indexed by : day
     vector<double> * pEndWorkCosts_;
-    //
-    double pWorkedWeekendCost_;
+
+    // Reduced cost of the weekends
+    double workedWeekendCost_;
+
+	// For each day k (<= nDays_ - CDMin), shift s, contains WEIGHT_PREFERENCES if (k,s) is a preference of the nurse; 0 otherwise.
+	//
+	vector< vector<double> > * preferenceCosts_;
 
     /*
-     * Possibilité d'ajouter des couts différents, typiquement des couts de base (non duaux)
+     * Possibility of adding other costs (such as baseCosts, not necessarily dual)
      */
+
 
 };
 
@@ -349,9 +371,13 @@ protected:
 	//
 	int nPathsMin_;
 
-	// 1 cost / day / worked shift
+	// Current live nurse considered
 	//
-	vector<vector<double> > * costs_;
+	LiveNurse * pLiveNurse_;
+
+	// All costs from Master Problem
+	//
+	Costs * pCosts_;
 
 	// Maximum length of a rotation (in consecutive worked days)
 	//
@@ -360,6 +386,10 @@ protected:
 	// Vector that contains a boolean for each shift. TRUE if the maximum consecutive number of these shifts is higher than the maximal rotation length (or number of days); false otherwise
 	//
 	vector<bool> isUnlimited_;
+
+	// Maximum number of consecutive days already worked by a nurse before the beginning of that period
+	//
+	int maxOngoingDaysWorked_;
 
 
 	//----------------------------------------------------------------
@@ -377,146 +407,136 @@ protected:
 	int nPaths_;
 
 
-	// LE GRAPHE
+
+	//----------------------------------------------------------------
+	//
+	// Construction of the network.
+	//
+	// INDEPENDENT FROM ANY NURSE / REDUCED COST !!!
+	//
+	//----------------------------------------------------------------
+
+	// THE GRAPH
 	Graph g_;
 
+	//-----------------------
+	// THE BASE COSTS
+	//-----------------------
+
+	// SHORT SUCCESSIONS (computed when creating them)
+	vector< vector<double> > baseArcCostOfShortSucc_;										// For each size c \in [0,CDMin], for each short rotation of size c, contains its base cost (independent from the date)
+
+	// All arcs have a base cost
+	// WARNING : for short ones, is of no use because must be priced first.
+	// WARNING : for those that never change, of no use also.
+	vector<double> arcBaseCost_;
+
+    // For each day k (<= nDays_ - CDMin), contains WEIGHT_COMPLETE_WEEKEND if [it is a Saturday (resp. Sunday) AND the contract requires complete weekends]; 0 otherwise.
+	vector<double> startWeekendCosts_, endWeekendCosts_;
+
+	// Cost function for consecutive identical shifts
+	double consShiftCost(int sh, int n);
+	// Cost function for consecutive days
+	double consDaysCost(int n);
+	// Initializes the startWeekendCost vector
+	void initStartWeekendCosts();
 
 
-	//----------------------------------------------------------------
+	//-----------------------
+	// THE SHORT SUCCESSIONS
+	//-----------------------
+
+	// SHORTSUCC -> OBJECTS
 	//
-	// Data and functions for the NODES of the network
+	// Short successions (no starting date) -> those of all length
+	vector3D allowedShortSuccBySize_;														// For each size c \in [0,CDMin], contains all allowed short successions of that size (satisfies succession constraints)
+	vector2D lastShiftOfShortSucc_;															// For each size c \in [0,CDMin], for each short rotation of size c, contains the corresponding last shift performed
+	vector2D nLastShiftOfShortSucc_;														// For each size c \in [0,CDMin], for each short rotation of size c, contains the number of consecutive days the last shift has been performed
+	// Objects for short successions of maximal size CDMin
+	int CDMin_;																				// Minimum number of consecutive days worked for free
+	vector3D allShortSuccCDMinByLastShiftCons_;												// For each shift s, for each number of days n, contains the list of short successions of size CDMin ending with n consecutive days of shift s
+	inline vector<int> shortSuccCDMin(int id){return allowedShortSuccBySize_[CDMin_][id];}	// Returns the short succession of size CDMin from its ID
+
+	// SHORTSUCC -> FUNCTIONS
 	//
-	//----------------------------------------------------------------
+	// Initializes all short successions, base costs, and corresponding vectors. Should only be called ONCE.
+	void initShortSuccessions();
 
-	//-----------------//
-	// DATA STRUCTURES //
-	//-----------------//
 
-	// Total number of nodes in the graph (is also the id of the node to add if a new node is to be added) and the vector of their types
+	//-----------------------
+	// THE NODES
+	//-----------------------
+
+	// NODES -> OBJECTS
 	//
-	int nNodes_;
-	vector<NodeType> allNodesTypes_;
-
+	int nNodes_;										// Total number of nodes in the graph
+	vector<NodeType> allNodesTypes_;					// vector of their types
 	// Source
-	//
 	int sourceNode_;
-
-	// Nodes of the SHORT_ROTATION subnetwork
-	//
-	vector< vector<Rotation*> > shortRotations_;		// List of all short rotations (contains their sequence of tasks)
-	vector< vector<int> > shortRotationsNodes_;			// For each length (#days), the list of all nodes that correspond to short rotations of this length
-	map<int,int> lastShiftOfShort_;						// For each short rotation, the id of the last shift worked
-	map<int,int> nLastShiftOfShort_;					// The number of consecutive similar shifts that ends the short rotation
-	map<int,int> lastDayOfShort_;
-	map<int,Rotation> nodeToShortRotation_;				// Maps the node ID to the corresponding short rotation
-
-
 	// Nodes of the PRINCIPAL_NETWORK subnetwork
-	//
 	vector3D principalNetworkNodes_;					// For each SHIFT, DAY, and # of CONSECUTIVE, the corresponding node
 	vector<int> maxvalConsByShift_;						// For each shift, number of levels that the subnetwork contains
 	map<int,int> principalToShift_;						// For each node of the principal network, maps it ID to the shift it represents
 	map<int,int> principalToDay_;						// For each node of the principal network, maps it ID to the day it represents
 	map<int,int> principalToCons_;						// For each node of the principal network, maps it ID to the number of consecutive shifts it represents
-
 	// Nodes of the ROTATION_LENGTH subnetwork
 	int rotationLengthEntrance_;						// Entrance node to the ROTATION_LENGTH subnetwork
 	map<int,int> rotationLengthNodes_;					// Maps the length of the rotation to the corresponding check node
-	int rotationLengthExit_;							// Exit node to the ROTATION_LENGTH subnetwork
-
 	// Sink Node
-	//
 	int sinkNode_;
 
-	//-----------//
-	// FUNCTIONS //
-	//-----------//
-
+	// NODES -> FUNCTIONS
+	//
 	// Creates all nodes of the graph (including resource window)
-	//
 	void createNodes();
-
 	// Basic function for adding a node
-	//
 	void addSingleNode(NodeType type, int eat, int lat);
-
 	// Initiate variables for the nodes structures (vectors, etc.)
 	// nDays : length of the scenario
-	//
 	void initNodesStructures();
-
-	// Returns a vector3D: For each duration from 0 (empty) to CD_min, returns the list of LEGID shift successions.
-	// They do not depend on the starting date, only allowed successions w.r.t. the forbidden successors.
-	//
-	vector3D allowedShortSuccessions();
-
-	// Add a short rotation to the graph, that starts at k0 and contains the given succession of tasks of duration length
-	//
-	void addShortRotationToGraph(int k0, vector<int> shiftSuccession, int length);
-
 	// Add a node to the principal network of the graph, for shift sh, day k, and number of consecutive similar shifts cons
-	//
 	void addNodeToPrincipalNetwork(int sh, int k, int cons);
-
 	// Get info from the node ID
-	//
 	inline NodeType nodeType(int v){return get( &Vertex_Properties::type, g_)[v];}
 	inline int nodeEat(int v){return get( &Vertex_Properties::eat, g_)[v];}
 	inline int nodeLat(int v){return get( &Vertex_Properties::lat, g_)[v];}
 
 
+	//-----------------------
+	// THE ARCS
+	//-----------------------
 
-	//----------------------------------------------------------------
+	// ARCS -> OBJECTS
 	//
-	// Data and functions for the ARCS of the network
-	//
-	//----------------------------------------------------------------
-
-
-	//-----------------//
-	// DATA STRUCTURES //
-	//-----------------//
-
-	// Total number of arcs in the graph (is also the id of the arc to add if a new node is to be added) and the vector of their types
-	//
-	int nArcs_;
+	int nArcs_;											// Total number of arcs in the graph
+	vector<ArcType> allArcsTypes_;						// Vector of their types
 	vector< boost::graph_traits< Graph>::edge_descriptor > arcsDescriptors_;
-	vector<ArcType> allArcsTypes_;
+	// Data structures to get the arcs id from other data
+	vector3D arcsFromSource_;							// Index: (shift, day, nCons) of destination
+	vector3D arcsShiftToNewShift_;						// Index: (shift1, shift2, day1)
+	vector3D arcsShiftToSameShift_;						// Index: (shift, day, nCons) of origin
+	vector3D arcsShiftToEndsequence_;					// Index: (shift, day, nCons) of origin
+	vector2D arcsRepeatShift_;							// Index: (shift, day) of origin
+	vector2D arcsPrincipalToRotsizein_;					// Index: (shift, day) of origin
+	map<int,int> arcsRotsizeinToRotsize_;				// Index: (size) of the rotation [destination]
+	map<int,int> arcsRotsizeToRotsizeout_;				// Index: (size) of the rotation [origin]
 
-	// Vector of all arcs whose origin is the source node
+	// ARCS -> FUNCTIONS
 	//
-	vector<int> arcsFromSource_;
-
-
-
-	//-----------//
-	// FUNCTIONS //
-	//-----------//
-
 	// Creates all arcs of the graph
-	//
 	void createArcs();
-
 	// Basic function for adding an arc
-	//
-	void addSingleArc(int origin, int destination, int cost, int travelTime, ArcType type);
-
+	void addSingleArc(int origin, int destination, int baseCost, int travelTime, ArcType type);
 	// Initiate variables for the arcs structures (integers, vectors, etc.)
-	//
 	void initArcsStructures();
-
 	// Create the specific types of arcs
-	//
-	void createArcsSourceToShort();
-	void createArcsShortToSink();
-	void createArcsShortToPrincipal();
+	void createArcsSourceToPrincipal();
 	void createArcsPrincipalToPrincipal();
 	void createArcsAllRotationSize();
 
 	// Initialize and update the costs of the arcs.
 	// Some arcs always have the same cost (0). Hence, their cost may not be changed
-	//
-	void initCostArcs();
+	void initBaseCostArcs();
 	void updateCostArcs();
 
 	// Get info with the arc ID
@@ -525,6 +545,65 @@ protected:
 	inline int arcDestination(int a) {return target(arcsDescriptors_[a], g_);}
 	inline int arcLength(int a) {return get( &Arc_Properties::time, g_, arcsDescriptors_[a]);}
 	inline int arcCost(int a) {return get( &Arc_Properties::cost, g_, arcsDescriptors_[a]);}
+
+
+
+
+
+
+
+	//----------------------------------------------------------------
+	//
+	// Update of the costs
+	//
+	// INDEPENDENT FROM ANY NURSE / REDUCED COST !!!
+	//
+	//----------------------------------------------------------------
+	vector<vector <double> > * preferencesCosts_;
+	inline void setPreferenceCost(int day, int shift, double cost){ (*preferencesCosts_)[day][shift] = cost;}
+	// Data structure that associates an arc to the chosen short succession of lowest cost
+	map<int,int> shortSuccCDMinIdFromArc_;				// Maps the arcs to the corresponding short rotation ID
+
+	// Single cost change
+	//
+	inline void updateCost(int arc, double cost){boost::put( &Arc_Properties::cost, g_, arcsDescriptors_[arc], cost );}
+	inline void updateTime(int arc, double time){boost::put( &Arc_Properties::time, g_, arcsDescriptors_[arc], time );}
+
+	// For tests, must be able to randomly generate costs
+	//
+	void generateRandomCosts();
+
+	// Initializes some cost vectors that depend on the nurse
+	//
+	void initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
+
+
+	// Best ones given a starting date and an ending pattern (number of similar consecutive ending the rotation)
+	//
+	vector3D idBestShortSuccCDMin_;								// For each day k (<= nDays_ - CDMin), shift s, number n, contains the best short succession of size CDMin that starts on day k, and ends with n consecutive days of shift s
+	vector<vector<vector<double> > > arcCostBestShortSuccCDMin_;// For each day k (<= nDays_ - CDMin), shift s, number n, contains the cost of the corresponding arc
+
+
+	// Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
+	//
+	void priceShortSucc();
+
+	// Given a short succession and a start date, returns the cost of the corresponding arc
+	//
+	double costArcShortSucc(int size, int id, int startDate);
+
+	// Updates the costs depending on the reduced costs given for the nurse
+	//
+	void updateArcCosts();
+
+
+
+	//----------------------------------------------------------------
+	//
+	// Utilities functions
+	//
+	//----------------------------------------------------------------
+	bool succContainsDayShift(int size, int succId, int startDate, int thatDay, int thatShift);
 
 
 public:
@@ -536,6 +615,7 @@ public:
 	string printArc(int a);
 	string shortNameNode(int v);
 	string printSummaryOfGraph();
+	void printShortSucc();
 
 
 };

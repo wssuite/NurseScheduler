@@ -62,21 +62,28 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 SubProblem::SubProblem() {}
 
 SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * contract):
-	pScenario_(scenario), pDemand_(demand), pContract_ (contract){
+	pScenario_(scenario), pDemand_(demand), pContract_ (contract),
+	CDMin_(contract->minConsDaysWork_), maxRotationLength_(demand->nbDays_), nDays_(demand->nbDays_){
 
-	maxRotationLength_ = pDemand_->nbDays_;
-	nDays_  = pDemand_->nbDays_;
+
 	init();
 
-	nDays_ = 56;
+	// WARNING : FOLLOWING 2 LINES WILL HAVE TO BE DELETED LATER
+	nDays_ = 35;
+	maxRotationLength_ = 35;
+
+	initShortSuccessions();
 
 	createNodes();
 	createArcs();
 
 	nPathsMin_ = 0;
 
-	//printGraph();
+	printGraph();
 	std::cout << printSummaryOfGraph();
+	printShortSucc();
+
+	priceShortSucc();
 
 
 }
@@ -86,20 +93,200 @@ SubProblem::~SubProblem(){}
 // Initialization function
 void SubProblem::init(){
 
+	// Maximum number of consecutive days worked by a nurse ending at day -1
+	//
+
+	// TODO : Déterminer le nombre de jours maximum des séries en cours pour les nurses
+	maxOngoingDaysWorked_ = 2;
+
 	// Initialization of isUnlimited_ and nLevelsByShift_
 	//
 	vector<bool> v; isUnlimited_ = v; isUnlimited_.push_back(false);
 	vector<int> w; maxvalConsByShift_ = w; maxvalConsByShift_.push_back(0);
+
 	for(int sh=1; sh<pScenario_->nbShifts_; sh++){
-		// TODO : modifier ligne suivante -> en fonction des historiques initiaux des nurses du scenario
-		isUnlimited_.push_back( pScenario_->maxConsShifts_[sh] >= nDays_ );
+		isUnlimited_.push_back( pScenario_->maxConsShifts_[sh] >= nDays_ + maxOngoingDaysWorked_ );
 		int nl = isUnlimited_[sh] ? pScenario_->minConsShifts_[sh] : pScenario_->maxConsShifts_[sh];
 		maxvalConsByShift_.push_back( nl );
 	}
+}
+
+// Initializes the short successions. Should only be used ONCE (when creating the SubProblem).
+void SubProblem::initShortSuccessions(){
+
+	// Primary information needed
+	//
+	int nShifts= pScenario_->nbShifts_;
+
+	// Put an empty list of size 0 for all data because there exists no succession of length 0/
+	//
+	vector2D v2; vector<int> v1,v1bis; vector<double> vd1;
+	allowedShortSuccBySize_.push_back(v2);
+	lastShiftOfShortSucc_.push_back(v1);
+	nLastShiftOfShortSucc_.push_back(v1bis);
+	baseArcCostOfShortSucc_.push_back(vd1);
+
+	// Initialize the other way round
+	for(int s=0; s<nShifts; s++){
+		vector2D allShortSuccCDMinByLastShiftCons2;
+		for(int n=0; n<=CDMin_; n++){
+			vector<int> allShortSuccCDMinByLastShiftCons1;
+			allShortSuccCDMinByLastShiftCons2.push_back(allShortSuccCDMinByLastShiftCons1);
+		}
+		allShortSuccCDMinByLastShiftCons_.push_back(allShortSuccCDMinByLastShiftCons2);
+	}
+
+	// For all size from 1 to CD_min, compute all allowed shift successions.
+	//
+	for(int c=1; c<=CDMin_; c++){
+
+		// Blank data
+		vector2D allSuccSizeC;
+		vector<int> lastShiftSucc;
+		vector<int> nLastShiftSucc;
+		vector<double> arcCostSucc;
+
+		// Compute new succession
+		//
+
+		// Size 1 -> special case, initialization -> add all single shift rotations
+		//
+		if(c==1){
+			for(int s=1; s<nShifts; s++){
+				vector<int> shiftSuccession; shiftSuccession.push_back(s);		// Create Succession
+				allSuccSizeC.push_back(shiftSuccession);						// Add it to the possibilities
+				lastShiftSucc.push_back(s);										// Record its last shift
+				nLastShiftSucc.push_back(1);									// Only 1 successive performed so far
+				arcCostSucc.push_back(0);										// No succession ended yet
+			}
+		}
+
+		// Larger but not last -> Extend the previous one by extending each of size c-1 in all possible ways
+		//
+		else if(c<CDMin_){
+			// For each short rotation of size c-1
+			for(int i=0; i<allowedShortSuccBySize_[c-1].size(); i++){
+				vector<int> succ (allowedShortSuccBySize_[c-1][i]);
+				int lastSh = succ[succ.size()-1];
+				int nLast = nLastShiftOfShortSucc_[c-1][i];
+				double cost = baseArcCostOfShortSucc_[c-1][i];
+				// For each possible new shift s.t. the succession is allowed
+				for(int newSh=1; newSh<nShifts; newSh++){
+					if(! pScenario_->isForbiddenSuccessor(newSh,lastSh)){
+
+						vector<int> newSucc (succ); newSucc.push_back(newSh);		// Create Succession
+						allSuccSizeC.push_back(newSucc);							// Add it to the possibilities
+						lastShiftSucc.push_back(newSh);								// Record its last shift
+						if (newSh == lastSh){										// Depending on the previous one, update number of consecutive and cost
+							nLastShiftSucc.push_back(nLast+1);
+							arcCostSucc.push_back(cost);
+						} else {
+							nLastShiftSucc.push_back(1) ;
+							arcCostSucc.push_back(cost + consShiftCost(lastSh, nLast));
+						}
+
+					}
+				}
+			}
+		}
+
+		// Maximum allowed size -> more things to consider
+		//
+		else {
+			// For each short rotation of size c-1
+			for(int i=0; i<allowedShortSuccBySize_[c-1].size(); i++){
+				vector<int> succ (allowedShortSuccBySize_[c-1][i]);
+				int lastSh = succ[succ.size()-1];
+				int nLast = nLastShiftOfShortSucc_[c-1][i];
+				double cost = baseArcCostOfShortSucc_[c-1][i];
+				// For each possible new shift s.t. the succession is allowed
+				for(int newSh=1; newSh<nShifts; newSh++){
+					if(! pScenario_->isForbiddenSuccessor(newSh,lastSh)){
+
+						vector<int> newSucc (succ); newSucc.push_back(newSh);		// Create Succession
+						allSuccSizeC.push_back(newSucc);							// Add it to the possibilities
+						lastShiftSucc.push_back(newSh);								// Record its last shift
+						int newNLast = 1;
+						double newCost = cost;
+						if (newSh == lastSh											// Depending on the previous one, update number of consecutive and cost
+								and nLast < pScenario_->maxConsShifts_[lastSh]){	// BUT : add the cost if longer than the maximum allowed
+							newNLast += nLast;
+						} else {
+							newCost += consShiftCost(lastSh, nLast) ;
+						}
+						nLastShiftSucc.push_back(newNLast);
+						arcCostSucc.push_back(newCost);
+
+						// Since it is the longest one, record the tables the other way round
+						//
+						allShortSuccCDMinByLastShiftCons_[newSh][newNLast].push_back(allSuccSizeC.size()-1);
+
+					}
+				}
+			}
+		}
+
+		// Store all vectors
+		//
+		allowedShortSuccBySize_.push_back(allSuccSizeC);
+		lastShiftOfShortSucc_.push_back(lastShiftSucc);
+		nLastShiftOfShortSucc_.push_back(nLastShiftSucc);
+		baseArcCostOfShortSucc_.push_back(arcCostSucc);
+
+	}
+
+	// Print for debug
+	//
+	/*
+	for(int i=1; i<allowedShortSuccBySize_.size(); i++){
+		std::cout << "#   +-----------------------+" << std::endl;
+		std::cout << "#   | SUCCESSIONS OF SIZE " << i << " |" << std::endl;
+		std::cout << "#   +-----------------------+" << std::endl;
+		for(int j=0; j<allowedShortSuccBySize_[i].size(); j++){
+			vector<int> succ = allowedShortSuccBySize_[i][j];
+			std::cout << "#    | ";
+			std::cout << "c=" << baseArcCostOfShortSucc_[i][j];
+			baseArcCostOfShortSucc_[i][j] == 0 ? cout<< " " : cout << "";
+			cout << " ; ";
+			//std::cout << "lastSh=" << pScenario_->intToShift_[lastShiftOfShortSucc_[i][j]] << " ; ";
+			//std::cout << "nLast=" << nLastShiftOfShortSucc_[i][j] << " ; ";
+			for(int k=0; k<succ.size(); k++){
+				std::cout << " " << pScenario_->intToShift_[succ[k]];
+			}
+			std::cout << std::endl;
+		}
+	}
+	for(int s=0; s<nShifts; s++){
+		for(int n=0; n<=CDMin_; n++){
+			cout << "# Succession ending with " << n << " days of " << pScenario_->intToShift_[s] << " :";
+			for(int i : allShortSuccCDMinByLastShiftCons_[s][n]){
+				cout << " ";
+				vector<int> v = allowedShortSuccBySize_[CDMin_][i];
+				for(int sh : v)
+				cout << ((pScenario_->intToShift_[sh]).at(0));
+			}
+			cout << endl;
+		}
+	}
+	*/
 
 }
 
+// Cost function for consecutive identical shifts
+//
+double SubProblem::consShiftCost(int sh, int n){
+	if(pScenario_->minConsShifts_[sh] - n > 0) return (WEIGHT_CONS_SHIFTS * ( pScenario_->minConsShifts_[sh] - n ) );
+	if(n - pScenario_->maxConsShifts_[sh] > 0) return (WEIGHT_CONS_SHIFTS * ( n - pScenario_->maxConsShifts_[sh] ) );
+	return 0;
+}
 
+// Cost function for consecutive identical shifts
+//
+double SubProblem::consDaysCost(int n){
+	if(pContract_->minConsDaysWork_ - n > 0) return (WEIGHT_CONS_DAYS_WORK * ( pContract_->minConsDaysWork_ - n ) );
+	if(n - pContract_->maxConsDaysWork_ > 0) return (WEIGHT_CONS_DAYS_WORK * ( n - pContract_->maxConsDaysWork_ ) );
+	return 0;
+}
 
 
 
@@ -111,8 +298,11 @@ void SubProblem::init(){
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
+	initStructuresForSolve(nurse, costs, forbiddenDayShifts, maxRotationLength);
+	updateArcCosts();
 	return false;
 }
+
 
 
 //--------------------------------------------
@@ -138,29 +328,17 @@ void SubProblem::createNodes(){
 	sourceNode_ = nNodes_;
 	addSingleNode(SOURCE_NODE, 0, maxRotationLength_);
 
-	// 2. SUBNETWORK FOR SHORT ROTATIONS (DEPENDS ON CD_min)
-	//
-	vector3D allowedShortShiftSuccessionsBySize = allowedShortSuccessions();	// A- Compute all allowed successions of shifts of length <= CD_min
-	for(int c=1; c<=CD_min; c++){												// B- Duplication for different starting days: For each short succession length (c)
-		vector2D successions = allowedShortShiftSuccessionsBySize[c];
-		for(int k0=0; k0<nDays_-c+1; k0++){										// For each possible starting date (k0)
-			for(int m=0; m<allowedShortShiftSuccessionsBySize[c].size(); m++){	// For each allowed succession of length c
-				addShortRotationToGraph(k0, successions[m], c);					// Creation of the node for that short rotation with starting date k0
-			}
-		}
-	}
-
-	// 3. PRINCIPAL NETWORK(S) [ONE PER SHIFT TYPE]
+	// 2. PRINCIPAL NETWORK(S) [ONE PER SHIFT TYPE]
 	//
 	for(int sh=1; sh<nShifts; sh++){											// For each possible worked shift
-		for(int k=0; k<nDays_; k++){												// For each date
+		for(int k=CDMin_; k<nDays_; k++){											// For each date
 			for(int cons=1; cons<=maxvalConsByShift_[sh]; cons++){					// For each level of network
-				addNodeToPrincipalNetwork(sh, k, cons);							// Add a node to the principal network
+				addNodeToPrincipalNetwork(sh, k, cons);								// Add a node to the principal network
 			}
 		}
 	}
 
-	// 4. ROTATION LENGTH CHECK
+	// 3. ROTATION LENGTH CHECK
 	//
 	// Entrance
 	rotationLengthEntrance_ = nNodes_;											// Single node for the entrance in subnetwork
@@ -170,84 +348,11 @@ void SubProblem::createNodes(){
 		rotationLengthNodes_.insert(pair<int,int>(l,nNodes_));
 		addSingleNode(ROTATION_LENGTH, l, maxRotationLength_);
 	}
-	// Exit
-	rotationLengthExit_ = nNodes_;												// Single node for the exit (could probably be replaced by the sink)
-	addSingleNode(ROTATION_LENGTH_EXIT, 0, maxRotationLength_);
 
-	// 5. SINK NODE
+	// 4. SINK NODE
 	//
 	sinkNode_ = nNodes_;
 	addSingleNode(SINK_NODE, 0, maxRotationLength_);
-}
-
-// Addition of a single node (101)
-void SubProblem::addSingleNode(NodeType type, int eat, int lat){
-	add_vertex( Vertex_Properties( nNodes_, type, eat, lat ), g_ );
-	allNodesTypes_.push_back(type);
-	nNodes_++;
-
-}
-
-// Function that returns the vector of all allowed successions (by length from 0 [empty] to CD_min)
-vector3D SubProblem::allowedShortSuccessions(){
-	vector3D ans;
-
-	// Primary information needed
-	//
-	int CD_min = pContract_->minConsDaysWork_;											// Minimum consecutive days worked for free
-	int nShifts= pScenario_->nbShifts_;													// Number of different shifts
-
-	vector2D v;
-	ans.push_back(v);																	// Put an empty list of size 0
-
-	// For all size from 1 to CD_min, compute all allowed shift successions.
-	//
-	for(int c=1; c<=CD_min; c++){
-		vector< vector<int> > allowedShortShiftSuccessionsOfSizeC;
-		if(c==1){																		// Size 1 -> special case, initialization -> add all single shift rotations
-			for(int s=1; s<nShifts; s++){
-				vector<int> shiftSuccession;
-				shiftSuccession.push_back(s);
-				allowedShortShiftSuccessionsOfSizeC.push_back(shiftSuccession);
-			}
-		}
-		else {																			// Larger -> extend the previous one
-			vector< vector<int> > legidShortShiftSuccessionsOfSizeCMinusOne = ans[c-1];
-			for(int i=0; i<legidShortShiftSuccessionsOfSizeCMinusOne.size(); i++){		// For each short rotation of size c-1
-				vector<int> succ (legidShortShiftSuccessionsOfSizeCMinusOne[i]);
-				int sh = succ[succ.size()-1];
-				for(int newSh=1; newSh<nShifts; newSh++){								// For each possible shift at date c
-					if(! pScenario_->isForbiddenSuccessor(newSh,sh)){					// IF the succession is allowed, then add it
-						vector<int> newSucc (succ);
-						newSucc.push_back(newSh);
-						allowedShortShiftSuccessionsOfSizeC.push_back(newSucc);
-					}
-				}
-			}
-		}
-		ans.push_back(allowedShortShiftSuccessionsOfSizeC);								// For all values of c, add the vector of possible successions of size c to the list
-	}
-
-
-	// Print for debug
-	//
-	/* for(int i=1; i<ans.size(); i++){
-		std::cout << "#   +-----------------------+" << std::endl;
-		std::cout << "#   | SUCCESSIONS OF SIZE " << i << " |" << std::endl;
-		std::cout << "#   +-----------------------+" << std::endl;
-		vector2D succs = ans[i];
-		for(int j=0; j<succs.size(); j++){
-			vector<int> succ = succs[j];
-			std::cout << "#    | ";
-			for(int k=0; k<succ.size(); k++){
-				std::cout << " " << pScenario_->intToShift_[succ[k]];
-			}
-			std::cout << std::endl;
-		}
-	}
-	*/
-
-	return ans;
 }
 
 // Initiate variables for the nodes structures (vectors, etc.)
@@ -255,20 +360,12 @@ void SubProblem::initNodesStructures(){
 
 	// Data
 	//
-	int CD_min = pContract_->minConsDaysWork_;		// Minimum consecutive days worked for free
 	int nShifts= pScenario_->nbShifts_;				// Number of different shifts
 
 	// All nodes
 	//
 	nNodes_ = 0;
 	vector<NodeType> v; allNodesTypes_ = v;
-
-	// Short rotations
-	//
-	for(int c=0; c<=CD_min; c++){
-		vector<Rotation*> vr; shortRotations_.push_back(vr);
-		vector<int> vi; shortRotationsNodes_.push_back(vi);
-	}
 
 	// Principal networks
 	//
@@ -277,7 +374,7 @@ void SubProblem::initNodesStructures(){
 		if(sh!=0){
 			for(int k=0; k<nDays_; k++){
 				vector<int> v1D;
-				for(int cons=0; cons<maxvalConsByShift_[sh]; cons++){
+				for(int cons=0; cons<=maxvalConsByShift_[sh]; cons++){
 					v1D.push_back(-1);
 				}
 				v2D.push_back(v1D);
@@ -287,41 +384,12 @@ void SubProblem::initNodesStructures(){
 	}
 }
 
-// Function that adds a short succession to the graph, that starts at k0, and consists in performing the given shift succession
-void SubProblem::addShortRotationToGraph(int k0, vector<int> shiftSuccession, int length){
+// Addition of a single node (101)
+void SubProblem::addSingleNode(NodeType type, int eat, int lat){
+	add_vertex( Vertex_Properties( nNodes_, type, eat, lat ), g_ );
+	allNodesTypes_.push_back(type);
+	nNodes_++;
 
-	// Create the effective rotation depending on starting date
-	//
-	Rotation rot (k0, shiftSuccession);
-
-	// Add it to the list and create the node simultaneously
-	//
-	nodeToShortRotation_.insert(pair<int,Rotation> (nNodes_, rot));
-	shortRotations_[length].push_back( & nodeToShortRotation_.at(nNodes_) );
-
-	// Store the last shift
-	//
-	int lastShift = shiftSuccession[length-1];
-	lastShiftOfShort_.insert(pair<int,int>( nNodes_, lastShift ));
-
-	// Store the number of successive similar shifts in the end of that rotation
-	//
-	int n=0;
-	while(n<length and shiftSuccession[length-1-n]==lastShift)n++;
-	nLastShiftOfShort_.insert(pair<int,int>( nNodes_ , n ));
-
-	// Store the last day of the short rotation
-	//
-	int lastDay = k0 + length - 1;
-	lastDayOfShort_.insert(pair<int,int>( nNodes_, lastDay));
-
-	// Store the id
-	//
-	shortRotationsNodes_[length].push_back(nNodes_);
-
-	// Create the node
-	//
-	addSingleNode(SHORT_ROTATION, 0, maxRotationLength_);
 }
 
 // Add a node to the principal network of the graph, for shift sh, day k, and number of consecutive similar shifts cons
@@ -344,6 +412,7 @@ void SubProblem::addNodeToPrincipalNetwork(int sh, int k, int cons){
 }
 
 
+
 //--------------------------------------------
 //
 // Functions for the ARCS of the graph
@@ -353,65 +422,69 @@ void SubProblem::addNodeToPrincipalNetwork(int sh, int k, int cons){
 // Function that creates the arcs of the network
 void SubProblem::createArcs(){
 	initArcsStructures();
-	createArcsSourceToShort();
-	createArcsShortToSink();
-	createArcsShortToPrincipal();
+	createArcsSourceToPrincipal();
 	createArcsPrincipalToPrincipal();
 	createArcsAllRotationSize();
 }
 
 // Adds a single arc (origin, destination, cost, travel time, type)
-void SubProblem::addSingleArc(int o, int d, int c, int t, ArcType type){
-	boost::graph_traits< Graph>::edge_descriptor e = (add_edge( o, d, Arc_Properties( nArcs_, type, c, t ), g_ )).first;
+void SubProblem::addSingleArc(int o, int d, int baseCost, int t, ArcType type){
+	boost::graph_traits< Graph>::edge_descriptor e = (add_edge( o, d, Arc_Properties( nArcs_, type, baseCost, t ), g_ )).first;
 	arcsDescriptors_.push_back(e);
 	allArcsTypes_.push_back(type);
+	arcBaseCost_.push_back(baseCost);
 	nArcs_++;
 }
 
 // Initializes the data structures used for the arcs
 void SubProblem::initArcsStructures(){
 	nArcs_ = 0;
-	vector<int> v; arcsFromSource_ = v;
 	vector< boost::graph_traits< Graph>::edge_descriptor > ve; arcsDescriptors_ = ve;
+
+	// Initialization of info -> arcId data structures
+	arcsFromSource_.clear();
+	arcsShiftToNewShift_.clear();
+	arcsShiftToSameShift_.clear();
+	arcsShiftToEndsequence_.clear();
+	arcsRepeatShift_.clear();
+	arcsPrincipalToRotsizein_.clear();
+	arcsRotsizeinToRotsize_.clear();
+	arcsRotsizeToRotsizeout_.clear();
+	// VECTORS 3 D
+	for(int s=0; s<pScenario_->nbShifts_; s++){
+		vector2D v2, w2, x2;
+		Tools::initVector2D(&v2, nDays_, maxvalConsByShift_[s]+1); arcsFromSource_.push_back(v2);
+		Tools::initVector2D(&w2, nDays_, maxvalConsByShift_[s]+1); arcsShiftToSameShift_.push_back(w2);
+		Tools::initVector2D(&x2, nDays_, maxvalConsByShift_[s]+1); arcsShiftToEndsequence_.push_back(x2);
+	}
+	Tools::initVector3D(&arcsShiftToNewShift_, pScenario_->nbShifts_, pScenario_->nbShifts_, nDays_);
+	// VECTORS 2 D
+	Tools::initVector2D(&arcsRepeatShift_, pScenario_->nbShifts_, nDays_);
+	Tools::initVector2D(&arcsPrincipalToRotsizein_, pScenario_->nbShifts_, nDays_);
+	// MAPS
+	arcsRotsizeinToRotsize_.clear();
+	arcsRotsizeToRotsizeout_.clear();
+
 }
 
 // Create all arcs whose origin is the source nodes (all go to short rotations nodes)
-void SubProblem::createArcsSourceToShort(){
-	for(int length=1; length<shortRotationsNodes_.size(); length++){
-		vector<int> shortRotLengthC = shortRotationsNodes_[length];
-		for(int m=0; m<shortRotLengthC.size(); m++){
-			int dest = shortRotLengthC[m];
-			addSingleArc(sourceNode_, dest, MAX_COST, length, SOURCE_TO_SHORT);
+void SubProblem::createArcsSourceToPrincipal(){
+
+	// DATA
+	int nShifts = pScenario_->nbShifts_;
+	int origin, destin;
+
+	for(int sh=1; sh<nShifts; sh++){
+		for(int k=CDMin_; k<nDays_; k++){
+			for(int nCons=1; nCons<=maxvalConsByShift_[sh]; nCons ++){
+				origin = sourceNode_;
+				destin = principalNetworkNodes_[sh][k][nCons];
+				arcsFromSource_[sh][k][nCons] = nArcs_;
+				addSingleArc(origin, destin, 0, CDMin_, SOURCE_TO_PRINCIPAL);
+			}
 		}
 	}
-}
 
-// Create all arcs that go directly from the short rotation to the sink
-void SubProblem::createArcsShortToSink(){
-	for(int length=1; length<shortRotationsNodes_.size()-1; length++){						// For each short rotation BUT the ones of length CD_min (path exists through principal network)
-		vector<int> shortRotLengthC = shortRotationsNodes_[length];
-		for(int m=0; m<shortRotLengthC.size(); m++){
-			int origin = shortRotLengthC[m];
-			addSingleArc(origin, sinkNode_, MAX_COST, 0, SHORT_TO_SINK);
-		}
-	}
-}
-
-// Create all arcs that go from the longest short rotations to the principal network
-void SubProblem::createArcsShortToPrincipal(){
-	vector<int> shortRotLengthMax = shortRotationsNodes_[shortRotationsNodes_.size()-1];	// Only the short rotation of maximum length
-	for(int m=0; m<shortRotLengthMax.size(); m++){											// For each of these short rotations of length CD_min
-
-		int origin = shortRotLengthMax[m];
-
-		int lastSh = lastShiftOfShort_.at(origin);
-		int nLast = nLastShiftOfShort_.at(origin);
-		int maxCons = maxvalConsByShift_[lastSh];
-		int nConsNetwork =  nLast > maxCons ? maxCons : nLast; 								// Includes the case where the nurse already performed more than the max in the short rotation
-		int destin = principalNetworkNodes_[lastSh][lastDayOfShort_.at(origin)][nConsNetwork];
-
-		addSingleArc(origin, destin, MAX_COST, 0, SHORT_TO_PRINCIPAL);
-	}
 }
 
 // Create all arcs within the principal network
@@ -424,21 +497,24 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 	// FOR EACH OF THE SUBNETWORKS AND EACH OF THE DAYS
 	//
 	for (int sh=1; sh<nShifts; sh++){
-		for(int k=0; k<nDays_-1; k++){
+		for(int k=CDMin_; k<nDays_-1; k++){
 
 			//   1. WORK ONE MORE DAY ON THE SAME SHIFT WHEN MAXIMUM IS NOT REACHED YET
 			//
 			for(int nCons=1; nCons<maxvalConsByShift_[sh]; nCons ++){
 				origin = principalNetworkNodes_[sh][k][nCons];
 				destin = principalNetworkNodes_[sh][k+1][nCons+1];
-				addSingleArc(origin, destin, MAX_COST, 1, SHIFT_TO_SAMESHIFT);
+				arcsShiftToSameShift_[sh][k][nCons] = nArcs_;
+				addSingleArc(origin, destin, 0, 1, SHIFT_TO_SAMESHIFT);
 			}
 
 			//   2. WORK ONE MORE DAY ON THE SAME SHIFT WHEN MAXIMUM IS ALREADY REACHED
 			//
 			origin = principalNetworkNodes_[sh][k][maxvalConsByShift_[sh]];
 			destin = principalNetworkNodes_[sh][k+1][maxvalConsByShift_[sh]];
-			addSingleArc(origin, destin, MAX_COST, 1, REPEATSHIFT);
+			arcsRepeatShift_[sh][k] = nArcs_;
+			double cost = isUnlimited(sh) ? 0 : WEIGHT_CONS_SHIFTS;
+			addSingleArc(origin, destin, cost, 1, REPEATSHIFT);
 
 			// 3. WORK ONE MORE DAY ON A DIFFERENT SHIFT (CHANGE SUBNETWORK)
 			//
@@ -446,7 +522,8 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			for(int newSh=1; newSh<nShifts; newSh++){
 				if(newSh != sh and ! pScenario_->isForbiddenSuccessor(newSh,sh)){
 					int destin = principalNetworkNodes_[newSh][k+1][1];
-					addSingleArc(origin, destin, MAX_COST, 1, SHIFT_TO_NEWSHIFT);
+					arcsShiftToNewShift_[sh][newSh][k] = nArcs_;
+					addSingleArc(origin, destin, 0, 1, SHIFT_TO_NEWSHIFT);
 				}
 			}
 
@@ -455,7 +532,8 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			for(int nCons=1; nCons<maxvalConsByShift_[sh]; nCons++){
 				origin = principalNetworkNodes_[sh][k][nCons];
 				destin = principalNetworkNodes_[sh][k][maxvalConsByShift_[sh]];
-				addSingleArc(origin, destin, MAX_COST, 0, SHIFT_TO_ENDSEQUENCE);
+				arcsShiftToEndsequence_[sh][k][nCons] = nArcs_;
+				addSingleArc(origin, destin, consShiftCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE);
 			}
 		}
 
@@ -464,7 +542,8 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 		for(int nCons=1; nCons<maxvalConsByShift_[sh]; nCons++){
 			origin = principalNetworkNodes_[sh][nDays_-1][nCons];
 			destin = principalNetworkNodes_[sh][nDays_-1][maxvalConsByShift_[sh]];
-			addSingleArc(origin, destin, MAX_COST, 0, SHIFT_TO_ENDSEQUENCE);
+			arcsShiftToEndsequence_[sh][nDays_-1][nCons] = nArcs_;
+			addSingleArc(origin, destin, consShiftCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE);
 		}
 	}
 }
@@ -478,10 +557,11 @@ void SubProblem::createArcsAllRotationSize(){
 	// 1. ALL INCOMING ARCS
 	//
 	for(int sh=1; sh<nShifts; sh++){											// For all shifts
-		for(int k=0; k<nDays_; k++){												// For all days
+		for(int k=CDMin_; k<nDays_; k++){										// For all days
 			origin = principalNetworkNodes_[sh][k][maxvalConsByShift_[sh]];
 			destin = rotationLengthEntrance_;
-			addSingleArc(origin, destin, MAX_COST, 0, PRINCIPAL_TO_ROTSIZE);	// Allow to stop rotation that day
+			arcsPrincipalToRotsizein_[sh][k] = nArcs_;
+			addSingleArc(origin, destin, 0, 0, PRINCIPAL_TO_ROTSIZE);			// Allow to stop rotation that day
 		}
 	}
 
@@ -491,30 +571,231 @@ void SubProblem::createArcsAllRotationSize(){
 		// From entrance to checknode
 		origin = rotationLengthEntrance_;
 		destin = itRLN->second;
-		addSingleArc(origin, destin, 0, 0, ROTSIZEIN_TO_ROTSIZE);
+		arcsRotsizeinToRotsize_.insert(pair<int,int>(itRLN->first, nArcs_));
+		addSingleArc(origin, destin, consDaysCost(itRLN->first), 0, ROTSIZEIN_TO_ROTSIZE);
 		// From checknode to exit
 		origin = itRLN->second;
-		destin = rotationLengthExit_;
-		addSingleArc(origin, destin, MAX_COST, 0, ROTSIZE_TO_ROTSIZEOUT);
-
+		destin = sinkNode_;
+		arcsRotsizeToRotsizeout_.insert(pair<int,int>( itRLN->first, nArcs_));
+		addSingleArc(origin, destin, 0, 0, ROTSIZE_TO_SINK);
 	}
-
-	// 3. EXITING ARC
-	//
-	origin = rotationLengthExit_;
-	destin = sinkNode_;
-	addSingleArc(origin, destin, 0, 0, ROTSIZEOUT_TO_SINK);
 }
 
-// Initializes the costs
-void SubProblem::initCostArcs(){}
-
-// To change the costs of the arcs
-void SubProblem::updateCostArcs(){}
 
 
+//--------------------------------------------
+//
+// Functions for the pricing of the short rotations
+//
+//--------------------------------------------
 
+// Initializes some cost vectors that depend on the nurse
+void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength){
+
+	// Basic data (nurse, reduced costs, maximum rotation length)
+	//
+	pLiveNurse_ = nurse;
+	pCosts_ = costs;
+	maxRotationLength_ = maxRotationLength;
+
+	// Start and End weekend costs
+	//
+	Tools::initDoubleVector(&startWeekendCosts_,nDays_);
+	Tools::initDoubleVector(&endWeekendCosts_,nDays_);
+	// TODO : modify next line when running for real (if true)
+	if(true or pLiveNurse_->needCompleteWeekends()){
+		for(int k=0; k<nDays_; k++){
+			if(Tools::isSaturday(k)) endWeekendCosts_[k] = WEIGHT_COMPLETE_WEEKEND;
+			else if(Tools::isSunday(k)) startWeekendCosts_[k] = WEIGHT_COMPLETE_WEEKEND;
+		}
+	}
+
+	// Preference costs. WARNING: STARTING DATE OF THE SCENARIO IS NOT THAT OF THE PREFERENCE ??
+	// TODO: Check if shifting is necessary
+	//
+	Tools::initDoubleVector2D(preferencesCosts_, pScenario_->nbShifts_, nDays_);
+	for(map<int,set<int> >::iterator prefList = pLiveNurse_->pWishesOff_->begin(); prefList != pLiveNurse_->pWishesOff_->end(); ++ prefList){
+		for(int sh : prefList->second){
+			setPreferenceCost(prefList->first, sh, WEIGHT_PREFERENCES);
+		}
+	}
+
+	// id and arcCost of best succession (given a triplet s,k,n)
+	idBestShortSuccCDMin_.clear();
+	arcCostBestShortSuccCDMin_.clear();
+	for(int s=0; s<pScenario_->nbShifts_; s++){
+		vector2D v2; vector<vector<double> > w2;
+		Tools::initVector2D(&v2, nDays_, maxvalConsByShift_[s]+1); idBestShortSuccCDMin_.push_back(v2);
+		Tools::initDoubleVector2D(&w2, nDays_, maxvalConsByShift_[s]+1); arcCostBestShortSuccCDMin_.push_back(w2);
+	}
+
+}
+
+// Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
+//
+void SubProblem::priceShortSucc(){
+	for(int s=1; s<pScenario_->nbShifts_; s++){
+		for(int k=CDMin_; k<nDays_; k++){
+			for(int n=1; n<CDMin_; n++){
+				double bestCost = MAX_COST;
+				int bestSuccId;
+				for(int i=0; i<allShortSuccCDMinByLastShiftCons_[s][n].size(); i++){
+					int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
+					double curCost = costArcShortSucc(CDMin_, curSuccId, k-CDMin_);
+					if(curCost < bestCost){
+						bestSuccId = curSuccId;
+						bestCost = curCost;
+					}
+				}
+				idBestShortSuccCDMin_[s][k][n] = bestSuccId;
+				arcCostBestShortSuccCDMin_[s][k][n] = bestCost;
+			}
+		}
+	}
+}
+
+// Given a short succession and a start date, returns the cost of the corresponding arc
+//
+double SubProblem::costArcShortSucc(int size, int succId, int startDate){
+	double ANS = 0;
+
+	// If the rotation starts on the first day and if the nurse was already working before
+	//
+	if(startDate == 0 and pLiveNurse_->pStateIni_->consDaysWorked_ > 0){
+		int nConsIni = pLiveNurse_->pStateIni_->consDaysWorked_;
+		int shiftIni = pLiveNurse_->pStateIni_->shift_;
+		int nConsecCurrent = 1;
+
+		// IF the nurse continues working on same shift -> subtract the cost of the current sequence (later replaced by the one for the longer sequence)
+		if(shiftIni == allowedShortSuccBySize_[size][succId][0]){
+			ANS -= consShiftCost(nConsIni, shiftIni);
+			nConsecCurrent += nConsIni;
+		}
+
+		// SUCCESSIVE SHIFTS
+		for(int i=1; i<size; i++){
+			int prevShift = allowedShortSuccBySize_[size][succId][i-1];
+			int shift = allowedShortSuccBySize_[size][succId][i];
+			if(shift != prevShift){
+				ANS += consShiftCost(prevShift, nConsecCurrent);
+				nConsecCurrent = 1;
+			}
+		}
+		// IF MORE THAN THE MAXIMUM OF CONSECUTIVE ALLOWED
+		if(nConsecCurrent > pScenario_->maxConsShifts_[allowedShortSuccBySize_[size][succId][size-1]])
+			ANS += consShiftCost(allowedShortSuccBySize_[size][succId][size-1], nConsecCurrent);
+		// WEEKEND REDUCED COST (does not count if day 0 is a Sunday because already taken into account in the MP)
+		if(Tools::containsWeekend( 1 , size-1 )) ANS += pCosts_->workedWeekendCost();
+	}
+
+	// If the rotation does not start on the first day
+	//
+	else {
+		// SUCCESSIVE SHIFTS
+		ANS += baseArcCostOfShortSucc_[size][succId];
+		// COMPLETE WEEKEND
+		ANS += startWeekendCosts_[startDate];
+		// WEEKEND REDUCED COST
+		if(Tools::containsWeekend(startDate, startDate + size - 1))	ANS += pCosts_->workedWeekendCost();
+		// FIRST DAY (BACK TO WORK)
+		ANS += pCosts_->startWorkCost(startDate);
+	}
+
+	// COSTS THAT ALWAYS APPLY
+	// PREFERENCES + REDCOST OF EACH SHIFT
+	for(int i=0; i<size; i++){
+		int day = startDate + i, shift = allowedShortSuccBySize_[size][succId][i];
+		ANS += (*preferencesCosts_)[ day ][ shift ];
+		ANS += pCosts_->dayShiftWorkCost( day, shift );
+	}
+
+	return ANS;
+}
+
+// Updates the costs depending on the reduced costs given for the nurse
+//
+void SubProblem::updateArcCosts(){
+
+	// A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
+	//
+	for(int s=1; s<pScenario_->nbShifts_; s++)
+		for(int k=CDMin_; k<nDays_; k++)
+			for(int n=1; n<=maxvalConsByShift_[s]; n++){
+				updateCost( arcsFromSource_[s][k][n] , arcCostBestShortSuccCDMin_[s][k][n] );
+				shortSuccCDMinIdFromArc_.insert(pair<int,int>(get(&Arc_Properties::num, g_, arcsDescriptors_[ arcsFromSource_[s][k][n] ]), idBestShortSuccCDMin_[s][k][n]));
+			}
+
+	// B. ARCS : SHIFT_TO_NEWSHIFT [baseCost = 0]
+	//
+	for(int s1=1; s1<pScenario_->nbShifts_; s1++)
+		for(int s2=1; s2<pScenario_->nbShifts_; s2++)
+			for(int k=CDMin_; k<nDays_; k++){
+				int a = arcsShiftToNewShift_[s1][s2][k];
+				if(a > 0){
+					double c = (*preferencesCosts_)[k+1][s2] ;
+					c += pCosts_->dayShiftWorkCost(k+1,s2);
+					c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+					updateCost( a , c );
+				}
+			}
+
+	// C. ARCS : SHIFT_TO_SAMESHIFT [baseCost = 0]
+	//
+	for(int s=1; s<pScenario_->nbShifts_; s++)
+		for(int k=CDMin_; k<nDays_; k++)
+			for(int n=1; n<maxvalConsByShift_[s]; n++){
+				double c = (*preferencesCosts_)[k+1][s];
+				c += pCosts_->dayShiftWorkCost(k+1,s);
+				c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+				updateCost( arcsShiftToSameShift_[s][k][n] , c );
+			}
+
+	// D. ARCS : SHIFT_TO_ENDSEQUENCE [They never change]
+
+	// E. ARCS : REPEATSHIFT [baseCost contains consecutive shift cost]
+	//
+	for(int s=1; s<pScenario_->nbShifts_; s++)
+		for(int k=CDMin_; k<nDays_-1; k++){
+			int a = arcsRepeatShift_[s][k];
+			double c = arcBaseCost_[a];
+			c += (*preferencesCosts_)[k+1][s];
+			c += pCosts_->dayShiftWorkCost(k+1,s);
+			c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+			updateCost( a , c );
+		}
+
+	// F. ARCS : PRINCIPAL_TO_ROTSIZE [baseCost contains complete weekend constraint]
+	//
+	for(int s=1; s<pScenario_->nbShifts_; s++)
+		for(int k=CDMin_; k<nDays_-1; k++){
+			int a = arcsRepeatShift_[s][k];
+			double c = arcBaseCost_[a];
+			c += pCosts_->endWorkCost(k);
+			updateCost( a , c );
+		}
+
+	// G. ARCS : ROTSIZEIN_TO_ROTSIZE [baseCost contains rotation length cost. They never change]
+
+	// H. ARCS : ROTSIZE_TO_ROTSIZEOUT [They never change]
+
+	// I. ARCS : ROTSIZEOUT_TO_SINK [Never changes]
+}
+
+// Returns true if the given successions contains the given shift
+//
+bool SubProblem::succContainsDayShift(int size, int succId, int startDate, int thatDay, int thatShift){
+	return	thatDay >= startDate
+			and thatDay < startDate + size
+			and allowedShortSuccBySize_[ size ][ succId ][ thatDay-startDate ] == thatShift;
+}
+
+
+
+//--------------------------------------------
+//
 // PRINT FUNCTIONS
+//
+//--------------------------------------------
 
 // Print the graph
 void SubProblem::printGraph(){
@@ -555,7 +836,9 @@ string SubProblem::printNode(int v){
 string SubProblem::printArc(int a){
 	stringstream rep;
 	rep << "# ARC   " << a << " \t" << arcTypeName[arcType(a)] << " \t";
-	rep << "(" << arcOrigin(a) << "," << arcDestination(a) << ") \t" << "c= " << arcCost(a) << " \tt=" << arcLength(a);
+	rep << "(" << arcOrigin(a) << "," << arcDestination(a) << ") \t" << "c= " << arcCost(a) ;
+	arcCost(a) < 10000 ? rep << "     " : rep << " ";
+	rep << "\tt=" << arcLength(a);
 	rep << " \t[" << shortNameNode(arcOrigin(a)) << "] -> [" << shortNameNode(arcDestination(a)) << "]";
 	return rep.str();
 
@@ -571,12 +854,6 @@ string SubProblem::shortNameNode(int v){
 		rep << "SOURCE";
 	}
 
-	else if (type_v == SHORT_ROTATION){
-		Rotation r = nodeToShortRotation_.at(v);
-		rep << r.firstDay_ << "-";
-		for(int k=0; k<r.length_; k++) rep << (pScenario_->intToShift_[r.shifts_.at(r.firstDay_+k)])[0];
-	}
-
 	else if (type_v == PRINCIPAL_NETWORK){
 		int k = principalToDay_.at(v);
 		int cons = principalToCons_.at(v);
@@ -589,12 +866,6 @@ string SubProblem::shortNameNode(int v){
 
 	else if (type_v == ROTATION_LENGTH){
 		rep << "LEN_<=" << nodeEat(v);
-
-	}
-
-	else if (type_v == ROTATION_LENGTH_EXIT){
-		rep << "LEN_OUT";
-
 	}
 
 	else if (type_v == SINK_NODE){
@@ -638,7 +909,7 @@ string SubProblem::printSummaryOfGraph(){
 	rep << "# " << std::endl;
 
 	// COUNT THE ARCS
-	for(int t = SOURCE_TO_SHORT; t!=NONE_ARC; t++){
+	for(int t = SOURCE_TO_PRINCIPAL; t!=NONE_ARC; t++){
 	   ArcType ty = static_cast<ArcType>(t);
 	   nArcsPerType.insert(pair<ArcType,int>(ty,0));
 	}
@@ -647,7 +918,7 @@ string SubProblem::printSummaryOfGraph(){
 	rep << "#     -------------------------" << std::endl;
 	rep << "#   > ARCS                     " << std::endl;
 	rep << "#     -------------------------" << std::endl;
-	for(int t = SOURCE_TO_SHORT; t!=NONE_ARC; t++){
+	for(int t = SOURCE_TO_PRINCIPAL; t!=NONE_ARC; t++){
 		ArcType ty = static_cast<ArcType>(t);
 		rep << "#        " << arcTypeName[ty] << "  " <<nArcsPerType.at(ty) << std::endl;
 	}
@@ -658,8 +929,24 @@ string SubProblem::printSummaryOfGraph(){
 	return rep.str();
 }
 
+// Summary of the short successions generated
+void SubProblem::printShortSucc(){
+	std::cout << "  +------------+" << endl;
+	std::cout << "  | CD_min = " << CDMin_ << endl;
+	std::cout << "  +------------+" << endl;
+	int nShortSucc = 0;
+	int nShortRot = 0;
+	for(int i=0; i<allowedShortSuccBySize_.size(); i++){
+		vector2D v2 = allowedShortSuccBySize_[i];
+		std::cout << "  | " << v2.size()  << " short successions of size " << i << endl;
+		nShortSucc += v2.size();
+		nShortRot += v2.size() * (nDays_-i+1);
 
-
+	}
+	std::cout << "  +------------+" << endl;
+	std::cout << "  | " << nShortSucc << endl;
+	std::cout << "  +------------+" << endl;
+}
 
 
 
