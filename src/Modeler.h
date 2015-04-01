@@ -27,24 +27,35 @@
 using namespace std;
 
 /*
- * My Variables
+ * My Modeling objects
  */
-class MyObject {
-public:
-   MyObject():id(s_count) { ++s_count; }
+struct MyObject {
+   MyObject():id_(s_count) { ++s_count; }
    ~MyObject(){ }
-   template<typename O> void get(O object) {}
-   template<typename O> void set(O object) {}
-
    //count object
    static unsigned int s_count;
-   int operator < (const MyObject& m) const { return this->id < m.id; }
+   int operator < (const MyObject& m) const { return this->id_ < m.id_; }
 
-protected:
    //for the map rotations_
-   const unsigned int id;
+private:
+   const unsigned int id_;
 };
 
+/*
+ * My pricer
+ */
+struct MyPricer{
+   MyPricer(const char* name): name_(name){ }
+   virtual ~MyPricer() { }
+
+   //name of the pricer handler
+   //
+   const char* name_;
+
+   /** perform pricing */
+   //return true if optimal
+   virtual bool pricing(double bound=0)=0;
+};
 /*
  * Var types
  */
@@ -64,7 +75,7 @@ public:
    virtual int solve(bool relaxation = false)=0;
 
    //Add a pricer
-   virtual int addObjPricer(MyObject* pPricer)=0;
+   virtual int addObjPricer(MyPricer* pPricer)=0;
 
    /*
     * Create variable:
@@ -87,6 +98,21 @@ public:
 
    inline void createBinaryVar(MyObject** var, const char* var_name, double objCoeff, double score = 0){
       createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, score);
+   }
+
+   virtual int createColumnVar(MyObject** var, const char* var_name, double objCoeff,
+      double lb, double ub, VarType vartype, double score)=0;
+
+   inline void createPositiveColumnVar(MyObject** var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
+      createColumnVar(var, var_name, objCoeff, 0.0, ub, VARTYPE_CONTINUOUS, score);
+   }
+
+   inline void createIntColumnVar(MyObject** var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
+      createColumnVar(var, var_name, objCoeff, 0, ub, VARTYPE_INTEGER, score);
+   }
+
+   inline void createBinaryColumnVar(MyObject** var, const char* var_name, double objCoeff, double score = 0){
+      createColumnVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, score);
    }
 
    /*
@@ -153,13 +179,13 @@ public:
       vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       switch(vartype){
       case VARTYPE_BINARY:
-         createBinaryVar(var, var_name, objCoeff, score);
+            createBinaryColumnVar(var, var_name, objCoeff, score);
          break;
       case VARTYPE_INTEGER:
-         createIntVar(var, var_name, objCoeff, score);
+            createIntColumnVar(var, var_name, objCoeff, score);
          break;
       default:
-         createPositiveVar(var, var_name, objCoeff, score);
+            createPositiveColumnVar(var, var_name, objCoeff, score);
          break;
       }
 

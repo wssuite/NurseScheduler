@@ -6,20 +6,14 @@
  */
 
 #include "RotationPricer.h"
-#include "ScipModeler.h"
-#include "Modeler.h"
-
-#include "scip/cons_linear.h"
-#include "objscip/objscip.h"
-#include "scip/pub_var.h"
 
 static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-    		              ObjPricer( ((ScipModeler*)(master->getModel()))->getScip(), name, "Finds rotations with negative reduced cost.", 0, TRUE),
-    		              master_(master), name_(name),
-    		              pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel()) { }
+      MyPricer(name),
+      master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
+{ }
 
 /* Destructs the pricer object. */
 RotationPricer::~RotationPricer() {
@@ -27,32 +21,10 @@ RotationPricer::~RotationPricer() {
       delete p.second;
 }
 
-/** Pricing of additional variables if LP is feasible.
- *
- *  - get the values of the dual variables you need
- *  - construct the reduced-cost arc lengths from these values
- *  - find the shortest admissible tour with respect to these lengths
- *  - if this tour has negative reduced cost, add it to the LP
- *
- *  possible return values for *result:
- *  - SCIP_SUCCESS    : at least one improving variable was found, or it is ensured that no such variable exists
- *  - SCIP_DIDNOTRUN  : the pricing process was aborted by the pricer, there is no guarantee that the current LP solution is optimal
- */
-SCIP_DECL_PRICERREDCOST(RotationPricer::scip_redcost)
-{
-   /* call pricing routine and set result pointer, see above*/
-   *result = SCIP_SUCCESS;
-   if(!pricing())
-      *result = SCIP_DIDNOTRUN;
-
-   return SCIP_OKAY;
-}
-
 /******************************************************
  * Perform pricing
  ******************************************************/
-//return true if optimal
-bool RotationPricer::pricing(){
+bool RotationPricer::pricing(double bound){
    //=false if once optimality hasn't be proven
    bool optimal = true;
    //forbidden shifts

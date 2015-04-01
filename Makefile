@@ -44,7 +44,7 @@ endif
 
 USRARFLAGS	=
 USRDFLAGS	=
-
+LIBS		=
 
 
 
@@ -53,15 +53,17 @@ USRDFLAGS	=
 #-----------------------------------------------------------------------------
 include $(SCIPDIR)/make/make.project
 
-
-
+#-----------------------------------------------------------------------------
+# include project Makefile from BCP
+#-----------------------------------------------------------------------------
+include make.bcp
 
 #-----------------------------------------------------------------------------
 # Main Program
 #-----------------------------------------------------------------------------
 
 MAINNAME	=	roster
-MAINOBJ		=	main.o main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o RotationPricer.o ScipModeler.o
+MAINOBJ		=	main.o main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o RotationPricer.o ScipModeler.o BcpModeler.o
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)
 
@@ -129,7 +131,6 @@ ifneq ($(OBJDIR),)
 		-rm -f $(OBJDIR)/*.o
 		-rmdir $(OBJDIR)
 endif
-		-rm -f $(MAINFILE)
 
 .PHONY: test
 test:           $(MAINFILE)
@@ -154,9 +155,16 @@ depend:		$(SCIPDIR)
 
 $(MAINFILE):	$(BINDIR) $(OBJDIR) $(SCIPLIBFILE) $(LPILIBFILE) $(NLPILIBFILE) $(MAINOBJFILES)
 		@echo "-> linking $@"
+				@echo 		$(LINKCXX) $(MAINOBJFILES) \
+		$(LINKCXX_L)$(SCIPDIR)/lib $(LINKCXX_l)$(SCIPLIB)$(LINKLIBSUFFIX) \
+                $(LINKCXX_l)$(OBJSCIPLIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(LPILIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(NLPILIB)$(LINKLIBSUFFIX) \
+		$(LIBS)	\
+                $(OFLAGS) $(LPSLDFLAGS) \
+		$(LDFLAGS) $(LINKCXX_o)$@
 		$(LINKCXX) $(MAINOBJFILES) \
 		$(LINKCXX_L)$(SCIPDIR)/lib $(LINKCXX_l)$(SCIPLIB)$(LINKLIBSUFFIX) \
                 $(LINKCXX_l)$(OBJSCIPLIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(LPILIB)$(LINKLIBSUFFIX) $(LINKCXX_l)$(NLPILIB)$(LINKLIBSUFFIX) \
+		$(LIBS)	\
                 $(OFLAGS) $(LPSLDFLAGS) \
 		$(LDFLAGS) $(LINKCXX_o)$@
 # =======

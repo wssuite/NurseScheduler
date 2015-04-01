@@ -89,13 +89,16 @@ struct Rotation {
 // Build and solve the master problem of the column generation scheme
 //
 //-----------------------------------------------------------------------------
+
+enum MySolverType { S_SCIP, S_BCP, S_CBC };
+
 class MasterProblem : public Solver{
    //allows RotationPricer to access all private arguments and methods of MasterProblem
    friend class RotationPricer;
 public:
    // Specific constructor and destructor
    MasterProblem(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState, vector<Roster> solution = {});
+      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver, vector<Roster> solution = {});
    ~MasterProblem();
 
    //solve the rostering problem
@@ -117,7 +120,8 @@ private:
    Modeler* pModel_;
    vector2D positionsPerSkill_;//link positions to skills
    vector2D skillsPerPosition_;//link skills to positions
-   MyObject* pPricer_;//prices the rotations
+   MyPricer* pPricer_;//prices the rotations
+   MySolverType solverType_; //which solver is used
    vector< map<MyObject*, Rotation> > rotations_;//stores the scip variables and the rotations for each nurse
 
    /*

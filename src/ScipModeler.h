@@ -20,13 +20,9 @@ using namespace scip;
 /*
  * My Variables
  */
-class ScipVar: public MyObject {
-public:
+struct ScipVar: public MyObject {
    ScipVar(SCIP_VAR* var):MyObject(){ var_=var; }
    ~ScipVar(){ }
-   void get(SCIP_VAR** var){ *var = var_; }
-   void set(SCIP_VAR* var){ var_ = var; }
-protected:
    SCIP_VAR* var_;
 };
 
@@ -34,26 +30,27 @@ protected:
  * My Constraints
  */
 struct ScipCons: public MyObject  {
-public:
    ScipCons(SCIP_CONS* cons):MyObject(){ cons_=cons; }
    ~ScipCons(){ }
-   void get(SCIP_CONS** cons){ *cons = cons_; }
-   void set(SCIP_CONS* cons){ cons_ = cons; }
-protected:
    SCIP_CONS* cons_;
 };
 
 /*
  * My Pricer
  */
-struct ScipPricer: public MyObject  {
-public:
-   ScipPricer(ObjPricer* pricer):MyObject(){ pricer_=pricer; }
+struct ScipPricer: public ObjPricer  {
+   ScipPricer(MyPricer* pPricer, SCIP* scip):
+      ObjPricer( scip, pPricer->name_, "Finds rotations with negative reduced cost.", 0, TRUE)
+   {
+      pPricer_=pPricer;
+   }
+
    ~ScipPricer(){ }
-   void get(ObjPricer** pricer){ *pricer = pricer_; }
-   void set(ObjPricer* pricer){ pricer_ = pricer; }
-protected:
-   ObjPricer* pricer_;
+
+   /** reduced cost pricing method of variable pricer for feasible LPs */
+   virtual SCIP_DECL_PRICERREDCOST(scip_redcost);
+
+   MyPricer* pPricer_;
 };
 
 /*
@@ -75,16 +72,22 @@ public:
    int solve(bool relaxation = false);
 
    //Add a pricer
-   int addObjPricer(MyObject* pPricer);
+   int addObjPricer(MyPricer* pPricer);
 
    /*
     * Create variable:
     *    var is a pointer to the pointer of the variable
     *    var_name is the name of the variable
     *    lhs, rhs are the lower and upper bound of the variable
-    *    vartype is the type of the variable: SCIP_VARTYPE_CONTINUOUS, SCIP_VARTYPE_INTEGER, SCIP_VARTYPE_BINARY
+    *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
     */
-   int createVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score);
+   int createVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub,
+      VarType vartype, double score);
+
+   int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub,
+      VarType vartype, double score){
+      return createVar(var, var_name, objCoeff, lb, ub, vartype, score);
+   }
 
    /*
     * Create linear constraint:
@@ -148,14 +151,6 @@ public:
    int writeProblem(string fileName);
 
    int writeLP(string fileName);
-
-   /**************
-    * Getters *
-    *************/
-
-   ScipModeler* getModel();
-
-   Scip* getScip();
 
 
 private:

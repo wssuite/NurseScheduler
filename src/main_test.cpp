@@ -92,7 +92,7 @@ void testFunction_Antoine(){
    // Instantiate the solver class as a test
    //
    MasterProblem* pSolverTest =
-      new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), pGreedy->getSolution());
+      new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
    pSolverTest->solve();
 
    // Write the solution in an output file

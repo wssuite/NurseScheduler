@@ -13,24 +13,19 @@
 #include "MyTools.h"
 #include "MasterProblem.h"
 #include "SubProblem.h"
-#include "objscip/objscip.h"
-#include "scip/pub_var.h"
+#include "Modeler.h"
 
 /* namespace usage */
 using namespace std;
-using namespace scip;
 
-class RotationPricer : public ObjPricer
+class RotationPricer: public MyPricer
 {
 public:
    RotationPricer(MasterProblem* master, const char* name);
    virtual ~RotationPricer();
 
-   /** reduced cost pricing method of variable pricer for feasible LPs */
-   virtual SCIP_DECL_PRICERREDCOST(scip_redcost);
-
    /** perform pricing */
-   bool pricing();
+   bool pricing(double bound = 0);
 
 private:
    /*
@@ -40,10 +35,6 @@ private:
    //Pointer to the master problem to link the master and the sub problems
    //
    MasterProblem* master_;
-
-   //name of the pricer handler
-   //
-   const char* name_;
 
    //pointers to the data
    //

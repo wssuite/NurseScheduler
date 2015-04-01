@@ -7,6 +7,28 @@
 
 #include "ScipModeler.h"
 
+   /** reduced cost pricing method of variable pricer for feasible LPs */
+   /** Pricing of additional variables if LP is feasible.
+    *
+    *  - get the values of the dual variables you need
+    *  - construct the reduced-cost arc lengths from these values
+    *  - find the shortest admissible tour with respect to these lengths
+    *  - if this tour has negative reduced cost, add it to the LP
+    *
+    *  possible return values for *result:
+    *  - SCIP_SUCCESS    : at least one improving variable was found, or it is ensured that no such variable exists
+    *  - SCIP_DIDNOTRUN  : the pricing process was aborted by the pricer, there is no guarantee that the current LP solution is optimal
+    */
+   SCIP_DECL_PRICERREDCOST(ScipPricer::scip_redcost)
+   {
+      /* call pricing routine and set result pointer, see above*/
+      *result = SCIP_SUCCESS;
+      if(!pPricer_->pricing())
+         *result = SCIP_DIDNOTRUN;
+
+      return SCIP_OKAY;
+   }
+
 ScipModeler::ScipModeler(const char* name): Modeler()
 {
    initializeSCIP(name);
@@ -26,15 +48,12 @@ int ScipModeler::solve(bool relaxation){
 }
 
 //Add a pricer
-int ScipModeler::addObjPricer(MyObject* pricer){
-   ScipPricer* pricer2 = (ScipPricer*)pricer;
-   ObjPricer* pricer3;
-   pricer2->get(&pricer3);
+int ScipModeler::addObjPricer(MyPricer* pPricer){
+   ScipPricer* pricer2 = new ScipPricer(pPricer, scip_);
    /* include the pricer */
-   SCIP_CALL( SCIPincludeObjPricer(scip_, pricer3, true) );
+   SCIP_CALL( SCIPincludeObjPricer(scip_, pricer2, true) );
    /* activate the pricer */
-   SCIP_CALL( SCIPactivatePricer(scip_, SCIPfindPricer(scip_, pricer3->scip_name_)) );
-   objects_.push_back(pricer);
+   SCIP_CALL( SCIPactivatePricer(scip_, SCIPfindPricer(scip_, pricer2->scip_name_)) );
 }
 
 /*
@@ -90,9 +109,7 @@ int ScipModeler::createConsLinear(MyObject** con, const char* con_name, double l
    vector<SCIP_VAR*> vars2;
    for(MyObject* var: vars){
       ScipVar* var2 = (ScipVar*) var;
-      SCIP_VAR* var3;
-      var2->get(&var3);
-      vars2.push_back(var3);
+      vars2.push_back(var2->var_);
    }
 
    SCIP_CONS* con2;
@@ -110,9 +127,7 @@ int ScipModeler::createFinalConsLinear(MyObject** con, const char* con_name, dou
    vector<SCIP_VAR*> vars2;
    for(MyObject* var: vars){
       ScipVar* var2 = (ScipVar*) var;
-      SCIP_VAR* var3;
-      var2->get(&var3);
-      vars2.push_back(var3);
+      vars2.push_back(var2->var_);
    }
 
    SCIP_CONS* con2;
@@ -130,11 +145,9 @@ int ScipModeler::createFinalConsLinear(MyObject** con, const char* con_name, dou
 
 int ScipModeler::addCoefLinear(MyObject* cons, MyObject* var, double coeff, bool transformed){
    ScipCons* cons2 = (ScipCons*) cons;
-   SCIP_CONS* cons3;
-   cons2->get(&cons3);
+   SCIP_CONS* cons3 = cons2->cons_;
    ScipVar* var2 = (ScipVar*) var;
-   SCIP_VAR* var3;
-   var2->get(&var3);
+   SCIP_VAR* var3 = var2->var_;
 
    if(transformed)
       getTransformedCons(cons3, &(cons3));
@@ -167,10 +180,10 @@ SCIP_SOL* ScipModeler::getBestSol(){
 
 double ScipModeler::getVarValue(MyObject* var){
    ScipVar* var2 = (ScipVar*) var;
-   SCIP_VAR* var3;
-   var2->get(&var3);
+   SCIP_VAR* var3 = var2->var_;
+   SCIP_SOL* sol = getBestSol();
 
-   SCIPgetSolVal(scip_, getBestSol(), var3);
+   SCIPgetSolVal(scip_, sol, var3);
 }
 
 /*
@@ -179,8 +192,7 @@ double ScipModeler::getVarValue(MyObject* var){
 
 double ScipModeler::getDual(MyObject* cons, bool transformed){
    ScipCons* cons2 = (ScipCons*) cons;
-   SCIP_CONS* cons3;
-   cons2->get(&cons3);
+   SCIP_CONS* cons3 = cons2->cons_;
 
    if(transformed)
       getTransformedCons(cons3, &(cons3));
@@ -202,8 +214,7 @@ int ScipModeler::setVerbosity(int v){
 //compute the total cost of SCIP_VAR* in the solution sol*
 double ScipModeler::getTotalCost(MyObject* var){
    ScipVar* var2 = (ScipVar*) var;
-   SCIP_VAR* var3;
-   var2->get(&var3);
+   SCIP_VAR* var3 = var2->var_;
 
    double value = getVarValue(var);
    return value *  var3->branchfactor;
@@ -225,17 +236,9 @@ int ScipModeler::writeLP(string fileName){
    SCIP_CALL( SCIPwriteLP(scip_, fileName.c_str()) );
 }
 
-/**************
- * Getters *
- *************/
-
-ScipModeler* ScipModeler::getModel(){
-   return this;
-}
-
-Scip* ScipModeler::getScip(){
-   return scip_;
-}
+/*
+ * Private methods
+ */
 
 
 int ScipModeler::initializeSCIP(const char* name){
