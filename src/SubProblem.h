@@ -258,7 +258,18 @@ public:
 
 	Costs(){}
 	Costs(vector< vector<double> > * workCosts, vector<double> * startWorkCosts, vector<double> * endWorkCosts, double workedWeekendCost):
-		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
+		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {
+		Tools::initDoubleVector2D(pPreferenceCosts_, 0, 0);
+	}
+
+	// CONSTRUCTOR NOT TO BE USED, ONLY FOR RANDOM GENERATED COSTS...
+	Costs(vector< vector<double> > workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
+		workedWeekendCost_(workedWeekendCost){
+		pWorkCosts_ = new vector<vector<double> > (workCosts);
+		pStartWorkCosts_ = new vector<double> (startWorkCosts);
+		pEndWorkCosts_ = new vector<double> (endWorkCosts);
+		pPreferenceCosts_ = new vector<vector<double> > ();
+	}
 
 	// GETTERS
 	//
@@ -270,7 +281,7 @@ public:
 
 	// SETTERS
 	//
-	inline void setPreferenceCosts(vector< vector<double> > * v){preferenceCosts_ = v;}
+	inline void setPreferenceCosts(vector< vector<double> > * v){pPreferenceCosts_ = v;}
 
 
 protected:
@@ -289,7 +300,7 @@ protected:
 
 	// For each day k (<= nDays_ - CDMin), shift s, contains WEIGHT_PREFERENCES if (k,s) is a preference of the nurse; 0 otherwise.
 	//
-	vector< vector<double> > * preferenceCosts_;
+	vector< vector<double> > * pPreferenceCosts_;
 
     /*
      * Possibility of adding other costs (such as baseCosts, not necessarily dual)
@@ -400,7 +411,7 @@ protected:
 
 	// Saved Rotations
 	//
-	vector< Rotation > theRotations_ = {};
+	vector< Rotation > theRotations_;
 
 	// Number of paths found
 	//
@@ -559,43 +570,46 @@ protected:
 	// INDEPENDENT FROM ANY NURSE / REDUCED COST !!!
 	//
 	//----------------------------------------------------------------
-	vector<vector <double> > * preferencesCosts_;
-	inline void setPreferenceCost(int day, int shift, double cost){ (*preferencesCosts_)[day][shift] = cost;}
+
+	// DATA
+	//
+	map<int,int> shortSuccCDMinIdFromArc_;						// Maps the arcs to the corresponding short rotation ID
+	vector<vector <double> > preferencesCosts_;
 	// Data structure that associates an arc to the chosen short succession of lowest cost
-	map<int,int> shortSuccCDMinIdFromArc_;				// Maps the arcs to the corresponding short rotation ID
 
-	// Single cost change
+
+	// FUNCTIONS
 	//
-	inline void updateCost(int arc, double cost){boost::put( &Arc_Properties::cost, g_, arcsDescriptors_[arc], cost );}
-	inline void updateTime(int arc, double time){boost::put( &Arc_Properties::time, g_, arcsDescriptors_[arc], time );}
-
-	// For tests, must be able to randomly generate costs
-	//
-	void generateRandomCosts();
-
 	// Initializes some cost vectors that depend on the nurse
-	//
 	void initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
-
+	// Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
+	void priceShortSucc();
+	// Given a short succession and a start date, returns the cost of the corresponding arc
+	double costArcShortSucc(int size, int id, int startDate);
+	// Single cost/time change
+	inline void updateCost(int arc, double cost){boost::put( &Arc_Properties::cost, g_, arcsDescriptors_[arc], cost );}
+	// Updates the costs depending on the reduced costs given for the nurse
+	void updateArcCosts();
+	// Forbid some days / shifts
+	void forbiddArcs(set<pair<int,int> > forbiddenDayShifts);
+	inline void updateTime(int arc, double time){boost::put( &Arc_Properties::time, g_, arcsDescriptors_[arc], time );}
 
 	// Best ones given a starting date and an ending pattern (number of similar consecutive ending the rotation)
 	//
 	vector3D idBestShortSuccCDMin_;								// For each day k (<= nDays_ - CDMin), shift s, number n, contains the best short succession of size CDMin that starts on day k, and ends with n consecutive days of shift s
 	vector<vector<vector<double> > > arcCostBestShortSuccCDMin_;// For each day k (<= nDays_ - CDMin), shift s, number n, contains the cost of the corresponding arc
 
-
-	// Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
+	// Resets all solutions data (rotations, number of solutions, etd.)
 	//
-	void priceShortSucc();
+	void resetSolutions();
 
-	// Given a short succession and a start date, returns the cost of the corresponding arc
+	// Transforms the solutions found into proper rotations.
 	//
-	double costArcShortSucc(int size, int id, int startDate);
+	void addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
 
-	// Updates the costs depending on the reduced costs given for the nurse
-	//
-	void updateArcCosts();
 
+	// For tests, must be able to randomly generate costs
+	void generateRandomCosts(double minVal, double maxVal);
 
 
 	//----------------------------------------------------------------

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <cstdio>
 #include <cstdlib>
+#include <random>
 #include <string>
 #include <stdexcept>
 #include <math.h>       /* pow */
@@ -48,24 +49,24 @@ void debugMsg(const char* debugMsg, int debugLevel)	{
 // Read a file stream until the separating character is met
 //
 bool readUntilChar(fstream *file, char separateur, string *pTitle) {
-  char cTmp = 'A';
+	char cTmp = 'A';
 
-  // empty the title string if it is not
-  //
-  if (!pTitle->empty())
-    pTitle->erase();
+	// empty the title string if it is not
+	//
+	if (!pTitle->empty())
+		pTitle->erase();
 
-  // go through the file until the delimiter is met
-  //
-  if (file->good()) {
-    cTmp = file->get();
-  }
-  while (cTmp != separateur && file->good() )  {
-    pTitle->push_back(cTmp);
-    cTmp = file->get();
-  }
+	// go through the file until the delimiter is met
+	//
+	if (file->good()) {
+		cTmp = file->get();
+	}
+	while (cTmp != separateur && file->good() )  {
+		pTitle->push_back(cTmp);
+		cTmp = file->get();
+	}
 
-  if (!file->good())
+	if (!file->good())
 		return false;
 
 	return true;
@@ -74,16 +75,14 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 // Initializes  a vector of the given size (filled only with zeroes)
 //
 void initVector(vector<int>* v1D, int m){
-	(*v1D).clear();
 	for(int i=0; i < m; i++){
 		v1D->push_back(0);
 	}
 }
 
-// initializes a vector2D of the given size (filled only with zeroes)
+// Initializes a vector2D of the given size (filled only with zeroes)
 //
 void initVector2D(vector2D* v2D, int m, int n){
-	(*v2D).clear();
 	for (int i=0; i<m; i++){
 		vector<int> v;
 		initVector(&v, n);
@@ -91,10 +90,9 @@ void initVector2D(vector2D* v2D, int m, int n){
 	}
 }
 
-// Returns a vector3D of the given size (filled only with zeroes)
+// Initializes a vector3D of the given size (filled only with zeroes)
 //
 void initVector3D(vector3D* v3D, int m, int n, int p){
-	(*v3D).clear();
 	for (int i=0; i<m; i++){
 		vector2D v2D;
 		initVector2D(&v2D, n,p);
@@ -105,21 +103,42 @@ void initVector3D(vector3D* v3D, int m, int n, int p){
 // Initializes  a vector of the given size (filled only with zeroes), for double vectors
 //
 void initDoubleVector(vector<double>* v1D, int m){
-	(*v1D).clear();
-	for(int i=0; i < m; i++){
+	v1D->assign(m,0);
+	/*for(int i=0; i < m; i++){
 		v1D->push_back(0);
-	}
+	}*/
 }
 
 // Initializes  a vector< vector< double > > of the given size (filled only with zeroes), for double vectors
 //
 void initDoubleVector2D(vector< vector< double > > * v2D, int m, int n){
-	(*v2D).clear();
 	for(int i=0; i < m; i++){
 		vector<double> v1D;
 		initDoubleVector(&v1D, n);
 		v2D->push_back(v1D);
 	}
+}
+
+// Initializes a vector< double > of size m with random values (uniform) within [minVal, maxVal]
+//
+vector<double> randomDoubleVector(int m, double minVal, double maxVal){
+	vector<double> v1D;
+	for(int i=0; i<m; i++){
+		double a = (maxVal - minVal) * ( (double)rand() / (double)RAND_MAX ) + minVal;
+		v1D.push_back(a);
+	}
+	return v1D;
+}
+
+// Returns a vector< vector< double > > of size m x n with random values (uniform) within [minVal, maxVal]
+//
+vector< vector<double> > randomDoubleVector2D(int m, int n, double minVal, double maxVal){
+	vector<vector<double> > v2D;
+	for(int i=0; i < m; i++){
+		vector<double> v1D = randomDoubleVector(n, minVal, maxVal);
+		v2D.push_back(v1D);
+	}
+	return v2D;
 }
 
 // To get the day from its id and vice-versa
@@ -147,18 +166,18 @@ int dayToInt(string day){
 }
 
 bool isSaturday(int dayId){
-   if( (dayId%7)==5 ) return true;
-   return false;
+	if( (dayId%7)==5 ) return true;
+	return false;
 }
 
 bool isSunday(int dayId){
-   if( (dayId%7)==6 ) return true;
-   return false;
+	if( (dayId%7)==6 ) return true;
+	return false;
 }
 
 bool isWeekend(int dayId){
-   if(isSaturday(dayId) || isSunday(dayId)) return true;
-   return false;
+	if(isSaturday(dayId) || isSunday(dayId)) return true;
+	return false;
 }
 
 bool containsWeekend(int start, int end){
@@ -196,37 +215,37 @@ void Timer::start()  {
 	if (isStarted_)
 		throwError("Trying to start an already started timer!");
 
-		#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
-		clock_serv_t cclock;
-		mach_timespec_t mts;
-		host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-		clock_get_time(cclock, &mts);
-		mach_port_deallocate(mach_task_self(), cclock);
-		cpuInit_.tv_sec = mts.tv_sec;
-		cpuInit_.tv_nsec = mts.tv_nsec;
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+	clock_serv_t cclock;
+	mach_timespec_t mts;
+	host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+	clock_get_time(cclock, &mts);
+	mach_port_deallocate(mach_task_self(), cclock);
+	cpuInit_.tv_sec = mts.tv_sec;
+	cpuInit_.tv_nsec = mts.tv_nsec;
 
-		#else
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuInit_);
-		#endif
+#else
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuInit_);
+#endif
 
-		cpuSinceStart_.tv_sec   = 0;
-		cpuSinceStart_.tv_nsec  = 0;
-		isStarted_ = 1;
-		isStopped_ = 0;
+	cpuSinceStart_.tv_sec   = 0;
+	cpuSinceStart_.tv_nsec  = 0;
+	isStarted_ = 1;
+	isStopped_ = 0;
 
-	}
+}
 
-	// Stop the time and update the times spent since the last start and since the
-	// initialization
-	//
-	void Timer::stop() {
+// Stop the time and update the times spent since the last start and since the
+// initialization
+//
+void Timer::stop() {
 
-if ( isStopped_ )
-	throwError("Trying to stop an already stopped timer!");
+	if ( isStopped_ )
+		throwError("Trying to stop an already stopped timer!");
 
 	timespec cpuNow;
 
-	#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
 	clock_serv_t cclock;
 	mach_timespec_t mts;
 	host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
@@ -235,9 +254,9 @@ if ( isStopped_ )
 	cpuNow.tv_sec = mts.tv_sec;
 	cpuNow.tv_nsec = mts.tv_nsec;
 
-	#else
+#else
 	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
-	#endif
+#endif
 
 	if ( cpuNow.tv_nsec-cpuInit_.tv_nsec < 0 ) {
 		cpuSinceStart_.tv_sec   = cpuNow.tv_sec - cpuInit_.tv_sec - 1;
@@ -268,7 +287,7 @@ const double Timer::dSinceInit() {
 	if (isStarted_) {
 		timespec cpuNow;
 
-		#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
 		clock_serv_t cclock;
 		mach_timespec_t mts;
 		host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
@@ -277,9 +296,9 @@ const double Timer::dSinceInit() {
 		cpuNow.tv_sec = mts.tv_sec;
 		cpuNow.tv_nsec = mts.tv_nsec;
 
-		#else
+#else
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
-		#endif
+#endif
 
 		timespec cpuTmp;
 		if ( cpuNow.tv_nsec-cpuInit_.tv_nsec < 0 ) {
@@ -321,7 +340,7 @@ const double Timer::dSinceStart() {
 	else if (isStarted_) {
 		timespec cpuNow;
 
-		#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
 		clock_serv_t cclock;
 		mach_timespec_t mts;
 		host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
@@ -330,9 +349,9 @@ const double Timer::dSinceStart() {
 		cpuNow.tv_sec = mts.tv_sec;
 		cpuNow.tv_nsec = mts.tv_nsec;
 
-		#else
+#else
 		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
-		#endif
+#endif
 
 		if ( cpuNow.tv_nsec-cpuInit_.tv_nsec < 0 ) {
 			cpuSinceStart_.tv_sec   = cpuNow.tv_sec - cpuInit_.tv_sec - 1;

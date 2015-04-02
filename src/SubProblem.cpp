@@ -68,10 +68,6 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 
 	init();
 
-	// WARNING : FOLLOWING 2 LINES WILL HAVE TO BE DELETED LATER
-	nDays_ = 35;
-	maxRotationLength_ = 35;
-
 	initShortSuccessions();
 
 	createNodes();
@@ -82,9 +78,6 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 	printGraph();
 	std::cout << printSummaryOfGraph();
 	printShortSucc();
-
-	priceShortSucc();
-
 
 }
 
@@ -109,6 +102,22 @@ void SubProblem::init(){
 		int nl = isUnlimited_[sh] ? pScenario_->minConsShifts_[sh] : pScenario_->maxConsShifts_[sh];
 		maxvalConsByShift_.push_back( nl );
 	}
+
+
+
+	// id and arcCost of best succession (given a triplet s,k,n)
+	idBestShortSuccCDMin_.clear();
+	arcCostBestShortSuccCDMin_.clear();
+	for(int s=0; s<pScenario_->nbShifts_; s++){
+		vector2D v2; vector<vector<double> > w2;
+		int n = maxvalConsByShift_[s]+1;
+		Tools::initVector2D(&v2, nDays_, n);
+		idBestShortSuccCDMin_.push_back(v2);
+		Tools::initDoubleVector2D(&w2, nDays_, n);
+		arcCostBestShortSuccCDMin_.push_back(w2);
+	}
+
+
 }
 
 // Initializes the short successions. Should only be used ONCE (when creating the SubProblem).
@@ -129,7 +138,7 @@ void SubProblem::initShortSuccessions(){
 	// Initialize the other way round
 	for(int s=0; s<nShifts; s++){
 		vector2D allShortSuccCDMinByLastShiftCons2;
-		for(int n=0; n<=CDMin_; n++){
+		for(int n=0; n<=maxvalConsByShift_[s]; n++){
 			vector<int> allShortSuccCDMinByLastShiftCons1;
 			allShortSuccCDMinByLastShiftCons2.push_back(allShortSuccCDMinByLastShiftCons1);
 		}
@@ -208,8 +217,7 @@ void SubProblem::initShortSuccessions(){
 						lastShiftSucc.push_back(newSh);								// Record its last shift
 						int newNLast = 1;
 						double newCost = cost;
-						if (newSh == lastSh											// Depending on the previous one, update number of consecutive and cost
-								and nLast < pScenario_->maxConsShifts_[lastSh]){	// BUT : add the cost if longer than the maximum allowed
+						if (newSh == lastSh){	// BUT : add the cost if longer than the maximum allowed
 							newNLast += nLast;
 						} else {
 							newCost += consShiftCost(lastSh, nLast) ;
@@ -219,7 +227,8 @@ void SubProblem::initShortSuccessions(){
 
 						// Since it is the longest one, record the tables the other way round
 						//
-						allShortSuccCDMinByLastShiftCons_[newSh][newNLast].push_back(allSuccSizeC.size()-1);
+						int n = min(newNLast, maxvalConsByShift_[newSh]);
+						allShortSuccCDMinByLastShiftCons_[newSh][n].push_back(allSuccSizeC.size()-1);
 
 					}
 				}
@@ -257,7 +266,7 @@ void SubProblem::initShortSuccessions(){
 		}
 	}
 	for(int s=0; s<nShifts; s++){
-		for(int n=0; n<=CDMin_; n++){
+		for(int n=0; n<=maxvalConsByShift_[s]; n++){
 			cout << "# Succession ending with " << n << " days of " << pScenario_->intToShift_[s] << " :";
 			for(int i : allShortSuccCDMinByLastShiftCons_[s][n]){
 				cout << " ";
@@ -268,6 +277,7 @@ void SubProblem::initShortSuccessions(){
 			cout << endl;
 		}
 	}
+	getchar();
 	*/
 
 }
@@ -298,9 +308,114 @@ double SubProblem::consDaysCost(int n){
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
+
+	// Basic data (nurse, reduced costs, maximum rotation length)
+	//
+	pLiveNurse_ = nurse;
+	pCosts_ = costs;
+	maxRotationLength_ = maxRotationLength;
+
 	initStructuresForSolve(nurse, costs, forbiddenDayShifts, maxRotationLength);
+	generateRandomCosts(-50, 50);
 	updateArcCosts();
+
+
+	// Solving the problem
+	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
+	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
+
+	r_c_shortest_paths(
+			g_,
+			get( &Vertex_Properties::num, g_ ),
+			get( &Arc_Properties::num, g_ ),
+			sourceNode_,
+			sinkNode_,
+			opt_solutions_spptw,
+			pareto_opt_rcs_spptw,
+			spp_spptw_res_cont( 0, 0 ),
+			ref_spptw(),
+			dominance_spptw(),
+			std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
+			boost::default_r_c_shortest_paths_visitor() );
+
+	addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
+
+	/*
+	printGraph();
+	std::cout << printSummaryOfGraph();
+	printShortSucc();
+	*/
+	std::cout << "# " << std::endl;
+	std::cout << "# " << std::endl;
 	return false;
+}
+
+// Transforms the solutions found into proper rotations.
+//
+void SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor> > paths, vector<spp_spptw_res_cont> resources){
+
+	// TODO : implement this function. Print only (en l'etat)
+
+	std::cout << "# SPP with time windows:" << std::endl;
+	std::cout << "# Number of optimal solutions: ";
+	std::cout << static_cast<int>( paths.size() ) << std::endl;
+	for( int i = 0; i < static_cast<int>( paths.size() ); ++i )
+	{
+		std::cout << "# The " << i << "th shortest path from " << shortNameNode(sourceNode_) << " to " << shortNameNode(sinkNode_) << " is: " << endl;
+		for( int j = static_cast<int>( paths[i].size() ) - 1; j >= 0;	--j){
+			int a = get(&Arc_Properties::num, g_, paths[i][j]);
+			std::cout << "# \t| [ " << shortNameNode(source( paths[i][j], g_ )) << " ]";
+			std::cout << "\t\tLength:" << arcCost(a) << "\t\tTime:" << arcLength(a);
+			std::cout << endl;
+		}
+		std::cout << "# \t| [" << shortNameNode(sinkNode_) << "]" << std::endl;
+		std::cout << "# \t| ~TOTAL~   \t\tLength: " << resources[i].cost << "\t\tTime: " << resources[i].time << std::endl;
+		std::cout << "# \t| " << std::endl;
+		std::cout << "# \t| Rotation: |";
+		int k=0;
+		for( int j = static_cast<int>( paths[i].size() ) - 1; j >= 0;	--j){
+
+			int a = get(&Arc_Properties::num, g_, paths[i][j]);
+			int origin = source( paths[i][j], g_ );
+			int destin = target( paths[i][j], g_ );
+
+			if(origin == sourceNode_){
+				int firstDay =  principalToDay_[destin] - CDMin_;
+				while(k<firstDay){
+					std::cout << " |";
+					k++;
+				}
+				int succId = shortSuccCDMinIdFromArc_[a];
+				for(int s: allowedShortSuccBySize_[CDMin_][ shortSuccCDMinIdFromArc_[a] ]){
+					std::cout << pScenario_->intToShift_[s].at(0) << "|";
+					k++;
+				}
+			}
+
+			else if(allNodesTypes_[origin] == PRINCIPAL_NETWORK and k < principalToDay_[origin]) {
+				std::cout << pScenario_->intToShift_[principalToShift_[origin]].at(0) << "|";
+				k++;
+			}
+		}
+		while(k < nDays_){
+			std::cout << " |";
+			k++;
+		}
+		std::cout << endl;
+		std::cout << "# " << std::endl;
+	}
+
+
+
+
+}
+
+// Resets all solutions data (rotations, number of solutions, etd.)
+//
+void SubProblem::resetSolutions(){
+	theRotations_.clear();
+	nPaths_ = 0;
+
 }
 
 
@@ -346,7 +461,7 @@ void SubProblem::createNodes(){
 	// Check nodes
 	for(int l=CD_max; l<maxRotationLength_; l++){								// Check nodes: from CD_max (longest free) to maximum rotation length
 		rotationLengthNodes_.insert(pair<int,int>(l,nNodes_));
-		addSingleNode(ROTATION_LENGTH, l, maxRotationLength_);
+		addSingleNode(ROTATION_LENGTH, 0, l);
 	}
 
 	// 4. SINK NODE
@@ -592,12 +707,6 @@ void SubProblem::createArcsAllRotationSize(){
 // Initializes some cost vectors that depend on the nurse
 void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength){
 
-	// Basic data (nurse, reduced costs, maximum rotation length)
-	//
-	pLiveNurse_ = nurse;
-	pCosts_ = costs;
-	maxRotationLength_ = maxRotationLength;
-
 	// Start and End weekend costs
 	//
 	Tools::initDoubleVector(&startWeekendCosts_,nDays_);
@@ -613,10 +722,10 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 	// Preference costs. WARNING: STARTING DATE OF THE SCENARIO IS NOT THAT OF THE PREFERENCE ??
 	// TODO: Check if shifting is necessary
 	//
-	Tools::initDoubleVector2D(preferencesCosts_, pScenario_->nbShifts_, nDays_);
+	Tools::initDoubleVector2D(&preferencesCosts_, nDays_, pScenario_->nbShifts_);
 	for(map<int,set<int> >::iterator prefList = pLiveNurse_->pWishesOff_->begin(); prefList != pLiveNurse_->pWishesOff_->end(); ++ prefList){
 		for(int sh : prefList->second){
-			setPreferenceCost(prefList->first, sh, WEIGHT_PREFERENCES);
+			preferencesCosts_[prefList->first][sh] = WEIGHT_PREFERENCES;
 		}
 	}
 
@@ -625,8 +734,11 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 	arcCostBestShortSuccCDMin_.clear();
 	for(int s=0; s<pScenario_->nbShifts_; s++){
 		vector2D v2; vector<vector<double> > w2;
-		Tools::initVector2D(&v2, nDays_, maxvalConsByShift_[s]+1); idBestShortSuccCDMin_.push_back(v2);
-		Tools::initDoubleVector2D(&w2, nDays_, maxvalConsByShift_[s]+1); arcCostBestShortSuccCDMin_.push_back(w2);
+		int n = maxvalConsByShift_[s]+1;
+		Tools::initVector2D(&v2, nDays_, n);
+		idBestShortSuccCDMin_.push_back(v2);
+		Tools::initDoubleVector2D(&w2, nDays_, n);
+		arcCostBestShortSuccCDMin_.push_back(w2);
 	}
 
 }
@@ -636,10 +748,10 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 void SubProblem::priceShortSucc(){
 	for(int s=1; s<pScenario_->nbShifts_; s++){
 		for(int k=CDMin_; k<nDays_; k++){
-			for(int n=1; n<CDMin_; n++){
+			for(int n=1; n<maxvalConsByShift_[s]; n++){
 				double bestCost = MAX_COST;
 				int bestSuccId;
-				for(int i=0; i<allShortSuccCDMinByLastShiftCons_[s][n].size(); i++){
+				for(int i=0; i<(allShortSuccCDMinByLastShiftCons_[s][n]).size(); i++){
 					int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
 					double curCost = costArcShortSucc(CDMin_, curSuccId, k-CDMin_);
 					if(curCost < bestCost){
@@ -668,7 +780,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 
 		// IF the nurse continues working on same shift -> subtract the cost of the current sequence (later replaced by the one for the longer sequence)
 		if(shiftIni == allowedShortSuccBySize_[size][succId][0]){
-			ANS -= consShiftCost(nConsIni, shiftIni);
+			ANS -= consShiftCost(shiftIni, nConsIni);
 			nConsecCurrent += nConsIni;
 		}
 
@@ -705,23 +817,35 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 	// PREFERENCES + REDCOST OF EACH SHIFT
 	for(int i=0; i<size; i++){
 		int day = startDate + i, shift = allowedShortSuccBySize_[size][succId][i];
-		ANS += (*preferencesCosts_)[ day ][ shift ];
+		ANS += preferencesCosts_[ day ][ shift ];
 		ANS += pCosts_->dayShiftWorkCost( day, shift );
 	}
 
 	return ANS;
 }
 
+
+
+//--------------------------------------------
+//
+// Functions for the costs etc.
+//
+//--------------------------------------------
+
 // Updates the costs depending on the reduced costs given for the nurse
 //
 void SubProblem::updateArcCosts(){
+
+	priceShortSucc();
 
 	// A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
 	//
 	for(int s=1; s<pScenario_->nbShifts_; s++)
 		for(int k=CDMin_; k<nDays_; k++)
 			for(int n=1; n<=maxvalConsByShift_[s]; n++){
-				updateCost( arcsFromSource_[s][k][n] , arcCostBestShortSuccCDMin_[s][k][n] );
+				int a = arcsFromSource_[s][k][n];
+				double c = arcCostBestShortSuccCDMin_[s][k][n];
+				updateCost( a , c );
 				shortSuccCDMinIdFromArc_.insert(pair<int,int>(get(&Arc_Properties::num, g_, arcsDescriptors_[ arcsFromSource_[s][k][n] ]), idBestShortSuccCDMin_[s][k][n]));
 			}
 
@@ -729,10 +853,11 @@ void SubProblem::updateArcCosts(){
 	//
 	for(int s1=1; s1<pScenario_->nbShifts_; s1++)
 		for(int s2=1; s2<pScenario_->nbShifts_; s2++)
-			for(int k=CDMin_; k<nDays_; k++){
+			for(int k=CDMin_; k<nDays_-1; k++){
 				int a = arcsShiftToNewShift_[s1][s2][k];
 				if(a > 0){
-					double c = (*preferencesCosts_)[k+1][s2] ;
+					double c = arcBaseCost_[a];
+					c += preferencesCosts_[k+1][s2] ;
 					c += pCosts_->dayShiftWorkCost(k+1,s2);
 					c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
 					updateCost( a , c );
@@ -742,12 +867,14 @@ void SubProblem::updateArcCosts(){
 	// C. ARCS : SHIFT_TO_SAMESHIFT [baseCost = 0]
 	//
 	for(int s=1; s<pScenario_->nbShifts_; s++)
-		for(int k=CDMin_; k<nDays_; k++)
+		for(int k=CDMin_; k<nDays_-1; k++)
 			for(int n=1; n<maxvalConsByShift_[s]; n++){
-				double c = (*preferencesCosts_)[k+1][s];
+				int a = arcsShiftToSameShift_[s][k][n];
+				double c = arcBaseCost_[a];
+				c += preferencesCosts_[k+1][s] ;
 				c += pCosts_->dayShiftWorkCost(k+1,s);
 				c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
-				updateCost( arcsShiftToSameShift_[s][k][n] , c );
+				updateCost( a , c );
 			}
 
 	// D. ARCS : SHIFT_TO_ENDSEQUENCE [They never change]
@@ -758,7 +885,7 @@ void SubProblem::updateArcCosts(){
 		for(int k=CDMin_; k<nDays_-1; k++){
 			int a = arcsRepeatShift_[s][k];
 			double c = arcBaseCost_[a];
-			c += (*preferencesCosts_)[k+1][s];
+			c += preferencesCosts_[k+1][s];
 			c += pCosts_->dayShiftWorkCost(k+1,s);
 			c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
 			updateCost( a , c );
@@ -767,8 +894,8 @@ void SubProblem::updateArcCosts(){
 	// F. ARCS : PRINCIPAL_TO_ROTSIZE [baseCost contains complete weekend constraint]
 	//
 	for(int s=1; s<pScenario_->nbShifts_; s++)
-		for(int k=CDMin_; k<nDays_-1; k++){
-			int a = arcsRepeatShift_[s][k];
+		for(int k=CDMin_; k<nDays_; k++){
+			int a = arcsPrincipalToRotsizein_[s][k];
 			double c = arcBaseCost_[a];
 			c += pCosts_->endWorkCost(k);
 			updateCost( a , c );
@@ -789,6 +916,18 @@ bool SubProblem::succContainsDayShift(int size, int succId, int startDate, int t
 			and allowedShortSuccBySize_[ size ][ succId ][ thatDay-startDate ] == thatShift;
 }
 
+// For tests, must be able to randomly generate costs
+//
+void SubProblem::generateRandomCosts(double minVal, double maxVal){
+
+	vector<vector<double> > randomWorkCosts = Tools::randomDoubleVector2D(nDays_, pScenario_->nbShifts_, minVal, maxVal);
+	vector<double> randomStartWorkCosts = Tools::randomDoubleVector(nDays_, minVal, maxVal);
+	vector<double> randomEndWorkCosts = Tools::randomDoubleVector(nDays_, minVal, maxVal);
+	double randomWorkedWeekendCost = (maxVal - minVal) * ( (double)rand() / (double)RAND_MAX ) + minVal;
+
+	pCosts_ = new Costs(randomWorkCosts, randomStartWorkCosts, randomEndWorkCosts, randomWorkedWeekendCost);
+
+}
 
 
 //--------------------------------------------
@@ -865,7 +1004,7 @@ string SubProblem::shortNameNode(int v){
 	}
 
 	else if (type_v == ROTATION_LENGTH){
-		rep << "LEN_<=" << nodeEat(v);
+		rep << "LEN_<=" << nodeLat(v);
 	}
 
 	else if (type_v == SINK_NODE){
@@ -931,21 +1070,21 @@ string SubProblem::printSummaryOfGraph(){
 
 // Summary of the short successions generated
 void SubProblem::printShortSucc(){
-	std::cout << "  +------------+" << endl;
-	std::cout << "  | CD_min = " << CDMin_ << endl;
-	std::cout << "  +------------+" << endl;
+	std::cout << "#   +------------+" << endl;
+	std::cout << "#   | CD_min = " << CDMin_ << endl;
+	std::cout << "#   +------------+" << endl;
 	int nShortSucc = 0;
 	int nShortRot = 0;
 	for(int i=0; i<allowedShortSuccBySize_.size(); i++){
 		vector2D v2 = allowedShortSuccBySize_[i];
-		std::cout << "  | " << v2.size()  << " short successions of size " << i << endl;
+		std::cout << "#   | " << v2.size()  << " short successions of size " << i << endl;
 		nShortSucc += v2.size();
 		nShortRot += v2.size() * (nDays_-i+1);
 
 	}
-	std::cout << "  +------------+" << endl;
-	std::cout << "  | " << nShortSucc << endl;
-	std::cout << "  +------------+" << endl;
+	std::cout << "#   +------------+" << endl;
+	std::cout << "#   | " << nShortSucc << endl;
+	std::cout << "#   +------------+" << endl;
 }
 
 

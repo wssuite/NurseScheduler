@@ -85,6 +85,11 @@ void initVector3D(vector3D* v3D, int m, int n, int p);
 void initDoubleVector(vector<double>* v1D, int m);
 void initDoubleVector2D(vector< vector< double > >* v2D, int m, int n);
 
+// Creates 1D vectors with random values (uniform) within a given range.
+//
+vector<double> randomDoubleVector(int m, double minVal, double maxVal);
+vector<vector<double> > randomDoubleVector2D(int m, int n, double minVal, double maxVal);
+
 // To get the day from its id and vice-versa
 // First day is always supposed to be a Monday
 //
