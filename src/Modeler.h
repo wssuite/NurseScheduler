@@ -28,15 +28,22 @@ using namespace std;
 
 /*
  * My Modeling objects
+ * If the object is added to the vector objects_ of the Modeler, the modeler will also delete it at the end.
  */
 struct MyObject {
-   MyObject():id_(s_count) { ++s_count; }
-   ~MyObject(){ }
+   MyObject(const char* name):id_(s_count) {
+      ++s_count;
+      char* name2 = new char[255];
+      strncpy(name2, name, 255);
+      name_ = name2;
+   }
+   virtual ~MyObject(){ delete name_; }
    //count object
    static unsigned int s_count;
+   //for the map rotations_
    int operator < (const MyObject& m) const { return this->id_ < m.id_; }
 
-   //for the map rotations_
+   const char* name_;
 private:
    const unsigned int id_;
 };

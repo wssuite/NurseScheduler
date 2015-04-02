@@ -29,7 +29,8 @@ Scenario::Scenario(string name, int nbWeeks,
 		nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
 		nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
 		nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
-		nbPositions_(0) {
+		nbPositions_(0), nbShiftOffRequests_(0),
+		pWeekDemand_(0){
 
 	// To make sure that it is modified later when reading the history data file
 	//
@@ -47,6 +48,10 @@ Scenario::~Scenario(){
 	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
 		delete (itC->second);
 	}
+   //delete pPositions_;
+	for(Position* position: pPositions_)
+	   delete position;
+
 	//delete pWeekDemand_;
 }
 

@@ -50,7 +50,7 @@ int ScipModeler::solve(bool relaxation){
 //Add a pricer
 int ScipModeler::addObjPricer(MyPricer* pPricer){
    ScipPricer* pricer2 = new ScipPricer(pPricer, scip_);
-   /* include the pricer */
+   /* include the pricer and delete it (because of the true) */
    SCIP_CALL( SCIPincludeObjPricer(scip_, pricer2, true) );
    /* activate the pricer */
    SCIP_CALL( SCIPactivatePricer(scip_, SCIPfindPricer(scip_, pricer2->scip_name_)) );

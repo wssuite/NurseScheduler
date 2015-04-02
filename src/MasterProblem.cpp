@@ -72,6 +72,7 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 }
 
 MasterProblem::~MasterProblem(){
+   delete pPricer_;
    delete pModel_;
 }
 
@@ -95,7 +96,7 @@ void MasterProblem::build(){
 void MasterProblem::solve(){
    pModel_->setVerbosity(5);
    pModel_->solve();
-//   pModel_->printStats();
+   pModel_->printStats();
    pModel_->printBestSol();
    storeSolution();
    costsConstrainstsToString();
@@ -636,18 +637,19 @@ string MasterProblem::costsConstrainstsToString(){
    stringstream rep;
 
    double initStateRestCost = getRotationCosts(INIT_REST_COST);
-   rep << printf("%-25s %10.0f \n","Column costs", getRotationCosts() - initStateRestCost);
-   rep << printf("\t%-25s %10.0f \n","Cons. shifts costs", getRotationCosts(CONS_SHIFTS_COST));
-   rep << printf("\t%-25s %10.0f \n","Cons. worked days costs", getRotationCosts(CONS_WORKED_DAYS_COST));
-   rep << printf("\t%-25s %10.0f \n","Complete weekend costs", getRotationCosts(COMPLETE_WEEKEND_COST));
-   rep << printf("\t%-25s %10.0f \n","Preferences costs", getRotationCosts(PREFERENCE_COST));
+   rep << printf("%-25s %10.0f \n", "Column costs", getRotationCosts() - initStateRestCost);
+   rep << printf("%5s%-20s %10.0f \n", "", "Cons. shifts costs", getRotationCosts(CONS_SHIFTS_COST));
+   rep << printf("%5s%-20s %10.0f \n", "", "Cons. worked days costs", getRotationCosts(CONS_WORKED_DAYS_COST));
+   rep << printf("%5s%-20s %10.0f \n", "", "Complete weekend costs", getRotationCosts(COMPLETE_WEEKEND_COST));
+   rep << printf("%5s%-20s %10.0f \n", "", "Preferences costs", getRotationCosts(PREFERENCE_COST));
    double initStateCost = getRotationCosts(TOTAL_COST, true);
-   rep << printf("%-25s %10.0f \n","History costs (counted)", initStateCost + initStateRestCost);
-   rep << printf("%-25s %10.0f \n","Resting costs", pModel_->getTotalCost(restingVars_)+pModel_->getTotalCost(longRestingVars_) + initStateRestCost - initStateCost);
-   rep << printf("%-25s %10.0f \n","Min worked days costs", pModel_->getTotalCost(minWorkedDaysVars_));
-   rep << printf("%-25s %10.0f \n","Max worked days costs", pModel_->getTotalCost(maxWorkedDaysVars_));
-   rep << printf("%-25s %10.0f \n","Max worked weekend costs", pModel_->getTotalCost(maxWorkedWeekendVars_));
-   rep << printf("%-25s %10.0f \n","Coverage costs", pModel_->getTotalCost(optDemandVars_));
+   rep << printf("%-25s %10.0f \n", "History costs (counted)", initStateCost + initStateRestCost);
+   rep << printf("%-25s %10.0f \n", "Resting costs", pModel_->getTotalCost(restingVars_)+pModel_->getTotalCost(longRestingVars_) + initStateRestCost - initStateCost);
+   rep << printf("%-25s %10.0f \n", "Min worked days costs", pModel_->getTotalCost(minWorkedDaysVars_));
+   rep << printf("%-25s %10.0f \n", "Max worked days costs", pModel_->getTotalCost(maxWorkedDaysVars_));
+   rep << printf("%-25s %10.0f \n", "Max worked weekend costs", pModel_->getTotalCost(maxWorkedWeekendVars_));
+   rep << printf("%-25s %10.0f \n", "Coverage costs", pModel_->getTotalCost(optDemandVars_));
+   rep << printf("\n");
 
    cout << rep.str();
 

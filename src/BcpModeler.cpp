@@ -37,11 +37,22 @@ void BcpLpModel::TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col
       CoinVar* var = dynamic_cast<CoinVar*>(vars[i]);
       if(!var)
          Tools::throwError("Bad variable casting.");
-      const int size = var->indexRows_.size();
-      int* indices = &(var->indexRows_[0]);
-      double* coeffs = &(var->coeffs_[0]);
+
+      //Copy the vectors var->getIndexRows() and var->getCoeffRows() in arrays
+      const int size = var->getNbRows();
+
+      //create a new array which will be deleted by ~BCP_col()
+      int* indexRows = new int[size];
+      vector<int> index = var->getIndexRows();
+      std::copy(index.begin(), index.end(), indexRows);
+
+      //create a new array which will be deleted by ~BCP_col()
+      double* coeffRows= new double[size];
+      vector<double> coeffs = var->getCoeffRows();
+      std::copy(coeffs.begin(), coeffs.end(), coeffRows);
+
       cols.unchecked_push_back(
-         new BCP_col(size, indices, coeffs, var->cost_, var->lb_, var->ub_));
+         new BCP_col(size, indexRows, coeffRows, var->getCost(), var->getLB(), var->getUB()));
    }
 }
 
@@ -51,16 +62,21 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
    pModel_->setLPSol(lpres);
-   pModel_->pricing(0);
+   //   pModel_->pricing(0);
 
    //check if new columns add been added since the last time
    //if there are some, add all of them in new_vars
    int size = pModel_->getNbColumns();
-   if ( (size != nbCurrentColumnVarsBeforePricing_) || ! before_fathom) {
+   if ( size != nbCurrentColumnVarsBeforePricing_ ) { //|| ! before_fathom
       new_vars.reserve(size-nbCurrentColumnVarsBeforePricing_); //reserve the memory for the new columns
-      for(int i=nbCurrentColumnVarsBeforePricing_; i<size; ++i)
-         new_vars.push_back((BcpColumn*)pModel_->getColumns()[i]);
-//      TransformVarsToColumns(new_vars, new_cols);
+      for(int i=nbCurrentColumnVarsBeforePricing_; i<size; ++i){
+         BcpColumn* var = dynamic_cast<BcpColumn*>(pModel_->getColumns()[i]);
+         if(!var)
+            Tools::throwError("Bad variable casting.");
+         //create a new BcpColumn which will be deleted by BCP
+         new_vars.unchecked_push_back(new BcpColumn(*var));
+      }
+      //      TransformVarsToColumns(new_vars, new_cols);
       nbCurrentColumnVarsBeforePricing_ = size;
       return;
    }
@@ -70,6 +86,26 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    //    const double rc_bound =
    //   (lpres.dualTolerance() + (lpres.objval() - upper_bound()))/kss.ks_num;
    //    generate_vars(lpres, vars, rc_bound, new_vars);
+}
+
+/*
+ * BCP_DoNotBranch_Fathomed: The node should be fathomed without even trying to branch.
+ * BCP_DoNotBranch: BCP should continue to work on this node.
+ * BCP_DoBranch: branch on one of the candidates cands
+ *
+ */
+BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
+   const BCP_vec<BCP_var*> &  vars, //the variables in the current formulation.
+   const BCP_vec< BCP_cut*> &  cuts, //the cuts in the current formulation.
+   const BCP_lp_var_pool& local_var_pool, //the local pool that holds variables with negative reduced cost.
+   //In case of continuing with the node the best so many variables will be added to the formulation (those with the most negative reduced cost).
+   const BCP_lp_cut_pool& local_cut_pool, //the local pool that holds violated cuts.
+   //In case of continuing with the node the best so many cuts will be added to the formulation (the most violated ones).
+   BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
+   bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
+{
+   pModel_->setLPSol(lpres);
+   return BCP_DoNotBranch_Fathomed;
 }
 
 /*
@@ -92,10 +128,11 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
       BcpCoreVar* var = dynamic_cast<BcpCoreVar*>(pModel_->getCoreVars()[i]);
       if(!var)
          Tools::throwError("Bad variable casting.");
-      vars.push_back(var);
-      lb[i] = var->lb_;
-      ub[i] = var->ub_;
-      obj[i] = var->cost_;
+      //create a new BcpCoreVar which will be deleted by BCP
+      vars.push_back(new BcpCoreVar(*var));
+      lb[i] = var->getLB();
+      ub[i] = var->getUB();
+      obj[i] = var->getCost();
    }
 
    //copy of the core cuts
@@ -104,9 +141,10 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
       BcpCoreCons* cut = dynamic_cast<BcpCoreCons*>(pModel_->getCons()[i]);
       if(!cut)
          Tools::throwError("Bad constraint casting.");
-      cuts.push_back(cut);
-      rhs[i] = cut->rhs_;
-      lhs[i] = cut->lhs_;
+      //create a new BcpCoreCons which will be deleted by BCP
+      cuts.push_back(new BcpCoreCons(*cut));
+      lhs[i] = cut->getLhs();
+      rhs[i] = cut->getRhs();
    }
 
    matrix = new BCP_lp_relax;
@@ -121,8 +159,14 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
    BCP_user_data*& user_data){
 
    added_vars.reserve(nbInitialColumnVars_);
-   for(int i=0; i<nbInitialColumnVars_; ++i)
-      added_vars.unchecked_push_back((BcpColumn*)pModel_->getColumns()[i]);
+   for(int i=0; i<nbInitialColumnVars_; ++i){
+      BcpColumn* var = dynamic_cast<BcpColumn*>(pModel_->getColumns()[i]);
+      if(!var)
+         Tools::throwError("Bad variable casting.");
+      //create a new BcpColumn which will be deleted by BCP
+      added_vars.unchecked_push_back(new BcpColumn(*var));
+   }
+
 }
 
 /*
@@ -145,11 +189,13 @@ int BcpModeler::solve(bool relaxatione){
  */
 int BcpModeler::createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub){
    *var = new BcpCoreVar(var_name, index, objCoeff, vartype, lb, ub);
+   objects_.push_back(*var);
    return 1;
 }
 
 int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub){
    *var = new BcpColumn(var_name, index, objCoeff, vartype, lb, ub);
+   objects_.push_back(*var);
    return 1;
 }
 
@@ -164,6 +210,7 @@ int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int ind
 
 int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs){
    *con = new BcpCoreCons(con_name, index, lhs, rhs);
+   objects_.push_back(*con);
    return 1;
 }
 
@@ -173,17 +220,9 @@ int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int i
 
 double BcpModeler::getVarValue(MyObject* var){
    CoinVar* var2 = (CoinVar*) var;
-   double value = 0;
-
-   BcpCoreVar* core_var = dynamic_cast<BcpCoreVar*>(var2);
-   if (core_var) {
-   }
-
-   BcpColumn* column_var = dynamic_cast<BcpColumn*>(var2);
-   if (column_var) {
-   }
-
-   return value;
+   if(primalValues_ == 0)
+      Tools::throwError("Primal solution has been initialized.");
+   return primalValues_[var2->getIndex()];
 }
 
 /*
@@ -191,14 +230,17 @@ double BcpModeler::getVarValue(MyObject* var){
  */
 
 double BcpModeler::getDual(MyObject* cons, bool transformed){
-   BcpCoreCons* cons2 = (BcpCoreCons*) cons;
-   return 0;
+   CoinCons* cons2 = (CoinCons*) cons;
+   if(dualValues_ == 0)
+      Tools::throwError("Dual solution has been initialized.");
+   return dualValues_[cons2->getIndex()];
 }
 
 /**************
  * Parameters *
  *************/
 int BcpModeler::setVerbosity(int v){
+
 }
 
 /**************
@@ -209,12 +251,34 @@ int BcpModeler::printStats(){
 }
 
 int BcpModeler::printBestSol(){
+   //print the objective value
+   printf("%-30s %4.2f \n", "Objective:" , obj_history_[obj_history_.size()-1]);
+
+   //print the value of the positive variables
+   printf("%-30s \n", "Variables:");
+   double tolerance = pow(.1, DECIMALS);
+   //iterate on core variables
+   for(CoinVar* var: coreVars_){
+      double value = getVarValue(var);
+      if( value > tolerance)
+         printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+   }
+   //iterate on column variables
+   for(CoinVar* var: columnVars_){
+      double value = getVarValue(var);
+      if( value > tolerance)
+         printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+   }
+
+   printf("\n");
+
+   return 1;
 }
 
 int BcpModeler::writeProblem(string fileName){
 }
 
 int BcpModeler::writeLP(string fileName){
-//   OsiClpSolverInterface solver = ;
-//   solver.writeLp(fileName.c_str(), "lp", 1e-5, 10, 5);
+   //   OsiClpSolverInterface solver = ;
+   //   solver.writeLp(fileName.c_str(), "lp", 1e-5, 10, 5);
 }

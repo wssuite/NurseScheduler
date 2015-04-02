@@ -21,7 +21,7 @@ using namespace scip;
  * My Variables
  */
 struct ScipVar: public MyObject {
-   ScipVar(SCIP_VAR* var):MyObject(){ var_=var; }
+   ScipVar(SCIP_VAR* var):MyObject(var->name){ var_=var; }
    ~ScipVar(){ }
    SCIP_VAR* var_;
 };
@@ -30,7 +30,7 @@ struct ScipVar: public MyObject {
  * My Constraints
  */
 struct ScipCons: public MyObject  {
-   ScipCons(SCIP_CONS* cons):MyObject(){ cons_=cons; }
+   ScipCons(SCIP_CONS* cons):MyObject(cons->name){ cons_=cons; }
    ~ScipCons(){ }
    SCIP_CONS* cons_;
 };

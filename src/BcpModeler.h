@@ -69,22 +69,7 @@ struct BcpColumn: public CoinVar, public BCP_var_algo{
       CoinVar(var), BCP_var_algo(BcpCoreVar::getBcpVarType(type_), cost_, lb_, ub_)
    { }
 
-   //BCP takes care of unpacking the BCP_var_algo
-   BcpColumn(BCP_buffer& buf) :
-      CoinVar(), BCP_var_algo(BCP_ContinuousVar, 0, 0, 0)
-   {
-      buf.unpack(varName_).unpack(index_).unpack(type_).unpack(cost_).unpack(lb_).unpack(ub_)
-                                                        .unpack(indexRows_).unpack(coeffs_);
-   }
-
    ~BcpColumn(){ }
-
-   //pack method of BCP for BcpColumn
-   //BCP takes care of packing the BCP_var_algo
-   void pack(BCP_buffer& buf) const {
-      buf.pack(varName_).pack(index_).pack(type_).pack(cost_).pack(lb_).pack(ub_)
-                                                        .pack(indexRows_).pack(coeffs_);
-   }
 };
 
 /*
@@ -127,7 +112,7 @@ class BcpModeler: public CoinModeler {
 public:
    BcpModeler(const char* name):
       CoinModeler(), primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0), best_lb_in_root(-DBL_MAX)
-      { }
+{ }
    ~BcpModeler() { }
 
    //solve the model
@@ -234,10 +219,6 @@ public:
 
    void unpack_module_data(BCP_buffer& buf) {    buf.unpack(pModel_); }
 
-   void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf){ ((BcpColumn*)var)->pack(buf); }
-
-   BCP_var_algo* unpack_var_algo(BCP_buffer& buf) { return new BcpColumn(buf); }
-
    OsiSolverInterface* initialize_solver_interface(){ return new OsiClpSolverInterface(); }
 
    //Initializing a new search tree node.
@@ -267,6 +248,23 @@ public:
       const BCP_vec<BCP_var*>& vars, const BCP_vec<BCP_cut*>& cuts, const bool before_fathom,
       BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols);
 
+   /*
+    * BCP_DoNotBranch_Fathomed: The node should be fathomed without even trying to branch.
+    * BCP_DoNotBranch: BCP should continue to work on this node.
+    * BCP_DoBranch: branch on one of the candidates cands
+    *
+    */
+   BCP_branching_decision select_branching_candidates(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
+      const BCP_vec<BCP_var*> &  vars, //the variables in the current formulation.
+      const BCP_vec< BCP_cut*> &  cuts, //the cuts in the current formulation.
+      const BCP_lp_var_pool& local_var_pool, //the local pool that holds variables with negative reduced cost.
+      //In case of continuing with the node the best so many variables will be added to the formulation (those with the most negative reduced cost).
+      const BCP_lp_cut_pool& local_cut_pool, //the local pool that holds violated cuts.
+      //In case of continuing with the node the best so many cuts will be added to the formulation (the most violated ones).
+      BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
+      bool force_branch = false); //indicate whether to force branching regardless of the size of the local cut/var pools
+
+
 protected:
    BcpModeler* pModel_;
    int nbCurrentColumnVarsBeforePricing_;
@@ -289,22 +287,23 @@ protected:
 class BcpBranchingTree: public BCP_tm_user{
 public:
    BcpBranchingTree(BcpModeler* pModel):
-      pModel_(pModel) ,clp_(0), nbInitialColumnVars_(pModel->getNbColumns())
+      pModel_(pModel) , nbInitialColumnVars_(pModel->getNbColumns())
 { }
-   ~BcpBranchingTree() {
-      if (clp_)
-         delete clp_;
-   }
+   ~BcpBranchingTree() { }
 
    // pack the modeler
-   void pack_module_data(BCP_buffer& buf, BCP_process_t ptype){ buf.pack(pModel_); }
+   void pack_module_data(BCP_buffer& buf, BCP_process_t ptype){
+      switch (ptype) {
+      case BCP_ProcessType_LP:
+         buf.pack(pModel_); // Pack a pointer; does not work for parallel machines
+         break;
+      default:
+         abort();
+      }
+   }
 
    // unpack an MIP feasible solution
-   //BCP_solution* unpack_feasible_solution(BCP_buffer& buf);
-
-   void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf) { ((BcpColumn*)var)->pack(buf); }
-
-   BCP_var_algo* unpack_var_algo(BCP_buffer& buf) { return new BcpColumn(buf); }
+//   BCP_solution* unpack_feasible_solution(BCP_buffer& buf);
 
    // setting the base
    //Create the core of the problem by filling out the last three arguments.
@@ -323,11 +322,12 @@ public:
    //void display_feasible_solution(const BCP_solution* soln);
 
    // various initializations before a new phase (e.g., pricing strategy)
-   void init_new_phase(int phase, BCP_column_generation& colgen) { colgen = BCP_GenerateColumns; }
+   void init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates) {
+      colgen = BCP_GenerateColumns;
+   }
 
 protected:
    BcpModeler* pModel_;
-   OsiClpSolverInterface* clp_;
    int nbInitialColumnVars_;
 };
 
@@ -336,11 +336,23 @@ protected:
  */
 class BcpPacker : public BCP_user_pack {
 public:
-   BcpPacker() {}
+   BcpPacker(BcpModeler* pModel): pModel_(pModel){}
    ~BcpPacker() {}
 
-   void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf) { ((BcpColumn*)var)->pack(buf); }
-   BCP_var_algo* unpack_var_algo(BCP_buffer& buf) { return new BcpColumn(buf); }
+   void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf) { buf.pack(((BcpColumn*)var)->getIndex()); }
+
+   BCP_var_algo* unpack_var_algo(BCP_buffer& buf) {
+      int index = 0;
+      buf.unpack(index);
+      int i = index - pModel_->getCoreVars().size();
+      BcpColumn* var = (BcpColumn*) pModel_->getColumns()[i];
+      if(index != var->getIndex())
+         Tools::throwError("Bad column unpacked or packed.");
+      return new BcpColumn(*var);
+   }
+
+protected:
+   BcpModeler* pModel_;
 };
 
 /*
@@ -353,14 +365,7 @@ public:
 class BcpInitialize : public USER_initialize {
 public:
    BcpInitialize(BcpModeler* pModel): pModel_(pModel), pTree(0), pLPModel(0), pPacker(0) { }
-   ~BcpInitialize() {
-      if(pLPModel)
-         delete pLPModel;
-      if(pTree)
-         delete pTree;
-      if(pPacker)
-         delete pPacker;
-   }
+   ~BcpInitialize() { }
 
    BCP_tm_user* tm_init(BCP_tm_prob& p, const int argnum, const char * const * arglist) {
       int size = pModel_->getNbColumns();
@@ -375,7 +380,7 @@ public:
 
    BCP_user_pack* packer_init(BCP_user_class* p)
    {
-      pPacker = new BcpPacker();
+      pPacker = new BcpPacker(pModel_);
       return pPacker;
    }
 

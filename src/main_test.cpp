@@ -61,12 +61,18 @@ void testFunction_Antoine(){
          preferences = *pScen->pWeekPreferences();
       }
       else{
-         pWeekDemand->push_back(ReadWrite::readWeek(demandPath, pScen));
+         //load the next week
+         Demand* nextDemand = ReadWrite::readWeek(demandPath, pScen);
+         //update the current weeks
+         pWeekDemand->push_back(nextDemand);
          preferences.push_back(pScen->pWeekPreferences());
          pScen->addAWeek();
+         //link the scenario tu the current demand and preferences
+         pScen->linkWithDemand(pWeekDemand);
+         pScen->linkWithPreferences(preferences);
+         //delete the demand and the preferences which we have created
+         delete nextDemand;
       }
-   pScen->linkWithDemand(pWeekDemand);
-   pScen->linkWithPreferences(preferences);
    ReadWrite::readHistory(firstHistoryPath,pScen);
 
    // Check that the scenario was read properly

@@ -60,7 +60,8 @@ LiveNurse::LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int fi
 State* pStateIni,	map<int,set<int> >* pWishesOff):
 Nurse(nurse.id_, nurse.name_, nurse.nbSkills_, nurse.skills_, nurse.pContract_),
 pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay),
-pStateIni_(pStateIni), pWishesOff_(pWishesOff) {
+pStateIni_(pStateIni), pWishesOff_(pWishesOff), pPosition_(0),
+minWorkDays_(0), maxWorkDays_(0) {
 
   roster_.init(nbDays, firstDay);
   statCt_.init(nbDays);
@@ -73,6 +74,8 @@ pStateIni_(pStateIni), pWishesOff_(pWishesOff) {
     states_.push_back(nextState);
   }
 }
+
+LiveNurse::~LiveNurse() { }
 
 // returns true if the nurse wishes the day-shift off
 //
@@ -136,7 +139,8 @@ bool LiveNurse::needWork(int day) {
 }
 
 // return true if the nurse is free to go to rest or work more without penalty
-//
+//==13776==    by 0x46A780: Solver::Solver(Scenario*, Demand*, Preferences*, std::vector<State, std::allocator<State> >*) (Solver.cpp:327)
+
 bool LiveNurse::isFreeToChoose(int day) {
   return !needWork(day) && !needRest(day);
 }
@@ -311,7 +315,8 @@ void LiveNurse::buildStates(){
 Solver::Solver(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState):
   pScenario_(pScenario),  pDemand_(pDemand),
-  pPreferences_(pPreferences), pInitState_(pInitState) {
+  pPreferences_(pPreferences), pInitState_(pInitState),
+  maxTotalStaffNoPenalty_(0), maxTotalStaff_(0), totalCostUnderStaffing_(0){
 
     // initialize the preprocessed data of the skills
     for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
@@ -329,7 +334,10 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   }
 
 // Destructor
-Solver::~Solver(){}
+Solver::~Solver(){
+   for(LiveNurse* pNurse: theLiveNurses_)
+      delete pNurse;
+}
 
 
 //------------------------------------------------

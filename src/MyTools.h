@@ -33,7 +33,7 @@ using std::set;
 
 static const int DEBUG = 1;
 static const string REST_SHIFT = "None";
-
+static const int DECIMALS = 3;
 
 // definitions of multi-dimensional int vector types
 //

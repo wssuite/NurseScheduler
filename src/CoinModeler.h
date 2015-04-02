@@ -18,21 +18,45 @@
  */
 //Coin var, just a virtual class
 struct CoinVar: public MyObject {
-   CoinVar():
-      MyObject(), varName_(""), index_(-1), type_(VARTYPE_CONTINUOUS), cost_(0), lb_(0), ub_(0) {}
-
    CoinVar(const char* name, int index, double cost, VarType type, double lb, double ub):
-      MyObject(), varName_(name), index_(index), type_(type), cost_(cost), lb_(lb), ub_(ub)
+      MyObject(name), index_(index), type_(type), cost_(cost), lb_(lb), ub_(ub)
    { }
 
    CoinVar(const CoinVar& var) :
-      MyObject(), varName_(var.varName_), index_(var.index_), type_(var.type_), cost_(var.cost_),
+      MyObject(var.name_), index_(var.index_), type_(var.type_), cost_(var.cost_),
       lb_(var.lb_), ub_(var.ub_), indexRows_(var.indexRows_), coeffs_(var.coeffs_)
    { }
 
    virtual ~CoinVar(){ }
 
-   const char* varName_; //name of the variable
+   /*
+    * Setters and Getters
+    */
+
+   void addRow(int index, double coeff){
+      indexRows_.push_back(index);
+      coeffs_.push_back(coeff);
+   }
+
+   int getIndex() { return index_; }
+
+   int getNbRows() { return indexRows_.size(); }
+
+   vector<int> getIndexRows() { return indexRows_; }
+
+   int getIndexRow(int i) { return indexRows_[i]; }
+
+   vector<double> getCoeffRows() { return coeffs_; }
+
+   double getCoeffRow(int i) { return coeffs_[i]; }
+
+   double getCost() { return cost_; }
+
+   double getLB() { return lb_; }
+
+   double getUB() { return ub_; }
+
+protected:
    int index_; //index of the column of the matrix here
    VarType type_; //type of the variable
    double cost_; //cost of the variable
@@ -40,8 +64,6 @@ struct CoinVar: public MyObject {
    double ub_; //upper bound
    vector<int> indexRows_; //index of the rows of the matrix where the variable has non-zero coefficient
    vector<double> coeffs_; //value of these coefficients
-
-
 };
 
 /*
@@ -50,19 +72,27 @@ struct CoinVar: public MyObject {
 //Coin cons, just a virtual class
 struct CoinCons: public MyObject{
 public:
-   CoinCons(): MyObject(), consName_(""), index_(-1), lhs_(0), rhs_(0) {}
-
    CoinCons(const char* name, int index, double lhs, double rhs):
-      MyObject(), consName_(name), index_(index), lhs_(lhs), rhs_(rhs)
+      MyObject(name), index_(index), lhs_(lhs), rhs_(rhs)
 { }
 
    CoinCons(const CoinCons& cons) :
-      MyObject(), consName_(cons.consName_), index_(cons.index_), lhs_(cons.lhs_), rhs_(cons.rhs_)
+      MyObject(cons.name_), index_(cons.index_), lhs_(cons.lhs_), rhs_(cons.rhs_)
    { }
 
    virtual ~CoinCons(){ }
 
-   const char* consName_; //name of the variable
+   /*
+    * Getters
+    */
+
+   int getIndex() { return index_; }
+
+   double getLhs() { return lhs_; }
+
+   double getRhs() { return rhs_; }
+
+protected:
    int index_; //index of the row of the matrix here
    double lhs_; //left hand side == lower bound
    double rhs_; //rihgt hand side == upper bound
@@ -93,6 +123,7 @@ public:
     */
 
    //has to be implement to create the good var according to the coin modeler chosen (BCP, CBC ...)
+   //WARNING: core vars have to all be created before creating column vars
    virtual int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub)=0;
 
    virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub)=0;
@@ -108,7 +139,6 @@ public:
       createCoinVar(&var2, var_name, index, objCoeff, vartype, lb, ub);
 
       coreVars_.push_back(var2);
-      objects_.push_back(var2);
       *var = var2;
 
       return 1;
@@ -125,7 +155,6 @@ public:
       createColumnCoinVar(&var2, var_name, index, objCoeff, vartype, lb, ub);
 
       columnVars_.push_back(var2);
-      objects_.push_back(var2);
       *var = var2;
 
       return 1;
@@ -159,7 +188,6 @@ public:
          addCoefLinear(con2, vars[i], coeffs[i]);
 
       cons_.push_back(con2);
-      objects_.push_back(con2);
       *con = con2;
 
       return 1;
@@ -179,8 +207,7 @@ public:
       CoinVar* var2 = (CoinVar*) var;
       CoinCons* cons2 = (CoinCons*) cons;
 
-      var2->indexRows_.push_back(cons2->index_);
-      var2->coeffs_.push_back(coeff);
+      var2->addRow(cons2->getIndex(), coeff);
 
       return 1;
    }
@@ -201,27 +228,20 @@ public:
       vector<int> row_indices, col_indices;
       vector<double> coeffs;
 
-      //copy of the core variables
-      for(int i=0; i<corenum; ++i){
-         CoinVar* var = coreVars_[i];
-         //build the tuples of the matrix
-         for(int j=0; j<var->indexRows_.size(); ++j){
-            row_indices.push_back(var->indexRows_[j]);
-            col_indices.push_back(var->index_);
-            coeffs.push_back(var->coeffs_[j]);
-         }
-      }
+      for(int i=0; i<colnum; ++i){
+         CoinVar* var(0);
+         //copy of the core variables
+         if(i<corenum)
+            var = coreVars_[i];
+         //copy of the column variables
+         else
+            var = columnVars_[i-corenum];
 
-      //copy of the column variables
-      if(!justCore){
-         for(int i=corenum; i<colnum; ++i){
-            CoinVar* var = columnVars_[i-corenum];
-            //build the tuples of the matrix
-            for(int j=0; j<var->indexRows_.size(); ++j){
-               row_indices.push_back(var->indexRows_[j]);
-               col_indices.push_back(var->index_);
-               coeffs.push_back(var->coeffs_[j]);
-            }
+         //build the tuples of the matrix
+         for(int j=0; j<var->getNbRows(); ++j){
+            row_indices.push_back(var->getIndexRow(j));
+            col_indices.push_back(var->getIndex());
+            coeffs.push_back(var->getCoeffRow(j));
          }
       }
 
@@ -257,7 +277,7 @@ public:
       CoinVar* var2 = (CoinVar*) var;
 
       double value = getVarValue(var);
-      return value *  var2->cost_;
+      return value *  var2->getCost();
    }
 
    virtual int printStats() { return 0; }
