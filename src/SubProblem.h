@@ -630,6 +630,7 @@ public:
 	string shortNameNode(int v);
 	string printSummaryOfGraph();
 	void printShortSucc();
+	void printPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont ressource);
 
 
 };

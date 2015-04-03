@@ -356,52 +356,21 @@ void SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 
 	// TODO : implement this function. Print only (en l'etat)
 
+	// For each path of the list, record the corresponding rotation
+	for(int p=0; p<static_cast<int>(paths.size()); ++p){
+
+
+
+
+
+	}
+
 	std::cout << "# SPP with time windows:" << std::endl;
 	std::cout << "# Number of optimal solutions: ";
 	std::cout << static_cast<int>( paths.size() ) << std::endl;
-	for( int i = 0; i < static_cast<int>( paths.size() ); ++i )
-	{
-		std::cout << "# The " << i << "th shortest path from " << shortNameNode(sourceNode_) << " to " << shortNameNode(sinkNode_) << " is: " << endl;
-		for( int j = static_cast<int>( paths[i].size() ) - 1; j >= 0;	--j){
-			int a = get(&Arc_Properties::num, g_, paths[i][j]);
-			std::cout << "# \t| [ " << shortNameNode(source( paths[i][j], g_ )) << " ]";
-			std::cout << "\t\tLength:" << arcCost(a) << "\t\tTime:" << arcLength(a);
-			std::cout << endl;
-		}
-		std::cout << "# \t| [" << shortNameNode(sinkNode_) << "]" << std::endl;
-		std::cout << "# \t| ~TOTAL~   \t\tLength: " << resources[i].cost << "\t\tTime: " << resources[i].time << std::endl;
-		std::cout << "# \t| " << std::endl;
-		std::cout << "# \t| Rotation: |";
-		int k=0;
-		for( int j = static_cast<int>( paths[i].size() ) - 1; j >= 0;	--j){
-
-			int a = get(&Arc_Properties::num, g_, paths[i][j]);
-			int origin = source( paths[i][j], g_ );
-			int destin = target( paths[i][j], g_ );
-
-			if(origin == sourceNode_){
-				int firstDay =  principalToDay_[destin] - CDMin_;
-				while(k<firstDay){
-					std::cout << " |";
-					k++;
-				}
-				int succId = shortSuccCDMinIdFromArc_[a];
-				for(int s: allowedShortSuccBySize_[CDMin_][ shortSuccCDMinIdFromArc_[a] ]){
-					std::cout << pScenario_->intToShift_[s].at(0) << "|";
-					k++;
-				}
-			}
-
-			else if(allNodesTypes_[origin] == PRINCIPAL_NETWORK and k < principalToDay_[origin]) {
-				std::cout << pScenario_->intToShift_[principalToShift_[origin]].at(0) << "|";
-				k++;
-			}
-		}
-		while(k < nDays_){
-			std::cout << " |";
-			k++;
-		}
-		std::cout << endl;
+	for( int i = 0; i < static_cast<int>( paths.size() ); ++i ){
+		printPath(paths[i], resources[i]);
+		std::cout << "# " << std::endl;
 		std::cout << "# " << std::endl;
 	}
 
@@ -1070,23 +1039,73 @@ string SubProblem::printSummaryOfGraph(){
 
 // Summary of the short successions generated
 void SubProblem::printShortSucc(){
-	std::cout << "#   +------------+" << endl;
-	std::cout << "#   | CD_min = " << CDMin_ << endl;
-	std::cout << "#   +------------+" << endl;
+	std::cout << "#   +------------+" << std::endl;
+	std::cout << "#   | CD_min = " << CDMin_ << std::endl;
+	std::cout << "#   +------------+" << std::endl;
 	int nShortSucc = 0;
 	int nShortRot = 0;
 	for(int i=0; i<allowedShortSuccBySize_.size(); i++){
 		vector2D v2 = allowedShortSuccBySize_[i];
-		std::cout << "#   | " << v2.size()  << " short successions of size " << i << endl;
+		std::cout << "#   | " << v2.size()  << " short successions of size " << i << std::endl;
 		nShortSucc += v2.size();
 		nShortRot += v2.size() * (nDays_-i+1);
 
 	}
-	std::cout << "#   +------------+" << endl;
-	std::cout << "#   | " << nShortSucc << endl;
-	std::cout << "#   +------------+" << endl;
+	std::cout << "#   +------------+" << std::endl;
+	std::cout << "#   | " << nShortSucc << std::endl;
+	std::cout << "#   +------------+" << std::endl;
 }
 
+// Print the path (arcs, nodes, cost of each arc in the current network, etc.)
+//
+void SubProblem::printPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont ressource){
+
+	// The successive nodes, and corresponding arc costs / time
+	//
+	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
+		int a = boost::get(&Arc_Properties::num, g_, path[j]);
+		std::cout << "# \t| [ " << shortNameNode(source( path[j], g_ )) << " ]";
+		std::cout << "\t\tLength:" << arcCost(a) << "\t\tTime:" << arcLength(a);
+		std::cout << std::endl;
+	}
+
+	// Last node and total
+	//
+	std::cout << "# \t| [" << shortNameNode(sinkNode_) << "]" << std::endl;
+	std::cout << "# \t| ~TOTAL~   \t\tLength: " << ressource.cost << "\t\tTime: " << ressource.time << std::endl;
+	std::cout << "# \t| " << std::endl;
+	std::cout << "# \t| Rotation: |";
+
+	// Print it "as a rotation"
+	//
+	int k=0;
+	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
+		int a = boost::get(&Arc_Properties::num, g_, path[j]);
+		int origin = boost::source( path[j], g_ );
+		int destin = boost::target( path[j], g_ );
+		if(origin == sourceNode_){
+			int firstDay =  principalToDay_[destin] - CDMin_;
+			while(k<firstDay){
+				std::cout << " |";
+				k++;
+			}
+			int succId = shortSuccCDMinIdFromArc_[a];
+			for(int s: allowedShortSuccBySize_[CDMin_][ shortSuccCDMinIdFromArc_[a] ]){
+				std::cout << pScenario_->intToShift_[s].at(0) << "|";
+				k++;
+			}
+		}
+		else if(allNodesTypes_[origin] == PRINCIPAL_NETWORK and k < principalToDay_[origin]) {
+			std::cout << pScenario_->intToShift_[principalToShift_[origin]].at(0) << "|";
+			k++;
+		}
+	}
+	while(k < nDays_){
+		std::cout << " |";
+		k++;
+	}
+	std::cout << std::endl;
+}
 
 
 
