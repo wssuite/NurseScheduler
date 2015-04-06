@@ -607,6 +607,10 @@ protected:
 	//
 	void addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
 
+	// Adds a rotation made from the given path to the current list of answers and increases their counter
+	//
+	void addSingleRotation(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
+
 
 	// For tests, must be able to randomly generate costs
 	void generateRandomCosts(double minVal, double maxVal);
@@ -631,6 +635,8 @@ public:
 	string printSummaryOfGraph();
 	void printShortSucc();
 	void printPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont ressource);
+	void printRotation(Rotation rot);
+	void printAllRotations();
 
 
 };

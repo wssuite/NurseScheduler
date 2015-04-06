@@ -131,6 +131,7 @@ ifneq ($(OBJDIR),)
 		-rm -f $(OBJDIR)/*.o
 		-rmdir $(OBJDIR)
 endif
+		rm -f $(BINDIR)/$(MAINNAME)
 
 .PHONY: test
 test:           $(MAINFILE)

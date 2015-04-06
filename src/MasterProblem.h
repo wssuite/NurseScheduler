@@ -43,9 +43,7 @@ struct Rotation {
    Rotation(int firstDay, vector<int> shiftSuccession, LiveNurse* nurse = NULL, double cost = 999999, double dualCost = 999999) :
       pNurse_(nurse), cost_(cost), dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size())
    {
-      map<int,int> m;
-      for(int k=0; k<shiftSuccession.size(); k++) m.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
-      shifts_ = m;
+      for(int k=0; k<shiftSuccession.size(); k++) shifts_.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
    }
 
    ~Rotation(){};

@@ -309,6 +309,10 @@ double SubProblem::consDaysCost(int n){
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
 
+	// TODO : modify if needed
+	//
+	resetSolutions();
+
 	// Basic data (nurse, reduced costs, maximum rotation length)
 	//
 	pLiveNurse_ = nurse;
@@ -340,46 +344,62 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 
 	addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 
-	/*
-	printGraph();
-	std::cout << printSummaryOfGraph();
-	printShortSucc();
-	*/
-	std::cout << "# " << std::endl;
-	std::cout << "# " << std::endl;
+	printAllRotations();
+
 	return false;
 }
 
 // Transforms the solutions found into proper rotations.
 //
 void SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor> > paths, vector<spp_spptw_res_cont> resources){
-
-	// TODO : implement this function. Print only (en l'etat)
-
 	// For each path of the list, record the corresponding rotation
 	for(int p=0; p<static_cast<int>(paths.size()); ++p){
-
-
-
-
-
+		addSingleRotation(paths[p], resources[p]);
+		printPath(paths[p], resources[p]);
 	}
-
-	std::cout << "# SPP with time windows:" << std::endl;
-	std::cout << "# Number of optimal solutions: ";
-	std::cout << static_cast<int>( paths.size() ) << std::endl;
-	for( int i = 0; i < static_cast<int>( paths.size() ); ++i ){
-		printPath(paths[i], resources[i]);
-		std::cout << "# " << std::endl;
-		std::cout << "# " << std::endl;
-	}
-
-
-
-
 }
 
-// Resets all solutions data (rotations, number of solutions, etd.)
+// Adds a rotation made from the given path to the current list of answers and increases their counter
+//
+void SubProblem::addSingleRotation(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource){
+
+	int firstDay = -1;
+	int dualCost = 0;
+	vector<int> shiftSuccession;
+
+	// All arcs are consecutively considered
+	//
+	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
+		int a = boost::get(&Arc_Properties::num, g_, path[j]);
+		ArcType aType = arcType(a);
+		int origin = boost::source( path[j], g_ );
+		int destin = boost::target( path[j], g_ );
+
+		// A. Arc from source (equivalent to short rotation
+		if(aType == SOURCE_TO_PRINCIPAL){
+			firstDay =  principalToDay_[destin] - CDMin_;
+			// TODO : *** Utiliser un swap à la place par exemple ***
+			for(int s: static_cast<vector <int> >( allowedShortSuccBySize_[CDMin_][ shortSuccCDMinIdFromArc_.at(a) ] )){
+				shiftSuccession.push_back(s);
+			}
+		}
+
+		// B. Arc to a new day
+		else if(aType == SHIFT_TO_NEWSHIFT or aType == SHIFT_TO_SAMESHIFT or aType == REPEATSHIFT){
+			shiftSuccession.push_back( principalToShift_[destin] );
+		}
+
+		dualCost += arcCost(a);
+	}
+
+	Rotation rot (firstDay, shiftSuccession, pLiveNurse_);
+	//rot.computeCost(pScenario_, pLiveNurse_->pWishesOff_, nDays_);
+	rot.dualCost_ = dualCost;
+	theRotations_.push_back(rot);
+	nPaths_ ++;
+}
+
+// Resets all solutions data (rotations, number of solutions, etc.)
 //
 void SubProblem::resetSolutions(){
 	theRotations_.clear();
@@ -1107,7 +1127,33 @@ void SubProblem::printPath(vector< boost::graph_traits<Graph>::edge_descriptor >
 	std::cout << std::endl;
 }
 
+// Print a given rotation
+void SubProblem::printRotation(Rotation rot){
 
+	std::cout << "# \t| ROTATION:" << "  cost=" << rot.cost_ << "  dualCost=" << rot.dualCost_ << "  firstDay=" << rot.firstDay_ << "  length=" << rot.length_ << std::endl;
+	std::cout << "# \t            |";
+	vector<int> allTasks (nDays_);
+	for(map<int,int>::iterator itTask = rot.shifts_.begin(); itTask != rot.shifts_.end(); ++itTask)
+		allTasks[itTask->first] = itTask->second;
+	for(int i=0; i<allTasks.size(); i++){
+		if(allTasks[i] < 1) std::cout << " |";
+		else std::cout << pScenario_->intToShift_[allTasks[i]].at(0) << "|";
+	}
+	std::cout << std::endl;
+}
+
+// Prints all rotations in the current list
+void SubProblem::printAllRotations(){
+	std::cout << "# " << endl;
+	std::cout << "# " << endl;
+	std::cout << "# HERE ARE ALL " << nPaths_ << " ROTATIONS OF THE CURRENT SOLUTION LIST :" << std::endl;
+	std::cout << "# " << endl;
+	for(Rotation r : theRotations_){
+		printRotation(r);
+		std::cout << "# " << endl;
+	}
+	std::cout << "# " << endl;
+}
 
 
 
