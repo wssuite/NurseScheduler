@@ -62,7 +62,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
    pModel_->setLPSol(lpres);
-   //   pModel_->pricing(0);
+   pModel_->pricing(0);
 
    //check if new columns add been added since the last time
    //if there are some, add all of them in new_vars
@@ -105,7 +105,87 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
    pModel_->setLPSol(lpres);
+
+   //if some variables have been generated, do not branch
+   if(local_var_pool.size() > 0)
+      return BCP_DoNotBranch;
+
+   //fixing candidates
+   vector<MyObject*> fixingCandidates;
+   pModel_->logical_fixing(fixingCandidates);
+
+   //fix if some candidates
+   if(fixingCandidates.size()>0){
+      appendNewFixingVars(fixingCandidates, cands);
+      return BCP_DoBranch;
+   }
+
+   //branching candidates
+   vector<MyObject*> branchingCandidates;
+   pModel_->branching_candidates(branchingCandidates);
+
+   //branch if some candidates
+   if(branchingCandidates.size() > 0){
+      appendNewBranchingVars(branchingCandidates, cands);
+      return BCP_DoBranch;
+   }
+
+   //otherwise fathomed
    return BCP_DoNotBranch_Fathomed;
+}
+
+void BcpLpModel::appendNewFixingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands){
+   BCP_vec<int> vpos; //positions of the variables
+   BCP_vec<double> vbd; // old bound and then new one for each variable
+
+   for (MyObject* var: columns) {
+      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
+      if(col){
+         vpos.push_back(col->getIndex());
+         //fix the old bound (0) and the new bound (1)
+         vbd.push_back(0); // old lower bound
+         vbd.push_back(1); // new lower bound
+      }
+      else
+         Tools::throwError("The variable fixed is not a column.");
+   }
+
+   cands.push_back(new  BCP_lp_branching_object(1, //just one children where
+      //all the columns with positions in vpos are fixed to 1
+      0, 0, /* vars/cuts_to_add */
+      &vpos, 0, &vbd, 0, /* forced parts: position and bounds (old bound and then new one) */
+      0, 0, 0, 0 /* implied parts */));
+}
+
+void BcpLpModel::appendNewBranchingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands){
+   const int nbChildren = columns.size();
+   BCP_vec<int> vpos; //positions of the variables
+   BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
+   //this vector is filled is this order:
+   //for the first child: old and new bounds for all the variables in vpos
+   //then for the second child: old and new bounds for all the variables in vpos
+   //....
+
+   int child = 0;
+   for (MyObject* var: columns) {
+      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
+      if(col)
+         vpos.push_back(col->getIndex());
+      else
+         Tools::throwError("The variable fixed is not a column.");
+      //set the new bound of col to 1 and all the others columns keep 0
+      for(int i=0; i<nbChildren; ++i){
+         //fix the old bound (0)
+         vbd.push_back(0);
+         //if i==child, the new bound==1, otherwise 0
+         vbd.push_back( (i==child) ? 1: 0 );
+      }
+      ++child;
+   }
+
+   cands.push_back(new  BCP_lp_branching_object(nbChildren, 0, 0, /* vars/cuts_to_add */
+      &vpos, 0, &vbd, 0, /* forced parts */
+      0, 0, 0, 0 /* implied parts */));
 }
 
 /*
@@ -220,7 +300,7 @@ int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int i
 
 double BcpModeler::getVarValue(MyObject* var){
    CoinVar* var2 = (CoinVar*) var;
-   if(primalValues_ == 0)
+   if(primalValues_.size() ==0 )
       Tools::throwError("Primal solution has been initialized.");
    return primalValues_[var2->getIndex()];
 }
@@ -231,7 +311,7 @@ double BcpModeler::getVarValue(MyObject* var){
 
 double BcpModeler::getDual(MyObject* cons, bool transformed){
    CoinCons* cons2 = (CoinCons*) cons;
-   if(dualValues_ == 0)
+   if(dualValues_.size() == 0)
       Tools::throwError("Dual solution has been initialized.");
    return dualValues_[cons2->getIndex()];
 }
@@ -248,31 +328,6 @@ int BcpModeler::setVerbosity(int v){
  *************/
 
 int BcpModeler::printStats(){
-}
-
-int BcpModeler::printBestSol(){
-   //print the objective value
-   printf("%-30s %4.2f \n", "Objective:" , obj_history_[obj_history_.size()-1]);
-
-   //print the value of the positive variables
-   printf("%-30s \n", "Variables:");
-   double tolerance = pow(.1, DECIMALS);
-   //iterate on core variables
-   for(CoinVar* var: coreVars_){
-      double value = getVarValue(var);
-      if( value > tolerance)
-         printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
-   }
-   //iterate on column variables
-   for(CoinVar* var: columnVars_){
-      double value = getVarValue(var);
-      if( value > tolerance)
-         printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
-   }
-
-   printf("\n");
-
-   return 1;
 }
 
 int BcpModeler::writeProblem(string fileName){

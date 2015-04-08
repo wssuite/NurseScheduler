@@ -118,12 +118,6 @@ public:
    //solve the model
    int solve(bool relaxation = false);
 
-   //Add a pricer
-   int addObjPricer(MyPricer* pPricer){
-      pPricer_ = pPricer;
-      return 1;
-   }
-
    /*
     * Create variable:
     *    var is a pointer to the pointer of the variable
@@ -166,9 +160,9 @@ public:
     * Outputs *
     *************/
 
-   int printStats();
+   double getObjective(){ return obj_history_[obj_history_.size()-1]; }
 
-   int printBestSol();
+   int printStats();
 
    int writeProblem(string fileName);
 
@@ -180,12 +174,24 @@ public:
 
    void setLPSol(const BCP_lp_result& lpres){
       obj_history_.push_back(lpres.objval());
-      primalValues_ = const_cast<double*>(lpres.x());
-      dualValues_ = const_cast<double*>(lpres.pi());
-      reducedCosts_ = const_cast<double*>(lpres.dj());
-      lhsValues_ = const_cast<double*>(lpres.lhs());
-   }
 
+      //clear the old vectors
+      if(primalValues_.size() != 0){
+         primalValues_.clear();
+         dualValues_.clear();
+         reducedCosts_.clear();
+         lhsValues_.clear();
+      }
+
+      //copy the new arrays in the vectors
+      const int nbVar = coreVars_.size() + columnVars_.size();
+      const int nbCons = cons_.size();
+
+      primalValues_.assign(lpres.x(), lpres.x()+nbVar);
+      dualValues_.assign(lpres.pi(), lpres.pi()+nbCons);
+      reducedCosts_.assign(lpres.dj(), lpres.dj()+nbVar);
+      lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
+   }
 
 protected:
    //best lb in root
@@ -193,7 +199,7 @@ protected:
 
    //results
    vector<double> obj_history_;
-   double *primalValues_, *dualValues_, *reducedCosts_, *lhsValues_;
+   vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
 };
 
 /*
@@ -264,7 +270,6 @@ public:
       BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
       bool force_branch = false); //indicate whether to force branching regardless of the size of the local cut/var pools
 
-
 protected:
    BcpModeler* pModel_;
    int nbCurrentColumnVarsBeforePricing_;
@@ -272,6 +277,14 @@ protected:
    //vars = are just the giver vars
    //cols is the vector where the new columns will be stored
    void TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col*>& cols);
+
+   //Fixed all the column > branchLB to 1
+   //just one children
+   void appendNewFixingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands);
+
+   //Try for each nurse to fix to 1 the highest column
+   //maximum number of children = number of nurse
+   void appendNewBranchingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands);
 };
 
 /*

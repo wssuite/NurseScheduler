@@ -73,11 +73,21 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 	createNodes();
 	createArcs();
 
+	// Set all arc and node status to authorized
+	for(int v=0; v<nNodes_; v++) nodeStatus_.push_back(true);
+	for(int a=0; a<nArcs_; a++) arcStatus_.push_back(true);
+	for(int k=0; k<nDays_; k++){
+		vector<bool> v;
+		for(int s=0; s<pScenario_->nbShifts_; s++)
+			v.push_back(true);
+		dayShiftStatus_.push_back(v);
+	}
+
 	nPathsMin_ = 0;
 
-	printGraph();
+	//printGraph();
 	std::cout << printSummaryOfGraph();
-	printShortSucc();
+	//printShortSucc();
 
 }
 
@@ -116,8 +126,6 @@ void SubProblem::init(){
 		Tools::initDoubleVector2D(&w2, nDays_, n);
 		arcCostBestShortSuccCDMin_.push_back(w2);
 	}
-
-
 }
 
 // Initializes the short successions. Should only be used ONCE (when creating the SubProblem).
@@ -309,9 +317,18 @@ double SubProblem::consDaysCost(int n){
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
 
+	std::cout << "# Solving subproblem for nurse " << nurse->id_ << std::endl;
+
 	// TODO : modify if needed
 	//
+	resetAuthorizations();
 	resetSolutions();
+
+	// Forbid arcs or nodes if needed
+	//
+	// TODO : delete following line and replace fDayShifts by forbiddenDayShifts in the rest of the function
+	set< pair<int,int> > fDayShifts = randomForbiddenShifts(25);
+	printForbiddenDayShift();
 
 	// Basic data (nurse, reduced costs, maximum rotation length)
 	//
@@ -319,9 +336,17 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 	pCosts_ = costs;
 	maxRotationLength_ = maxRotationLength;
 
-	initStructuresForSolve(nurse, costs, forbiddenDayShifts, maxRotationLength);
-	generateRandomCosts(-50, 50);
+	initStructuresForSolve(nurse, costs, fDayShifts, maxRotationLength);
+	//generateRandomCosts(-50, 50);
+
+
+	forbid(fDayShifts);
+	printForbiddenDayShift();
+
 	updateArcCosts();
+
+	printShortArcs();
+
 
 
 	// Solving the problem
@@ -700,8 +725,7 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 	//
 	Tools::initDoubleVector(&startWeekendCosts_,nDays_);
 	Tools::initDoubleVector(&endWeekendCosts_,nDays_);
-	// TODO : modify next line when running for real (if true)
-	if(true or pLiveNurse_->needCompleteWeekends()){
+	if(pLiveNurse_->needCompleteWeekends()){
 		for(int k=0; k<nDays_; k++){
 			if(Tools::isSaturday(k)) endWeekendCosts_[k] = WEIGHT_COMPLETE_WEEKEND;
 			else if(Tools::isSunday(k)) startWeekendCosts_[k] = WEIGHT_COMPLETE_WEEKEND;
@@ -739,17 +763,24 @@ void SubProblem::priceShortSucc(){
 		for(int k=CDMin_; k<nDays_; k++){
 			for(int n=1; n<maxvalConsByShift_[s]; n++){
 				double bestCost = MAX_COST;
-				int bestSuccId;
+				int bestSuccId = -1;
 				for(int i=0; i<(allShortSuccCDMinByLastShiftCons_[s][n]).size(); i++){
 					int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
-					double curCost = costArcShortSucc(CDMin_, curSuccId, k-CDMin_);
-					if(curCost < bestCost){
-						bestSuccId = curSuccId;
-						bestCost = curCost;
+					// SUCCESSION IS TAKEN INTO ACCOUNT ONLY IF IT DOES NOT VIOLATE ANY FORBIDDEN DAY-SHIFT COUPLE
+					if(canSuccStartHere( allowedShortSuccBySize_[CDMin_][curSuccId], k-CDMin_ )){
+						double curCost = costArcShortSucc(CDMin_, curSuccId, k-CDMin_);
+						if(curCost < bestCost){
+							bestSuccId = curSuccId;
+							bestCost = curCost;
+						}
 					}
 				}
 				idBestShortSuccCDMin_[s][k][n] = bestSuccId;
 				arcCostBestShortSuccCDMin_[s][k][n] = bestCost;
+				// IF NO VALID SUCCESSION, THEN FORBID THE ARC
+				if(bestCost == MAX_COST){
+					forbidArc( arcsFromSource_[s][k][n] );
+				}
 			}
 		}
 	}
@@ -817,7 +848,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 
 //--------------------------------------------
 //
-// Functions for the costs etc.
+// Functions for the costs
 //
 //--------------------------------------------
 
@@ -917,6 +948,144 @@ void SubProblem::generateRandomCosts(double minVal, double maxVal){
 	pCosts_ = new Costs(randomWorkCosts, randomStartWorkCosts, randomEndWorkCosts, randomWorkedWeekendCost);
 
 }
+
+
+
+//--------------------------------------------
+//
+// Functions to forbid / authorize arcs and nodes
+//
+//--------------------------------------------
+
+
+// Returns true if the succession succ starting on day k does not violate any forbidden day-shift
+//
+bool SubProblem::canSuccStartHere(vector<int> succ, int firstDay){
+	std::cout << "# Checking " << firstDay << "-";
+	for(int i=0; i<succ.size(); i++) std::cout << pScenario_->intToShift_[succ[i]].at(0);
+
+	for(int i=0; i<succ.size(); i++){
+		if( ! dayShiftStatus_[firstDay+i][succ[i]] ){
+			std::cout << "   impossible because of " << (firstDay+i) << "-" << pScenario_->intToShift_[succ[i]].at(0) << endl;
+			return false;
+		}
+	}
+	std::cout << "   OK" << endl;
+	return true;
+}
+
+// Forbids the nodes that correspond to forbidden shifts
+//
+void SubProblem::forbid(set<pair<int,int> > forbiddenDayShifts){
+	for(pair<int,int> p : forbiddenDayShifts){
+		std::cout << "# Trying to forbid " << p.first << "-" << pScenario_->intToShift_[p.second].at(0) << endl;
+		forbidDayShift(p.first,p.second);
+	}
+}
+
+// Forbid an arc
+//
+void SubProblem::forbidArc(int a){
+	if(!isArcForbidden(a)){
+		arcStatus_[a] = false;
+		updateTime(a,MAX_TIME);
+	}
+}
+
+// Forbid a node
+//
+void SubProblem::forbidNode(int v){
+	if(!isNodeForbidden(v)){
+		nodeStatus_[v] = false;
+		updateLat(v,0);
+	}
+
+}
+
+// Authorize an arc
+//
+void SubProblem::authorizeArc(int a){
+	if(isArcForbidden(a)){
+		arcStatus_[a] = true;
+		updateTime(a,normalTravelTime(a));
+	}
+}
+
+// Authorize a node
+//
+void SubProblem::authorizeNode(int v){
+	nodeStatus_[v] = true;
+	int lat = maxRotationLength_;
+	if(nodeType(v) == ROTATION_LENGTH) lat = mapAntecedent(rotationLengthNodes_, v);
+	updateLat(v,lat);
+}
+
+// Given the arc type, returns the normal travel time (when authorized)
+//
+int SubProblem::normalTravelTime(int a){
+	ArcType atype = arcType(a);
+	if(atype == SOURCE_TO_PRINCIPAL) return CDMin_;
+	else if(atype == SHIFT_TO_NEWSHIFT or atype == SHIFT_TO_SAMESHIFT or atype == REPEATSHIFT) return 1;
+	else return 0;
+}
+
+// Forbids a day-shift couple : Forbid the nodes + mark (day,shift) as forbidden for the short rotation pricer
+//
+void SubProblem::forbidDayShift(int k, int s){
+	// Mark the day-shift as forbidden
+	dayShiftStatus_[k][s] = false;
+	// Forbid arcs from principal network corresponding to that day-shift only if k >= CDMin_
+	if(k >= CDMin_){
+		for(int n=1; n<maxvalConsByShift_[s]; n++){
+			forbidNode( principalNetworkNodes_[s][k][n] );
+		}
+	}
+}
+
+// (re)Authorizes the day-shift couple BUT does not take it into account in the short rotation pricer (too complicated, will be called in the next solve() anyway)
+void SubProblem::authorizeDayShift(int k, int s){
+	// Mark the day-shift as forbidden
+	dayShiftStatus_[k][s] = true;
+	// Authorize arcs from principal network corresponding to that day-shift
+	if(k >= CDMin_){
+		for(int n=1; n<maxvalConsByShift_[s]; n++)
+			authorizeNode( principalNetworkNodes_[s][k][n] );
+	}
+}
+
+// Reset all authorizations to true
+//
+void SubProblem::resetAuthorizations(){
+	for(int s=1; s<pScenario_->nbShifts_; s++)
+		for(int k=0; k<nDays_; k++)
+			authorizeDayShift(k,s);
+}
+
+// Generate random forbidden shifts
+set< pair<int,int> > SubProblem::randomForbiddenShifts(int nbForbidden){
+	set< pair<int,int> > ans;
+	for(int f=0; f<nbForbidden; f++){
+		int k = nDays_ * ( (double)rand() / (double)RAND_MAX );
+		int s = (pScenario_->nbShifts_ - 1) * ( (double)rand() / (double)RAND_MAX ) + 1;
+		ans.insert(pair<int,int>(k,s));
+	}
+	return ans;
+}
+
+
+//----------------------------------------------------------------
+//
+// Utilities functions
+//
+//----------------------------------------------------------------
+
+// Returns the key that corresponds to the given value; -1 otherwise.
+int SubProblem::mapAntecedent(map<int,int> m, int val){
+	for(map<int,int>::iterator it = m.begin(); it != m.end(); ++it)
+		if(it->second == val) return it->first;
+	return -1;
+}
+
 
 
 //--------------------------------------------
@@ -1155,8 +1324,43 @@ void SubProblem::printAllRotations(){
 	std::cout << "# " << endl;
 }
 
+// Print the list of currently forbidden day and shifts
+void SubProblem::printForbiddenDayShift(){
+	std::cout << "# List of currently forbidden day-shift pairs :";
+	bool anyForbidden = false;
+	for(int k=0; k<nDays_; k++){
+		bool alreadyStarted=false;
+		for(int s=1; s<pScenario_->nbShifts_; s++){
+			if(isDayShiftForbidden(k,s)){
+				anyForbidden = true;
+				if(!alreadyStarted){
+					std::cout << std::endl << "#      | Day " << k << " :";
+					alreadyStarted = true;
+				}
+				std::cout << " " << pScenario_->intToShift_[s].at(0);
+			}
+		}
+	}
+	if(!anyForbidden) std::cout << " NONE";
+	std::cout << std::endl;
+}
 
-
+void SubProblem::printShortArcs(){
+	for(int s=1; s<pScenario_->nbShifts_; s++){
+		for(int k=CDMin_; k<nDays_; k++){
+			for(int n=0; n<maxvalConsByShift_[s]; n++){
+				int v = principalNetworkNodes_[s][k][n];
+				int succId = allShortSuccCDMinByLastShiftCons_[s][n][ idBestShortSuccCDMin_[s][k][n] ];
+				vector<int> succ = allowedShortSuccBySize_[CDMin_][succId];
+				std::cout << "# " << shortNameNode(v) << " -> ";
+				for(int i=0; i<succ.size(); i++){
+					std::cout << pScenario_->intToShift_[succ[i]].at(0);
+				}
+				std::cout << std::endl;
+			}
+		}
+	}
+}
 
 
 

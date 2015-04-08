@@ -1,7 +1,7 @@
 /*
 * Solver.cpp
 *
-*  Created on: 22 d��c. 2014
+*  Created on: 22 d������c. 2014
 *      Author: jeremy
 */
 
@@ -151,7 +151,6 @@ bool LiveNurse::isFreeToChoose(int day) {
 //
 void LiveNurse::checkConstraints(const Roster& roster,
   const vector<State>& states, StatCtNurse& stat) {
-
   // check the satisfaction of the hard constraints and record the violations
   //
   for (int day = 0; day < nbDays_; day++) {
@@ -207,7 +206,6 @@ void LiveNurse::checkConstraints(const Roster& roster,
       stat.costConsDaysOff_[day-1] += (extraDays>0) ? WEIGHT_CONS_DAYS_OFF:0;
     }
 
-
     // check the consecutive same shifts
     //
     stat.costConsShifts_[day-1] = 0;
@@ -218,7 +216,6 @@ void LiveNurse::checkConstraints(const Roster& roster,
     if (shift != prevShift && prevShift > 0)  {
       missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
       stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
-
       if (missingShifts>0)
         std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; missing= " << missingShifts << std::endl;
     } 
