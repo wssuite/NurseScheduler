@@ -1,0 +1,98 @@
+# Copyright (C) 2006 International Business Machines and others.
+# All Rights Reserved.
+# This file is distributed under the Eclipse Public License.
+
+# $Id: Makefile.in 726 2006-04-17 04:16:00Z andreasw $
+
+##########################################################################
+#  Usually, you don't have to change anything below.  Note that if you   #
+#  change certain compiler options, you might have to recompile the      #
+#  COIN package.                                                         #
+##########################################################################
+
+COIN_HAS_PKGCONFIG = TRUE
+COIN_CXX_IS_CL = #TRUE
+COIN_HAS_SAMPLE = #TRUE
+COIN_HAS_NETLIB = #TRUE
+COIN_CBC_HAS_PKGCONFIG = TRUE
+COIN_CBC_HAS_SAMPLE = TRUE
+COIN_CBC_HAS_MIPLIB3 = TRUE
+
+# C++ Compiler options
+CXXFLAGS += -g -pipe -pedantic-errors -Wparentheses -Wreturn-type -Wcast-qual -Wall -Wpointer-arith -Wwrite-strings -Wconversion -Wno-unknown-pragmas -Wno-long-long   -DCLP_BUILD -DCBC_BUILD
+
+# additional C++ Compiler options for linking
+LINKCXX +=  -Wl,--rpath -Wl,$(BCPDIR)/lib
+
+# C Compiler options
+CFLAGS += -g -pipe -pedantic-errors -Wimplicit -Wparentheses -Wsequence-point -Wreturn-type -Wcast-qual -Wall -Wno-unknown-pragmas -Wno-long-long -DCLP_BUILD -DCBC_BUILD
+
+# Sample data directory
+ifeq ($(COIN_HAS_SAMPLE), TRUE)
+  ifeq ($(COIN_HAS_PKGCONFIG), TRUE)
+    CXXFLAGS += -DSAMPLEDIR=\"`PKG_CONFIG_PATH=$(BCPDIR)/lib64/pkgconfig:$(BCPDIR)/lib/pkgconfig:$(BCPDIR)/share/pkgconfig: pkg-config --variable=datadir coindatasample`\"
+      CFLAGS += -DSAMPLEDIR=\"`PKG_CONFIG_PATH=$(BCPDIR)/lib64/pkgconfig:$(BCPDIR)/lib/pkgconfig:$(BCPDIR)/share/pkgconfig: pkg-config --variable=datadir coindatasample`\"
+  else
+    CXXFLAGS += -DSAMPLEDIR=\"\"
+      CFLAGS += -DSAMPLEDIR=\"\"
+  endif
+endif
+
+# Sample data directory
+ifeq ($(COIN_CBC_HAS_SAMPLE), TRUE)
+  ifeq ($(COIN_HAS_PKGCONFIG), TRUE)
+    CXXFLAGS += -DSAMPLEDIR=\"`PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:$(CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --variable=datadir coindatasample`\"
+      CFLAGS += -DSAMPLEDIR=\"`PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:$(CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --variable=datadir coindatasample`\"
+  else
+    CXXFLAGS += -DSAMPLEDIR=\"\"
+      CFLAGS += -DSAMPLEDIR=\"\"
+  endif
+endif
+
+# Miplib3 data directory
+ifeq ($(COIN_CBC_HAS_MIPLIB3), TRUE)
+  ifeq ($(COIN_HAS_PKGCONFIG), TRUE)
+    CXXFLAGS += -DMIPLIB3DIR=\"`PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:$(CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --variable=datadir coindatamiplib3`\"
+  else
+    CXXFLAGS += -DMIPLIB3DIR=\"\"
+  endif
+endif
+
+# Netlib data directory
+ifeq ($(COIN_HAS_NETLIB), TRUE)
+  ifeq ($(COIN_HAS_PKGCONFIG), TRUE)
+    CXXFLAGS += -DNETLIBDIR=\"`PKG_CONFIG_PATH=$(BCPDIR)/lib64/pkgconfig:$(BCPDIR)/lib/pkgconfig:$(BCPDIR)/share/pkgconfig: pkg-config --variable=datadir coindatanetlib`\"
+      CFLAGS += -DNETLIBDIR=\"`PKG_CONFIG_PATH=$(BCPDIR)/lib64/pkgconfig:$(BCPDIR)/lib/pkgconfig:$(BCPDIR)/share/pkgconfig: pkg-config --variable=datadir coindatanetlib`\"
+  else
+    CXXFLAGS += -DNETLIBDIR=\"\"
+      CFLAGS += -DNETLIBDIR=\"\"
+  endif
+endif
+
+# Include directories (we use the CYGPATH_W variables to allow compilation with Windows compilers)
+ifeq ($(COIN_HAS_PKGCONFIG), TRUE)
+  INCLUDESFLAGS += `PKG_CONFIG_PATH=$(BCPDIR)/lib64/pkgconfig:$(BCPDIR)/lib/pkgconfig:$(BCPDIR)/share/pkgconfig: pkg-config --cflags clp`
+endif
+
+# Include directories (we use the CYGPATH_W variables to allow compilation with Windows compilers)
+ifeq ($(COIN_CBC_HAS_PKGCONFIG), TRUE)
+  INCLUDEFLAGS += `PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:($CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --cflags cbc`
+endif
+
+# Linker flags
+ifeq ($(COIN_CBC_HAS_PKGCONFIG), TRUE)
+  LIBS = `PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:$(CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --libs cbc`
+else
+  ifeq ($(COIN_CXX_IS_CL), TRUE)
+    LIBS = -link -libpath:`$(CYGPATH_W) $(CBC)/lib` libCbcSolver.lib libCbc.lib libOsiCbc.lib 
+  else
+    LIBS = -L$(CBCDIR)/lib -lCbcSolver -lCbc -lOsiCbc 
+  endif
+endif
+
+# BCP Linker flags
+LIBS += -L$(BCPDIR)/lib -lBcp -lOsi -lOsiClp -lClpSolver -lClp -lCoinUtils -lbz2 -lz -llapack -lblas -lm
+
+# The following is necessary under cygwin, if native compilers are used
+CYGPATH_W = echo
+

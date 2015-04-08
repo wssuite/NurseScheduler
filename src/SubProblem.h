@@ -19,6 +19,7 @@
 
 
 static int MAX_COST = 99999;
+static int MAX_TIME = 99999;
 
 // Different node types and their names
 //
@@ -474,6 +475,8 @@ protected:
 	void initShortSuccessions();
 
 
+
+
 	//-----------------------
 	// THE NODES
 	//-----------------------
@@ -485,7 +488,7 @@ protected:
 	// Source
 	int sourceNode_;
 	// Nodes of the PRINCIPAL_NETWORK subnetwork
-	vector3D principalNetworkNodes_;					// For each SHIFT, DAY, and # of CONSECUTIVE, the corresponding node
+	vector3D principalNetworkNodes_;					// For each SHIFT, DAY, and # of CONSECUTIVE, the corresponding node id
 	vector<int> maxvalConsByShift_;						// For each shift, number of levels that the subnetwork contains
 	map<int,int> principalToShift_;						// For each node of the principal network, maps it ID to the shift it represents
 	map<int,int> principalToDay_;						// For each node of the principal network, maps it ID to the day it represents
@@ -511,6 +514,8 @@ protected:
 	inline NodeType nodeType(int v){return get( &Vertex_Properties::type, g_)[v];}
 	inline int nodeEat(int v){return get( &Vertex_Properties::eat, g_)[v];}
 	inline int nodeLat(int v){return get( &Vertex_Properties::lat, g_)[v];}
+
+
 
 
 	//-----------------------
@@ -565,23 +570,33 @@ protected:
 
 	//----------------------------------------------------------------
 	//
-	// Update of the costs
+	// Update of the costs / network for solve function
 	//
 	// INDEPENDENT FROM ANY NURSE / REDUCED COST !!!
 	//
 	//----------------------------------------------------------------
 
-	// DATA
-	//
-	map<int,int> shortSuccCDMinIdFromArc_;						// Maps the arcs to the corresponding short rotation ID
-	vector<vector <double> > preferencesCosts_;
-	// Data structure that associates an arc to the chosen short succession of lowest cost
-
-
-	// FUNCTIONS
+	// FUNCTIONS -- SOLVE
 	//
 	// Initializes some cost vectors that depend on the nurse
 	void initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
+	// Resets all solutions data (rotations, number of solutions, etc.)
+	void resetSolutions();
+	// Transforms the solutions found into proper rotations.
+	void addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
+	// Adds a rotation made from the given path to the current list of answers and increases their counter
+	void addSingleRotation(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
+
+	// DATA -- COSTS
+	//
+	// Data structures that associates an arc to the chosen short succession of lowest cost
+	map<int,int> shortSuccCDMinIdFromArc_;						// Maps the arcs to the corresponding short rotation ID
+	vector3D idBestShortSuccCDMin_;								// For each day k (<= nDays_ - CDMin), shift s, number n, contains the best short succession of size CDMin that starts on day k, and ends with n consecutive days of shift s
+	vector<vector <double> > preferencesCosts_;					// Costs due to preferences of the nurse
+	vector<vector<vector<double> > > arcCostBestShortSuccCDMin_;// For each day k (<= nDays_ - CDMin), shift s, number n, contains the cost of the corresponding arc
+
+	// FUNCTIONS -- COSTS
+	//
 	// Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
 	void priceShortSucc();
 	// Given a short succession and a start date, returns the cost of the corresponding arc
@@ -590,30 +605,44 @@ protected:
 	inline void updateCost(int arc, double cost){boost::put( &Arc_Properties::cost, g_, arcsDescriptors_[arc], cost );}
 	// Updates the costs depending on the reduced costs given for the nurse
 	void updateArcCosts();
-	// Forbid some days / shifts
-	void forbiddArcs(set<pair<int,int> > forbiddenDayShifts);
-	inline void updateTime(int arc, double time){boost::put( &Arc_Properties::time, g_, arcsDescriptors_[arc], time );}
-
-	// Best ones given a starting date and an ending pattern (number of similar consecutive ending the rotation)
-	//
-	vector3D idBestShortSuccCDMin_;								// For each day k (<= nDays_ - CDMin), shift s, number n, contains the best short succession of size CDMin that starts on day k, and ends with n consecutive days of shift s
-	vector<vector<vector<double> > > arcCostBestShortSuccCDMin_;// For each day k (<= nDays_ - CDMin), shift s, number n, contains the cost of the corresponding arc
-
-	// Resets all solutions data (rotations, number of solutions, etd.)
-	//
-	void resetSolutions();
-
-	// Transforms the solutions found into proper rotations.
-	//
-	void addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
-
-	// Adds a rotation made from the given path to the current list of answers and increases their counter
-	//
-	void addSingleRotation(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
-
-
 	// For tests, must be able to randomly generate costs
 	void generateRandomCosts(double minVal, double maxVal);
+
+	// DATA -- FORBIDDEN ARCS AND NODES
+	//
+	vector< vector<bool> > dayShiftStatus_;
+	vector<bool> arcStatus_;
+	vector<bool> nodeStatus_;
+
+	// FUNCTIONS -- FORBIDDEN ARCS AND NODES
+	//
+	// Returns true if the succession succ starting on day k does not violate any forbidden day-shift
+	bool canSuccStartHere(vector<int> succ, int firstDay);
+	// Forbids some days / shifts
+	void forbid(set<pair<int,int> > forbiddenDayShifts);
+	// Know if node / arc is forbidden
+	inline bool isArcForbidden(int a){return ! arcStatus_[a];}
+	inline bool isNodeForbidden(int v){return ! nodeStatus_[v];}
+	inline bool isDayShiftForbidden(int k, int s){return ! dayShiftStatus_[k][s];}
+	// Forbid a node / arc
+	void forbidArc(int a);
+	void forbidNode(int v);
+	void forbidDayShift(int k, int s);
+	// Authorize a node / arc
+	void authorizeArc(int a);
+	void authorizeNode(int v);
+	void authorizeDayShift(int k, int s);
+	void resetAuthorizations();
+	// Updates the travel time of an arc / node
+	inline void updateTime(int a, double time){boost::put( &Arc_Properties::time, g_, arcsDescriptors_[a], time );}
+	inline void updateLat(int v, int time){boost::put( &Vertex_Properties::lat, g_, v, time);}
+	// Given an arc, returns the normal travel time (i.e. travel time when authorized)
+	int normalTravelTime(int a);
+	// Test for random forbidden day-shift
+	set< pair<int,int> > randomForbiddenShifts(int nbForbidden);
+
+
+
 
 
 	//----------------------------------------------------------------
@@ -622,6 +651,7 @@ protected:
 	//
 	//----------------------------------------------------------------
 	bool succContainsDayShift(int size, int succId, int startDate, int thatDay, int thatShift);
+	int mapAntecedent(map<int,int> m, int val);
 
 
 public:
@@ -637,6 +667,8 @@ public:
 	void printPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont ressource);
 	void printRotation(Rotation rot);
 	void printAllRotations();
+	void printForbiddenDayShift();
+	void printShortArcs();
 
 
 };

@@ -7,6 +7,7 @@
 
 #include "MasterProblem.h"
 #include "BcpModeler.h"
+#include "CbcModeler.h"
 #include "ScipModeler.h"
 #include "RotationPricer.h"
 
@@ -846,6 +847,3 @@ Rotation MasterProblem::computeInitStateRotation(LiveNurse* pNurse){
 
    return rot;
 }
-
-
-

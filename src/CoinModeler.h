@@ -40,6 +40,8 @@ struct CoinVar: public MyObject {
 
    int getIndex() { return index_; }
 
+   VarType getVarType() {return type_;}
+
    int getNbRows() { return indexRows_.size(); }
 
    vector<int> getIndexRows() { return indexRows_; }
