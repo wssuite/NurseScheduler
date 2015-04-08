@@ -81,7 +81,7 @@ endif
 
 # Linker flags
 ifeq ($(COIN_CBC_HAS_PKGCONFIG), TRUE)
-  LIBS = `PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:/home/omerjere/tools/Cbc-2.9/build/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --libs cbc`
+  LIBS = `PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:$(CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --libs cbc`
 else
   ifeq ($(COIN_CXX_IS_CL), TRUE)
     LIBS = -link -libpath:`$(CYGPATH_W) $(CBC)/lib` libCbcSolver.lib libCbc.lib libOsiCbc.lib 

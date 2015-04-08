@@ -345,6 +345,8 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 
 	updateArcCosts();
 
+	printShortArcs();
+
 
 
 	// Solving the problem
@@ -1343,6 +1345,22 @@ void SubProblem::printForbiddenDayShift(){
 	std::cout << std::endl;
 }
 
+void SubProblem::printShortArcs(){
+	for(int s=1; s<pScenario_->nbShifts_; s++){
+		for(int k=CDMin_; k<nDays_; k++){
+			for(int n=0; n<maxvalConsByShift_[s]; n++){
+				int v = principalNetworkNodes_[s][k][n];
+				int succId = allShortSuccCDMinByLastShiftCons_[s][n][ idBestShortSuccCDMin_[s][k][n] ];
+				vector<int> succ = allowedShortSuccBySize_[CDMin_][succId];
+				std::cout << "# " << shortNameNode(v) << " -> ";
+				for(int i=0; i<succ.size(); i++){
+					std::cout << pScenario_->intToShift_[succ[i]].at(0);
+				}
+				std::cout << std::endl;
+			}
+		}
+	}
+}
 
 
 

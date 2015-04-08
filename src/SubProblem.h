@@ -668,6 +668,7 @@ public:
 	void printRotation(Rotation rot);
 	void printAllRotations();
 	void printForbiddenDayShift();
+	void printShortArcs();
 
 
 };
