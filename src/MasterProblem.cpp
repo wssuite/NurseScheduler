@@ -366,7 +366,7 @@ void MasterProblem::addRotation(Rotation rotation, char* baseName){
 		addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
 
 	sprintf(name, "%s_N%d_%d",baseName , i, rotations_[i].size());
-	pModel_->createPositiveColumn(&var, name, rotation.cost_, cons, coeffs);
+	pModel_->createIntColumn(&var, name, rotation.cost_, cons, coeffs);
 	rotations_[i].insert(pair<MyObject*,Rotation>(var, rotation));
 }
 

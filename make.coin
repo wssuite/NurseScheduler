@@ -15,8 +15,8 @@ COIN_CXX_IS_CL = #TRUE
 COIN_HAS_SAMPLE = #TRUE
 COIN_HAS_NETLIB = #TRUE
 COIN_CBC_HAS_PKGCONFIG = TRUE
-COIN_CBC_HAS_SAMPLE = TRUE
-COIN_CBC_HAS_MIPLIB3 = TRUE
+COIN_CBC_HAS_SAMPLE = #TRUE
+COIN_CBC_HAS_MIPLIB3 = #TRUE
 
 # C++ Compiler options
 CXXFLAGS += -g -pipe -pedantic-errors -Wparentheses -Wreturn-type -Wcast-qual -Wall -Wpointer-arith -Wwrite-strings -Wconversion -Wno-unknown-pragmas -Wno-long-long   -DCLP_BUILD -DCBC_BUILD
@@ -69,22 +69,22 @@ ifeq ($(COIN_HAS_NETLIB), TRUE)
   endif
 endif
 
-# Include directories (we use the CYGPATH_W variables to allow compilation with Windows compilers)
+# BCP Include directories (we use the CYGPATH_W variables to allow compilation with Windows compilers)
 ifeq ($(COIN_HAS_PKGCONFIG), TRUE)
   INCLUDESFLAGS += `PKG_CONFIG_PATH=$(BCPDIR)/lib64/pkgconfig:$(BCPDIR)/lib/pkgconfig:$(BCPDIR)/share/pkgconfig: pkg-config --cflags clp`
 endif
 
-# Include directories (we use the CYGPATH_W variables to allow compilation with Windows compilers)
+# CBC Include directories (we use the CYGPATH_W variables to allow compilation with Windows compilers)
 ifeq ($(COIN_CBC_HAS_PKGCONFIG), TRUE)
   INCLUDEFLAGS += `PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:($CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --cflags cbc`
 endif
 
-# Linker flags
+# CBC Linker flags
 ifeq ($(COIN_CBC_HAS_PKGCONFIG), TRUE)
-  LIBS = `PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:/home/omerjere/tools/Cbc-2.9/build/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --libs cbc`
+  LIBS = `PKG_CONFIG_PATH=$(CBCDIR)/lib64/pkgconfig:$(CBCDIR)/lib/pkgconfig:$(CBCDIR)/share/pkgconfig: pkg-config --libs cbc`
 else
   ifeq ($(COIN_CXX_IS_CL), TRUE)
-    LIBS = -link -libpath:`$(CYGPATH_W) $(CBC)/lib` libCbcSolver.lib libCbc.lib libOsiCbc.lib 
+    LIBS = -link -libpath:`$(CYGPATH_W) $(CBCDIR)/lib` libCbcSolver.lib libCbc.lib libOsiCbc.lib 
   else
     LIBS = -L$(CBCDIR)/lib -lCbcSolver -lCbc -lOsiCbc 
   endif
