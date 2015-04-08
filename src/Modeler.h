@@ -37,7 +37,12 @@ struct MyObject {
       strncpy(name2, name, 255);
       name_ = name2;
    }
-   virtual ~MyObject(){ delete name_; }
+   MyObject(const MyObject& myObject):id_(myObject.id_) {
+      char* name2 = new char[255];
+      strncpy(name2, myObject.name_, 255);
+      name_ = name2;
+   }
+   virtual ~MyObject(){ delete[] name_; }
    //count object
    static unsigned int s_count;
    //for the map rotations_
@@ -59,9 +64,26 @@ struct MyPricer{
    //
    const char* name_;
 
-   /** perform pricing */
+   /* perform pricing */
    //return true if optimal
    virtual bool pricing(double bound=0)=0;
+};
+/*
+ * My branching rule
+ */
+struct MyBranchingRule{
+   MyBranchingRule(const char* name): name_(name){ }
+   virtual ~MyBranchingRule() { }
+
+   //name of the branching rule handler
+   //
+   const char* name_;
+
+   /* compute logical fixing decisions */
+   virtual void logical_fixing(vector<MyObject*>& fixingCandidates)=0; // stores the next candidates for logical fixing
+
+   /* compute branching decisions */
+   virtual void branching_candidates(vector<MyObject*>& branchingCandidates)=0; // stores the next candidates for branching
 };
 /*
  * Var types
@@ -83,6 +105,9 @@ public:
 
    //Add a pricer
    virtual int addObjPricer(MyPricer* pPricer)=0;
+
+   //Add a branching rule
+   virtual int addBranchingRule(MyBranchingRule* pBranchingRule)=0;
 
    /*
     * Create variable:
@@ -186,13 +211,13 @@ public:
       vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       switch(vartype){
       case VARTYPE_BINARY:
-            createBinaryColumnVar(var, var_name, objCoeff, score);
+         createBinaryColumnVar(var, var_name, objCoeff, score);
          break;
       case VARTYPE_INTEGER:
-            createIntColumnVar(var, var_name, objCoeff, score);
+         createIntColumnVar(var, var_name, objCoeff, score);
          break;
       default:
-            createPositiveColumnVar(var, var_name, objCoeff, score);
+         createPositiveColumnVar(var, var_name, objCoeff, score);
          break;
       }
 
@@ -219,6 +244,14 @@ public:
     * get the primal values
     */
 
+   virtual bool isInteger(MyObject* var){
+      double value = getVarValue(var);
+      double fractionalPart = round(value) - value;
+      if( abs(fractionalPart) < EPSILON )
+         return true;
+      return false;
+   }
+
    virtual double getVarValue(MyObject* var)=0;
 
    inline vector<double> getVarValues(vector<MyObject*> vars){
@@ -241,14 +274,9 @@ public:
       return dualValues;
    }
 
-   /**************
-    * Parameters *
-    *************/
-   virtual int setVerbosity(int v)=0;
-
-   /**************
-    * Outputs *
-    *************/
+   /*
+    * Getters and setters
+    */
 
    //compute the total cost of MyObject* in the solution
    virtual double getTotalCost(MyObject* var)=0;
@@ -268,6 +296,17 @@ public:
          value += getTotalCost(vect);
       return value;
    }
+
+   virtual double getObjective()=0;
+
+   /**************
+    * Parameters *
+    *************/
+   virtual int setVerbosity(int v)=0;
+
+   /**************
+    * Outputs *
+    *************/
 
    virtual int printStats()=0;
 

@@ -33,7 +33,9 @@ struct Rotation {
    // Specific constructors and destructors
    //
    Rotation(map<int,int> shift, LiveNurse* nurse = NULL, double cost = 999999, double dualCost = 999999) :
-      shifts_(shift), pNurse_(nurse), cost_(cost), dualCost_(dualCost), length_(shift.size())
+      shifts_(shift), pNurse_(nurse), cost_(cost),
+      consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
+      dualCost_(dualCost), length_(shift.size())
    {
       firstDay_ = 999;
       for(map<int,int>::iterator itS = shift.begin(); itS != shift.end(); ++itS)
@@ -41,7 +43,9 @@ struct Rotation {
    };
 
    Rotation(int firstDay, vector<int> shiftSuccession, LiveNurse* nurse = NULL, double cost = 999999, double dualCost = 999999) :
-      pNurse_(nurse), cost_(cost), dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size())
+      pNurse_(nurse), cost_(cost),
+      consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
+      dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size())
    {
       for(int k=0; k<shiftSuccession.size(); k++) shifts_.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
    }
@@ -96,7 +100,8 @@ class MasterProblem : public Solver{
 public:
    // Specific constructor and destructor
    MasterProblem(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver, vector<Roster> solution = {});
+      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
+      vector<Roster> solution = {});
    ~MasterProblem();
 
    //solve the rostering problem
@@ -105,6 +110,11 @@ public:
    //get the pointer to the model
    Modeler* getModel(){
       return pModel_;
+   }
+
+   //get a constant reference to the rotations
+   vector< map<MyObject*, Rotation> >& getRotations(){
+      return rotations_;
    }
 
    /*
@@ -119,6 +129,7 @@ private:
    vector2D positionsPerSkill_;//link positions to skills
    vector2D skillsPerPosition_;//link skills to positions
    MyPricer* pPricer_;//prices the rotations
+   MyBranchingRule* pRule_; //choose the variables on which we should branch
    MySolverType solverType_; //which solver is used
    vector< map<MyObject*, Rotation> > rotations_;//stores the scip variables and the rotations for each nurse
 

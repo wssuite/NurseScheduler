@@ -24,14 +24,10 @@ public:
    RotationPricer(MasterProblem* master, const char* name);
    virtual ~RotationPricer();
 
-   /** perform pricing */
+   /* perform pricing */
    bool pricing(double bound = 0);
 
 private:
-   /*
-    * Variables
-    */
-
    //Pointer to the master problem to link the master and the sub problems
    //
    MasterProblem* master_;
@@ -65,6 +61,32 @@ private:
    //compute some forbidden shifts from the lasts rotations and forbidden shifts
    //
    void computeForbiddenShifts(set<pair<int,int> >* forbiddenShifts, vector<Rotation> rotations);
+};
+
+class DiveBranchingRule: public MyBranchingRule
+{
+public:
+   DiveBranchingRule(MasterProblem* master, const char* name);
+   virtual ~DiveBranchingRule() { }
+
+   /* compute branching decisions */
+   void branching_candidates(vector<MyObject*>& branchingCandidates);
+
+   /* compute fixing decisions */
+   void logical_fixing(vector<MyObject*>& fixingCandidates);
+
+protected:
+   //Pointer to the master problem to link the master and the sub problems
+   //
+   MasterProblem* master_;
+
+   //pointers to the data
+   //
+   Modeler* pModel_;
+
+   // Settings
+   //
+   bool checkChildren; //true = branch once
 };
 
 #endif /* ROTATIONPRICER_H_ */

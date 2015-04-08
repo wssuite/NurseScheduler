@@ -7,12 +7,22 @@
 
 #include "RotationPricer.h"
 
+/* namespace usage */
+using namespace std;
+
+//////////////////////////////////////////////////////////////
+//
+// R O T A T I O N   P R I C E R
+//
+//////////////////////////////////////////////////////////////
+
+
 static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-      MyPricer(name),
-      master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
+                     MyPricer(name),
+                     master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
 { }
 
 /* Destructs the pricer object. */
@@ -148,13 +158,69 @@ double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
    return pModel_->getDual(master_->maxWorkedWeekendCons_[pNurse->id_], true);
 }
 
-
-
 /******************************************************
  * add some forbidden shifts
  ******************************************************/
 void RotationPricer::computeForbiddenShifts(
    set<pair<int,int> >* forbiddenShifts, vector<Rotation> rotations){
 
+}
+
+
+//////////////////////////////////////////////////////////////
+//
+// R O T A T I O N   P R I C E R
+//
+//////////////////////////////////////////////////////////////
+
+/* Constructs the branching rule object. */
+DiveBranchingRule::DiveBranchingRule(MasterProblem* master, const char* name):
+                     MyBranchingRule(name), master_(master), pModel_(master->getModel()),
+                     checkChildren(false)
+{ }
+
+void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
+   //look for fractional columns
+   //if value > branchUB, then set lb to 1
+      for(int i=0; i<master_->getRotations().size(); ++i){
+         for(pair<MyObject*, Rotation> pair: master_->getRotations()[i]){
+            //if var not fractional, continue
+            if( pModel_->isInteger(pair.first) )
+               continue;
+
+            //if value > branchLB, branch on it
+            if( BRANCH_LB < pModel_->getVarValue(pair.first) )
+               fixingCandidates.push_back(pair.first);
+      }
+   }//end search fractional variables
+}
+
+void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
+   //if we have checked children, this is the end, no more branching
+   //otherwise look for fractional columns
+   if(!checkChildren){
+      for(int i=0; i<master_->getRotations().size(); ++i){
+         MyObject* bestVariable(0); //store best variable for branching for nurse i
+         for(pair<MyObject*, Rotation> pair: master_->getRotations()[i]){// check all the columns
+            //if var not fractional, continue
+            if( pModel_->isInteger(pair.first) )
+               continue;
+
+            /* else, branch for each nurse on the column with the highest value */
+            //check if already a variable in bestVariable
+            //update the variable for the nurse if the variable is higher
+            if( (bestVariable == 0)  ||
+               (pModel_->getVarValue(pair.first) > pModel_->getVarValue(bestVariable)) )
+               bestVariable = pair.first;
+         }// end rotations
+
+         //if branching candidates -> store it
+         if(bestVariable != 0)
+            branchingCandidates.push_back(bestVariable);
+      }
+
+      //if branching candidates -> branching just once
+      checkChildren = (branchingCandidates.size() > 0);
+   }//end search fractional variables
 }
 

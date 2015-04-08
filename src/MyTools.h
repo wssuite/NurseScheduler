@@ -1,8 +1,8 @@
 //
 //  MyTools.h
 //
-//  Created by J��r��my Omer on 19/11/2013.
-//  Copyright (c) 2013 J��r��my Omer. All rights reserved.
+//  Created by J������r������my Omer on 19/11/2013.
+//  Copyright (c) 2013 J������r������my Omer. All rights reserved.
 //
 
 #ifndef __MyTools__
@@ -33,7 +33,10 @@ using std::set;
 
 static const int DEBUG = 1;
 static const string REST_SHIFT = "None";
-static const int DECIMALS = 3;
+static const int DECIMALS = 3; // precision when printing floats
+static const double EPSILON = .0001; // precision for the column generation
+static const double BRANCH_LB = 0.8; //branch on a column, if column > branchLB
+
 
 // definitions of multi-dimensional int vector types
 //
