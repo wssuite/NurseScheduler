@@ -16,6 +16,30 @@
 //
 //-----------------------------------------------------------------------------
 
+
+// Constructor
+//
+CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons):
+  CoinModeler(), primalValues_(0), objVal_(0), model_(NULL) {
+  int corenum = coreVars.size();
+  int colnum  = columnVars.size();
+  int consnum = cons.size();
+
+  for (int i = 0; i < corenum; i++) {
+    coreVars_.push_back(new CoinVar(*coreVars[i]));
+    objects_.push_back(coreVars_[i]);
+  }
+  for (int i = 0; i < colnum; i++) {
+    columnVars_.push_back(new CoinVar(*columnVars[i]));
+    objects_.push_back(columnVars_[i]);
+  }
+  for (int i = 0; i < consnum; i++) {
+    cons_.push_back(new CoinCons(*cons[i]));
+    objects_.push_back(cons_[i]);
+  }
+}
+
+
 /*
  * Create variable:
  *    var is a pointer to the pointer of the variable
@@ -107,7 +131,8 @@ int CbcModeler::setModel() {
     }
   }
 
-  model_.assignSolver(solver, true);
+  if (model_ != NULL) delete model_;
+  model_ = new CbcModel(*solver);
 
   delete solver;
 }
@@ -128,17 +153,17 @@ double CbcModeler::getVarValue(MyObject* var){
 //
 int CbcModeler::solve(bool relaxation){
 
-  model_.branchAndBound();
+  model_->branchAndBound();
   setSolution();
 
-  return model_.status();
+  return model_->status();
 }
 
 
 // Set the value of the solution obtained after solving the MILP
 void CbcModeler::setSolution() {
-  objVal_ = model_.getCurrentObjValue();
-  primalValues_ = model_.bestSolution();
+  objVal_ = model_->getCurrentObjValue();
+  primalValues_ = model_->bestSolution();
 }
 
  /**************
@@ -147,24 +172,24 @@ void CbcModeler::setSolution() {
 
 int CbcModeler::printStats(){
 
-  std::cout << "Status of the solution = " << model_.status();
-  if (model_.isProvenOptimal()) {
+  std::cout << "Status of the solution = " << model_->status();
+  if (model_->isProvenOptimal()) {
     std::cout << "The current solution is optimal." << std::endl;
   }
-  else if (model_.isProvenInfeasible()) {
+  else if (model_->isProvenInfeasible()) {
     std::cout << "The problem is infeasible." << std::endl;
   }
-  else if (model_.isSolutionLimitReached()) {
+  else if (model_->isSolutionLimitReached()) {
 
   }
-  else if (model_.isNodeLimitReached()) {
+  else if (model_->isNodeLimitReached()) {
 
   }
-  else if (model_.isAbandoned()) {
+  else if (model_->isAbandoned()) {
 
   }
 
-  return model_.status();
+  return model_->status();
  }
 
  /* Print the solution.  CbcModel clones the solver so we
@@ -175,7 +200,7 @@ int CbcModeler::printBestSol(){
      Tools::throwError("Primal solution has not been initialized.");
    }
 
-  int numberColumns = model_.solver()->getNumCols();
+  int numberColumns = model_->solver()->getNumCols();
 
   //print the objective value
   printf("%-30s %4.2f \n", "Objective:" , objVal_);
@@ -211,10 +236,10 @@ int CbcModeler::writeProblem(std::string filename) {
 
   // use the relevant method depending on the extension
   if (!extension.compare("mps")) {
-   model_.solver()->writeMps(filename.c_str());
+   model_->solver()->writeMps(filename.c_str());
   }
   else if (!extension.compare("lp")) {
-   model_.solver()->writeLp(filename.c_str());
+   model_->solver()->writeLp(filename.c_str());
   }
   else {
    Tools::throwError("CbcModeler::writeLP: the extension of the file does not match any available method. Use.mps or .lp.");
@@ -222,5 +247,5 @@ int CbcModeler::writeProblem(std::string filename) {
 }
 
 int CbcModeler::writeLP(std::string filename) {
-   model_.solver()->writeLp(filename.c_str());
+   model_->solver()->writeLp(filename.c_str());
 }

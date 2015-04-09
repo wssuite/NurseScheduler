@@ -17,10 +17,15 @@
 
 class CbcModeler: public CoinModeler {
 public:
- CbcModeler(const char* name):
-    CoinModeler(), primalValues_(0), objVal_(0)
-{ }
- ~CbcModeler() { }
+  // default constructor
+  CbcModeler():CoinModeler(), primalValues_(0), objVal_(0), model_(NULL) {}
+
+  // useful constructor
+  CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons);
+
+  ~CbcModeler() {
+    if (model_ != NULL) delete model_;
+  }
 
  //solve the model
  int solve(bool relaxation = false);
@@ -76,7 +81,7 @@ public:
  /**************
   * Parameters *
   *************/
- int setVerbosity(int v) {model_.setLogLevel(v);}
+ int setVerbosity(int v) {model_->setLogLevel(v);}
 
  /**************
   * Outputs *
@@ -100,7 +105,7 @@ public:
 protected:
   // Cbc model
   //
-  CbcModel model_;
+  CbcModel* model_;
 
   //results
   //
