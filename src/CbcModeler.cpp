@@ -98,6 +98,9 @@ int CbcModeler::setModel() {
     case VARTYPE_INTEGER:
       solver->setInteger(i);
       break;
+    case VARTYPE_CONTINUOUS:
+      solver->setContinuous(i);
+      break;
     default:
       solver->setContinuous(i);
       break;

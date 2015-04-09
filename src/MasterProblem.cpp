@@ -340,41 +340,41 @@ void MasterProblem::storeSolution(){
 //build the variable of the rotation as well as all the affected constraints with their coefficients
 //if s=-1, the nurse i works on all shifts
 void MasterProblem::addRotation(Rotation rotation, char* baseName){
-   //nurse index
-   int i = rotation.pNurse_->id_;
+	//nurse index
+	int i = rotation.pNurse_->id_;
 
-   //Column var, its name, and affected constraints with their coe]->skilfficients
-   MyObject* var;
-   char name[255];
-   vector<MyObject*> cons;
-   vector<double> coeffs;
+	//Column var, its name, and affected constraints with their coefficients
+	MyObject* var;
+	char name[255];
+	vector<MyObject*> cons;
+	vector<double> coeffs;
 
-   /* Rotation constraints */
-   addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_, true, false);
-   addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_+rotation.length_-1, false, true);
+	/* Rotation constraints */
+	addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_, true, false);
+	addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_+rotation.length_-1, false, true);
 
-   /* Min/Max constraints */
-   for(int k=rotation.pNurse_->firstDay_; k<rotation.pNurse_->firstDay_+rotation.length_; ++k){
-      //check if the nurse works on a saturday and add it in the constraints
-      //not yet added in the constraints maxWorkedWeekend
-      if(Tools::isSaturday(k))
-         addMinMaxConsToCol(&cons, &coeffs, i, k, true);
-      //check if the nurse works on a sunday and does not work on a saturday
-      //not yet added in the constraints maxWorkedWeekend
-      else if( (k==rotation.pNurse_->firstDay_) && Tools::isSunday(k) )
-         addMinMaxConsToCol(&cons, &coeffs, i, k, true);
-      //otherwise, do not add in the constraints maxWorkedWeekend
-      else
-         addMinMaxConsToCol(&cons, &coeffs, i, k);
-   }
+	/* Min/Max constraints */
+	for(int k=rotation.pNurse_->firstDay_; k<rotation.pNurse_->firstDay_+rotation.length_; ++k){
+		//check if the nurse works on a saturday and add it in the constraints
+		//not yet added in the constraints maxWorkedWeekend
+		if(Tools::isSaturday(k))
+			addMinMaxConsToCol(&cons, &coeffs, i, k, true);
+		//check if the nurse works on a sunday and does not work on a saturday
+		//not yet added in the constraints maxWorkedWeekend
+		else if( (k==rotation.pNurse_->firstDay_) && Tools::isSunday(k) )
+			addMinMaxConsToCol(&cons, &coeffs, i, k, true);
+		//otherwise, do not add in the constraints maxWorkedWeekend
+		else
+			addMinMaxConsToCol(&cons, &coeffs, i, k);
+	}
 
-   /* Skills coverage constraints */
-   for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k)
-      addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
+	/* Skills coverage constraints */
+	for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k)
+		addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
 
-   sprintf(name, "%s_N%d_%d",baseName , i, rotations_[i].size());
-   pModel_->createPositiveColumn(&var, name, rotation.cost_, cons, coeffs);
-   rotations_[i].insert(pair<MyObject*,Rotation>(var, rotation));
+	sprintf(name, "%s_N%d_%d",baseName , i, rotations_[i].size());
+	pModel_->createIntColumn(&var, name, rotation.cost_, cons, coeffs);
+	rotations_[i].insert(pair<MyObject*,Rotation>(var, rotation));
 }
 
 /*
