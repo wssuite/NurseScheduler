@@ -2,8 +2,8 @@
 //  main_test.cpp
 //  RosterDesNurses
 //
-//  Created by J��r��my Omer on 04/03/2015.
-//  Copyright (c) 2015 J��r��my Omer. All rights reserved.
+//  Created by J������r������my Omer on 04/03/2015.
+//  Copyright (c) 2015 J������r������my Omer. All rights reserved.
 //
 
 #include "main_test.h"
@@ -11,10 +11,6 @@
 #include "Greedy.h"
 #include "SubProblem.h"
 #include "MyTools.h"
-
-/* scip includes */
-#include "objscip/objscip.h"
-#include "objscip/objscipdefplugins.h"
 
 void main_test()
 {
@@ -53,26 +49,8 @@ void testFunction_Antoine(){
 
    // Read the input data from files
    Scenario* pScen = ReadWrite::readScenario(scenarPath);
-   Demand* pWeekDemand = NULL;
    Preferences preferences;
-   for(string demandPath: weekPaths)
-      if(pWeekDemand == NULL){
-         pWeekDemand = ReadWrite::readWeek(demandPath, pScen);
-         preferences = *pScen->pWeekPreferences();
-      }
-      else{
-         //load the next week
-         Demand* nextDemand = ReadWrite::readWeek(demandPath, pScen);
-         //update the current weeks
-         pWeekDemand->push_back(nextDemand);
-         preferences.push_back(pScen->pWeekPreferences());
-         pScen->addAWeek();
-         //link the scenario tu the current demand and preferences
-         pScen->linkWithDemand(pWeekDemand);
-         pScen->linkWithPreferences(preferences);
-         //delete the demand and the preferences which we have created
-         delete nextDemand;
-      }
+   Demand* pWeekDemand = ReadWrite::readWeeks(weekPaths, pScen);
    ReadWrite::readHistory(firstHistoryPath,pScen);
 
    // Check that the scenario was read properly
@@ -213,7 +191,7 @@ void testFunction_Samuel(){
    string logFile = "../logfiles/samuel_test.log";
    Tools::LogOutput logStream(logFile);
 
-   // RqJO : attention, j'ai enlev�� ta surcharge de << parce qu'elle me faisait
+   // RqJO : attention, j'ai enlev������ ta surcharge de << parce qu'elle me faisait
    // des segfaults
    logStream << s->toString() << std::endl;
    logStream.print("Total time spent in the algorithm : ");

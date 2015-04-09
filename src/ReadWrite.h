@@ -51,10 +51,12 @@ public:
 	//
 	static Scenario* readScenario(std::string strScenarioFile);
 
+	//Read several week files and strore the content in one demand and one preference
+	//
+   static Demand* readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario);
 	// Read the Week file and store the content in a Scenario instance
 	//
 	static Demand* readWeek(std::string strWeekFile, Scenario* pScenario);
-
 
 	// Read the history file
 	//
