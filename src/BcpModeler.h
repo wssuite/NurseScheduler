@@ -11,13 +11,11 @@
 #include "CoinModeler.h"
 
 /* BCP includes */
-#include "BCP_parameters.hpp"
 #include "BCP_enum.hpp"
 #include "BCP_vector.hpp"
 #include "BCP_var.hpp"
 #include "BCP_cut.hpp"
 #include "BCP_buffer.hpp"
-#include "BCP_parameters.hpp"
 #include "BCP_tm_user.hpp"
 #include "BCP_lp_user.hpp"
 #include "BCP_USER.hpp"
