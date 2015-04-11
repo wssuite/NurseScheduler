@@ -582,10 +582,10 @@ protected:
 	void initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
 	// Resets all solutions data (rotations, number of solutions, etc.)
 	void resetSolutions();
-	// Transforms the solutions found into proper rotations.
-	void addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
-	// Adds a rotation made from the given path to the current list of answers and increases their counter
-	void addSingleRotation(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
+	// Transforms the solutions found into proper rotations. Returns true if at least one has been added (can be false if none was found or if all were nonnegative and negativeOnly=true)
+	bool addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources, bool negativeOnly);
+	// Returns the rotation made from the given path
+	Rotation rotationFromPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
 
 	// DATA -- COSTS
 	//
