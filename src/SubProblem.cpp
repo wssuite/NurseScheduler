@@ -320,7 +320,6 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 
 	std::cout << "# " << std::endl;
 	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << std::endl;
-	//std::cout << printSummaryOfGraph();
 
 	// TODO : Assez moche... A modifier ?
 	if(maxRotationLength == MAX_TIME)
@@ -328,41 +327,31 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 	else
 		maxRotationLength_ = maxRotationLength;
 
-	// TODO : modify if needed
+	// TODO : modify if needed.
+	// Reset all authorizations so that all arcs are re-allowed (may be modified to fit our needs)
 	//
 	resetAuthorizations();
 	resetSolutions();
-
-	// Forbid arcs or nodes if needed
-	//
-	// TODO : delete following line and replace fDayShifts by forbiddenDayShifts in the rest of the function
-	//set< pair<int,int> > fDayShifts = randomForbiddenShifts(25);
-	//printForbiddenDayShift();
 
 	// Basic data (nurse, reduced costs, maximum rotation length)
 	//
 	pLiveNurse_ = nurse;
 	pCosts_ = costs;
 
+
+	// Initialize the structures (nodes, arcs, costs, etc.) before solving the shortest path problem
+	//
+	// set< pair<int,int> > fDayShifts = randomForbiddenShifts(25);
 	initStructuresForSolve(nurse, costs, forbiddenDayShifts, maxRotationLength);
-	//generateRandomCosts(-50, 50);
-
-
+	// generateRandomCosts(-50, 50);
 	forbid(forbiddenDayShifts);
-	printForbiddenDayShift();
-
 	updateArcCosts();
 
-	//printShortArcs();
-
-
-
-	// Solving the problem
+	// Solve the problem
+	//
 	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
 	spp_spptw_res_cont rc (0,0);
-
-	// printAllNodes();
 
 	r_c_shortest_paths(
 			g_,
@@ -378,9 +367,8 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 			std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 			boost::default_r_c_shortest_paths_visitor() );
 
-	// printAllNodes();
-	// getchar();
-
+	// Return TRUE if a rotation was added. Last argument is true IF only negative reduced cost rotations are added
+	//
 	return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw, true);
 }
 
@@ -393,7 +381,6 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 	for(int p=0; p < paths.size(); ++p){
 		Rotation rot = rotationFromPath(paths[p], resources[p]);
 		if( (! negativeOnly) or (rot.dualCost_ < 0)){
-			//printPath(paths[p], resources[p]);
 			theRotations_.push_back(rot);
 			nPaths_ ++;
 			oneFound = true;
