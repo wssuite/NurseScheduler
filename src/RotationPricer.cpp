@@ -55,6 +55,15 @@ bool RotationPricer::pricing(double bound){
          subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_);
          subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
       }
+
+		// SR: Ici, je modifie pour en creer un nouveau a chaque fois car pour l'instant, j'ai des problemes si je relance l'algo de plus courts
+		//     chemins sur un SP qui existait deja avant (a changer)
+		// TODO : commenter ces lignes pour que le SP ne soit pas recree a chaque fois, à implementer plus tard
+		else if(true) {
+			subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_);
+			it->second = subProblem;
+		}
+
       //otherwise retrieve the subproblem associated to the contract
       else
          subProblem = it->second;
@@ -75,10 +84,25 @@ bool RotationPricer::pricing(double bound){
       else
          subProblem->solve(pNurse, &costs, forbiddenShifts, true);
 
+
+      // SR - TODO : calcul du cout a chaque fois, car pas fait dans le SP
+		/* Retrieve rotations and add them to the master problem*/
+		rotations = subProblem->getRotations();
+		for(Rotation rot: rotations){
+			std::cout << "# Cost update check : " << rot.cost_;
+			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			std::cout << "  ->  " << rot.cost_ << std::endl;
+			master_->addRotation(rot, baseName);
+
+		}
+
       /* Retrieve rotations and add them to the master problem*/
+      /*
       rotations = subProblem->getRotations();
       for(Rotation rot: rotations)
          master_->addRotation(rot, baseName);
+      */
+
    }
 
    return optimal;

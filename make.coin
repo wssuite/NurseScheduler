@@ -26,8 +26,10 @@ INCLUDESFLAGS += -I$(BCPDIR)/include/coin
 INCLUDESFLAGS += -I$(CBCDIR)/include/coin
 
 # CBC Linker flags
-LIBS += -L$(CBCDIR)/lib -lCbcSolver -lCbc -lCgl -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm 
+LIBS += -L$(CBCDIR)/lib
 
 # BCP Linker flags
-LIBS += -L$(BCPDIR)/lib -lBcp -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm 
+LIBS += -L$(BCPDIR)/lib 
 
+LIBS += -lCbcSolver -lCbc -lCgl -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm
+LIBS += -lBcp -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm 

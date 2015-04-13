@@ -14,9 +14,9 @@
 
 void main_test()
 {
-	testFunction_Antoine();
+	//testFunction_Antoine();
 	// testFunction_Jeremy();
-	//testFunction_Samuel();
+	testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
@@ -174,43 +174,71 @@ void testFunction_Samuel(){
    timertest->init();
    timertest->start();
 
-   string inst = "n100w4";
-
-   string scenar = "/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/" + inst + "/Sc-" + inst + ".txt";
-   string firstWeek = "/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/" + inst + "/WD-" + inst + "-1.txt";
-   string firstHistory = "/home/samuel/Dropbox/Nurse Rostering Competition/Data/datasets_txt/" + inst + "/H0-" + inst + "-0.txt";
-
-   Scenario * s = ReadWrite::readScenario(scenar);
-   Demand* pWeekDemand = ReadWrite::readWeek(firstWeek,s);
-   ReadWrite::readHistory(firstHistory,s);
-
-   cout << s->toString() << endl;
-
-   timertest->stop();
-
+   // log + output
+   //
    string logFile = "../logfiles/samuel_test.log";
    Tools::LogOutput logStream(logFile);
+   string outFile = "outfiles/test.out";
+   Tools::LogOutput outStream(outFile);
 
-   // RqJO : attention, j'ai enlev������ ta surcharge de << parce qu'elle me faisait
-   // des segfaults
-   logStream << s->toString() << std::endl;
+   // Instances
+   //
+   string data = "testdatasets/";
+   string inst = "n005w4";			// n100w4 n030w4 n005w4
+
+   // Paths
+   //
+   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
+   vector<int> numberWeek = {1, 2, 3, 3};
+   vector<string> weekPaths(numberWeek.size());
+   for(int i=0; i<numberWeek.size(); ++i){
+      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
+      weekPaths[i] = path;
+   }
+   string firstHistoryPath = data + inst + "/H0-" + inst + "-0.txt";
+
+   // Read the input data from files
+   //
+   Scenario* pScen = ReadWrite::readScenario(scenarPath);
+   Preferences preferences;
+   Demand* pWeekDemand = ReadWrite::readWeeks(weekPaths, pScen);
+   ReadWrite::readHistory(firstHistoryPath,pScen);
+
+   // Check that the scenario was read properly
+   //
+   logStream << pScen->toString() << std::endl;
+   logStream << pWeekDemand->toString(true) << std::endl;
+
+   //Compute initial solution
+   //
+   Greedy* pGreedy =
+      new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
+   pGreedy->constructiveGreedy();
+   outStream << pGreedy->solutionToLogString();
+
+   // Instantiate solver + solve the instance
+   //
+   MasterProblem* pSolverTest = new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
+   pSolverTest->solve();
+
+   // Write the solution in an output file
+   //
+   outStream << pSolverTest->solutionToLogString();
+
+   // Display the total time spent in the algorithm
+   //
+   timertest->stop();
    logStream.print("Total time spent in the algorithm : ");
    logStream.print(timertest->dSinceInit());
    logStream.print("\n");
 
-   for(map<string,Contract*>::const_iterator it = s->contracts_.begin(); it != s->contracts_.end(); ++it){
-      const Contract * c = it->second;
-      cout << "# " << endl;
-      cout << "# " << endl;
-      cout << "# +----------------------------------------------------------------------------------------" << endl;
-      cout << "# CONTRACT : " << ((Contract *) c)->toString() << endl;
-      cout << "# +----------------------------------------------------------------------------------------" << endl;
-      SubProblem sp (s, pWeekDemand, c);
-      cout << "# +----------------------------------------------------------------------------------------" << endl;
-      cout << "# " << endl;
-      cout << "# " << endl;
-   }
+   // Delete
+   //
+   delete timertest;
+   delete pWeekDemand;
+   delete pScen;
+   delete pGreedy;
+   delete pSolverTest;
 
-   //SubProblem sp;
-   //sp.testGraph_spprc();
+
 }

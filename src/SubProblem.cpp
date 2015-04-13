@@ -65,7 +65,6 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 	pScenario_(scenario), pDemand_(demand), pContract_ (contract),
 	CDMin_(contract->minConsDaysWork_), maxRotationLength_(demand->nbDays_), nDays_(demand->nbDays_){
 
-
 	init();
 
 	initShortSuccessions();

@@ -62,7 +62,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
    pModel_->setLPSol(lpres);
-   //pModel_->pricing(0);
+   pModel_->pricing(0);
 
    //check if new columns add been added since the last time
    //if there are some, add all of them in new_vars
