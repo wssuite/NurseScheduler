@@ -339,7 +339,7 @@ public:
 
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
-	bool solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=-1);
+	bool solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=MAX_TIME);
 
 	// Returns all rotations saved during the process of solving the SPPRC
 	//
@@ -660,7 +660,9 @@ public:
 	//
 	void printGraph();
 	string printNode(int v);
+	void printAllNodes();
 	string printArc(int a);
+	void printAllArcs();
 	string shortNameNode(int v);
 	string printSummaryOfGraph();
 	void printShortSucc();

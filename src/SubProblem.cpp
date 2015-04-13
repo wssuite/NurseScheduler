@@ -322,6 +322,12 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << std::endl;
 	//std::cout << printSummaryOfGraph();
 
+	// TODO : Assez moche... A modifier ?
+	if(maxRotationLength == MAX_TIME)
+		maxRotationLength_ = nDays_;
+	else
+		maxRotationLength_ = maxRotationLength;
+
 	// TODO : modify if needed
 	//
 	resetAuthorizations();
@@ -337,7 +343,6 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 	//
 	pLiveNurse_ = nurse;
 	pCosts_ = costs;
-	maxRotationLength_ = maxRotationLength;
 
 	initStructuresForSolve(nurse, costs, forbiddenDayShifts, maxRotationLength);
 	//generateRandomCosts(-50, 50);
@@ -357,6 +362,8 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
 	spp_spptw_res_cont rc (0,0);
 
+	// printAllNodes();
+
 	r_c_shortest_paths(
 			g_,
 			get( &Vertex_Properties::num, g_ ),
@@ -370,6 +377,9 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forb
 			dominance_spptw(),
 			std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 			boost::default_r_c_shortest_paths_visitor() );
+
+	// printAllNodes();
+	// getchar();
 
 	return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw, true);
 }
@@ -1147,15 +1157,11 @@ void SubProblem::printGraph(){
 
 	// THE NODES
 	//
-	std::cout << "#   NODES (" << nNodes_ << ")" << std::endl;
-	for(int v=0; v<nNodes_; v++) std::cout << printNode(v) << std::endl;
-	std::cout << "# " << std::endl;
+	printAllNodes();
 
 	// THE ARCS
 	//
-	std::cout << "#   ARCS (" << nArcs_ << "]" << std::endl;
-	for(int a=0; a<nArcs_; a++) std::cout << printArc(a) << std::endl;
-	std::cout << "# " << std::endl;
+	printAllArcs();
 
 	// SUMMARY
 	//
@@ -1172,6 +1178,13 @@ string SubProblem::printNode(int v){
 	return rep.str();
 }
 
+// Prints all nodes
+void SubProblem::printAllNodes(){
+	std::cout << "#   NODES (" << nNodes_ << ")" << std::endl;
+	for(int v=0; v<nNodes_; v++) std::cout << printNode(v) << std::endl;
+	std::cout << "# " << std::endl;
+
+}
 // Prints the line of an arc
 string SubProblem::printArc(int a){
 	stringstream rep;
@@ -1182,6 +1195,13 @@ string SubProblem::printArc(int a){
 	rep << " \t[" << shortNameNode(arcOrigin(a)) << "] -> [" << shortNameNode(arcDestination(a)) << "]";
 	return rep.str();
 
+}
+
+// Prints all arcs
+void SubProblem::printAllArcs(){
+	std::cout << "#   ARCS (" << nArcs_ << "]" << std::endl;
+	for(int a=0; a<nArcs_; a++) std::cout << printArc(a) << std::endl;
+	std::cout << "# " << std::endl;
 }
 
 // Short name for a node
