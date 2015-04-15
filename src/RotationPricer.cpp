@@ -47,13 +47,6 @@ bool RotationPricer::pricing(double bound){
 
    for(LiveNurse* pNurse: sortedNurses){
 
-
-	   Tools::Timer* timer_sp = new Tools::Timer();
-	   timer_sp->init();
-	   timer_sp->start();
-
-	   std::cout << "Iteration " << iter << std::endl;
-
 	   /* Build or re-use a subproblem */
 	   SubProblem* subProblem;
 	   //search the contract
@@ -97,11 +90,6 @@ bool RotationPricer::pricing(double bound){
 		   rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
 		   master_->addRotation(rot, baseName);
 	   }
-
-	   timer_sp->stop();
-	   std::cout << "Total time spent in the algorithm : ";
-	   std::cout << timer_sp->dSinceInit();
-	   std::cout << std::endl;
 
    }
 
