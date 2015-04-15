@@ -93,6 +93,11 @@ void initDoubleVector2D(vector< vector< double > >* v2D, int m, int n);
 vector<double> randomDoubleVector(int m, double minVal, double maxVal);
 vector<vector<double> > randomDoubleVector2D(int m, int n, double minVal, double maxVal);
 
+// Appends the values of v2 to at the end of v1
+//
+template < typename T >
+void push_several_back(vector<T> * v1, vector<T> v2){ for(int i=0; i<v2.size(); i++) v1->push_back(v2[i]);}
+
 // To get the day from its id and vice-versa
 // First day is always supposed to be a Monday
 //

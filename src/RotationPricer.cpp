@@ -70,11 +70,18 @@ bool RotationPricer::pricing(double bound){
       /* Compute forbidden */
       computeForbiddenShifts(&forbiddenShifts, rotations);
 
+      /* Solve options */
+      vector<SolveOption> options;
+      options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+      options.push_back(SOLVE_NEGATIVE_ONLY);
+      options.push_back(SOLVE_FORBIDDEN_RESET);
+
+
       /* Solve subproblems */
-      if( subProblem->solve(pNurse, &costs, forbiddenShifts, false) )
+      if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false) )
          optimal = false;
       else
-         subProblem->solve(pNurse, &costs, forbiddenShifts, true);
+         subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
 
 
       // SR - TODO : calcul du cout a chaque fois, car pas fait dans le SP

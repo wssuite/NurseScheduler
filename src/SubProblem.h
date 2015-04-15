@@ -44,6 +44,63 @@ static const vector<string> arcTypeName = {
 
 static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
 
+// Different solution options. The first one is the default one if no other from the subset is specified.
+enum SolveOption{
+
+	// Keep the previous solutions or not
+	//
+	SOLVE_SOLUTIONS_RESET,			// DEFAULT: Delete all previously determined solutions before solving
+	SOLVE_SOLUTIONS_KEEP,			//          Keep the previously determined solutions. WARNING: some may appear twice
+									//			TODO : Do we want to keep it that way (several appearance of the same solution)
+
+	// Long XOR short rotations
+	SOLVE_ROTATIONS_LONG,			// DEFAULT: Solve for long rotations
+	SOLVE_ROTATIONS_SHORT,			//          Only look at the short rotations
+									//          TODO : Do we want to add a mode for short AND long ?
+
+	// One or several sink nodes
+	//
+	SOLVE_SINGLE_SINKNODE,			// DEFAULT: Look for the Pareto-front of all paths within the time horizon
+	SOLVE_ONE_SINK_PER_LAST_DAY,	//          Look for the Pareto-front for each end day
+	SOLVE_ONE_SINK_PER_FIRST_DAY,	//          Look for the Pareto-front for each first day
+
+	// Negativity of the rotations
+	//
+	SOLVE_NEGATIVE_ONLY,			// DEFAULT: Keep only rotations of negative reduced cost (potentially 0 rotations)
+	SOLVE_NEGATIVE_ALLVALUES,		//          Also keep rotations of positive reduced cost (if they belong to pareto-front)
+
+	// Forbidden list options
+	//
+	SOLVE_FORBIDDEN_RESET,			// DEFAULT: Reset all previously forbidden day-shifts and only forbids the list given for that run
+	SOLVE_FORBIDDEN_KEEP,			//          Keep all previously forbidden day-shift and adds the ones from the given list
+	SOLVE_FORBIDDEN_RANDOM,			//          Only random shifts are forbidden
+
+	// Costs options (mainly for debug purpose
+	//
+	SOLVE_COST_GIVEN,				// DEFAULT: Solve the problem for the given reduced costs
+	SOLVE_COST_RANDOM				//          Generate random cost instead
+};
+
+static const vector<vector<SolveOption> > incompatibilityClusters = {
+		{SOLVE_SOLUTIONS_RESET, SOLVE_SOLUTIONS_KEEP},
+		{SOLVE_ROTATIONS_LONG, SOLVE_ROTATIONS_SHORT},
+		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY, SOLVE_ONE_SINK_PER_FIRST_DAY},
+		{SOLVE_NEGATIVE_ONLY, SOLVE_NEGATIVE_ALLVALUES},
+		{SOLVE_FORBIDDEN_RESET, SOLVE_FORBIDDEN_KEEP, SOLVE_FORBIDDEN_RANDOM},
+		{SOLVE_COST_GIVEN, SOLVE_COST_RANDOM}
+};
+
+static const vector<string> solveOptionName = {
+		"Delete previous solutions", "Keep Previous solutions and add new ones",
+		"Long rotations only", "Short rotations only",
+		"Single sinknode", "One sinknode per last day", "One sinknode per first day",
+		"Negative reduced costs only", "Negative and nonnegative reduced costs",
+		"Reset all forbidden before solve", "Keep all forbidden before solve", "Generate random forbidden day-shift",
+		"Solve for given reduced costs", "Generate random reduced costs"
+
+};
+
+
 
 //////////////////////////////////////////////////////////////////////////
 //
@@ -339,7 +396,7 @@ public:
 
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
-	bool solve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=MAX_TIME);
+	bool solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=MAX_TIME);
 
 	// Returns all rotations saved during the process of solving the SPPRC
 	//
@@ -418,6 +475,20 @@ protected:
 	//
 	int nPaths_;
 
+
+
+	//----------------------------------------------------------------
+	//
+	// Solving options.
+	//
+	//----------------------------------------------------------------
+
+	// Vector that, for each option, contains true if active, false if inactive
+	vector<bool> activeOptions_;
+	// Set the options from a vector<SolveOption>
+	void setSolveOptions(vector<SolveOption> options);
+	// Return true if the option should be applied
+	inline bool isOptionActive(SolveOption option){return activeOptions_[option];};
 
 
 	//----------------------------------------------------------------
@@ -671,6 +742,7 @@ public:
 	void printAllRotations();
 	void printForbiddenDayShift();
 	void printShortArcs();
+	void printActiveSolveOptions();
 
 
 };
