@@ -163,7 +163,7 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
             dualCost -= workedWeekendDualCost;
 
       if(abs(dualCost_ - dualCost) > EPSILON )
-         Tools::throwError("Bad dual cost");
+         cout << "Bad dual cost" << endl;
 }
 
 

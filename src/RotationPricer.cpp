@@ -84,8 +84,6 @@ bool RotationPricer::pricing(double bound){
 	   else
 		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
 
-<<<<<<< HEAD
-
       // SR - TODO : calcul du cout a chaque fois, car pas fait dans le SP
 		/* Retrieve rotations and add them to the master problem*/
 		rotations = subProblem->getRotations();
@@ -104,14 +102,13 @@ bool RotationPricer::pricing(double bound){
       for(Rotation rot: rotations)
          master_->addRotation(rot, baseName);
       */
-=======
+
 	   /* Retrieve rotations and add them to the master problem*/
 	   rotations = subProblem->getRotations();
 	   for(Rotation rot: rotations){
 		   rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
 		   master_->addRotation(rot, baseName);
 	   }
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
    }
 
