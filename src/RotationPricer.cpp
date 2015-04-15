@@ -46,43 +46,45 @@ bool RotationPricer::pricing(double bound){
    vector<LiveNurse*> sortedNurses = sortNurses();
 
    for(LiveNurse* pNurse: sortedNurses){
-      /* Build or re-use a subproblem */
-      SubProblem* subProblem;
-      //search the contract
-      map<const Contract*, SubProblem*>::iterator it =  subProblems_.find(pNurse->pContract_);
-      //if doesn't find => create new subproblem
-      if( it == subProblems_.end() ){
-         subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_);
-         subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
-      }
 
-      //otherwise retrieve the subproblem associated to the contract
-      else
-         subProblem = it->second;
+	   /* Build or re-use a subproblem */
+	   SubProblem* subProblem;
+	   //search the contract
+	   map<const Contract*, SubProblem*>::iterator it =  subProblems_.find(pNurse->pContract_);
+	   //if doesn't find => create new subproblem
+	   if( it == subProblems_.end() ){
+		   subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
+		   subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
+	   }
 
-      /* Retrieves dual values */
-      vector< vector<double> > workDualCosts = getWorkDualValues(pNurse);
-      vector<double> startWorkDualCosts = getStartWorkDualValues(pNurse);
-      vector<double> endWorkDualCosts = getEndWorkDualValues(pNurse);
-      double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
-      Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
+	   //otherwise retrieve the subproblem associated to the contract
+	   else
+		   subProblem = it->second;
 
-      /* Compute forbidden */
-      computeForbiddenShifts(&forbiddenShifts, rotations);
+	   /* Retrieves dual values */
+	   vector< vector<double> > workDualCosts = getWorkDualValues(pNurse);
+	   vector<double> startWorkDualCosts = getStartWorkDualValues(pNurse);
+	   vector<double> endWorkDualCosts = getEndWorkDualValues(pNurse);
+	   double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
+	   Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
-      /* Solve options */
-      vector<SolveOption> options;
-      options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
-      options.push_back(SOLVE_NEGATIVE_ONLY);
-      options.push_back(SOLVE_FORBIDDEN_RESET);
+	   /* Compute forbidden */
+	   computeForbiddenShifts(&forbiddenShifts, rotations);
+
+	   /* Solve options */
+	   vector<SolveOption> options;
+	   options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
+	   options.push_back(SOLVE_NEGATIVE_ONLY);
+	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
 
-      /* Solve subproblems */
-      if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false) )
-         optimal = false;
-      else
-         subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+	   /* Solve subproblems */
+	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false) )
+		   optimal = false;
+	   else
+		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
 
+<<<<<<< HEAD
 
       // SR - TODO : calcul du cout a chaque fois, car pas fait dans le SP
 		/* Retrieve rotations and add them to the master problem*/
@@ -102,6 +104,14 @@ bool RotationPricer::pricing(double bound){
       for(Rotation rot: rotations)
          master_->addRotation(rot, baseName);
       */
+=======
+	   /* Retrieve rotations and add them to the master problem*/
+	   rotations = subProblem->getRotations();
+	   for(Rotation rot: rotations){
+		   rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+		   master_->addRotation(rot, baseName);
+	   }
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
    }
 

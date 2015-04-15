@@ -154,7 +154,7 @@ struct Arc_Properties{
 
 	// traversal cost
 	//
-	int cost;
+	double cost;
 
 	// traversal time
 	//
@@ -184,7 +184,7 @@ struct spp_no_rc_res_cont{
 
 	// Constructor
 	//
-	spp_no_rc_res_cont( int c = 0 ) : cost( c ) {};
+	spp_no_rc_res_cont( double c = 0 ) : cost( c ) {};
 
 	// Assign
 	spp_no_rc_res_cont& operator=( const spp_no_rc_res_cont& other ){
@@ -196,7 +196,7 @@ struct spp_no_rc_res_cont{
 
 	// Cost of the path
 	//
-	int cost;
+	double cost;
 };
 
 // Cost extension
@@ -251,7 +251,7 @@ struct spp_spptw_res_cont{
 
 	// Constructor
 	//
-	spp_spptw_res_cont( int c = 0, int t = 0 ) : cost( c ), time( t ) {}
+	spp_spptw_res_cont( double c = 0, int t = 0 ) : cost( c ), time( t ) {}
 
 	// Assign
 	//
@@ -264,7 +264,7 @@ struct spp_spptw_res_cont{
 
 	// Current cost
 	//
-	int cost;
+	double cost;
 
 	// Current time consumption
 	//
@@ -316,9 +316,7 @@ public:
 
 	Costs(){}
 	Costs(vector< vector<double> > * workCosts, vector<double> * startWorkCosts, vector<double> * endWorkCosts, double workedWeekendCost):
-		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {
-		Tools::initDoubleVector2D(pPreferenceCosts_, 0, 0);
-	}
+		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
 
 	// CONSTRUCTOR NOT TO BE USED, ONLY FOR RANDOM GENERATED COSTS...
 	Costs(vector< vector<double> > workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
@@ -326,7 +324,6 @@ public:
 		pWorkCosts_ = new vector<vector<double> > (workCosts);
 		pStartWorkCosts_ = new vector<double> (startWorkCosts);
 		pEndWorkCosts_ = new vector<double> (endWorkCosts);
-		pPreferenceCosts_ = new vector<vector<double> > ();
 	}
 
 	// GETTERS
@@ -335,11 +332,6 @@ public:
 	inline double startWorkCost(int day){return ((*pStartWorkCosts_)[day]);}
 	inline double endWorkCost(int day){return ((*pEndWorkCosts_)[day]);}
 	inline double workedWeekendCost(){return workedWeekendCost_;}
-
-
-	// SETTERS
-	//
-	inline void setPreferenceCosts(vector< vector<double> > * v){pPreferenceCosts_ = v;}
 
 
 protected:
@@ -355,15 +347,6 @@ protected:
 
     // Reduced cost of the weekends
     double workedWeekendCost_;
-
-	// For each day k (<= nDays_ - CDMin), shift s, contains WEIGHT_PREFERENCES if (k,s) is a preference of the nurse; 0 otherwise.
-	//
-	vector< vector<double> > * pPreferenceCosts_;
-
-    /*
-     * Possibility of adding other costs (such as baseCosts, not necessarily dual)
-     */
-
 
 };
 
@@ -384,11 +367,11 @@ public:
 
 	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
-	SubProblem(Scenario* scenario, Demand * demand, const Contract* contract);
+	SubProblem(Scenario* scenario, Demand * demand, const Contract* contract, vector<State>* pInitState);
 
 	// Initialization function for all global variables (not those of the graph)
 	//
-	void init();
+	void init(vector<State>* pInitState);
 
 	// Test function for Shortest Path Problem with Resource Constraint
 	//
@@ -516,6 +499,8 @@ protected:
 
     // For each day k (<= nDays_ - CDMin), contains WEIGHT_COMPLETE_WEEKEND if [it is a Saturday (resp. Sunday) AND the contract requires complete weekends]; 0 otherwise.
 	vector<double> startWeekendCosts_, endWeekendCosts_;
+	// Costs due to preferences of the nurse: for each day k (<= nDays_ - CDMin), shift s, contains WEIGHT_PREFERENCES if (k,s) is a preference of the nurse; 0 otherwise.
+	vector<vector <double> > preferencesCosts_;
 
 	// Cost function for consecutive identical shifts
 	double consShiftCost(int sh, int n);
@@ -653,8 +638,8 @@ protected:
 	void initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
 	// Resets all solutions data (rotations, number of solutions, etc.)
 	void resetSolutions();
-	// Transforms the solutions found into proper rotations. Returns true if at least one has been added (can be false if none was found or if all were nonnegative and negativeOnly=true)
-	bool addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources, bool negativeOnly);
+	// Transforms the solutions found into proper rotations. Returns true if at least one has been added
+	bool addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
 	// Returns the rotation made from the given path
 	Rotation rotationFromPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
 
@@ -663,7 +648,6 @@ protected:
 	// Data structures that associates an arc to the chosen short succession of lowest cost
 	map<int,int> shortSuccCDMinIdFromArc_;						// Maps the arcs to the corresponding short rotation ID
 	vector3D idBestShortSuccCDMin_;								// For each day k (<= nDays_ - CDMin), shift s, number n, contains the best short succession of size CDMin that starts on day k, and ends with n consecutive days of shift s
-	vector<vector <double> > preferencesCosts_;					// Costs due to preferences of the nurse
 	vector<vector<vector<double> > > arcCostBestShortSuccCDMin_;// For each day k (<= nDays_ - CDMin), shift s, number n, contains the cost of the corresponding arc
 
 	// FUNCTIONS -- COSTS
