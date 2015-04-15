@@ -61,11 +61,11 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * contract):
+SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * contract, vector<State>* pInitState):
 	pScenario_(scenario), pDemand_(demand), pContract_ (contract),
 	CDMin_(contract->minConsDaysWork_), maxRotationLength_(demand->nbDays_), nDays_(demand->nbDays_){
 
-	init();
+	init(pInitState);
 
 	initShortSuccessions();
 
@@ -84,10 +84,10 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 
 	nPathsMin_ = 0;
 
-	std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
+	//std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
+	//std::cout << "# Max ongoing days worked: " << maxOngoingDaysWorked_ << std::endl;
 
 	//printGraph();
-	//std::cout << printSummaryOfGraph();
 	//printShortSucc();
 
 }
@@ -95,13 +95,16 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 SubProblem::~SubProblem(){}
 
 // Initialization function
-void SubProblem::init(){
+void SubProblem::init(vector<State>* pInitState){
 
 	// Maximum number of consecutive days worked by a nurse ending at day -1
 	//
 
 	// TODO : Déterminer le nombre de jours maximum des séries en cours pour les nurses
-	maxOngoingDaysWorked_ = 2;
+	maxOngoingDaysWorked_ = 0;
+	for(int i=0; i<pInitState->size(); i++){
+		maxOngoingDaysWorked_ = max( (pInitState->at(i)).consDaysWorked_, maxOngoingDaysWorked_ );
+	}
 
 	// Initialization of isUnlimited_ and nLevelsByShift_
 	//
@@ -291,10 +294,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 
 	// TODO : A modifier [ Moche + Doit enlever le max en court ]
 	//
-	if(maxRotationLength == MAX_TIME)
-		maxRotationLength_ = nDays_;
-	else
-		maxRotationLength_ = maxRotationLength;
+	maxRotationLength_ = min(nDays_, maxRotationLength);
 
 	// Reset authorizations if needed
 	//
@@ -365,25 +365,25 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		for(int k=CDMin_-1; k<nDays_; k++){
 			for(int s=1; s<pScenario_->nbShifts_; s++) authorizeArc( arcsPrincipalToRotsizein_[s][k] );
 
-			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > day_opt_solutions_spptw;
-			vector<spp_spptw_res_cont> day_pareto_opt_rcs_spptw;
-			spp_spptw_res_cont day_rc (0,0);
+			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > last_day_opt_solutions_spptw;
+			vector<spp_spptw_res_cont> last_day_pareto_opt_rcs_spptw;
+			spp_spptw_res_cont last_day_rc (0,0);
 			r_c_shortest_paths(
 					g_,
 					get( &Vertex_Properties::num, g_ ),
 					get( &Arc_Properties::num, g_ ),
 					sourceNode_,
 					sinkNode_,
-					day_opt_solutions_spptw,
-					day_pareto_opt_rcs_spptw,
-					day_rc,
+					last_day_opt_solutions_spptw,
+					last_day_pareto_opt_rcs_spptw,
+					last_day_rc,
 					ref_spptw(),
 					dominance_spptw(),
 					std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 					boost::default_r_c_shortest_paths_visitor()
 			);
-			Tools::push_several_back(& opt_solutions_spptw, day_opt_solutions_spptw);
-			Tools::push_several_back(& pareto_opt_rcs_spptw, day_pareto_opt_rcs_spptw);
+			Tools::push_several_back(& opt_solutions_spptw, last_day_opt_solutions_spptw);
+			Tools::push_several_back(& pareto_opt_rcs_spptw, last_day_pareto_opt_rcs_spptw);
 			for(int s=1; s<pScenario_->nbShifts_; s++) forbidArc( arcsPrincipalToRotsizein_[s][k] );
 
 		}
@@ -399,58 +399,70 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	//
 	else if(isOptionActive(SOLVE_ONE_SINK_PER_FIRST_DAY)){
 
-		// 1. Record the original situation of forbidden/allowed short arcs (true=allowed, false=forbidden) + forbid all of them
-		vector<vector<vector<bool> > > initialStatus;
-		for(int s=1; s<pScenario_->nbShifts_; s++){
-			vector<vector<bool> > initialStatus2;
-			for(int k=CDMin_-1; k<nDays_; k++){
-				vector<bool> initialStatus1;
-				for(int n=1; n<maxvalConsByShift_[s]; n++){
+		// 1. Store a vector with all initially allowed short arcs AND forbid all of them
+		vector3D initiallyAuthorized;
+		for(int s=0; s<pScenario_->nbShifts_; s++){
+			vector2D initiallyAuthorized2;
+			for(int k=0; k<nDays_; k++){
+				vector<int> initiallyAuthorized1;
+				for(int n=1; n<=maxvalConsByShift_[s]; n++){
 					int a = arcsFromSource_[s][k][n];
-					initialStatus1.push_back( arcStatus_[ a ] );
-					if(!isArcForbidden(a))forbidArc(a);
+					if(!isArcForbidden(a)){
+						initiallyAuthorized1.push_back( a );
+						forbidArc(a);
+					}
 				}
+				initiallyAuthorized2.push_back(initiallyAuthorized1);
 			}
+			initiallyAuthorized.push_back(initiallyAuthorized2);
 		}
 
-		// TODO : FROM HERE
-		// 2. For every end-day, get the pareto-front
+		// 2. For every first day, get the pareto-front
 		for(int k=CDMin_-1; k<nDays_; k++){
-			for(int s=1; s<pScenario_->nbShifts_; s++) authorizeArc( arcsPrincipalToRotsizein_[s][k] );
 
-			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > day_opt_solutions_spptw;
-			vector<spp_spptw_res_cont> day_pareto_opt_rcs_spptw;
-			spp_spptw_res_cont day_rc (0,0);
+			// Re-authorize the arcs starting on day (k-CDMin_)
+			for(int s=1; s<pScenario_->nbShifts_; s++)
+				for(int a: initiallyAuthorized[s][k])
+					authorizeArc(a);
+
+			// Get the pareto-front and add it to the solution list
+			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > first_day_opt_solutions_spptw;
+			vector<spp_spptw_res_cont> first_day_pareto_opt_rcs_spptw;
+			spp_spptw_res_cont first_day_rc (0,0);
 			r_c_shortest_paths(
 					g_,
 					get( &Vertex_Properties::num, g_ ),
 					get( &Arc_Properties::num, g_ ),
 					sourceNode_,
 					sinkNode_,
-					day_opt_solutions_spptw,
-					day_pareto_opt_rcs_spptw,
-					day_rc,
+					first_day_opt_solutions_spptw,
+					first_day_pareto_opt_rcs_spptw,
+					first_day_rc,
 					ref_spptw(),
 					dominance_spptw(),
 					std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 					boost::default_r_c_shortest_paths_visitor()
 			);
-			Tools::push_several_back(& opt_solutions_spptw, day_opt_solutions_spptw);
-			Tools::push_several_back(& pareto_opt_rcs_spptw, day_pareto_opt_rcs_spptw);
-			for(int s=1; s<pScenario_->nbShifts_; s++) forbidArc( arcsPrincipalToRotsizein_[s][k] );
+			Tools::push_several_back(& opt_solutions_spptw, first_day_opt_solutions_spptw);
+			Tools::push_several_back(& pareto_opt_rcs_spptw, first_day_pareto_opt_rcs_spptw);
 
+			// Forbid the arcs starting on that day
+			for(int s=1; s<pScenario_->nbShifts_; s++)
+				for(int a: initiallyAuthorized[s][k])
+					forbidArc(a);
 		}
-		// 3. Re-authorize all ending arcs
+
+		// 3. Re-set all authorizations as they previsouly were
 		for(int s=1; s<pScenario_->nbShifts_; s++){
 			for(int k=CDMin_-1; k<nDays_; k++){
-				forbidArc( arcsPrincipalToRotsizein_[s][k] );
+				for(int a: initiallyAuthorized[s][k]) authorizeArc(a);
 			}
 		}
 	}
 
 	// Return TRUE if a rotation was added. Last argument is true IF only negative reduced cost rotations are added
 	//
-	return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw, true);
+	return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 }
 
 // Store the options in a readable way
@@ -487,19 +499,21 @@ void SubProblem::setSolveOptions(vector<SolveOption> options){
 
 // Transforms the solutions found into proper rotations.
 //
-bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor> > paths, vector<spp_spptw_res_cont> resources,
-		bool negativeOnly){
+bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor> > paths, vector<spp_spptw_res_cont> resources){
 	bool oneFound = false;
 	// For each path of the list, record the corresponding rotation (if negativeOnly=true, do it only if the dualCost < 0)
 	for(int p=0; p < paths.size(); ++p){
 		Rotation rot = rotationFromPath(paths[p], resources[p]);
-		if( (! negativeOnly) or (rot.dualCost_ < 0)){
+		if( isOptionActive(SOLVE_NEGATIVE_ALLVALUES)
+				or ( isOptionActive(SOLVE_NEGATIVE_ONLY) and (rot.dualCost_ < 0) ) ){
 			theRotations_.push_back(rot);
 			nPaths_ ++;
 			oneFound = true;
+			// printPath(paths[p], resources[p]);
+			// printRotation(rot);
 		}
 	}
-	printAllRotations();
+	//printAllRotations();
 	return oneFound;
 }
 
@@ -1420,7 +1434,7 @@ void SubProblem::printPath(vector< boost::graph_traits<Graph>::edge_descriptor >
 		int a = boost::get(&Arc_Properties::num, g_, path[j]);
 		std::cout << "# \t| [ " << shortNameNode(source( path[j], g_ )) << " ]";
 		std::cout << "\t\tLength:" << arcCost(a) << "\t\tTime:" << arcLength(a);
-		std::cout << std::endl;
+		std::cout << "\t\t[" << (arcStatus_[a] ? " allowed " : "forbidden") << "]" << std::endl;
 	}
 
 	// Last node and total

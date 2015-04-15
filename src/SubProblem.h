@@ -384,11 +384,11 @@ public:
 
 	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
-	SubProblem(Scenario* scenario, Demand * demand, const Contract* contract);
+	SubProblem(Scenario* scenario, Demand * demand, const Contract* contract, vector<State>* pInitState);
 
 	// Initialization function for all global variables (not those of the graph)
 	//
-	void init();
+	void init(vector<State>* pInitState);
 
 	// Test function for Shortest Path Problem with Resource Constraint
 	//
@@ -653,8 +653,8 @@ protected:
 	void initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
 	// Resets all solutions data (rotations, number of solutions, etc.)
 	void resetSolutions();
-	// Transforms the solutions found into proper rotations. Returns true if at least one has been added (can be false if none was found or if all were nonnegative and negativeOnly=true)
-	bool addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources, bool negativeOnly);
+	// Transforms the solutions found into proper rotations. Returns true if at least one has been added
+	bool addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
 	// Returns the rotation made from the given path
 	Rotation rotationFromPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
 
