@@ -90,6 +90,7 @@ bool RotationPricer::pricing(double bound){
 		for(Rotation rot: rotations){
 			std::cout << "# Cost update check : " << rot.cost_;
 			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
 			std::cout << "  ->  " << rot.cost_ << std::endl;
 			master_->addRotation(rot, baseName);
 		}
@@ -167,6 +168,7 @@ vector<double> RotationPricer::getEndWorkDualValues(LiveNurse* pNurse){
 
    //get dual values associated to the work flow constraints
    //don't take into account the first which is the source
+   //take into account the cost, if the last day worked is k
    for(int k=0; k<pDemand_->nbDays_-1; ++k)
       dualValues[k] = -pModel_->getDual(master_->restFlowCons_[i][k+1], true);
 

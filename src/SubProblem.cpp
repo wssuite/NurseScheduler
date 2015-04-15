@@ -962,7 +962,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 		if(nConsecCurrent > pScenario_->maxConsShifts_[allowedShortSuccBySize_[size][succId][size-1]])
 			ANS += consShiftCost(allowedShortSuccBySize_[size][succId][size-1], nConsecCurrent);
 		// WEEKEND REDUCED COST (does not count if day 0 is a Sunday because already taken into account in the MP)
-		if(Tools::containsWeekend( 1 , size-1 )) ANS += pCosts_->workedWeekendCost();
+		if(Tools::containsWeekend( 1 , size-1 )) ANS -= pCosts_->workedWeekendCost();
 	}
 
 	// If the rotation does not start on the first day
@@ -973,9 +973,9 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 		// COMPLETE WEEKEND
 		ANS += startWeekendCosts_[startDate];
 		// WEEKEND REDUCED COST
-		if(Tools::containsWeekend(startDate, startDate + size - 1))	ANS += pCosts_->workedWeekendCost();
+		if(Tools::containsWeekend(startDate, startDate + size - 1))	ANS -= pCosts_->workedWeekendCost();
 		// FIRST DAY (BACK TO WORK)
-		ANS += pCosts_->startWorkCost(startDate);
+		ANS -= pCosts_->startWorkCost(startDate);
 	}
 
 	// COSTS THAT ALWAYS APPLY
@@ -983,7 +983,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 	for(int i=0; i<size; i++){
 		int day = startDate + i, shift = allowedShortSuccBySize_[size][succId][i];
 		ANS += preferencesCosts_[ day ][ shift ];
-		ANS += pCosts_->dayShiftWorkCost( day, shift-1 );
+		ANS -= pCosts_->dayShiftWorkCost( day, shift-1 );
 	}
 
 	return ANS;
@@ -1031,8 +1031,8 @@ void SubProblem::updateArcCosts(){
 				if(a > 0){
 					double c = arcBaseCost_[a];
 					c += preferencesCosts_[k+1][s2] ;
-					c += pCosts_->dayShiftWorkCost(k+1,s2-1);
-					c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+					c -= pCosts_->dayShiftWorkCost(k+1,s2-1);
+					c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
 					updateCost( a , c );
 				}
 			}
@@ -1045,8 +1045,8 @@ void SubProblem::updateArcCosts(){
 				int a = arcsShiftToSameShift_[s][k][n];
 				double c = arcBaseCost_[a];
 				c += preferencesCosts_[k+1][s] ;
-				c += pCosts_->dayShiftWorkCost(k+1,s-1);
-				c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+				c -= pCosts_->dayShiftWorkCost(k+1,s-1);
+				c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
 				updateCost( a , c );
 			}
 
@@ -1059,8 +1059,8 @@ void SubProblem::updateArcCosts(){
 			int a = arcsRepeatShift_[s][k];
 			double c = arcBaseCost_[a];
 			c += preferencesCosts_[k+1][s];
-			c += pCosts_->dayShiftWorkCost(k+1,s-1);
-			c += Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+			c -= pCosts_->dayShiftWorkCost(k+1,s-1);
+			c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
 			updateCost( a , c );
 		}
 
@@ -1070,7 +1070,7 @@ void SubProblem::updateArcCosts(){
 		for(int k=CDMin_-1; k<nDays_; k++){
 			int a = arcsPrincipalToRotsizein_[s][k];
 			double c = arcBaseCost_[a];
-			c += pCosts_->endWorkCost(k);
+			c -= pCosts_->endWorkCost(k);
 			updateCost( a , c );
 		}
 

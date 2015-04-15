@@ -58,8 +58,8 @@ struct BcpCoreVar: public CoinVar, public BCP_var_core {
 
 //these variables are generated during the process, they are not always in the LP problem
 struct BcpColumn: public CoinVar, public BCP_var_algo{
-   BcpColumn(const char* name, int index, double cost, VarType type, double lb, double ub):
-      CoinVar(name, index, cost, type, lb, ub),
+   BcpColumn(const char* name, int index, double cost, double dualCost, VarType type, double lb, double ub):
+      CoinVar(name, index, cost, type, lb, ub, dualCost),
       BCP_var_algo(BcpCoreVar::getBcpVarType(type), cost, lb, ub)
    { }
 
@@ -125,7 +125,7 @@ public:
     */
    int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub);
 
-   int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub);
+   int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, double dualObj, VarType vartype, double lb, double ub);
 
    /*
     * Create linear constraint:

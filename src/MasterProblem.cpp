@@ -136,6 +136,37 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
 }
 
 
+void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<double> startWorkDualCosts,
+      vector<double> endWorkDualCosts, double workedWeekendDualCost){
+   //check if pNurse points to a nurse
+      if(pNurse_ == NULL)
+         Tools::throwError("LiveNurse = NULL");
+
+      /************************************************
+       * Compute all the dual costs of a rotation:
+       ************************************************/
+
+      double dualCost(cost_);
+
+      /* Working dual cost */
+      for(int k=firstDay_; k<length_; ++k)
+         dualCost -= workDualCosts[k][shifts_[k]-1];
+      /* Start working dual cost */
+      dualCost -= startWorkDualCosts[firstDay_];
+      /* Stop working dual cost */
+      dualCost -= endWorkDualCosts[firstDay_+length_-1];
+      /* Working on weekend */
+      if(Tools::isWeekend(firstDay_))
+         dualCost -= workedWeekendDualCost;
+      for(int k=firstDay_+1; k<length_; ++k)
+         if(Tools::isSaturday(k))
+            dualCost -= workedWeekendDualCost;
+
+      if(abs(dualCost_ - dualCost) > EPSILON )
+         Tools::throwError("Bad dual cost");
+}
+
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   M a s t e r P r o b l e m
@@ -373,7 +404,7 @@ void MasterProblem::addRotation(Rotation rotation, char* baseName){
 		addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
 
 	sprintf(name, "%s_N%d_%d",baseName , i, rotations_[i].size());
-	pModel_->createIntColumn(&var, name, rotation.cost_, cons, coeffs);
+	pModel_->createIntColumn(&var, name, rotation.cost_, rotation.dualCost_, cons, coeffs);
 	rotations_[i].insert(pair<MyObject*,Rotation>(var, rotation));
 }
 

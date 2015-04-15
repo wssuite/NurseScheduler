@@ -132,19 +132,19 @@ public:
       createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, score);
    }
 
-   virtual int createColumnVar(MyObject** var, const char* var_name, double objCoeff,
+   virtual int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj,
       double lb, double ub, VarType vartype, double score)=0;
 
-   inline void createPositiveColumnVar(MyObject** var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
-      createColumnVar(var, var_name, objCoeff, 0.0, ub, VARTYPE_CONTINUOUS, score);
+   inline void createPositiveColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj = 99999, double score = 0, double ub = DBL_MAX){
+      createColumnVar(var, var_name, objCoeff, dualObj, 0.0, ub, VARTYPE_CONTINUOUS, score);
    }
 
-   inline void createIntColumnVar(MyObject** var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
-      createColumnVar(var, var_name, objCoeff, 0, ub, VARTYPE_INTEGER, score);
+   inline void createIntColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj = 99999, double score = 0, double ub = DBL_MAX){
+      createColumnVar(var, var_name, objCoeff, dualObj, 0, ub, VARTYPE_INTEGER, score);
    }
 
-   inline void createBinaryColumnVar(MyObject** var, const char* var_name, double objCoeff, double score = 0){
-      createColumnVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, score);
+   inline void createBinaryColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj = 99999, double score = 0){
+      createColumnVar(var, var_name, objCoeff, dualObj, 0.0, 1.0, VARTYPE_BINARY, score);
    }
 
    /*
@@ -207,17 +207,17 @@ public:
     * Add new Column to the problem
     */
 
-   inline void createColumn(MyObject** var, const char* var_name, double objCoeff, VarType vartype,
+   inline void createColumn(MyObject** var, const char* var_name, double objCoeff, double dualObj,  VarType vartype,
       vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
       switch(vartype){
       case VARTYPE_BINARY:
-         createBinaryColumnVar(var, var_name, objCoeff, score);
+         createBinaryColumnVar(var, var_name, objCoeff, dualObj, score);
          break;
       case VARTYPE_INTEGER:
-         createIntColumnVar(var, var_name, objCoeff, score);
+         createIntColumnVar(var, var_name, objCoeff, dualObj, score);
          break;
       default:
-         createPositiveColumnVar(var, var_name, objCoeff, score);
+         createPositiveColumnVar(var, var_name, objCoeff, dualObj, score);
          break;
       }
 
@@ -225,19 +225,19 @@ public:
          addCoefLinear(cons[i], *var, coeffs[i], transformed);
    }
 
-   inline void createPositiveColumn(MyObject** var, const char* var_name, double objCoeff,
+   inline void createPositiveColumn(MyObject** var, const char* var_name, double objCoeff, double dualObj,
       vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
-      createColumn(var, var_name, objCoeff, VARTYPE_CONTINUOUS, cons, coeffs, transformed, score);
+      createColumn(var, var_name, objCoeff, dualObj, VARTYPE_CONTINUOUS, cons, coeffs, transformed, score);
    }
 
-   inline void createBinaryColumn(MyObject** var, const char* var_name, double objCoeff,
+   inline void createBinaryColumn(MyObject** var, const char* var_name, double objCoeff, double dualObj,
       vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
-      createColumn(var, var_name, objCoeff, VARTYPE_BINARY, cons, coeffs, transformed, score);
+      createColumn(var, var_name, objCoeff, dualObj, VARTYPE_BINARY, cons, coeffs, transformed, score);
    }
 
-   inline void createIntColumn(MyObject** var, const char* var_name, double objCoeff,
+   inline void createIntColumn(MyObject** var, const char* var_name, double objCoeff, double dualObj,
       vector<MyObject*> cons = {}, vector<double> coeffs = {}, bool transformed = false, double score = 0){
-      createColumn(var, var_name, objCoeff, VARTYPE_INTEGER, cons, coeffs, transformed, score);
+      createColumn(var, var_name, objCoeff, dualObj, VARTYPE_INTEGER, cons, coeffs, transformed, score);
    }
 
    /*

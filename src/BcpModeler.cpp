@@ -273,8 +273,8 @@ int BcpModeler::createCoinVar(CoinVar** var, const char* var_name, int index, do
    return 1;
 }
 
-int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub){
-   *var = new BcpColumn(var_name, index, objCoeff, vartype, lb, ub);
+int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, double dualObj, VarType vartype, double lb, double ub){
+   *var = new BcpColumn(var_name, index, objCoeff, dualObj, vartype, lb, ub);
    objects_.push_back(*var);
    return 1;
 }
