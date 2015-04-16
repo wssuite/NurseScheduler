@@ -106,7 +106,7 @@ int dayToInt(string day);
 bool isSaturday(int dayId);
 bool isSunday(int dayId);
 bool isWeekend(int dayId);
-bool containsWeekend(int startDate, int endDate);
+int containsWeekend(int startDate, int endDate);
 
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed

@@ -180,11 +180,14 @@ bool isWeekend(int dayId){
 	return false;
 }
 
-bool containsWeekend(int start, int end){
+int containsWeekend(int start, int end){
+   int nbWeekend = 0;
 	for(int i=start; i<=end; i++)
-		if(isWeekend(i))
-			return true;
-	return false;
+		if(isWeekend(i)){
+			++nbWeekend;
+			++i;
+		}
+	return nbWeekend;
 }
 
 // constructor of Timer

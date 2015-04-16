@@ -62,6 +62,12 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
     * Compute consShiftCost
     */
 
+   // if the initial shift has already exceeded the max, substract now the cost that will be readd later
+   if( (firstDay_==0) && (lastShift>0) &&
+      (nbConsShifts > pScenario->maxConsShifts_[lastShift])){
+      consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShifts_[lastShift])*WEIGHT_CONS_SHIFTS;
+   }
+
    for(int k=firstDay_; k<firstDay_+length_; ++k){
       if(lastShift == shifts_[k]){
          nbConsShifts ++;

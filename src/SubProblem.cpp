@@ -230,7 +230,10 @@ void SubProblem::initShortSuccessions(){
 						int newNLast = 1;
 						double newCost = cost;
 						if (newSh == lastSh){	// BUT : add the cost if longer than the maximum allowed
-							newNLast += nLast;
+						   newNLast += nLast;
+                     /* Antoine modif */
+                     if(newNLast > pScenario_->maxConsShifts_[newSh])
+                        newCost += consShiftCost(lastSh, nLast) ;
 						} else {
 							newCost += consShiftCost(lastSh, nLast) ;
 						}
@@ -804,7 +807,11 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			origin = principalNetworkNodes_[sh][nDays_-1][nCons];
 			destin = principalNetworkNodes_[sh][nDays_-1][maxvalConsByShift_[sh]];
 			arcsShiftToEndsequence_[sh][nDays_-1][nCons] = nArcs_;
-			addSingleArc(origin, destin, consShiftCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE);
+         /*
+          * Antoine modif: on paie juste les jours en plus
+          */
+//			addSingleArc(origin, destin, consShiftCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE);
+         addSingleArc(origin, destin, 0, 0, SHIFT_TO_ENDSEQUENCE);
 		}
 	}
 }
@@ -952,31 +959,67 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 
 	// If the rotation starts on the first day and if the nurse was already working before
 	//
-	if(startDate == 0 and pLiveNurse_->pStateIni_->consDaysWorked_ > 0){
+	/* Antoine modif */
+//	if(startDate == 0 and pLiveNurse_->pStateIni_->consDaysWorked_ > 0){
+	if(startDate == 0){
 		int nConsIni = pLiveNurse_->pStateIni_->consDaysWorked_;
 		int shiftIni = pLiveNurse_->pStateIni_->shift_;
-		int nConsecCurrent = 1;
+		/* Antoine modif */
+//		int nConsecCurrent = 1;
+		int nConsecCurrent = pLiveNurse_->pStateIni_->consShifts_;
 
-		// IF the nurse continues working on same shift -> subtract the cost of the current sequence (later replaced by the one for the longer sequence)
-		if(shiftIni == allowedShortSuccBySize_[size][succId][0]){
-			ANS -= consShiftCost(shiftIni, nConsIni);
-			nConsecCurrent += nConsIni;
-		}
+		/* Antoine modif */
 
-		// SUCCESSIVE SHIFTS
-		for(int i=1; i<size; i++){
-			int prevShift = allowedShortSuccBySize_[size][succId][i-1];
-			int shift = allowedShortSuccBySize_[size][succId][i];
-			if(shift != prevShift){
-				ANS += consShiftCost(prevShift, nConsecCurrent);
-				nConsecCurrent = 1;
-			}
-		}
+//		// IF the nurse continues working on same shift -> subtract the cost of the current sequence (later replaced by the one for the longer sequence)
+//		if(shiftIni == allowedShortSuccBySize_[size][succId][0]){
+//			ANS -= consShiftCost(shiftIni, nConsIni);
+//			nConsecCurrent += nConsIni;
+//		}
+//
+//		// SUCCESSIVE SHIFTS
+//		for(int i=1; i<size; i++){
+//			int prevShift = allowedShortSuccBySize_[size][succId][i-1];
+//			int shift = allowedShortSuccBySize_[size][succId][i];
+//			if(shift != prevShift){
+//				ANS += consShiftCost(prevShift, nConsecCurrent);
+//				nConsecCurrent = 1;
+//			}
+//		}
+
+      //INITIAL REST
+      if(shiftIni > 0){
+         int diff = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
+         ANS += (diff > 0) ? diff*WEIGHT_CONS_DAYS_OFF : 0;
+         nConsecCurrent = 1;
+      }
+      // if the current shift has already exceeded the max, substract now the cost that will be readd later
+      else if(nConsIni > pScenario_->maxConsShifts_[shiftIni]){
+         ANS -= consShiftCost(shiftIni, nConsIni);
+      }
+
+      // SUCCESSIVE SHIFTS
+      int prevShift = shiftIni;
+      int shift = -1;
+
+      for(int i=0; i<size; i++){
+         shift = allowedShortSuccBySize_[size][succId][i];
+         if(shift == prevShift){
+            nConsecCurrent++;
+            continue;
+         }
+         if(prevShift > 0){//no rest shift
+            ANS += consShiftCost(prevShift, nConsecCurrent);
+            nConsecCurrent = 1;
+         }
+         prevShift = shift;
+      }
+
 		// IF MORE THAN THE MAXIMUM OF CONSECUTIVE ALLOWED
-		if(nConsecCurrent > pScenario_->maxConsShifts_[allowedShortSuccBySize_[size][succId][size-1]])
-			ANS += consShiftCost(allowedShortSuccBySize_[size][succId][size-1], nConsecCurrent);
-		// WEEKEND REDUCED COST (does not count if day 0 is a Sunday because already taken into account in the MP)
-		if(Tools::containsWeekend( 1 , size-1 )) ANS -= pCosts_->workedWeekendCost();
+		if(nConsecCurrent > pScenario_->maxConsShifts_[prevShift])
+			ANS += consShiftCost(prevShift, nConsecCurrent);
+		/* Antoine modif: put later */
+//		// WEEKEND REDUCED COST (does not count if day 0 is a Sunday because already taken into account in the MP)
+//		if(Tools::containsWeekend( 1 , size-1 )) ANS -= pCosts_->workedWeekendCost();
 	}
 
 	// If the rotation does not start on the first day
@@ -984,15 +1027,20 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 	else {
 		// SUCCESSIVE SHIFTS
 		ANS += baseArcCostOfShortSucc_[size][succId];
-		// COMPLETE WEEKEND
-		ANS += startWeekendCosts_[startDate];
-		// WEEKEND REDUCED COST
-		if(Tools::containsWeekend(startDate, startDate + size - 1))	ANS -= pCosts_->workedWeekendCost();
-		// FIRST DAY (BACK TO WORK)
-		ANS -= pCosts_->startWorkCost(startDate);
 	}
 
 	// COSTS THAT ALWAYS APPLY
+
+   // COMPLETE WEEKEND
+   ANS += startWeekendCosts_[startDate];
+   // WEEKEND REDUCED COST
+   /* Antoine modif, if 2 weekends ... */
+// if(Tools::containsWeekend(startDate, startDate + size - 1)) ANS -= pCosts_->workedWeekendCost();
+   int nbWeekends = Tools::containsWeekend(startDate, startDate + size - 1);
+   ANS -= nbWeekends * pCosts_->workedWeekendCost();
+   // FIRST DAY (BACK TO WORK)
+   ANS -= pCosts_->startWorkCost(startDate);
+
 	// PREFERENCES + REDCOST OF EACH SHIFT
 	for(int i=0; i<size; i++){
 		int day = startDate + i, shift = allowedShortSuccBySize_[size][succId][i];
