@@ -62,10 +62,16 @@ bool RotationPricer::pricing(double bound){
 		   subProblem = it->second;
 
 	   /* Retrieves dual values */
-	   vector< vector<double> > workDualCosts = getWorkDualValues(pNurse);
-	   vector<double> startWorkDualCosts = getStartWorkDualValues(pNurse);
-	   vector<double> endWorkDualCosts = getEndWorkDualValues(pNurse);
+	   vector< vector<double> > workDualCosts; //workDualCosts = getWorkDualValues(pNurse);
+	   vector<double> startWorkDualCosts; //startWorkDualCosts = getStartWorkDualValues(pNurse);
+	   vector<double> endWorkDualCosts; //endWorkDualCosts = getEndWorkDualValues(pNurse);
 	   double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
+
+      Tools::initDoubleVector2D(&workDualCosts, pDemand_->nbDays_, pDemand_->nbShifts_-1);
+      Tools::initDoubleVector(&startWorkDualCosts, pDemand_->nbDays_);
+      Tools::initDoubleVector(&endWorkDualCosts, pDemand_->nbDays_);
+      workedWeekendDualCost = 200;
+
 	   Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
 	   /* Compute forbidden */

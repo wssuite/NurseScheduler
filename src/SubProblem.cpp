@@ -987,14 +987,18 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 //		}
 
       //INITIAL REST
-      if(shiftIni > 0){
+		//compute just minimum, maximum has already been taken into account before
+      if(shiftIni == 0){
          int diff = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
          ANS += (diff > 0) ? diff*WEIGHT_CONS_DAYS_OFF : 0;
          nConsecCurrent = 1;
       }
-      // if the current shift has already exceeded the max, substract now the cost that will be readd later
-      else if(nConsIni > pScenario_->maxConsShifts_[shiftIni]){
-         ANS -= consShiftCost(shiftIni, nConsIni);
+      // if the current shift/work has already exceeded the max, substract now the cost that will be readd later
+      else{
+         if(nConsIni > pLiveNurse_->maxConsDaysWork())
+            ANS -= consShiftCost(shiftIni, nConsIni);
+         if(nConsecCurrent > pScenario_->maxConsShifts_[shiftIni])
+            ANS -= consShiftCost(shiftIni, nConsIni);
       }
 
       // SUCCESSIVE SHIFTS
@@ -1073,6 +1077,7 @@ void SubProblem::updateArcCosts(){
 				int a = arcsFromSource_[s][k][n];
 				double c = arcCostBestShortSuccCDMin_[s][k][n];
 				updateCost( a , c );
+				/* Antoine Modif: need to update also the time for the initial ones */
 				shortSuccCDMinIdFromArc_.insert(pair<int,int>( arcsFromSource_[s][k][n], idBestShortSuccCDMin_[s][k][n]));
 
 				if(idBestShortSuccCDMin_[s][k][n] > -1){
