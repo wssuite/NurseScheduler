@@ -62,10 +62,16 @@ bool RotationPricer::pricing(double bound){
 		   subProblem = it->second;
 
 	   /* Retrieves dual values */
-	   vector< vector<double> > workDualCosts = getWorkDualValues(pNurse);
-	   vector<double> startWorkDualCosts = getStartWorkDualValues(pNurse);
-	   vector<double> endWorkDualCosts = getEndWorkDualValues(pNurse);
+	   vector< vector<double> > workDualCosts; //workDualCosts = getWorkDualValues(pNurse);
+	   vector<double> startWorkDualCosts; //startWorkDualCosts = getStartWorkDualValues(pNurse);
+	   vector<double> endWorkDualCosts; //endWorkDualCosts = getEndWorkDualValues(pNurse);
 	   double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
+
+      Tools::initDoubleVector2D(&workDualCosts, pDemand_->nbDays_, pDemand_->nbShifts_-1);
+      Tools::initDoubleVector(&startWorkDualCosts, pDemand_->nbDays_);
+      Tools::initDoubleVector(&endWorkDualCosts, pDemand_->nbDays_);
+      workedWeekendDualCost = 200;
+
 	   Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
 	   /* Compute forbidden */
@@ -83,6 +89,25 @@ bool RotationPricer::pricing(double bound){
 		   optimal = false;
 	   else
 		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+
+      // SR - TODO : calcul du cout a chaque fois, car pas fait dans le SP
+		/* Retrieve rotations and add them to the master problem*/
+		rotations = subProblem->getRotations();
+		for(Rotation rot: rotations){
+			std::cout << "# Cost update check : " << rot.cost_;
+			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
+			std::cout << "  ->  " << rot.cost_ << std::endl;
+			master_->addRotation(rot, baseName);
+		}
+		std::cout  << "# " << std::endl;
+
+      /* Retrieve rotations and add them to the master problem*/
+      /*
+      rotations = subProblem->getRotations();
+      for(Rotation rot: rotations)
+         master_->addRotation(rot, baseName);
+      */
 
 	   /* Retrieve rotations and add them to the master problem*/
 	   rotations = subProblem->getRotations();
@@ -159,6 +184,7 @@ vector<double> RotationPricer::getEndWorkDualValues(LiveNurse* pNurse){
 
    //get dual values associated to the work flow constraints
    //don't take into account the first which is the source
+   //take into account the cost, if the last day worked is k
    for(int k=0; k<pDemand_->nbDays_-1; ++k)
       dualValues[k] = -pModel_->getDual(master_->restFlowCons_[i][k+1], true);
 

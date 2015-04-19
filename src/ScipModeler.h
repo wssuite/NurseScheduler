@@ -84,7 +84,7 @@ public:
    int createVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub,
       VarType vartype, double score);
 
-   int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub,
+   int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj, double lb, double ub,
       VarType vartype, double score){
       return createVar(var, var_name, objCoeff, lb, ub, vartype, score);
    }

@@ -81,6 +81,10 @@ struct Rotation {
    //
    void computeCost(Scenario* pScenario, Preferences* pPreferences, int horizon);
 
+   //Compute the dual cost of a rotation
+   //
+   void computeDualCost(vector< vector<double> > workDualCosts, vector<double> startWorkDualCosts,
+      vector<double> endWorkDualCosts, double workedWeekendDualCost);
 };
 
 

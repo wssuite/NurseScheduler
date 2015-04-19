@@ -18,12 +18,12 @@
  */
 //Coin var, just a virtual class
 struct CoinVar: public MyObject {
-   CoinVar(const char* name, int index, double cost, VarType type, double lb, double ub):
-      MyObject(name), index_(index), type_(type), cost_(cost), lb_(lb), ub_(ub)
+   CoinVar(const char* name, int index, double cost, VarType type, double lb, double ub, double dualCost = 99999):
+      MyObject(name), index_(index), type_(type), cost_(cost), lb_(lb), ub_(ub), dualCost_(dualCost)
    { }
 
    CoinVar(const CoinVar& var) :
-      MyObject(var), index_(var.index_), type_(var.type_), cost_(var.cost_),
+      MyObject(var), index_(var.index_), type_(var.type_), cost_(var.cost_), dualCost_(var.dualCost_),
       lb_(var.lb_), ub_(var.ub_), indexRows_(var.indexRows_), coeffs_(var.coeffs_)
    { }
 
@@ -62,6 +62,7 @@ protected:
    int index_; //index of the column of the matrix here
    VarType type_; //type of the variable
    double cost_; //cost of the variable
+   double dualCost_; //dualCost of the variable
    double lb_; //lower bound
    double ub_; //upper bound
    vector<int> indexRows_; //index of the rows of the matrix where the variable has non-zero coefficient
@@ -134,7 +135,7 @@ public:
    //WARNING: core vars have to all be created before creating column vars
    virtual int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub)=0;
 
-   virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub)=0;
+   virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, double dualObj, VarType vartype, double lb, double ub)=0;
 
    int createVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score){
       if(lb==DBL_MIN)
@@ -152,7 +153,7 @@ public:
       return 1;
    }
 
-   int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score){
+   int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj, double lb, double ub, VarType vartype, double score){
       if(lb==DBL_MIN)
          lb = -infinity;
       if(ub==DBL_MAX)
@@ -160,7 +161,7 @@ public:
 
       int index = coreVars_.size() + columnVars_.size();
       CoinVar* var2;
-      createColumnCoinVar(&var2, var_name, index, objCoeff, vartype, lb, ub);
+      createColumnCoinVar(&var2, var_name, index, objCoeff, dualObj, vartype, lb, ub);
 
       columnVars_.push_back(var2);
       *var = var2;

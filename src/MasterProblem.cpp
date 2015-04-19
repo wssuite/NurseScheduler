@@ -62,6 +62,12 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
     * Compute consShiftCost
     */
 
+   // if the initial shift has already exceeded the max, substract now the cost that will be readd later
+   if( (firstDay_==0) && (lastShift>0) &&
+      (nbConsShifts > pScenario->maxConsShifts_[lastShift])){
+      consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShifts_[lastShift])*WEIGHT_CONS_SHIFTS;
+   }
+
    for(int k=firstDay_; k<firstDay_+length_; ++k){
       if(lastShift == shifts_[k]){
          nbConsShifts ++;
@@ -133,6 +139,37 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
     */
 
    cost_ = consShiftsCost_ + consDaysWorkedCost_ + completeWeekendCost_ + preferenceCost_ +  initRestCost_;
+}
+
+
+void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<double> startWorkDualCosts,
+      vector<double> endWorkDualCosts, double workedWeekendDualCost){
+   //check if pNurse points to a nurse
+      if(pNurse_ == NULL)
+         Tools::throwError("LiveNurse = NULL");
+
+      /************************************************
+       * Compute all the dual costs of a rotation:
+       ************************************************/
+
+      double dualCost(cost_);
+
+      /* Working dual cost */
+      for(int k=firstDay_; k<length_; ++k)
+         dualCost -= workDualCosts[k][shifts_[k]-1];
+      /* Start working dual cost */
+      dualCost -= startWorkDualCosts[firstDay_];
+      /* Stop working dual cost */
+      dualCost -= endWorkDualCosts[firstDay_+length_-1];
+      /* Working on weekend */
+      if(Tools::isWeekend(firstDay_))
+         dualCost -= workedWeekendDualCost;
+      for(int k=firstDay_+1; k<length_; ++k)
+         if(Tools::isSaturday(k))
+            dualCost -= workedWeekendDualCost;
+
+      if(abs(dualCost_ - dualCost) > EPSILON )
+         cout << "Bad dual cost" << endl;
 }
 
 
@@ -373,7 +410,7 @@ void MasterProblem::addRotation(Rotation rotation, char* baseName){
 		addSkillsCoverageConsToCol(&cons, &coeffs, i, k, rotation.shifts_[k]);
 
 	sprintf(name, "%s_N%d_%d",baseName , i, rotations_[i].size());
-	pModel_->createIntColumn(&var, name, rotation.cost_, cons, coeffs);
+	pModel_->createIntColumn(&var, name, rotation.cost_, rotation.dualCost_, cons, coeffs);
 	rotations_[i].insert(pair<MyObject*,Rotation>(var, rotation));
 }
 
