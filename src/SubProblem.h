@@ -142,7 +142,7 @@ struct Arc_Properties{
 
 	// Constructor
 	//
-	Arc_Properties( int n = 0, ArcType ty = NONE_ARC, int c = 0, int t = 0 ) : num( n ), type(ty), cost( c ), time( t ) {}
+	Arc_Properties( int n = 0, ArcType ty = NONE_ARC, double c = 0, int t = 0 ) : num( n ), type(ty), cost( c ), time( t ) {}
 
 	// id
 	//

@@ -84,8 +84,7 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 
 	nPathsMin_ = 0;
 
-	//std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
-	//std::cout << "# Max ongoing days worked: " << maxOngoingDaysWorked_ << std::endl;
+	std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
 
 	//printGraph();
 	//printShortSucc();
@@ -99,8 +98,6 @@ void SubProblem::init(vector<State>* pInitState){
 
 	// Maximum number of consecutive days worked by a nurse ending at day -1
 	//
-
-	// TODO : Déterminer le nombre de jours maximum des séries en cours pour les nurses
 	maxOngoingDaysWorked_ = 0;
 	for(int i=0; i<pInitState->size(); i++){
 		maxOngoingDaysWorked_ = max( (pInitState->at(i)).consDaysWorked_, maxOngoingDaysWorked_ );
@@ -285,6 +282,16 @@ double SubProblem::consDaysCost(int n){
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
 
+	string s = nurse->pContract_->toString();
+	std::cout << "# " << s << std::endl;
+
+	std::cout << "# Preferences:" << endl;
+	for(map<int,set<int> >::iterator it = nurse->pWishesOff_->begin(); it != nurse->pWishesOff_->end(); ++it){
+		cout <<  "      | " << it->first << "  ->  ";
+		for(int s : it->second) cout << pScenario_->intToShift_[s];
+		cout << endl;
+	}
+
 	std::cout << "# " << std::endl;
 	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << std::endl;
 
@@ -320,7 +327,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	initStructuresForSolve(nurse, costs, forbiddenDayShiftsUsed, maxRotationLength);
 
 	// If needed, generate other costs
-	if(isOptionActive(SOLVE_COST_RANDOM)) generateRandomCosts(-50, 50);
+	if(isOptionActive(SOLVE_COST_RANDOM)) generateRandomCosts(0, 0);
 
 	// Forbid new arcs, and update the costs
 	//
@@ -509,8 +516,8 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 			theRotations_.push_back(rot);
 			nPaths_ ++;
 			oneFound = true;
-			// printPath(paths[p], resources[p]);
-			// printRotation(rot);
+			printPath(paths[p], resources[p]);
+			printRotation(rot);
 		}
 	}
 	//printAllRotations();
@@ -804,7 +811,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			origin = principalNetworkNodes_[sh][nDays_-1][nCons];
 			destin = principalNetworkNodes_[sh][nDays_-1][maxvalConsByShift_[sh]];
 			arcsShiftToEndsequence_[sh][nDays_-1][nCons] = nArcs_;
-			addSingleArc(origin, destin, consShiftCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE);
+			addSingleArc(origin, destin, 0, 0, SHIFT_TO_ENDSEQUENCE);
 		}
 	}
 }
@@ -1300,6 +1307,7 @@ void SubProblem::printAllNodes(){
 
 }
 // Prints the line of an arc
+
 string SubProblem::printArc(int a){
 	stringstream rep;
 	rep << "# ARC   " << a << " \t" << arcTypeName[arcType(a)] << " \t";

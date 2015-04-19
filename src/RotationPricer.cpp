@@ -88,8 +88,11 @@ bool RotationPricer::pricing(double bound){
 	   rotations = subProblem->getRotations();
 	   for(Rotation rot: rotations){
 		   rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+		   cout << "# Cost update : " << rot.cost_ << endl;
 		   master_->addRotation(rot, baseName);
 	   }
+
+	   getchar();
 
    }
 
