@@ -137,7 +137,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    /*
     * Compute the sum of the cost and stores it in cost_
     */
-
+   /*
    cout << "# Calcul du cout:" << endl;
    cout << "#       | Consecutive shifts: " << consShiftsCost_ << endl;
    cout << "#       | Consecutive days  : " << consDaysWorkedCost_ << endl;
@@ -145,7 +145,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    cout << "#       | Preferences       : " << preferenceCost_ << endl;
    cout << "#       | Initial rest      : " << initRestCost_ << endl;
    cout << "# " << endl;
-
+   */
 
    cost_ = consShiftsCost_ + consDaysWorkedCost_ + completeWeekendCost_ + preferenceCost_ +  initRestCost_;
 }
@@ -162,23 +162,23 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
        ************************************************/
 
       double dualCost(cost_);
- 	 cout << "#   | Base cost     : + " << cost_ << endl;
+// 	 cout << "#   | Base cost     : + " << cost_ << endl;
 
       /* Working dual cost */
       for(int k=firstDay_; k<length_; ++k){
          dualCost -= workDualCosts[k][shifts_[k]-1];
-    	 cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
+//    	 cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
       }
       /* Start working dual cost */
       dualCost -= startWorkDualCosts[firstDay_];
-	  cout << "#   | Start work    : - " << startWorkDualCosts[firstDay_] << endl;
+//	  cout << "#   | Start work    : - " << startWorkDualCosts[firstDay_] << endl;
       /* Stop working dual cost */
       dualCost -= endWorkDualCosts[firstDay_+length_-1];
-	  cout << "#   | Finish Work   : - " << endWorkDualCosts[firstDay_+length_-1] << endl;
+//	  cout << "#   | Finish Work   : - " << endWorkDualCosts[firstDay_+length_-1] << endl;
       /* Working on weekend */
       if(Tools::isSunday(firstDay_)){
          dualCost -= workedWeekendDualCost;
-   	     cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
+//   	     cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
       }
       for(int k=firstDay_; k<firstDay_+length_; ++k){
          if(Tools::isSaturday(k)){
@@ -187,7 +187,7 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
          }
       }
 
-
+      /*
       std::cout << "# \t| ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
       std::cout << "# \t            |";
       vector<int> allTasks (56);
@@ -198,12 +198,11 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
     	  else std::cout << allTasks[i] << "|";
       }
       std::cout << std::endl;
+      */
 
       if(abs(dualCost_ - dualCost) > EPSILON ){
           cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
-          getchar();
-      } else {
-    	  cout << "Good dual cost: " << dualCost_ << "==" << dualCost << endl;
+          getchar()
       }
 }
 
