@@ -62,7 +62,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
     * Compute consShiftCost
     */
 
-   // if the initial shift has already exceeded the max, subtract now the cost that will be read later
+   // if the initial shift has already exceeded the max, substract now the cost that will be readd later
    if( (firstDay_==0) && (lastShift>0) &&
       (nbConsShifts > pScenario->maxConsShifts_[lastShift])){
       consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShifts_[lastShift])*WEIGHT_CONS_SHIFTS;
@@ -137,15 +137,6 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    /*
     * Compute the sum of the cost and stores it in cost_
     */
-   /*
-   cout << "# Calcul du cout:" << endl;
-   cout << "#       | Consecutive shifts: " << consShiftsCost_ << endl;
-   cout << "#       | Consecutive days  : " << consDaysWorkedCost_ << endl;
-   cout << "#       | Complete weekends : " << completeWeekendCost_ << endl;
-   cout << "#       | Preferences       : " << preferenceCost_ << endl;
-   cout << "#       | Initial rest      : " << initRestCost_ << endl;
-   cout << "# " << endl;
-   */
 
    cost_ = consShiftsCost_ + consDaysWorkedCost_ + completeWeekendCost_ + preferenceCost_ +  initRestCost_;
 }
@@ -162,48 +153,23 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
        ************************************************/
 
       double dualCost(cost_);
-// 	 cout << "#   | Base cost     : + " << cost_ << endl;
 
       /* Working dual cost */
-      for(int k=firstDay_; k<length_; ++k){
+      for(int k=firstDay_; k<length_; ++k)
          dualCost -= workDualCosts[k][shifts_[k]-1];
-//    	 cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
-      }
       /* Start working dual cost */
       dualCost -= startWorkDualCosts[firstDay_];
-//	  cout << "#   | Start work    : - " << startWorkDualCosts[firstDay_] << endl;
       /* Stop working dual cost */
       dualCost -= endWorkDualCosts[firstDay_+length_-1];
-//	  cout << "#   | Finish Work   : - " << endWorkDualCosts[firstDay_+length_-1] << endl;
       /* Working on weekend */
-      if(Tools::isSunday(firstDay_)){
+      if(Tools::isWeekend(firstDay_))
          dualCost -= workedWeekendDualCost;
-//   	     cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
-      }
-      for(int k=firstDay_; k<firstDay_+length_; ++k){
-         if(Tools::isSaturday(k)){
-        	 dualCost -= workedWeekendDualCost;
-       	     cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
-         }
-      }
+      for(int k=firstDay_+1; k<length_; ++k)
+         if(Tools::isSaturday(k))
+            dualCost -= workedWeekendDualCost;
 
-      /*
-      std::cout << "# \t| ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
-      std::cout << "# \t            |";
-      vector<int> allTasks (56);
-      for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
-    	  allTasks[itTask->first] = itTask->second;
-      for(int i=0; i<allTasks.size(); i++){
-    	  if(allTasks[i] < 1) std::cout << " |";
-    	  else std::cout << allTasks[i] << "|";
-      }
-      std::cout << std::endl;
-      */
-
-      if(abs(dualCost_ - dualCost) > EPSILON ){
-          cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
-          getchar();
-      }
+      if(abs(dualCost_ - dualCost) > EPSILON )
+         cout << "Bad dual cost" << endl;
 }
 
 
@@ -237,6 +203,8 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    case S_BCP:
       pModel_ = new BcpModeler(PB_NAME);
       break;
+   case S_CBC:
+      pModel_ = new CbcModeler(PB_NAME);
    }
 
    this->preprocessTheNurses();
@@ -284,18 +252,29 @@ void MasterProblem::build(){
    /* Skills coverage constraints */
    buildSkillsCoverageCons();
 
-   /* Rotation pricer */
-   pPricer_ = new RotationPricer(this, "pricer");
-   pModel_->addObjPricer(pPricer_);
+   /* Initialize the objects used in the branch and price unless the CBC is used
+      to solve the problem
+   */
+   if (solverType_ != S_CBC) {
 
-   /* Branching rule */
-   pRule_ = new DiveBranchingRule(this, "branching rule");
-   pModel_->addBranchingRule(pRule_);
+     /* Rotation pricer */
+     pPricer_ = new RotationPricer(this, "pricer");
+     pModel_->addObjPricer(pPricer_);
+
+     /* Branching rule */
+     pRule_ = new DiveBranchingRule(this, "branching rule");
+     pModel_->addBranchingRule(pRule_);
+   }
 }
 
 //solve the rostering problem
 void MasterProblem::solve(){
-   pModel_->setVerbosity(5);
+
+  // RqJO: warning, it would be better to define an enumerate type of verbosity
+  // levels and create the matching in the Modeler subclasses
+  if (solverType_ == S_BCP ) {
+    pModel_->setVerbosity(5);
+  }
    pModel_->solve();
    pModel_->printStats();
    pModel_->printBestSol();

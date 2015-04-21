@@ -53,6 +53,12 @@ CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars,
     return 1;
  }
 
+ int CbcModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, double dualObj, VarType vartype, double lb, double ub){
+    *var = new CoinVar(var_name, index, objCoeff, vartype, lb, ub,dualObj);
+    objects_.push_back(*var);
+    return 1;
+ }
+
 /*
 * Create linear constraint:
 *    con is a pointer to the pointer of the constraint
@@ -153,8 +159,9 @@ double CbcModeler::getVarValue(MyObject* var){
 //
 int CbcModeler::solve(bool relaxation){
 
+  this->setModel();
   model_->branchAndBound();
-  setSolution();
+  this->setSolution();
 
   return model_->status();
 }
@@ -231,6 +238,8 @@ int CbcModeler::printBestSol(){
 //
 int CbcModeler::writeProblem(std::string filename) {
 
+  if (model_ == NULL ) return 1;
+  
   // get the extension of the file
   std::string extension = filename.substr(filename.find_last_of(".") + 1);
 
@@ -244,6 +253,8 @@ int CbcModeler::writeProblem(std::string filename) {
   else {
    Tools::throwError("CbcModeler::writeLP: the extension of the file does not match any available method. Use.mps or .lp.");
   }
+
+  return 0;
 }
 
 int CbcModeler::writeLP(std::string filename) {

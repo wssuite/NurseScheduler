@@ -2,36 +2,36 @@ Complete shift schedule
 
 			| M | T | W | T | F | S | S |
 -------------------------------------
-HN_0	| N | - | - | N | - | D | D |
-HN_1	| L | L | L | L | - | N | N |
-HN_2	| E | E | E | E | - | - | - |
+HN_0	| N | - | - | - | E | N | N |
+HN_1	| E | E | E | L | - | - | - |
+HN_2	| L | L | - | N | - | D | D |
 HN_3	| D | D | D | - | - | E | E |
-NU_4	| L | L | L | L | - | - | - |
-NU_5	| N | N | N | N | - | - | - |
-NU_6	| - | - | L | - | E | E | D |
-NU_7	| E | E | - | - | E | E | L |
-NU_8	| N | - | - | D | D | D | D |
-NU_9	| D | D | D | N | - | - | - |
-NU_10	| - | - | - | - | E | E | N |
-NU_11	| E | L | - | - | L | L | L |
-NU_12	| L | L | L | L | N | - | - |
-NU_13	| L | L | - | - | N | N | N |
-NU_14	| E | E | E | - | - | N | N |
-NU_15	| - | D | N | N | N | - | E |
-NU_16	| - | D | N | N | N | - | - |
-CT_17	| E | E | E | E | E | - | - |
-CT_18	| E | E | E | E | - | - | E |
-CT_19	| N | - | D | D | D | D | L |
-CT_20	| D | D | D | D | D | - | - |
-CT_21	| D | D | D | L | L | - | - |
-CT_22	| L | L | L | - | - | E | E |
-CT_23	| N | N | N | N | N | - | - |
-CT_24	| N | N | - | L | L | L | - |
-TR_25	| D | D | D | D | D | - | - |
-TR_26	| E | E | - | - | E | E | E |
-TR_27	| L | L | - | - | L | L | L |
-TR_28	| - | N | N | N | - | D | D |
-TR_29	| N | - | - | E | E | E | N |
+NU_4	| - | - | L | L | L | N | - |
+NU_5	| L | L | L | - | - | E | L |
+NU_6	| - | - | - | E | L | L | L |
+NU_7	| E | E | - | - | E | E | E |
+NU_8	| N | - | - | - | E | D | D |
+NU_9	| - | L | L | N | N | - | - |
+NU_10	| - | - | - | - | N | N | N |
+NU_11	| E | D | - | - | E | D | D |
+NU_12	| - | E | E | N | N | N | - |
+NU_13	| E | N | - | D | D | - | E |
+NU_14	| E | - | - | - | D | D | N |
+NU_15	| - | E | N | N | N | - | - |
+NU_16	| E | E | E | E | - | - | - |
+CT_17	| - | E | E | E | E | - | - |
+CT_18	| D | D | D | D | - | - | - |
+CT_19	| N | N | N | - | - | E | E |
+CT_20	| E | E | E | E | E | - | - |
+CT_21	| E | E | D | D | D | - | - |
+CT_22	| L | L | L | - | - | - | - |
+CT_23	| N | N | - | L | L | L | L |
+CT_24	| D | D | D | L | L | - | - |
+TR_25	| E | E | E | D | D | - | - |
+TR_26	| D | D | D | - | - | - | - |
+TR_27	| L | L | - | - | L | L | N |
+TR_28	| - | - | - | E | E | E | L |
+TR_29	| N | N | - | - | - | E | E |
 
 Hard constraints violations
 ---------------------------
@@ -42,14 +42,16 @@ Single assignment per day: 0
 
 Cost per constraint type
 ------------------------
-Total assignment constraints: 0
-Consecutive constraints: 465
+Total assignment constraints: 3080
+Consecutive working days constraints: 90
+Consecutive days off constraints: 180
+Consecutive shifts constraints: 285
 Non working days constraints: 
-Preferences: 20
+Preferences: 30
 Max working weekend: 0
 Complete weekends: 90
-Optimal coverage constraints: 210
+Optimal coverage constraints: 450
 
 ---------------------------
 
-Total cost: 785
+Total cost: 4205

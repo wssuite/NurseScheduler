@@ -218,12 +218,12 @@ void LiveNurse::checkConstraints(const Roster& roster,
       stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
       if (missingShifts>0)
         std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; missing= " << missingShifts << std::endl;
-    } 
+    }
 
     // count the penalty for maximum consecutive shifts when the shift is worked
     // the last day will then be counted
     if (shift > 0) {
-      stat.costConsShifts_[day-1] += 
+      stat.costConsShifts_[day-1] +=
         (states[day].consShifts_>pScenario_->maxConsShifts_[shift]) ? WEIGHT_CONS_SHIFTS:0;
 
         if (states[day].consShifts_>pScenario_->maxConsShifts_[shift])
@@ -483,7 +483,7 @@ double Solver::solutionCost() {
     StatCtNurse stat = pNurse->statCt_;
 
     for (int day = 0; day < nbDays ; day++) {
-      totalCost += stat.costConsDays_[day]+stat.costConsDaysOff_[day]+ 
+      totalCost += stat.costConsDays_[day]+stat.costConsDaysOff_[day]+
         stat.costConsShifts_[day]+stat.costPref_[day]+stat.costWeekEnd_[day];
 
       if (pNurse->roster_.shift(day) > 0) {
@@ -505,6 +505,9 @@ double Solver::solutionCost() {
       }
     }
   }
+
+  std::cout << "Total cost = " << totalCost << std::endl;
+
 
   return totalCost;
 }

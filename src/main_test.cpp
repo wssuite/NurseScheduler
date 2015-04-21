@@ -9,14 +9,16 @@
 #include "main_test.h"
 #include "ReadWrite.h"
 #include "Greedy.h"
+#include "MasterProblem.h"
 #include "SubProblem.h"
+#include "CbcModeler.h"
 #include "MyTools.h"
 
 void main_test()
 {
 	//testFunction_Antoine();
 	// testFunction_Jeremy();
-	testFunction_Samuel();
+	//testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
@@ -137,19 +139,37 @@ void testFunction_Jeremy(){
 
    // Instantiate the solver class as a test
    //
-   Greedy* pSolverTest =
+   Greedy* pGreedy =
       new Greedy(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
-   pSolverTest->constructiveGreedy();
+   pGreedy->constructiveGreedy();
+
+	/****************************************
+	* Test the CBC modeler
+	*****************************************/
+
+	// Instantiate a master problem to create the mathematical programming model
+	// with the columns deduced from the solution of the greedy
+	MasterProblem* pSolverMP =
+		new MasterProblem(pScen, pWeekDemand, pScen->pWeekPreferences(),
+		pScen->pInitialState(), S_CBC, pGreedy->getSolution());
+	pSolverMP->solve();
+
+	CoinModeler* coinModel = (CoinModeler*) pSolverMP->getModel();
+	CbcModeler* cbcModel =
+		new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
+
+	// cbcModel->setModel();
+	cbcModel->solve();
 
    // Write the solution in the required output format
    string outFile = "outfiles/solution.out";
    Tools::LogOutput outStream(outFile);
-   outStream << pSolverTest->solutionToString();
+   outStream << pGreedy->solutionToString();
 
    // Write the solution and advanced information in a more convenient format
    string outLog = "outfiles/log.out";
    Tools::LogOutput outLogStream(outLog);
-   outLogStream << pSolverTest->solutionToLogString();
+   outLogStream << pGreedy->solutionToLogString();
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -162,7 +182,9 @@ void testFunction_Jeremy(){
    delete timertotal;
    delete pWeekDemand;
    delete pScen;
-   delete pSolverTest;
+   delete pGreedy;
+	delete pSolverMP;
+	delete cbcModel;
 
 
 }

@@ -20,6 +20,9 @@ public:
   // default constructor
   CbcModeler():CoinModeler(), primalValues_(0), objVal_(0), model_(NULL) {}
 
+  CbcModeler(const char* name):
+     CoinModeler(), primalValues_(0), objVal_(0), model_(NULL) {}
+
   // useful constructor
   CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons);
 
@@ -42,9 +45,9 @@ public:
   *    lhs, rhs are the lower and upper bound of the variable
   *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
   */
- int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub);
+ virtual int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub);
 
- int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, double dualObj, VarType vartype, double lb, double ub) { return 1;}
+ virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, double dualObj, VarType vartype, double lb, double ub);
 
  /*
   * Create linear constraint:
@@ -54,10 +57,10 @@ public:
   *    nonZeroVars is the number of non-zero coefficients to add to the constraint
   */
 
- int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs);
+ virtual int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs);
 
  /*
-  * Create the Clp solver and assign the result the Cbc model
+  * Create the Clp solver and assign the result to the Cbc model
   * The method can only be called after the creation of all the variables and
   * linear constraints
   *
@@ -78,6 +81,8 @@ public:
    Tools::throwError("There is no dual solution if the problem is solved with integrality constraints!");
  }
 
+ double getObjective() {return objVal_;}
+
  /**************
   * Parameters *
   *************/
@@ -87,13 +92,13 @@ public:
   * Outputs *
   *************/
 
- int printStats();
+ virtual int printStats();
 
- int printBestSol();
+ virtual int printBestSol();
 
- int writeProblem(string fileName);
+ virtual int writeProblem(string fileName);
 
- int writeLP(string fileName);
+ virtual int writeLP(string fileName);
 
 /************************************
 * Class own methods and parameters *
