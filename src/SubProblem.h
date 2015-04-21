@@ -616,7 +616,7 @@ protected:
 	inline int arcOrigin(int a) {return source(arcsDescriptors_[a], g_);}
 	inline int arcDestination(int a) {return target(arcsDescriptors_[a], g_);}
 	inline int arcLength(int a) {return get( &Arc_Properties::time, g_, arcsDescriptors_[a]);}
-	inline int arcCost(int a) {return get( &Arc_Properties::cost, g_, arcsDescriptors_[a]);}
+	inline double arcCost(int a) {return get( &Arc_Properties::cost, g_, arcsDescriptors_[a]);}
 
 
 
