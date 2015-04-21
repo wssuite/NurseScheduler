@@ -62,15 +62,16 @@ bool RotationPricer::pricing(double bound){
 		   subProblem = it->second;
 
 	   /* Retrieves dual values */
-	   vector< vector<double> > workDualCosts; //workDualCosts = getWorkDualValues(pNurse);
-	   vector<double> startWorkDualCosts; //startWorkDualCosts = getStartWorkDualValues(pNurse);
-	   vector<double> endWorkDualCosts; //endWorkDualCosts = getEndWorkDualValues(pNurse);
+	   vector< vector<double> > workDualCosts; workDualCosts = getWorkDualValues(pNurse);
+	   vector<double> startWorkDualCosts; startWorkDualCosts = getStartWorkDualValues(pNurse);
+	   vector<double> endWorkDualCosts; endWorkDualCosts = getEndWorkDualValues(pNurse);
 	   double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
 
-      Tools::initDoubleVector2D(&workDualCosts, pDemand_->nbDays_, pDemand_->nbShifts_-1);
-      Tools::initDoubleVector(&startWorkDualCosts, pDemand_->nbDays_);
-      Tools::initDoubleVector(&endWorkDualCosts, pDemand_->nbDays_);
-      workedWeekendDualCost = 200;
+
+      //Tools::initDoubleVector2D(&workDualCosts, pDemand_->nbDays_, pDemand_->nbShifts_-1);
+      //Tools::initDoubleVector(&startWorkDualCosts, pDemand_->nbDays_);
+      //Tools::initDoubleVector(&endWorkDualCosts, pDemand_->nbDays_);
+      //workedWeekendDualCost = 200;
 
 	   Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
@@ -81,12 +82,11 @@ bool RotationPricer::pricing(double bound){
 	   vector<SolveOption> options;
 	   //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
 	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
-	   options.push_back(SOLVE_NEGATIVE_ALLVALUES);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
 
 	   /* Solve subproblems */
-	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false) )
+	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 4) )
 		   optimal = false;
 	   else
 		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
@@ -100,7 +100,6 @@ bool RotationPricer::pricing(double bound){
 			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
 			master_->addRotation(rot, baseName);
 		}
-
    }
 
    return optimal;
