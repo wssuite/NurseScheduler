@@ -79,8 +79,9 @@ bool RotationPricer::pricing(double bound){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
-	   options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
-	   options.push_back(SOLVE_NEGATIVE_ONLY);
+	   //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
+	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   options.push_back(SOLVE_NEGATIVE_ALLVALUES);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
 
@@ -94,30 +95,11 @@ bool RotationPricer::pricing(double bound){
 		/* Retrieve rotations and add them to the master problem*/
 		rotations = subProblem->getRotations();
 		for(Rotation rot: rotations){
-			std::cout << "# Cost update check : " << rot.cost_;
+			double c = rot.cost_;
 			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
 			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
-			std::cout << "  ->  " << rot.cost_ << std::endl;
 			master_->addRotation(rot, baseName);
 		}
-		std::cout  << "# " << std::endl;
-
-      /* Retrieve rotations and add them to the master problem*/
-      /*
-      rotations = subProblem->getRotations();
-      for(Rotation rot: rotations)
-         master_->addRotation(rot, baseName);
-      */
-
-	   /* Retrieve rotations and add them to the master problem*/
-	   rotations = subProblem->getRotations();
-	   for(Rotation rot: rotations){
-		   rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-		   cout << "# Cost update : " << rot.cost_ << endl;
-		   master_->addRotation(rot, baseName);
-	   }
-
-	   getchar();
 
    }
 

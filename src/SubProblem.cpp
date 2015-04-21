@@ -226,11 +226,12 @@ void SubProblem::initShortSuccessions(){
 						lastShiftSucc.push_back(newSh);								// Record its last shift
 						int newNLast = 1;
 						double newCost = cost;
-						if (newSh == lastSh){	// BUT : add the cost if longer than the maximum allowed
-						   newNLast += nLast;
-                     /* Antoine modif */
-                     if(newNLast > pScenario_->maxConsShifts_[newSh])
-                        newCost += consShiftCost(lastSh, nLast) ;
+						/* Antoine + Samuel ( re-modif) */
+						if(newSh == lastSh){	// BUT : add the cost if longer than the maximum allowed
+							newNLast += nLast;
+							if(newNLast >= pScenario_->maxConsShifts_[newSh]){
+								newCost += consShiftCost(lastSh, nLast) ;
+							}
 						} else {
 							newCost += consShiftCost(lastSh, nLast) ;
 						}
@@ -285,9 +286,6 @@ double SubProblem::consDaysCost(int n){
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
 
-	string s = nurse->pContract_->toString();
-	std::cout << "# " << s << std::endl;
-
 	std::cout << "# Preferences:" << endl;
 	for(map<int,set<int> >::iterator it = nurse->pWishesOff_->begin(); it != nurse->pWishesOff_->end(); ++it){
 		cout <<  "      | " << it->first << "  ->  ";
@@ -296,13 +294,16 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	}
 
 	std::cout << "# " << std::endl;
-	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << std::endl;
+	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " [completeWeekends=";
+	if(pContract_->needCompleteWeekends_ == 1) std::cout << "YES"; else std::cout << "NO";
+	std::cout << "]" << std::endl;
+
 
 	// Get the parameters informations
 	//
 	setSolveOptions(options);
 
-	// TODO : A modifier [ Moche + Doit enlever le max en court ]
+	// Maximum rotation length
 	//
 	maxRotationLength_ = min(nDays_, maxRotationLength);
 
@@ -342,6 +343,9 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
 	spp_spptw_res_cont rc (0,0);
+
+	//cout << "# Serie en cours : " << pLiveNurse_->pStateIni_->consShifts_ << " de " << pScenario_->intToShift_[pLiveNurse_->pStateIni_->shift_];
+	//cout << " (total " << pLiveNurse_->pStateIni_->consDaysWorked_ << " jours)" << endl;
 
 	// "Original way of doing" = pareto optimal for the whole month
 	//
@@ -400,7 +404,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		// 3. Re-authorize all ending arcs
 		for(int s=1; s<pScenario_->nbShifts_; s++){
 			for(int k=CDMin_-1; k<nDays_; k++){
-				forbidArc( arcsPrincipalToRotsizein_[s][k] );
+				authorizeArc( arcsPrincipalToRotsizein_[s][k] );
 			}
 		}
 	}
@@ -699,7 +703,7 @@ void SubProblem::createArcs(){
 }
 
 // Adds a single arc (origin, destination, cost, travel time, type)
-void SubProblem::addSingleArc(int o, int d, int baseCost, int t, ArcType type){
+void SubProblem::addSingleArc(int o, int d, double baseCost, int t, ArcType type){
 	boost::graph_traits< Graph>::edge_descriptor e = (add_edge( o, d, Arc_Properties( nArcs_, type, baseCost, t ), g_ )).first;
 	arcsDescriptors_.push_back(e);
 	allArcsTypes_.push_back(type);
@@ -817,8 +821,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
          /*
           * Antoine modif: on paie juste les jours en plus
           */
-//			addSingleArc(origin, destin, consShiftCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE);
-         addSingleArc(origin, destin, 0, 0, SHIFT_TO_ENDSEQUENCE);
+			addSingleArc(origin, destin, 0, 0, SHIFT_TO_ENDSEQUENCE);
 		}
 	}
 }
@@ -881,6 +884,7 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 	// Preference costs. WARNING: STARTING DATE OF THE SCENARIO IS NOT THAT OF THE PREFERENCE ??
 	// TODO: Check if shifting is necessary
 	//
+	preferencesCosts_.clear();
 	Tools::initDoubleVector2D(&preferencesCosts_, nDays_, pScenario_->nbShifts_);
 	for(map<int,set<int> >::iterator prefList = pLiveNurse_->pWishesOff_->begin(); prefList != pLiveNurse_->pWishesOff_->end(); ++ prefList){
 		for(int sh : prefList->second){
@@ -906,14 +910,12 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 //
 void SubProblem::priceShortSucc(){
 
-	//cout << "# " << endl;
-	//cout << "# PRICE SHORT SUCCESSIONS:" << endl;
+	map<int,int> specialArcsSuccId;
+	map<int,double> specialArcsCost;
 
 	for(int s=1; s<pScenario_->nbShifts_; s++){
 		for(int k=CDMin_-1; k<nDays_; k++){
 			for(int n=1; n<=maxvalConsByShift_[s]; n++){
-
-				//cout << "# (" << pScenario_->intToShift_[s].at(0) << "," << k << "," << n << ") <- ";
 
 				int bestSuccId = -1;
 				double bestCost = MAX_COST;
@@ -923,39 +925,57 @@ void SubProblem::priceShortSucc(){
 					int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
 					vector<int> succ = allowedShortSuccBySize_[CDMin_][curSuccId];
 
-					//cout << " ";
-					//for(int ss=0; ss<succ.size(); ss++) cout << pScenario_->intToShift_[succ[ss]].at(0);
-					//cout << " (";
-					//canSuccStartHere( succ, k-CDMin_+1 ) ? cout << "OK" : cout << "NO";
-					//cout << ") ";
-
 					// SUCCESSION IS TAKEN INTO ACCOUNT ONLY IF IT DOES NOT VIOLATE ANY FORBIDDEN DAY-SHIFT COUPLE
 					if(canSuccStartHere( succ, k-CDMin_+1 )){
 						double curCost = costArcShortSucc(CDMin_, curSuccId, k-CDMin_+1);
-						if(curCost < bestCost){
+
+						// ONLY CASE WHEN THE DESTINATION NODE MAY HAVE TO CHANGE:
+						// 1. Start date is 0
+						// 2. Size of short succession is < than the number of levels maxValByShift[s]
+						// 3. Number of last shifts cons in succession is CDMin_
+						// 4. The shift is the same as the last one worked by the nurse at initial state
+						if(k==CDMin_-1 and CDMin_<maxvalConsByShift_[s] and n==CDMin_ and s==pLiveNurse_->pStateIni_->shift_){
+							// a. Determine the destination of that arc
+							int nConsWithPrev = CDMin_ + pLiveNurse_->pStateIni_->consShifts_;
+							int nDestination = min( nConsWithPrev , maxvalConsByShift_[s] );
+							int a = arcsFromSource_[s][k][nDestination];
+							// b. Store the succession ID + the special cost for that arc
+							specialArcsSuccId.insert(pair<int,int>(a,curSuccId));
+							specialArcsCost.insert(pair<int,double>(a,curCost));
+						}
+
+						// OTHER CASES ("REGULAR ONES")
+						else if(curCost < bestCost){
 							idBestShortSuccCDMin_[s][k][n] = curSuccId;
 							arcCostBestShortSuccCDMin_[s][k][n] = curCost;
 							bestSuccId = curSuccId;
 							bestCost = curCost;
 						}
 					}
-
-
 				}
+
 				// IF NO VALID SUCCESSION, THEN FORBID THE ARC
+				int a = arcsFromSource_[s][k][n];
 				if(bestCost == MAX_COST){
-					forbidArc( arcsFromSource_[s][k][n] );
-				} else {
-					//cout << "  \t\t  [chosen : ";
-					//vector<int> chosenSucc = allowedShortSuccBySize_[CDMin_][idBestShortSuccCDMin_[s][k][n]];
-					//for(int ss=0; ss<chosenSucc.size(); ss++) cout << pScenario_->intToShift_[chosenSucc[ss]].at(0);
-					//cout << "]";
+					forbidArc( a );
 				}
-
-				//cout << endl;
-
 			}
 		}
+	}
+
+	// FOR THE SHIFTS ON THE FIRST DAY THAT EXTEND THE ONGOING WORK AT INITIAL STATE
+	//
+	map<int,double>::iterator itCost = specialArcsCost.begin();
+	for(map<int,int>::iterator itId = specialArcsSuccId.begin(); itId != specialArcsSuccId.end(); ++itId){
+		int a = itId->first;
+		int d = arcDestination(a);
+		int s = principalToShift_[d];
+		int k = principalToDay_[d];
+		int n = principalToCons_[d];
+		authorizeArc(a);
+		idBestShortSuccCDMin_[s][k][n] = itId->second;
+		arcCostBestShortSuccCDMin_[s][k][n] = itCost->second;
+		++ itCost;
 	}
 }
 
@@ -963,101 +983,88 @@ void SubProblem::priceShortSucc(){
 //
 double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 	double ANS = 0;
+	vector<int> succ = allowedShortSuccBySize_[size][succId];
 
-	// If the rotation starts on the first day and if the nurse was already working before
+	// A. COST: BASE COST
 	//
-	/* Antoine modif */
-//	if(startDate == 0 and pLiveNurse_->pStateIni_->consDaysWorked_ > 0){
-	if(startDate == 0){
-		int nConsIni = pLiveNurse_->pStateIni_->consDaysWorked_;
+	ANS += baseArcCostOfShortSucc_[size][succId];
+
+
+	// B. COST: SPECIAL CASE FOR THE FIRST DAY
+	//
+	if(startDate ==0){
+
 		int shiftIni = pLiveNurse_->pStateIni_->shift_;
-		/* Antoine modif */
-//		int nConsecCurrent = 1;
-		int nConsecCurrent = pLiveNurse_->pStateIni_->consShifts_;
+		int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
+		int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
 
-		/* Antoine modif */
+		int firstShift = succ[0];
+		int nConsFirstShift = 0; int ii=0; while(succ[ii]==firstShift){nConsFirstShift ++; ii++;}
 
-//		// IF the nurse continues working on same shift -> subtract the cost of the current sequence (later replaced by the one for the longer sequence)
-//		if(shiftIni == allowedShortSuccBySize_[size][succId][0]){
-//			ANS -= consShiftCost(shiftIni, nConsIni);
-//			nConsecCurrent += nConsIni;
-//		}
-//
-//		// SUCCESSIVE SHIFTS
-//		for(int i=1; i<size; i++){
-//			int prevShift = allowedShortSuccBySize_[size][succId][i-1];
-//			int shift = allowedShortSuccBySize_[size][succId][i];
-//			if(shift != prevShift){
-//				ANS += consShiftCost(prevShift, nConsecCurrent);
-//				nConsecCurrent = 1;
-//			}
-//		}
 
-      //INITIAL REST
-		//compute just minimum, maximum has already been taken into account before
-      if(shiftIni == 0){
-         int diff = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
-         ANS += (diff > 0) ? diff*WEIGHT_CONS_DAYS_OFF : 0;
-         nConsecCurrent = 1;
-      }
-      // if the current shift/work has already exceeded the max, substract now the cost that will be readd later
-      else{
-         if(nConsIni > pLiveNurse_->maxConsDaysWork())
-            ANS -= consShiftCost(shiftIni, nConsIni);
-         if(nConsecCurrent > pScenario_->maxConsShifts_[shiftIni])
-            ANS -= consShiftCost(shiftIni, nConsIni);
-      }
+		// 1. The nurse was resting: pay more only if the rest is too short
+		if(shiftIni == 0){
+			int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
+			ANS += max(0, diffRest*WEIGHT_CONS_DAYS_OFF);
+		}
 
-      // SUCCESSIVE SHIFTS
-      int prevShift = shiftIni;
-      int shift = -1;
+		// 2. The nurse was working
+		else {
 
-      for(int i=0; i<size; i++){
-         shift = allowedShortSuccBySize_[size][succId][i];
-         if(shift == prevShift){
-            nConsecCurrent++;
-            continue;
-         }
-         if(prevShift > 0){//no rest shift
-            ANS += consShiftCost(prevShift, nConsecCurrent);
-            nConsecCurrent = 1;
-         }
-         prevShift = shift;
-      }
+			// a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be read later
+			int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
+			ANS -= max(0, diffWork*WEIGHT_CONS_DAYS_WORK);
 
-		// IF MORE THAN THE MAXIMUM OF CONSECUTIVE ALLOWED
-		if(nConsecCurrent > pScenario_->maxConsShifts_[prevShift])
-			ANS += consShiftCost(prevShift, nConsecCurrent);
-		/* Antoine modif: put later */
-//		// WEEKEND REDUCED COST (does not count if day 0 is a Sunday because already taken into account in the MP)
-//		if(Tools::containsWeekend( 1 , size-1 )) ANS -= pCosts_->workedWeekendCost();
+			// b. (i)   The nurse was working on a different shift: if too short, add the corresponding cost
+			if(shiftIni != firstShift){
+				int diff = pScenario_->minConsShifts_[shiftIni] - nConsShiftIni;
+				ANS += max(0, diff*(WEIGHT_CONS_SHIFTS));
+			}
+
+			// b. (ii)  The nurse was working on the same shift AND the short rotation contains other shifts (easy case for add/subtract)
+			//            - Subtract the cost due to the consecutive beginning
+			//            - Subtract the cost due to the consecutive end of the initial state
+			//            - Add the consecutive cost for all shifts
+			else if(nConsFirstShift < CDMin_) {
+				int diffShift = nConsShiftIni - pScenario_->maxConsShifts_[shiftIni];
+				ANS -= max(0, diffShift*WEIGHT_CONS_SHIFTS);
+				ANS -= consShiftCost(firstShift, nConsFirstShift);
+				ANS += consShiftCost(firstShift, (nConsFirstShift + nConsShiftIni));
+			}
+
+			// b. (iii) The nurse was working on the same shift AND the short rotation only contains that shift (recompute the cost -> easier)
+			else {
+				ANS -= baseArcCostOfShortSucc_[size][succId];
+				if( (nConsFirstShift + nConsShiftIni) >= maxvalConsByShift_[shiftIni] )
+					ANS += consShiftCost(shiftIni, (nConsFirstShift + nConsShiftIni));
+			}
+		}
 	}
 
-	// If the rotation does not start on the first day
+	// C. COST: COMPLETE WEEKEND
 	//
-	else {
-		// SUCCESSIVE SHIFTS
-		ANS += baseArcCostOfShortSucc_[size][succId];
-	}
+	ANS += startWeekendCosts_[startDate];
 
-	// COSTS THAT ALWAYS APPLY
+	// D. COST: PREFERENCES
+	//
+	for(int i=0; i<size; i++) ANS += preferencesCosts_[ startDate + i ][ allowedShortSuccBySize_[size][succId][i] ];
 
-   // COMPLETE WEEKEND
-   ANS += startWeekendCosts_[startDate];
-   // WEEKEND REDUCED COST
-   /* Antoine modif, if 2 weekends ... */
-// if(Tools::containsWeekend(startDate, startDate + size - 1)) ANS -= pCosts_->workedWeekendCost();
-   int nbWeekends = Tools::containsWeekend(startDate, startDate + size - 1);
-   ANS -= nbWeekends * pCosts_->workedWeekendCost();
-   // FIRST DAY (BACK TO WORK)
-   ANS -= pCosts_->startWorkCost(startDate);
 
-	// PREFERENCES + REDCOST OF EACH SHIFT
-	for(int i=0; i<size; i++){
-		int day = startDate + i, shift = allowedShortSuccBySize_[size][succId][i];
-		ANS += preferencesCosts_[ day ][ shift ];
-		ANS -= pCosts_->dayShiftWorkCost( day, shift-1 );
-	}
+
+	// E. REDCOST: WEEKENDS
+	//
+	int nbWeekends = Tools::containsWeekend(startDate, startDate + size - 1);
+	ANS -= nbWeekends * pCosts_->workedWeekendCost();
+
+	// F. REDCOST: FIRST DAY (BACK TO WORK)
+	//
+	ANS -= pCosts_->startWorkCost(startDate);
+
+	// G. REDCOST: EACH DAY/SHIFT REDUCED COST
+	//
+	for(int i=0; i<size; i++) ANS -= pCosts_->dayShiftWorkCost( startDate+i , allowedShortSuccBySize_[size][succId][i]-1 );
+
+
 
 	return ANS;
 }
@@ -1078,23 +1085,25 @@ void SubProblem::updateArcCosts(){
 
 	// A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
 	//
-	for(int s=1; s<pScenario_->nbShifts_; s++)
-		for(int k=CDMin_-1; k<nDays_; k++)
+	for(int s=1; s<pScenario_->nbShifts_; s++){
+		for(int k=CDMin_-1; k<nDays_; k++){
 			for(int n=1; n<=maxvalConsByShift_[s]; n++){
 				int a = arcsFromSource_[s][k][n];
 				double c = arcCostBestShortSuccCDMin_[s][k][n];
 				updateCost( a , c );
-				/* Antoine Modif: need to update also the time for the initial ones */
 				shortSuccCDMinIdFromArc_.insert(pair<int,int>( arcsFromSource_[s][k][n], idBestShortSuccCDMin_[s][k][n]));
-
-				if(idBestShortSuccCDMin_[s][k][n] > -1){
-					//cout << "# -X-  (" << pScenario_->intToShift_[s].at(0) << "," << k << "," << n << ")  <-  (id=" << idBestShortSuccCDMin_[s][k][n] << ") ";
-					//vector<int> succ = allowedShortSuccBySize_[CDMin_][ idBestShortSuccCDMin_[s][k][n] ];
-					//for(int i=0; i<succ.size(); i++) cout << pScenario_->intToShift_[succ[i]].at(0);
-					//cout << endl;
-				}
-
 			}
+		}
+
+		// For all those that start on the first day, must update the travel time
+		//
+		for(int n=1; n<=maxvalConsByShift_[s]; n++){
+			if(idBestShortSuccCDMin_[s][CDMin_-1][n] > -1){
+				int a = arcsFromSource_[s][CDMin_-1][n];
+				updateTime(a, (CDMin_+ pLiveNurse_->pStateIni_->consDaysWorked_ ));
+			}
+		}
+	}
 
 	// B. ARCS : SHIFT_TO_NEWSHIFT [baseCost = 0]
 	//
@@ -1120,7 +1129,7 @@ void SubProblem::updateArcCosts(){
 				double c = arcBaseCost_[a];
 				c += preferencesCosts_[k+1][s] ;
 				c -= pCosts_->dayShiftWorkCost(k+1,s-1);
-				c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+				if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
 				updateCost( a , c );
 			}
 
@@ -1134,7 +1143,7 @@ void SubProblem::updateArcCosts(){
 			double c = arcBaseCost_[a];
 			c += preferencesCosts_[k+1][s];
 			c -= pCosts_->dayShiftWorkCost(k+1,s-1);
-			c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
+			if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
 			updateCost( a , c );
 		}
 
@@ -1144,6 +1153,7 @@ void SubProblem::updateArcCosts(){
 		for(int k=CDMin_-1; k<nDays_; k++){
 			int a = arcsPrincipalToRotsizein_[s][k];
 			double c = arcBaseCost_[a];
+			c += endWeekendCosts_[k];
 			c -= pCosts_->endWorkCost(k);
 			updateCost( a , c );
 		}
@@ -1188,16 +1198,15 @@ void SubProblem::generateRandomCosts(double minVal, double maxVal){
 // Returns true if the succession succ starting on day k does not violate any forbidden day-shift
 //
 bool SubProblem::canSuccStartHere(vector<int> succ, int firstDay){
-	//std::cout << "# Checking " << firstDay << "-";
-	//for(int i=0; i<succ.size(); i++) std::cout << pScenario_->intToShift_[succ[i]].at(0);
-
+	// If the succession with the previous shift (day -1) is not allowed
+	if(firstDay==0 and pScenario_->isForbiddenSuccessor(succ[0],pLiveNurse_->pStateIni_->shift_))
+		return false;
+	// If some day-shift is forbidden...
 	for(int i=0; i<succ.size(); i++){
-		if( ! dayShiftStatus_[firstDay+i][succ[i]] ){
-			//std::cout << "   impossible because of " << (firstDay+i) << "-" << pScenario_->intToShift_[succ[i]].at(0) << endl;
+		if( ! dayShiftStatus_[firstDay+i][succ[i]]){
 			return false;
 		}
 	}
-	//std::cout << "   OK" << endl;
 	return true;
 }
 
@@ -1251,7 +1260,13 @@ void SubProblem::authorizeNode(int v){
 //
 int SubProblem::normalTravelTime(int a){
 	ArcType atype = arcType(a);
-	if(atype == SOURCE_TO_PRINCIPAL) return CDMin_;
+	if(atype == SOURCE_TO_PRINCIPAL){
+		if(principalToDay_[arcDestination(a)] == CDMin_-1){
+			return (CDMin_ + pLiveNurse_->pStateIni_->consDaysWorked_);
+		} else {
+			return CDMin_;
+		}
+	}
 	else if(atype == SHIFT_TO_NEWSHIFT or atype == SHIFT_TO_SAMESHIFT or atype == REPEATSHIFT) return 1;
 	else return 0;
 }
@@ -1494,14 +1509,14 @@ void SubProblem::printPath(vector< boost::graph_traits<Graph>::edge_descriptor >
 	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
 		int a = boost::get(&Arc_Properties::num, g_, path[j]);
 		std::cout << "# \t| [ " << shortNameNode(source( path[j], g_ )) << " ]";
-		std::cout << "\t\tLength:" << arcCost(a) << "\t\tTime:" << arcLength(a);
+		std::cout << "\t\tCost:  " << arcCost(a) << "\t\tTime:" << arcLength(a);
 		std::cout << "\t\t[" << (arcStatus_[a] ? " allowed " : "forbidden") << "]" << std::endl;
 	}
 
 	// Last node and total
 	//
 	std::cout << "# \t| [" << shortNameNode(sinkNode_) << "]" << std::endl;
-	std::cout << "# \t| ~TOTAL~   \t\tLength: " << ressource.cost << "\t\tTime: " << ressource.time << std::endl;
+	std::cout << "# \t| ~TOTAL~   \t\tCost:   " << ressource.cost << "\t\tTime: " << ressource.time << std::endl;
 	std::cout << "# \t| " << std::endl;
 	std::cout << "# \t| Rotation: |";
 

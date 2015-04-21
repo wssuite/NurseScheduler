@@ -598,7 +598,7 @@ protected:
 	// Creates all arcs of the graph
 	void createArcs();
 	// Basic function for adding an arc
-	void addSingleArc(int origin, int destination, int baseCost, int travelTime, ArcType type);
+	void addSingleArc(int origin, int destination, double baseCost, int travelTime, ArcType type);
 	// Initiate variables for the arcs structures (integers, vectors, etc.)
 	void initArcsStructures();
 	// Create the specific types of arcs
@@ -657,7 +657,7 @@ protected:
 	// Given a short succession and a start date, returns the cost of the corresponding arc
 	double costArcShortSucc(int size, int id, int startDate);
 	// Single cost/time change
-	inline void updateCost(int arc, double cost){boost::put( &Arc_Properties::cost, g_, arcsDescriptors_[arc], cost );}
+	inline void updateCost(int a, double cost){boost::put( &Arc_Properties::cost, g_, arcsDescriptors_[a], cost );}
 	// Updates the costs depending on the reduced costs given for the nurse
 	void updateArcCosts();
 	// For tests, must be able to randomly generate costs
@@ -689,7 +689,7 @@ protected:
 	void authorizeDayShift(int k, int s);
 	void resetAuthorizations();
 	// Updates the travel time of an arc / node
-	inline void updateTime(int a, double time){boost::put( &Arc_Properties::time, g_, arcsDescriptors_[a], time );}
+	inline void updateTime(int a, int time){     boost::put( &Arc_Properties::time, g_, arcsDescriptors_[a], time );}
 	inline void updateLat(int v, int time){boost::put( &Vertex_Properties::lat, g_, v, time);}
 	// Given an arc, returns the normal travel time (i.e. travel time when authorized)
 	int normalTravelTime(int a);
