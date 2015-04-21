@@ -202,7 +202,7 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
 
       if(abs(dualCost_ - dualCost) > EPSILON ){
           cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
-          getchar()
+          getchar();
       }
 }
 
