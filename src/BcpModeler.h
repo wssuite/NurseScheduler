@@ -109,9 +109,11 @@ struct BcpCoreCons: public CoinCons, public BCP_cut_core{
 class BcpModeler: public CoinModeler {
 public:
    BcpModeler(const char* name):
-      CoinModeler(), primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0), best_lb_in_root(-DBL_MAX)
+      CoinModeler(),
+      primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
+      best_lb_in_root(-DBL_MAX), best_ub(DBL_MAX)
 { }
-   ~BcpModeler() { }
+   ~BcpModeler() {}
 
    //solve the model
    int solve(bool relaxation = false);
@@ -158,7 +160,7 @@ public:
     * Outputs *
     *************/
 
-   double getObjective(){ return obj_history_[obj_history_.size()-1]; }
+   double getObjective(){ return best_ub; }
 
    int printStats();
 
@@ -172,6 +174,8 @@ public:
 
    void setLPSol(const BCP_lp_result& lpres){
       obj_history_.push_back(lpres.objval());
+      if(best_lb_in_root == -DBL_MAX)
+         best_lb_in_root = lpres.objval();
 
       //clear the old vectors
       if(primalValues_.size() != 0){
@@ -191,9 +195,20 @@ public:
       lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
    }
 
+   void setPrimal(vector<double> primal){ primalValues_ = primal; }
+
+   void setBestLb(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
+
+   void setBestUb(double bestUB){ best_ub = bestUB; }
+
+   double getBestLb(){ return best_lb_in_root; }
+
+   double getBestUb(){ return best_ub; }
+
 protected:
    //best lb in root
    double best_lb_in_root;
+   double best_ub;
 
    //results
    vector<double> obj_history_;
@@ -229,15 +244,15 @@ public:
    //This method serves as hook for the user to do some preprocessing on a search tree node before the node is processed.
    //Also, logical fixing results can be returned in the last four parameters.
    //This might be very useful if the branching implies significant tightening.
-   void initialize_new_search_tree_node(const BCP_vec<BCP_var*>& vars,
-      const BCP_vec<BCP_cut*>& cuts,
-      const BCP_vec<BCP_obj_status>& var_status,
-      const BCP_vec<BCP_obj_status>& cut_status,
-      BCP_vec<int>& var_changed_pos,
-      BCP_vec<double>& var_new_bd,
-      BCP_vec<int>& cut_changed_pos,
-      BCP_vec<double>& cut_new_bd)
-   { }
+//   void initialize_new_search_tree_node(const BCP_vec<BCP_var*>& vars,
+//      const BCP_vec<BCP_cut*>& cuts,
+//      const BCP_vec<BCP_obj_status>& var_status,integerCoreVariables
+//      const BCP_vec<BCP_obj_status>& cut_status,
+//      BCP_vec<int>& var_changed_pos,
+//      BCP_vec<double>& var_new_bd,
+//      BCP_vec<int>& cut_changed_pos,
+//      BCP_vec<double>& cut_new_bd)
+//   { }
 
    //Convert a set of variables into corresponding columns for the current LP relaxation.
    void vars_to_cols(const BCP_vec<BCP_cut*>& cuts, // on what to expand
@@ -276,8 +291,12 @@ protected:
    //cols is the vector where the new columns will be stored
    void TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col*>& cols);
 
+   //Branch on the core integer var: the skill allocation var
+   //just 2 children
+   void appendCoreIntegerVars(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands);
+
    //Fixed all the column > branchLB to 1
-   //just one children
+   //just one child
    void appendNewFixingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands);
 
    //Try for each nurse to fix to 1 the highest column
@@ -315,6 +334,9 @@ public:
 
    // unpack an MIP feasible solution
 //   BCP_solution* unpack_feasible_solution(BCP_buffer& buf);
+
+   //display a feasible solution
+   void display_feasible_solution(const BCP_solution* sol);
 
    // setting the base
    //Create the core of the problem by filling out the last three arguments.

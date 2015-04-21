@@ -110,6 +110,21 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    if(local_var_pool.size() > 0)
       return BCP_DoNotBranch;
 
+   //manage integrality on the skill allocation variables
+   vector<CoinVar*> integerCoreVariables;
+   for(CoinVar* coreVar: pModel_->getCoreVars()){
+      if(coreVar->is_integer() && !pModel_->isInteger(coreVar)){
+//         integerCoreVariables.push_back(coreVar);
+         appendCoreIntegerVars(coreVar, cands);
+         return BCP_DoBranch;
+      }
+   }
+//   if(integerCoreVariables.size() > 0){
+//      for(CoinVar* coreVar: integerCoreVariables)
+//         appendCoreIntegerVars(coreVar, cands);
+//      return BCP_DoBranch;
+//   }
+
    //fixing candidates
    vector<MyObject*> fixingCandidates;
    pModel_->logical_fixing(fixingCandidates);
@@ -132,6 +147,25 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 
    //otherwise fathomed
    return BCP_DoNotBranch_Fathomed;
+}
+
+void BcpLpModel::appendCoreIntegerVars(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands){
+   BCP_vec<int> vpos; //positions of the variables
+   BCP_vec<double> vbd; // old bound and then new one for each variable
+
+   vpos.push_back(coreVar->getIndex());
+   double value = pModel_->getVarValue(coreVar);
+   vbd.push_back(coreVar->getLB()); // old lower bound
+   vbd.push_back(floor(value)); // new upper bound
+   vbd.push_back(ceil(value)); // new lower bound
+   vbd.push_back(coreVar->getUB()); // new lower bound
+
+
+   cands.push_back(new  BCP_lp_branching_object(2, //just one children where
+      //all the columns with positions in vpos are fixed to 1
+      0, 0, /* vars/cuts_to_add */
+      &vpos, 0, &vbd, 0, /* forced parts: position and bounds (old bound and then new one) */
+      0, 0, 0, 0 /* implied parts */));
 }
 
 void BcpLpModel::appendNewFixingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands){
@@ -247,6 +281,19 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
       added_vars.unchecked_push_back(new BcpColumn(*var));
    }
 
+}
+
+void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
+   // store the solution
+   pModel_->setBestUb(sol->objective_value());
+
+   BCP_solution_generic* sol2 = (BCP_solution_generic*) sol;
+   vector<double> primal(pModel_->getNbVars());
+   for(int i=0; i<sol2->_vars.size(); ++i){
+      int index = sol2->_vars[i]->bcpind();
+      primal[index] = sol2->_values[i];
+   }
+   pModel_->setPrimal(primal);
 }
 
 /*

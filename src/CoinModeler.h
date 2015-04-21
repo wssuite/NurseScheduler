@@ -58,6 +58,8 @@ struct CoinVar: public MyObject {
 
    double getUB() { return ub_; }
 
+   bool is_integer() { return type_ != VARTYPE_CONTINUOUS; }
+
 protected:
    int index_; //index of the column of the matrix here
    VarType type_; //type of the variable
@@ -350,6 +352,8 @@ public:
    vector<CoinVar*>& getColumns(){ return columnVars_; }
 
    int getNbColumns(){ return columnVars_.size(); }
+
+   int getNbVars(){ return columnVars_.size()+coreVars_.size(); }
 
    vector<CoinCons*>& getCons(){ return cons_; }
 
