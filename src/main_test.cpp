@@ -18,7 +18,7 @@ void main_test()
 {
 	//testFunction_Antoine();
 	// testFunction_Jeremy();
-	//testFunction_Samuel();
+	testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
@@ -205,8 +205,8 @@ void testFunction_Samuel(){
 
    // Instances
    //
-   string data = "testdatasets/";
-   string inst = "n005w4";			// n100w4 n030w4 n005w4
+   string data = "datasets/";
+   string inst = "n100w4";			// n100w4 n030w4 n005w4
 
    // Paths
    //
