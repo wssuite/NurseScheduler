@@ -45,6 +45,8 @@ bool RotationPricer::pricing(double bound){
    /* sort the nurses */
    vector<LiveNurse*> sortedNurses = sortNurses();
 
+   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
+
    for(LiveNurse* pNurse: sortedNurses){
 
 	   /* Build or re-use a subproblem */
@@ -78,8 +80,6 @@ bool RotationPricer::pricing(double bound){
 	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
-	   std::cout << "# Solving SubProblems" << std::endl;
-
 	   /* Solve subproblems */
 	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 4) )
 		   optimal = false;
@@ -95,6 +95,8 @@ bool RotationPricer::pricing(double bound){
 			master_->addRotation(rot, baseName);
 		}
    }
+
+   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
 
    return optimal;
 }

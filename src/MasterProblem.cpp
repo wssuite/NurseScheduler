@@ -179,7 +179,12 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
 
 
       // Display: set to true if you want to display the details of the cost
-      if(false){
+
+      if(abs(dualCost_ - dualCost) > EPSILON ){
+    	  cout << "# " << endl;
+    	  cout << "# " << endl;
+    	  cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
+    	  cout << "# " << endl;
     	  cout << "#   | Base cost     : + " << cost_ << endl;
     	  for(int k=firstDay_; k<firstDay_+length_; ++k)
     		  cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
@@ -198,12 +203,9 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
     	  for(int i=0; i<allTasks.size(); i++){
     		  if(allTasks[i] < 1) std::cout << " |";
     		  else std::cout << allTasks[i] << "|";
-    	  }
-    	  std::cout << std::endl;
-      }
-
-      if(abs(dualCost_ - dualCost) > EPSILON ){
-    	  cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
+          }
+    	  cout << "# " << endl;
+    	  cout << "# " << endl;
     	  getchar();
       }
 }
@@ -439,18 +441,18 @@ void MasterProblem::addRotation(Rotation rotation, char* baseName){
 	addRotationConsToCol(&cons, &coeffs, i, rotation.firstDay_+rotation.length_-1, false, true);
 
 	/* Min/Max constraints */
-	for(int k=rotation.pNurse_->firstDay_; k<rotation.pNurse_->firstDay_+rotation.length_; ++k){
+	for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k){
 		//check if the nurse works on a saturday and add it in the constraints
 		//not yet added in the constraints maxWorkedWeekend
 		if(Tools::isSaturday(k))
 			addMinMaxConsToCol(&cons, &coeffs, i, k, true);
 		//check if the nurse works on a sunday and does not work on a saturday
 		//not yet added in the constraints maxWorkedWeekend
-		else if( (k==rotation.pNurse_->firstDay_) && Tools::isSunday(k) )
+		else if( (k==rotation.firstDay_) && Tools::isSunday(k) )
 			addMinMaxConsToCol(&cons, &coeffs, i, k, true);
 		//otherwise, do not add in the constraints maxWorkedWeekend
 		else
-			addMinMaxConsToCol(&cons, &coeffs, i, k);
+			addMinMaxConsToCol(&cons, &coeffs, i, k, false);
 	}
 
 	/* Skills coverage constraints */
