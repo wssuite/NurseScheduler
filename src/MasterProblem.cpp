@@ -294,7 +294,6 @@ void MasterProblem::build(){
       to solve the problem
    */
    if (solverType_ != S_CBC) {
-
      /* Rotation pricer */
      pPricer_ = new RotationPricer(this, "pricer");
      pModel_->addObjPricer(pPricer_);
@@ -310,8 +309,8 @@ void MasterProblem::solve(){
 
   // RqJO: warning, it would be better to define an enumerate type of verbosity
   // levels and create the matching in the Modeler subclasses
-  if (solverType_ == S_BCP ) {
-    pModel_->setVerbosity(5);
+  if (solverType_ != S_CBC ) {
+    pModel_->setVerbosity(0);
   }
    pModel_->solve();
    pModel_->printStats();

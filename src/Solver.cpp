@@ -519,14 +519,34 @@ double Solver::solutionCost() {
 // display the whole solution
 //
 string Solver::solutionToString() {
+   return solutionToString(pDemand_->firstDay_, pDemand_->nbDays_, pScenario_->thisWeek());
+}
+
+// display the whole solution week by week for nbWeeks weeks.
+//
+vector<string> Solver::solutionToString(int nbWeeks) {
+   vector<string> solutions;
+
+   //build the solution for each week
+   int firstDay = pDemand_->firstDay_;
+   for(int w=0; w<nbWeeks; ++w){
+      solutions.push_back(solutionToString(firstDay, 7, pScenario_->thisWeek()+w));
+      firstDay += 7;
+   }
+
+   return solutions;
+}
+
+// display the solution between firstDay and firstDay+nbDays in the required format
+//
+string Solver::solutionToString(int firstDay, int nbDays, int firstWeek){
   std::stringstream rep;
   int nbNurses = pScenario_->nbNurses_;
-  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nbDays_;
 
   // write to stringstream that can then be printed in any output file
   // follow the template described by the competition
   rep << "SOLUTION" << std::endl;
-  rep << pScenario_->thisWeek() << " " << pScenario_->name_ << std::endl;
+  rep << firstWeek << " " << pScenario_->name_ << std::endl;
   rep << std::endl;
 
   // compute the total number of assignments that are not rests
@@ -558,13 +578,11 @@ string Solver::solutionToString() {
     }
   }
 
-
-
   return rep.str();
 }
 
 
-// display the solution in a more readable format and append advanced
+// display the whole solution in a more readable format and append advanced
 // information on the solution quality
 //
 string Solver::solutionToLogString() {

@@ -16,7 +16,7 @@
 
 void main_test()
 {
-	//testFunction_Antoine();
+	testFunction_Antoine();
 	// testFunction_Jeremy();
 	//testFunction_Samuel();
 }
@@ -38,7 +38,7 @@ void testFunction_Antoine(){
    Tools::LogOutput outStream(outFile);
 
    string data = "testdatasets/";// testdatasets datasets
-   string inst = "n005w4";// n100w4 n030w4 n005w4
+   const char* inst = "n005w4";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    vector<int> numberWeek = {1, 2, 3, 3};
@@ -77,12 +77,22 @@ void testFunction_Antoine(){
 
    // Instantiate the solver class as a test
    //
-   MasterProblem* pSolverTest =
+   MasterProblem* pBCP =
       new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
-   pSolverTest->solve();
+   pBCP->solve();
+
+   // Write the solution in the required output format
+   vector<string> solutions = pBCP->solutionToString(pScen->nbWeeks());
+   for(int w=0; w<pScen->nbWeeks(); ++w){
+      int thisWeek = w+pScen->thisWeek();
+      char solutionFile[30];
+      snprintf ( solutionFile, 30, "outfiles/Sol-%s-%d-%d.txt", inst, numberWeek[w], thisWeek );
+      Tools::LogOutput solutionStream(solutionFile);
+      solutionStream << solutions[w];
+   }
 
    // Write the solution in an output file
-   outStream << pSolverTest->solutionToLogString();
+   outStream << pBCP->solutionToLogString();
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -91,10 +101,6 @@ void testFunction_Antoine(){
    logStream.print("\n");
 
 
-   //test vrp example of scip
-   //   string dataFile = "datasets/vrp/eil22.vrp";
-   //   Vrp* vrp = new Vrp(dataFile);
-
    // free the allocated pointers
    //
    //   delete vrp;
@@ -102,7 +108,7 @@ void testFunction_Antoine(){
    delete pWeekDemand;
    delete pScen;
    delete pGreedy;
-   delete pSolverTest;
+   delete pBCP;
 }
 
 
