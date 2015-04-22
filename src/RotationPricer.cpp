@@ -67,12 +67,6 @@ bool RotationPricer::pricing(double bound){
 	   vector<double> endWorkDualCosts; endWorkDualCosts = getEndWorkDualValues(pNurse);
 	   double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
 
-
-      //Tools::initDoubleVector2D(&workDualCosts, pDemand_->nbDays_, pDemand_->nbShifts_-1);
-      //Tools::initDoubleVector(&startWorkDualCosts, pDemand_->nbDays_);
-      //Tools::initDoubleVector(&endWorkDualCosts, pDemand_->nbDays_);
-      //workedWeekendDualCost = 200;
-
 	   Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
 	   /* Compute forbidden */
@@ -84,6 +78,7 @@ bool RotationPricer::pricing(double bound){
 	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
+	   std::cout << "# Solving SubProblems" << std::endl;
 
 	   /* Solve subproblems */
 	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 4) )
@@ -91,7 +86,6 @@ bool RotationPricer::pricing(double bound){
 	   else
 		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
 
-      // SR - TODO : calcul du cout a chaque fois, car pas fait dans le SP
 		/* Retrieve rotations and add them to the master problem*/
 		rotations = subProblem->getRotations();
 		for(Rotation rot: rotations){

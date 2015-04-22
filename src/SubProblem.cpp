@@ -287,9 +287,10 @@ double SubProblem::consDaysCost(int n){
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
 
 
-	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " [completeWeekends=";
-	if(pContract_->needCompleteWeekends_ == 1) std::cout << "YES"; else std::cout << "NO";
-	std::cout << "]" << std::endl;
+	//std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " ";
+	//std::cout << "[completeWeekends=";
+	//if(pContract_->needCompleteWeekends_ == 1) std::cout << "YES"; else std::cout << "NO";
+	//std::cout << "]" << std::endl;
 
 	// Set to true if you want to display contract + preferences (for debug)
 	if(false){
@@ -533,7 +534,7 @@ void SubProblem::setSolveOptions(vector<SolveOption> options){
 // Transforms the solutions found into proper rotations.
 //
 bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor> > paths, vector<spp_spptw_res_cont> resources){
-	bool oneFound = false;
+	int nFound = 0;
 	// For each path of the list, record the corresponding rotation (if negativeOnly=true, do it only if the dualCost < 0)
 	for(int p=0; p < paths.size(); ++p){
 		Rotation rot = rotationFromPath(paths[p], resources[p]);
@@ -541,13 +542,14 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 				or ( isOptionActive(SOLVE_NEGATIVE_ONLY) and (rot.dualCost_ < -EPSILON) ) ){
 			theRotations_.push_back(rot);
 			nPaths_ ++;
-			oneFound = true;
+			nFound ++;
 			//printPath(paths[p], resources[p]);
-			printRotation(rot);
+			//printRotation(rot);
 		}
 	}
 	//printAllRotations();
-	return oneFound;
+	//std::cout << "# -> " << nFound << std::endl;
+	return (nFound > 0);
 }
 
 // Adds a rotation made from the given path to the current list of answers and increases their counter
