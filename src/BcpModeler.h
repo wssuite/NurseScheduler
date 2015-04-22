@@ -162,6 +162,8 @@ public:
 
    double getObjective(){ return best_ub; }
 
+   double getRelaxedObjective() { return best_lb_in_root; }
+
    int printStats();
 
    int writeProblem(string fileName);
@@ -205,6 +207,10 @@ public:
 
    double getBestUb(){ return best_ub; }
 
+   map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
+
+   map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
+
 protected:
    //best lb in root
    double best_lb_in_root;
@@ -213,6 +219,53 @@ protected:
    //results
    vector<double> obj_history_;
    vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
+
+   /* Tree Manager verbosity parameters */
+   map<BCP_tm_par::chr_params, bool> tm_parameters = {
+      { BCP_tm_par::VerbosityShutUp, 1},
+      { BCP_tm_par::TmVerb_First, 0},
+      { BCP_tm_par::TmVerb_AllFeasibleSolutionValue, 0},
+      { BCP_tm_par::TmVerb_AllFeasibleSolution, 0},
+      { BCP_tm_par::TmVerb_BetterFeasibleSolutionValue, 0},
+      { BCP_tm_par::TmVerb_BetterFeasibleSolution, 0},
+      { BCP_tm_par::TmVerb_BestFeasibleSolution, 1}, //need this method to store the best feasible solution
+      { BCP_tm_par::TmVerb_NewPhaseStart, 0},
+      { BCP_tm_par::TmVerb_PrunedNodeInfo, 0},
+      { BCP_tm_par::TmVerb_TimeOfImprovingSolution, 0},
+      { BCP_tm_par::TmVerb_TrimmedNum, 0},
+      { BCP_tm_par::TmVerb_FinalStatistics, 1}, //need this method to store the best feasible solution
+      { BCP_tm_par::TmVerb_ReportDefault, 0},
+      { BCP_tm_par::TmVerb_Last, 0}
+   };
+
+   /* LP verbosity parameters */
+   map<BCP_lp_par::chr_params, bool> lp_parameters = {
+      { BCP_lp_par::LpVerb_AddedCutCount, 0},// Print the number of cuts added from the local cut pool in the current iteration. (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_CutsToCutPoolCount, 0},// Print the number of cuts sent from the LP to the cut pool. (BCP_lp_send_cuts_to_cp)
+      { BCP_lp_par::LpVerb_ReportLocalCutPoolSize, 0},// Print the current number of cuts in the cut pool. This number is printed several times: before and after generating columns at the current iteration, after removing non-essential cuts, etc. (BCP_lp_generate_cuts)
+      { BCP_lp_par::LpVerb_ReportCutGenTimeout, 0},// Print information if receiving cuts is timed out. (BCP_lp_generate_cuts)
+      { BCP_lp_par::LpVerb_GeneratedCutCount, 0},// Print the number of cuts generated during this iteration (since the LP was resolved last time). (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_AddedVarCount, 0},// Print the number of variables added from the local variable pool in the curent iteration. (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_ChildrenInfo, 0},// After a branching object is selected print what happens to the presolved children (e.g., fathomed). (BCP_print_brobj_stat)
+      { BCP_lp_par::LpVerb_ColumnGenerationInfo, 0},// Print the number of variables generated before resolving the Lp ir fathoming a node. (BCP_lp_fathom)
+      { BCP_lp_par::LpVerb_FathomInfo, 0},// Print information related to fathoming. (BCP_lp_main_loop, BCP_lp_perform_fathom, BCP_lp_branch) (BCP_lp_fathom)
+      { BCP_lp_par::LpVerb_IterationCount, 0},// Print the "Starting iteration x" line. (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_RelaxedSolution, 0},// Turn on the user hook "display_lp_solution". (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_FinalRelaxedSolution, 0},// Turn on the user hook "display_lp_solution" for the last LP relaxation solved at a search tree node. (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_LpSolutionValue, 0},// Print the size of the problem matrix and the LP solution value after resolving the LP. (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_MatrixCompression, 0},// Print the number of columns and rows that were deleted during matrix compression. (BCP_lp_delete_cols_and_rows)
+      { BCP_lp_par::LpVerb_PresolvePositions, 0},// Print detailed information about all the branching candidates during strong branching. LpVerb_PresolveResult must be set for this parameter to have an effect. (BCP_lp_perform_strong_branching)
+      { BCP_lp_par::LpVerb_PresolveResult, 0},// Print information on the presolved branching candidates during strong branching. (BCP_lp_perform_strong_branching)
+      { BCP_lp_par::LpVerb_ProcessedNodeIndex, 0},// Print the "Processing NODE x on LEVEL y" line. (BCP_lp-main_loop)
+      { BCP_lp_par::LpVerb_ReportVarGenTimeout, 0},// Print information if receiving variables is timed out. (BCP_lp_generate_vars)
+      { BCP_lp_par::LpVerb_ReportLocalVarPoolSize, 0},// Similar as above for variables. (BCP_lp_generate_vars)
+      { BCP_lp_par::LpVerb_VarTightening, 0},// Print the number of variables whose bounds have been changed by reduced cost fixing or logical fixing. (BCP_lp_fix_vars)
+      { BCP_lp_par::LpVerb_RowEffectivenessCount, 0},// Print the number of ineffective rows in the current problem. The definition of what rows are considered ineffective is determined by the paramter IneffectiveConstraints. (BCP_lp_adjust_row_effectiveness)
+      { BCP_lp_par::LpVerb_StrongBranchPositions, 0},// Print detailed information on the branching candidate selected by strong branching. LpVerb_StrongBranchResult must be set fo this parameter to have an effect. (BCP_print_brobj_stat)
+      { BCP_lp_par::LpVerb_StrongBranchResult, 0},// Print information on the branching candidate selected by strong branching. (BCP_print_brobj_stat)
+      { BCP_lp_par::LpVerb_GeneratedVarCount, 0},// Print the number of variables generated during this iteration. (BCP_lp_main_loop)
+      { BCP_lp_par::LpVerb_Last, 0}// Just a marker for the last LpVerb
+   };
 };
 
 /*
@@ -253,6 +306,13 @@ public:
 //      BCP_vec<int>& cut_changed_pos,
 //      BCP_vec<double>& cut_new_bd)
 //   { }
+
+
+   //Modify parameters of the LP solver before optimization.
+   //This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
+   //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
+   //Default: empty method.
+   void modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching);
 
    //Convert a set of variables into corresponding columns for the current LP relaxation.
    void vars_to_cols(const BCP_vec<BCP_cut*>& cuts, // on what to expand
@@ -355,9 +415,7 @@ public:
    //void display_feasible_solution(const BCP_solution* soln);
 
    // various initializations before a new phase (e.g., pricing strategy)
-   void init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates) {
-      colgen = BCP_GenerateColumns;
-   }
+   void init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates);
 
 protected:
    BcpModeler* pModel_;

@@ -14,6 +14,15 @@
  * BCP_lp_user methods
  */
 
+//Modify parameters of the LP solver before optimization.
+//This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
+//The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
+//Default: empty method.
+void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
+   for(pair<BCP_lp_par::chr_params, bool> entry: pModel_->getLpParameters())
+      set_param(entry.first, entry.second);
+}
+
 //Convert a set of variables into corresponding columns for the current LP relaxation.
 void BcpLpModel::vars_to_cols(const BCP_vec<BCP_cut*>& cuts, // on what to expand
    BCP_vec<BCP_var*>& vars,       // what to expand
@@ -296,6 +305,13 @@ void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
    pModel_->setPrimal(primal);
 }
 
+// various initializations before a new phase (e.g., pricing strategy)
+void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates) {
+   colgen = BCP_GenerateColumns;
+   for(pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
+      set_param(entry.first, entry.second);
+}
+
 /*
  * BcpModeler
  */
@@ -368,6 +384,57 @@ double BcpModeler::getDual(MyObject* cons, bool transformed){
  *************/
 int BcpModeler::setVerbosity(int v){
 
+   if(v>=1){
+      tm_parameters[BCP_tm_par::VerbosityShutUp] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_First] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_BestFeasibleSolution] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_FinalStatistics] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_Last] = 1;
+
+      lp_parameters[BCP_lp_par::LpVerb_IterationCount] = 1; // Print the "Starting iteration x" line. (BCP_lp_main_loop)
+      lp_parameters[BCP_lp_par::LpVerb_GeneratedVarCount] = 1; // Print the number of variables generated during this iteration. (BCP_lp_main_loop)
+      lp_parameters[BCP_lp_par::LpVerb_FinalRelaxedSolution] = 1; // Turn on the user hook "display_lp_solution" for the last LP relaxation solved at a search tree node. (BCP_lp_main_loop)
+      lp_parameters[BCP_lp_par::LpVerb_Last] = 1; // Just a marker for the last LpVerb
+   }
+
+   if(v>=2){
+      tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolutionValue] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolution] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_NewPhaseStart] = 1;
+
+      lp_parameters[BCP_lp_par::LpVerb_ReportVarGenTimeout] = 1; // Print information if receiving variables is timed out. (BCP_lp_generate_vars)
+      lp_parameters[BCP_lp_par::LpVerb_ReportLocalVarPoolSize] = 1; // Similar as above for variables. (BCP_lp_generate_vars)
+      lp_parameters[BCP_lp_par::LpVerb_AddedVarCount] = 1; // Print the number of variables added from the local variable pool in the current iteration. (BCP_lp_main_loop)
+   }
+
+   if(v>=3){
+      tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolutionValue] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolution] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_PrunedNodeInfo] = 1;
+
+      lp_parameters[BCP_lp_par::LpVerb_ChildrenInfo] = 1; // After a branching object is selected print what happens to the presolved children (e.g., fathomed). (BCP_print_brobj_stat)
+      lp_parameters[BCP_lp_par::LpVerb_ColumnGenerationInfo] = 1; // Print the number of variables generated before resolving the Lp ir fathoming a node. (BCP_lp_fathom)
+      lp_parameters[BCP_lp_par::LpVerb_FathomInfo] = 1; // Print information related to fathoming. (BCP_lp_main_loop, BCP_lp_perform_fathom, BCP_lp_branch) (BCP_lp_fathom)
+      lp_parameters[BCP_lp_par::LpVerb_RelaxedSolution] = 1; // Turn on the user hook "display_lp_solution". (BCP_lp_main_loop)
+      lp_parameters[BCP_lp_par::LpVerb_LpSolutionValue] = 1; // Print the size of the problem matrix and the LP solution value after resolving the LP. (BCP_lp_main_loop)
+   }
+
+   if(v>=4){
+      tm_parameters[BCP_tm_par::TmVerb_TimeOfImprovingSolution] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_TrimmedNum] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_ReportDefault] = 1;
+
+      lp_parameters[BCP_lp_par::LpVerb_MatrixCompression] = 1; // Print the number of columns and rows that were deleted during matrix compression. (BCP_lp_delete_cols_and_rows)
+      lp_parameters[BCP_lp_par::LpVerb_PresolvePositions] = 1; // Print detailed information about all the branching candidates during strong branching. LpVerb_PresolveResult must be set for this parameter to have an effect. (BCP_lp_perform_strong_branching)
+      lp_parameters[BCP_lp_par::LpVerb_PresolveResult] = 1; // Print information on the presolved branching candidates during strong branching. (BCP_lp_perform_strong_branching)
+      lp_parameters[BCP_lp_par::LpVerb_ProcessedNodeIndex] = 1; // Print the "Processing NODE x on LEVEL y" line. (BCP_lp-main_loop)
+      lp_parameters[BCP_lp_par::LpVerb_VarTightening] = 1; // Print the number of variables whose bounds have been changed by reduced cost fixing or logical fixing. (BCP_lp_fix_vars)
+      lp_parameters[BCP_lp_par::LpVerb_RowEffectivenessCount] = 1; // Print the number of ineffective rows in the current problem. The definition of what rows are considered ineffective is determined by the paramter IneffectiveConstraints. (BCP_lp_adjust_row_effectiveness)
+      lp_parameters[BCP_lp_par::LpVerb_StrongBranchPositions] = 1; // Print detailed information on the branching candidate selected by strong branching. LpVerb_StrongBranchResult must be set fo this parameter to have an effect. (BCP_print_brobj_stat)
+      lp_parameters[BCP_lp_par::LpVerb_StrongBranchResult] = 1; // Print information on the branching candidate selected by strong branching. (BCP_print_brobj_stat)
+   }
+
+   return 1;
 }
 
 /**************

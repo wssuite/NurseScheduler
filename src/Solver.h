@@ -314,6 +314,14 @@ public:
    //
    string solutionToString();
 
+   // display the whole solution week by week for nbWeeks weeks in the required format
+   //
+   vector<string> solutionToString(int nbWeeks);
+
+   // display the solution between firstDay and firstDay+nbDays in the required format
+   //
+   string solutionToString(int firstDay, int nbDays,  int firstWeek);
+
    // display the solution in a more readable format and append advanced
    // information on the solution quality
    //

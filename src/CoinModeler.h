@@ -297,6 +297,9 @@ public:
       //print the objective value
       printf("%-30s %4.2f \n", "Objective:" , getObjective());
 
+      //print the value of the relaxation
+      printf("%-30s %4.2f \n", "Relaxation:" , getRelaxedObjective());
+
       //print the value of the positive variables
       printf("%-30s \n", "Variables:");
       double tolerance = pow(.1, DECIMALS);
@@ -319,6 +322,8 @@ public:
    }
 
    virtual double getObjective()=0;
+
+   virtual double getRelaxedObjective() { return 0; }
 
    virtual int writeProblem(string fileName) { return 0; }
 
