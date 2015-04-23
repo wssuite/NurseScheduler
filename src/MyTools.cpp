@@ -74,47 +74,46 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 
 // Initializes  a vector of the given size (filled only with zeroes)
 //
-void initVector(vector<int>* v1D, int m){
+void initVector(vector<int>* v1D, int m, int val){
 	for(int i=0; i < m; i++){
-		v1D->push_back(0);
+		v1D->push_back(val);
 	}
 }
 
 // Initializes a vector2D of the given size (filled only with zeroes)
 //
-void initVector2D(vector2D* v2D, int m, int n){
+void initVector2D(vector2D* v2D, int m, int n, int val){
 	for (int i=0; i<m; i++){
 		vector<int> v;
-		initVector(&v, n);
+		initVector(&v, n, val);
 		v2D->push_back(v);
 	}
 }
 
 // Initializes a vector3D of the given size (filled only with zeroes)
 //
-void initVector3D(vector3D* v3D, int m, int n, int p){
+void initVector3D(vector3D* v3D, int m, int n, int p, int val){
 	for (int i=0; i<m; i++){
 		vector2D v2D;
-		initVector2D(&v2D, n,p);
+		initVector2D(&v2D, n, p, val);
 		v3D->push_back(v2D);
 	}
 }
 
 // Initializes  a vector of the given size (filled only with zeroes), for double vectors
 //
-void initDoubleVector(vector<double>* v1D, int m){
-	v1D->assign(m,0);
-	/*for(int i=0; i < m; i++){
-		v1D->push_back(0);
-	}*/
+void initDoubleVector(vector<double>* v1D, int m, double val){
+	for(int i=0; i < m; i++){
+		v1D->push_back(val);
+	}
 }
 
 // Initializes  a vector< vector< double > > of the given size (filled only with zeroes), for double vectors
 //
-void initDoubleVector2D(vector< vector< double > > * v2D, int m, int n){
+void initDoubleVector2D(vector< vector< double > > * v2D, int m, int n, double val){
 	for(int i=0; i < m; i++){
 		vector<double> v1D;
-		initDoubleVector(&v1D, n);
+		initDoubleVector(&v1D, n, val);
 		v2D->push_back(v1D);
 	}
 }

@@ -76,15 +76,19 @@ bool RotationPricer::pricing(double bound){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
-	   //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
+	   options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
 	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
+	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
+
 	   /* Solve subproblems */
-	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 4) )
+	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 10) )
 		   optimal = false;
 	   else
 		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+
+	   cout << "#  SP " << pNurse->name_ << " solved" << endl;
 
 		/* Retrieve rotations and add them to the master problem*/
 		rotations = subProblem->getRotations();
@@ -94,6 +98,8 @@ bool RotationPricer::pricing(double bound){
 			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
 			master_->addRotation(rot, baseName);
 		}
+
+		cout << "#  SP " << pNurse->name_ << " added columns" << endl;
    }
 
    std::cout << "# -------  END  ------- Subproblems!" << std::endl;

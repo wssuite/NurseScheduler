@@ -2,8 +2,8 @@
 //  main_test.cpp
 //  RosterDesNurses
 //
-//  Created by J������r������my Omer on 04/03/2015.
-//  Copyright (c) 2015 J������r������my Omer. All rights reserved.
+//  Created by Jeremy Omer on 04/03/2015.
+//  Copyright (c) 2015 Jeremy Omer. All rights reserved.
 //
 
 #include "main_test.h"
@@ -18,7 +18,7 @@ void main_test()
 {
 	testFunction_Antoine();
 	// testFunction_Jeremy();
-	testFunction_Samuel();
+	// testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)

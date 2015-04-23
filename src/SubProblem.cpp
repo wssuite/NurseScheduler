@@ -84,7 +84,7 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 
 	nPathsMin_ = 0;
 
-	std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
+	//std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
 
 	//printGraph();
 	//printShortSucc();
@@ -354,22 +354,13 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
 	spp_spptw_res_cont rc (0,0);
 
-	//cout << "# Serie en cours : " << pLiveNurse_->pStateIni_->consShifts_ << " de " << pScenario_->intToShift_[pLiveNurse_->pStateIni_->shift_];
-	//cout << " (total " << pLiveNurse_->pStateIni_->consDaysWorked_ << " jours)" << endl;
-
-	/*
-	for(int a=0; a<nArcs_; a++){
-		if(!isArcForbidden(a)){
-			double c = arcCost(a) + .5;
-			cout << "# " << c << endl;
-			updateCost(a, c);
-		}
-	}
-	*/
+	opt_solutions_spptw.clear();
+	pareto_opt_rcs_spptw.clear();
 
 	// "Original way of doing" = pareto optimal for the whole month
 	//
 	if(isOptionActive(SOLVE_SINGLE_SINKNODE)){
+
 		r_c_shortest_paths(
 				g_,
 				get( &Vertex_Properties::num, g_ ),
@@ -397,7 +388,9 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		}
 		// 2. For every end-day, get the pareto-front
 		for(int k=CDMin_-1; k<nDays_; k++){
-			for(int s=1; s<pScenario_->nbShifts_; s++) authorizeArc( arcsPrincipalToRotsizein_[s][k] );
+
+			for(int s=1; s<pScenario_->nbShifts_; s++)
+				authorizeArc( arcsPrincipalToRotsizein_[s][k] );
 
 			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > last_day_opt_solutions_spptw;
 			vector<spp_spptw_res_cont> last_day_pareto_opt_rcs_spptw;
@@ -416,9 +409,12 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 					std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 					boost::default_r_c_shortest_paths_visitor()
 			);
+
 			Tools::push_several_back(& opt_solutions_spptw, last_day_opt_solutions_spptw);
 			Tools::push_several_back(& pareto_opt_rcs_spptw, last_day_pareto_opt_rcs_spptw);
-			for(int s=1; s<pScenario_->nbShifts_; s++) forbidArc( arcsPrincipalToRotsizein_[s][k] );
+
+			for(int s=1; s<pScenario_->nbShifts_; s++)
+				forbidArc( arcsPrincipalToRotsizein_[s][k] );
 
 		}
 		// 3. Re-authorize all ending arcs
@@ -434,11 +430,10 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	else if(isOptionActive(SOLVE_ONE_SINK_PER_FIRST_DAY)){
 
 		// 1. Store a vector with all initially allowed short arcs AND forbid all of them
-		vector3D initiallyAuthorized;
-		for(int s=0; s<pScenario_->nbShifts_; s++){
-			vector2D initiallyAuthorized2;
-			for(int k=0; k<nDays_; k++){
-				vector<int> initiallyAuthorized1;
+		vector2D initiallyAuthorized;
+		for(int k=0; k<nDays_; k++){
+			vector<int> initiallyAuthorized1;
+			for(int s=0; s<pScenario_->nbShifts_; s++){
 				for(int n=1; n<=maxvalConsByShift_[s]; n++){
 					int a = arcsFromSource_[s][k][n];
 					if(!isArcForbidden(a)){
@@ -446,22 +441,23 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 						forbidArc(a);
 					}
 				}
-				initiallyAuthorized2.push_back(initiallyAuthorized1);
 			}
-			initiallyAuthorized.push_back(initiallyAuthorized2);
+			initiallyAuthorized.push_back(initiallyAuthorized1);
 		}
 
 		// 2. For every first day, get the pareto-front
 		for(int k=CDMin_-1; k<nDays_; k++){
+			vector<int> authorizedArcsThatDay = initiallyAuthorized[k];
 
 			// Re-authorize the arcs starting on day (k-CDMin_)
-			for(int s=1; s<pScenario_->nbShifts_; s++)
-				for(int a: initiallyAuthorized[s][k])
-					authorizeArc(a);
+			for(int a : authorizedArcsThatDay)
+				authorizeArc(a);
 
 			// Get the pareto-front and add it to the solution list
 			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > first_day_opt_solutions_spptw;
+			first_day_opt_solutions_spptw.clear();
 			vector<spp_spptw_res_cont> first_day_pareto_opt_rcs_spptw;
+			first_day_pareto_opt_rcs_spptw.clear();
 			spp_spptw_res_cont first_day_rc (0,0);
 			r_c_shortest_paths(
 					g_,
@@ -481,17 +477,14 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 			Tools::push_several_back(& pareto_opt_rcs_spptw, first_day_pareto_opt_rcs_spptw);
 
 			// Forbid the arcs starting on that day
-			for(int s=1; s<pScenario_->nbShifts_; s++)
-				for(int a: initiallyAuthorized[s][k])
-					forbidArc(a);
+			for(int a : authorizedArcsThatDay)
+				forbidArc(a);
 		}
 
-		// 3. Re-set all authorizations as they previsouly were
-		for(int s=1; s<pScenario_->nbShifts_; s++){
-			for(int k=CDMin_-1; k<nDays_; k++){
-				for(int a: initiallyAuthorized[s][k]) authorizeArc(a);
-			}
-		}
+		// 3. Re-set all authorizations as they previously were
+		for(int k=CDMin_-1; k<nDays_; k++)
+			for(int a: initiallyAuthorized[k])
+				authorizeArc(a);
 	}
 
 	// Return TRUE if a rotation was added. Last argument is true IF only negative reduced cost rotations are added
@@ -506,7 +499,6 @@ void SubProblem::setSolveOptions(vector<SolveOption> options){
 	for(SolveOption o : options) activeOptions_[o] = true;
 
 	// Check for incompatible options...
-	//std::cout << "# SOLVE OPTIONS:" << std::endl;
 	for(vector<SolveOption> cluster : incompatibilityClusters){
 		int n=0;
 		SolveOption chosenOption;
@@ -518,17 +510,13 @@ void SubProblem::setSolveOptions(vector<SolveOption> options){
 		}
 		if(n==0){
 			activeOptions_[cluster[0]] = true;
-			//std::cout << "#     [Default]: " << solveOptionName[cluster[0]] << std::endl;
 		} else if (n==1){
-			//std::cout << "#     [Chosen] : " << solveOptionName[chosenOption] << std::endl;
 		} else {
 			std::cout << "# WARNING !! TOO MANY OPTIONS -> [Default] " << solveOptionName[cluster[0]] << std::endl;
 			activeOptions_[cluster[0]] = true;
 			for(int i=1; i<cluster.size(); i++) activeOptions_[cluster[i]] = false;
 		}
 	}
-
-	//printActiveSolveOptions();
 }
 
 // Transforms the solutions found into proper rotations.
@@ -537,7 +525,10 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 	int nFound = 0;
 	// For each path of the list, record the corresponding rotation (if negativeOnly=true, do it only if the dualCost < 0)
 	for(int p=0; p < paths.size(); ++p){
+		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "..." << endl;
+		//printPath(paths[p], resources[p]);
 		Rotation rot = rotationFromPath(paths[p], resources[p]);
+		//cout << "# Rotation created!" << endl;
 		if( isOptionActive(SOLVE_NEGATIVE_ALLVALUES)
 				or ( isOptionActive(SOLVE_NEGATIVE_ONLY) and (rot.dualCost_ < -EPSILON) ) ){
 			theRotations_.push_back(rot);
@@ -546,6 +537,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 			//printPath(paths[p], resources[p]);
 			//printRotation(rot);
 		}
+		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "... done!" << endl;
 	}
 	//printAllRotations();
 	//std::cout << "# -> " << nFound << std::endl;
@@ -756,7 +748,7 @@ void SubProblem::initArcsStructures(){
 	Tools::initVector3D(&arcsShiftToNewShift_, pScenario_->nbShifts_, pScenario_->nbShifts_, nDays_);
 	// VECTORS 2 D
 	Tools::initVector2D(&arcsRepeatShift_, pScenario_->nbShifts_, nDays_);
-	Tools::initVector2D(&arcsPrincipalToRotsizein_, pScenario_->nbShifts_, nDays_);
+	Tools::initVector2D(&arcsPrincipalToRotsizein_, pScenario_->nbShifts_, nDays_, -1);
 	// MAPS
 	arcsRotsizeinToRotsize_.clear();
 	arcsRotsizeToRotsizeout_.clear();
@@ -893,6 +885,8 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 
 	// Start and End weekend costs
 	//
+	startWeekendCosts_.clear();
+	endWeekendCosts_.clear();
 	Tools::initDoubleVector(&startWeekendCosts_,nDays_);
 	Tools::initDoubleVector(&endWeekendCosts_,nDays_);
 	if(pLiveNurse_->needCompleteWeekends()){
@@ -902,8 +896,7 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 		}
 	}
 
-	// Preference costs. WARNING: STARTING DATE OF THE SCENARIO IS NOT THAT OF THE PREFERENCE ??
-	// TODO: Check if shifting is necessary
+	// Preference costs.
 	//
 	preferencesCosts_.clear();
 	Tools::initDoubleVector2D(&preferencesCosts_, nDays_, pScenario_->nbShifts_);
@@ -919,9 +912,9 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 	for(int s=0; s<pScenario_->nbShifts_; s++){
 		vector2D v2; vector<vector<double> > w2;
 		int n = maxvalConsByShift_[s]+1;
-		Tools::initVector2D(&v2, nDays_, n);
+		Tools::initVector2D(&v2, nDays_, n, -1);
 		idBestShortSuccCDMin_.push_back(v2);
-		Tools::initDoubleVector2D(&w2, nDays_, n);
+		Tools::initDoubleVector2D(&w2, nDays_, n, MAX_COST);
 		arcCostBestShortSuccCDMin_.push_back(w2);
 	}
 
@@ -973,7 +966,7 @@ void SubProblem::priceShortSucc(){
 
 				// IF NO VALID SUCCESSION, THEN FORBID THE ARC
 				int a = arcsFromSource_[s][k][n];
-				if(arcCostBestShortSuccCDMin_[s][k][n] == MAX_COST){
+				if(arcCostBestShortSuccCDMin_[s][k][n] >= MAX_COST-1){
 					forbidArc( a );
 				}
 			}
@@ -1319,6 +1312,9 @@ void SubProblem::resetAuthorizations(){
 	for(int s=1; s<pScenario_->nbShifts_; s++)
 		for(int k=0; k<nDays_; k++)
 			authorizeDayShift(k,s);
+
+	for(int a=0; a<nArcs_; a++)
+		authorizeArc(a);
 }
 
 // Generate random forbidden shifts

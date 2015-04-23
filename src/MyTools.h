@@ -82,11 +82,11 @@ bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 
 // initializes a 1D, 2D or 3D Vector of the given size (filled only with zeroes)
 //
-void initVector(vector<int>* v1D, int m);
-void initVector2D(vector2D* v2D, int m, int n);
-void initVector3D(vector3D* v3D, int m, int n, int p);
-void initDoubleVector(vector<double>* v1D, int m);
-void initDoubleVector2D(vector< vector< double > >* v2D, int m, int n);
+void initVector(vector<int>* v1D, int m, int val=0);
+void initVector2D(vector2D* v2D, int m, int n, int val=0);
+void initVector3D(vector3D* v3D, int m, int n, int p, int val=0);
+void initDoubleVector(vector<double>* v1D, int m, double val=0);
+void initDoubleVector2D(vector< vector< double > >* v2D, int m, int n, double val=0);
 
 // Creates 1D vectors with random values (uniform) within a given range.
 //
