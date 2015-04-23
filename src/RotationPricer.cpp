@@ -74,18 +74,39 @@ bool RotationPricer::pricing(double bound){
       /* Compute forbidden */
       computeForbiddenShifts(&forbiddenShifts, rotations);
 
+<<<<<<< HEAD
       /* Solve options */
       vector<SolveOption> options;
       //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
       //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
       options.push_back(SOLVE_FORBIDDEN_RESET);
+=======
+	   /* Solve options */
+	   vector<SolveOption> options;
+	   options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
+	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   options.push_back(SOLVE_FORBIDDEN_RESET);
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
+<<<<<<< HEAD
       /* Solve subproblems */
       if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 4) )
          optimal = false;
       else
          subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+=======
+	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
 
+	   /* Solve subproblems */
+	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 10) )
+		   optimal = false;
+	   else
+		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+
+	   cout << "#  SP " << pNurse->name_ << " solved" << endl;
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
+
+<<<<<<< HEAD
       /* Retrieve rotations and add them to the master problem*/
       rotations = subProblem->getRotations();
       for(Rotation rot: rotations){
@@ -94,6 +115,18 @@ bool RotationPricer::pricing(double bound){
          rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
          master_->addRotation(rot, baseName);
       }
+=======
+		/* Retrieve rotations and add them to the master problem*/
+		rotations = subProblem->getRotations();
+		for(Rotation rot: rotations){
+			double c = rot.cost_;
+			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
+			master_->addRotation(rot, baseName);
+		}
+
+		cout << "#  SP " << pNurse->name_ << " added columns" << endl;
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
    }
 
    //   std::cout << "# -------  END  ------- Subproblems!" << std::endl;

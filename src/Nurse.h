@@ -190,7 +190,8 @@ public:
 
 public:
    // Constructor and Destructor
-   State() {}
+   State():dayId_(0), totalDaysWorked_(0), totalWeekendsWorked_(0),
+    consDaysWorked_(0), consShifts_(0), consDaysOff_(0), shift_(0) {}
    ~State();
 
    // Constructor with attributes
