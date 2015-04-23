@@ -20,7 +20,7 @@
 // Constructor
 //
 CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons):
-  CoinModeler(), primalValues_(0), objVal_(0), model_(NULL) {
+  CoinModeler(), primalValues_(0), objVal_(0), model_(NULL), pOsiSolver_(0) {
   int corenum = coreVars.size();
   int colnum  = columnVars.size();
   int consnum = cons.size();
@@ -37,6 +37,27 @@ CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars,
     cons_.push_back(new CoinCons(*cons[i]));
     objects_.push_back(cons_[i]);
   }
+}
+
+CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons,
+   OsiSolverInterface* osiSolver_):
+         CoinModeler(), primalValues_(0), objVal_(0), model_(NULL), pOsiSolver_(osiSolver_) {
+   int corenum = coreVars.size();
+   int colnum  = columnVars.size();
+   int consnum = cons.size();
+
+   for (int i = 0; i < corenum; i++) {
+      coreVars_.push_back(new CoinVar(*coreVars[i]));
+      objects_.push_back(coreVars_[i]);
+   }
+   for (int i = 0; i < colnum; i++) {
+      columnVars_.push_back(new CoinVar(*columnVars[i]));
+      objects_.push_back(columnVars_[i]);
+   }
+   for (int i = 0; i < consnum; i++) {
+      cons_.push_back(new CoinCons(*cons[i]));
+      objects_.push_back(cons_[i]);
+   }
 }
 
 
@@ -78,69 +99,76 @@ int CbcModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int i
  *
 */
 int CbcModeler::setModel() {
-  vector<double> collb, colub, obj, rowlb, rowub;
+   if (model_ != NULL) delete model_;
 
-  CoinPackedMatrix ctMatrix = buildCoinMatrix();
+   if(pOsiSolver_)
+      model_ = new CbcModel(*pOsiSolver_);
+   else{
+      vector<double> collb, colub, obj, rowlb, rowub;
 
-  const int corenum = coreVars_.size();
-  const int colnum = coreVars_.size() + columnVars_.size();
-  const int rownum = cons_.size();
+      CoinPackedMatrix ctMatrix = buildCoinMatrix();
 
-  // get the characteristics of the variables
-  for(int i=0; i<colnum; ++i){
-    CoinVar* var(0);
-    //copy of the core variables
-    if(i<corenum)
-      var = coreVars_[i];
-    //copy of the column variables
-    else
-      var = columnVars_[i-corenum];
+      const int corenum = coreVars_.size();
+      const int colnum = coreVars_.size() + columnVars_.size();
+      const int rownum = cons_.size();
 
-    //build the vectors defining the LP
-    collb.push_back(var->getLB());
-    colub.push_back(var->getUB());
-    obj.push_back(var->getCost());
-  }
+      // get the characteristics of the variables
+      for(int i=0; i<colnum; ++i){
+         CoinVar* var(0);
+         //copy of the core variables
+         if(i<corenum)
+            var = coreVars_[i];
+         //copy of the column variables
+         else
+            var = columnVars_[i-corenum];
 
-  // get the characteristics of the constraints
-  for (int i=0; i<rownum; i++) {
-    rowlb.push_back(cons_[i]->getLhs());
-    rowub.push_back(cons_[i]->getRhs());
-  }
+         //build the vectors defining the LP
+         collb.push_back(var->getLB());
+         colub.push_back(var->getUB());
+         obj.push_back(var->getCost());
+      }
 
-  OsiSolverInterface* solver = new OsiClpSolverInterface;
-  solver->loadProblem(ctMatrix, &(collb[0]), &(colub[0]), &(obj[0]), &(rowlb[0]), &(rowub[0]));
+      // get the characteristics of the constraints
+      for (int i=0; i<rownum; i++) {
+         rowlb.push_back(cons_[i]->getLhs());
+         rowub.push_back(cons_[i]->getRhs());
+      }
 
-  // set the types of the variables
-  for (int i=0; i<colnum; i++) {
-    CoinVar* var(0);
-    //copy of the core variables
-    if(i<corenum)
-      var = coreVars_[i];
-    //copy of the column variables
-    else
-      var = columnVars_[i-corenum];
+      OsiSolverInterface* solver = new OsiClpSolverInterface;
+      solver->loadProblem(ctMatrix, &(collb[0]), &(colub[0]), &(obj[0]), &(rowlb[0]), &(rowub[0]));
 
-    switch (var->getVarType()){
-    case VARTYPE_BINARY:
-      solver->setInteger(i);
-      break;
-    case VARTYPE_INTEGER:
-      solver->setInteger(i);
-      break;
-    case VARTYPE_CONTINUOUS:
-      solver->setContinuous(i);
-      break;
-    default:
-      solver->setContinuous(i);
-      break;
-    }
-  }
+      // set the types of the variables
+      for (int i=0; i<colnum; i++) {
+         CoinVar* var(0);
+         //copy of the core variables
+         if(i<corenum)
+            var = coreVars_[i];
+         //copy of the column variables
+         else
+            var = columnVars_[i-corenum];
 
-  if (model_ != NULL) delete model_;
-  model_ = new CbcModel(*solver);
+         switch (var->getVarType()){
+         case VARTYPE_BINARY:
+            solver->setInteger(i);
+            break;
+         case VARTYPE_INTEGER:
+            solver->setInteger(i);
+            break;
+         case VARTYPE_CONTINUOUS:
+            solver->setContinuous(i);
+            break;
+         default:
+            solver->setContinuous(i);
+            break;
+         }
+      }
 
-  delete solver;
+      model_ = new CbcModel(*solver);
+
+      delete solver;
+   }
+
+   return 1;
 }
 
 /*
@@ -160,6 +188,7 @@ double CbcModeler::getVarValue(MyObject* var){
 int CbcModeler::solve(bool relaxation){
 
   this->setModel();
+  model_->setLogLevel(verbosity_);
   model_->branchAndBound();
   this->setSolution();
 

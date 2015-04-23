@@ -180,34 +180,34 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
 
       // Display: set to true if you want to display the details of the cost
 
-      if(abs(dualCost_ - dualCost) > EPSILON ){
-    	  cout << "# " << endl;
-    	  cout << "# " << endl;
-    	  cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
-    	  cout << "# " << endl;
-    	  cout << "#   | Base cost     : + " << cost_ << endl;
-    	  for(int k=firstDay_; k<firstDay_+length_; ++k)
-    		  cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
-    	  cout << "#   | Start work    : - " << startWorkDualCosts[firstDay_] << endl;
-    	  cout << "#   | Finish Work   : - " << endWorkDualCosts[firstDay_+length_-1] << endl;
-    	  if(Tools::isSunday(firstDay_))
-    		  cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
-    	  for(int k=firstDay_; k<firstDay_+length_; ++k)
-    		  if(Tools::isSaturday(k))
-    			  cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
-    	  std::cout << "#   | ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
-    	  std::cout << "#               |";
-    	  vector<int> allTasks (56);
-    	  for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
-    		  allTasks[itTask->first] = itTask->second;
-    	  for(int i=0; i<allTasks.size(); i++){
-    		  if(allTasks[i] < 1) std::cout << " |";
-    		  else std::cout << allTasks[i] << "|";
-          }
-    	  cout << "# " << endl;
-    	  cout << "# " << endl;
-    	  //getchar();
-      }
+//      if(abs(dualCost_ - dualCost) > EPSILON ){
+//    	  cout << "# " << endl;
+//    	  cout << "# " << endl;
+//    	  cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
+//    	  cout << "# " << endl;
+//    	  cout << "#   | Base cost     : + " << cost_ << endl;
+//    	  for(int k=firstDay_; k<firstDay_+length_; ++k)
+//    		  cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
+//    	  cout << "#   | Start work    : - " << startWorkDualCosts[firstDay_] << endl;
+//    	  cout << "#   | Finish Work   : - " << endWorkDualCosts[firstDay_+length_-1] << endl;
+//    	  if(Tools::isSunday(firstDay_))
+//    		  cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
+//    	  for(int k=firstDay_; k<firstDay_+length_; ++k)
+//    		  if(Tools::isSaturday(k))
+//    			  cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
+//    	  std::cout << "#   | ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
+//    	  std::cout << "#               |";
+//    	  vector<int> allTasks (56);
+//    	  for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
+//    		  allTasks[itTask->first] = itTask->second;
+//    	  for(int i=0; i<allTasks.size(); i++){
+//    		  if(allTasks[i] < 1) std::cout << " |";
+//    		  else std::cout << allTasks[i] << "|";
+//          }
+//    	  cout << "# " << endl;
+//    	  cout << "# " << endl;
+//    	  //getchar();
+//      }
 }
 
 

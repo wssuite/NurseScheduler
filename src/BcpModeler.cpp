@@ -15,6 +15,10 @@
  * BCP_lp_user methods
  */
 
+BcpLpModel::BcpLpModel(BcpModeler* pModel):
+pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()), lpIteration_(0), cbcEveryXLpIteration_(50)
+{ }
+
 //Initialize the lp parameters and the OsiSolver
 OsiSolverInterface* BcpLpModel::initialize_solver_interface(){
    for(pair<BCP_lp_par::chr_params, bool> entry: pModel_->getLpParameters())
@@ -30,18 +34,37 @@ OsiSolverInterface* BcpLpModel::initialize_solver_interface(){
 BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres,
    const BCP_vec<BCP_var*>& vars,
    const BCP_vec<BCP_cut*>& cuts){
-//   //initialize the MIP model
-//   CbcModeler MIP(pModel_->getCoreVars(),pModel_->getColumns(),pModel_->getCons());
-//   MIP.solve();
-//
-//   BCP_solution_generic* sol = new BCP_solution_generic(false);
-//   for(BCP_var* var: vars){
-//      double value = MIP.getVarValue((MyObject*) var);
-//      if(value>0)
-//         sol->add_entry(var, value);
-//   }
-//
-//   return sol;
+
+   if((lpIteration_%cbcEveryXLpIteration_) == 0){
+      //Reset the bounds of the variables that have been branched on
+      OsiSolverInterface* solver = getLpProblemPointer()->lp_solver->clone();
+      for(MyObject* var: pModel_->getIntegerCoreVars()){
+         CoinVar* var2 = (CoinVar*) var;
+         solver->setColLower(var2->getIndex(), 0);
+         solver->setColUpper(var2->getIndex(), DBL_MAX);
+      }
+
+      //initialize the MIP model
+      CbcModeler MIP(pModel_->getCoreVars(),pModel_->getColumns(),pModel_->getCons(), solver);
+      MIP.setVerbosity(0);
+      MIP.solve();
+
+      BCP_solution_generic* sol = new BCP_solution_generic(false);
+      for(CoinVar* var: pModel_->getCoreVars()){
+         BcpCoreVar* var2 = (BcpCoreVar*) var;
+         double value = MIP.getVarValue(var2);
+         if(value>0)
+            sol->add_entry(var2, value);
+      }
+      for(CoinVar* var: pModel_->getColumns()){
+         BcpColumn* var2 = (BcpColumn*) var;
+         double value = MIP.getVarValue(var2);
+         if(value>0)
+            sol->add_entry(var2, value);
+      }
+      cout << "CBC: " << sol->objective_value() << endl;
+      return sol;
+   }
    return NULL;
 }
 
@@ -50,7 +73,6 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 //Default: empty method.
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
-
 }
 
 //This method provides an opportunity for the user to tighten the bounds of variables.
@@ -142,6 +164,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    const BCP_vec<BCP_var*>& vars, const BCP_vec<BCP_cut*>& cuts, const bool before_fathom,
    BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
+   ++lpIteration_;
    pModel_->setLPSol(lpres);
    pModel_->pricing(0);
 

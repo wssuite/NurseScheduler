@@ -26,6 +26,8 @@ public:
   // useful constructor
   CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons);
 
+  CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons, OsiSolverInterface* osiClp);
+
   ~CbcModeler() {
     if (model_ != NULL) delete model_;
   }
@@ -86,7 +88,7 @@ public:
  /**************
   * Parameters *
   *************/
- int setVerbosity(int v) {model_->setLogLevel(v);}
+ int setVerbosity(int v) { verbosity_=v;}
 
  /**************
   * Outputs *
@@ -111,6 +113,10 @@ protected:
   // Cbc model
   //
   CbcModel* model_;
+
+  // OsiClpSolverInterface if available
+  //
+  OsiSolverInterface* pOsiSolver_;
 
   //results
   //

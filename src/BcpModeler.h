@@ -289,9 +289,7 @@ protected:
  */
 class BcpLpModel: public BCP_lp_user {
 public:
-   BcpLpModel(BcpModeler* pModel):
-      pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns())
-{ }
+   BcpLpModel(BcpModeler* pModel);
    ~BcpLpModel() { }
 
    /*
@@ -378,6 +376,7 @@ public:
 protected:
    BcpModeler* pModel_;
    int nbCurrentColumnVarsBeforePricing_;
+   int lpIteration_, cbcEveryXLpIteration_;
 
    //vars = are just the giver vars
    //cols is the vector where the new columns will be stored
