@@ -205,7 +205,7 @@ void State::addDayToState(const State& prevState, int newShift)	{
          ( (dayId_%7==5) or ((dayId_%7==6) and !prevState.shift_)))
          totalWeekendsWorked_ = prevState.totalWeekendsWorked_+1;
       else {
-         totalWeekendsWorked_ = 0;
+          totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
       }
 
       // Consecutives : +1 iff it is the same as the previous one
