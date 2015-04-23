@@ -21,8 +21,8 @@ static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-                     MyPricer(name),
-                     master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
+                        MyPricer(name),
+                        master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
 { }
 
 /* Destructs the pricer object. */
@@ -45,58 +45,58 @@ bool RotationPricer::pricing(double bound){
    /* sort the nurses */
    vector<LiveNurse*> sortedNurses = sortNurses();
 
-   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
+   //   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
 
    for(LiveNurse* pNurse: sortedNurses){
 
-	   /* Build or re-use a subproblem */
-	   SubProblem* subProblem;
-	   //search the contract
-	   map<const Contract*, SubProblem*>::iterator it =  subProblems_.find(pNurse->pContract_);
-	   //if doesn't find => create new subproblem
-	   if( it == subProblems_.end() ){
-		   subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
-		   subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
-	   }
+      /* Build or re-use a subproblem */
+      SubProblem* subProblem;
+      //search the contract
+      map<const Contract*, SubProblem*>::iterator it =  subProblems_.find(pNurse->pContract_);
+      //if doesn't find => create new subproblem
+      if( it == subProblems_.end() ){
+         subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
+         subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
+      }
 
-	   //otherwise retrieve the subproblem associated to the contract
-	   else
-		   subProblem = it->second;
+      //otherwise retrieve the subproblem associated to the contract
+      else
+         subProblem = it->second;
 
-	   /* Retrieves dual values */
-	   vector< vector<double> > workDualCosts; workDualCosts = getWorkDualValues(pNurse);
-	   vector<double> startWorkDualCosts; startWorkDualCosts = getStartWorkDualValues(pNurse);
-	   vector<double> endWorkDualCosts; endWorkDualCosts = getEndWorkDualValues(pNurse);
-	   double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
+      /* Retrieves dual values */
+      vector< vector<double> > workDualCosts; workDualCosts = getWorkDualValues(pNurse);
+      vector<double> startWorkDualCosts; startWorkDualCosts = getStartWorkDualValues(pNurse);
+      vector<double> endWorkDualCosts; endWorkDualCosts = getEndWorkDualValues(pNurse);
+      double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
 
-	   Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
+      Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
-	   /* Compute forbidden */
-	   computeForbiddenShifts(&forbiddenShifts, rotations);
+      /* Compute forbidden */
+      computeForbiddenShifts(&forbiddenShifts, rotations);
 
-	   /* Solve options */
-	   vector<SolveOption> options;
-	   //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
-	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
-	   options.push_back(SOLVE_FORBIDDEN_RESET);
+      /* Solve options */
+      vector<SolveOption> options;
+      //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
+      //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+      options.push_back(SOLVE_FORBIDDEN_RESET);
 
-	   /* Solve subproblems */
-	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 4) )
-		   optimal = false;
-	   else
-		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+      /* Solve subproblems */
+      if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 4) )
+         optimal = false;
+      else
+         subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
 
-		/* Retrieve rotations and add them to the master problem*/
-		rotations = subProblem->getRotations();
-		for(Rotation rot: rotations){
-			double c = rot.cost_;
-			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
-			master_->addRotation(rot, baseName);
-		}
+      /* Retrieve rotations and add them to the master problem*/
+      rotations = subProblem->getRotations();
+      for(Rotation rot: rotations){
+         double c = rot.cost_;
+         rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+         rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
+         master_->addRotation(rot, baseName);
+      }
    }
 
-   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
+   //   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
 
    return optimal;
 }
@@ -187,58 +187,77 @@ void RotationPricer::computeForbiddenShifts(
 
 //////////////////////////////////////////////////////////////
 //
-// R O T A T I O N   P R I C E R
+// B R A N C H I N G  R U L E
 //
 //////////////////////////////////////////////////////////////
 
 /* Constructs the branching rule object. */
 DiveBranchingRule::DiveBranchingRule(MasterProblem* master, const char* name):
-                     MyBranchingRule(name), master_(master), pModel_(master->getModel()),
-                     checkChildren(false)
+                        MyBranchingRule(name), master_(master), pModel_(master->getModel()),
+                        checkChildren(false)
 { }
 
+//remove all bad candidates from fixingCandidates
 void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
    //look for fractional columns
    //if value > branchUB, then set lb to 1
-      for(int i=0; i<master_->getRotations().size(); ++i){
-         for(pair<MyObject*, Rotation> pair: master_->getRotations()[i]){
-            //if var not fractional, continue
-            if( pModel_->isInteger(pair.first) )
-               continue;
-
-            //if value > branchLB, branch on it
-            if( BRANCH_LB < pModel_->getVarValue(pair.first) )
-               fixingCandidates.push_back(pair.first);
-      }
-   }//end search fractional variables
+   vector<MyObject*> fixingCandidates2;
+   for(MyObject* var: fixingCandidates){
+      double value = pModel_->getVarValue(var);
+      //if var not fractional, continue
+      if( pModel_->isInteger(var) )
+         continue;
+      //if value < branchLB, remove it
+      else if( value < BRANCH_LB)
+         continue;
+      fixingCandidates2.push_back(var);
+   }
+   fixingCandidates = fixingCandidates2;
 }
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
-   //if we have checked children, this is the end, no more branching
-   //otherwise look for fractional columns
-   if(!checkChildren){
-      for(int i=0; i<master_->getRotations().size(); ++i){
-         MyObject* bestVariable(0); //store best variable for branching for nurse i
-         for(pair<MyObject*, Rotation> pair: master_->getRotations()[i]){// check all the columns
-            //if var not fractional, continue
-            if( pModel_->isInteger(pair.first) )
-               continue;
+   MyObject* bestVar(0);
+   double bestValue = DBL_MAX;
 
-            /* else, branch for each nurse on the column with the highest value */
-            //check if already a variable in bestVariable
-            //update the variable for the nurse if the variable is higher
-            if( (bestVariable == 0)  ||
-               (pModel_->getVarValue(pair.first) > pModel_->getVarValue(bestVariable)) )
-               bestVariable = pair.first;
-         }// end rotations
+   //manage integrality on the skill allocation variables
+   switch(searchStrategy_){
+   case DepthFirstSearch:
+      //variable closest to upper integer
+      for(MyObject* var: pModel_->getIntegerCoreVars()){
+         if(pModel_->isInteger(var))
+            continue;
 
-         //if branching candidates -> store it
-         if(bestVariable != 0)
-            branchingCandidates.push_back(bestVariable);
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeToInt = 1-frac;
+         if(closeToInt < bestValue){
+            bestVar = var;
+            bestValue = closeToInt;
+            if(closeToInt<EPSILON)
+               break;
+         }
       }
+      break;
+   default:
+      //variable closest to .5
+      for(MyObject* var: pModel_->getIntegerCoreVars()){
+         if(pModel_->isInteger(var))
+            continue;
 
-      //if branching candidates -> branching just once
-      checkChildren = (branchingCandidates.size() > 0);
-   }//end search fractional variables
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeTo5 = abs(0.5-frac);
+         if(closeTo5 < bestValue){
+            bestVar = var;
+            bestValue = closeTo5;
+            if(closeTo5<EPSILON)
+               break;
+         }
+      }
+      break;
+   }
+
+   if(bestVar != 0)
+      branchingCandidates.push_back(bestVar);
 }
 

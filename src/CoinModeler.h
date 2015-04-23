@@ -106,24 +106,12 @@ protected:
 class CoinModeler: public Modeler {
 public:
    CoinModeler():
-      Modeler(), pPricer_(0), pBranchingRule_(0)
+      Modeler()
 { }
    virtual ~CoinModeler() {}
 
    //solve the model
    virtual int solve(bool relaxation = false)=0;
-
-   //Add a pricer
-   virtual int addObjPricer(MyPricer* pPricer){
-      pPricer_ = pPricer;
-      return 1;
-   }
-
-   //Add a branching rule
-   virtual int addBranchingRule(MyBranchingRule* pBranchingRule){
-      pBranchingRule_ = pBranchingRule;
-      return 1;
-   }
 
    /*
     * Create variable:
@@ -300,23 +288,25 @@ public:
       //print the value of the relaxation
       printf("%-30s %4.2f \n", "Relaxation:" , getRelaxedObjective());
 
-      //print the value of the positive variables
-      printf("%-30s \n", "Variables:");
-      double tolerance = pow(.1, DECIMALS);
-      //iterate on core variables
-      for(CoinVar* var: coreVars_){
-         double value = getVarValue(var);
-         if( value > tolerance)
-            printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
-      }
-      //iterate on column variables
-      for(CoinVar* var: columnVars_){
-         double value = getVarValue(var);
-         if( value > tolerance)
-            printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
-      }
+      if(verbosity_>=2){
+         //print the value of the positive variables
+         printf("%-30s \n", "Variables:");
+         double tolerance = pow(.1, DECIMALS);
+         //iterate on core variables
+         for(CoinVar* var: coreVars_){
+            double value = getVarValue(var);
+            if( value > tolerance)
+               printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+         }
+         //iterate on column variables
+         for(CoinVar* var: columnVars_){
+            double value = getVarValue(var);
+            if( value > tolerance)
+               printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+         }
 
-      printf("\n");
+         printf("\n");
+      }
 
       return 1;
    }
@@ -328,26 +318,6 @@ public:
    virtual int writeProblem(string fileName) { return 0; }
 
    virtual int writeLP(string fileName) { return 0; }
-
-   /*
-    * Class own methods and parameters
-    */
-   //return true if optimal
-   bool pricing(double bound=0){
-      if(pPricer_)
-         return pPricer_->pricing(bound);
-      return true;
-   }
-
-   void branching_candidates(vector<MyObject*>& branchingCandidates){
-      if(pBranchingRule_)
-         pBranchingRule_->branching_candidates(branchingCandidates);
-   }
-
-   void logical_fixing(vector<MyObject*>& fixingCandidates){
-      if(pBranchingRule_)
-         pBranchingRule_->logical_fixing(fixingCandidates);
-   }
 
 
    //get the variables that are always present in the model
@@ -371,8 +341,6 @@ protected:
    vector<CoinVar*> coreVars_;
    vector<CoinVar*> columnVars_;
    vector<CoinCons*> cons_;
-   MyPricer* pPricer_;
-   MyBranchingRule* pBranchingRule_;
 };
 
 #endif /* SRC_COINMODELER_H_ */

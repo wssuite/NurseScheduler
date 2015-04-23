@@ -9,18 +9,89 @@
 #include "OsiClpSolverInterface.hpp"
 #include "CoinTime.hpp"
 #include "BCP_lp.hpp"
+#include "CbcModeler.h"
 
 /*
  * BCP_lp_user methods
  */
+
+//Initialize the lp parameters and the OsiSolver
+OsiSolverInterface* BcpLpModel::initialize_solver_interface(){
+   for(pair<BCP_lp_par::chr_params, bool> entry: pModel_->getLpParameters())
+      set_param(entry.first, entry.second);
+   OsiClpSolverInterface * clp = new OsiClpSolverInterface();
+   int verbosity = max(0, pModel_->getVerbosity()-1);
+   clp->messageHandler()->setLogLevel(verbosity);
+   return clp;
+}
+
+//Try to generate a heuristic solution (or return one generated during cut/variable generation.
+//Return a pointer to the generated solution or return a NULL pointer.
+BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres,
+   const BCP_vec<BCP_var*>& vars,
+   const BCP_vec<BCP_cut*>& cuts){
+   //initialize the MIP model
+   CbcModeler MIP(pModel_->getCoreVars(),pModel_->getColumns(),pModel_->getCons());
+   MIP.solve();
+
+   BCP_solution_generic* sol = new BCP_solution_generic(false);
+   for(BCP_var* var: vars){
+      double value = MIP.getVarValue((MyObject*) var);
+      if(value>0)
+         sol->add_entry(var, value);
+   }
+
+   return sol;
+}
 
 //Modify parameters of the LP solver before optimization.
 //This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
 //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 //Default: empty method.
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
-   for(pair<BCP_lp_par::chr_params, bool> entry: pModel_->getLpParameters())
-      set_param(entry.first, entry.second);
+
+}
+
+//This method provides an opportunity for the user to tighten the bounds of variables.
+//The method is invoked after reduced cost fixing. The results are returned in the last two parameters.
+//Parameters:
+//lpres    the result of the most recent LP optimization,
+//vars  the variables in the current formulation,
+//status   the stati of the variables as known to the system,
+//var_bound_changes_since_logical_fixing    the number of variables whose bounds have changed (by reduced cost fixing) since the most recent invocation of this method that has actually forced changes returned something in the last two arguments,
+//changed_pos    the positions of the variables whose bounds should be changed
+//new_bd   the new bounds (lb/ub pairs) of these variables.
+void BcpLpModel::logical_fixing (const BCP_lp_result& lpres,
+   const BCP_vec<BCP_var*>& vars,
+   const BCP_vec<BCP_cut*>& cuts,
+   const BCP_vec<BCP_obj_status>& var_status,
+   const BCP_vec<BCP_obj_status>& cut_status,
+   const int var_bound_changes_since_logical_fixing,
+   BCP_vec<int>& changed_pos,
+   BCP_vec<double>& new_bd){
+
+//   pModel_->setLPSol(lpres);
+//
+//   //fixing candidates
+//   vector<MyObject*> fixingCandidates;
+//   //add all possibilities
+//   for(BCP_var* var: vars){
+//      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
+//      if(col)
+//         fixingCandidates.push_back(col);
+//   }
+//   //remove all bad candidates
+//   pModel_->logical_fixing(fixingCandidates);
+//
+//   //fix if some candidates
+//   for(MyObject* var: fixingCandidates){
+//      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
+//      if(!col)
+//         Tools:throw("The object is not a column.");
+//      changed_pos.push_back(col->getIndex());
+//      new_bd.push_back(1);
+//      new_bd.push_back(col->getUB());
+//   }
 }
 
 //Convert a set of variables into corresponding columns for the current LP relaxation.
@@ -80,8 +151,6 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
       new_vars.reserve(size-nbCurrentColumnVarsBeforePricing_); //reserve the memory for the new columns
       for(int i=nbCurrentColumnVarsBeforePricing_; i<size; ++i){
          BcpColumn* var = dynamic_cast<BcpColumn*>(pModel_->getColumns()[i]);
-         if(!var)
-            Tools::throwError("Bad variable casting.");
          //create a new BcpColumn which will be deleted by BCP
          new_vars.unchecked_push_back(new BcpColumn(*var));
       }
@@ -119,46 +188,23 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    if(local_var_pool.size() > 0)
       return BCP_DoNotBranch;
 
-   //manage integrality on the skill allocation variables
-   vector<CoinVar*> integerCoreVariables;
-   for(CoinVar* coreVar: pModel_->getCoreVars()){
-      if(coreVar->is_integer() && !pModel_->isInteger(coreVar)){
-//         integerCoreVariables.push_back(coreVar);
-         appendCoreIntegerVars(coreVar, cands);
-         return BCP_DoBranch;
-      }
-   }
-//   if(integerCoreVariables.size() > 0){
-//      for(CoinVar* coreVar: integerCoreVariables)
-//         appendCoreIntegerVars(coreVar, cands);
-//      return BCP_DoBranch;
-//   }
-
-   //fixing candidates
-   vector<MyObject*> fixingCandidates;
-   pModel_->logical_fixing(fixingCandidates);
-
-   //fix if some candidates
-   if(fixingCandidates.size()>0){
-      appendNewFixingVars(fixingCandidates, cands);
-      return BCP_DoBranch;
-   }
-
    //branching candidates
    vector<MyObject*> branchingCandidates;
    pModel_->branching_candidates(branchingCandidates);
 
    //branch if some candidates
-   if(branchingCandidates.size() > 0){
-      appendNewBranchingVars(branchingCandidates, cands);
-      return BCP_DoBranch;
+   for(MyObject* var: branchingCandidates){
+      CoinVar* var2 = dynamic_cast<CoinVar*>(var);
+      appendCoreIntegerVar(var2, cands);
    }
+   if(cands.size() > 0)
+      return BCP_DoBranch;
 
    //otherwise fathomed
    return BCP_DoNotBranch_Fathomed;
 }
 
-void BcpLpModel::appendCoreIntegerVars(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands){
+void BcpLpModel::appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands){
    BCP_vec<int> vpos; //positions of the variables
    BCP_vec<double> vbd; // old bound and then new one for each variable
 
@@ -177,30 +223,7 @@ void BcpLpModel::appendCoreIntegerVars(CoinVar* coreVar, BCP_vec<BCP_lp_branchin
       0, 0, 0, 0 /* implied parts */));
 }
 
-void BcpLpModel::appendNewFixingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands){
-   BCP_vec<int> vpos; //positions of the variables
-   BCP_vec<double> vbd; // old bound and then new one for each variable
-
-   for (MyObject* var: columns) {
-      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-      if(col){
-         vpos.push_back(col->getIndex());
-         //fix the old bound (0) and the new bound (1)
-         vbd.push_back(0); // old lower bound
-         vbd.push_back(1); // new lower bound
-      }
-      else
-         Tools::throwError("The variable fixed is not a column.");
-   }
-
-   cands.push_back(new  BCP_lp_branching_object(1, //just one children where
-      //all the columns with positions in vpos are fixed to 1
-      0, 0, /* vars/cuts_to_add */
-      &vpos, 0, &vbd, 0, /* forced parts: position and bounds (old bound and then new one) */
-      0, 0, 0, 0 /* implied parts */));
-}
-
-void BcpLpModel::appendNewBranchingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands){
+void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands){
    const int nbChildren = columns.size();
    BCP_vec<int> vpos; //positions of the variables
    BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
@@ -239,6 +262,12 @@ void BcpLpModel::appendNewBranchingVars(vector<MyObject*> columns, BCP_vec<BCP_l
 //Create the core of the problem by filling out the last three arguments.
 void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
    BCP_vec<BCP_cut_core*>& cuts, BCP_lp_relax*& matrix){
+   // initialize tm parameters
+   set_search_strategy();
+   set_param(BCP_tm_par::TmVerb_SingleLineInfoFrequency, pModel_->getFrequency());
+   for(pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
+      set_param(entry.first, entry.second);
+
    //define nb rows and col
    const int rownum = pModel_->getCons().size();
    const int colnum = pModel_->getCoreVars().size();
@@ -294,7 +323,8 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
    // store the solution
-   pModel_->setBestUb(sol->objective_value());
+   if(pModel_->getBestUb() > sol->objective_value())
+      pModel_->setBestUb(sol->objective_value());
 
    BCP_solution_generic* sol2 = (BCP_solution_generic*) sol;
    vector<double> primal(pModel_->getNbVars());
@@ -303,13 +333,19 @@ void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
       primal[index] = sol2->_values[i];
    }
    pModel_->setPrimal(primal);
+
+   if(pModel_->getSearchStrategy() == DepthFirstSearch){
+      double gap = ( sol->objective_value() - pModel_->getBestLb() ) / pModel_->getBestLb();
+      if(gap > 0 && gap < minGap_){
+         pModel_->setSearchStrategy(BestFirstSearch);
+         set_search_strategy();
+      }
+   }
 }
 
 // various initializations before a new phase (e.g., pricing strategy)
 void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates) {
    colgen = BCP_GenerateColumns;
-   for(pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
-      set_param(entry.first, entry.second);
 }
 
 /*
@@ -383,25 +419,25 @@ double BcpModeler::getDual(MyObject* cons, bool transformed){
  * Parameters *
  *************/
 int BcpModeler::setVerbosity(int v){
+   verbosity_ = v;
 
    if(v>=1){
+      TmVerb_SingleLineInfoFrequency = 10;
+
       tm_parameters[BCP_tm_par::VerbosityShutUp] = 1;
       tm_parameters[BCP_tm_par::TmVerb_First] = 1;
-      tm_parameters[BCP_tm_par::TmVerb_BestFeasibleSolution] = 1;
-      tm_parameters[BCP_tm_par::TmVerb_FinalStatistics] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolutionValue] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_NewPhaseStart] = 1;
       tm_parameters[BCP_tm_par::TmVerb_Last] = 1;
 
-      lp_parameters[BCP_lp_par::LpVerb_IterationCount] = 1; // Print the "Starting iteration x" line. (BCP_lp_main_loop)
-      lp_parameters[BCP_lp_par::LpVerb_GeneratedVarCount] = 1; // Print the number of variables generated during this iteration. (BCP_lp_main_loop)
-      lp_parameters[BCP_lp_par::LpVerb_FinalRelaxedSolution] = 1; // Turn on the user hook "display_lp_solution" for the last LP relaxation solved at a search tree node. (BCP_lp_main_loop)
       lp_parameters[BCP_lp_par::LpVerb_Last] = 1; // Just a marker for the last LpVerb
    }
 
    if(v>=2){
-      tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolutionValue] = 1;
-      tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolution] = 1;
-      tm_parameters[BCP_tm_par::TmVerb_NewPhaseStart] = 1;
+      TmVerb_SingleLineInfoFrequency = 5;
 
+      lp_parameters[BCP_lp_par::LpVerb_IterationCount] = 1; // Print the "Starting iteration x" line. (BCP_lp_main_loop)
+      lp_parameters[BCP_lp_par::LpVerb_GeneratedVarCount] = 1; // Print the number of variables generated during this iteration. (BCP_lp_main_loop)
       lp_parameters[BCP_lp_par::LpVerb_ReportVarGenTimeout] = 1; // Print information if receiving variables is timed out. (BCP_lp_generate_vars)
       lp_parameters[BCP_lp_par::LpVerb_ReportLocalVarPoolSize] = 1; // Similar as above for variables. (BCP_lp_generate_vars)
       lp_parameters[BCP_lp_par::LpVerb_AddedVarCount] = 1; // Print the number of variables added from the local variable pool in the current iteration. (BCP_lp_main_loop)
@@ -409,7 +445,6 @@ int BcpModeler::setVerbosity(int v){
 
    if(v>=3){
       tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolutionValue] = 1;
-      tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolution] = 1;
       tm_parameters[BCP_tm_par::TmVerb_PrunedNodeInfo] = 1;
 
       lp_parameters[BCP_lp_par::LpVerb_ChildrenInfo] = 1; // After a branching object is selected print what happens to the presolved children (e.g., fathomed). (BCP_print_brobj_stat)
@@ -420,10 +455,16 @@ int BcpModeler::setVerbosity(int v){
    }
 
    if(v>=4){
+      TmVerb_SingleLineInfoFrequency = 1;
+
+      tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolution] = 1;
+      tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolution] = 1;
       tm_parameters[BCP_tm_par::TmVerb_TimeOfImprovingSolution] = 1;
       tm_parameters[BCP_tm_par::TmVerb_TrimmedNum] = 1;
-      tm_parameters[BCP_tm_par::TmVerb_ReportDefault] = 1;
+      tm_parameters[BCP_tm_par::ReportWhenDefaultIsExecuted] = 1;
 
+      lp_parameters[BCP_lp_par::LpVerb_FinalRelaxedSolution] = 1; // Turn on the user hook "display_lp_solution" for the last LP relaxation solved at a search tree node. (BCP_lp_main_loop)
+      lp_parameters[BCP_lp_par::ReportWhenDefaultIsExecuted] = 1; // Print out a message when the default version of an overridable method is executed. Default: 1.
       lp_parameters[BCP_lp_par::LpVerb_MatrixCompression] = 1; // Print the number of columns and rows that were deleted during matrix compression. (BCP_lp_delete_cols_and_rows)
       lp_parameters[BCP_lp_par::LpVerb_PresolvePositions] = 1; // Print detailed information about all the branching candidates during strong branching. LpVerb_PresolveResult must be set for this parameter to have an effect. (BCP_lp_perform_strong_branching)
       lp_parameters[BCP_lp_par::LpVerb_PresolveResult] = 1; // Print information on the presolved branching candidates during strong branching. (BCP_lp_perform_strong_branching)

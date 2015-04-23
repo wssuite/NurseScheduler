@@ -310,7 +310,7 @@ void MasterProblem::solve(){
   // RqJO: warning, it would be better to define an enumerate type of verbosity
   // levels and create the matching in the Modeler subclasses
   if (solverType_ != S_CBC ) {
-    pModel_->setVerbosity(0);
+    pModel_->setVerbosity(1);
   }
    pModel_->solve();
    pModel_->printStats();

@@ -111,7 +111,7 @@ public:
    BcpModeler(const char* name):
       CoinModeler(),
       primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-      best_lb_in_root(-DBL_MAX), best_ub(DBL_MAX)
+      best_lb_in_root(DBL_MAX), best_ub(DBL_MAX)
 { }
    ~BcpModeler() {}
 
@@ -176,7 +176,7 @@ public:
 
    void setLPSol(const BCP_lp_result& lpres){
       obj_history_.push_back(lpres.objval());
-      if(best_lb_in_root == -DBL_MAX)
+      if(best_lb_in_root > lpres.objval())
          best_lb_in_root = lpres.objval();
 
       //clear the old vectors
@@ -207,6 +207,8 @@ public:
 
    double getBestUb(){ return best_ub; }
 
+   int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
+
    map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
    map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
@@ -220,26 +222,33 @@ protected:
    vector<double> obj_history_;
    vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
 
+   /* Parameters */
+   //At every this many search tree node provide a single line info on the progress of the search tree.
+   //If <= 0 then never.
+   //Default: 0.
+   int TmVerb_SingleLineInfoFrequency = 0;
+
    /* Tree Manager verbosity parameters */
    map<BCP_tm_par::chr_params, bool> tm_parameters = {
-      { BCP_tm_par::VerbosityShutUp, 1},
+      { BCP_tm_par::VerbosityShutUp, 0},
       { BCP_tm_par::TmVerb_First, 0},
       { BCP_tm_par::TmVerb_AllFeasibleSolutionValue, 0},
       { BCP_tm_par::TmVerb_AllFeasibleSolution, 0},
       { BCP_tm_par::TmVerb_BetterFeasibleSolutionValue, 0},
-      { BCP_tm_par::TmVerb_BetterFeasibleSolution, 0},
+      { BCP_tm_par::TmVerb_BetterFeasibleSolution, 1},
       { BCP_tm_par::TmVerb_BestFeasibleSolution, 1}, //need this method to store the best feasible solution
       { BCP_tm_par::TmVerb_NewPhaseStart, 0},
       { BCP_tm_par::TmVerb_PrunedNodeInfo, 0},
       { BCP_tm_par::TmVerb_TimeOfImprovingSolution, 0},
       { BCP_tm_par::TmVerb_TrimmedNum, 0},
       { BCP_tm_par::TmVerb_FinalStatistics, 1}, //need this method to store the best feasible solution
-      { BCP_tm_par::TmVerb_ReportDefault, 0},
+      { BCP_tm_par::ReportWhenDefaultIsExecuted, 0},
       { BCP_tm_par::TmVerb_Last, 0}
    };
 
    /* LP verbosity parameters */
    map<BCP_lp_par::chr_params, bool> lp_parameters = {
+      { BCP_lp_par::ReportWhenDefaultIsExecuted, 0},// Print out a message when the default version of an overridable method is executed.
       { BCP_lp_par::LpVerb_AddedCutCount, 0},// Print the number of cuts added from the local cut pool in the current iteration. (BCP_lp_main_loop)
       { BCP_lp_par::LpVerb_CutsToCutPoolCount, 0},// Print the number of cuts sent from the LP to the cut pool. (BCP_lp_send_cuts_to_cp)
       { BCP_lp_par::LpVerb_ReportLocalCutPoolSize, 0},// Print the current number of cuts in the cut pool. This number is printed several times: before and after generating columns at the current iteration, after removing non-essential cuts, etc. (BCP_lp_generate_cuts)
@@ -281,7 +290,7 @@ protected:
 class BcpLpModel: public BCP_lp_user {
 public:
    BcpLpModel(BcpModeler* pModel):
-      pModel_(pModel), nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns())
+      pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns())
 { }
    ~BcpLpModel() { }
 
@@ -291,7 +300,7 @@ public:
 
    void unpack_module_data(BCP_buffer& buf) {    buf.unpack(pModel_); }
 
-   OsiSolverInterface* initialize_solver_interface(){ return new OsiClpSolverInterface(); }
+   OsiSolverInterface* initialize_solver_interface();
 
    //Initializing a new search tree node.
    //This method serves as hook for the user to do some preprocessing on a search tree node before the node is processed.
@@ -307,12 +316,35 @@ public:
 //      BCP_vec<double>& cut_new_bd)
 //   { }
 
+   //Try to generate a heuristic solution (or return one generated during cut/variable generation.
+   //Return a pointer to the generated solution or return a NULL pointer.
+   BCP_solution* generate_heuristic_solution(const BCP_lp_result& lpres,
+   const BCP_vec<BCP_var*>& vars,
+   const BCP_vec<BCP_cut*>& cuts);
 
    //Modify parameters of the LP solver before optimization.
    //This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
    //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
    //Default: empty method.
    void modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching);
+
+   //This method provides an opportunity for the user to tighten the bounds of variables.
+   //The method is invoked after reduced cost fixing. The results are returned in the last two parameters.
+   //Parameters:
+   //lpres    the result of the most recent LP optimization,
+   //vars  the variables in the current formulation,
+   //status   the stati of the variables as known to the system,
+   //var_bound_changes_since_logical_fixing    the number of variables whose bounds have changed (by reduced cost fixing) since the most recent invocation of this method that has actually forced changes returned something in the last two arguments,
+   //changed_pos    the positions of the variables whose bounds should be changed
+   //new_bd   the new bounds (lb/ub pairs) of these variables.
+   void logical_fixing (const BCP_lp_result& lpres,
+      const BCP_vec<BCP_var*>& vars,
+      const BCP_vec<BCP_cut*>& cuts,
+      const BCP_vec<BCP_obj_status>& var_status,
+      const BCP_vec<BCP_obj_status>& cut_status,
+      const int var_bound_changes_since_logical_fixing,
+      BCP_vec<int>& changed_pos,
+      BCP_vec<double>& new_bd);
 
    //Convert a set of variables into corresponding columns for the current LP relaxation.
    void vars_to_cols(const BCP_vec<BCP_cut*>& cuts, // on what to expand
@@ -353,15 +385,11 @@ protected:
 
    //Branch on the core integer var: the skill allocation var
    //just 2 children
-   void appendCoreIntegerVars(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands);
-
-   //Fixed all the column > branchLB to 1
-   //just one child
-   void appendNewFixingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands);
+   void appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands);
 
    //Try for each nurse to fix to 1 the highest column
    //maximum number of children = number of nurse
-   void appendNewBranchingVars(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands);
+   void appendNewBranchingVar(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands);
 };
 
 /*
@@ -417,9 +445,26 @@ public:
    // various initializations before a new phase (e.g., pricing strategy)
    void init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates);
 
+   // set search strategy
+   //Values: 0 (BCP_BestFirstSearch), 1 (BCP_BreadthFirstSearch), 2 (BCP_DepthFirstSearch).
+   void set_search_strategy(){
+      switch(pModel_->getSearchStrategy()){
+      case BestFirstSearch:
+         set_param(BCP_tm_par::TreeSearchStrategy, 0);
+         break;
+      case BreadthFirstSearch:
+         set_param(BCP_tm_par::TreeSearchStrategy, 1);
+         break;
+      case DepthFirstSearch:
+         set_param(BCP_tm_par::TreeSearchStrategy, 2);
+         break;
+      }
+   }
+
 protected:
    BcpModeler* pModel_;
    int nbInitialColumnVars_;
+   double minGap_ = .05;
 };
 
 /*
