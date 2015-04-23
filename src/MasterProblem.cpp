@@ -206,7 +206,7 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
           }
     	  cout << "# " << endl;
     	  cout << "# " << endl;
-    	  getchar();
+    	  //getchar();
       }
 }
 

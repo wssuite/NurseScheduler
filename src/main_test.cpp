@@ -18,11 +18,7 @@ void main_test()
 {
 	testFunction_Antoine();
 	// testFunction_Jeremy();
-<<<<<<< HEAD
-//	testFunction_Samuel();
-=======
 	//testFunction_Samuel();
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 }
 
 // Function for testing parts of the code (Antoine)

@@ -30,18 +30,19 @@ OsiSolverInterface* BcpLpModel::initialize_solver_interface(){
 BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres,
    const BCP_vec<BCP_var*>& vars,
    const BCP_vec<BCP_cut*>& cuts){
-   //initialize the MIP model
-   CbcModeler MIP(pModel_->getCoreVars(),pModel_->getColumns(),pModel_->getCons());
-   MIP.solve();
-
-   BCP_solution_generic* sol = new BCP_solution_generic(false);
-   for(BCP_var* var: vars){
-      double value = MIP.getVarValue((MyObject*) var);
-      if(value>0)
-         sol->add_entry(var, value);
-   }
-
-   return sol;
+//   //initialize the MIP model
+//   CbcModeler MIP(pModel_->getCoreVars(),pModel_->getColumns(),pModel_->getCons());
+//   MIP.solve();
+//
+//   BCP_solution_generic* sol = new BCP_solution_generic(false);
+//   for(BCP_var* var: vars){
+//      double value = MIP.getVarValue((MyObject*) var);
+//      if(value>0)
+//         sol->add_entry(var, value);
+//   }
+//
+//   return sol;
+   return NULL;
 }
 
 //Modify parameters of the LP solver before optimization.
@@ -257,6 +258,10 @@ void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, BCP_vec<BCP_lp
 /*
  * BcpBranchingTree
  */
+
+BcpBranchingTree::BcpBranchingTree(BcpModeler* pModel):
+      pModel_(pModel) , nbInitialColumnVars_(pModel->getNbColumns()), minGap_(0.05)
+{ }
 
 // setting the base
 //Create the core of the problem by filling out the last three arguments.

@@ -41,15 +41,17 @@ private:
    //map of the contract and sub problems
    //one subproblem per type of contract
    //
+   vector<LiveNurse*> nursesToSolve_;
    map<const Contract*, SubProblem*> subProblems_;
+
+   /*
+    * Settings
+    */
+   int nbSubProblemToSolve_;
 
    /*
     * Methods
     */
-
-   //sort the nurses to give an order to solve subproblems
-   //
-   vector<LiveNurse*> sortNurses();
 
    //get the duals values per day and per shift for a nurse
    //
@@ -60,7 +62,7 @@ private:
 
    //compute some forbidden shifts from the lasts rotations and forbidden shifts
    //
-   void computeForbiddenShifts(set<pair<int,int> >* forbiddenShifts, vector<Rotation> rotations);
+   void computeForbiddenShifts(set<pair<int,int> >& forbiddenShifts, vector<Rotation> rotations);
 };
 
 class DiveBranchingRule: public MyBranchingRule
@@ -83,10 +85,6 @@ protected:
    //pointers to the data
    //
    Modeler* pModel_;
-
-   // Settings
-   //
-   bool checkChildren; //true = branch once
 };
 
 #endif /* ROTATIONPRICER_H_ */

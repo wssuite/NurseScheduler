@@ -300,14 +300,7 @@ public:
 
    void unpack_module_data(BCP_buffer& buf) {    buf.unpack(pModel_); }
 
-<<<<<<< HEAD
    OsiSolverInterface* initialize_solver_interface();
-=======
-   OsiSolverInterface* initialize_solver_interface(){
-     OsiClpSolverInterface* clp = new OsiClpSolverInterface();
-     clp->setLogLevel(0);
-     return clp; }
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
    //Initializing a new search tree node.
    //This method serves as hook for the user to do some preprocessing on a search tree node before the node is processed.
@@ -411,9 +404,7 @@ protected:
  */
 class BcpBranchingTree: public BCP_tm_user{
 public:
-   BcpBranchingTree(BcpModeler* pModel):
-      pModel_(pModel) , nbInitialColumnVars_(pModel->getNbColumns())
-{ }
+   BcpBranchingTree(BcpModeler* pModel);
    ~BcpBranchingTree() { }
 
    // pack the modeler
@@ -471,7 +462,7 @@ public:
 protected:
    BcpModeler* pModel_;
    int nbInitialColumnVars_;
-   double minGap_ = .05;
+   double minGap_;
 };
 
 /*
