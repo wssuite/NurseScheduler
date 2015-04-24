@@ -79,8 +79,25 @@ public:
   //
   vector<int> minHighestPerSkill_, optHighestPerSkill_;
 
-private:
+protected:
   bool isPreprocessed_;
+
+  // modify the demand by randomly swapping the demand of nnSwaps days
+  //
+  void swapDays(int nbSwaps);
+
+  // modify the demand by randomly swapping the demand of nbSwaps shifts
+  // the swapped shifts necessarily correspond to the same skill
+  //
+  void swapShifts(int nbSwaps);
+
+  // perturb the demand by adding demand in a number of shifts randomly chosen
+  // in the interval [minPerturb,maxPerturb]
+  // the perturbed shifts are also randomly chosen
+  // for a given skill the demand on a shift cannot become greater than the
+  // largest demand observed on the week
+  //
+  void perturbShifts(int minPerturb, int maxPerturb);
 
 public:
 
@@ -97,6 +114,10 @@ public:
   // boolean is set to true
   //
   string toString(bool withPreprocessedInfo);
+
+  // copy the input demand and apply a perturbation to generate random demand
+  //
+  Demand* randomPertubation();
 
 };
 
