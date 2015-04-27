@@ -11,6 +11,12 @@
 #include <stdio.h>
 #include <string.h>
 
+// some include files to go through the files of an input directory
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 //--------------------------------------------------------------------------
 // Methods that read all the input files and store the content in the
@@ -215,34 +221,37 @@ Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pS
 {
    //initialize pDemand
    Demand* pDemand(0);
-   Preferences preferences;
+   Preferences* pPref(0);
 
    for(string strWeekFile: strWeekFiles)
       if(pDemand == 0){
-         pDemand = ReadWrite::readWeek(strWeekFile, pScenario);
-         preferences = *pScenario->pWeekPreferences();
+         ReadWrite::readWeek(strWeekFile, pScenario,&pDemand,&pPref);
       }
       else{
          //load the next week
-         Demand* nextDemand = ReadWrite::readWeek(strWeekFile, pScenario);
+         Demand* nextDemand(0);
+         Preferences* nextPref(0);
+         ReadWrite::readWeek(strWeekFile, pScenario, &nextDemand, &nextPref);
          //update the current weeks
          pDemand->push_back(nextDemand);
-         preferences.push_back(pScenario->pWeekPreferences());
+         pPref->push_back(nextPref);
          pScenario->addAWeek();
          //delete the demand and the preferences which we have created
          delete nextDemand;
+         delete nextPref;
       }
 
    //link the scenario to the current demand and preferences
    pScenario->linkWithDemand(pDemand);
-   pScenario->linkWithPreferences(preferences);
+   pScenario->linkWithPreferences(*pPref);
 
    return pDemand;
 }
 
 // Read the Week file and store the content in a Scenario instance
 //
-Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
+void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
+  Demand** pDemand, Preferences** pPref){
    // open the file
    std::fstream file;
    std::cout << "Reading " << strWeekFile << std::endl;
@@ -263,7 +272,8 @@ Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
    vector3D minWeekDemand;
    vector3D optWeekDemand;
    int nbShiftOffRequests;
-   Preferences weekPreferences;
+   if (*pPref) delete *pPref;
+   if (*pDemand) delete *pDemand;
 
 
    // fill the attributes when reading the week file
@@ -311,7 +321,7 @@ Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
       // Read the shift off requests
       //
       else if(strEndsWith(title,"SHIFT_OFF_REQUESTS ")){
-         Preferences pref (pScenario->nbNurses_, 7, pScenario->nbShifts_);
+         *pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
          // Temporary vars
          string nurseName, shift, day;
          int nurseId, shiftId, dayId;
@@ -324,26 +334,26 @@ Demand* ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario){
             dayId = Tools::dayToInt(day);
 
             if(shift == "Any")
-               pref.addDayOff(nurseId, dayId);
+               (*pPref)->addDayOff(nurseId, dayId);
             else {
                shiftId = pScenario->shiftToInt_.at(shift);
-               pref.addShiftOff(nurseId, dayId, shiftId);
+               (*pPref)->addShiftOff(nurseId, dayId, shiftId);
             }
          }
-         weekPreferences = pref;
       }
    }
 
    // Define a new instance of demand
-   Demand* pDemand = new Demand(7, 0, pScenario->nbShifts_,pScenario->nbSkills_, weekName,
+   *pDemand = new Demand(7, 0, pScenario->nbShifts_,pScenario->nbSkills_, weekName,
       minWeekDemand, optWeekDemand);
+  std::cout << "Demand created" << std::endl;
 
    // Now, add all these objects to the Scenario
-   pScenario->linkWithDemand(pDemand);
-   pScenario->linkWithPreferences(weekPreferences);
+  //  pScenario->linkWithDemand(pDemand);
+  //  pScenario->linkWithPreferences(weekPreferences);
 
    // return the demand
-   return pDemand;
+  //  return pDemand;
 
 }
 
@@ -419,6 +429,123 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 // Read the input custom file and store the content in a Scenario instance
 //
 void ReadWrite::readCustom(std::string strCustomInputFile, Scenario* pScenario) {
+
+}
+
+
+/************************************************************************
+* Print the main characteristics of all the demands of an input directory
+* This is done to find some invariant properties among demands
+*************************************************************************/
+
+void ReadWrite::compareDemands(std::string inputDir) {
+
+	struct dirent *dirp;
+	struct stat filestat;
+	string logFile = "outfiles/comparedemands.log";
+	Tools::LogOutput logStream(logFile,8);
+
+	vector2D minPerShift, optPerShift, minPerSkill,optPerSkill;
+	vector2D minHighestPerSkill, optHighestPerSkill;
+
+	// Open the input directory
+	DIR* dp = opendir( inputDir.c_str() );
+	if (dp == NULL) {
+		Tools::throwError("Error while opening ");
+	}
+	else{
+		std::cout << "Reading from directory " << inputDir << std::endl;
+	}
+
+	// Read the scenario that appears in the directory
+	unsigned found = inputDir.find_last_of("/");
+	string scenFile = inputDir+"/Sc-"+inputDir.substr(found+1)+".txt";
+	Scenario* pScen = ReadWrite::readScenario(scenFile);
+
+	// Go through all the demand files of the directory
+	while ((dirp = readdir( dp )))
+	{
+		std::string filename(dirp->d_name);
+
+		// The file names of week demands start with "WD"
+		std::size_t found= filename.find("WD");
+		if (found > 0) continue;
+
+		string filepath = inputDir + "/" + filename;
+
+		Demand* pDemand(0);
+		Preferences* pPref(0);
+		ReadWrite::readWeek(filepath, pScen, &pDemand, &pPref);
+
+		logStream << "#####################################\n";
+		logStream << "# DEMAND FILE: " << filepath << std::endl;
+		logStream << "#####################################\n\n";
+		logStream << pDemand->toString(true) << std::endl << std::endl;
+
+		// record the advanced data on the demand
+		minPerShift.push_back(pDemand->minPerShift_);
+		optPerShift.push_back(pDemand->optPerShift_);
+		minPerSkill.push_back(pDemand->minPerSkill_);
+		optPerSkill.push_back(pDemand->optPerSkill_);
+		minHighestPerSkill.push_back(pDemand->minHighestPerSkill_);
+		optHighestPerSkill.push_back(pDemand->optHighestPerSkill_);
+
+		delete pDemand;
+		delete pPref;
+	}
+
+	// Write a summary  of the advanced data computed for the demands
+	logStream << "#####################################" << std::endl;
+	logStream << "# SUMMARY OF THE STATISTICS" << std::endl;
+	logStream << "#####################################\n\n";
+
+	logStream  << "# Demand per shift\n";
+	logStream << "#";
+	for (int d = 0; d < minPerShift.size(); d++) {
+    logStream << "WD"+Tools::itoa(d);
+	}
+	logStream.endl();
+	for (int i = 1; i < pScen->nbShifts_; i++)	{
+		logStream << "# SH"+Tools::itoa(i)+":";
+		for (int d = 0; d < minPerShift.size(); d++) {
+			logStream << Tools::itoa(minPerShift[d][i])+"/"+Tools::itoa(optPerShift[d][i]);
+		}
+		logStream.endl();
+	}
+  logStream.endl();
+
+
+	logStream  << "# Demand per skill\n";
+  logStream << "#";
+	for (int d = 0; d < minPerSkill.size(); d++) {
+    logStream << "WD"+Tools::itoa(d);
+	}
+	logStream.endl();
+	for (int i = 0; i < pScen->nbSkills_; i++)	{
+    logStream << "# SK"+Tools::itoa(i)+":";
+		for (int d = 0; d < minPerShift.size(); d++) {
+			logStream << Tools::itoa(minPerSkill[d][i])+"/"+Tools::itoa(optPerSkill[d][i]);
+		}
+		logStream.endl();
+	}
+  logStream.endl();
+
+
+	logStream <<  "# Highest demand per skill for one shift" << std::endl;
+  logStream << "#";
+	for (int d = 0; d < minPerSkill.size(); d++) {
+    logStream << "WD"+Tools::itoa(d);
+	}
+	logStream.endl();
+	for (int i = 0; i < pScen->nbSkills_; i++)	{
+    logStream << "# SK"+Tools::itoa(i)+":";
+		for (int d = 0; d < minPerShift.size(); d++) {
+			logStream << Tools::itoa(minHighestPerSkill[d][i])+"/"+Tools::itoa(optHighestPerSkill[d][i]);
+		}
+		logStream.endl();
+	}
+
+	delete pScen;
 
 }
 

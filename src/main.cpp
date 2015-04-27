@@ -101,10 +101,9 @@ int main(int argc, char** argv)
 
 		// Read the input files
 		//
-		Scenario* pScen = ReadWrite::readScenario(scenarioFile);
+		Scenario* pScen(0);
+		pScen = initializeScenario(scenarioFile,weekDataFile,initialHistoryFile);
 		std::cout << "Scenario file is read\n";
-		Demand* pWeekDemand = ReadWrite::readWeek(weekDataFile, pScen);
-		ReadWrite::readHistory(initialHistoryFile,pScen);
 		if (!customInputFile.empty()) {
 			ReadWrite::readCustom(customInputFile, pScen);
 		}
@@ -112,7 +111,7 @@ int main(int argc, char** argv)
 		// Instantiate the solver class as a test
 		//
 		Greedy* pSolverTest =
-		new Greedy(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
+		new Greedy(pScen, pScen->pWeekDemand(),	pScen->pWeekPreferences(), pScen->pInitialState());
 		pSolverTest->constructiveGreedy();
 
 		// Write the solution in the required output format

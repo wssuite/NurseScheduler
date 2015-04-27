@@ -56,7 +56,7 @@ public:
    static Demand* readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario);
 	// Read the Week file and store the content in a Scenario instance
 	//
-	static Demand* readWeek(std::string strWeekFile, Scenario* pScenario);
+	static void readWeek(std::string strWeekFile, Scenario* pScenario, Demand** pDemand, Preferences** pPref);
 
 	// Read the history file
 	//
@@ -65,6 +65,10 @@ public:
 	// Read the input custom file and store the content in a Scenario instance
 	//
 	static void readCustom(std::string strCustomInputFile, Scenario* pScenario);
+
+	// Print the main characteristics of all the demands of an input directory
+	// This is done to find some invariant properties among demands
+	static void compareDemands(std::string inputDir);
 
 	//--------------------------------------------------------------------------
 
@@ -95,7 +99,31 @@ public:
 	//
 	static bool strEndsWith(string sentence, string word);
 
+	// writes a string in a stream with a constant number of character
+	//
+	template<typename T>
+	static void writeConstantWidth(std::ostream &out, int width, const T output);
+
+
 	//--------------------------------------------------------------------------
 };
+
+// writes a string in a stream with a constant number of character
+//
+template<typename T>
+void ReadWrite::writeConstantWidth(std::ostream &out, int width, const T output) {
+  char buffer[100];
+  int cx;
+
+  cx = snprintf(buffer, 100, "%s", output);
+  if (cx > width){
+    std::cout << "Warning: the string is larger than the width!" << std::endl;
+    width = cx;
+  }
+
+  std::fill_n(buffer+cx, width-cx, ' ');
+
+  out.write(buffer, width);
+}
 
 #endif
