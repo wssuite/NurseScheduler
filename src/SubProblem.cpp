@@ -357,6 +357,19 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	opt_solutions_spptw.clear();
 	pareto_opt_rcs_spptw.clear();
 
+	for(int a=0; a<nArcs_; a++){
+		int o = arcOrigin(a);
+		int d = arcDestination(a);
+
+		if(nodeType(o) == PRINCIPAL_NETWORK
+				and nodeType(d) == PRINCIPAL_NETWORK
+				and principalToDay_[o] < principalToDay_[d]-1){
+			printArc(nArcs_-1);
+			getchar();
+		}
+
+	}
+
 	// "Original way of doing" = pareto optimal for the whole month
 	//
 	if(isOptionActive(SOLVE_SINGLE_SINKNODE)){
@@ -534,6 +547,11 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 			theRotations_.push_back(rot);
 			nPaths_ ++;
 			nFound ++;
+			if(rot.dualCost_==-285){
+				printPath(paths[p], resources[p]);
+				printRotation(rot);
+
+			}
 			//printPath(paths[p], resources[p]);
 			//printRotation(rot);
 		}
@@ -650,6 +668,12 @@ void SubProblem::initNodesStructures(){
 	//
 	int nShifts= pScenario_->nbShifts_;				// Number of different shifts
 
+	allNodesTypes_.clear();
+	principalNetworkNodes_.clear();
+	principalToShift_.clear();
+	principalToDay_.clear();
+	principalToCons_.clear();
+
 	// All nodes
 	//
 	nNodes_ = 0;
@@ -722,6 +746,14 @@ void SubProblem::addSingleArc(int o, int d, double baseCost, int t, ArcType type
 	allArcsTypes_.push_back(type);
 	arcBaseCost_.push_back(baseCost);
 	nArcs_++;
+
+	if(nodeType(o) == PRINCIPAL_NETWORK
+			and nodeType(d) == PRINCIPAL_NETWORK
+			and principalToDay_[o] < principalToDay_[d]-1){
+		printArc(nArcs_-1);
+		getchar();
+	}
+
 }
 
 // Initializes the data structures used for the arcs
@@ -975,17 +1007,20 @@ void SubProblem::priceShortSucc(){
 
 	// FOR THE SHIFTS ON THE FIRST DAY THAT EXTEND THE ONGOING WORK AT INITIAL STATE
 	//
-	map<int,double>::iterator itCost = specialArcsCost.begin();
 	for(map<int,int>::iterator itId = specialArcsSuccId.begin(); itId != specialArcsSuccId.end(); ++itId){
 		int a = itId->first;
 		int d = arcDestination(a);
 		int s = principalToShift_[d];
 		int k = principalToDay_[d];
 		int n = principalToCons_[d];
+		if(specialArcsCost.find(a) == specialArcsCost.end()){
+			cout << "# Problem within pricing of some short rotations (press Enter to go on)" << endl;
+			getchar();
+		}
+		double cost = specialArcsCost.at(a);
 		authorizeArc(a);
 		idBestShortSuccCDMin_[s][k][n] = itId->second;
-		arcCostBestShortSuccCDMin_[s][k][n] = itCost->second;
-		++ itCost;
+		arcCostBestShortSuccCDMin_[s][k][n] = cost;
 	}
 }
 
@@ -1522,7 +1557,7 @@ void SubProblem::printPath(vector< boost::graph_traits<Graph>::edge_descriptor >
 	//
 	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
 		int a = boost::get(&Arc_Properties::num, g_, path[j]);
-		std::cout << "# \t| [ " << shortNameNode(source( path[j], g_ )) << " ]";
+		std::cout << "# \t| [ " << shortNameNode(source( path[j], g_ )) << " | " << shortNameNode( arcOrigin(a)) << " ]";
 		std::cout << "\t\tCost:  " << arcCost(a) << "\t\tTime:" << arcLength(a);
 		std::cout << "\t\t[" << (arcStatus_[a] ? " allowed " : "forbidden") << "]" << std::endl;
 	}
@@ -1649,7 +1684,7 @@ void SubProblem::printActiveSolveOptions(){
 /*************************************************************************
  * A GARDER AU CAS OU COMME EXEMPLE POUR CERTAINES FONCTIONS / SYNTAXES. *
  *************************************************************************/
-
+/*
 const int num_nodes = 5;
 enum nodes { A, B, C, D, E };
 char name[] = "ABCDE";
@@ -1797,3 +1832,4 @@ void SubProblem::testGraph_spprc(){
 		std::cout << "OK." << std::endl;
 	}
 }
+*/
