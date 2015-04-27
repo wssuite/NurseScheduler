@@ -13,9 +13,11 @@
 #include "Greedy.h"
 #include <exception>
 #include "Modeler.h"
+#include "MasterProblem.h"
 
 //initialize the counter of object
 unsigned int MyObject::s_count = 0;
+unsigned int Rotation::s_count = 0;
 
 int main(int argc, char** argv)
 {

@@ -39,26 +39,8 @@ CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars,
   }
 }
 
-CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons,
-   OsiSolverInterface* osiSolver_):
-         CoinModeler(), primalValues_(0), objVal_(0), model_(NULL), pOsiSolver_(osiSolver_) {
-   int corenum = coreVars.size();
-   int colnum  = columnVars.size();
-   int consnum = cons.size();
-
-   for (int i = 0; i < corenum; i++) {
-      coreVars_.push_back(new CoinVar(*coreVars[i]));
-      objects_.push_back(coreVars_[i]);
-   }
-   for (int i = 0; i < colnum; i++) {
-      columnVars_.push_back(new CoinVar(*columnVars[i]));
-      objects_.push_back(columnVars_[i]);
-   }
-   for (int i = 0; i < consnum; i++) {
-      cons_.push_back(new CoinCons(*cons[i]));
-      objects_.push_back(cons_[i]);
-   }
-}
+CbcModeler::CbcModeler(OsiSolverInterface* osiSolver_):
+         CoinModeler(), primalValues_(0), objVal_(0), model_(NULL), pOsiSolver_(osiSolver_) { }
 
 
 /*

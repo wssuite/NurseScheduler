@@ -16,7 +16,9 @@
  */
 
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
-pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()), lpIteration_(0), cbcEveryXLpIteration_(50)
+pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()),
+lpIteration_(0), lastDiveIteration_(-1), cbcEveryXLpIteration_(100),
+alreadyDuplicated_(false), dive_(false)
 { }
 
 //Initialize the lp parameters and the OsiSolver
@@ -35,32 +37,60 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
    const BCP_vec<BCP_var*>& vars,
    const BCP_vec<BCP_cut*>& cuts){
 
-   if((lpIteration_%cbcEveryXLpIteration_) == 0){
-      //Reset the bounds of the variables that have been branched on
+   //if doesn't dive and on the good iteration
+   if(!dive_ && ( (lpIteration_-lastDiveIteration_)%cbcEveryXLpIteration_) == 1){
+      //copy the solver of the problem
       OsiSolverInterface* solver = getLpProblemPointer()->lp_solver->clone();
-      for(MyObject* var: pModel_->getIntegerCoreVars()){
-         CoinVar* var2 = (CoinVar*) var;
-         solver->setColLower(var2->getIndex(), 0);
-         solver->setColUpper(var2->getIndex(), DBL_MAX);
+
+      for(int i=0; i<vars.size(); ++i){
+         //Set the type of the columns as the columns can be integrated as continuous var
+         //As some columns can have been removed, the index are not the same than ours
+         BcpColumn* column = dynamic_cast<BcpColumn*>(vars[i]);
+         if(column){
+            switch (column->getVarType()) {
+            case VARTYPE_BINARY:
+               solver->setInteger(i);
+               solver->setColUpper(i, 1);
+               break;
+            case VARTYPE_INTEGER:
+               solver->setInteger(i);
+               break;
+            default:
+               break;
+            }
+         }
+         //Reset the bounds of all the core variables
+         //As they are always in the problem and they are always the first variables,
+         //they have the same index than our core variables
+         else{
+            if(!dynamic_cast<BCP_var_core*>(vars[i]))
+               Tools::throwError("Not a core variable.");
+            CoinVar* myVar = pModel_->getCoreVars()[i];
+            solver->setColLower(i, myVar->getLB());
+            solver->setColUpper(i, myVar->getUB());
+         }
       }
 
       //initialize the MIP model
-      CbcModeler MIP(pModel_->getCoreVars(),pModel_->getColumns(),pModel_->getCons(), solver);
+      CbcModeler MIP(solver);
       MIP.setVerbosity(0);
       MIP.solve();
 
       BCP_solution_generic* sol = new BCP_solution_generic(false);
-      for(CoinVar* var: pModel_->getCoreVars()){
-         BcpCoreVar* var2 = (BcpCoreVar*) var;
-         double value = MIP.getVarValue(var2);
+     const int nbCoreVars = pModel_->getCoreVars().size();
+      //same index for BCP_core_var and BcpCoreVar (they are all before the columns)
+      for(int i=0; i<nbCoreVars; ++i){
+         BcpCoreVar* var = (BcpCoreVar*) pModel_->getCoreVars()[i];
+         double value = MIP.getVarValue(var);
          if(value>0)
-            sol->add_entry(var2, value);
+            sol->add_entry(vars[i], value);
       }
-      for(CoinVar* var: pModel_->getColumns()){
-         BcpColumn* var2 = (BcpColumn*) var;
-         double value = MIP.getVarValue(var2);
+      for(int i=nbCoreVars; i<vars.size(); ++i){
+         //take the colum with the index i
+         BcpColumn* column = (BcpColumn*)(pModel_->getColumns()[i-nbCoreVars]);
+         double value = MIP.getVarValue(column);
          if(value>0)
-            sol->add_entry(var2, value);
+            sol->add_entry(vars[i], value);
       }
       cout << "CBC: " << sol->objective_value() << endl;
       return sol;
@@ -93,28 +123,62 @@ void BcpLpModel::logical_fixing (const BCP_lp_result& lpres,
    BCP_vec<int>& changed_pos,
    BCP_vec<double>& new_bd){
 
-//   pModel_->setLPSol(lpres);
-//
-//   //fixing candidates
-//   vector<MyObject*> fixingCandidates;
-//   //add all possibilities
-//   for(BCP_var* var: vars){
-//      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-//      if(col)
-//         fixingCandidates.push_back(col);
-//   }
-//   //remove all bad candidates
-//   pModel_->logical_fixing(fixingCandidates);
-//
-//   //fix if some candidates
-//   for(MyObject* var: fixingCandidates){
-//      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-//      if(!col)
-//         Tools:throw("The object is not a column.");
-//      changed_pos.push_back(col->getIndex());
-//      new_bd.push_back(1);
-//      new_bd.push_back(col->getUB());
-//   }
+   //If the node has already been duplicated and that we are diving
+   if(var_bound_changes_since_logical_fixing > 0 && alreadyDuplicated_ && dive_){
+      vector<MyObject*> fixingCandidates;
+
+      //add all possibilities
+      for(BCP_var* var: vars){
+         BcpColumn* col = dynamic_cast<BcpColumn*>(var);
+         if(col)
+            fixingCandidates.push_back(col);
+      }
+
+      //remove all bad candidates
+      pModel_->logical_fixing(fixingCandidates);
+
+      //if there some candidates
+      if(fixingCandidates.size() > 0){
+         changed_pos.reserve(fixingCandidates.size());
+         new_bd.reserve(2 * fixingCandidates.size());
+
+         //fix if some candidates
+         vector<MyObject*>::iterator it = fixingCandidates.begin();
+         BcpColumn* col = (BcpColumn*) *it;
+         for(int i=pModel_->getCoreVars().size(); i<vars.size(); ++i){
+            BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
+
+            //search the column var in fixingCandidates.
+            //If find, set the lower bound of the column to 1
+            if(col->getIndex() == var->getIndex()){
+               changed_pos.push_back(i);
+               new_bd.push_back(1);
+               new_bd.push_back(var->ub());
+
+               //take the next candidate
+               ++it;
+               //if the last one, break;
+               if(it == fixingCandidates.end())
+                  break;
+               col = (BcpColumn*) *it;
+            }
+         }//end loop on fixingCandidates
+
+      }
+   }
+}
+
+// Restoring feasibility.
+//This method is invoked before fathoming a search tree node that has been found infeasible and
+//the variable pricing did not generate any new variables.
+void BcpLpModel::restore_feasibility(const BCP_lp_result& lpres,
+   const std::vector<double*> dual_rays,
+   const BCP_vec<BCP_var*>& vars,
+   const BCP_vec<BCP_cut*>& cuts,
+   BCP_vec<BCP_var*>& vars_to_add,
+   BCP_vec<BCP_col*>& cols_to_add){
+   //dive is finished
+   dive_ = false;
 }
 
 //Convert a set of variables into corresponding columns for the current LP relaxation.
@@ -165,7 +229,8 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
    ++lpIteration_;
-   pModel_->setLPSol(lpres);
+   if(dive_) lastDiveIteration_ = lpIteration_;
+   pModel_->setLPSol(lpres, vars);
    pModel_->pricing(0);
 
    //check if new columns add been added since the last time
@@ -206,11 +271,27 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
-   pModel_->setLPSol(lpres);
+   pModel_->setLPSol(lpres, vars);
 
    //if some variables have been generated, do not branch
    if(local_var_pool.size() > 0)
       return BCP_DoNotBranch;
+
+   //If no more columns have been generated, duplicate the node and:
+   //let the function logical_fixing perform its work for the first one
+   //keep the second for continuing the branching process later
+   if(!alreadyDuplicated_){
+      cands.push_back(new  BCP_lp_branching_object(2, //2 identical children with nothing changed
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+      dive_ = true;
+      return BCP_DoBranch;
+   }
+
+   //Stop the dive
+   if(dive_){
+      dive_ = false;
+      return BCP_DoNotBranch_Fathomed;
+   }
 
    //branching candidates
    vector<MyObject*> branchingCandidates;
@@ -228,6 +309,26 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    return BCP_DoNotBranch_Fathomed;
 }
 
+//Decide what to do with the children of the selected branching object.
+//Fill out the _child_action field in best. This will specify for every child what to do with it.
+//Possible values for each individual child are BCP_PruneChild, BCP_ReturnChild and BCP_KeepChild.
+//There can be at most child with this last action specified.
+//It means that in case of diving this child will be processed by this LP process as the next search tree node.
+//Default: Every action is BCP_ReturnChild.
+//However, if BCP dives then one child will be mark with BCP_KeepChild. The decision which child to keep is based on the ChildPreference parameter in BCP_lp_par.
+//Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
+void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
+   //if first time, duplicate the node
+   if(!alreadyDuplicated_){
+      best->action()[0] = BCP_KeepChild;
+      best->action()[1] = BCP_ReturnChild;
+      alreadyDuplicated_ = true;
+   }
+   //otherwise let perform the default actions
+   else
+      BCP_lp_user::set_actions_for_children(best);
+}
+
 void BcpLpModel::appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands){
    BCP_vec<int> vpos; //positions of the variables
    BCP_vec<double> vbd; // old bound and then new one for each variable
@@ -240,8 +341,7 @@ void BcpLpModel::appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching
    vbd.push_back(coreVar->getUB()); // new lower bound
 
 
-   cands.push_back(new  BCP_lp_branching_object(2, //just one children where
-      //all the columns with positions in vpos are fixed to 1
+   cands.push_back(new  BCP_lp_branching_object(2, //2 children
       0, 0, /* vars/cuts_to_add */
       &vpos, 0, &vbd, 0, /* forced parts: position and bounds (old bound and then new one) */
       0, 0, 0, 0 /* implied parts */));
@@ -419,6 +519,58 @@ int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int i
    *con = new BcpCoreCons(con_name, index, lhs, rhs);
    objects_.push_back(*con);
    return 1;
+}
+
+/*
+ * Set the solution
+ */
+
+void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars){
+   obj_history_.push_back(lpres.objval());
+   if(best_lb_in_root > lpres.objval())
+      best_lb_in_root = lpres.objval();
+
+   //clear the old vectors
+   if(primalValues_.size() != 0){
+      primalValues_.clear();
+      dualValues_.clear();
+      reducedCosts_.clear();
+      lhsValues_.clear();
+   }
+
+   //copy the new arrays in the vectors for the core vars
+   const int nbCoreVar = coreVars_.size();
+   const int nbColVar = columnVars_.size();
+   const int nbCons = cons_.size();
+
+   primalValues_.assign(lpres.x(), lpres.x()+nbCoreVar);
+   dualValues_.assign(lpres.pi(), lpres.pi()+nbCons);
+   reducedCosts_.assign(lpres.dj(), lpres.dj()+nbCoreVar);
+   lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
+
+   //reserve some space for the columns
+   primalValues_.reserve(nbColVar);
+   reducedCosts_.reserve(nbColVar);
+   //loop through the variables and link the good columns together
+   vector<CoinVar*>::iterator it = columnVars_.begin();
+   for(int i=nbCoreVar; i<vars.size(); ++i){
+      BcpColumn* col = (BcpColumn*) *it;
+      BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
+      while(col->getIndex() != var->getIndex()){
+         primalValues_.push_back(0);
+         reducedCosts_.push_back(0);
+         ++it;
+         col = (BcpColumn*) *it;
+      }
+      primalValues_.push_back(lpres.x()[i]);
+      reducedCosts_.push_back(lpres.dj()[i]);
+      ++it;
+   }
+   while(it != columnVars_.end()){
+      primalValues_.push_back(0);
+      reducedCosts_.push_back(0);
+      ++it;
+   }
 }
 
 /*

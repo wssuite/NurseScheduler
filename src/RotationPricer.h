@@ -47,7 +47,7 @@ private:
    /*
     * Settings
     */
-   int nbSubProblemToSolve_;
+   int nbMaxRotationsToAdd_, nbSubProblemsToSolve_;
 
    /*
     * Methods

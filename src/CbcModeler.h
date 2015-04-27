@@ -26,7 +26,7 @@ public:
   // useful constructor
   CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons);
 
-  CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons, OsiSolverInterface* osiClp);
+  CbcModeler(OsiSolverInterface* osiClp);
 
   ~CbcModeler() {
     if (model_ != NULL) delete model_;
