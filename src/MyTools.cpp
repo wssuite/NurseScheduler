@@ -72,6 +72,14 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 	return true;
 }
 
+// convert a string to an int
+//
+std::string itoa(long n){
+	std::stringstream stream;
+	stream <<n;
+	return stream.str();
+}
+
 // Initializes  a vector of the given size (filled only with zeroes)
 //
 void initVector(vector<int>* v1D, int m, int val){

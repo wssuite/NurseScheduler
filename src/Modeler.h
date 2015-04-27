@@ -27,6 +27,17 @@
 using namespace std;
 
 /*
+ * Var types
+ */
+enum VarType {VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY};
+
+/*
+ * Rule Search Strategy
+ */
+
+enum SearchStrategy { BestFirstSearch, BreadthFirstSearch, DepthFirstSearch };
+
+/*
  * My Modeling objects
  * If the object is added to the vector objects_ of the Modeler, the modeler will also delete it at the end.
  */
@@ -84,16 +95,18 @@ struct MyBranchingRule{
 
    /* compute branching decisions */
    virtual void branching_candidates(vector<MyObject*>& branchingCandidates)=0; // stores the next candidates for branching
+
+   void set_search_strategy(SearchStrategy searchStrategy){ searchStrategy_ = searchStrategy; }
+
+protected:
+   SearchStrategy searchStrategy_;
 };
-/*
- * Var types
- */
-enum VarType {VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY};
+
 
 class Modeler {
 public:
 
-   Modeler(){ }
+   Modeler(): pPricer_(0), pBranchingRule_(0) { }
 
    virtual ~Modeler(){
       for(MyObject* object: objects_)
@@ -104,10 +117,46 @@ public:
    virtual int solve(bool relaxation = false)=0;
 
    //Add a pricer
-   virtual int addObjPricer(MyPricer* pPricer)=0;
+   virtual int addObjPricer(MyPricer* pPricer){
+      pPricer_ = pPricer;
+      return 1;
+   }
 
    //Add a branching rule
-   virtual int addBranchingRule(MyBranchingRule* pBranchingRule)=0;
+   virtual int addBranchingRule(MyBranchingRule* pBranchingRule){
+      pBranchingRule_ = pBranchingRule;
+      pBranchingRule_->set_search_strategy(searchStrategy_);
+      return 1;
+   }
+
+   /*
+    * Class methods for pricer and branching rule
+    */
+
+   //return true if optimal
+   inline bool pricing(double bound=0){
+      if(pPricer_)
+         return pPricer_->pricing(bound);
+      return true;
+   }
+
+   inline void branching_candidates(vector<MyObject*>& branchingCandidates){
+      if(pBranchingRule_)
+         pBranchingRule_->branching_candidates(branchingCandidates);
+   }
+
+   //remove all bad candidates from fixingCandidates
+   inline void logical_fixing(vector<MyObject*>& fixingCandidates){
+      if(pBranchingRule_)
+         pBranchingRule_->logical_fixing(fixingCandidates);
+      else
+         fixingCandidates.clear();
+   }
+   //Set search strategy
+   inline void set_search_strategy(SearchStrategy searchStrategy){
+      if(pBranchingRule_)
+         pBranchingRule_->set_search_strategy(searchStrategy);
+   }
 
    /*
     * Create variable:
@@ -126,10 +175,12 @@ public:
 
    inline void createIntVar(MyObject** var, const char* var_name, double objCoeff, double score = 0, double ub = DBL_MAX){
       createVar(var, var_name, objCoeff, 0, ub, VARTYPE_INTEGER, score);
+      integerCoreVars_.push_back(*var);
    }
 
    inline void createBinaryVar(MyObject** var, const char* var_name, double objCoeff, double score = 0){
       createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, score);
+      binaryCoreVars_.push_back(*var);
    }
 
    virtual int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj,
@@ -325,9 +376,30 @@ public:
       Tools::throwError(error.c_str());
    }
 
+   inline vector<MyObject*>& getBinaryCoreVars(){ return binaryCoreVars_; }
+
+   inline vector<MyObject*>& getIntegerCoreVars(){ return integerCoreVars_; }
+
+   inline int getVerbosity() { return verbosity_; }
+
+   inline void setSearchStrategy(SearchStrategy searchStrategy){
+      searchStrategy_ = searchStrategy;
+      set_search_strategy(searchStrategy);
+   }
+
+   inline SearchStrategy getSearchStrategy(){ return searchStrategy_; }
+
 protected:
    //store all MyObject*
    vector<MyObject*> objects_;
+   vector<MyObject*> binaryCoreVars_;
+   vector<MyObject*> integerCoreVars_;
+
+   MyPricer* pPricer_;
+   MyBranchingRule* pBranchingRule_;
+
+   int verbosity_ = 0;
+   SearchStrategy searchStrategy_ = DepthFirstSearch;
 };
 
 

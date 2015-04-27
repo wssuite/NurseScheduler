@@ -80,6 +80,10 @@ void debugMsg(const char* debugMsg, int debugLevel);
 //
 bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 
+// convert an int to an string
+//
+std::string itoa(long n);
+
 // initializes a 1D, 2D or 3D Vector of the given size (filled only with zeroes)
 //
 void initVector(vector<int>* v1D, int m, int val=0);
@@ -186,13 +190,15 @@ public:
 	//
 	void setPrecision(int precision) {logStream_.precision(precision);}
 
+  void endl() {logStream_ << std::endl;}
+
 	// redefine the output function
 	//
 	template<typename T>
 	LogOutput& operator<<(const T& output)
 	{
 		logStream_.width(width_);
-		logStream_ << output;
+		logStream_ << std::left << output;
 
 		return *this;
 	}

@@ -14,11 +14,12 @@
 #include "CbcModeler.h"
 #include "MyTools.h"
 
+
 void main_test()
 {
-	// testFunction_Antoine();
-	// testFunction_Jeremy();
-	testFunction_Samuel();
+	//testFunction_Antoine();
+	testFunction_Jeremy();
+	//testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
@@ -38,10 +39,12 @@ void testFunction_Antoine(){
    Tools::LogOutput outStream(outFile);
 
    string data = "testdatasets/";// testdatasets datasets
-   const char* inst = "n005w4";// n100w4 n030w4 n005w4
+   const char* inst = "n012w8";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
-   vector<int> numberWeek = {1, 2, 3, 3};
+   //n005w4: {1, 2, 3, 3}
+   //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
    vector<string> weekPaths(numberWeek.size());
    for(int i=0; i<numberWeek.size(); ++i){
       string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
@@ -121,63 +124,54 @@ void testFunction_Jeremy(){
    timertotal->start();
 
    // Create a log file
-   string logFile = "../logfiles/test.log";
+   string logFile = "logfiles/test.log";
    Tools::LogOutput logStream(logFile);
 
+	/************************************************************************
+	* Go through the demands of the directory to find invariants in the demand
+	*************************************************************************/
 
-   // Read the input data from files
-   Scenario* pScen = ReadWrite::readScenario("datasets/n030w4/Sc-n030w4.txt");
-   Demand* pWeekDemand = ReadWrite::readWeek("datasets/n030w4/WD-n030w4-1.txt", pScen);
-   ReadWrite::readHistory("datasets/n030w4/H0-n030w4-0.txt",pScen);
+	ReadWrite::compareDemands("testdatasets/n005w4");
 
-   // Check that the scenario was read properly
-   //
-   // logStream << *pScen << std::endl;
-   logStream << pScen->toString() << std::endl;
-   logStream << pWeekDemand->toString(true) << std::endl;
+	/************************************************************************
+	* Initialize the week scenario by reading the input files
+	*************************************************************************/
 
-   // Write the aggregate information on the demand
-   //
+	Scenario* pScen(0);
+	pScen = initializeScenario("datasets/n030w4/Sc-n030w4.txt",
+		"datasets/n030w4/WD-n030w4-1.txt", "datasets/n030w4/H0-n030w4-0.txt");
 
+	// Check that the scenario was read properly
+	logStream << pScen->toString() << std::endl;
+	logStream << pScen->pWeekDemand()->toString(true) << std::endl;
 
-   // Write aggregate information on the cover capacity of the staff
-   // (TBD)
+	/****************************************
+	* Run the greedy to get an initial solution
+	*****************************************/
 
-   // Instantiate the solver class as a test
-   //
    Greedy* pGreedy =
-      new Greedy(pScen, pWeekDemand,	pScen->pWeekPreferences(), pScen->pInitialState());
+      new Greedy(pScen, pScen->pWeekDemand(),	pScen->pWeekPreferences(), pScen->pInitialState());
    pGreedy->constructiveGreedy();
+
+	// Write the solution in the required output format
+	string greedyFile = "outfiles/greedy.out";
+	Tools::LogOutput greedyStream(greedyFile);
+	greedyStream << pGreedy->solutionToString();
+
+	// Write the solution and advanced information in a more convenient format
+	string greedyLog = "outfiles/greedylog.out";
+	Tools::LogOutput greedyLogStream(greedyLog);
+	greedyLogStream << pGreedy->solutionToLogString();
 
 	/****************************************
 	* Test the CBC modeler
 	*****************************************/
+	std::vector<Roster> solIni = pGreedy->getSolution();
+	testCbc(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(),solIni);
 
-	// Instantiate a master problem to create the mathematical programming model
-	// with the columns deduced from the solution of the greedy
-	MasterProblem* pSolverMP =
-		new MasterProblem(pScen, pWeekDemand, pScen->pWeekPreferences(),
-		pScen->pInitialState(), S_CBC, pGreedy->getSolution());
-	pSolverMP->solve();
 
-	CoinModeler* coinModel = (CoinModeler*) pSolverMP->getModel();
-	CbcModeler* cbcModel =
-		new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
-
-	// cbcModel->setModel();
-	cbcModel->solve();
-
-   // Write the solution in the required output format
-   string outFile = "outfiles/solution.out";
-   Tools::LogOutput outStream(outFile);
-   outStream << pGreedy->solutionToString();
-
-   // Write the solution and advanced information in a more convenient format
-   string outLog = "outfiles/log.out";
-   Tools::LogOutput outLogStream(outLog);
-   outLogStream << pGreedy->solutionToLogString();
-
-   // Display the total time spent in the algorithm
+   // Display the total time spent in the tests
+	//
    timertotal->stop();
    logStream.print("Total time spent in the algorithm : ");
    logStream.print(timertotal->dSinceInit());
@@ -186,13 +180,8 @@ void testFunction_Jeremy(){
    // free the allocated pointers
    //
    delete timertotal;
-   delete pWeekDemand;
    delete pScen;
    delete pGreedy;
-	delete pSolverMP;
-	delete cbcModel;
-
-
 }
 
 // Function for testing parts of the code (Samuel)
@@ -267,6 +256,55 @@ void testFunction_Samuel(){
    delete pScen;
    delete pGreedy;
    delete pSolverTest;
+}
 
+/************************************************************************
+* Initialize the week scenario by reading the input files
+*************************************************************************/
 
+Scenario* initializeScenario(string scenFile, string demandFile, string historyFile) {
+
+	Demand* pDemand(0);
+	Preferences* pPref(0);
+
+	// Read the scenario
+	Scenario* pScen = ReadWrite::readScenario(scenFile);
+
+	// Read the demand and preferences and link them with the scenario
+	ReadWrite::readWeek(demandFile, pScen,&pDemand,&pPref);
+	pScen->linkWithDemand(pDemand);
+	pScen->linkWithPreferences(*pPref);
+
+	// Read the history
+	ReadWrite::readHistory(historyFile, pScen);
+
+	return pScen;
+}
+
+/****************************************
+* Test the CBC modeler
+*****************************************/
+void testCbc(Scenario* pScen, Demand* pDemand, Preferences* pPref,
+	std::vector<State>* pStateIni, std::vector<Roster>& solIni) {
+		// First method: directly instantiate a master problem equipped with a Cbc
+		// modeler as input
+		//
+		MasterProblem* pMPCbc;
+		pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC, solIni);
+		pMPCbc->solve();
+
+		// Write the solution in the required output format
+		string outFile = "outfiles/cbctest1.out";
+		Tools::LogOutput outStream(outFile);
+		outStream << pMPCbc->solutionToString();
+
+		// Second method, load the Cbc modeler from the model of the MP
+		//
+		CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
+		CbcModeler* cbcModel =
+			new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
+		cbcModel->solve();
+
+		// a new method is needed to get the solution in the proper format from this
+		// external Cbc model
 }

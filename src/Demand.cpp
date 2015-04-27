@@ -98,6 +98,120 @@ void Demand::push_back(Demand* pDemand){
    this->preprocessDemand();
 }
 
+// modify the demand by randomly swapping the demand of nnSwaps days
+//
+void Demand::swapDays(int nbSwaps) {
+
+  for (int i=0; i < nbSwaps; i++) {
+    int day1 = rand()%nbDays_;
+    int day2 = rand()%nbDays_;
+
+    // save the demand on day 1
+    vector2D minDemandTmp, optDemandTmp;
+    Tools::initVector2D(&minDemandTmp,nbShifts_,nbSkills_,0);
+    Tools::initVector2D(&optDemandTmp,nbShifts_,nbSkills_,0);
+
+    for (int sh = 0; sh < nbShifts_; sh++) {
+      for (int sk = 0; sk < nbSkills_; sk++) {
+        minDemandTmp[sh][sk] = minDemand_[day1][sh][sk];
+        optDemandTmp[sh][sk] = optDemand_[day1][sh][sk];
+      }
+    }
+
+    // make the modification in the demand
+    for (int sh = 0; sh < nbShifts_; sh++) {
+      for (int sk = 0; sk < nbSkills_; sk++) {
+        minDemand_[day1][sh][sk] = minDemand_[day2][sh][sk];
+        optDemand_[day1][sh][sk] = optDemand_[day2][sh][sk];
+
+        minDemand_[day2][sh][sk] = minDemandTmp[sh][sk];
+        optDemand_[day2][sh][sk] = optDemandTmp[sh][sk];
+      }
+    }
+  }
+}
+
+// modify the demand by randomly swapping the demand of nbSwaps shifts
+// the swapped shifts necessarily correspond to the same skill
+//
+void Demand::swapShifts(int nbSwaps) {
+  for (int i=0; i < nbSwaps; i++) {
+    int sk = rand()%nbSkills_;
+    int day1 = rand()%nbDays_;
+    int sh1 = rand()%nbShifts_;
+    int day2 = rand()%nbDays_;
+    int sh2 = rand()%nbShifts_;
+
+    // save the demand on day1/shift1
+    int minDemandTmp, optDemandTmp;
+    minDemandTmp = minDemand_[day1][sh1][sk];
+    optDemandTmp = optDemand_[day1][sh1][sk];
+
+    // make the modification in the demand
+    minDemand_[day1][sh1][sk] = minDemand_[day2][sh2][sk];
+    optDemand_[day1][sh1][sk] = optDemand_[day2][sh2][sk];
+
+    minDemand_[day2][sh2][sk] = minDemandTmp;
+    optDemand_[day2][sh2
+
+    ][sk] = optDemandTmp;
+  }
+}
+
+// perturb the demand by adding demand in a number of shifts randomly chosen
+// in the interval [minPerturb,maxPerturb]
+// if the generate number is negative, then shifts are removed
+// the perturbed shifts are also randomly chosen
+// for a given skill the demand on a shift cannot become greater than the
+// largest demand observed on the week
+//
+void Demand::perturbShifts(int minPerturb, int maxPerturb) {
+  // generate the number of perturbations
+  int nbPerturb = rand()%(maxPerturb-minPerturb) + minPerturb;
+  int valPerturb = (nbPerturb>=0)? 1:-1;
+  nbPerturb = fabs(nbPerturb);
+
+  // preprocess the demand to find the highest demand per skill
+  if (!isPreprocessed_) this->preprocessDemand();
+
+
+  for (int i=0; i < fabs(nbPerturb); i++) {
+    // draw the particular shift whose demand should be perturbed
+    // select only a demand that is below the highest demand of the week for
+    // this shift if demand should be added (this constraint is added to avoid
+    // non feasibility due to the perturbation)
+    bool isAtUpperBound = false;
+    int day, sh, sk;
+    while (!isAtUpperBound) {
+      day = rand()%nbDays_;
+      sh = rand()%nbShifts_;
+      sk = rand()%nbShifts_;
+      isAtUpperBound = (valPerturb >= 0)? (minDemand_[day][sh][sk] >= minHighestPerSkill_[sk]):false;
+    }
+
+    // perturb the demand
+    minDemand_[day][sh][sk] += valPerturb;
+    optDemand_[day][sh][sk] += valPerturb;
+  }
+}
+
+// copy the input demand and apply a perturbation to generate random demand
+//
+Demand* Demand::randomPertubation() {
+  Demand* pDemand = new Demand(*this);
+
+  // three different types of perturbations are made
+  // the order does not seem to be important
+  pDemand->swapDays(nbDays_/2);
+  pDemand->swapShifts(nbDays_*nbSkills_);
+  pDemand->perturbShifts(-nbDays_,nbDays_);
+
+  // get the main characteristics of the new demand
+  pDemand->preprocessDemand();
+
+  return pDemand;
+}
+
 
 // display the demand, and include the preprocessed information if the input
 // boolean is set to true
