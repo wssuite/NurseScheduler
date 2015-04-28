@@ -60,7 +60,7 @@ public:
 };
 
 
-//------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 //
 // C l a s s  S k i l l S o r t e r
 //
@@ -68,7 +68,8 @@ public:
 // the function is used to sort the skills in descending order of rarity
 // (we want to treat the rarest skill first)
 //
-//------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
 class SkillSorter {
 public:
    // take the field to sort by in the constructor
@@ -78,6 +79,28 @@ public:
    }
 private:
    vector<double> skillRarity_;
+};
+
+//-----------------------------------------------------------------------------
+//
+// C l a s s  S h i f t S o r t e r
+//
+// This class is a function object used only to compare two shifts
+// the function is used to sort the skills in ascending ordrer of the number of
+// forbidden successors
+// (we want to treat these shifts first)
+//
+//-----------------------------------------------------------------------------
+
+class ShiftSorter {
+public:
+   // take the field to sort by in the constructor
+   ShiftSorter (const vector<int> nbForbiddenSuccessors) : nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
+   bool operator() (const int sh1, const int sh2) {
+      return nbForbiddenSuccessors_[sh1] < nbForbiddenSuccessors_[sh2];
+   }
+private:
+   vector<int> nbForbiddenSuccessors_;
 };
 
 //-----------------------------------------------------------------------------
@@ -161,6 +184,9 @@ public:
 
 
 public:
+  // basic getters
+  //
+  Position* pPosition() const {return pPosition_;}
 
    //----------------------------------------------------------------------------
    // Methods that relate to the rosters of a nurse
@@ -204,6 +230,24 @@ public:
 
 
 };
+
+
+// Compare two positions to sort them
+// Three possible cases can happen
+// 1) same positions
+// 2) same rank: the first position to be treated is that with the rarest skill
+// or the largest number of skills
+// 3) the first position to be treated is that with the smaller rank
+//
+bool comparePositions(Position* p1, Position* p2);
+
+// Compare two nurses based on their position
+// the function is used to sort the nurses in ascending rank of their
+// position
+// if their positions have the same rank, then the smaller nurse is found
+// by a lexicographic comparison of the rarity of the skills of the nurses
+//
+bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 
 
 //-----------------------------------------------------------------------------
@@ -316,27 +360,11 @@ public:
    void preprocessTheNurses();
 
    // preprocees the skills to get their rarity
-   // the value depends on the demand for this skill, on the number of nurses 
-   // that have the skill and on the number of skills per nurse that have the 
+   // the value depends on the demand for this skill, on the number of nurses
+   // that have the skill and on the number of skills per nurse that have the
    // skill
    //
    void preprocessTheSkills();
-
-   // Compare two nurses based on their position
-   // the function is used to sort the nurses in ascending rank of their 
-   // position
-   // if their positions have the same rank, then the smaller nurse is found
-   // by a lexicographic comparison of the rarity of the skills of the nurses
-   //
-   bool compareNurses(const LiveNurse  &n1, const LiveNurse &n2);
-
-   // Compare two skills based on their rarity
-   // the function is used to sort the skills in descending order of rarity
-   // (we want to treat the rarest skill first)
-   //
-   bool compareSkills(const int sk1, const int sk2);
-
-
 
    // compute the rarity indicator for each skill
    //

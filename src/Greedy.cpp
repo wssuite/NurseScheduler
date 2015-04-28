@@ -47,23 +47,6 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState):
   Solver(pScenario, pDemand, pPreferences, pInitState) {
 
-  // Preprocess the attributes of the greedy solver
-  // the result of the preprocessing will be very useful to sort the attributes 
-  // before greedily covering the demand
-  //
-  if (!pDemand_->isPreprocessed_) {
-    pDemand_->preprocessDemand();
-  }
-  this->preprocessTheNurses();
-  this->preprocessTheSkills();
-
-  vector<int> sortedSkills;
-  for (int sk=0; sk < pScenario_->nbSkills_; sk++) {
-    sortedSkills.push_back(sk);
-  }
-  SkillSorter compareSkills(skillRarity_);
-  std::stable_sort(sortedSkills.begin(),sortedSkills.end(),compareSkills);
-
   // get the maximum rank
   //
   rankMax_ = 0;
@@ -71,10 +54,18 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
     rankMax_ = std::max(rankMax_, pScenario_->pPositions()[i]->rank());
   }
 
-  // copy the live nurses in the sorted nurses vector
+  // initialize the sorted vectors with the input values
   //
   for (int i=0; i < pScenario_->nbNurses_; i++) {
     theNursesSorted_.push_back(theLiveNurses_[i]);
+  }
+
+  for (int sk=0; sk < pScenario_->nbSkills_; sk++) {
+    skillsSorted_.push_back(sk);
+  }
+
+  for (int sh=1; sh < pScenario_->nbShifts_; sh++) {
+    shiftsSorted_.push_back(sh);
   }
 
   // initialize weights that are used to penalize future violations
@@ -609,21 +600,27 @@ bool Greedy::constructiveGreedy() {
   int nbShifts = pScenario_->nbShifts_;
   int nbSkills = pScenario_->nbSkills_, nbNurses = pScenario_->nbNurses_;
 
+  // initialize the algorithm by sorting the input data
+  // the order of construction of the solution is essential in a constructive
+  // greedy
+  this->initializeConstructive();
+
   // First satisfy the minimum demand
   //
   for (int day = firstDay; day < firstDay+nbDays; day++) {
     // Initialize the set of nurses that are not assigned
     // we use this vector to avoid going through the nurses with a task
     vector<LiveNurse*> pNursesUnassigned;
-    for (int n = 0; n < nbNurses; n++) {
-      pNursesUnassigned.push_back(theLiveNurses_[n]);
+    for (LiveNurse* pNurse:theNursesSorted_) {
+      pNursesUnassigned.push_back(pNurse);
     }
     int nbUnassigned = nbNurses;
 
     // RqJO : l'ordre des skills/shifts pourrait etre change pour commencer par
     // ceux qui sont les plus critiques
-    for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
-      for (int sk = 0; sk < nbSkills; sk++) {
+    for (int sh:shiftsSorted_) { // recall that shift 0 is rest
+      for (int sk:skillsSorted_) {
+
         // demand for the task
         int demand = pDemand_->minDemand_[day][sh][sk];
         if (demand <= 0) continue;
@@ -644,8 +641,7 @@ bool Greedy::constructiveGreedy() {
     // After this step, the nurses with no assigned task are those that are
     // free to either take another working shift or a rest without penalty
     //
-    for (int n = 0; n < nbUnassigned; n++)  {
-      LiveNurse* pNurse = pNursesUnassigned[n];
+    for (LiveNurse* pNurse:pNursesUnassigned)  {
       State* pState = &pNurse->states_[day];
 
       // give a rest the nurses that need to rest to avoid penalties
@@ -657,10 +653,12 @@ bool Greedy::constructiveGreedy() {
       else if ( false ) {//pNurse->needWork(day) ) {
         double costMin = 1.0e6;
         int shMin = 0, skMin = 0;
-        for (int sh = 1; sh < nbShifts; sh++) {
+
+        for (int sh:shiftsSorted_) {
           // do not consider the shift if it creates a forbidden sequence
           if (pScenario_->isForbiddenSuccessor(sh,pState->shift_)) continue;
-          for (int sk = 0; sk < nbSkills; sk++) {
+          for (int sk:skillsSorted_) {
+
             if( !isFeasibleTask(*pNurse, day, sh, sk) ) continue;
             double cost = costTask(*pNurse, day, sh, sk);
             cost -= WEIGHT_OPTIMAL_DEMAND
@@ -688,8 +686,11 @@ bool Greedy::constructiveGreedy() {
     }
   }
 
+  // ------------------------------------------------------------------------
   // Try and satisfy the optimum demand with the unassigned nurses
-  //
+  // At this stage the order of nurses/shifts/skills may not be relevant any
+  // more
+  // ------------------------------------------------------------------------
 
   // initialize weights that are used to penalize future violations
   weightNbForbidden_ = 0;
@@ -701,18 +702,17 @@ bool Greedy::constructiveGreedy() {
     // initialize the set of nurses that are not assigned on this day yet
     vector<LiveNurse*> pNursesUnassigned;
     int nbUnassigned = 0;
-    for (int n = 0; n < nbNurses; n++) {
-      State state = theLiveNurses_[n]->states_[day+1];
+    for (LiveNurse* pNurse:theNursesSorted_) {
+      State state = pNurse->states_[day+1];
       if (state.shift_ < 0) {
-        pNursesUnassigned.push_back(theLiveNurses_[n]);
+        pNursesUnassigned.push_back(pNurse);
         nbUnassigned++;
       }
     }
 
-    // RqJO : l'ordre des skills/shifts pourrait etre change pour commencer par
-    // ceux qui sont les plus critiques
-    for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
-      for (int sk = 0; sk < nbSkills; sk++) {
+    // l'ordre des shifts/skills n'a peut-
+    for (int sh : shiftsSorted_) { // recall that shift 0 is rest
+      for (int sk: skillsSorted_) {
         // demand for the task
         int demand = pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk];
         if (demand <= 0) continue;
@@ -729,8 +729,7 @@ bool Greedy::constructiveGreedy() {
     // After this step, the nurses with no assigned task are those that are
     // free to either take another working shift or a rest without penalty
     //
-    for (int n = 0; n < nbUnassigned; n++)  {
-      LiveNurse* pNurse = pNursesUnassigned[n];
+    for (LiveNurse* pNurse: pNursesUnassigned)  {
       State* pState = &pNurse->states_[day];
 
       // give a rest the nurses that need to rest to avoid penalties
@@ -742,10 +741,10 @@ bool Greedy::constructiveGreedy() {
       else if ( pNurse->needWork(day) ) {
         double costMin = 1.0e6;
         int shMin = 0, skMin = 0;
-        for (int sh = 1; sh < nbShifts; sh++) {
+        for (int sh: shiftsSorted_) {
           // do not consider the shift if it creates a forbidden sequence
           if (pScenario_->isForbiddenSuccessor(sh,pState->shift_)) continue;
-          for (int sk = 0; sk < nbSkills; sk++) {
+          for (int sk:skillsSorted_) {
             if( !isFeasibleTask(*pNurse, day, sh, sk) ) continue;
             double cost = costTask(*pNurse, day, sh, sk);
             cost -= WEIGHT_OPTIMAL_DEMAND
@@ -777,8 +776,7 @@ bool Greedy::constructiveGreedy() {
     // considered period
     //
     if (day == firstDay+nbDays-1) {
-      for (int n = 0; n < nbNurses; n++) {
-        LiveNurse* pNurse = theLiveNurses_[n];
+      for (LiveNurse* pNurse: theNursesSorted_) {
         if (pNurse->states_[day+1].shift_ < 0) {
           fillTheGaps(*pNurse, day+1);
         }
@@ -797,70 +795,76 @@ bool Greedy::constructiveGreedy() {
 //
 void Greedy::solve() {}
 
+//------------------------------------------------------------------------------
+// Create the vector of sorted nurses
+// The nurses are ordered according to their position and the nurses that have
+// the same position are shuffled
+//------------------------------------------------------------------------------
 
-// compare functions that can be used to sort the nurse before assigning them
-// schedules in the greedy algorithm
-//
-bool compareNurses(const LiveNurse  &n1, const LiveNurse &n2) {
+void Greedy::sortShuffleTheNurses() {
 
-  // the first parameter for ordering the nurses is their positions
-  // if they have different position, the position priority of the position
-  // is sufficient to compare the nurses
-  //
+  vector<Position*> positionsSorted;
+  vector<vector<LiveNurse*>> nursePerPosition;
 
-  return true;
-}
+  // first, sort the position in the order in which the nurses should be treated
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    positionsSorted.push_back(pScenario_->pPosition(p));
+  }
+  std::sort(positionsSorted.begin(),positionsSorted.end(),comparePositions);
 
-
-// Build the sequence of positions reflecting the order in which the positions
-// will be treated in the greedy
-//
-void Greedy::sortPositions() {
-
-  vector<Position*> pPositions = pScenario_->pPositions();
-
-  //---------------------------------------------------------------------------
-  // A rank has been computed for each position
-  // The greedy is going to treat the positions in ascending rank value
-  // For a given rank, start with the position that contains the rarest skills
-  // Rarity is defined by the number of nurse shifts available for this skill
-  //---------------------------------------------------------------------------
-
-  // initialize the vector of position order
-  //
-  vector<int> order;
-  for (int i= 0; i < pScenario_->nbPositions(); i++)  order.push_back(0);
-
-  // compute the maximum value of rarity among the skills of each position
-  //
-  for (int i= 0; i < pScenario_->nbPositions(); i++)  {
-    int rarity = 0;
-    // compute the highest rarity for the skills of the position
-    // it has to be done in the preprocessing function of Solver, because it
-    // depends on the history
-    //
-
-    // if rarity is higher
+  // then organize the nurses depending on their position
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    vector<LiveNurse*> emptyVector;
+    nursePerPosition.push_back(emptyVector);
+  }
+  for (int n=0; n < pScenario_->nbNurses_; n++) {
+    LiveNurse* pNurse = theLiveNurses_[n];
+    nursePerPosition[pNurse->pPosition()->id()].push_back(pNurse);
   }
 
-  // get the maximum rank
-  //
-  int rankMax;
-  for (int i= 0; i < pScenario_->nbPositions(); i++)  {
-    rankMax = std::max(rankMax,pPositions[i]->rank());
+  // shuffle the nurses that have the same position
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    std::random_shuffle(nursePerPosition[p].begin(),nursePerPosition[p].end());
   }
 
-  // go through the positions for each rank value and set their order of
-  // treatment.
-  // the positions are already sorted in descending rarity, so they order is
-  // set directly
-  //
-  int nextTreated = 0;
-  for (int rank = 0; rank <= rankMax; rank++) {
-    for (int i= 0; i < pScenario_->nbPositions(); i++)  {
-      if (pPositions[i]->rank() == rank)  {
-        order[pPositions[i]->id_] = nextTreated++;
-      }
+  // fill the sorted vector of live nurses
+  theNursesSorted_.clear();
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    int id = positionsSorted[p]->id();
+    for (int n=0; n < nursePerPosition[id].size(); n++) {
+      theNursesSorted_.push_back(nursePerPosition[id][n]);
     }
   }
+
+  // todo: think about sorting the nurses according to their contract, we might
+  // want to use the full-time nurses first
+}
+
+//------------------------------------------------------------------------------
+// Initialize the greedy by preprocessing all the input attributes and sorting
+// the shifts, skills, nurses
+//------------------------------------------------------------------------------
+
+void Greedy::initializeConstructive() {
+
+  // Preprocess the attributes of the greedy solver
+  // the result of the preprocessing will be very useful to sort the attributes
+  // before greedily covering the demand
+  //
+  if (!pDemand_->isPreprocessed_) {
+    pDemand_->preprocessDemand();
+  }
+  this->preprocessTheNurses();
+  this->preprocessTheSkills();
+
+  // sort the skills
+  SkillSorter compareSkills(skillRarity_);
+  std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
+
+  // sort the shifts (except the shift 0 which must always be rest)
+  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
+  std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
+
+  // sort the nurses
+  sortShuffleTheNurses();
 }

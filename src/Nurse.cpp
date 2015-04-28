@@ -49,6 +49,9 @@ Position::Position(int index, int nbSkills, vector<int> skills):
          Tools::throwError("The skills in a position are not sorted or some skill is repeated!");
       }
    }
+   for (int sk = 0; sk < nbSkills_; sk++) {
+     skillRarity_.push_back(1.0);
+   }
 }
 
 // Set positions above and below
@@ -94,6 +97,19 @@ string Position::toString() const{
    }
    return rep.str();
 }
+
+
+ // update the rarity of the skills
+ // the input is the vector of the rarity of all the skills
+ // the vector is sorted without record of the corresponding skill because it
+ // is used only to compare two positions with the same rank
+ //
+ void Position::updateRarities(vector<double> allRarities) {
+   for (int sk = 0; sk < this->nbSkills_; sk++) {
+     skillRarity_[sk] = allRarities[skills_[sk]];
+   }
+   std::sort(skillRarity_.begin(),skillRarity_.end(), std::greater<double>());
+ }
 
 // Compare this position with the input position
 // The dominance criterion is that a position p1 with skills sk1 dominates p2

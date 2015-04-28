@@ -442,10 +442,6 @@ void Solver::preprocessTheNurses() {
     }
   }
 
-  for (int sk = 0; sk < nbSkills; sk++) {
-    std::cout << "Skill " << sk << " : " << maxStaffPerSkillNoPenalty_[sk] << std::endl;
-  }
-
   // initialize to zero the satisfied demand
   //
   Tools::initVector3D(&satisfiedDemand_, pDemand_->nbDays_,
@@ -455,14 +451,14 @@ void Solver::preprocessTheNurses() {
 //------------------------------------------------------------------------
 // Preprocees the skills to get their rarity
 // the value depends on the minimum demand for this skill, on the number
-// of nurses that have the skill and on the number of skills per nurse 
+// of nurses that have the skill and on the number of skills per nurse
 // that have the skill
 //------------------------------------------------------------------------
 
 void Solver::preprocessTheSkills() {
 
   // this vector will contain for each skill: the number of weighted nurses
-  // that have the skill ; the weight of each nurse is its number of skills 
+  // that have the skill ; the weight of each nurse is its number of skills
   vector<double> nbNursesWeighted;
 
   for (int sk=0; sk < pScenario_->nbSkills_; sk++) {
@@ -473,30 +469,56 @@ void Solver::preprocessTheSkills() {
         nbNursesWeighted[sk]+=1.0/(double)pNurse->nbSkills_;
       }
     }
-    // the skill rarity is the ratio of the weighted number of nurses 
-    // that have the skill to the demand for the skill
-    skillRarity_[sk] = nbNursesWeighted[sk]/(double)pDemand_->minPerSkill_[sk];
+    // the skill rarity is the ratio of the the demand for the skill to the
+    // weighted number of nurses that have the skill
+    skillRarity_[sk] = (double)pDemand_->minPerSkill_[sk]/nbNursesWeighted[sk];
+  }
+
+  // update the rarities of the skills in the scenario
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    pScenario_->pPosition(p)->updateRarities(skillRarity_);
   }
 }
 
 //------------------------------------------------------------------------
 // Compare two nurses based on their position
-// the function is used to sort the nurses in ascending rank of their 
+// the function is used to sort the nurses in ascending rank of their
 // position
 // if their positions have the same rank, then the smaller nurse is found
 // by a lexicographic comparison of the rarity of the skills of the nurses
 //------------------------------------------------------------------------
 
-bool Solver::compareNurses(const LiveNurse  &n1, const LiveNurse &n2) {
-  if (n1.pPosition_->id_ == n2.pPosition_->id_) {
+bool compareNurses(LiveNurse* n1, LiveNurse* n2) {
+  return comparePositions(n1->pPosition(), n2->pPosition());
+}
+
+//------------------------------------------------------------------------
+// Compare two positions to sort them
+// Three possible cases can happen
+// 1) same positions
+// 2) same rank: the first position to be treated is that with the rarest skill
+// or the largest number of skills
+// 3) the first position to be treated is that with the smaller rank
+//------------------------------------------------------------------------
+
+bool comparePositions(Position* p1, Position* p2) {
+  if (p1->id() == p2->id()) {
     return false;
   }
-  else if (n1.pPosition_->rank() == n2.pPosition_->rank()) {
-    return true;
+  else if (p1->rank() == p2->rank()) {
+    // the skillRarity vector is ALWAYS sorted in descending order, because the
+    // updateRarities is the only setter for skillRarity and it sorts the vector
+    for (int sk=0; sk<std::min(p1->nbSkills(),p2->nbSkills()); sk++) {
+      if (p1->skillRarity(sk) != p2->skillRarity(sk)) {
+        return p1->skillRarity(sk) > p2->skillRarity(sk);
+      }
+      return p1->nbSkills() > p2->nbSkills();
+    }
   }
   else {
-    return n1.pPosition_->rank() < n2.pPosition_->rank();
+    return p1->rank() < p2->rank();
   }
+  return true;
 }
 
 
