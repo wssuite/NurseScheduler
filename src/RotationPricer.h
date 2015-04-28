@@ -87,4 +87,26 @@ protected:
    Modeler* pModel_;
 };
 
+class CorePriorityBranchingRule: public MyBranchingRule
+{
+public:
+   CorePriorityBranchingRule(MasterProblem* master, const char* name);
+   virtual ~CorePriorityBranchingRule() { }
+
+   /* compute branching decisions */
+   void branching_candidates(vector<MyObject*>& branchingCandidates);
+
+   /* compute fixing decisions */
+   void logical_fixing(vector<MyObject*>& fixingCandidates);
+
+protected:
+   //Pointer to the master problem to link the master and the sub problems
+   //
+   MasterProblem* master_;
+
+   //pointers to the data
+   //
+   Modeler* pModel_;
+};
+
 #endif /* ROTATIONPRICER_H_ */

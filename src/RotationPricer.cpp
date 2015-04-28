@@ -45,7 +45,7 @@ bool RotationPricer::pricing(double bound){
    //computed new rotations
    vector<Rotation> rotations;
 
-   //   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
+   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
 
    //count and store the nurses for whom their subproblem has generated rotations.
    int nbSubProblemSolved = 0;
@@ -80,8 +80,8 @@ bool RotationPricer::pricing(double bound){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
-	   options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
-	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
+	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
 //	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
@@ -129,7 +129,7 @@ bool RotationPricer::pricing(double bound){
    //Add the nurse in nursesSolved at the end
    nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
-   //   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
+   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
 
    return optimal;
 }
@@ -230,6 +230,10 @@ void RotationPricer::computeForbiddenShifts(
 //
 //////////////////////////////////////////////////////////////
 
+/*************************************************************
+ * Diving branching rule: dive then close to .5
+ *************************************************************/
+
 /* Constructs the branching rule object. */
 DiveBranchingRule::DiveBranchingRule(MasterProblem* master, const char* name):
                         MyBranchingRule(name), master_(master), pModel_(master->getModel())
@@ -318,4 +322,24 @@ void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandida
    if(bestVar != 0)
       branchingCandidates.push_back(bestVar);
 }
+
+
+/*************************************************************
+ * CorePriority branching rule: branch on core variables first
+ *************************************************************/
+
+/* Constructs the branching rule object. */
+CorePriorityBranchingRule::CorePriorityBranchingRule(MasterProblem* master, const char* name):
+                        MyBranchingRule(name), master_(master), pModel_(master->getModel())
+{ }
+
+//remove all bad candidates from fixingCandidates
+void CorePriorityBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
+   fixingCandidates.clear();
+}
+
+void CorePriorityBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
+
+}
+
 

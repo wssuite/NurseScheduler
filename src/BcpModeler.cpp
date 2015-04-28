@@ -73,7 +73,7 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 
       //initialize the MIP model
       CbcModeler MIP(solver);
-      MIP.setVerbosity(0);
+      MIP.setVerbosity(pModel_->getVerbosity());
       MIP.solve();
 
       BCP_solution_generic* sol = new BCP_solution_generic(false);

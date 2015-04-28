@@ -47,11 +47,25 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState):
   Solver(pScenario, pDemand, pPreferences, pInitState) {
 
+  // Preprocess the attributes of the greedy solver
+  // the result of the preprocessing will be very useful to sort the attributes 
+  // before greedily covering the demand
+  //
+  if (!pDemand_->isPreprocessed_) {
+    pDemand_->preprocessDemand();
+  }
   this->preprocessTheNurses();
+  this->preprocessTheSkills();
+
+  vector<int> sortedSkills;
+  for (int sk=0; sk < pScenario_->nbSkills_; sk++) {
+    sortedSkills.push_back(sk);
+  }
+  SkillSorter compareSkills(skillRarity_);
+  std::stable_sort(sortedSkills.begin(),sortedSkills.end(),compareSkills);
 
   // get the maximum rank
   //
-
   rankMax_ = 0;
   for (int i= 0; i < pScenario_->nbPositions(); i++)  {
     rankMax_ = std::max(rankMax_, pScenario_->pPositions()[i]->rank());
@@ -585,9 +599,11 @@ void Greedy::assignBestNursesToTask(int day, int sh, int sk, int demand,
 //
 // Goes through the the demands in a chronoligcal order and assign the nurse
 // that seems most appropriate to each task (shift/skill)
+// Returns true if the minimum demand could be covered, and false otherwise
+//
 //----------------------------------------------------------------------------
 
-void Greedy::constructiveGreedy() {
+bool Greedy::constructiveGreedy() {
 
   int nbDays = pDemand_->nbDays_, firstDay = pDemand_->firstDay_;
   int nbShifts = pScenario_->nbShifts_;
@@ -604,7 +620,7 @@ void Greedy::constructiveGreedy() {
     }
     int nbUnassigned = nbNurses;
 
-    // RqJO : l'ordre des skills/shifts pourrait ��tre chang�� pour commencer par
+    // RqJO : l'ordre des skills/shifts pourrait etre change pour commencer par
     // ceux qui sont les plus critiques
     for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
       for (int sk = 0; sk < nbSkills; sk++) {
@@ -617,7 +633,8 @@ void Greedy::constructiveGreedy() {
         if (nbAssigned <= 0) {
           std::cerr << "Day " << day << " shift " << pScenario_->intToShift_[sh];
           std::cerr <<" skill " << pScenario_->intToSkill_[sk] << std::endl;
-          Tools::throwError("there is not enough nurse for the task!");
+          std::cerr << ": the demand cannot be covered.\n";
+          return false;
         }
         nbUnassigned -= nbAssigned;
       }
@@ -692,7 +709,7 @@ void Greedy::constructiveGreedy() {
       }
     }
 
-    // RqJO : l'ordre des skills/shifts pourrait ��tre chang�� pour commencer par
+    // RqJO : l'ordre des skills/shifts pourrait etre change pour commencer par
     // ceux qui sont les plus critiques
     for (int sh = 1; sh < nbShifts; sh++) { // recall that shift 0 is rest
       for (int sk = 0; sk < nbSkills; sk++) {
@@ -793,6 +810,7 @@ bool compareNurses(const LiveNurse  &n1, const LiveNurse &n2) {
 
   return true;
 }
+
 
 // Build the sequence of positions reflecting the order in which the positions
 // will be treated in the greedy

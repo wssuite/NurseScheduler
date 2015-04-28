@@ -109,7 +109,10 @@ void SubProblem::init(vector<State>* pInitState){
 	vector<int> w; maxvalConsByShift_ = w; maxvalConsByShift_.push_back(0);
 
 	for(int sh=1; sh<pScenario_->nbShifts_; sh++){
-		isUnlimited_.push_back( pScenario_->maxConsShifts_[sh] >= nDays_ + maxOngoingDaysWorked_ );
+		isUnlimited_.push_back(
+				pScenario_->maxConsShifts_[sh] >= nDays_ + maxOngoingDaysWorked_
+				or pScenario_->maxConsShifts_[sh] >= NB_SHIFT_UNLIMITED
+				);
 		int nl = isUnlimited_[sh] ? pScenario_->minConsShifts_[sh] : pScenario_->maxConsShifts_[sh];
 		maxvalConsByShift_.push_back( nl );
 	}
@@ -287,7 +290,9 @@ double SubProblem::consDaysCost(int n){
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
 
 
-	//std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " ";
+	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " " << endl;
+
+
 	//std::cout << "[completeWeekends=";
 	//if(pContract_->needCompleteWeekends_ == 1) std::cout << "YES"; else std::cout << "NO";
 	//std::cout << "]" << std::endl;
@@ -348,14 +353,16 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	forbid(forbiddenDayShifts);
 	updateArcCosts();
 
+
+	//printGraph();
+	//std::cout << printSummaryOfGraph() << endl;
+	//getchar();
+
 	// SOLUTION OF THE PROBLEM -> DEPENDS ON THE CHOSEN OPTION
 
 	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
-	spp_spptw_res_cont rc (0,0);
 
-	opt_solutions_spptw.clear();
-	pareto_opt_rcs_spptw.clear();
 
 	for(int a=0; a<nArcs_; a++){
 		int o = arcOrigin(a);
@@ -373,7 +380,6 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	// "Original way of doing" = pareto optimal for the whole month
 	//
 	if(isOptionActive(SOLVE_SINGLE_SINKNODE)){
-
 		r_c_shortest_paths(
 				g_,
 				get( &Vertex_Properties::num, g_ ),
@@ -382,7 +388,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				sinkNode_,
 				opt_solutions_spptw,
 				pareto_opt_rcs_spptw,
-				rc,
+				spp_spptw_res_cont (0,0),
 				ref_spptw(),
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
@@ -393,111 +399,30 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	//
 	else if(isOptionActive(SOLVE_ONE_SINK_PER_LAST_DAY)){
 
-		// 1. Forbid all ending arcs
-		for(int s=1; s<pScenario_->nbShifts_; s++){
-			for(int k=CDMin_-1; k<nDays_; k++){
-				forbidArc( arcsPrincipalToRotsizein_[s][k] );
-			}
-		}
-		// 2. For every end-day, get the pareto-front
+		std::vector<boost::graph_traits<Graph>::vertex_descriptor> allSinks;
 		for(int k=CDMin_-1; k<nDays_; k++){
-
-			for(int s=1; s<pScenario_->nbShifts_; s++)
-				authorizeArc( arcsPrincipalToRotsizein_[s][k] );
-
-			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > last_day_opt_solutions_spptw;
-			vector<spp_spptw_res_cont> last_day_pareto_opt_rcs_spptw;
-			spp_spptw_res_cont last_day_rc (0,0);
-			r_c_shortest_paths(
-					g_,
-					get( &Vertex_Properties::num, g_ ),
-					get( &Arc_Properties::num, g_ ),
-					sourceNode_,
-					sinkNode_,
-					last_day_opt_solutions_spptw,
-					last_day_pareto_opt_rcs_spptw,
-					last_day_rc,
-					ref_spptw(),
-					dominance_spptw(),
-					std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
-					boost::default_r_c_shortest_paths_visitor()
-			);
-
-			Tools::push_several_back(& opt_solutions_spptw, last_day_opt_solutions_spptw);
-			Tools::push_several_back(& pareto_opt_rcs_spptw, last_day_pareto_opt_rcs_spptw);
-
-			for(int s=1; s<pScenario_->nbShifts_; s++)
-				forbidArc( arcsPrincipalToRotsizein_[s][k] );
-
+			allSinks.push_back( sinkNodesByDay_[k] );
 		}
-		// 3. Re-authorize all ending arcs
-		for(int s=1; s<pScenario_->nbShifts_; s++){
-			for(int k=CDMin_-1; k<nDays_; k++){
-				authorizeArc( arcsPrincipalToRotsizein_[s][k] );
-			}
-		}
+		r_c_shortest_paths_several_sinks(
+				g_,
+				get( &Vertex_Properties::num, g_ ),
+				get( &Arc_Properties::num, g_ ),
+				sourceNode_,
+				allSinks,
+				opt_solutions_spptw,
+				pareto_opt_rcs_spptw,
+				spp_spptw_res_cont (0,0),
+				ref_spptw(),
+				dominance_spptw(),
+				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
+				boost::default_r_c_shortest_paths_visitor() );
 	}
 
-	// Gather all the pareto-fronts that correspond to the different first worked days
+	// One per first is obsolete
 	//
-	else if(isOptionActive(SOLVE_ONE_SINK_PER_FIRST_DAY)){
-
-		// 1. Store a vector with all initially allowed short arcs AND forbid all of them
-		vector2D initiallyAuthorized;
-		for(int k=0; k<nDays_; k++){
-			vector<int> initiallyAuthorized1;
-			for(int s=0; s<pScenario_->nbShifts_; s++){
-				for(int n=1; n<=maxvalConsByShift_[s]; n++){
-					int a = arcsFromSource_[s][k][n];
-					if(!isArcForbidden(a)){
-						initiallyAuthorized1.push_back( a );
-						forbidArc(a);
-					}
-				}
-			}
-			initiallyAuthorized.push_back(initiallyAuthorized1);
-		}
-
-		// 2. For every first day, get the pareto-front
-		for(int k=CDMin_-1; k<nDays_; k++){
-			vector<int> authorizedArcsThatDay = initiallyAuthorized[k];
-
-			// Re-authorize the arcs starting on day (k-CDMin_)
-			for(int a : authorizedArcsThatDay)
-				authorizeArc(a);
-
-			// Get the pareto-front and add it to the solution list
-			vector< vector< boost::graph_traits<Graph>::edge_descriptor> > first_day_opt_solutions_spptw;
-			first_day_opt_solutions_spptw.clear();
-			vector<spp_spptw_res_cont> first_day_pareto_opt_rcs_spptw;
-			first_day_pareto_opt_rcs_spptw.clear();
-			spp_spptw_res_cont first_day_rc (0,0);
-			r_c_shortest_paths(
-					g_,
-					get( &Vertex_Properties::num, g_ ),
-					get( &Arc_Properties::num, g_ ),
-					sourceNode_,
-					sinkNode_,
-					first_day_opt_solutions_spptw,
-					first_day_pareto_opt_rcs_spptw,
-					first_day_rc,
-					ref_spptw(),
-					dominance_spptw(),
-					std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
-					boost::default_r_c_shortest_paths_visitor()
-			);
-			Tools::push_several_back(& opt_solutions_spptw, first_day_opt_solutions_spptw);
-			Tools::push_several_back(& pareto_opt_rcs_spptw, first_day_pareto_opt_rcs_spptw);
-
-			// Forbid the arcs starting on that day
-			for(int a : authorizedArcsThatDay)
-				forbidArc(a);
-		}
-
-		// 3. Re-set all authorizations as they previously were
-		for(int k=CDMin_-1; k<nDays_; k++)
-			for(int a: initiallyAuthorized[k])
-				authorizeArc(a);
+	else {
+		cout << "# INVALID / OBSOLETE OPTION" << endl;
+		getchar();
 	}
 
 	// Return TRUE if a rotation was added. Last argument is true IF only negative reduced cost rotations are added
@@ -538,6 +463,36 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 	int nFound = 0;
 	// For each path of the list, record the corresponding rotation (if negativeOnly=true, do it only if the dualCost < 0)
 	for(int p=0; p < paths.size(); ++p){
+
+		// 1. Check if it is validstd::cout << std::endl;
+		bool b_is_a_path_at_all = false;
+		bool b_feasible = false;
+		bool b_correctly_extended = false;
+		spp_spptw_res_cont actual_final_resource_levels( 0, 0 );
+		boost::graph_traits<Graph>::edge_descriptor ed_last_extended_arc;
+		check_r_c_path( g_,
+				paths[p],
+				spp_spptw_res_cont( 0, 0 ),
+				true,
+				resources[p],
+				actual_final_resource_levels,
+				ref_spptw(),
+				b_is_a_path_at_all,
+				b_feasible,
+				b_correctly_extended,
+				ed_last_extended_arc );
+		if( b_is_a_path_at_all && b_feasible && b_correctly_extended )
+		{} else {
+			if( !b_is_a_path_at_all )
+				std::cout << "Not a path." << std::endl;
+			if( !b_feasible )
+				std::cout << "Not a feasible path." << std::endl;
+			if( !b_correctly_extended )
+				std::cout << "Not correctly extended." << std::endl;
+			getchar();
+		}
+
+
 		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "..." << endl;
 		//printPath(paths[p], resources[p]);
 		Rotation rot = rotationFromPath(paths[p], resources[p]);
@@ -547,18 +502,14 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 			theRotations_.push_back(rot);
 			nPaths_ ++;
 			nFound ++;
-			if(rot.dualCost_==-285){
-				printPath(paths[p], resources[p]);
-				printRotation(rot);
-
-			}
 			//printPath(paths[p], resources[p]);
 			//printRotation(rot);
+			//if(rot.firstDay_ == 5) printPath(paths[p], resources[p]);
 		}
 		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "... done!" << endl;
 	}
 	//printAllRotations();
-	//std::cout << "# -> " << nFound << std::endl;
+	std::cout << "# -> " << nFound << std::endl;
 	return (nFound > 0);
 }
 
@@ -646,13 +597,22 @@ void SubProblem::createNodes(){
 
 	// 3. ROTATION LENGTH CHECK
 	//
-	// Entrance
-	rotationLengthEntrance_ = nNodes_;											// Single node for the entrance in subnetwork
-	addSingleNode(ROTATION_LENGTH_ENTRANCE, 0, maxRotationLength_);
-	// Check nodes
-	for(int l=CD_max; l<maxRotationLength_; l++){								// Check nodes: from CD_max (longest free) to maximum rotation length
-		rotationLengthNodes_.insert(pair<int,int>(l,nNodes_));
-		addSingleNode(ROTATION_LENGTH, 0, l);
+	// For each of the days, do a rotation-length-checker
+	for(int k=0; k<nDays_; k++){
+		rotationLengthEntrance_.push_back(nNodes_);									// One node for the entrance in subnetwork per day
+		addSingleNode(ROTATION_LENGTH_ENTRANCE, 0, maxRotationLength_);
+		map<int,int> checkNodesForThatDay;
+		// Check nodes
+		for(int l=CD_max; l<=maxRotationLength_; l++){								// Check nodes: from CD_max (longest free) to maximum rotation length, for each day
+			checkNodesForThatDay.insert(pair<int,int>(l,nNodes_));
+			rotationLengthNodesEAT_.insert(pair<int,int>(nNodes_,l));
+			addSingleNode(ROTATION_LENGTH, 0, l);
+		}
+		rotationLengthNodes_.push_back(checkNodesForThatDay);
+		// Sink day
+		sinkNodesByDay_.push_back(nNodes_);											// Daily sink node
+		addSingleNode(SINK_DAY, 0, maxRotationLength_);
+
 	}
 
 	// 4. SINK NODE
@@ -673,6 +633,10 @@ void SubProblem::initNodesStructures(){
 	principalToShift_.clear();
 	principalToDay_.clear();
 	principalToCons_.clear();
+	rotationLengthEntrance_.clear();
+	rotationLengthNodes_.clear();
+	rotationLengthNodesEAT_.clear();
+	sinkNodesByDay_.clear();
 
 	// All nodes
 	//
@@ -768,8 +732,8 @@ void SubProblem::initArcsStructures(){
 	arcsShiftToEndsequence_.clear();
 	arcsRepeatShift_.clear();
 	arcsPrincipalToRotsizein_.clear();
-	arcsRotsizeinToRotsize_.clear();
-	arcsRotsizeToRotsizeout_.clear();
+	arcsRotsizeinToRotsizeDay_.clear();
+	arcsRotsizeToRotsizeoutDay_.clear();
 	// VECTORS 3 D
 	for(int s=0; s<pScenario_->nbShifts_; s++){
 		vector2D v2, w2, x2;
@@ -781,9 +745,6 @@ void SubProblem::initArcsStructures(){
 	// VECTORS 2 D
 	Tools::initVector2D(&arcsRepeatShift_, pScenario_->nbShifts_, nDays_);
 	Tools::initVector2D(&arcsPrincipalToRotsizein_, pScenario_->nbShifts_, nDays_, -1);
-	// MAPS
-	arcsRotsizeinToRotsize_.clear();
-	arcsRotsizeToRotsizeout_.clear();
 
 }
 
@@ -882,7 +843,7 @@ void SubProblem::createArcsAllRotationSize(){
 	for(int sh=1; sh<nShifts; sh++){											// For all shifts
 		for(int k=CDMin_-1; k<nDays_; k++){										// For all days
 			origin = principalNetworkNodes_[sh][k][maxvalConsByShift_[sh]];
-			destin = rotationLengthEntrance_;
+			destin = rotationLengthEntrance_[k];
 			arcsPrincipalToRotsizein_[sh][k] = nArcs_;
 			addSingleArc(origin, destin, 0, 0, PRINCIPAL_TO_ROTSIZE);			// Allow to stop rotation that day
 		}
@@ -890,18 +851,35 @@ void SubProblem::createArcsAllRotationSize(){
 
 	// 2. ALL INTERNAL ARCS
 	//
-	for(map<int,int>::iterator itRLN = rotationLengthNodes_.begin(); itRLN != rotationLengthNodes_.end(); ++itRLN){
-		// From entrance to checknode
-		origin = rotationLengthEntrance_;
-		destin = itRLN->second;
-		arcsRotsizeinToRotsize_.insert(pair<int,int>(itRLN->first, nArcs_));
-		addSingleArc(origin, destin, consDaysCost(itRLN->first), 0, ROTSIZEIN_TO_ROTSIZE);
-		// From checknode to exit
-		origin = itRLN->second;
+	for(int k=0; k<nDays_; k++){
+
+		map<int,int> rotLengthNodesForDay = rotationLengthNodes_[k];
+		map<int,int> arcsRotsizeinToRotsize;
+		map<int,int> arcsRotsizeToRotsizeout;
+		for(map<int,int>::iterator itRLN = rotLengthNodesForDay.begin(); itRLN != rotLengthNodesForDay.end(); ++itRLN){
+			// From entrance of that day to checknode
+			origin = rotationLengthEntrance_[k];
+			destin = itRLN->second;
+			arcsRotsizeinToRotsize.insert(pair<int,int>(itRLN->first, nArcs_));
+			addSingleArc(origin, destin, consDaysCost(itRLN->first), 0, ROTSIZEIN_TO_ROTSIZE);
+			// From checknode to exit of that day
+			origin = itRLN->second;
+			destin = sinkNodesByDay_[k];
+			arcsRotsizeToRotsizeout.insert(pair<int,int>( itRLN->first, nArcs_));
+			addSingleArc(origin, destin, 0, 0, ROTSIZE_TO_SINK);
+		}
+
+		arcsRotsizeinToRotsizeDay_.push_back(arcsRotsizeinToRotsize);
+		arcsRotsizeToRotsizeoutDay_.push_back(arcsRotsizeToRotsizeout);
+
+		// link all sink nodes to the main sink node
+		origin = sinkNodesByDay_[k];
 		destin = sinkNode_;
-		arcsRotsizeToRotsizeout_.insert(pair<int,int>( itRLN->first, nArcs_));
-		addSingleArc(origin, destin, 0, 0, ROTSIZE_TO_SINK);
+		addSingleArc(origin, destin, 0,0, SINKDAY_TO_SINK);
+
 	}
+
+
 }
 
 
@@ -1298,7 +1276,7 @@ void SubProblem::authorizeArc(int a){
 void SubProblem::authorizeNode(int v){
 	nodeStatus_[v] = true;
 	int lat = maxRotationLength_;
-	if(nodeType(v) == ROTATION_LENGTH) lat = mapAntecedent(rotationLengthNodes_, v);
+	if(nodeType(v) == ROTATION_LENGTH) lat = rotationLengthNodesEAT_.at(v);
 	updateLat(v,lat);
 }
 
@@ -1379,6 +1357,428 @@ int SubProblem::mapAntecedent(map<int,int> m, int val){
 
 
 
+
+
+
+//----------------------------------------------------------------
+//
+// Shortest path function with several sinks
+// (modified from boost so that we can give several sink nodes)
+//
+//----------------------------------------------------------------
+template<class Graph,
+class VertexIndexMap,
+class EdgeIndexMap,
+class Resource_Container,
+class Resource_Extension_Function,
+class Dominance_Function,
+class Label_Allocator,
+class Visitor>
+void SubProblem::r_c_shortest_paths_several_sinks
+( const Graph& g,
+		const VertexIndexMap& vertex_index_map,
+		const EdgeIndexMap& edge_index_map,
+		typename boost::graph_traits<Graph>::vertex_descriptor s,
+		std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> t,
+		// each inner vector corresponds to a pareto-optimal path
+		std::vector<std::vector<typename boost::graph_traits<Graph>::edge_descriptor> >&
+		pareto_optimal_solutions,
+		std::vector<Resource_Container>& pareto_optimal_resource_containers,
+		// to initialize the first label/resource container
+		// and to carry the type information
+		const Resource_Container& rc,
+		const Resource_Extension_Function& ref,
+		const Dominance_Function& dominance,
+		// to specify the memory management strategy for the labels
+		Label_Allocator la,
+		Visitor vis ){
+	r_c_shortest_paths_dispatch_several_sinks( g,
+			vertex_index_map,
+			edge_index_map,
+			s,
+			t,
+			pareto_optimal_solutions,
+			pareto_optimal_resource_containers,
+			true,
+			rc,
+			ref,
+			dominance,
+			la,
+			vis );
+}
+
+// r_c_shortest_paths_dispatch function (body/implementation)
+template<class Graph,
+         class VertexIndexMap,
+         class EdgeIndexMap,
+         class Resource_Container,
+         class Resource_Extension_Function,
+         class Dominance_Function,
+         class Label_Allocator,
+         class Visitor>
+void SubProblem::r_c_shortest_paths_dispatch_several_sinks
+( const Graph& g,
+  const VertexIndexMap& vertex_index_map,
+  const EdgeIndexMap& /*edge_index_map*/,
+  typename boost::graph_traits<Graph>::vertex_descriptor s,
+  std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> t,
+  // each inner vector corresponds to a pareto-optimal path
+  std::vector
+    <std::vector
+      <typename boost::graph_traits
+        <Graph>::edge_descriptor> >& pareto_optimal_solutions,
+  std::vector
+    <Resource_Container>& pareto_optimal_resource_containers,
+  bool b_all_pareto_optimal_solutions,
+  // to initialize the first label/resource container
+  // and to carry the type information
+  const Resource_Container& rc,
+  Resource_Extension_Function& ref,
+  Dominance_Function& dominance,
+  // to specify the memory management strategy for the labels
+  Label_Allocator /*la*/,
+  Visitor vis )
+{
+  pareto_optimal_resource_containers.clear();
+  pareto_optimal_solutions.clear();
+
+  size_t i_label_num = 0;
+  typedef
+    typename
+      Label_Allocator::template rebind
+        <boost::r_c_shortest_paths_label
+          <Graph, Resource_Container> >::other LAlloc;
+  LAlloc l_alloc;
+  typedef
+    ks_smart_pointer
+      <boost::r_c_shortest_paths_label<Graph, Resource_Container> > Splabel;
+  std::priority_queue<Splabel, std::vector<Splabel>, std::greater<Splabel> >
+    unprocessed_labels;
+
+  bool b_feasible = true;
+  boost::r_c_shortest_paths_label<Graph, Resource_Container>* first_label =
+    l_alloc.allocate( 1 );
+  l_alloc.construct
+    ( first_label,
+    boost::r_c_shortest_paths_label
+        <Graph, Resource_Container>( i_label_num++,
+                                     rc,
+                                     0,
+                                     typename boost::graph_traits<Graph>::
+                                       edge_descriptor(),
+                                     s ) );
+
+  Splabel splabel_first_label = Splabel( first_label );
+  unprocessed_labels.push( splabel_first_label );
+  std::vector<std::list<Splabel> > vec_vertex_labels_data( num_vertices( g ) );
+  boost::iterator_property_map<typename std::vector<std::list<Splabel> >::iterator,
+                        VertexIndexMap>
+    vec_vertex_labels(vec_vertex_labels_data.begin(), vertex_index_map);
+  vec_vertex_labels[s].push_back( splabel_first_label );
+  typedef
+    std::vector<typename std::list<Splabel>::iterator>
+    vec_last_valid_positions_for_dominance_data_type;
+  vec_last_valid_positions_for_dominance_data_type
+    vec_last_valid_positions_for_dominance_data( num_vertices( g ) );
+  boost::iterator_property_map<
+      typename vec_last_valid_positions_for_dominance_data_type::iterator,
+      VertexIndexMap>
+    vec_last_valid_positions_for_dominance
+      (vec_last_valid_positions_for_dominance_data.begin(),
+       vertex_index_map);
+  BGL_FORALL_VERTICES_T(v, g, Graph) {
+    put(vec_last_valid_positions_for_dominance, v, vec_vertex_labels[v].begin());
+  }
+  std::vector<size_t> vec_last_valid_index_for_dominance_data( num_vertices( g ), 0 );
+  boost::iterator_property_map<std::vector<size_t>::iterator, VertexIndexMap>
+    vec_last_valid_index_for_dominance
+      (vec_last_valid_index_for_dominance_data.begin(), vertex_index_map);
+  std::vector<bool>
+    b_vec_vertex_already_checked_for_dominance_data( num_vertices( g ), false );
+  boost::iterator_property_map<std::vector<bool>::iterator, VertexIndexMap>
+    b_vec_vertex_already_checked_for_dominance
+      (b_vec_vertex_already_checked_for_dominance_data.begin(),
+       vertex_index_map);
+
+  while( !unprocessed_labels.empty()  && vis.on_enter_loop(unprocessed_labels, g) )
+  {
+    Splabel cur_label = unprocessed_labels.top();
+    assert (cur_label->b_is_valid);
+    unprocessed_labels.pop();
+    vis.on_label_popped( *cur_label, g );
+    // an Splabel object in unprocessed_labels and the respective Splabel
+    // object in the respective list<Splabel> of vec_vertex_labels share their
+    // embedded r_c_shortest_paths_label object
+    // to avoid memory leaks, dominated
+    // r_c_shortest_paths_label objects are marked and deleted when popped
+    // from unprocessed_labels, as they can no longer be deleted at the end of
+    // the function; only the Splabel object in unprocessed_labels still
+    // references the r_c_shortest_paths_label object
+    // this is also for efficiency, because the else branch is executed only
+    // if there is a chance that extending the
+    // label leads to new undominated labels, which in turn is possible only
+    // if the label to be extended is undominated
+    assert (cur_label->b_is_valid);
+    if( !cur_label->b_is_dominated )
+    {
+      typename boost::graph_traits<Graph>::vertex_descriptor
+        i_cur_resident_vertex = cur_label->resident_vertex;
+      std::list<Splabel>& list_labels_cur_vertex =
+        get(vec_vertex_labels, i_cur_resident_vertex);
+      if( list_labels_cur_vertex.size() >= 2
+          && vec_last_valid_index_for_dominance[i_cur_resident_vertex]
+               < list_labels_cur_vertex.size() )
+      {
+        typename std::list<Splabel>::iterator outer_iter =
+          list_labels_cur_vertex.begin();
+        bool b_outer_iter_at_or_beyond_last_valid_pos_for_dominance = false;
+        while( outer_iter != list_labels_cur_vertex.end() )
+        {
+          Splabel cur_outer_splabel = *outer_iter;
+          assert (cur_outer_splabel->b_is_valid);
+          typename std::list<Splabel>::iterator inner_iter = outer_iter;
+          if( !b_outer_iter_at_or_beyond_last_valid_pos_for_dominance
+              && outer_iter ==
+                   get(vec_last_valid_positions_for_dominance,
+                       i_cur_resident_vertex) )
+            b_outer_iter_at_or_beyond_last_valid_pos_for_dominance = true;
+          if( !get(b_vec_vertex_already_checked_for_dominance, i_cur_resident_vertex)
+              || b_outer_iter_at_or_beyond_last_valid_pos_for_dominance )
+          {
+            ++inner_iter;
+          }
+          else
+          {
+            inner_iter =
+              get(vec_last_valid_positions_for_dominance,
+                  i_cur_resident_vertex);
+            ++inner_iter;
+          }
+          bool b_outer_iter_erased = false;
+          while( inner_iter != list_labels_cur_vertex.end() )
+          {
+            Splabel cur_inner_splabel = *inner_iter;
+            assert (cur_inner_splabel->b_is_valid);
+            if( dominance( cur_outer_splabel->
+                             cumulated_resource_consumption,
+                           cur_inner_splabel->
+                             cumulated_resource_consumption ) )
+            {
+              typename std::list<Splabel>::iterator buf = inner_iter;
+              ++inner_iter;
+              list_labels_cur_vertex.erase( buf );
+              if( cur_inner_splabel->b_is_processed )
+              {
+                cur_inner_splabel->b_is_valid = false;
+                l_alloc.destroy( cur_inner_splabel.get() );
+                l_alloc.deallocate( cur_inner_splabel.get(), 1 );
+              }
+              else
+                cur_inner_splabel->b_is_dominated = true;
+              continue;
+            }
+            else
+              ++inner_iter;
+            if( dominance( cur_inner_splabel->
+                             cumulated_resource_consumption,
+                           cur_outer_splabel->
+                             cumulated_resource_consumption ) )
+            {
+              typename std::list<Splabel>::iterator buf = outer_iter;
+              ++outer_iter;
+              list_labels_cur_vertex.erase( buf );
+              b_outer_iter_erased = true;
+              assert (cur_outer_splabel->b_is_valid);
+              if( cur_outer_splabel->b_is_processed )
+              {
+                cur_outer_splabel->b_is_valid = false;
+                l_alloc.destroy( cur_outer_splabel.get() );
+                l_alloc.deallocate( cur_outer_splabel.get(), 1 );
+              }
+              else
+                cur_outer_splabel->b_is_dominated = true;
+              break;
+            }
+          }
+          if( !b_outer_iter_erased )
+            ++outer_iter;
+        }
+        if( list_labels_cur_vertex.size() > 1 )
+          put(vec_last_valid_positions_for_dominance, i_cur_resident_vertex,
+            (--(list_labels_cur_vertex.end())));
+        else
+          put(vec_last_valid_positions_for_dominance, i_cur_resident_vertex,
+            list_labels_cur_vertex.begin());
+        put(b_vec_vertex_already_checked_for_dominance,
+            i_cur_resident_vertex, true);
+        put(vec_last_valid_index_for_dominance, i_cur_resident_vertex,
+          list_labels_cur_vertex.size() - 1);
+      }
+    }
+    assert (b_all_pareto_optimal_solutions || cur_label->b_is_valid);
+
+    // ------------------------------------------------------------------------- START SAMUEL
+    //if( !b_all_pareto_optimal_solutions && cur_label->resident_vertex == t )
+    if( !b_all_pareto_optimal_solutions && std::find(t.begin(), t.end(), cur_label->resident_vertex) !=t.end())
+    {
+    // ------------------------------------------------------------------------- END SAMUEL
+
+      // the devil don't sleep
+      if( cur_label->b_is_dominated )
+      {
+        cur_label->b_is_valid = false;
+        l_alloc.destroy( cur_label.get() );
+        l_alloc.deallocate( cur_label.get(), 1 );
+      }
+      while( unprocessed_labels.size() )
+      {
+        Splabel l = unprocessed_labels.top();
+        assert (l->b_is_valid);
+        unprocessed_labels.pop();
+        // delete only dominated labels, because nondominated labels are
+        // deleted at the end of the function
+        if( l->b_is_dominated )
+        {
+          l->b_is_valid = false;
+          l_alloc.destroy( l.get() );
+          l_alloc.deallocate( l.get(), 1 );
+        }
+      }
+      break;
+    }
+    if( !cur_label->b_is_dominated )
+    {
+      cur_label->b_is_processed = true;
+      vis.on_label_not_dominated( *cur_label, g );
+      typename boost::graph_traits<Graph>::vertex_descriptor cur_vertex =
+        cur_label->resident_vertex;
+      typename boost::graph_traits<Graph>::out_edge_iterator oei, oei_end;
+      for( boost::tie( oei, oei_end ) = out_edges( cur_vertex, g );
+           oei != oei_end;
+           ++oei )
+      {
+        b_feasible = true;
+        boost::r_c_shortest_paths_label<Graph, Resource_Container>* new_label =
+          l_alloc.allocate( 1 );
+        l_alloc.construct( new_label,
+        		boost::r_c_shortest_paths_label
+                             <Graph, Resource_Container>
+                               ( i_label_num++,
+                                 cur_label->cumulated_resource_consumption,
+                                 cur_label.get(),
+                                 *oei,
+                                 target( *oei, g ) ) );
+        b_feasible =
+          ref( g,
+               new_label->cumulated_resource_consumption,
+               new_label->p_pred_label->cumulated_resource_consumption,
+               new_label->pred_edge );
+
+        if( !b_feasible )
+        {
+          vis.on_label_not_feasible( *new_label, g );
+          new_label->b_is_valid = false;
+          l_alloc.destroy( new_label );
+          l_alloc.deallocate( new_label, 1 );
+        }
+        else
+        {
+          const boost::r_c_shortest_paths_label<Graph, Resource_Container>&
+            ref_new_label = *new_label;
+          vis.on_label_feasible( ref_new_label, g );
+          Splabel new_sp_label( new_label );
+          vec_vertex_labels[new_sp_label->resident_vertex].
+            push_back( new_sp_label );
+          unprocessed_labels.push( new_sp_label );
+        }
+      }
+    }
+    else
+    {
+      assert (cur_label->b_is_valid);
+      vis.on_label_dominated( *cur_label, g );
+      cur_label->b_is_valid = false;
+      l_alloc.destroy( cur_label.get() );
+      l_alloc.deallocate( cur_label.get(), 1 );
+    }
+  }
+
+  // ------------------------------------------------------------------------- START SAMUEL
+  typename std::list<Splabel>::const_iterator csi;
+  typename std::list<Splabel>::const_iterator csi_end;
+  for(int sink=0; sink<t.size(); sink++){
+	  std::list<Splabel> dsplabels = get(vec_vertex_labels, t[sink]);
+	  csi = dsplabels.begin();
+	  csi_end = dsplabels.end();
+	  // if d could be reached from o
+	  if( !dsplabels.empty() )
+	  {
+		  for( ; csi != csi_end; ++csi )
+		  {
+			  std::vector<typename boost::graph_traits<Graph>::edge_descriptor>
+			  cur_pareto_optimal_path;
+			  const boost::r_c_shortest_paths_label<Graph, Resource_Container>* p_cur_label =
+					  (*csi).get();
+			  assert (p_cur_label->b_is_valid);
+			  pareto_optimal_resource_containers.
+			  push_back( p_cur_label->cumulated_resource_consumption );
+			  while( p_cur_label->num != 0 )
+			  {
+				  cur_pareto_optimal_path.push_back( p_cur_label->pred_edge );
+				  p_cur_label = p_cur_label->p_pred_label;
+				  assert (p_cur_label->b_is_valid);
+			  }
+			  pareto_optimal_solutions.push_back( cur_pareto_optimal_path );
+			  if( !b_all_pareto_optimal_solutions )
+				  break;
+		  }
+	  }
+  }
+  /*
+    std::list<Splabel> dsplabels = get(vec_vertex_labels, t);
+      typename std::list<Splabel>::const_iterator csi = dsplabels.begin();
+      typename std::list<Splabel>::const_iterator csi_end = dsplabels.end();
+      // if d could be reached from o
+      if( !dsplabels.empty() )
+      {
+        for( ; csi != csi_end; ++csi )
+        {
+          std::vector<typename graph_traits<Graph>::edge_descriptor>
+            cur_pareto_optimal_path;
+          const r_c_shortest_paths_label<Graph, Resource_Container>* p_cur_label =
+            (*csi).get();
+          assert (p_cur_label->b_is_valid);
+          pareto_optimal_resource_containers.
+            push_back( p_cur_label->cumulated_resource_consumption );
+          while( p_cur_label->num != 0 )
+          {
+            cur_pareto_optimal_path.push_back( p_cur_label->pred_edge );
+            p_cur_label = p_cur_label->p_pred_label;
+            assert (p_cur_label->b_is_valid);
+          }
+          pareto_optimal_solutions.push_back( cur_pareto_optimal_path );
+          if( !b_all_pareto_optimal_solutions )
+            break;
+        }
+      }
+   */
+  // ------------------------------------------------------------------------- END SAMUEL
+
+  BGL_FORALL_VERTICES_T(i, g, Graph) {
+    const std::list<Splabel>& list_labels_cur_vertex = vec_vertex_labels[i];
+    csi_end = list_labels_cur_vertex.end();
+    for( csi = list_labels_cur_vertex.begin(); csi != csi_end; ++csi )
+    {
+      assert ((*csi)->b_is_valid);
+      (*csi)->b_is_valid = false;
+      l_alloc.destroy( (*csi).get() );
+      l_alloc.deallocate( (*csi).get(), 1 );
+    }
+  }
+} // r_c_shortest_paths_dispatch
+
+
+
 //--------------------------------------------
 //
 // PRINT FUNCTIONS
@@ -1429,7 +1829,7 @@ string SubProblem::printArc(int a){
 	stringstream rep;
 	rep << "# ARC   " << a << " \t" << arcTypeName[arcType(a)] << " \t";
 	rep << "(" << arcOrigin(a) << "," << arcDestination(a) << ") \t" << "c= " << arcCost(a) ;
-	arcCost(a) < 10000 ? rep << "     " : rep << " ";
+	arcCost(a) < 10000 ? rep << "     " : rep << "";
 	rep << "\tt=" << arcLength(a);
 	rep << " \t[" << shortNameNode(arcOrigin(a)) << "] -> [" << shortNameNode(arcDestination(a)) << "]";
 	return rep.str();
@@ -1465,6 +1865,10 @@ string SubProblem::shortNameNode(int v){
 
 	else if (type_v == ROTATION_LENGTH){
 		rep << "LEN_<=" << nodeLat(v);
+	}
+
+	else if (type_v == SINK_DAY){
+		rep << "SINK DAY";
 	}
 
 	else if (type_v == SINK_NODE){
@@ -1555,12 +1959,20 @@ void SubProblem::printPath(vector< boost::graph_traits<Graph>::edge_descriptor >
 
 	// The successive nodes, and corresponding arc costs / time
 	//
+	std::cout << "# " << std::endl;
 	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
 		int a = boost::get(&Arc_Properties::num, g_, path[j]);
-		std::cout << "# \t| [ " << shortNameNode(source( path[j], g_ )) << " | " << shortNameNode( arcOrigin(a)) << " ]";
+		std::cout << "# \t| [ " << shortNameNode(source( path[j], g_ )) << " ]";
 		std::cout << "\t\tCost:  " << arcCost(a) << "\t\tTime:" << arcLength(a);
 		std::cout << "\t\t[" << (arcStatus_[a] ? " allowed " : "forbidden") << "]" << std::endl;
 	}
+	std::cout << "# " << std::endl;
+	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
+		int a = boost::get(&Arc_Properties::num, g_, path[j]);
+		std::cout << printArc(a) << endl;
+	}
+
+
 
 	// Last node and total
 	//
@@ -1684,10 +2096,9 @@ void SubProblem::printActiveSolveOptions(){
 /*************************************************************************
  * A GARDER AU CAS OU COMME EXEMPLE POUR CERTAINES FONCTIONS / SYNTAXES. *
  *************************************************************************/
-/*
-const int num_nodes = 5;
-enum nodes { A, B, C, D, E };
-char name[] = "ABCDE";
+const int num_nodes = 7;
+enum nodes { A, B, C, D, E, F, G };
+char name[] = "ABCDEFG";
 
 void SubProblem::testGraph_spprc(){
 
@@ -1701,20 +2112,23 @@ void SubProblem::testGraph_spprc(){
 	Graph g;
 
 	add_vertex( Vertex_Properties( A, NONE_NODE, 0, 0 ), g );
-	add_vertex( Vertex_Properties( B, NONE_NODE, 5, 20 ), g );
-	add_vertex( Vertex_Properties( C, NONE_NODE, 6, 10 ), g );
-	add_vertex( Vertex_Properties( D, NONE_NODE, 3, 12 ), g );
-	add_vertex( Vertex_Properties( E, NONE_NODE, 0, 100 ), g );
+	add_vertex( Vertex_Properties( B, NONE_NODE, 3, 20 ), g );
+	add_vertex( Vertex_Properties( C, NONE_NODE, 5, 20 ), g );
+	add_vertex( Vertex_Properties( D, NONE_NODE, 0, 20 ), g );
+	add_vertex( Vertex_Properties( E, NONE_NODE, 0, 20 ), g );
+	add_vertex( Vertex_Properties( F, NONE_NODE, 1, 2 ), g );
+	add_vertex( Vertex_Properties( G, NONE_NODE, 10, 20 ), g );
 
-	add_edge( A, C, Arc_Properties( 0, NONE_ARC, 1, 5 ), g );
-	add_edge( B, B, Arc_Properties( 1, NONE_ARC, 2, 5 ), g );
-	add_edge( B, D, Arc_Properties( 2, NONE_ARC, 1, 2 ), g );
-	add_edge( B, E, Arc_Properties( 3, NONE_ARC, 2, 7 ), g );
-	add_edge( C, B, Arc_Properties( 4, NONE_ARC, 7, 3 ), g );
-	add_edge( C, D, Arc_Properties( 5, NONE_ARC, 3, 8 ), g );
-	add_edge( D, E, Arc_Properties( 6, NONE_ARC, 1, 3 ), g );
-	add_edge( E, A, Arc_Properties( 7, NONE_ARC, 1, 5 ), g );
-	add_edge( E, B, Arc_Properties( 8, NONE_ARC, 1, 4 ), g );
+	add_edge( A, B, Arc_Properties( 0, NONE_ARC, 1, 1 ), g );
+	add_edge( A, D, Arc_Properties( 1, NONE_ARC, 1, 1 ), g );
+	add_edge( B, C, Arc_Properties( 2, NONE_ARC, 1, 2 ), g );
+	add_edge( B, G, Arc_Properties( 3, NONE_ARC, 1, 12 ), g );
+	add_edge( D, C, Arc_Properties( 4, NONE_ARC, 1, 30 ), g );
+	add_edge( D, G, Arc_Properties( 5, NONE_ARC, 5, 2 ), g );
+	add_edge( D, E, Arc_Properties( 6, NONE_ARC, 2, 5 ), g );
+	add_edge( D, F, Arc_Properties( 7, NONE_ARC, 5, 2 ), g );
+	add_edge( E, G, Arc_Properties( 8, NONE_ARC, 1, 4 ), g );
+	add_edge( E, F, Arc_Properties( 9, NONE_ARC, 0, 2 ), g );
 
 
 	// the unique shortest path from A to E in the dijkstra-example.cpp is
@@ -1731,44 +2145,16 @@ void SubProblem::testGraph_spprc(){
 	// pareto-optimal, i.e., it is dominated by the former path
 	// therefore, the code below returns only the former path
 
-	// spp without resource constraints
 	boost::graph_traits<Graph>::vertex_descriptor s = A;
-	boost::graph_traits<Graph>::vertex_descriptor t = E;
+	boost::graph_traits<Graph>::vertex_descriptor t = G;
 
-	vector< vector< boost::graph_traits< Graph>::edge_descriptor> > opt_solutions;
-	vector<spp_no_rc_res_cont> pareto_opt_rcs_no_rc;
+	std::vector<boost::graph_traits<Graph>::vertex_descriptor> tVec;
+	tVec.push_back(C);
+	tVec.push_back(G);
+	tVec.push_back(F);
 
-	boost::r_c_shortest_paths(
-			g,
-			get( &Vertex_Properties::num, g ),
-			get( &Arc_Properties::num, g ),
-			s,
-			t,
-			opt_solutions,
-			pareto_opt_rcs_no_rc,
-			spp_no_rc_res_cont( 0 ),
-			ref_no_res_cont(),
-			dominance_no_res_cont(),
-			std::allocator< boost::r_c_shortest_paths_label<Graph, spp_no_rc_res_cont> >(),
-			boost::default_r_c_shortest_paths_visitor() );
-
-	std::cout << "SPP without resource constraints:" << std::endl;
-	std::cout << "Number of optimal solutions: ";
-	std::cout << static_cast<int>( opt_solutions.size() ) << std::endl;
-	for( int i = 0; i < static_cast<int>( opt_solutions.size() ); ++i )
-	{
-		std::cout << "The " << i << "th shortest path from A to E is: ";
-		std::cout << std::endl;
-		for( int j = static_cast<int>( opt_solutions[i].size() ) - 1; j >= 0; --j )
-			std::cout << name[source( opt_solutions[i][j], g )] << std::endl;
-		std::cout << "E" << std::endl;
-		std::cout << "Length: " << pareto_opt_rcs_no_rc[i].cost << std::endl;
-	}
-	std::cout << std::endl;
-
-	// spptw
-	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
-	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
+	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw_single;
+	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw_single;
 
 	r_c_shortest_paths(
 			g,
@@ -1776,6 +2162,48 @@ void SubProblem::testGraph_spprc(){
 			get( &Arc_Properties::num, g ),
 			s,
 			t,
+			opt_solutions_spptw_single,
+			pareto_opt_rcs_spptw_single,
+			spp_spptw_res_cont( 0, 0 ),
+			ref_spptw(),
+			dominance_spptw(),
+			std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
+			boost::default_r_c_shortest_paths_visitor() );
+
+	std::cout << "#" << endl;
+	std::cout << "# ----------------------------------" << endl;
+	std::cout << "#" << endl;
+	std::cout << "SPP with time windows:" << std::endl;
+	std::cout << "Number of optimal solutions: ";
+	std::cout << static_cast<int>( opt_solutions_spptw_single.size() ) << std::endl;
+	for( int i = 0; i < static_cast<int>( opt_solutions_spptw_single.size() ); ++i )
+	{
+		std::cout << "The " << i << "th shortest path from " << name[s] << " to " << name[t] << " is: ";
+		std::cout << std::endl;
+		for( int j = static_cast<int>( opt_solutions_spptw_single[i].size() ) - 1;
+				j >= 0;
+				--j )
+			std::cout << name[source( opt_solutions_spptw_single[i][j], g )] << std::endl;
+		std::cout << name[t] << std::endl;
+		std::cout << "Length: " << pareto_opt_rcs_spptw_single[i].cost << std::endl;
+		std::cout << "Time: " << pareto_opt_rcs_spptw_single[i].time << std::endl;
+	}
+	std::cout << "#" << endl;
+	std::cout << "# ----------------------------------" << endl;
+	std::cout << "#" << endl;
+
+
+
+	// spptw
+	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
+	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
+
+	r_c_shortest_paths_several_sinks(
+			g,
+			get( &Vertex_Properties::num, g ),
+			get( &Arc_Properties::num, g ),
+			s,
+			tVec,
 			opt_solutions_spptw,
 			pareto_opt_rcs_spptw,
 			spp_spptw_res_cont( 0, 0 ),
@@ -1784,21 +2212,31 @@ void SubProblem::testGraph_spprc(){
 			std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 			boost::default_r_c_shortest_paths_visitor() );
 
+	std::cout << "#" << endl;
+	std::cout << "# ----------------------------------" << endl;
+	std::cout << "#" << endl;
 	std::cout << "SPP with time windows:" << std::endl;
 	std::cout << "Number of optimal solutions: ";
-	std::cout << static_cast<int>( opt_solutions.size() ) << std::endl;
-	for( int i = 0; i < static_cast<int>( opt_solutions.size() ); ++i )
+	std::cout << static_cast<int>( opt_solutions_spptw.size() ) << std::endl;
+	for( int i = 0; i < static_cast<int>( opt_solutions_spptw.size() ); ++i )
 	{
-		std::cout << "The " << i << "th shortest path from A to E is: ";
+		std::cout << "The " << i << "th shortest path from A to sink " << name[target( opt_solutions_spptw[i][0], g )]<< " is: ";
 		std::cout << std::endl;
 		for( int j = static_cast<int>( opt_solutions_spptw[i].size() ) - 1;
 				j >= 0;
-				--j )
+				--j ){
 			std::cout << name[source( opt_solutions_spptw[i][j], g )] << std::endl;
-		std::cout << "E" << std::endl;
+			if(j==0){
+				std::cout << name[target(opt_solutions_spptw[i][j], g)] << std::endl;
+			}
+
+		}
 		std::cout << "Length: " << pareto_opt_rcs_spptw[i].cost << std::endl;
 		std::cout << "Time: " << pareto_opt_rcs_spptw[i].time << std::endl;
 	}
+	std::cout << "#" << endl;
+	std::cout << "# ----------------------------------" << endl;
+	std::cout << "#" << endl;
 
 	// utility function check_r_c_path example
 	std::cout << std::endl;
@@ -1831,5 +2269,7 @@ void SubProblem::testGraph_spprc(){
 		std::cout << "Time: " << actual_final_resource_levels.time << std::endl;
 		std::cout << "OK." << std::endl;
 	}
+
+	getchar();
+
 }
-*/

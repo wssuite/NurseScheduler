@@ -27,11 +27,11 @@ I. Compiler les sources
       svn co https://projects.coin-or.org/svn/Bcp/stable/1.4 Bcp-1.4
   |
   | 3. Compiler CBC et BCP (https://projects.coin-or.org/BuildTools/wiki/downloadUnix):
-  
+
 	cd /le/repertoire/dinstallation/des/librairies/Bcp-1.4
 	mkdir build
 	cd build
-	.../configure --enable-shared=no --enable-static=yes.
+	.../configure --enable-shared=no --enable-static=yes
 	make
 	make test
 	make install

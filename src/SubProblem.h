@@ -25,10 +25,12 @@ static int MAX_TIME = 99999;
 //
 enum NodeType {
 	SOURCE_NODE, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE,
-	ROTATION_LENGTH, SINK_NODE, NONE_NODE};
+	ROTATION_LENGTH, SINK_DAY, SINK_NODE,
+	NONE_NODE};
 static const vector<string> nodeTypeName = {
 		"SOURCE_NODE", "PPL_NETWORK", "ROTSIZE__IN",
-		"ROTSIZE    ", "SINK_NODE  ", "NONE       "};
+		"ROTSIZE    ", "SINK DAY   ", "SINK_NODE  ",
+		"NONE       "};
 
 
 // Different arc types and their names
@@ -36,11 +38,11 @@ static const vector<string> nodeTypeName = {
 enum ArcType{
 	SOURCE_TO_PRINCIPAL, SHIFT_TO_NEWSHIFT, SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE,
 	REPEATSHIFT, PRINCIPAL_TO_ROTSIZE, ROTSIZEIN_TO_ROTSIZE, ROTSIZE_TO_SINK,
-	NONE_ARC};
+	SINKDAY_TO_SINK, NONE_ARC};
 static const vector<string> arcTypeName = {
 		"SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ",
 		"REPEATSHIFT    ", "PPL_TO_ROTSIZE ", "ROTSZIN_TO_RTSZ", "ROTSIZE_TO_SINK",
-		"NONE           "};
+		"SINKDAY TO SINK", "NONE           "};
 
 static const set<pair<int,int> > EMPTY_FORBIDDEN_LIST;
 
@@ -351,6 +353,53 @@ protected:
 };
 
 
+
+
+//---------------------------------------------------------------------------
+//
+// C l a s s   k s _ s m a r t _ p o i n t e r
+//
+// Needed for the shortest path algorithms.
+// From: Kuhlin, S.; Schader, M. (1999): Die C++-Standardbibliothek, Springer, Berlin, p. 333 f.
+//
+//---------------------------------------------------------------------------
+template<class T>
+class ks_smart_pointer
+{
+public:
+  ks_smart_pointer( T* ptt = 0 ) : pt( ptt ) {}
+  ks_smart_pointer( const ks_smart_pointer& other ) : pt( other.pt ) {}
+  ks_smart_pointer& operator=( const ks_smart_pointer& other )
+    { pt = other.pt; return *this; }
+  ~ks_smart_pointer() {}
+  T& operator*() const { return *pt; }
+  T* operator->() const { return pt; }
+  T* get() const { return pt; }
+  operator T*() const { return pt; }
+  friend bool operator==( const ks_smart_pointer& t,
+                          const ks_smart_pointer& u )
+    { return *t.pt == *u.pt; }
+  friend bool operator!=( const ks_smart_pointer& t,
+                          const ks_smart_pointer& u )
+    { return *t.pt != *u.pt; }
+  friend bool operator<( const ks_smart_pointer& t,
+                         const ks_smart_pointer& u )
+    { return *t.pt < *u.pt; }
+  friend bool operator>( const ks_smart_pointer& t,
+                         const ks_smart_pointer& u )
+    { return *t.pt > *u.pt; }
+  friend bool operator<=( const ks_smart_pointer& t,
+                          const ks_smart_pointer& u )
+    { return *t.pt <= *u.pt; }
+  friend bool operator>=( const ks_smart_pointer& t,
+                          const ks_smart_pointer& u )
+    { return *t.pt >= *u.pt; }
+private:
+  T* pt;
+}; // ks_smart_pointer
+
+
+
 //---------------------------------------------------------------------------
 //
 // C l a s s   S u b P r o b l e m
@@ -550,8 +599,10 @@ protected:
 	map<int,int> principalToDay_;						// For each node of the principal network, maps it ID to the day it represents
 	map<int,int> principalToCons_;						// For each node of the principal network, maps it ID to the number of consecutive shifts it represents
 	// Nodes of the ROTATION_LENGTH subnetwork
-	int rotationLengthEntrance_;						// Entrance node to the ROTATION_LENGTH subnetwork
-	map<int,int> rotationLengthNodes_;					// Maps the length of the rotation to the corresponding check node
+	vector<int> rotationLengthEntrance_;				// For each day, entrance node to the ROTATION_LENGTH subnetwork
+	vector<map<int,int> > rotationLengthNodes_;			// For each day, maps the length of the rotation to the corresponding check node
+	map<int,int> rotationLengthNodesEAT_;				// For each rotation length node, the corresponding EAT
+	vector<int> sinkNodesByDay_;						// For each day, an intermediary sink node (to get the Pareto-front for each day)
 	// Sink Node
 	int sinkNode_;
 
@@ -590,8 +641,9 @@ protected:
 	vector3D arcsShiftToEndsequence_;					// Index: (shift, day, nCons) of origin
 	vector2D arcsRepeatShift_;							// Index: (shift, day) of origin
 	vector2D arcsPrincipalToRotsizein_;					// Index: (shift, day) of origin
-	map<int,int> arcsRotsizeinToRotsize_;				// Index: (size) of the rotation [destination]
-	map<int,int> arcsRotsizeToRotsizeout_;				// Index: (size) of the rotation [origin]
+	vector<map<int,int> > arcsRotsizeinToRotsizeDay_;	// Index: (day,size) of the rotation [destination]
+	vector<map<int,int> > arcsRotsizeToRotsizeoutDay_;	// Index: (day,size) of the rotation [origin]
+	vector<int> arcsSinkDayToSink_;						// Index: (day) of the end of rotation
 
 	// ARCS -> FUNCTIONS
 	//
@@ -695,6 +747,75 @@ protected:
 	int normalTravelTime(int a);
 	// Test for random forbidden day-shift
 	set< pair<int,int> > randomForbiddenShifts(int nbForbidden);
+
+
+
+
+
+	//----------------------------------------------------------------
+	//
+	// Shortest path function with several sinks
+	// (modified from boost so that we can give several sink nodes)
+	//
+	//----------------------------------------------------------------
+	template<class Graph,
+	         class VertexIndexMap,
+	         class EdgeIndexMap,
+	         class Resource_Container,
+	         class Resource_Extension_Function,
+	         class Dominance_Function,
+	         class Label_Allocator,
+	         class Visitor>
+	void r_c_shortest_paths_several_sinks
+	( const Graph& g,
+	  const VertexIndexMap& vertex_index_map,
+	  const EdgeIndexMap& edge_index_map,
+	  typename boost::graph_traits<Graph>::vertex_descriptor s,
+	  std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> t,
+	  // each inner vector corresponds to a pareto-optimal path
+	  std::vector<std::vector<typename boost::graph_traits<Graph>::edge_descriptor> >&
+	    pareto_optimal_solutions,
+	  std::vector<Resource_Container>& pareto_optimal_resource_containers,
+	  // to initialize the first label/resource container
+	  // and to carry the type information
+	  const Resource_Container& rc,
+	  const Resource_Extension_Function& ref,
+	  const Dominance_Function& dominance,
+	  // to specify the memory management strategy for the labels
+	  Label_Allocator la,
+	  Visitor vis );
+
+	// r_c_shortest_paths_dispatch function (body/implementation)
+	template<class Graph,
+	         class VertexIndexMap,
+	         class EdgeIndexMap,
+	         class Resource_Container,
+	         class Resource_Extension_Function,
+	         class Dominance_Function,
+	         class Label_Allocator,
+	         class Visitor>
+	void r_c_shortest_paths_dispatch_several_sinks
+	( const Graph& g,
+	  const VertexIndexMap& vertex_index_map,
+	  const EdgeIndexMap& /*edge_index_map*/,
+	  typename boost::graph_traits<Graph>::vertex_descriptor s,
+	  std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> t,
+	  // each inner vector corresponds to a pareto-optimal path
+	  std::vector
+	    <std::vector
+	      <typename boost::graph_traits
+	        <Graph>::edge_descriptor> >& pareto_optimal_solutions,
+	  std::vector
+	    <Resource_Container>& pareto_optimal_resource_containers,
+	  bool b_all_pareto_optimal_solutions,
+	  // to initialize the first label/resource container
+	  // and to carry the type information
+	  const Resource_Container& rc,
+	  Resource_Extension_Function& ref,
+	  Dominance_Function& dominance,
+	  // to specify the memory management strategy for the labels
+	  Label_Allocator /*la*/,
+	  Visitor vis );
 
 
 

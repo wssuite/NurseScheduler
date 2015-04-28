@@ -36,6 +36,7 @@ static const string REST_SHIFT = "None";
 static const int DECIMALS = 3; // precision when printing floats
 static const double EPSILON = .0001; // precision for the column generation
 static const double BRANCH_LB = 0.8; //branch on a column, if column > branchLB
+static const int NB_SHIFT_UNLIMITED = 28;
 
 
 // definitions of multi-dimensional int vector types
@@ -100,7 +101,12 @@ vector<vector<double> > randomDoubleVector2D(int m, int n, double minVal, double
 // Appends the values of v2 to at the end of v1
 //
 template < typename T >
-void push_several_back(vector<T> * v1, vector<T> v2){ for(int i=0; i<v2.size(); i++) v1->push_back(v2[i]);}
+vector<T> appendVectors(vector<T> v1, vector<T> v2){
+	vector<T> ANS;
+	for(int i=0; i<v1.size(); i++) ANS.push_back(v1[i]);
+	for(int i=0; i<v2.size(); i++) ANS.push_back(v2[i]);
+	return ANS;
+}
 
 // To get the day from its id and vice-versa
 // First day is always supposed to be a Monday

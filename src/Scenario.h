@@ -198,6 +198,9 @@ public:
 		return theNurses_[whichNurse].needCompleteWeekends();
 	}
 
+	// getters for the attribute of the demand
+	//
+	int nbDays() {return pWeekDemand_->nbDays_;}
 
 	// Setters to class attributes
 
@@ -249,6 +252,9 @@ public:
 	// preprocess the nurses to get the types
 	//
 	void preprocessTheNurses();
+
+
+
 
 
 };
