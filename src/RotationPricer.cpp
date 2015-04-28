@@ -45,7 +45,7 @@ bool RotationPricer::pricing(double bound){
    //computed new rotations
    vector<Rotation> rotations;
 
-   //   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
+   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
 
    //count and store the nurses for whom their subproblem has generated rotations.
    int nbSubProblemSolved = 0;
@@ -80,8 +80,8 @@ bool RotationPricer::pricing(double bound){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
-	   options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
-	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   //options.push_back(SOLVE_ONE_SINK_PER_FIRST_DAY);
+	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 
 //	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
@@ -124,7 +124,7 @@ bool RotationPricer::pricing(double bound){
    //Add the nurse in nursesSolved at the end
    nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
-   //   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
+   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
 
    return optimal;
 }

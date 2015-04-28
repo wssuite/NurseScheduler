@@ -18,8 +18,8 @@
 void main_test()
 {
 	//testFunction_Antoine();
-	testFunction_Jeremy();
-	//testFunction_Samuel();
+	//testFunction_Jeremy();
+	testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
@@ -114,7 +114,6 @@ void testFunction_Antoine(){
    delete pBCP;
 }
 
-
 // Function for testing parts of the code (Jeremy)
 void testFunction_Jeremy(){
 
@@ -187,75 +186,94 @@ void testFunction_Jeremy(){
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel(){
 
-   Tools::Timer* timertest = new Tools::Timer();
-   timertest->init();
-   timertest->start();
+	   // Time the complete execution of the algorithm
+	   Tools::Timer* timertotal = new Tools::Timer();
+	   timertotal->init();
+	   timertotal->start();
 
-   // log + output
-   //
-   string logFile = "../logfiles/samuel_test.log";
-   Tools::LogOutput logStream(logFile);
-   string outFile = "outfiles/test.out";
-   Tools::LogOutput outStream(outFile);
+	   // Create a log file
+	   string logFile = "logs/test.log";
+	   Tools::LogOutput logStream(logFile);
 
-   // Instances
-   //
-   string data = "datasets/";
-   string inst = "n100w4";			// n100w4 n030w4 n005w4
+	   //Create an output file
+	   string outFile = "outfiles/test.out";
+	   Tools::LogOutput outStream(outFile);
 
-   // Paths
-   //
-   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
-   vector<int> numberWeek = {1, 2, 3, 3};
-   vector<string> weekPaths(numberWeek.size());
-   for(int i=0; i<numberWeek.size(); ++i){
-      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
-      weekPaths[i] = path;
-   }
-   string firstHistoryPath = data + inst + "/H0-" + inst + "-0.txt";
+	   string data = "datasets/";// testdatasets datasets
+	   const char* inst = "n030w4";// n100w4 n030w4 n005w4
 
-   // Read the input data from files
-   //
-   Scenario* pScen = ReadWrite::readScenario(scenarPath);
-   Preferences preferences;
-   Demand* pWeekDemand = ReadWrite::readWeeks(weekPaths, pScen);
-   ReadWrite::readHistory(firstHistoryPath,pScen);
+	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
+	   //n005w4: {1, 2, 3, 3}
+	   //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+	   vector<int> numberWeek = {0, 4, 5, 2};
+	   vector<string> weekPaths(numberWeek.size());
+	   for(int i=0; i<numberWeek.size(); ++i){
+	      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
+	      weekPaths[i] = path;
+	   }
+	   string firstHistoryPath = data + inst + "/H0-" + inst + "-0.txt";
 
-   // Check that the scenario was read properly
-   //
-   logStream << pScen->toString() << std::endl;
-   logStream << pWeekDemand->toString(true) << std::endl;
+	   // Read the input data from files
+	   Scenario* pScen = ReadWrite::readScenario(scenarPath);
+	   cout << pScen->toString() << endl;
+	   Preferences preferences;
+	   Demand* pWeekDemand = ReadWrite::readWeeks(weekPaths, pScen);
+	   ReadWrite::readHistory(firstHistoryPath,pScen);
 
-   //Compute initial solution
-   //
-   Greedy* pGreedy =
-      new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
-   pGreedy->constructiveGreedy();
-   outStream << pGreedy->solutionToLogString();
+	   // Check that the scenario was read properly
+	   //
+	   // logStream << *pScen << std::endl;
+	   logStream << pScen->toString() << std::endl;
+	   logStream << pWeekDemand->toString(true) << std::endl;
 
-   // Instantiate solver + solve the instance
-   //
-   MasterProblem* pSolverTest = new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
-   pSolverTest->solve();
+	   // Write the aggregate information on the demand
+	   //
 
-   // Write the solution in an output file
-   //
-   outStream << pSolverTest->solutionToLogString();
 
-   // Display the total time spent in the algorithm
-   //
-   timertest->stop();
-   logStream.print("Total time spent in the algorithm : ");
-   logStream.print(timertest->dSinceInit());
-   logStream.print("\n");
+	   // Write aggregate information on the cover capacity of the staff
+	   // (TBD)
 
-   // Delete
-   //
-   delete timertest;
-   delete pWeekDemand;
-   delete pScen;
-   delete pGreedy;
-   delete pSolverTest;
+	   //Compute initial solution
+	   //
+	   Greedy* pGreedy =
+	      new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
+	   pGreedy->constructiveGreedy();
+	   outStream << pGreedy->solutionToLogString();
+
+	   // Instantiate the solver class as a test
+	   //
+	   MasterProblem* pBCP =
+	      new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
+	   pBCP->solve();
+
+	   // Write the solution in the required output format
+	   vector<string> solutions = pBCP->solutionToString(pScen->nbWeeks());
+	   for(int w=0; w<pScen->nbWeeks(); ++w){
+	      int thisWeek = w+pScen->thisWeek();
+	      char solutionFile[30];
+	      snprintf ( solutionFile, 30, "outfiles/Sol-%s-%d-%d.txt", inst, numberWeek[w], thisWeek );
+	      Tools::LogOutput solutionStream(solutionFile);
+	      solutionStream << solutions[w];
+	   }
+
+	   // Write the solution in an output file
+	   outStream << pBCP->solutionToLogString();
+
+	   // Display the total time spent in the algorithm
+	   timertotal->stop();
+	   logStream.print("Total time spent in the algorithm : ");
+	   logStream.print(timertotal->dSinceInit());
+	   logStream.print("\n");
+
+
+	   // free the allocated pointers
+	   //
+	   //   delete vrp;
+	   delete timertotal;
+	   delete pWeekDemand;
+	   delete pScen;
+	   delete pGreedy;
+	   delete pBCP;
 }
 
 /************************************************************************
