@@ -186,6 +186,13 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
     	  cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
     	  cout << "# " << endl;
     	  cout << "#   | Base cost     : + " << cost_ << endl;
+
+    	  cout << "#       | Consecutive shifts: " << consShiftsCost_ << endl;
+    	  cout << "#       | Consecutive days  : " << consDaysWorkedCost_ << endl;
+    	  cout << "#       | Complete weekends : " << completeWeekendCost_ << endl;
+    	  cout << "#       | Preferences       : " << preferenceCost_ << endl;
+    	  cout << "#       | Initial rest      : " << initRestCost_ << endl;
+
     	  for(int k=firstDay_; k<firstDay_+length_; ++k)
     		  cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
     	  cout << "#   | Start work    : - " << startWorkDualCosts[firstDay_] << endl;
@@ -203,7 +210,7 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
     	  for(int i=0; i<allTasks.size(); i++){
     		  if(allTasks[i] < 1) std::cout << " |";
     		  else std::cout << allTasks[i] << "|";
-          }
+    	  }
     	  cout << "# " << endl;
     	  cout << "# " << endl;
     	  getchar();

@@ -84,7 +84,7 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 
 	nPathsMin_ = 0;
 
-	//std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
+	std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
 
 	//printGraph();
 	//printShortSucc();
@@ -129,6 +129,13 @@ void SubProblem::init(vector<State>* pInitState){
 		idBestShortSuccCDMin_.push_back(v2);
 		Tools::initDoubleVector2D(&w2, nDays_, n);
 		arcCostBestShortSuccCDMin_.push_back(w2);
+	}
+
+	preferencesCosts_.clear();
+	for(int k=0; k<nDays_; k++){
+		vector<double> v;
+		for(int s=0; s<pScenario_->nbShifts_; s++) v.push_back(0);
+		preferencesCosts_.push_back(v);
 	}
 }
 
@@ -367,7 +374,6 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	for(int a=0; a<nArcs_; a++){
 		int o = arcOrigin(a);
 		int d = arcDestination(a);
-
 		if(nodeType(o) == PRINCIPAL_NETWORK
 				and nodeType(d) == PRINCIPAL_NETWORK
 				and principalToDay_[o] < principalToDay_[d]-1){
@@ -393,12 +399,13 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
+		// Return TRUE if a rotation was added.
+		return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 	}
 
 	// Gather all the pareto-fronts that correspond to the different last worked days
 	//
 	else if(isOptionActive(SOLVE_ONE_SINK_PER_LAST_DAY)){
-
 		std::vector<boost::graph_traits<Graph>::vertex_descriptor> allSinks;
 		for(int k=CDMin_-1; k<nDays_; k++){
 			allSinks.push_back( sinkNodesByDay_[k] );
@@ -416,6 +423,12 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
+		// Return TRUE if a rotation was added
+		return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
+	}
+
+	else if(isOptionActive(SOLVE_VERY_SHORT_ONLY)){
+		return priceVeryShortRotations();
 	}
 
 	// One per first is obsolete
@@ -423,11 +436,8 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	else {
 		cout << "# INVALID / OBSOLETE OPTION" << endl;
 		getchar();
+		return false;
 	}
-
-	// Return TRUE if a rotation was added. Last argument is true IF only negative reduced cost rotations are added
-	//
-	return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 }
 
 // Store the options in a readable way
@@ -509,7 +519,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "... done!" << endl;
 	}
 	//printAllRotations();
-	std::cout << "# -> " << nFound << std::endl;
+	std::cout << "# " << nFound << " rotations generated" <<  std::endl;
 	return (nFound > 0);
 }
 
@@ -908,11 +918,13 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 
 	// Preference costs.
 	//
-	preferencesCosts_.clear();
-	Tools::initDoubleVector2D(&preferencesCosts_, nDays_, pScenario_->nbShifts_);
-	for(map<int,set<int> >::iterator prefList = pLiveNurse_->pWishesOff_->begin(); prefList != pLiveNurse_->pWishesOff_->end(); ++ prefList){
-		for(int sh : prefList->second){
-			preferencesCosts_[prefList->first][sh] = WEIGHT_PREFERENCES;
+	for(int k=0; k<nDays_; k++)
+		for(int s=0; s<pScenario_->nbShifts_; s++)
+			preferencesCosts_[k][s] = 0;
+	for(map<int,set<int> >::iterator it = nurse->pWishesOff_->begin(); it != nurse->pWishesOff_->end(); ++it){
+		for(int s : it->second){
+			preferencesCosts_[it->first][s] = WEIGHT_PREFERENCES;
+
 		}
 	}
 
@@ -1355,6 +1367,147 @@ int SubProblem::mapAntecedent(map<int,int> m, int val){
 	return -1;
 }
 
+
+
+
+
+//----------------------------------------------------------------
+//
+// Cost computation of the "very" short rotations (< CD_min)
+//
+//----------------------------------------------------------------
+
+// Brutally try all possible short rotations from every first day
+bool SubProblem::priceVeryShortRotations(){
+	int nFound = 0;
+	for(int c=1; c<CDMin_; c++){
+		for(vector<int> succ : allowedShortSuccBySize_[c]){
+			for(int k=0; k<nDays_ - CDMin_; k++){
+				double redCost = costOfVeryShortRotation(k,succ);
+				if(isOptionActive(SOLVE_NEGATIVE_ALLVALUES)
+						or ( isOptionActive(SOLVE_NEGATIVE_ONLY) and redCost < 0 ) ){
+					Rotation rot (k, succ, pLiveNurse_, MAX_COST, redCost);
+					theRotations_.push_back(rot);
+					nPaths_ ++;
+					nFound ++;
+				}
+			}
+		}
+	}
+	cout << "# " << nFound << " SHORT rotations found" << endl;
+	return nFound > 0;
+}
+
+double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
+
+	int endDate = startDate + succ.size() - 1;
+	// Regular costs
+	double consDaysRegCost=0, consShiftsRegCost=0, completeWeekendRegCost=0, preferencesRegCost=0, shortRestRegCost=0;
+	// Reduced costs
+	double dayShiftsRedCost=0, startRedCost=0, endRedCost=0, weekendRedCost=0;
+
+	// Initialize values
+	int shift=0, consShifts=0, consDays=succ.size();
+
+	// A. SPECIAL CASE OF THE FIRST DAY
+	//
+	if(startDate==0){
+		// The nurse was working
+		if(pLiveNurse_->pStateIni_->shift_ >0){
+			// Change initial values
+			shift = pLiveNurse_->pStateIni_->shift_;
+			consShifts = pLiveNurse_->pStateIni_->consShifts_;
+			consDays += pLiveNurse_->pStateIni_->consDaysWorked_;
+			// If worked too much, subtract the already counted surplus
+			consDaysRegCost -= max(0, consDays - pContract_->maxConsDaysWork_) * WEIGHT_CONS_DAYS_WORK;
+			consShiftsRegCost -= max(0, consShifts - pScenario_->maxConsShifts_[shift]) * WEIGHT_CONS_SHIFTS;
+		}
+		// The nurse was resting
+		else {
+			// Cost of a too short rest
+			shortRestRegCost += max(0, pContract_->minConsDaysOff_ - pLiveNurse_->pStateIni_->consDaysOff_) * WEIGHT_CONS_DAYS_OFF;
+		}
+	}
+
+	// B. REGULAR COST: CONSECUTIVE NUMBER OF DAYS
+	//
+	consDaysRegCost += consDaysCost(consDays);
+
+	// C. REGULAR COST: CONSECUTIVE SHIFTS
+	//
+	for(int k=startDate; k<=endDate; k++){
+		int newShift = succ[k-startDate];
+		if(newShift == shift){
+			consShifts ++;
+			shift = newShift;
+		} else {
+			consShiftsRegCost += consShiftCost(shift,consShifts);
+			consShifts = 1;
+			shift = newShift;
+		}
+		if(k==endDate) consShiftsRegCost += consShiftCost(shift, consShifts);
+	}
+
+	// D. REGULAR COST: COMPLETE WEEKENDS
+	//
+	completeWeekendRegCost = startWeekendCosts_[startDate] + endWeekendCosts_[endDate];
+
+	// E. REGULAR COST: PREFERENCES
+	//
+	for(int k=startDate; k<=endDate; k++) preferencesRegCost += preferencesCosts_[k][ succ[k-startDate] ];
+
+
+
+	// F. REDUCED COST: WEEKENDS
+	//
+	weekendRedCost -= Tools::containsWeekend(startDate, endDate) * pCosts_->workedWeekendCost();
+
+	// F. REDUCED COST: FIRST DAY (BACK TO WORK)
+	//
+	startRedCost -= pCosts_->startWorkCost(startDate);
+
+	// G. REDUCED COST: LAST DAY (BACK TO WORK)
+	//
+	endRedCost -= pCosts_->endWorkCost(endDate);
+
+	// H. REDUCED COST: EACH DAY/SHIFT REDUCED COST
+	//
+	for(int k=startDate; k<=endDate; k++) dayShiftsRedCost -= pCosts_->dayShiftWorkCost( k, succ[k-startDate] - 1 );
+
+
+	// I. RETURN THE TOTAL COST
+	//
+	double regCost = consDaysRegCost + consShiftsRegCost + completeWeekendRegCost + preferencesRegCost + shortRestRegCost;
+	double redCost = dayShiftsRedCost + startRedCost + endRedCost + weekendRedCost;
+	double ANS = regCost + redCost;
+
+	if(false){
+		cout << "# " << endl;
+		cout << "#+---------------------------------------------+" << endl;
+		cout << "# " << startDate << "-";
+		for(int i=0; i<succ.size(); i++) cout << pScenario_->intToShift_[succ[i]].at(0);
+		cout << endl;
+
+		cout << "# REG- Consecutive days cost   : " << consDaysRegCost << endl;
+		cout << "# REG- Consecutive shifts cost : " << consShiftsRegCost << endl;
+		cout << "# REG- Complete weekends cost  : " << completeWeekendRegCost << endl;
+		cout << "# REG- Preferences cost        : " << preferencesRegCost << endl;
+		cout << "# REG- Short rest before cost  : " << shortRestRegCost << endl;
+		cout << "# REG-                 ~TOTAL~ : " << regCost << endl;
+		cout << "# " << endl;
+		cout << "# RED- Day-shifts cost         : " << dayShiftsRedCost << endl;
+		cout << "# RED- Start work cost         : " << startRedCost << endl;
+		cout << "# RED- End work cost           : " << endRedCost << endl;
+		cout << "# RED- Weekend dual cost       : " << weekendRedCost << endl;
+		cout << "# RED-                 ~TOTAL~ : " << redCost << endl;
+		cout << "#+---------------------------------------------+" << endl;
+		cout << "#                      ~TOTAL~ : " << ANS << endl;
+		cout << "#+---------------------------------------------+" << endl;
+		cout << "# " << endl;
+	}
+
+	return ANS;
+}
 
 
 

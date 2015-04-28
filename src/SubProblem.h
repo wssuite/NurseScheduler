@@ -65,6 +65,7 @@ enum SolveOption{
 	SOLVE_SINGLE_SINKNODE,			// DEFAULT: Look for the Pareto-front of all paths within the time horizon
 	SOLVE_ONE_SINK_PER_LAST_DAY,	//          Look for the Pareto-front for each end day
 	SOLVE_ONE_SINK_PER_FIRST_DAY,	//          Look for the Pareto-front for each first day
+	SOLVE_VERY_SHORT_ONLY,				//          Only price the short rotations
 
 	// Negativity of the rotations
 	//
@@ -86,7 +87,7 @@ enum SolveOption{
 static const vector<vector<SolveOption> > incompatibilityClusters = {
 		{SOLVE_SOLUTIONS_RESET, SOLVE_SOLUTIONS_KEEP},
 		{SOLVE_ROTATIONS_LONG, SOLVE_ROTATIONS_SHORT},
-		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY, SOLVE_ONE_SINK_PER_FIRST_DAY},
+		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY, SOLVE_ONE_SINK_PER_FIRST_DAY, SOLVE_VERY_SHORT_ONLY},
 		{SOLVE_NEGATIVE_ONLY, SOLVE_NEGATIVE_ALLVALUES},
 		{SOLVE_FORBIDDEN_RESET, SOLVE_FORBIDDEN_KEEP, SOLVE_FORBIDDEN_RANDOM},
 		{SOLVE_COST_GIVEN, SOLVE_COST_RANDOM}
@@ -95,7 +96,7 @@ static const vector<vector<SolveOption> > incompatibilityClusters = {
 static const vector<string> solveOptionName = {
 		"Delete previous solutions", "Keep Previous solutions and add new ones",
 		"Long rotations only", "Short rotations only",
-		"Single sinknode", "One sinknode per last day", "One sinknode per first day",
+		"Single sinknode", "One sinknode per last day", "One sinknode per first day", "Very short rotations only",
 		"Negative reduced costs only", "Negative and nonnegative reduced costs",
 		"Reset all forbidden before solve", "Keep all forbidden before solve", "Generate random forbidden day-shift",
 		"Solve for given reduced costs", "Generate random reduced costs"
@@ -458,6 +459,7 @@ protected:
 	Scenario * pScenario_;
 
 	// Pointer to the demand
+	//
 	Demand* pDemand_;
 
 	// Number of days of the scenario (usually a multiple of 7)
@@ -681,7 +683,7 @@ protected:
 	// Cost computation of the "very" short rotations (< CD_min)
 	//
 	//----------------------------------------------------------------
-	void priceVeryShortRotations();
+	bool priceVeryShortRotations();
 	double costOfVeryShortRotation(int firstDay, vector<int> succ);
 
 

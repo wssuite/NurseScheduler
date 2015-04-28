@@ -80,8 +80,10 @@ bool RotationPricer::pricing(double bound){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
-	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   //options.push_back(SOLVE_VERY_SHORT_ONLY);
+	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
+	   options.push_back(SOLVE_NEGATIVE_ALLVALUES);
 
 //	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
 
