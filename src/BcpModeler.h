@@ -174,28 +174,7 @@ public:
     * Class own methods and parameters
     */
 
-   void setLPSol(const BCP_lp_result& lpres){
-      obj_history_.push_back(lpres.objval());
-      if(best_lb_in_root > lpres.objval())
-         best_lb_in_root = lpres.objval();
-
-      //clear the old vectors
-      if(primalValues_.size() != 0){
-         primalValues_.clear();
-         dualValues_.clear();
-         reducedCosts_.clear();
-         lhsValues_.clear();
-      }
-
-      //copy the new arrays in the vectors
-      const int nbVar = coreVars_.size() + columnVars_.size();
-      const int nbCons = cons_.size();
-
-      primalValues_.assign(lpres.x(), lpres.x()+nbVar);
-      dualValues_.assign(lpres.pi(), lpres.pi()+nbCons);
-      reducedCosts_.assign(lpres.dj(), lpres.dj()+nbVar);
-      lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
-   }
+   void setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars);
 
    void setPrimal(vector<double> primal){ primalValues_ = primal; }
 
@@ -344,6 +323,16 @@ public:
       BCP_vec<int>& changed_pos,
       BCP_vec<double>& new_bd);
 
+   // Restoring feasibility.
+   //This method is invoked before fathoming a search tree node that has been found infeasible and
+   //the variable pricing did not generate any new variables.
+   void restore_feasibility(const BCP_lp_result& lpres,
+      const std::vector<double*> dual_rays,
+      const BCP_vec<BCP_var*>& vars,
+      const BCP_vec<BCP_cut*>& cuts,
+      BCP_vec<BCP_var*>& vars_to_add,
+      BCP_vec<BCP_col*>& cols_to_add);
+
    //Convert a set of variables into corresponding columns for the current LP relaxation.
    void vars_to_cols(const BCP_vec<BCP_cut*>& cuts, // on what to expand
       BCP_vec<BCP_var*>& vars,       // what to expand
@@ -373,10 +362,28 @@ public:
       BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
       bool force_branch = false); //indicate whether to force branching regardless of the size of the local cut/var pools
 
+   //Decide what to do with the children of the selected branching object.
+   //Fill out the _child_action field in best. This will specify for every child what to do with it.
+   //Possible values for each individual child are BCP_PruneChild, BCP_ReturnChild and BCP_KeepChild.
+   //There can be at most child with this last action specified.
+   //It means that in case of diving this child will be processed by this LP process as the next search tree node.
+   //Default: Every action is BCP_ReturnChild.
+   //However, if BCP dives then one child will be mark with BCP_KeepChild. The decision which child to keep is based on the ChildPreference parameter in BCP_lp_par.
+   //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
+   void set_actions_for_children(BCP_presolved_lp_brobj* best);
+
 protected:
    BcpModeler* pModel_;
+   //number of column in the master problem before the pricing
    int nbCurrentColumnVarsBeforePricing_;
-   int lpIteration_, cbcEveryXLpIteration_;
+   //count the iteration, store the last iteration of dive and fix the number of iteration between each CBC optimization
+   int lpIteration_,lastDiveIteration_, cbcEveryXLpIteration_;
+   //true if the tree has already been cut into 2 branchs:
+   //1 to perform the logical fixing
+   //2 to continue the branching process later
+   bool alreadyDuplicated_;
+   //dive and perform logical_fixing
+   bool dive_;
 
    //vars = are just the giver vars
    //cols is the vector where the new columns will be stored

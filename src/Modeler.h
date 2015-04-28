@@ -83,7 +83,7 @@ struct MyPricer{
  * My branching rule
  */
 struct MyBranchingRule{
-   MyBranchingRule(const char* name): name_(name){ }
+   MyBranchingRule(const char* name): name_(name), searchStrategy_(DepthFirstSearch) { }
    virtual ~MyBranchingRule() { }
 
    //name of the branching rule handler

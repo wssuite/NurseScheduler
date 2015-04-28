@@ -210,6 +210,27 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
 //      }
 }
 
+//Compare rotations on index
+//
+bool Rotation::compareId(const Rotation& rot1, const Rotation& rot2){
+   return ( rot1.id_ < rot2.id_ );
+}
+
+//Compare rotations on cost
+//
+bool Rotation::compareCost(const Rotation& rot1, const Rotation& rot2){
+   if(rot1.cost_ == DBL_MAX || rot2.cost_ == DBL_MAX)
+      Tools::throwError("Rotation cost not computed.");
+   return ( rot1.cost_ < rot2.cost_ );
+}
+
+//Compare rotations on dual cost
+//
+bool Rotation::compareDualCost(const Rotation& rot1, const Rotation& rot2){
+   if(rot1.dualCost_ == DBL_MAX || rot2.dualCost_ == DBL_MAX)
+      Tools::throwError("Rotation cost not computed.");
+   return ( rot1.dualCost_ < rot2.dualCost_ );
+}
 
 //-----------------------------------------------------------------------------
 //

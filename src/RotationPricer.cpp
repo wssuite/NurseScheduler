@@ -21,7 +21,7 @@ static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-                        MyPricer(name), nbSubProblemToSolve_(15), nursesToSolve_(master->theLiveNurses_),
+                        MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theLiveNurses_),
                         master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
 {
    /* sort the nurses */
@@ -96,12 +96,17 @@ bool RotationPricer::pricing(double bound){
 
 		/* Retrieve rotations */
 		rotations = subProblem->getRotations();
+		std::sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
 		// add them to the master problem
+		int nbRotationsAdded = 0;
 		for(Rotation rot: rotations){
 			double c = rot.cost_;
 			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
 			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
 			master_->addRotation(rot, baseName);
+			++nbRotationsAdded;
+			if(nbRotationsAdded > nbMaxRotationsToAdd_)
+			   break;
 		}
 
 //		cout << "#  SP " << pNurse->name_ << " added columns" << endl;
@@ -117,7 +122,7 @@ bool RotationPricer::pricing(double bound){
          ++it0;
       }
 		//if the maximum number of subproblem solved is reached, break.
-		if(nbSubProblemSolved == nbSubProblemToSolve_)
+		if(nbSubProblemSolved == nbSubProblemsToSolve_)
 		   break;
    }
    
@@ -232,20 +237,40 @@ DiveBranchingRule::DiveBranchingRule(MasterProblem* master, const char* name):
 
 //remove all bad candidates from fixingCandidates
 void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
-   //look for fractional columns
-   //if value > branchUB, then set lb to 1
-   vector<MyObject*> fixingCandidates2;
-   for(MyObject* var: fixingCandidates){
-      double value = pModel_->getVarValue(var);
-      //if var not fractional, continue
-      if( pModel_->isInteger(var) )
-         continue;
-      //if value < branchLB, remove it
-      else if( value < BRANCH_LB)
-         continue;
-      fixingCandidates2.push_back(var);
+   if(searchStrategy_ == DepthFirstSearch){
+      //look for fractional columns
+      //Fix all column above BRANCH_LB
+      vector<MyObject*> candidatesToFix;
+      //set lb to 1 for the colcumn which is the closest to 1
+      MyObject* bestFixingCandidate(0);
+      double bestValue = 0;
+
+      //search the good candidates
+      for(MyObject* var: fixingCandidates){
+         double value = pModel_->getVarValue(var);
+         //if var not fractional, continue
+         if( pModel_->isInteger(var) )
+            continue;
+         //if value > BRANCH_LB, add this candidate to candidatesToFix
+         if( value > BRANCH_LB)
+            candidatesToFix.push_back(var);
+         //else if value > bestValue, choose this candidate for the moment
+         else if( value > bestValue){
+            bestFixingCandidate = var;
+            bestValue = value;
+         }
+      }
+
+      //Clear all the candidates and add the chosen one
+      fixingCandidates.clear();
+      if(candidatesToFix.size()>0)
+         fixingCandidates = candidatesToFix;
+      else if(bestFixingCandidate)
+         fixingCandidates.push_back(bestFixingCandidate);
    }
-   fixingCandidates = fixingCandidates2;
+   //otherwise clear all the candidates
+   else
+      fixingCandidates.clear();
 }
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
