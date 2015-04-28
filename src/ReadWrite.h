@@ -53,22 +53,23 @@ public:
 
 	//Read several week files and strore the content in one demand and one preference
 	//
-   static Demand* readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario);
+   static Demand* readWeeks(vector<std::string> strWeekFiles, Scenario* pScenario);
 	// Read the Week file and store the content in a Scenario instance
 	//
-	static void readWeek(std::string strWeekFile, Scenario* pScenario, Demand** pDemand, Preferences** pPref);
+	static void readWeek(string strWeekFile, Scenario* pScenario, Demand** pDemand, Preferences** pPref);
 
 	// Read the history file
 	//
-	static void readHistory(std::string strHistoryFile, Scenario* pScenario);
+	static void readHistory(string strHistoryFile, Scenario* pScenario);
 
-	// Read the input custom file and store the content in a Scenario instance
+	// Read the input custom file
+	// Store the result in a vector of historical demands and return the number of treated weeks
 	//
-	static void readCustom(std::string strCustomInputFile, Scenario* pScenario);
+	static int readCustom(string strCustomInputFile, Scenario* pScenario, vector<Demand*>& demandHistory);
 
 	// Print the main characteristics of all the demands of an input directory
 	// This is done to find some invariant properties among demands
-	static void compareDemands(std::string inputDir);
+	static void compareDemands(string inputDir);
 
 	//--------------------------------------------------------------------------
 
@@ -80,10 +81,11 @@ public:
 	//
 	// void writeSolution(std::string strCustomOutputFile, Solution* pSolution);
 	//
-	// // Write the output custom file from values in the scenario and the solution
-	// // instances
-	// //
-	// void writeCustom(std::string strCustomOutputFile, Scenario* pScenario, Solution* pSolution);
+
+	// Write the output custom file from values in the scenario and the solution
+	// instances
+	//
+	static void writeCustom(string stdCustomOutputFile, string strWeekFile, string strCustomInputFile="");
 
 	//--------------------------------------------------------------------------
 

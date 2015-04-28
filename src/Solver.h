@@ -59,6 +59,27 @@ public:
 
 };
 
+
+//------------------------------------------------------------------------
+//
+// C l a s s  S k i l l S o r t e r
+//
+// This class is a function object used only to compare two skills
+// the function is used to sort the skills in descending order of rarity
+// (we want to treat the rarest skill first)
+//
+//------------------------------------------------------------------------
+class SkillSorter {
+public:
+   // take the field to sort by in the constructor
+   SkillSorter (const vector<double> skillRarity) : skillRarity_(skillRarity) {}
+   bool operator() (const int sk1, const int sk2) {
+      return skillRarity_[sk1] > skillRarity_[sk2];
+   }
+private:
+   vector<double> skillRarity_;
+};
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   L i v e N u r s e
@@ -285,14 +306,45 @@ public:
 
 public:
 
+   //------------------------------------------------
+   // Preprocess functions
+   //------------------------------------------------
+
    // go through the nurses to collect data regarding the potential shift and
    // skill coverage of the nurses
    //
    void preprocessTheNurses();
 
+   // preprocees the skills to get their rarity
+   // the value depends on the demand for this skill, on the number of nurses 
+   // that have the skill and on the number of skills per nurse that have the 
+   // skill
+   //
+   void preprocessTheSkills();
+
+   // Compare two nurses based on their position
+   // the function is used to sort the nurses in ascending rank of their 
+   // position
+   // if their positions have the same rank, then the smaller nurse is found
+   // by a lexicographic comparison of the rarity of the skills of the nurses
+   //
+   bool compareNurses(const LiveNurse  &n1, const LiveNurse &n2);
+
+   // Compare two skills based on their rarity
+   // the function is used to sort the skills in descending order of rarity
+   // (we want to treat the rarest skill first)
+   //
+   bool compareSkills(const int sk1, const int sk2);
+
+
+
    // compute the rarity indicator for each skill
    //
    void getSkillsRarity();
+
+   //------------------------------------------------
+   // Postprocess functions
+   //------------------------------------------------
 
    // check the feasibility of the demand with these nurses
    //

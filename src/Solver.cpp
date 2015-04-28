@@ -337,13 +337,12 @@ Solver::~Solver(){
 }
 
 
-//------------------------------------------------
-// Preprocess the data
-//------------------------------------------------
-
+//------------------------------------------------------------------------
+// Preprocess the nurses
 // go through the nurses to collect data regarding the potential shift and
 // skill coverage of the nurses
-//
+//-------------------------------------------------------------------------
+
 void Solver::preprocessTheNurses() {
   // local variables for conciseness of the code
   //
@@ -453,9 +452,58 @@ void Solver::preprocessTheNurses() {
     pScenario_->nbShifts_, pScenario_->nbSkills_);
 }
 
+//------------------------------------------------------------------------
+// Preprocees the skills to get their rarity
+// the value depends on the minimum demand for this skill, on the number
+// of nurses that have the skill and on the number of skills per nurse 
+// that have the skill
+//------------------------------------------------------------------------
 
-// check the feasibility of the demand with these nurses
-//
+void Solver::preprocessTheSkills() {
+
+  // this vector will contain for each skill: the number of weighted nurses
+  // that have the skill ; the weight of each nurse is its number of skills 
+  vector<double> nbNursesWeighted;
+
+  for (int sk=0; sk < pScenario_->nbSkills_; sk++) {
+    nbNursesWeighted.push_back(0.0);
+    for (int i = 0; i < pScenario_->nbNurses_; i++) {
+      LiveNurse* pNurse = theLiveNurses_[i];
+      if (pNurse->hasSkill(sk)) {
+        nbNursesWeighted[sk]+=1.0/(double)pNurse->nbSkills_;
+      }
+    }
+    // the skill rarity is the ratio of the weighted number of nurses 
+    // that have the skill to the demand for the skill
+    skillRarity_[sk] = nbNursesWeighted[sk]/(double)pDemand_->minPerSkill_[sk];
+  }
+}
+
+//------------------------------------------------------------------------
+// Compare two nurses based on their position
+// the function is used to sort the nurses in ascending rank of their 
+// position
+// if their positions have the same rank, then the smaller nurse is found
+// by a lexicographic comparison of the rarity of the skills of the nurses
+//------------------------------------------------------------------------
+
+bool Solver::compareNurses(const LiveNurse  &n1, const LiveNurse &n2) {
+  if (n1.pPosition_->id_ == n2.pPosition_->id_) {
+    return false;
+  }
+  else if (n1.pPosition_->rank() == n2.pPosition_->rank()) {
+    return true;
+  }
+  else {
+    return n1.pPosition_->rank() < n2.pPosition_->rank();
+  }
+}
+
+
+//------------------------------------------------------------------------
+// Check the feasibility of the demand with these nurses
+//------------------------------------------------------------------------
+
 bool checkFeasibility() {
   return true;
 }

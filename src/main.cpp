@@ -43,8 +43,8 @@ int main(int argc, char** argv)
 		// Retrieve the file names in arguments
 		//
 		int narg = 1;
-		string scenarioFile, initialHistoryFile, weekDataFile, solutionFile;
-		string customInputFile, customOutputFile, randSeed;
+		string scenarioFile="", initialHistoryFile="", weekDataFile="", solutionFile="";
+		string customInputFile="", customOutputFile="", randSeed="";
 
 		while (narg < argc) {
 			std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
@@ -103,7 +103,9 @@ int main(int argc, char** argv)
 		pScen = initializeScenario(scenarioFile,weekDataFile,initialHistoryFile);
 		std::cout << "Scenario file is read\n";
 		if (!customInputFile.empty()) {
-			ReadWrite::readCustom(customInputFile, pScen);
+			vector<Demand*> demandHistory;
+			demandHistory.push_back(pScen->pWeekDemand());
+			int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
 		}
 
 		// Instantiate the solver class as a test
@@ -117,13 +119,15 @@ int main(int argc, char** argv)
 		Tools::LogOutput outStream(solutionFile);
 		outStream << pSolverTest->solutionToString();
 		if (!customOutputFile.empty()) {
-			// Todo: the method that writes custom outputs. Which outputs ?
+			ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
 		}
 		// Todo: the method that writes the history file corresponding to the
 		// solution
 		string outputHistoryFile("history-week");
 		outputHistoryFile += std::to_string(pScen->thisWeek()) + ".txt";
 		std::cout << "Output history file: " << outputHistoryFile << std::endl;
+
+		// Todo: delete the demand history (careful of not deleting current demand twice)
 	}
 
 }

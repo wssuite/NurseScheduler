@@ -34,8 +34,9 @@ public:
   // Constructive greedy algorithm
   // Goes through the the demands in a chronological order and assign the nurse
   // that seems most appropriate to each task (shift/skill)
+  // Returns true if the minimum demand could be covered, and false otherwise
   //
-  void constructiveGreedy();
+  bool constructiveGreedy();
 
 
 protected:

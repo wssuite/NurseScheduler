@@ -12,6 +12,7 @@
 
 #include "MyTools.h"
 
+/* namespace usage */
 using std::map;
 using std::pair;
 using std::string;
@@ -59,6 +60,8 @@ public:
   // preprocessed attributes aggregating the information of the demand
   //
 public:
+  bool isPreprocessed_;
+
   // total demand in the minimal and optimal demands
   //
   int minTotal_, optTotal_;
@@ -80,7 +83,6 @@ public:
   vector<int> minHighestPerSkill_, optHighestPerSkill_;
 
 protected:
-  bool isPreprocessed_;
 
   // modify the demand by randomly swapping the demand of nnSwaps days
   //
@@ -117,7 +119,7 @@ public:
 
   // copy the input demand and apply a perturbation to generate random demand
   //
-  Demand* randomPertubation();
+  Demand* randomPerturbation();
 
 };
 

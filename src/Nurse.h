@@ -167,28 +167,6 @@ public:
 class State{
 
 public:
-   // Index of the day in the planning horizon
-   // WARNING : THE FIRST DAY IS ALWAYS SUPPOSED TO BE A MONDAY !!!!!!!!!!!!!
-   //           If it may not be the case, the code should be modified, namely when counting the weekends worked
-   //
-   int dayId_;
-
-   // Total nummber of days and weekends worked
-   //
-   int totalDaysWorked_, totalWeekendsWorked_;
-
-   // number of consecutive days worked ending at D, and of consecutive days worked on the same shift ending at D (including RESTSHIFT = 0)
-   // and shift worked on D-Day.
-   //
-   int consDaysWorked_, consShifts_, consDaysOff_;
-
-   // Type of shift worked on D-Day. It can be a rest shift (=0).
-   // A negative value -d means that the nurse has not been assigned a task for
-   // the last d days
-   //
-   int shift_;
-
-public:
    // Constructor and Destructor
    State():dayId_(0), totalDaysWorked_(0), totalWeekendsWorked_(0),
     consDaysWorked_(0), consShifts_(0), consDaysOff_(0), shift_(0) {}
@@ -216,6 +194,28 @@ public:
    //
    string toString();
    friend std::ostream& operator<< (std::ostream& outs, State obj) {return outs << obj.toString();}
+   
+public:
+   // Index of the day in the planning horizon
+   // WARNING : THE FIRST DAY IS ALWAYS SUPPOSED TO BE A MONDAY !!!!!!!!!!!!!
+   //           If it may not be the case, the code should be modified, namely when counting the weekends worked
+   //
+   int dayId_;
+
+   // Total nummber of days and weekends worked
+   //
+   int totalDaysWorked_, totalWeekendsWorked_;
+
+   // number of consecutive days worked ending at D, and of consecutive days worked on the same shift ending at D (including RESTSHIFT = 0)
+   // and shift worked on D-Day.
+   //
+   int consDaysWorked_, consShifts_, consDaysOff_;
+
+   // Type of shift worked on D-Day. It can be a rest shift (=0).
+   // A negative value -d means that the nurse has not been assigned a task for
+   // the last d days
+   //
+   int shift_;
 
 };
 

@@ -197,7 +197,7 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
 
 // copy the input demand and apply a perturbation to generate random demand
 //
-Demand* Demand::randomPertubation() {
+Demand* Demand::randomPerturbation() {
   Demand* pDemand = new Demand(*this);
 
   // three different types of perturbations are made

@@ -8,6 +8,7 @@
 
 #include "main_test.h"
 #include "ReadWrite.h"
+#include "DemandGenerator.h"
 #include "Greedy.h"
 #include "MasterProblem.h"
 #include "SubProblem.h"
@@ -150,7 +151,7 @@ void testFunction_Jeremy(){
 	*****************************************/
 
    Greedy* pGreedy =
-      new Greedy(pScen, pScen->pWeekDemand(),	pScen->pWeekPreferences(), pScen->pInitialState());
+      new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
    pGreedy->constructiveGreedy();
 
 	// Write the solution in the required output format

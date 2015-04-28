@@ -426,10 +426,91 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 }
 
 
-// Read the input custom file and store the content in a Scenario instance
+// Read the input custom file
+// Store the result in a vector of historical demands and return the number of treated weeks
 //
-void ReadWrite::readCustom(std::string strCustomInputFile, Scenario* pScenario) {
+int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector<Demand*>& demandHistory) {
+   // open the file
+   std::fstream file;
+   std::cout << "Reading " << strCustomInputFile << std::endl;
+   file.open(strCustomInputFile.c_str(), std::fstream::in);
+   if (!file.is_open()) {
+      std::cout << "While trying to read " << strCustomInputFile << std::endl;
+      Tools::throwError("The input file was not opened properly!");
+   }
 
+   string title;
+   int nbWeeks;
+
+   // get the custom information
+   //
+   while(file.good()){
+      readUntilOneOfTwoChar(&file, '\n', '=', &title);
+
+      // Read the file names of the past demand
+      //
+      if(!strcmp(title.c_str(), "PAST_DEMAND_FILES")){
+         file >> nbWeeks;
+         if (!nbWeeks) continue;
+
+         string strDemandFile;
+         for (int i = 0; i < nbWeeks; i++) {
+            file >> strDemandFile;
+            Demand* pDemand;
+            Preferences* pPref;
+            readWeek(strDemandFile,pScenario,&pDemand,&pPref);
+            demandHistory.push_back(pDemand);
+            delete pPref;
+         }
+      }
+   }
+   return nbWeeks;
+}
+
+void ReadWrite::writeCustom(string stdCustomOutputFile, string strWeekFile, string strCustomInputFile) {
+
+   Tools::LogOutput outStream(strCustomInputFile);
+
+   // if there is no custom input file, this is the first week
+   if (strCustomInputFile.empty()) {
+      outStream << "PAST_DEMAND_FILES= " << 1 << std::endl;
+      outStream << strWeekFile;
+      return;
+   }
+
+   // open the custom input file
+   // we want the content of the input custom file in the custom output file
+   std::fstream file;
+   std::cout << "Reading " << strCustomInputFile << std::endl;
+   file.open(strCustomInputFile.c_str(), std::fstream::in);
+   if (!file.is_open()) {
+      std::cout << "While trying to read " << strCustomInputFile << std::endl;
+      Tools::throwError("The input file was not opened properly!");
+   }
+
+   string title;
+   int nbWeeks;
+
+   // fill the attributes of the week structure
+   //
+   while(file.good()){
+      readUntilOneOfTwoChar(&file, '\n', '=', &title);
+
+      // Read the file names of the past demand
+      //
+      if(!strcmp(title.c_str(), "PAST_DEMAND_FILES")){
+         file >> nbWeeks;
+         outStream << "PAST_DEMAND_FILES= " << nbWeeks+1 << std::endl;
+         if (!nbWeeks) continue;
+
+         string strDemandFile;
+         for (int i = 0; i < nbWeeks; i++) {
+            file >> strDemandFile;
+            outStream << strDemandFile << std::endl;
+         }
+         outStream << strWeekFile << std::endl;
+      }
+   }
 }
 
 
