@@ -32,25 +32,41 @@ struct Rotation {
 
    // Specific constructors and destructors
    //
-   Rotation(map<int,int> shift, LiveNurse* nurse = NULL, double cost = 999999, double dualCost = 999999) :
-      shifts_(shift), pNurse_(nurse), cost_(cost),
+   Rotation(map<int,int> shifts, LiveNurse* nurse = NULL, double cost = DBL_MAX, double dualCost = DBL_MAX) :
+      shifts_(shifts), pNurse_(nurse), cost_(cost),id_(s_count),
       consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-      dualCost_(dualCost), length_(shift.size())
+      dualCost_(dualCost), length_(shifts.size())
    {
+      ++s_count;
       firstDay_ = 999;
-      for(map<int,int>::iterator itS = shift.begin(); itS != shift.end(); ++itS)
+      for(map<int,int>::iterator itS = shifts.begin(); itS != shifts.end(); ++itS)
          if(itS->first < firstDay_) firstDay_ = itS->first;
    };
 
-   Rotation(int firstDay, vector<int> shiftSuccession, LiveNurse* nurse = NULL, double cost = 999999, double dualCost = 999999) :
-      pNurse_(nurse), cost_(cost),
+   Rotation(int firstDay, vector<int> shiftSuccession, LiveNurse* nurse = NULL, double cost = DBL_MAX, double dualCost = DBL_MAX) :
+      pNurse_(nurse), cost_(cost),id_(s_count),
       consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
       dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size())
    {
+      ++s_count;
       for(int k=0; k<shiftSuccession.size(); k++) shifts_.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
    }
 
+   Rotation(Rotation& rotation, LiveNurse* pNurse) :
+      pNurse_(pNurse), cost_(DBL_MAX),id_(rotation.id_),
+      consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
+      dualCost_(DBL_MAX), firstDay_(rotation.firstDay_), length_(rotation.length_), shifts_(rotation.shifts_)
+   { }
+
    ~Rotation(){};
+
+   //count rotations
+   //
+   static unsigned int s_count;
+
+   //Id of the rotation
+   //
+   long id_;
 
    //the nurse
    //
@@ -85,6 +101,18 @@ struct Rotation {
    //
    void computeDualCost(vector< vector<double> > workDualCosts, vector<double> startWorkDualCosts,
       vector<double> endWorkDualCosts, double workedWeekendDualCost);
+
+   //Compare rotations on index
+   //
+   static bool compareId(const Rotation& rot1, const Rotation& rot2);
+
+   //Compare rotations on cost
+   //
+   static bool compareCost(const Rotation& rot1, const Rotation& rot2);
+
+   //Compare rotations on dual cost
+   //
+   static bool compareDualCost(const Rotation& rot1, const Rotation& rot2);
 };
 
 
