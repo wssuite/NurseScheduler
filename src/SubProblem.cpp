@@ -1366,6 +1366,8 @@ int SubProblem::mapAntecedent(map<int,int> m, int val){
 // (modified from boost so that we can give several sink nodes)
 //
 //----------------------------------------------------------------
+
+// r_c_shortest_paths_several_sinks function -> calls r_c_shortest_paths_dispatch
 template<class Graph,
 class VertexIndexMap,
 class EdgeIndexMap,
@@ -1374,8 +1376,7 @@ class Resource_Extension_Function,
 class Dominance_Function,
 class Label_Allocator,
 class Visitor>
-void SubProblem::r_c_shortest_paths_several_sinks
-( const Graph& g,
+void SubProblem::r_c_shortest_paths_several_sinks( const Graph& g,
 		const VertexIndexMap& vertex_index_map,
 		const EdgeIndexMap& edge_index_map,
 		typename boost::graph_traits<Graph>::vertex_descriptor s,
@@ -1416,8 +1417,7 @@ template<class Graph,
          class Dominance_Function,
          class Label_Allocator,
          class Visitor>
-void SubProblem::r_c_shortest_paths_dispatch_several_sinks
-( const Graph& g,
+void SubProblem::r_c_shortest_paths_dispatch_several_sinks( const Graph& g,
   const VertexIndexMap& vertex_index_map,
   const EdgeIndexMap& /*edge_index_map*/,
   typename boost::graph_traits<Graph>::vertex_descriptor s,
@@ -1437,8 +1437,7 @@ void SubProblem::r_c_shortest_paths_dispatch_several_sinks
   Dominance_Function& dominance,
   // to specify the memory management strategy for the labels
   Label_Allocator /*la*/,
-  Visitor vis )
-{
+  Visitor vis ){
   pareto_optimal_resource_containers.clear();
   pareto_optimal_solutions.clear();
 

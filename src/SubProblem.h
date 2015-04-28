@@ -678,9 +678,20 @@ protected:
 
 	//----------------------------------------------------------------
 	//
-	// Update of the costs / network for solve function
+	// Cost computation of the "very" short rotations (< CD_min)
 	//
-	// INDEPENDENT FROM ANY NURSE / REDUCED COST !!!
+	//----------------------------------------------------------------
+	void priceVeryShortRotations();
+	double costOfVeryShortRotation(int firstDay, vector<int> succ);
+
+
+
+
+
+
+	//----------------------------------------------------------------
+	//
+	// Update of the costs / network for solve function
 	//
 	//----------------------------------------------------------------
 
