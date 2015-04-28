@@ -40,9 +40,12 @@ public:
 
 
 protected:
-  // vector of live nurses that will be sorted based on the compare function
+  // vectors of nurses, skills and shifts that shall be sorted before running
+  // the greedy algorithms
   //
   vector<LiveNurse*> theNursesSorted_;
+  vector<int> shiftsSorted_;
+  vector<int> skillsSorted_;
 
   // vector defining the sequence according to which the positions should be
   // treated
@@ -110,18 +113,21 @@ private:
     vector<int> &shifts, vector<int> &skills, int dayFirst,int nbUnassigned, double costIni);
 
   //----------------------------------------------------------------------------
-  // For the complete roster greedy
+  // For the initialization of the constructive greedy
   //----------------------------------------------------------------------------
 
-  // compare functions that can be used to sort the nurse before assigning them
-  // schedules in the greedy algorithm
+  // Create the vector of sorted nurses
+  // The nurses are ordered according to their position and the nurses that have
+  // the same position are shuffled
   //
-  bool compareNurses(const LiveNurse  &n1, const LiveNurse &n2);
+  void sortShuffleTheNurses();
 
-  // Build the sequence of positions reflecting the order in which the positions
-  // will be treated in the greedy
+  // Initialize the greedy by preprocessing all the input attributes and sorting
+  // the shifts, skills, nurses
   //
-  void sortPositions();
+  void initializeConstructive();
+
+
 
 };
 
