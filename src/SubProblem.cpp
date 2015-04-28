@@ -489,7 +489,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 				std::cout << "Not a feasible path." << std::endl;
 			if( !b_correctly_extended )
 				std::cout << "Not correctly extended." << std::endl;
-			getchar();
+			//getchar();
 		}
 
 
