@@ -41,12 +41,15 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
    if(!dive_ && ( (lpIteration_-lastDiveIteration_)%cbcEveryXLpIteration_) == 1){
       //copy the solver of the problem
       OsiSolverInterface* solver = getLpProblemPointer()->lp_solver->clone();
+      //Store the active columns
+      vector<CoinVar*> columns;
 
       for(int i=0; i<vars.size(); ++i){
          //Set the type of the columns as the columns can be integrated as continuous var
          //As some columns can have been removed, the index are not the same than ours
          BcpColumn* column = dynamic_cast<BcpColumn*>(vars[i]);
          if(column){
+            columns.push_back(column);
             switch (column->getVarType()) {
             case VARTYPE_BINARY:
                solver->setInteger(i);
@@ -72,7 +75,9 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
       }
 
       //initialize the MIP model
-      CbcModeler MIP(solver);
+      CbcModeler MIP(pModel_->getCoreVars(), columns, pModel_->getCons(),solver);
+      CorePriorityBranchingRule rule(&MIP);
+      MIP.addBranchingRule(&rule);
       MIP.setVerbosity(pModel_->getVerbosity());
       MIP.solve();
 

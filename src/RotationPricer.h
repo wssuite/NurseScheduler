@@ -90,7 +90,7 @@ protected:
 class CorePriorityBranchingRule: public MyBranchingRule
 {
 public:
-   CorePriorityBranchingRule(MasterProblem* master, const char* name);
+   CorePriorityBranchingRule(Modeler* pModel, const char* name);
    virtual ~CorePriorityBranchingRule() { }
 
    /* compute branching decisions */
@@ -100,10 +100,6 @@ public:
    void logical_fixing(vector<MyObject*>& fixingCandidates);
 
 protected:
-   //Pointer to the master problem to link the master and the sub problems
-   //
-   MasterProblem* master_;
-
    //pointers to the data
    //
    Modeler* pModel_;

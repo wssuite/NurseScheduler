@@ -39,8 +39,25 @@ CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars,
   }
 }
 
-CbcModeler::CbcModeler(OsiSolverInterface* osiSolver_):
-         CoinModeler(), primalValues_(0), objVal_(0), model_(NULL), pOsiSolver_(osiSolver_) { }
+CbcModeler::CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons, OsiSolverInterface* osiSolver_):
+         CoinModeler(), primalValues_(0), objVal_(0), model_(NULL), pOsiSolver_(osiSolver_) {
+   int corenum = coreVars.size();
+   int colnum  = columnVars.size();
+   int consnum = cons.size();
+
+   for (int i = 0; i < corenum; i++) {
+     coreVars_.push_back(new CoinVar(*coreVars[i]));
+     objects_.push_back(coreVars_[i]);
+   }
+   for (int i = 0; i < colnum; i++) {
+     columnVars_.push_back(new CoinVar(*columnVars[i]));
+     objects_.push_back(columnVars_[i]);
+   }
+   for (int i = 0; i < consnum; i++) {
+     cons_.push_back(new CoinCons(*cons[i]));
+     objects_.push_back(cons_[i]);
+   }
+}
 
 
 /*
@@ -151,6 +168,52 @@ int CbcModeler::setModel() {
    }
 
    return 1;
+}
+
+/*
+ * Set a high priority on all the variable returned by the branching rule
+ */
+void CbcModeler::setBranchingRule(){
+   vector<CoinVar*> integerVariables;
+   //put all the integer variables
+   for(CoinVar* coreVar: coreVars_)
+      if(coreVar->getVarType() != VARTYPE_CONTINUOUS)
+         integerVariables.push_back(coreVar);
+   for(CoinVar* col: columnVars_)
+      if(col->getVarType() != VARTYPE_CONTINUOUS)
+         integerVariables.push_back(col);
+
+   //remove the worst/best candidates, keep the medium ones
+   vector<MyObject*> branchingCandidates = integerVariables;
+   branching_candidates(branchingCandidates);
+
+   //remove the bad candidates, keep the best
+   vector<MyObject*> fixingCandidates = integerVariables;
+   logical_fixing(fixingCandidates);
+
+   //set the priorities: 1 highest and 100 lowest
+   int priorities[integerVariables.size()];
+   int index = 0;
+   vector<CoinVar*> it = integerVariables.begin(),
+      itMedium = branchingCandidates.begin(), itBest = fixingCandidates.begin();
+   while(it != integerVariables.end()){
+      if(*it == *itBest){
+         priorities[index] = 1;
+         ++itBest;
+      }
+      else if(*it == *itMedium){
+         priorities[index] = 50;
+         ++itMedium;
+      }
+      else
+         priorities[index] = 100;
+
+      ++index;
+      ++it;
+   }
+
+   //set to the highest priority (1) the var in branchingCandidates
+   model_->passInPriorities(priorities, false);
 }
 
 /*

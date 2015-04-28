@@ -328,17 +328,18 @@ void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandida
  *************************************************************/
 
 /* Constructs the branching rule object. */
-CorePriorityBranchingRule::CorePriorityBranchingRule(MasterProblem* master, const char* name):
-                        MyBranchingRule(name), master_(master), pModel_(master->getModel())
+CorePriorityBranchingRule::CorePriorityBranchingRule(Modeler* pModel, const char* name):
+                        MyBranchingRule(name), pModel_(pModel)
 { }
 
-//remove all bad candidates from fixingCandidates
+//remove all bad candidates from fixingCandidates while keeping the order
 void CorePriorityBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
-   fixingCandidates.clear();
+   fixingCandidates = pModel_->getIntegerCoreVars();
 }
 
+//remove all worst/best candidates from fixingCandidates while keeping the order
 void CorePriorityBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
-
+   branchingCandidates.clear();
 }
 
 
