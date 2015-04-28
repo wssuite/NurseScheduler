@@ -205,7 +205,7 @@ void testFunction_Samuel(){
 	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	   //n005w4: {1, 2, 3, 3}
 	   //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-	   vector<int> numberWeek = {0, 4, 5, 2};
+	   vector<int> numberWeek = {1,2,5,0};
 	   vector<string> weekPaths(numberWeek.size());
 	   for(int i=0; i<numberWeek.size(); ++i){
 	      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
