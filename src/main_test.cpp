@@ -11,6 +11,7 @@
 #include "DemandGenerator.h"
 #include "Greedy.h"
 #include "MasterProblem.h"
+#include "StochasticSolver.h"
 #include "SubProblem.h"
 #include "CbcModeler.h"
 #include "MyTools.h"

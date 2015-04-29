@@ -148,17 +148,6 @@ public:
    map<int,set<int> >* pWishesOff_;
 
    //----------------------------------------------------------------------------
-   // Informative data
-   //----------------------------------------------------------------------------
-
-   // maximum and minimum number of working days for each nurse in the period of
-   // the demand without getting any penalty for consecutive shifts
-   // RqJO: this neglects the constraint of complete week-ends and the
-   // preferences ; they should be added later
-   //
-   int maxWorkDays_, minWorkDays_;
-
-   //----------------------------------------------------------------------------
    // Planning data
    //----------------------------------------------------------------------------
 
@@ -182,11 +171,38 @@ public:
    //
    Position* pPosition_;
 
+   //----------------------------------------------------------------------------
+   // Informative data
+   //----------------------------------------------------------------------------
+
+   // maximum and minimum number of working days for each nurse in the period of
+   // the demand without getting any penalty for consecutive shifts
+   // RqJO: this neglects the constraint of complete week-ends and the
+   // preferences ; they should be added later
+   //
+   int minWorkDaysNoPenaltyConsDays_, maxWorkDaysNoPenaltyConsDays_;
+
+   // maximum and minimum number of working days for each nurse in the period of
+   // the demand without being sure to get penalty due to the total number of
+   // working days
+   //
+   int minWorkDaysNoPenaltyTotalDays_, maxWorkDaysNoPenaltyTotalDays_;
+
+   // minimum and maximum average number of days that can be worked per week
+   // without getting penalty to the total number of working days
+   //
+   double minAvgWorkDaysNoPenaltyTotalDays_, maxAvgWorkDaysNoPenaltyTotalDays_;
+
 
 public:
   // basic getters
   //
   Position* pPosition() const {return pPosition_;}
+
+  // advanced getters
+  //
+  int totalDaysWorked() {return pStateIni_->totalDaysWorked_;}
+  int totalWeekendsWorked() {return pStateIni_->totalWeekendsWorked_;}
 
    //----------------------------------------------------------------------------
    // Methods that relate to the rosters of a nurse
@@ -336,11 +352,10 @@ public:
    // total potential staffing with and without penalty
    //
    int maxTotalStaffNoPenalty_;
-   int maxTotalStaff_;
+   int maxTotalStaffAvgWork_;
 
    // potential staffing for each skill, with and without penalt
-   vector<int> maxStaffPerSkill_;
-   vector<int> maxStaffPerSkillNoPenalty_;
+   vector<double> maxStaffPerSkillNoPenalty_;
 
    // rarity of the skills
    // it may depend on how many nurses have a skill and what the demand for this
@@ -358,6 +373,23 @@ public:
    // skill coverage of the nurses
    //
    void preprocessTheNurses();
+
+   // Find the position of each nurse
+   //
+   void specifyNursePositions();
+
+   // compute the maximum and minimum number of working days in the period of
+   // the demand without getting any penalty for the total number of working days
+   //
+   void computeMinMaxDaysNoPenaltyTotalDays();
+
+   // compute the maximum and minimum number of working days in the period of
+   // the demand without getting any penalty for the number of consecutive
+   // shifts
+   // RqJO: this neglects the constraint of complete week-ends and the
+   // preferences ; they should be added later
+   //
+   void computeMinMaxDaysNoPenaltyConsDays();
 
    // preprocees the skills to get their rarity
    // the value depends on the demand for this skill, on the number of nurses
