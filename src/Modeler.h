@@ -77,7 +77,7 @@ struct MyPricer{
 
    /* perform pricing */
    //return true if optimal
-   virtual bool pricing(double bound=0)=0;
+   virtual bool pricing(double bound=0, bool before_fathom = true)=0;
 };
 /*
  * My branching rule
@@ -106,7 +106,7 @@ protected:
 class Modeler {
 public:
 
-   Modeler(): pPricer_(0), pBranchingRule_(0) { }
+   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(DBL_MAX), max_solving_time(DBL_MAX) { }
 
    virtual ~Modeler(){
       for(MyObject* object: objects_)
@@ -134,9 +134,9 @@ public:
     */
 
    //return true if optimal
-   inline bool pricing(double bound=0){
+   inline bool pricing(double bound=0, bool before_fathom = true){
       if(pPricer_)
-         return pPricer_->pricing(bound);
+         return pPricer_->pricing(bound, before_fathom);
       return true;
    }
 
@@ -149,8 +149,6 @@ public:
    inline void logical_fixing(vector<MyObject*>& fixingCandidates){
       if(pBranchingRule_)
          pBranchingRule_->logical_fixing(fixingCandidates);
-      else
-         fixingCandidates.clear();
    }
    //Set search strategy
    inline void set_search_strategy(SearchStrategy searchStrategy){
@@ -382,6 +380,14 @@ public:
 
    inline int getVerbosity() { return verbosity_; }
 
+   inline double getBestUB() { return best_ub; }
+
+   inline void setBestUB(double ub) { if(ub < best_ub) best_ub = ub; }
+
+   inline long getMaxSolvingtime() { return max_solving_time; }
+
+   inline void setMaxSolvingtime(long solving_time_in_seconds) { max_solving_time = solving_time_in_seconds; }
+
    inline void setSearchStrategy(SearchStrategy searchStrategy){
       searchStrategy_ = searchStrategy;
       set_search_strategy(searchStrategy);
@@ -400,6 +406,10 @@ protected:
 
    int verbosity_ = 0;
    SearchStrategy searchStrategy_ = DepthFirstSearch;
+   //best current upper bound found
+   double best_ub;
+   //maximal solving time in s
+   long max_solving_time;
 };
 
 

@@ -25,7 +25,7 @@ public:
    virtual ~RotationPricer();
 
    /* perform pricing */
-   bool pricing(double bound = 0);
+   bool pricing(double bound=0, bool before_fathom = true);
 
 private:
    //Pointer to the master problem to link the master and the sub problems
@@ -77,6 +77,11 @@ public:
    /* compute fixing decisions */
    void logical_fixing(vector<MyObject*>& fixingCandidates);
 
+   /* compare columns */
+   static bool compareColumnCloseToInt(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2);
+
+   static bool compareColumnCloseTo5(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2);
+
 protected:
    //Pointer to the master problem to link the master and the sub problems
    //
@@ -85,6 +90,14 @@ protected:
    //pointers to the data
    //
    Modeler* pModel_;
+
+   //number of candidates
+   //
+   int nbBranchingCandidates_;
+
+   //vectors of the variables on which we can branch
+   //
+   vector<MyObject*> bestCandidates_, mediumCandidates_;
 };
 
 class CorePriorityBranchingRule: public MyBranchingRule

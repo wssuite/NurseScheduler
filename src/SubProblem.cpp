@@ -290,7 +290,7 @@ double SubProblem::consDaysCost(int n){
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
 
 
-	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " " << endl;
+//	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " " << endl;
 
 
 	//std::cout << "[completeWeekends=";
@@ -509,7 +509,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "... done!" << endl;
 	}
 	//printAllRotations();
-	std::cout << "# -> " << nFound << std::endl;
+//	std::cout << "# -> " << nFound << std::endl;
 	return (nFound > 0);
 }
 

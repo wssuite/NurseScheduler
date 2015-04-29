@@ -32,6 +32,9 @@ public:
     if (model_ != NULL) delete model_;
   }
 
+  //initialize the vectors columnVars, coreVars and cons
+  void initializeVectors(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons);
+
  //solve the model
  int solve(bool relaxation = false);
 

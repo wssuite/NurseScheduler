@@ -108,11 +108,7 @@ struct BcpCoreCons: public CoinCons, public BCP_cut_core{
 
 class BcpModeler: public CoinModeler {
 public:
-   BcpModeler(const char* name):
-      CoinModeler(),
-      primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-      best_lb_in_root(DBL_MAX), best_ub(DBL_MAX)
-{ }
+   BcpModeler(const char* name);
    ~BcpModeler() {}
 
    //solve the model
@@ -176,26 +172,34 @@ public:
 
    void setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars);
 
-   void setPrimal(vector<double> primal){ primalValues_ = primal; }
+   inline void setPrimal(vector<double> primal){ primalValues_ = primal; }
 
-   void setBestLb(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
+   inline void setBestLb(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
 
-   void setBestUb(double bestUB){ best_ub = bestUB; }
+   inline double getBestLb(){ return best_lb_in_root; }
 
-   double getBestLb(){ return best_lb_in_root; }
+   inline int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
 
-   double getBestUb(){ return best_ub; }
+   inline void setLastNbSubProblemsSolved(int lastNbSubProblemsSolved){ lastNbSubProblemsSolved_ = lastNbSubProblemsSolved; }
 
-   int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
+   inline int getLastNbSubProblemsSolved(){ return lastNbSubProblemsSolved_; }
 
-   map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
+   inline void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
 
-   map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
+   inline double getLastMinDualCost(){ return lastMinDualCost_; }
+
+   inline  map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
+
+   inline  map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
 
 protected:
    //best lb in root
    double best_lb_in_root;
-   double best_ub;
+   /* stats */
+   //number of sub problems solved on the last iteration of column generation
+   int lastNbSubProblemsSolved_;
+   //min dual cost for a rotation on the last iteration of column generation
+   double lastMinDualCost_;
 
    //results
    vector<double> obj_history_;
@@ -384,6 +388,8 @@ protected:
    bool alreadyDuplicated_;
    //dive and perform logical_fixing
    bool dive_;
+   //=true if some columns have been generated since the last optimization
+   bool genColHasBeenRun_;
 
    //vars = are just the giver vars
    //cols is the vector where the new columns will be stored
@@ -395,7 +401,7 @@ protected:
 
    //Try for each nurse to fix to 1 the highest column
    //maximum number of children = number of nurse
-   void appendNewBranchingVar(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands);
+   void appendNewBranchingVar(vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
 };
 
 /*

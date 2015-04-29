@@ -6,6 +6,7 @@
  */
 
 #include "RotationPricer.h"
+#include "BcpModeler.h"
 
 /* namespace usage */
 using namespace std;
@@ -37,7 +38,7 @@ RotationPricer::~RotationPricer() {
 /******************************************************
  * Perform pricing
  ******************************************************/
-bool RotationPricer::pricing(double bound){
+bool RotationPricer::pricing(double bound, bool before_fathom){
    //=false if once optimality hasn't be proven
    bool optimal = true;
    //forbidden shifts
@@ -45,18 +46,21 @@ bool RotationPricer::pricing(double bound){
    //computed new rotations
    vector<Rotation> rotations;
 
-   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
+//   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
 
    //count and store the nurses for whom their subproblem has generated rotations.
-   int nbSubProblemSolved = 0;
+   int nbSubProblemSolved = 0, nbIteration = 0;
+   double minDualCoast = 0;
    vector<LiveNurse*> nursesSolved;
    for(vector<LiveNurse*>::iterator it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();){
+      ++nbIteration;
       LiveNurse* pNurse = *it0;
 
       /* Build or re-use a subproblem */
       SubProblem* subProblem;
       //search the contract
       map<const Contract*, SubProblem*>::iterator it =  subProblems_.find(pNurse->pContract_);
+
       //if doesn't find => create new subproblem
       if( it == subProblems_.end() ){
          subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
@@ -93,15 +97,21 @@ bool RotationPricer::pricing(double bound){
 
 //	   cout << "#  SP " << pNurse->name_ << " solved" << endl;
 
+	   /*
+	    * Rotations
+	    */
+
 		/* Retrieve rotations */
 		rotations = subProblem->getRotations();
+		/* sort rotations */
+      for(Rotation& rot: rotations){
+         rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+         rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
+      }
 		std::sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
-		// add them to the master problem
+		/* add them to the master problem */
 		int nbRotationsAdded = 0;
-		for(Rotation rot: rotations){
-			double c = rot.cost_;
-			rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-			rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
+		for(Rotation& rot: rotations){
 			master_->addRotation(rot, baseName);
 			++nbRotationsAdded;
 			if(nbRotationsAdded > nbMaxRotationsToAdd_)
@@ -113,6 +123,8 @@ bool RotationPricer::pricing(double bound){
       //count if the subproblem has generated some rotations and then store the nurse
       if(rotations.size() > 0){
          ++nbSubProblemSolved;
+         if(rotations[0].dualCost_ < minDualCoast)
+            minDualCoast = rotations[0].dualCost_;
          nursesToSolve_.erase(it0);
          nursesSolved.push_back(pNurse);
       }
@@ -128,7 +140,14 @@ bool RotationPricer::pricing(double bound){
    //Add the nurse in nursesSolved at the end
    nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
-   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
+   //set statistics
+   BcpModeler* model = dynamic_cast<BcpModeler*>(pModel_);
+   if(model){
+      model->setLastNbSubProblemsSolved(nbIteration);
+      model->setLastMinDualCost(minDualCoast);
+   }
+
+//   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
 
    return optimal;
 }
@@ -155,7 +174,7 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
 
          /* Skills coverage */
          dualValues2[s-1] += pModel_->getDual(
-            master_->feasibleSkillsAllocCons_[k][s-1][pNurse->pPosition_->id_], true);
+            master_->numberOfNursesByPositionCons_[k][s-1][pNurse->pPosition_->id_], true);
       }
 
       //store vector
@@ -235,93 +254,155 @@ void RotationPricer::computeForbiddenShifts(
 
 /* Constructs the branching rule object. */
 DiveBranchingRule::DiveBranchingRule(MasterProblem* master, const char* name):
-                        MyBranchingRule(name), master_(master), pModel_(master->getModel())
+                        MyBranchingRule(name), master_(master), pModel_(master->getModel()), nbBranchingCandidates_(5)
 { }
 
-//remove all bad candidates from fixingCandidates
+//add all good candidates
 void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
-   if(searchStrategy_ == DepthFirstSearch){
-      //look for fractional columns
-      //Fix all column above BRANCH_LB
-      vector<MyObject*> candidatesToFix;
-      //set lb to 1 for the colcumn which is the closest to 1
-      MyObject* bestFixingCandidate(0);
-      double bestValue = 0;
-
-      //search the good candidates
-      for(MyObject* var: fixingCandidates){
-         double value = pModel_->getVarValue(var);
-         //if var not fractional, continue
-         if( pModel_->isInteger(var) )
+   //look for fractional columns
+   //Fix all column above BRANCH_LB
+   //search the good candidates
+   for(int i=0; i<master_->getRotations().size(); ++i)
+      for(pair<MyObject*, Rotation> var: master_->getRotations()[i]){
+         double value = pModel_->getVarValue(var.first);
+         //if var not fractional or the rotation is not a real rotation (length = 0), continue
+         if( var.second.length_==0 || pModel_->isInteger(var.first) )
             continue;
          //if value > BRANCH_LB, add this candidate to candidatesToFix
          if( value > BRANCH_LB)
-            candidatesToFix.push_back(var);
-         //else if value > bestValue, choose this candidate for the moment
-         else if( value > bestValue){
-            bestFixingCandidate = var;
-            bestValue = value;
-         }
+            fixingCandidates.push_back(var.first);
       }
-
-      //Clear all the candidates and add the chosen one
-      fixingCandidates.clear();
-      if(candidatesToFix.size()>0)
-         fixingCandidates = candidatesToFix;
-      else if(bestFixingCandidate)
-         fixingCandidates.push_back(bestFixingCandidate);
-   }
-   //otherwise clear all the candidates
-   else
-      fixingCandidates.clear();
 }
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
-   MyObject* bestVar(0);
-   double bestValue = DBL_MAX;
+   //search all candidates
+   vector<pair<MyObject*, double>> candidates;
+   for(int i=0; i<master_->getRotations().size(); ++i)
+      for(pair<MyObject*, Rotation> var: master_->getRotations()[i])
+         //if var is fractional and the rotation is a real rotation (length > 0)
+         if(var.second.length_>0 && !pModel_->isInteger(var.first) )
+            candidates.push_back(pair<MyObject*, double>(var.first, pModel_->getVarValue(var.first)));
 
-   //manage integrality on the skill allocation variables
    switch(searchStrategy_){
    case DepthFirstSearch:
-      //variable closest to upper integer
-      for(MyObject* var: pModel_->getIntegerCoreVars()){
-         if(pModel_->isInteger(var))
-            continue;
-
-         double value = pModel_->getVarValue(var);
-         double frac = value - floor(value);
-         double closeToInt = 1-frac;
-         if(closeToInt < bestValue){
-            bestVar = var;
-            bestValue = closeToInt;
-            if(closeToInt<EPSILON)
-               break;
-         }
-      }
+      sort(candidates.begin(), candidates.end(), compareColumnCloseToInt);
       break;
    default:
-      //variable closest to .5
-      for(MyObject* var: pModel_->getIntegerCoreVars()){
-         if(pModel_->isInteger(var))
-            continue;
-
-         double value = pModel_->getVarValue(var);
-         double frac = value - floor(value);
-         double closeTo5 = abs(0.5-frac);
-         if(closeTo5 < bestValue){
-            bestVar = var;
-            bestValue = closeTo5;
-            if(closeTo5<EPSILON)
-               break;
-         }
-      }
-      break;
+      sort(candidates.begin(), candidates.end(), compareColumnCloseTo5);
    }
 
-   if(bestVar != 0)
-      branchingCandidates.push_back(bestVar);
+   for(int i=nbBranchingCandidates_-1; i>=0; --i)
+      branchingCandidates.push_back(candidates[i].first);
 }
 
+bool DiveBranchingRule::compareColumnCloseToInt(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2){
+   double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
+   double closeToInt1 = 1-frac1, closeToInt2 = 1-frac2;
+   return (closeToInt1 < closeToInt2);
+}
+
+bool DiveBranchingRule::compareColumnCloseTo5(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2){
+   double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
+   double closeTo5_1 = abs(0.5-frac1), closeTo5_2 = abs(0.5-frac2);
+   return (closeTo5_1 < closeTo5_2);
+}
+
+//if(mediumCandidates_.size() == 0)
+//   for(MyObject* var: pModel_->getIntegerCoreVars()){
+//      string str2 = "nursesNumber";
+//      string str0(var->name_);
+//      string str1 = str0.substr(0,str2.size());
+//      if(strcmp(str1.c_str(), str2.c_str()) == 0)
+//         bestCandidates_.push_back(var);
+//      else
+//         mediumCandidates_.push_back(var);
+//   }
+//
+//MyObject *bestVar(0);
+//double bestValue = DBL_MAX;
+//
+////manage integrality on the skill allocation variables
+//switch(searchStrategy_){
+//case DepthFirstSearch:
+//   //variable closest to upper integer
+//   for(MyObject* var: bestCandidates_){
+//      if(pModel_->isInteger(var))
+//         continue;
+//
+//      double value = pModel_->getVarValue(var);
+//      double frac = value - floor(value);
+//      double closeToInt = 1-frac;
+//
+//         if(closeToInt < bestValue){
+//            bestVar = var;
+//            bestValue = closeToInt;
+//            if(closeToInt<EPSILON)
+//               break;
+//         }
+//   }
+//
+//   if(bestVar != 0)
+//      break;
+//
+//   for(MyObject* var: mediumCandidates_){
+//      if(pModel_->isInteger(var))
+//         continue;
+//
+//      double value = pModel_->getVarValue(var);
+//      double frac = value - floor(value);
+//      double closeToInt = 1-frac;
+//
+//         if(closeToInt < bestValue){
+//            bestVar = var;
+//            bestValue = closeToInt;
+//            if(closeToInt<EPSILON)
+//               break;
+//         }
+//   }
+//
+//   break;
+//default:
+//   //variable closest to .5
+//   for(MyObject* var: bestCandidates_){
+//      if(pModel_->isInteger(var))
+//         continue;
+//
+//      double value = pModel_->getVarValue(var);
+//      double frac = value - floor(value);
+//      double closeTo5 = abs(0.5-frac);
+//
+//      if(closeTo5 < bestValue){
+//         bestVar = var;
+//         bestValue = closeTo5;
+//         if(closeTo5<EPSILON)
+//            break;
+//      }
+//   }
+//
+//   if(bestVar != 0)
+//      break;
+//
+//   for(MyObject* var: mediumCandidates_){
+//      if(pModel_->isInteger(var))
+//         continue;
+//
+//      double value = pModel_->getVarValue(var);
+//      double frac = value - floor(value);
+//      double closeTo5 = abs(0.5-frac);
+//
+//      if(closeTo5 < bestValue){
+//         bestVar = var;
+//         bestValue = closeTo5;
+//         if(closeTo5<EPSILON)
+//            break;
+//      }
+//   }
+//
+//   break;
+//}
+//
+//if(bestVar != 0)
+//   branchingCandidates.push_back(bestVar);
 
 /*************************************************************
  * CorePriority branching rule: branch on core variables first
@@ -334,12 +415,26 @@ CorePriorityBranchingRule::CorePriorityBranchingRule(Modeler* pModel, const char
 
 //remove all bad candidates from fixingCandidates while keeping the order
 void CorePriorityBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
-   fixingCandidates = pModel_->getIntegerCoreVars();
+   //choose the var nursesNumber
+   for(MyObject* var: pModel_->getIntegerCoreVars()){
+      string str2 = "nursesNumber";
+      string str0(var->name_);
+      string str1 = str0.substr(0,str2.size());
+      if(strcmp(str1.c_str(), str2.c_str()) == 0)
+         fixingCandidates.push_back(var);
+   }
 }
 
 //remove all worst/best candidates from fixingCandidates while keeping the order
 void CorePriorityBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
-   branchingCandidates.clear();
+   //choose the var nursesNumber
+   for(MyObject* var: pModel_->getIntegerCoreVars()){
+      string str2 = "skillsAlloc";
+      string str0(var->name_);
+      string str1 = str0.substr(0,str2.size());
+      if(strcmp(str1.c_str(), str2.c_str()) == 0)
+         branchingCandidates.push_back(var);
+   }
 }
 
 
