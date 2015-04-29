@@ -628,8 +628,8 @@ bool Greedy::constructiveGreedy() {
         int nbAssigned = 0;
         assignBestNursesToTask(day, sh, sk, demand, pNursesUnassigned, nbAssigned, true);
         if (nbAssigned <= 0) {
-          std::cerr << "Day " << day << " shift " << pScenario_->intToShift_[sh];
-          std::cerr <<" skill " << pScenario_->intToSkill_[sk] << std::endl;
+          std::cerr << "Day " << day << " ; shift " << pScenario_->intToShift_[sh];
+          std::cerr <<" ; skill " << pScenario_->intToSkill_[sk];
           std::cerr << ": the demand cannot be covered.\n";
           return false;
         }
@@ -785,8 +785,10 @@ bool Greedy::constructiveGreedy() {
 
   }
 
-  for(LiveNurse* pNurse: theLiveNurses_)
+  for(LiveNurse* pNurse: theLiveNurses_) {
      solution_.push_back(pNurse->roster_);
+   }
+   return true;
 }
 
 
