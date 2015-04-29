@@ -112,14 +112,33 @@ private:
    vector<Position*> positionsAbove_;
    int nbBelow_, nbAbove_;
 
-   // Ranks of the position with regard to the dominance criterion in compare()
+   // Rarity of the skills that appear in this position
+   //
+   vector<double> skillRarity_;
+
+   // Rank of the position with regard to the dominance criterion in compare()
    // rank i contains all the positions that are dominated only by positions
    // with a rank smaller than i (the smaller rank is 0)
    //
    int rank_;
 
-
 public:
+
+  // basic getters
+  //
+  int id() {return id_;}
+  int nbSkills() {return nbSkills_;}
+  int skill(int sk) {return skills_[sk];}
+  int nbBelow() {return nbBelow_;}
+  int nbAbove() {return nbAbove_;}
+  Position* positionsBelow(int i) {return positionsBelow_[i];}
+  Position* positionsAbove(int i) {return positionsAbove_[i];}
+  double skillRarity(int sk) {return skillRarity_[sk];}
+  int rank() {return rank_;}
+
+  // basic setters
+  //
+  void rank(int i) {rank_ = i;}
 
    // Display method: toString
    //
@@ -139,20 +158,12 @@ public:
    void addBelow(Position* pPosition);
    void addAbove(Position* pPosition);
 
-   // get positions above and below
+   // update the rarity of the skills
+   // the input is the vector of the rarity of all the skills
+   // the vector is sorted without record of the corresponding skill because it
+   // is used only to compare two positions with the same rank
    //
-   Position* positionsBelow(int i) {return positionsBelow_[i];}
-   Position* positionsAbove(int i) {return positionsAbove_[i];}
-
-   // basic getters
-   //
-   int nbBelow() {return nbBelow_;}
-   int nbAbove() {return nbAbove_;}
-
-   // get and set rank
-   //
-   void rank(int i) {rank_ = i;}
-   int rank() {return rank_;}
+   void updateRarities(vector<double> allRarities);
 
 };
 
@@ -194,7 +205,7 @@ public:
    //
    string toString();
    friend std::ostream& operator<< (std::ostream& outs, State obj) {return outs << obj.toString();}
-   
+
 public:
    // Index of the day in the planning horizon
    // WARNING : THE FIRST DAY IS ALWAYS SUPPOSED TO BE A MONDAY !!!!!!!!!!!!!

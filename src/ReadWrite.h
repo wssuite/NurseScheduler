@@ -69,7 +69,7 @@ public:
 
 	// Print the main characteristics of all the demands of an input directory
 	// This is done to find some invariant properties among demands
-	static void compareDemands(string inputDir);
+	static void compareDemands(string inputDir, string logFile);
 
 	//--------------------------------------------------------------------------
 

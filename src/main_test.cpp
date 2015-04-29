@@ -18,8 +18,13 @@
 
 void main_test()
 {
+<<<<<<< HEAD
 	testFunction_Antoine();
 //	testFunction_Jeremy();
+=======
+	//testFunction_Antoine();
+	testFunction_Jeremy();
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 	//testFunction_Samuel();
 }
 
@@ -122,15 +127,11 @@ void testFunction_Jeremy(){
    timertotal->init();
    timertotal->start();
 
-   // Create a log file
-   string logFile = "logfiles/test.log";
-   Tools::LogOutput logStream(logFile);
-
 	/************************************************************************
 	* Go through the demands of the directory to find invariants in the demand
 	*************************************************************************/
 
-	ReadWrite::compareDemands("testdatasets/n005w4");
+	// ReadWrite::compareDemands("testdatasets/n005w4","outfiles/comparedemands_n005w4.log");
 
 	/************************************************************************
 	* Initialize the week scenario by reading the input files
@@ -138,11 +139,12 @@ void testFunction_Jeremy(){
 
 	Scenario* pScen(0);
 	pScen = initializeScenario("datasets/n030w4/Sc-n030w4.txt",
-		"datasets/n030w4/WD-n030w4-1.txt", "datasets/n030w4/H0-n030w4-0.txt");
+		"datasets/n030w4/WD-n030w4-1.txt", "datasets/n030w4/H0-n030w4-0.txt","outfiles/inputdata.log");
 
-	// Check that the scenario was read properly
-	logStream << pScen->toString() << std::endl;
-	logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+	/************************************************************************
+	* Test the random demand generator
+	*************************************************************************/
+	testRandomDemandGenerator(1,"outfiles/randomdemands.out",pScen);
 
 	/****************************************
 	* Run the greedy to get an initial solution
@@ -172,7 +174,8 @@ void testFunction_Jeremy(){
    // Display the total time spent in the tests
 	//
    timertotal->stop();
-   logStream.print("Total time spent in the algorithm : ");
+	 Tools::LogOutput logStream("outfiles/execution.log");
+   logStream.print("Total time spent in the tests : ");
    logStream.print(timertotal->dSinceInit());
    logStream.print("\n");
 
@@ -280,8 +283,12 @@ void testFunction_Samuel(){
 * Initialize the week scenario by reading the input files
 *************************************************************************/
 
-Scenario* initializeScenario(string scenFile, string demandFile, string historyFile) {
+Scenario* initializeScenario(string scenFile, string demandFile, string historyFile, string logFile) {
 
+	// Create a log file
+	Tools::LogOutput logStream(logFile);
+
+	// Initialize demand and preferences
 	Demand* pDemand(0);
 	Preferences* pPref(0);
 
@@ -295,6 +302,11 @@ Scenario* initializeScenario(string scenFile, string demandFile, string historyF
 
 	// Read the history
 	ReadWrite::readHistory(historyFile, pScen);
+
+	// Check that the scenario was read properly if logfile specified in input
+	logStream << pScen->toString() << std::endl;
+	logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+
 
 	return pScen;
 }
@@ -325,4 +337,24 @@ void testCbc(Scenario* pScen, Demand* pDemand, Preferences* pPref,
 
 		// a new method is needed to get the solution in the proper format from this
 		// external Cbc model
+}
+
+/************************************************************************
+* Test the random demand generator
+*************************************************************************/
+
+void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
+
+	Tools::LogOutput logStream(logFile);
+
+	vector<Demand*> demandHistory;
+	demandHistory.push_back(pScen->pWeekDemand());
+	DemandGenerator generator(nbDemands,demandHistory,pScen);
+	vector<Demand*> randomDemands = generator.generatePerturbedDemands();
+
+	while (!randomDemands.empty()) {
+		logStream << randomDemands.back()->toString(true) << std::endl;
+		if (randomDemands.back()) delete randomDemands.back();
+		randomDemands.pop_back();
+	}
 }

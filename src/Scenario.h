@@ -170,6 +170,7 @@ public:
 	vector<State>* pInitialState() {return &initialState_;}
 	int nbPositions() {return nbPositions_;}
 	vector<Position*> pPositions() {return pPositions_;}
+	Position* pPosition(int p) {return pPositions_[p];}
 
 	// getters for the attributes of the nurses
 	//

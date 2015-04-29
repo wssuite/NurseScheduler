@@ -519,11 +519,10 @@ void ReadWrite::writeCustom(string stdCustomOutputFile, string strWeekFile, stri
 * This is done to find some invariant properties among demands
 *************************************************************************/
 
-void ReadWrite::compareDemands(std::string inputDir) {
+void ReadWrite::compareDemands(string inputDir, string logFile) {
 
 	struct dirent *dirp;
 	struct stat filestat;
-	string logFile = "outfiles/comparedemands.log";
 	Tools::LogOutput logStream(logFile,8);
 
 	vector2D minPerShift, optPerShift, minPerSkill,optPerSkill;
