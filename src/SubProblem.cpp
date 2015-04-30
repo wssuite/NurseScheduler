@@ -519,11 +519,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "... done!" << endl;
 	}
 	//printAllRotations();
-<<<<<<< HEAD
 //	std::cout << "# -> " << nFound << std::endl;
-=======
-	std::cout << "# " << nFound << " rotations generated" <<  std::endl;
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 	return (nFound > 0);
 }
 

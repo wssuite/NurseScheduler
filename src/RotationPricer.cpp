@@ -85,17 +85,21 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 	   /* Solve options */
 	   vector<SolveOption> options;
 	   //options.push_back(SOLVE_VERY_SHORT_ONLY);
-	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
 	   options.push_back(SOLVE_NEGATIVE_ALLVALUES);
 
 //	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
 
 	   /* Solve subproblems */
-	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 10) )
-		   optimal = false;
+      optimal = false;
+      //if not before fathom, generate just not penalized rotations
+	   if(!before_fathom){
+	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 10);//pNurse->maxConsDaysWork());
+	   }
+	   //otherwise, generate all rotations of negative cost
 	   else
-		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 12);
 
 //	   cout << "#  SP " << pNurse->name_ << " solved" << endl;
 
@@ -114,6 +118,8 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		/* add them to the master problem */
 		int nbRotationsAdded = 0;
 		for(Rotation& rot: rotations){
+		   if(rot.dualCost_ > bound + EPSILON)
+		      continue;
 			master_->addRotation(rot, baseName);
 			++nbRotationsAdded;
 			if(nbRotationsAdded > nbMaxRotationsToAdd_)
@@ -293,7 +299,9 @@ void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandida
       sort(candidates.begin(), candidates.end(), compareColumnCloseTo5);
    }
 
-   for(int i=nbBranchingCandidates_-1; i>=0; --i)
+   int maxCandidates = candidates.size();
+   maxCandidates = (nbBranchingCandidates_-1 < maxCandidates) ? nbBranchingCandidates_-1 : maxCandidates;
+   for(int i=0; i<maxCandidates; ++i)
       branchingCandidates.push_back(candidates[i].first);
 }
 

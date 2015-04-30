@@ -390,6 +390,8 @@ protected:
    bool dive_;
    //=true if some columns have been generated since the last optimization
    bool genColHasBeenRun_;
+   //count the nodes
+   int current_node, nb_nodes;
 
    //vars = are just the giver vars
    //cols is the vector where the new columns will be stored

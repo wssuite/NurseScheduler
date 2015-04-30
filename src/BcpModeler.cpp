@@ -19,7 +19,8 @@
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
 pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()),
 lpIteration_(0), lastDiveIteration_(-1), cbcEveryXLpIteration_(100),
-alreadyDuplicated_(false), dive_(false), genColHasBeenRun_(false)
+alreadyDuplicated_(false), dive_(false), genColHasBeenRun_(false),
+current_node(0), nb_nodes(0)
 { }
 
 //Initialize the lp parameters and the OsiSolver
@@ -134,6 +135,10 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 //Default: empty method.
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
+   if(current_node != current_index()){
+      current_node = current_index();
+      --nb_nodes;
+   }
 }
 
 //This method provides an opportunity for the user to tighten the bounds of variables.
@@ -202,7 +207,7 @@ void BcpLpModel::restore_feasibility(const BCP_lp_result& lpres,
    BCP_vec<BCP_var*>& vars_to_add,
    BCP_vec<BCP_col*>& cols_to_add){
    //dive is finished
-   dive_ = false;
+   //dive_ = false;
 }
 
 //Convert a set of variables into corresponding columns for the current LP relaxation.
@@ -295,8 +300,10 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
       }
 
       /* Print the values */
-      printf("BCP: %8d | %10.0f %10.2f | %10.2f %5d / %4d | %10.2f %5d %5d  \n",
-         lpIteration_, pModel_->getBestUB(), pModel_->getBestLb(), lpres.objval(), frac, non_zero,
+      printf("BCP: %5d / %5d %5d | %10.0f %10.2f | %8d %10.2f %5d / %4d %10d| %10.2f %5d %5d  \n",
+         current_node, nb_nodes, current_level(),
+         pModel_->getBestUB(), pModel_->getBestLb(),
+         lpIteration_, lpres.objval(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
          pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
    }
 }
@@ -385,9 +392,11 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
    else
       BCP_lp_user::set_actions_for_children(best);
 
+   nb_nodes += best->action().size();
+
    if(pModel_->getVerbosity() > 0)
-         printf("BCP: %8s | %10s %10s | %10s %12s | %10s %5s %5s \n",
-            "#It", "BestUB", "BestLB", "Obj", "#Frac", "ObjSP", "#SP", "#Col");
+         printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+            "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
 }
 
 void BcpLpModel::appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands){
@@ -417,8 +426,11 @@ void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, const BCP_vec<
    //then for the second child: old and new bounds for all the variables in vpos
    //....
 
-   int child = 0;
+   int child = columns.size();
    for (MyObject* var: columns) {
+      //put the first column (the best) in the last position
+      //because BCP dives on the last children
+      --child;
       BcpColumn* col = dynamic_cast<BcpColumn*>(var);
       if(!col)
          Tools::throwError("The variable fixed is not a column.");
@@ -443,7 +455,6 @@ void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, const BCP_vec<
          //if i==child, the new bound==1, otherwise 0
          vbd.push_back( (i==child) ? 1: 0 );
       }
-      ++child;
    }
 
    cands.push_back(new  BCP_lp_branching_object(nbChildren, 0, 0, /* vars/cuts_to_add */
@@ -523,8 +534,8 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
    }
 
    if(pModel_->getVerbosity() > 0)
-      printf("BCP: %8s | %10s %10s | %10s %12s | %10s %5s %5s \n",
-         "#It", "BestUB", "BestLB", "Obj", "#Frac", "ObjSP", "#SP", "#Col");
+      printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+         "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
 }
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
@@ -664,8 +675,6 @@ int BcpModeler::setVerbosity(int v){
    verbosity_ = v;
 
    if(v>=1){
-      TmVerb_SingleLineInfoFrequency = 1;
-
       tm_parameters[BCP_tm_par::VerbosityShutUp] = 1;
       tm_parameters[BCP_tm_par::TmVerb_First] = 1;
       tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolutionValue] = 1;
@@ -686,8 +695,6 @@ int BcpModeler::setVerbosity(int v){
    }
 
    if(v>=3){
-      TmVerb_SingleLineInfoFrequency = 1;
-
       tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolutionValue] = 1;
       tm_parameters[BCP_tm_par::TmVerb_PrunedNodeInfo] = 1;
 
@@ -699,8 +706,6 @@ int BcpModeler::setVerbosity(int v){
    }
 
    if(v>=4){
-      TmVerb_SingleLineInfoFrequency = 1;
-
       tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolution] = 1;
       tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolution] = 1;
       tm_parameters[BCP_tm_par::TmVerb_TimeOfImprovingSolution] = 1;

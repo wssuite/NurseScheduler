@@ -106,7 +106,7 @@ protected:
 class Modeler {
 public:
 
-   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(DBL_MAX), max_solving_time(DBL_MAX) { }
+   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(1000000), max_solving_time(DBL_MAX) { }
 
    virtual ~Modeler(){
       for(MyObject* object: objects_)
