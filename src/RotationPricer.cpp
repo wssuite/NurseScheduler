@@ -84,12 +84,14 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
+<<<<<<< HEAD
 	   //options.push_back(SOLVE_VERY_SHORT_ONLY);
 	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+=======
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
-	   options.push_back(SOLVE_NEGATIVE_ALLVALUES);
-
-//	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
+	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   options.push_back(SOLVE_SHORT_ALL);
 
 	   /* Solve subproblems */
       optimal = false;
@@ -99,9 +101,13 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else
+<<<<<<< HEAD
 		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 12);
 
 //	   cout << "#  SP " << pNurse->name_ << " solved" << endl;
+=======
+		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
 	   /*
 	    * Rotations
@@ -125,8 +131,6 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 			if(nbRotationsAdded > nbMaxRotationsToAdd_)
 			   break;
 		}
-
-//		cout << "#  SP " << pNurse->name_ << " added columns" << endl;
 
       //count if the subproblem has generated some rotations and then store the nurse
       if(rotations.size() > 0){

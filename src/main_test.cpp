@@ -11,6 +11,7 @@
 #include "DemandGenerator.h"
 #include "Greedy.h"
 #include "MasterProblem.h"
+#include "StochasticSolver.h"
 #include "SubProblem.h"
 #include "CbcModeler.h"
 #include "MyTools.h"
@@ -19,7 +20,11 @@
 void main_test()
 {
 	testFunction_Antoine();
+<<<<<<< HEAD
 //	testFunction_Jeremy();
+=======
+	//testFunction_Jeremy();
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 	//testFunction_Samuel();
 }
 
@@ -198,9 +203,15 @@ void testFunction_Samuel(){
       string outFile = "outfiles/test.out";
       Tools::LogOutput outStream(outFile);
 
+<<<<<<< HEAD
       string data = "datasets/";// testdatasets datasets
       const char* inst = "n030w4";// n100w4 n030w4 n005w4
+=======
+	   string data = "datasets/";// testdatasets datasets
+	   const char* inst = "n030w4";// n100w4 n030w4 n005w4 n012w8
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
+<<<<<<< HEAD
       string scenarPath = data + inst + "/Sc-" + inst + ".txt";
       //n005w4: {1, 2, 3, 3}
       //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
@@ -211,6 +222,18 @@ void testFunction_Samuel(){
          weekPaths[i] = path;
       }
       string firstHistoryPath = data + inst + "/H0-" + inst + "-0.txt";
+=======
+	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
+	   //n005w4: {1, 2, 3, 3}
+	   //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+	   vector<int> numberWeek = {1, 2, 3, 3};
+	   vector<string> weekPaths(numberWeek.size());
+	   for(int i=0; i<numberWeek.size(); ++i){
+	      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
+	      weekPaths[i] = path;
+	   }
+	   string firstHistoryPath = data + inst + "/H0-" + inst + "-0.txt";
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
       // Read the input data from files
       Scenario* pScen = ReadWrite::readScenario(scenarPath);
