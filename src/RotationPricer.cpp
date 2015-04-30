@@ -46,7 +46,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
    //computed new rotations
    vector<Rotation> rotations;
 
-   //std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
+//   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
 
    //count and store the nurses for whom their subproblem has generated rotations.
    int nbSubProblemSolved = 0, nbIteration = 0;
@@ -85,17 +85,17 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 	   /* Solve options */
 	   vector<SolveOption> options;
 	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   options.push_back(SOLVE_SHORT_ALL);
 
 	   /* Solve subproblems */
       optimal = false;
       //if not before fathom, generate just not penalized rotations
 	   if(!before_fathom){
-	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 10);//pNurse->maxConsDaysWork());
+	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 500, 1000000.);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else{
-	      options.push_back(SOLVE_SHORT_ALL);
-         subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 12);
+		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, 1000000.);
 	   }
 
 	   /*
@@ -113,13 +113,13 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		/* add them to the master problem */
 		int nbRotationsAdded = 0;
 		for(Rotation& rot: rotations){
-		   if(rot.dualCost_ > bound + EPSILON)
-		      continue;
+			cout << rot.dualCost_ << " ";
 			master_->addRotation(rot, baseName);
 			++nbRotationsAdded;
 			if(nbRotationsAdded > nbMaxRotationsToAdd_)
 			   break;
 		}
+		cout << endl;
 
       //count if the subproblem has generated some rotations and then store the nurse
       if(rotations.size() > 0){
@@ -277,9 +277,9 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
    //search all candidates
-   vector<pair<MyObject*, double>> candidates;
+   vector<pair<MyObject*, double> > candidates;
    for(int i=0; i<master_->getRotations().size(); ++i)
-      for(pair<MyObject*, Rotation> var: master_->getRotations()[i])
+      for(pair<MyObject*, Rotation> var: (master_->getRotations())[i])
          //if var is fractional and the rotation is a real rotation (length > 0)
          if(var.second.length_>0 && !pModel_->isInteger(var.first) )
             candidates.push_back(pair<MyObject*, double>(var.first, pModel_->getVarValue(var.first)));
@@ -298,13 +298,13 @@ void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandida
       branchingCandidates.push_back(candidates[i].first);
 }
 
-bool DiveBranchingRule::compareColumnCloseToInt(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2){
+bool DiveBranchingRule::compareColumnCloseToInt(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2){
    double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
    double closeToInt1 = 1-frac1, closeToInt2 = 1-frac2;
    return (closeToInt1 < closeToInt2);
 }
 
-bool DiveBranchingRule::compareColumnCloseTo5(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2){
+bool DiveBranchingRule::compareColumnCloseTo5(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2){
    double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
    double closeTo5_1 = abs(0.5-frac1), closeTo5_2 = abs(0.5-frac2);
    return (closeTo5_1 < closeTo5_2);

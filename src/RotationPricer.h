@@ -78,9 +78,9 @@ public:
    void logical_fixing(vector<MyObject*>& fixingCandidates);
 
    /* compare columns */
-   static bool compareColumnCloseToInt(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2);
+   static bool compareColumnCloseToInt(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2);
 
-   static bool compareColumnCloseTo5(pair<MyObject*, double>& obj1, pair<MyObject*, double>& obj2);
+   static bool compareColumnCloseTo5(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2);
 
 protected:
    //Pointer to the master problem to link the master and the sub problems
