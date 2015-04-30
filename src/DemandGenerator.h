@@ -41,13 +41,13 @@ public:
 
 public:
 	// basic getters
-	vector<Demand*>	demandScenarios() {return demands_;}
+	int nbDemands() {return nbDemands_;}
 
 	// check the feasibility of a demand scenario
 	bool checkDemandFeasibility(Demand* pDemand);
 
 	// generate nbScenarios_ through perturbations of the demand history
-	void generatePerturbedDemand();
+	vector<Demand*> generatePerturbedDemands();
 
 protected:
 	// number of demand scenarios that should be generated
@@ -59,9 +59,6 @@ protected:
 	// nurse rostering scenario under study
 	// this attribute is necessary to check the feasibility of the generated demands
 	Scenario* pScenario_;
-
-	// generated demand
-	vector<Demand*> demands_;
 };
 
  #endif

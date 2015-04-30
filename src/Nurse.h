@@ -366,6 +366,7 @@ public:
    // Avanced getters
    //
    bool hasSkill(int skill) const;
+   string contractName() {return pContract_->name_;}
 
    // Display methods: toString
    //

@@ -21,11 +21,14 @@ void testFunction_Jeremy();
 void testFunction_Samuel();
 
 //Initialize the week scenario by reading the input files
-Scenario* initializeScenario(string scenFile, string demandFile, string historyFile);
+Scenario* initializeScenario(string scenFile, string demandFile, string historyFile, string logFile="");
 
 // Test the cbc modeler
 void testCbc(Scenario* pScen, Demand* pDemand, Preferences* pPref,
   std::vector<State>* pStateIni, std::vector<Roster>& solIni);
+
+// Test the random demand generator
+void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen);
 
 // Print the main characteristics of all the demands of an input directory
 // This is done to find some invariant properties among demands

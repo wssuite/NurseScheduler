@@ -628,8 +628,8 @@ bool Greedy::constructiveGreedy() {
         int nbAssigned = 0;
         assignBestNursesToTask(day, sh, sk, demand, pNursesUnassigned, nbAssigned, true);
         if (nbAssigned <= 0) {
-          std::cerr << "Day " << day << " shift " << pScenario_->intToShift_[sh];
-          std::cerr <<" skill " << pScenario_->intToSkill_[sk] << std::endl;
+          std::cerr << "Day " << day << " ; shift " << pScenario_->intToShift_[sh];
+          std::cerr <<" ; skill " << pScenario_->intToSkill_[sk];
           std::cerr << ": the demand cannot be covered.\n";
           return false;
         }
@@ -785,8 +785,10 @@ bool Greedy::constructiveGreedy() {
 
   }
 
-  for(LiveNurse* pNurse: theLiveNurses_)
+  for(LiveNurse* pNurse: theLiveNurses_) {
      solution_.push_back(pNurse->roster_);
+   }
+   return true;
 }
 
 
@@ -851,20 +853,18 @@ void Greedy::initializeConstructive() {
   // the result of the preprocessing will be very useful to sort the attributes
   // before greedily covering the demand
   //
-  if (!pDemand_->isPreprocessed_) {
-    pDemand_->preprocessDemand();
-  }
-  this->preprocessTheNurses();
-  this->preprocessTheSkills();
+  if (!pDemand_->isPreprocessed_) pDemand_->preprocessDemand();
+  if (!isPreprocessedSkills_) this->preprocessTheSkills();
+  if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
   // sort the skills
-  SkillSorter compareSkills(skillRarity_);
-  std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
-
-  // sort the shifts (except the shift 0 which must always be rest)
-  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
-  std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
-
-  // sort the nurses
-  sortShuffleTheNurses();
+  // SkillSorter compareSkills(skillRarity_);
+  // std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
+  //
+  // // sort the shifts (except the shift 0 which must always be rest)
+  // ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
+  // std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
+  //
+  // // sort the nurses
+  // sortShuffleTheNurses();
 }
