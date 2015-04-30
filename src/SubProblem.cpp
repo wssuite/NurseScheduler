@@ -137,6 +137,9 @@ void SubProblem::init(vector<State>* pInitState){
 		for(int s=0; s<pScenario_->nbShifts_; s++) v.push_back(0);
 		preferencesCosts_.push_back(v);
 	}
+
+	nLongFound_=0;
+	nVeryShortFound_=0;
 }
 
 // Initializes the short successions. Should only be used ONCE (when creating the SubProblem).
@@ -294,15 +297,8 @@ double SubProblem::consDaysCost(int n){
 //--------------------------------------------
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
-bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts, bool optimality, int maxRotationLength){
-
-
-	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " " << endl;
-
-
-	//std::cout << "[completeWeekends=";
-	//if(pContract_->needCompleteWeekends_ == 1) std::cout << "YES"; else std::cout << "NO";
-	//std::cout << "]" << std::endl;
+bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts,
+		bool optimality, int maxRotationLength, double redCostBound){
 
 	// Set to true if you want to display contract + preferences (for debug)
 	if(false){
@@ -321,70 +317,31 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		std::cout << "# " << std::endl;
 	}
 
-	// Get the parameters informations
-	//
-	setSolveOptions(options);
 
-	// Maximum rotation length
-	//
-	maxRotationLength_ = min(nDays_, maxRotationLength);
+	setSolveOptions(options);															// Get the parameters informations
+	maxRotationLength_ = min(nDays_, maxRotationLength);								// Maximum rotation length
+	maxReducedCostBound_ = redCostBound - EPSILON;										// Cost bound
+	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();					// Reset authorizations if needed
+	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();							// Delete all previous solutions if needed
+	pLiveNurse_ = nurse;																// Reset the nurse
+	pCosts_ = costs;																	// Reset the costs
+	set<pair<int,int> > forbiddenDayShiftsUsed = forbiddenDayShifts;					// Forbidden shifts
+	if(isOptionActive(SOLVE_FORBIDDEN_RANDOM))
+		forbiddenDayShiftsUsed = randomForbiddenShifts(25);								// If needed, Generate random forbidden
+	initStructuresForSolve(nurse, costs, forbiddenDayShiftsUsed, maxRotationLength);	// Initialize structures
+	if(isOptionActive(SOLVE_COST_RANDOM)) generateRandomCosts(-50,50);					// If needed, generate other costs
+	forbid(forbiddenDayShifts);															// Forbid arcs
+	updateArcCosts();																	// Update costs
 
-	// Reset authorizations if needed
-	//
-	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();
-
-	// Delete all previous solutions if needed
-	//
-	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();
-
-	// Basic data (nurse, reduced costs, maximum rotation length)
-	//
-	pLiveNurse_ = nurse;
-	pCosts_ = costs;
-
-
-	// If needed, generate other forbidden day-shift list
-	//
-	set<pair<int,int> > forbiddenDayShiftsUsed = forbiddenDayShifts;
-	if(isOptionActive(SOLVE_FORBIDDEN_RANDOM)) forbiddenDayShiftsUsed = randomForbiddenShifts(25);
-
-	// Initialize structures
-	//
-	initStructuresForSolve(nurse, costs, forbiddenDayShiftsUsed, maxRotationLength);
-
-	// If needed, generate other costs
-	if(isOptionActive(SOLVE_COST_RANDOM)) generateRandomCosts(0, 0);
-
-	// Forbid new arcs, and update the costs
-	//
-	forbid(forbiddenDayShifts);
-	updateArcCosts();
-
-
-	//printGraph();
-	//std::cout << printSummaryOfGraph() << endl;
-	//getchar();
 
 	// SOLUTION OF THE PROBLEM -> DEPENDS ON THE CHOSEN OPTION
-
+	bool ANS = false;
 	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
-
-
-	for(int a=0; a<nArcs_; a++){
-		int o = arcOrigin(a);
-		int d = arcDestination(a);
-		if(nodeType(o) == PRINCIPAL_NETWORK
-				and nodeType(d) == PRINCIPAL_NETWORK
-				and principalToDay_[o] < principalToDay_[d]-1){
-			printArc(nArcs_-1);
-			getchar();
-		}
-
-	}
+	nLongFound_=0;
+	nVeryShortFound_=0;
 
 	// "Original way of doing" = pareto optimal for the whole month
-	//
 	if(isOptionActive(SOLVE_SINGLE_SINKNODE)){
 		r_c_shortest_paths(
 				g_,
@@ -399,12 +356,9 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
-		// Return TRUE if a rotation was added.
-		return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
+		ANS = ANS or addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 	}
-
 	// Gather all the pareto-fronts that correspond to the different last worked days
-	//
 	else if(isOptionActive(SOLVE_ONE_SINK_PER_LAST_DAY)){
 		std::vector<boost::graph_traits<Graph>::vertex_descriptor> allSinks;
 		for(int k=CDMin_-1; k<nDays_; k++){
@@ -423,21 +377,26 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
-		// Return TRUE if a rotation was added
-		return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
+		ANS = ANS or addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 	}
-
-	else if(isOptionActive(SOLVE_VERY_SHORT_ONLY)){
-		return priceVeryShortRotations();
-	}
-
-	// One per first is obsolete
-	//
 	else {
-		cout << "# INVALID / OBSOLETE OPTION" << endl;
+		cout << "# INVALID / OBSOLETE OPTION FOR NUMBER OF SINK(S) IN THE NETWORK" << endl;
 		getchar();
 		return false;
 	}
+
+	if(isOptionActive(SOLVE_SHORT_DAY_0_ONLY)) ANS = ANS or priceVeryShortRotationsFirstDay();
+	else if(isOptionActive(SOLVE_SHORT_ALL)) ANS = ANS or priceVeryShortRotations();
+	else if(isOptionActive(SOLVE_SHORT_NONE)) {}
+	else {
+		cout << "# INVALID / OBSOLETE OPTION FOR SHORT ROTATIONS" << endl;
+		getchar();
+		return false;
+	}
+
+	cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
+	return ANS;
+
 }
 
 // Store the options in a readable way
@@ -474,7 +433,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 	// For each path of the list, record the corresponding rotation (if negativeOnly=true, do it only if the dualCost < 0)
 	for(int p=0; p < paths.size(); ++p){
 
-		// 1. Check if it is validstd::cout << std::endl;
+		// 1. Check if it is valid
 		bool b_is_a_path_at_all = false;
 		bool b_feasible = false;
 		bool b_correctly_extended = false;
@@ -499,27 +458,19 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 				std::cout << "Not a feasible path." << std::endl;
 			if( !b_correctly_extended )
 				std::cout << "Not correctly extended." << std::endl;
-			//getchar();
+			getchar();
 		}
 
-
-		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "..." << endl;
-		//printPath(paths[p], resources[p]);
-		Rotation rot = rotationFromPath(paths[p], resources[p]);
-		//cout << "# Rotation created!" << endl;
-		if( isOptionActive(SOLVE_NEGATIVE_ALLVALUES)
-				or ( isOptionActive(SOLVE_NEGATIVE_ONLY) and (rot.dualCost_ < -EPSILON) ) ){
+		if(resources[p].cost < maxReducedCostBound_){
+			Rotation rot = rotationFromPath(paths[p], resources[p]);
 			theRotations_.push_back(rot);
 			nPaths_ ++;
+			nLongFound_++;
 			nFound ++;
-			//printPath(paths[p], resources[p]);
-			//printRotation(rot);
-			//if(rot.firstDay_ == 5) printPath(paths[p], resources[p]);
 		}
-		//cout << "# Adding rotation " << (p+1) << "/" << paths.size() << "... done!" << endl;
 	}
 	//printAllRotations();
-	std::cout << "# " << nFound << " rotations generated" <<  std::endl;
+//	std::cout << "# -> " << nFound << std::endl;
 	return (nFound > 0);
 }
 
@@ -528,7 +479,6 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 Rotation SubProblem::rotationFromPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource){
 
 	int firstDay = -1;
-	double dualCost = 0;
 	vector<int> shiftSuccession;
 
 	// All arcs are consecutively considered
@@ -542,7 +492,6 @@ Rotation SubProblem::rotationFromPath(vector< boost::graph_traits<Graph>::edge_d
 		// A. Arc from source (equivalent to short rotation
 		if(aType == SOURCE_TO_PRINCIPAL){
 			firstDay =  principalToDay_[destin] - CDMin_ + 1;
-			// TODO : *** Utiliser un swap à la place par exemple ***
 			for(int s: static_cast<vector <int> >( allowedShortSuccBySize_[CDMin_][ shortSuccCDMinIdFromArc_.at(a) ] )){
 				shiftSuccession.push_back(s);
 			}
@@ -552,13 +501,10 @@ Rotation SubProblem::rotationFromPath(vector< boost::graph_traits<Graph>::edge_d
 		else if(aType == SHIFT_TO_NEWSHIFT or aType == SHIFT_TO_SAMESHIFT or aType == REPEATSHIFT){
 			shiftSuccession.push_back( principalToShift_[destin] );
 		}
-
-		dualCost += arcCost(a);
 	}
 
-	Rotation rot (firstDay, shiftSuccession, pLiveNurse_);
+	Rotation rot (firstDay, shiftSuccession, pLiveNurse_, MAX_COST, resource.cost);
 	//rot.computeCost(pScenario_, pLiveNurse_->pWishesOff_, nDays_);
-	rot.dualCost_ = dualCost;
 	return rot;
 }
 
@@ -1034,7 +980,12 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 		int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
 
 		int firstShift = succ[0];
-		int nConsFirstShift = 0; int ii=0; while(succ[ii]==firstShift){nConsFirstShift ++; ii++;}
+		int nConsFirstShift = 0;
+		int ii=0;
+		while(ii<succ.size() and succ[ii]==firstShift){
+			nConsFirstShift ++;
+			ii++;
+		}
 
 
 		// 1. The nurse was resting: pay more only if the rest is too short
@@ -1378,23 +1329,40 @@ int SubProblem::mapAntecedent(map<int,int> m, int val){
 //----------------------------------------------------------------
 
 // Brutally try all possible short rotations from every first day
+bool SubProblem::priceVeryShortRotationsFirstDay(){
+	int nFound = 0;
+	for(int c=1; c<CDMin_; c++){
+		for(vector<int> succ : allowedShortSuccBySize_[c]){
+			double redCost = costOfVeryShortRotation(0,succ);
+			if(redCost < maxReducedCostBound_){
+				Rotation rot (0, succ, pLiveNurse_, MAX_COST, redCost);
+				theRotations_.push_back(rot);
+				nPaths_ ++;
+				nVeryShortFound_++;
+				nFound ++;
+			}
+		}
+	}
+	return nFound > 0;
+}
+
+// Brutally try all possible short rotations from every first day
 bool SubProblem::priceVeryShortRotations(){
 	int nFound = 0;
 	for(int c=1; c<CDMin_; c++){
 		for(vector<int> succ : allowedShortSuccBySize_[c]){
 			for(int k=0; k<nDays_ - CDMin_; k++){
 				double redCost = costOfVeryShortRotation(k,succ);
-				if(isOptionActive(SOLVE_NEGATIVE_ALLVALUES)
-						or ( isOptionActive(SOLVE_NEGATIVE_ONLY) and redCost < 0 ) ){
+				if(redCost < maxReducedCostBound_){
 					Rotation rot (k, succ, pLiveNurse_, MAX_COST, redCost);
 					theRotations_.push_back(rot);
 					nPaths_ ++;
+					nVeryShortFound_++;
 					nFound ++;
 				}
 			}
 		}
 	}
-	cout << "# " << nFound << " SHORT rotations found" << endl;
 	return nFound > 0;
 }
 
@@ -1413,14 +1381,14 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 	//
 	if(startDate==0){
 		// The nurse was working
-		if(pLiveNurse_->pStateIni_->shift_ >0){
+		if(pLiveNurse_->pStateIni_->shift_ > 0){
 			// Change initial values
 			shift = pLiveNurse_->pStateIni_->shift_;
 			consShifts = pLiveNurse_->pStateIni_->consShifts_;
 			consDays += pLiveNurse_->pStateIni_->consDaysWorked_;
 			// If worked too much, subtract the already counted surplus
-			consDaysRegCost -= max(0, consDays - pContract_->maxConsDaysWork_) * WEIGHT_CONS_DAYS_WORK;
-			consShiftsRegCost -= max(0, consShifts - pScenario_->maxConsShifts_[shift]) * WEIGHT_CONS_SHIFTS;
+			consDaysRegCost -= max(0, pLiveNurse_->pStateIni_->consDaysWorked_ - pContract_->maxConsDaysWork_) * WEIGHT_CONS_DAYS_WORK;
+			consShiftsRegCost -= max(0, pLiveNurse_->pStateIni_->consShifts_ - pScenario_->maxConsShifts_[shift]) * WEIGHT_CONS_SHIFTS;
 		}
 		// The nurse was resting
 		else {
@@ -1487,6 +1455,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 		cout << "# " << startDate << "-";
 		for(int i=0; i<succ.size(); i++) cout << pScenario_->intToShift_[succ[i]].at(0);
 		cout << endl;
+		cout << "# length " << consDays << endl;
 
 		cout << "# REG- Consecutive days cost   : " << consDaysRegCost << endl;
 		cout << "# REG- Consecutive shifts cost : " << consShiftsRegCost << endl;

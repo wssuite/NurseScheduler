@@ -53,24 +53,17 @@ enum SolveOption{
 	//
 	SOLVE_SOLUTIONS_RESET,			// DEFAULT: Delete all previously determined solutions before solving
 	SOLVE_SOLUTIONS_KEEP,			//          Keep the previously determined solutions. WARNING: some may appear twice
-									//			TODO : Do we want to keep it that way (several appearance of the same solution)
-
-	// Long XOR short rotations
-	SOLVE_ROTATIONS_LONG,			// DEFAULT: Solve for long rotations
-	SOLVE_ROTATIONS_SHORT,			//          Only look at the short rotations
-									//          TODO : Do we want to add a mode for short AND long ?
 
 	// One or several sink nodes
 	//
 	SOLVE_SINGLE_SINKNODE,			// DEFAULT: Look for the Pareto-front of all paths within the time horizon
 	SOLVE_ONE_SINK_PER_LAST_DAY,	//          Look for the Pareto-front for each end day
-	SOLVE_ONE_SINK_PER_FIRST_DAY,	//          Look for the Pareto-front for each first day
-	SOLVE_VERY_SHORT_ONLY,				//          Only price the short rotations
 
-	// Negativity of the rotations
+	// Very short rotations options
 	//
-	SOLVE_NEGATIVE_ONLY,			// DEFAULT: Keep only rotations of negative reduced cost (potentially 0 rotations)
-	SOLVE_NEGATIVE_ALLVALUES,		//          Also keep rotations of positive reduced cost (if they belong to pareto-front)
+	SOLVE_SHORT_DAY_0_ONLY,			// DEFAULT: Only consider the short rotations that start on the first day
+	SOLVE_SHORT_ALL,				//          Price all very short rotations
+	SOLVE_SHORT_NONE,				//          Do not consider any very short rotation at all
 
 	// Forbidden list options
 	//
@@ -86,21 +79,18 @@ enum SolveOption{
 
 static const vector<vector<SolveOption> > incompatibilityClusters = {
 		{SOLVE_SOLUTIONS_RESET, SOLVE_SOLUTIONS_KEEP},
-		{SOLVE_ROTATIONS_LONG, SOLVE_ROTATIONS_SHORT},
-		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY, SOLVE_ONE_SINK_PER_FIRST_DAY, SOLVE_VERY_SHORT_ONLY},
-		{SOLVE_NEGATIVE_ONLY, SOLVE_NEGATIVE_ALLVALUES},
+		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY},
+		{SOLVE_SHORT_DAY_0_ONLY, SOLVE_SHORT_ALL, SOLVE_SHORT_NONE},
 		{SOLVE_FORBIDDEN_RESET, SOLVE_FORBIDDEN_KEEP, SOLVE_FORBIDDEN_RANDOM},
 		{SOLVE_COST_GIVEN, SOLVE_COST_RANDOM}
 };
 
 static const vector<string> solveOptionName = {
 		"Delete previous solutions", "Keep Previous solutions and add new ones",
-		"Long rotations only", "Short rotations only",
-		"Single sinknode", "One sinknode per last day", "One sinknode per first day", "Very short rotations only",
-		"Negative reduced costs only", "Negative and nonnegative reduced costs",
+		"Single sink node", "One sink node per last day",
+		"Only price very short rotations that start on day 0", "Price all very short rotations", "Price NO very short rotation",
 		"Reset all forbidden before solve", "Keep all forbidden before solve", "Generate random forbidden day-shift",
 		"Solve for given reduced costs", "Generate random reduced costs"
-
 };
 
 
@@ -429,7 +419,8 @@ public:
 
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
-	bool solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST, bool optimality = false, int maxRotationLength=MAX_TIME);
+	bool solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST,
+			bool optimality = false, int maxRotationLength=MAX_TIME, double redCostBound = 0);
 
 	// Returns all rotations saved during the process of solving the SPPRC
 	//
@@ -486,6 +477,10 @@ protected:
 	//
 	int maxRotationLength_;
 
+	// Bound on the reduced cost: if greater than this, the rotation is not added
+	//
+	double maxReducedCostBound_;
+
 	// Vector that contains a boolean for each shift. TRUE if the maximum consecutive number of these shifts is higher than the maximal rotation length (or number of days); false otherwise
 	//
 	vector<bool> isUnlimited_;
@@ -508,6 +503,11 @@ protected:
 	// Number of paths found
 	//
 	int nPaths_;
+
+	// Number of rotations found (that match the bound condition) at that iteration
+	//
+	int nLongFound_;
+	int nVeryShortFound_;
 
 
 
@@ -683,6 +683,7 @@ protected:
 	// Cost computation of the "very" short rotations (< CD_min)
 	//
 	//----------------------------------------------------------------
+	bool priceVeryShortRotationsFirstDay();
 	bool priceVeryShortRotations();
 	double costOfVeryShortRotation(int firstDay, vector<int> succ);
 
@@ -707,6 +708,8 @@ protected:
 	bool addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor > > paths, vector<spp_spptw_res_cont> resources);
 	// Returns the rotation made from the given path
 	Rotation rotationFromPath(vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_spptw_res_cont resource);
+	// Adds a single rotation to the list of solutions
+	void addSingleRotationToListOfSolution();
 
 	// DATA -- COSTS
 	//

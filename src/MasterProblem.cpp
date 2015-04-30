@@ -213,7 +213,7 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
     	  }
     	  cout << "# " << endl;
     	  cout << "# " << endl;
-    	  getchar();
+//    	  getchar();
       }
 }
 
@@ -256,11 +256,11 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 
    columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
    minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
-   optDemandVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
+   optDemandVars_(pDemand_->nbDays_),numberOfNursesByPositionVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
 
    restFlowCons_(pScenario->nbNurses_), workFlowCons_(pScenario->nbNurses_),
    minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
-   minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
+   minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_),numberOfNursesByPositionCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
 {
    switch(solverType){
    case S_SCIP:
@@ -338,6 +338,7 @@ void MasterProblem::solve(){
   // RqJO: warning, it would be better to define an enumerate type of verbosity
   // levels and create the matching in the Modeler subclasses
   if (solverType_ != S_CBC ) {
+    pModel_->setMaxSolvingtime(1200);
     pModel_->setVerbosity(1);
   }
    pModel_->solve();
@@ -454,7 +455,7 @@ void MasterProblem::storeSolution(){
 
 //build the variable of the rotation as well as all the affected constraints with their coefficients
 //if s=-1, the nurse i works on all shifts
-void MasterProblem::addRotation(Rotation rotation, char* baseName){
+void MasterProblem::addRotation(Rotation& rotation, char* baseName){
 	//nurse index
 	int i = rotation.pNurse_->id_;
 
@@ -780,18 +781,22 @@ void MasterProblem::buildSkillsCoverageCons(){
    for(int k=0; k<pDemand_->nbDays_; k++){
       //initialize vectors
       vector< vector<MyObject*> > optDemandVars1(pScenario_->nbShifts_-1);
+      vector< vector<MyObject*> > numberOfNursesByPositionVars1(pScenario_->nbShifts_-1);
       vector< vector< vector<MyObject*> > > skillsAllocVars1(pScenario_->nbShifts_-1);
       vector< vector<MyObject*> > minDemandCons1(pScenario_->nbShifts_-1);
       vector< vector<MyObject*> > optDemandCons1(pScenario_->nbShifts_-1);
+      vector< vector<MyObject*> > numberOfNursesByPositionCons1(pScenario_->nbShifts_-1);
       vector< vector<MyObject*> > feasibleSkillsAllocCons1(pScenario_->nbShifts_-1);
 
       //forget s=0, it's a resting shift
       for(int s=1; s<pScenario_->nbShifts_; s++){
          //initialize vectors
          vector<MyObject*> optDemandVars2(pScenario_->nbSkills_);
+         vector<MyObject*> numberOfNursesByPositionVars2(pScenario_->nbPositions());
          vector< vector<MyObject*> > skillsAllocVars2(pScenario_->nbSkills_);
          vector<MyObject*> minDemandCons2(pScenario_->nbSkills_);
          vector<MyObject*> optDemandCons2(pScenario_->nbSkills_);
+         vector<MyObject*> numberOfNursesByPositionCons2(pScenario_->nbPositions());
          vector<MyObject*> feasibleSkillsAllocCons2(pScenario_->nbPositions());
 
          for(int sk=0; sk<pScenario_->nbSkills_; sk++){
@@ -828,32 +833,50 @@ void MasterProblem::buildSkillsCoverageCons(){
          }
 
          for(int p=0; p<pScenario_->nbPositions(); p++){
+            //creating variables
+            sprintf(name, "nursesNumber_%d_%d_%d", k, s, p);
+            pModel_->createIntVar(&numberOfNursesByPositionVars2[p], name, 0);
+            //adding variables and building number of nurses constraints
+            vector<MyObject*> vars3;
+            vector<double> coeff3;
+            vars3.push_back(numberOfNursesByPositionVars2[p]);
+            coeff3.push_back(-1);
+            sprintf(name, "nursesNumberCons_%d_%d_%d", k, s, p);
+            pModel_->createEQConsLinear(&numberOfNursesByPositionCons2[p], name, 0,
+               vars3, coeff3);
+
             //adding variables and building skills allocation constraints
-            int const nonZeroVars3(skillsPerPosition_[p].size());
-            vector<MyObject*> vars3(nonZeroVars3);
-            vector<double> coeff3(nonZeroVars3);
-            for(int sk=0; sk<nonZeroVars3; ++sk){
-               vars3[sk] = skillsAllocVars2[skillsPerPosition_[p][sk]][p];
-               coeff3[sk] =-1;
+            int const nonZeroVars4(1+skillsPerPosition_[p].size());
+            vector<MyObject*> vars4(nonZeroVars4);
+            vector<double> coeff4(nonZeroVars4);
+            vars4[0] = numberOfNursesByPositionVars2[p];
+            coeff4[0] = 1;
+            for(int sk=1; sk<nonZeroVars4; ++sk){
+               vars4[sk] = skillsAllocVars2[skillsPerPosition_[p][sk-1]][p];
+               coeff4[sk] =-1;
             }
             sprintf(name, "feasibleSkillsAllocCons_%d_%d_%d", k, s, p);
             pModel_->createEQConsLinear(&feasibleSkillsAllocCons2[p], name, 0,
-               vars3, coeff3);
+               vars4, coeff4);
          }
 
          //store vectors
          optDemandVars1[s-1] = optDemandVars2;
+         numberOfNursesByPositionVars1 [s-1] = numberOfNursesByPositionVars2;
          skillsAllocVars1[s-1] = skillsAllocVars2;
          minDemandCons1[s-1] = minDemandCons2;
          optDemandCons1[s-1] = optDemandCons2;
+         numberOfNursesByPositionCons1 [s-1] = numberOfNursesByPositionCons2;
          feasibleSkillsAllocCons1[s-1] = feasibleSkillsAllocCons2;
       }
 
       //store vectors
       optDemandVars_[k] = optDemandVars1;
+      numberOfNursesByPositionVars_[k] = numberOfNursesByPositionVars1;
       skillsAllocVars_[k] = skillsAllocVars1;
       minDemandCons_[k] = minDemandCons1;
       optDemandCons_[k] = optDemandCons1;
+      numberOfNursesByPositionCons_[k] = numberOfNursesByPositionCons1;
       feasibleSkillsAllocCons_[k] = feasibleSkillsAllocCons1;
    }
 }
@@ -865,13 +888,13 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyObject*>* cons, vector<do
    if(s==-1){
       for(int s0=1; s0<pScenario_->nbShifts_; ++s0){
          ++nbCons;
-         cons->push_back(feasibleSkillsAllocCons_[k][s0-1][p]);
+         cons->push_back(numberOfNursesByPositionCons_[k][s0-1][p]);
          coeffs->push_back(1.0);
       }
    }
    else{
       ++nbCons;
-      cons->push_back(feasibleSkillsAllocCons_[k][s-1][p]);
+      cons->push_back(numberOfNursesByPositionCons_[k][s-1][p]);
       coeffs->push_back(1.0);
    }
 
