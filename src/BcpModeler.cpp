@@ -556,6 +556,7 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    for(int i=nbCoreVar; i<vars.size(); ++i){
       BcpColumn* col = (BcpColumn*) *it;
       BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
+      if(! var) Tools::throwError("Column from BCP bad cast");
       while(col->getIndex() != var->getIndex()){
          primalValues_.push_back(0);
          reducedCosts_.push_back(0);

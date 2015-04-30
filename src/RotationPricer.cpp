@@ -80,20 +80,15 @@ bool RotationPricer::pricing(double bound){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
-	   //options.push_back(SOLVE_VERY_SHORT_ONLY);
-	   //options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
 	   options.push_back(SOLVE_FORBIDDEN_RESET);
-	   options.push_back(SOLVE_NEGATIVE_ALLVALUES);
-
-//	   cout << "#  SP " << pNurse->name_ << " begins" << endl;
+	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+	   options.push_back(SOLVE_SHORT_ALL);
 
 	   /* Solve subproblems */
 	   if( subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 10) )
 		   optimal = false;
 	   else
 		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
-
-//	   cout << "#  SP " << pNurse->name_ << " solved" << endl;
 
 		/* Retrieve rotations */
 		rotations = subProblem->getRotations();
@@ -109,8 +104,6 @@ bool RotationPricer::pricing(double bound){
 			if(nbRotationsAdded > nbMaxRotationsToAdd_)
 			   break;
 		}
-
-//		cout << "#  SP " << pNurse->name_ << " added columns" << endl;
 
       //count if the subproblem has generated some rotations and then store the nurse
       if(rotations.size() > 0){
