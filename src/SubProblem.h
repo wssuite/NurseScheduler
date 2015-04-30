@@ -53,13 +53,11 @@ enum SolveOption{
 	//
 	SOLVE_SOLUTIONS_RESET,			// DEFAULT: Delete all previously determined solutions before solving
 	SOLVE_SOLUTIONS_KEEP,			//          Keep the previously determined solutions. WARNING: some may appear twice
-									//			TODO : Do we want to keep it that way (several appearance of the same solution)
 
 	// One or several sink nodes
 	//
 	SOLVE_SINGLE_SINKNODE,			// DEFAULT: Look for the Pareto-front of all paths within the time horizon
 	SOLVE_ONE_SINK_PER_LAST_DAY,	//          Look for the Pareto-front for each end day
-	SOLVE_ONE_SINK_PER_FIRST_DAY,	//          Look for the Pareto-front for each first day
 
 	// Very short rotations options
 	//
@@ -81,7 +79,7 @@ enum SolveOption{
 
 static const vector<vector<SolveOption> > incompatibilityClusters = {
 		{SOLVE_SOLUTIONS_RESET, SOLVE_SOLUTIONS_KEEP},
-		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY, SOLVE_ONE_SINK_PER_FIRST_DAY},
+		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY},
 		{SOLVE_SHORT_DAY_0_ONLY, SOLVE_SHORT_ALL, SOLVE_SHORT_NONE},
 		{SOLVE_FORBIDDEN_RESET, SOLVE_FORBIDDEN_KEEP, SOLVE_FORBIDDEN_RANDOM},
 		{SOLVE_COST_GIVEN, SOLVE_COST_RANDOM}
@@ -89,7 +87,7 @@ static const vector<vector<SolveOption> > incompatibilityClusters = {
 
 static const vector<string> solveOptionName = {
 		"Delete previous solutions", "Keep Previous solutions and add new ones",
-		"Single sink node", "One sink node per last day", "One sink node per first day",
+		"Single sink node", "One sink node per last day",
 		"Only price very short rotations that start on day 0", "Price all very short rotations", "Price NO very short rotation",
 		"Reset all forbidden before solve", "Keep all forbidden before solve", "Generate random forbidden day-shift",
 		"Solve for given reduced costs", "Generate random reduced costs"
@@ -422,7 +420,7 @@ public:
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
 	bool solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST,
-			bool optimality = false, int maxRotationLength=MAX_TIME, double redCostBound = -EPSILON);
+			bool optimality = false, int maxRotationLength=MAX_TIME, double redCostBound = 0);
 
 	// Returns all rotations saved during the process of solving the SPPRC
 	//

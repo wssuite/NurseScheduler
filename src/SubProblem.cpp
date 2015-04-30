@@ -300,10 +300,7 @@ double SubProblem::consDaysCost(int n){
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts,
 		bool optimality, int maxRotationLength, double redCostBound){
 
-
-	//std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " " << endl;
-	//std::cout << "# SP - " << nurse->name_ << endl;
-
+	std::cout << "# SP - " << nurse->name_ << endl;
 
 	// Set to true if you want to display contract + preferences (for debug)
 	if(false){
@@ -325,7 +322,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 
 	setSolveOptions(options);															// Get the parameters informations
 	maxRotationLength_ = min(nDays_, maxRotationLength);								// Maximum rotation length
-	maxReducedCostBound_ = redCostBound;												// Cost bound
+	maxReducedCostBound_ = redCostBound - EPSILON;										// Cost bound
 	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();					// Reset authorizations if needed
 	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();							// Delete all previous solutions if needed
 	pLiveNurse_ = nurse;																// Reset the nurse
@@ -399,7 +396,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		return false;
 	}
 
-	//cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
+	cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
 	return ANS;
 
 }
