@@ -603,7 +603,7 @@ protected:
 	// Nodes of the ROTATION_LENGTH subnetwork
 	vector<int> rotationLengthEntrance_;				// For each day, entrance node to the ROTATION_LENGTH subnetwork
 	vector<map<int,int> > rotationLengthNodes_;			// For each day, maps the length of the rotation to the corresponding check node
-	map<int,int> rotationLengthNodesEAT_;				// For each rotation length node, the corresponding EAT
+	map<int,int> rotationLengthNodesLAT_;				// For each rotation length node, the corresponding EAT
 	vector<int> sinkNodesByDay_;						// For each day, an intermediary sink node (to get the Pareto-front for each day)
 	// Sink Node
 	int sinkNode_;

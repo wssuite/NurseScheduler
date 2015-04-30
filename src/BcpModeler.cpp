@@ -159,6 +159,8 @@ void BcpLpModel::logical_fixing (const BCP_lp_result& lpres,
    BCP_vec<int>& changed_pos,
    BCP_vec<double>& new_bd){
 
+	return;
+
    //if not root and the column generation procedure has been run since last logical_fixing
    if(dive_ && genColHasBeenRun_){
       //add all good candidates
@@ -259,8 +261,8 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 {
    //if we are diving and no logical_fixing has been done during 2 generations
    //then go to logical_fixing
-   if(dive_ && genColHasBeenRun_)
-      return;
+   //if(dive_ && genColHasBeenRun_)
+   //   return;
 
    ++lpIteration_;
    genColHasBeenRun_ = true;
