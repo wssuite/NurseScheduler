@@ -218,8 +218,6 @@ void LiveNurse::checkConstraints(const Roster& roster,
     if (shift != prevShift && prevShift > 0)  {
       missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
       stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
-      if (missingShifts>0)
-        std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; missing= " << missingShifts << std::endl;
     }
 
     // count the penalty for maximum consecutive shifts when the shift is worked
@@ -227,30 +225,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
     if (shift > 0) {
       stat.costConsShifts_[day-1] +=
         (states[day].consShifts_>pScenario_->maxConsShifts_[shift]) ? WEIGHT_CONS_SHIFTS:0;
-
-        if (states[day].consShifts_>pScenario_->maxConsShifts_[shift])
-          std::cout << "Day = " << day-1 << " ; nurse = " << id_ << " ; One extra shift" << std::endl;
     }
-
-      // it only makes sense if the nurse was working last day
-      // int extraShifts = 0
-    //   if (prevShift > 0) {
-    //     missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
-    //     extraShifts =  states[day-1].consShifts_-pScenario_->maxConsShifts_[prevShift];
-
-    //     stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
-
-    //     if (extraShifts>0||missingShifts>0)
-    //     std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << " ; missing= " << missingShifts << std::endl;
-    //   }
-    // }
-
-    // if (shift > 0 && day == nbDays_) {
-    //    int extraShifts =  states[day].consShifts_-pScenario_->maxConsShifts_[shift];
-    //    stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
-    //    if (extraShifts>0)
-    //       std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << std::endl;
-    // }
 
     // check the preferences
     //
@@ -572,7 +547,7 @@ void Solver::preprocessTheSkills() {
     nbNursesWeighted.push_back(0.0);
     for (LiveNurse* pNurse : theLiveNurses_) {
       if (pNurse->hasSkill(sk)) {
-        nbNursesWeighted[sk]+=1.0/(double)pNurse->nbSkills_;
+        nbNursesWeighted[sk]+=pNurse->maxTotalShifts()/pow((double)pNurse->nbSkills_,2);
       }
     }
     // the skill rarity is the ratio of the the demand for the skill to the

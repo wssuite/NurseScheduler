@@ -275,6 +275,8 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 //
 //-----------------------------------------------------------------------------
 
+enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL};
+
 class Solver{
 
 public:
