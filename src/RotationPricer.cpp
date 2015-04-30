@@ -46,11 +46,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
    //computed new rotations
    vector<Rotation> rotations;
 
-<<<<<<< HEAD
    //std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
-=======
-//   std::cout << "# ------- BEGIN ------- Subproblems..." << std::endl;
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
    //count and store the nurses for whom their subproblem has generated rotations.
    int nbSubProblemSolved = 0, nbIteration = 0;
@@ -145,9 +141,6 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
    //Add the nurse in nursesSolved at the end
    nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
-<<<<<<< HEAD
-   //std::cout << "# -------  END  ------- Subproblems!" << std::endl;
-=======
    //set statistics
    BcpModeler* model = dynamic_cast<BcpModeler*>(pModel_);
    if(model){
@@ -156,7 +149,6 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
    }
 
 //   std::cout << "# -------  END  ------- Subproblems!" << std::endl;
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
    return optimal;
 }
