@@ -80,7 +80,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
       Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
       /* Compute forbidden */
-      computeForbiddenShifts(forbiddenShifts, rotations);
+      //computeForbiddenShifts(forbiddenShifts, rotations);
 
 	   /* Solve options */
 	   vector<SolveOption> options;
@@ -91,11 +91,11 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
       optimal = false;
       //if not before fathom, generate just not penalized rotations
 	   if(!before_fathom){
-	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 500, 1000000.);//pNurse->maxConsDaysWork());
+	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 500, 50);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else{
-		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, 1000000.);
+		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, 50);
 	   }
 
 	   /*
@@ -109,17 +109,19 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
          rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
          rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
       }
-		std::sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
+		std::stable_sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
 		/* add them to the master problem */
 		int nbRotationsAdded = 0;
+		double best;
 		for(Rotation& rot: rotations){
-			cout << rot.dualCost_ << " ";
+//			cout << rot.dualCost_ << " ";
 			master_->addRotation(rot, baseName);
 			++nbRotationsAdded;
 			if(nbRotationsAdded > nbMaxRotationsToAdd_)
 			   break;
 		}
-		cout << endl;
+//		cout << endl;
+
 
       //count if the subproblem has generated some rotations and then store the nurse
       if(rotations.size() > 0){

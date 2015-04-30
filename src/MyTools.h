@@ -34,7 +34,7 @@ using std::set;
 static const int DEBUG = 1;
 static const string REST_SHIFT = "None";
 static const int DECIMALS = 3; // precision when printing floats
-static const double EPSILON = .0001; // precision for the column generation
+static const double EPSILON = .00001; // precision for the column generation
 static const double BRANCH_LB = 0.8; //branch on a column, if column > branchLB
 static const int NB_SHIFT_UNLIMITED = 28;
 
