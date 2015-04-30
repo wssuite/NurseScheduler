@@ -282,32 +282,73 @@ void testFunction_Samuel(){
 * Initialize the week scenario by reading the input files
 *************************************************************************/
 
-Scenario* initializeScenario(string scenFile, string demandFile, string historyFile, string logFile) {
+Scenario* initializeScenario(string scenPath, string demandPath, string historyPath, string logPath) {
 
-   // Create a log file
-   Tools::LogOutput logStream(logFile);
+	// Initialize demand and preferences
+	Demand* pDemand(0);
+	Preferences* pPref(0);
 
-   // Initialize demand and preferences
-   Demand* pDemand(0);
-   Preferences* pPref(0);
+	// Read the scenario
+	Scenario* pScen = ReadWrite::readScenario(scenPath);
 
-   // Read the scenario
-   Scenario* pScen = ReadWrite::readScenario(scenFile);
+	// Read the demand and preferences and link them with the scenario
+	ReadWrite::readWeek(demandPath, pScen,&pDemand,&pPref);
+	pScen->linkWithDemand(pDemand);
+	pScen->linkWithPreferences(*pPref);
 
-   // Read the demand and preferences and link them with the scenario
-   ReadWrite::readWeek(demandFile, pScen,&pDemand,&pPref);
-   pScen->linkWithDemand(pDemand);
-   pScen->linkWithPreferences(*pPref);
+	// Read the history
+	ReadWrite::readHistory(historyPath, pScen);
 
-   // Read the history
-   ReadWrite::readHistory(historyFile, pScen);
-
-   // Check that the scenario was read properly if logfile specified in input
-   logStream << pScen->toString() << std::endl;
-   logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+	// Check that the scenario was read properly if logfile specified in input
+	if (!logPath.empty()) {
+		Tools::LogOutput logStream(logPath);
+		logStream << pScen->toString() << std::endl;
+		logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+	}
 
 
-   return pScen;
+	return pScen;
+}
+
+/*****************************************************************************
+* Initialize the scenario for multiple weeks
+* When calling this function, the intent is to solve all the weeks at once
+******************************************************************************/
+
+Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
+	int historyIndex, vector<int> weekIndices, string logPath) {
+
+	int nbWeeks = weekIndices.size();
+	string instanceDir = dataDir + instanceName + "/";
+
+	// initialize the scenario and history file names
+	string scenPath = instanceDir + "Sc-" + instanceName + ".txt";
+	string historyPath = instanceDir + "H0" + "-" + instanceName + "-" + std::to_string(historyIndex) + ".txt";
+
+	// initialize the file names for each week demand
+	vector<string> weekPaths;
+	for(int week: weekIndices){
+		string path = instanceDir + "WD-" + instanceName + "-" + std::to_string(week) + ".txt";
+		weekPaths.push_back(path);
+	}
+
+	// Read the scenario
+	Scenario* pScen = ReadWrite::readScenario(scenPath);
+
+	// Read the demand and preferences and link them with the scenario
+	ReadWrite::readWeeks(weekPaths, pScen);
+
+	// Read the history
+	ReadWrite::readHistory(historyPath, pScen);
+
+	// Check that the scenario was read properly if logfile specified in input
+	if (!logPath.empty()) {
+		Tools::LogOutput logStream(logPath);
+		logStream << pScen->toString() << std::endl;
+		logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+	}
+
+	return pScen;
 }
 
 /****************************************
@@ -358,79 +399,6 @@ void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
    }
 }
 
-/************************************************************************
-* Initialize the week scenario by reading the input files
-*************************************************************************/
-
-Scenario* initializeScenario(string scenPath, string demandPath, string historyPath, string logPath) {
-
-	// Initialize demand and preferences
-	Demand* pDemand(0);
-	Preferences* pPref(0);
-
-	// Read the scenario
-	Scenario* pScen = ReadWrite::readScenario(scenPath);
-
-	// Read the demand and preferences and link them with the scenario
-	ReadWrite::readWeek(demandPath, pScen,&pDemand,&pPref);
-	pScen->linkWithDemand(pDemand);
-	pScen->linkWithPreferences(*pPref);
-
-	// Read the history
-	ReadWrite::readHistory(historyPath, pScen);
-
-	// Check that the scenario was read properly if logfile specified in input
-	if (!logPath.empty()) {
-		Tools::LogOutput logStream(logPath);
-		logStream << pScen->toString() << std::endl;
-		logStream << pScen->pWeekDemand()->toString(true) << std::endl;
-	}
-
-
-	return pScen;
-}
-
-/*****************************************************************************
-* Initialize the scenario for multiple weeks
-* When calling this function, the intent is to solve all the weeks at once
-******************************************************************************/
-
-Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, string logPath) {
-
-	int nbWeeks = weekIndices.size();
-	string instanceDir = dataDir + instanceName + "/";
-
-	// initialize the scenario and history file names
-	string scenPath = instanceDir + "Sc-" + instanceName + ".txt";
-	string historyPath = instanceDir + "H0" + "-" + instanceName + "-" + std::to_string(historyIndex) + ".txt";
-
-	// initialize the file names for each week demand
-	vector<string> weekPaths;
-	for(int i = week: weekIndices){
-		string path = instanceDir + "WD-" + instanceName + "-" + std::to_string(weekIndices[i]) + ".txt";
-		weekPaths.push_back(path);
-	}
-
-	// Read the scenario
-	Scenario* pScen = ReadWrite::readScenario(scenPath);
-
-	// Read the demand and preferences and link them with the scenario
-	ReadWrite::readWeeks(weekPaths, pScen);
-
-	// Read the history
-	ReadWrite::readHistory(historyPath, pScen);
-
-	// Check that the scenario was read properly if logfile specified in input
-	if (!logPath.empty()) {
-		Tools::LogOutput logStream(logPath);
-		logStream << pScen->toString() << std::endl;
-		logStream << pScen->pWeekDemand()->toString(true) << std::endl;
-	}
-
-	return pScen;
-}
-
 /******************************************************************************
 * Test a solution on multiple weeks
 * In this method, the weeks are solved sequentially without knowledge of future
@@ -438,7 +406,7 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 ******************************************************************************/
 
 void testMultipleWeeks(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algo, string logPath) {
+	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string logPath) {
 
 	int nbWeeks = weekIndices.size();
 	string instanceDir = dataDir + instanceName + "/";
@@ -449,8 +417,8 @@ void testMultipleWeeks(string dataDir, string instanceName,
 
 	// initialize the file names for each week demand
 	vector<string> weekPaths;
-	for(int i = week: weekIndices){
-		string path = instanceDir + "WD-" + instanceName + "-" + std::to_string(weekIndices[i]) + ".txt";
+	for(int week: weekIndices){
+		string path = instanceDir + "WD-" + instanceName + "-" + std::to_string(week) + ".txt";
 		weekPaths.push_back(path);
 	}
 
@@ -460,14 +428,14 @@ void testMultipleWeeks(string dataDir, string instanceName,
 	for (int week = 0; week < nbWeeks; week++) {
 		Solver* pSolver;
 		switch(algorithm){
-		case GREEDY
+		case GREEDY:
 			pSolver = new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
 			break;
 		case GENCOL:
-			pSolver = new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
+			pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
 			break;
 		default:
-			Tools::ThrowError("The algorithm is not handled yet");
+			Tools::throwError("The algorithm is not handled yet");
 			break;
 		}
 	}

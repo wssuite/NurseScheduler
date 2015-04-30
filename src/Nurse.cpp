@@ -167,16 +167,9 @@ State::~State(){}
 // Updates the state if a new day is worked on shift newShift
 void State::addNewDay(int newShift){
 
-   // increment the day index
-   dayId_++;
-
    // Total shifts worked if it is a worked day
    totalDaysWorked_ += (newShift ? 1 : 0);
 
-   // Total weekends worked :
-   // +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
-//   if( newShift and
-//      ( (dayId_%7==5) or ((dayId_%7==6) and !shift_)))
    // Total weekends worked :
    // +1 IF : new day is a Sunday and the nurse works on shift_ or newShift
    if( Tools::isSunday(dayId_) and (newShift or shift_) )
@@ -190,6 +183,9 @@ void State::addNewDay(int newShift){
 
    // Current shift worked : updated with the new one
    shift_ = newShift;
+
+   // increment the day index
+   dayId_++;
 }
 
 // Function that appends a new day worked on a given shift to an input state
@@ -198,9 +194,6 @@ void State::addNewDay(int newShift){
 // add in the state that no task has been assigned on this day
 //
 void State::addDayToState(const State& prevState, int newShift)	{
-
-   // increment the day index
-   dayId_ = prevState.dayId_+1;
 
    // Total shifts worked if it is a worked day
    totalDaysWorked_ = prevState.totalDaysWorked_+(newShift > 0 ? 1 : 0);
@@ -218,12 +211,7 @@ void State::addDayToState(const State& prevState, int newShift)	{
       shift_ = prevShift < 0 ? prevShift-1:-1;
    }
    else {
-      // Total weekends worked :
-      // +1 IF : new day is worked AND (new day is saturday OR (new day is sunday AND previous day was not worked) )
-//      if( newShift and
-//         ( (dayId_%7==5) or ((dayId_%7==6) and !prevState.shift_)))
-//         totalWeekendsWorked_ = prevState.totalWeekendsWorked_+1;
-      // Total weekends worked :
+      // Total weekends worked:
       // +1 IF : new day is a Sunday and the nurse works on prevState.shift_ or newShift
       if( Tools::isSunday(dayId_) and (newShift or prevState.shift_) )
          totalWeekendsWorked_ = prevState.totalWeekendsWorked_+1;
@@ -242,6 +230,9 @@ void State::addDayToState(const State& prevState, int newShift)	{
 
       shift_ = newShift;
    }
+
+   // increment the day index
+   dayId_ = prevState.dayId_+1;
 }
 
 // Display method: toString
