@@ -641,26 +641,8 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    //loop through the variables and link the good columns together
    for(int i=nbCoreVar; i<vars.size(); ++i){
       BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
-<<<<<<< HEAD
       primalValues_[var->getIndex()] = lpres.x()[i];
       reducedCosts_[var->getIndex()] = lpres.dj()[i];
-=======
-      if(! var) Tools::throwError("Column from BCP bad cast");
-      while(col->getIndex() != var->getIndex()){
-         primalValues_.push_back(0);
-         reducedCosts_.push_back(0);
-         ++it;
-         col = (BcpColumn*) *it;
-      }
-      primalValues_.push_back(lpres.x()[i]);
-      reducedCosts_.push_back(lpres.dj()[i]);
-      ++it;
-   }
-   while(it != columnVars_.end()){
-      primalValues_.push_back(0);
-      reducedCosts_.push_back(0);
-      ++it;
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
    }
 }
 

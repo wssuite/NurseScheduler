@@ -84,14 +84,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 
 	   /* Solve options */
 	   vector<SolveOption> options;
-<<<<<<< HEAD
-	   //options.push_back(SOLVE_VERY_SHORT_ONLY);
 	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
-=======
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
-	   options.push_back(SOLVE_FORBIDDEN_RESET);
-	   options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
-	   options.push_back(SOLVE_SHORT_ALL);
 
 	   /* Solve subproblems */
       optimal = false;
@@ -100,14 +93,10 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 10);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
-	   else
-<<<<<<< HEAD
-		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 12);
-
-//	   cout << "#  SP " << pNurse->name_ << " solved" << endl;
-=======
-		   subProblem->solve(pNurse, &costs, options, forbiddenShifts, true);
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
+	   else{
+	      options.push_back(SOLVE_SHORT_ALL);
+         subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 12);
+	   }
 
 	   /*
 	    * Rotations

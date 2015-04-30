@@ -301,13 +301,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		bool optimality, int maxRotationLength, double redCostBound){
 
 
-<<<<<<< HEAD
-//	std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " " << endl;
-=======
-	//std::cout << "# Solving subproblem for nurse " << nurse->name_ << " (id:" <<  nurse->id_ << "), " << pContract_->name_ << " " << endl;
 	//std::cout << "# SP - " << nurse->name_ << endl;
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
-
 
 	// Set to true if you want to display contract + preferences (for debug)
 	if(false){
@@ -479,10 +473,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 		}
 	}
 	//printAllRotations();
-<<<<<<< HEAD
 //	std::cout << "# -> " << nFound << std::endl;
-=======
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 	return (nFound > 0);
 }
 
