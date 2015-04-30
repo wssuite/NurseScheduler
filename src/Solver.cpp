@@ -316,7 +316,8 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState):
   pScenario_(pScenario),  pDemand_(pDemand),
   pPreferences_(pPreferences), pInitState_(pInitState),
-  totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1){
+  totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
+  isPreprocessedSkills_(false), isPreprocessedNurses_(false) {
 
     // initialize the preprocessed data of the skills
     for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
@@ -351,13 +352,13 @@ void Solver::preprocessTheNurses() {
   int nbDays = pDemand_->nbDays_;
 
   this->specifyNursePositions();
+  if (!isPreprocessedSkills_) this->preprocessTheSkills();
   this->computeMinMaxDaysNoPenaltyTotalDays();
   this->computeMinMaxDaysNoPenaltyConsDays();
 
 
   maxTotalStaffNoPenalty_ = 0;
   maxTotalStaffAvgWork_ = 0;
-  for (int sk=0; sk < pScenario_->nbSkills_; )
   for (LiveNurse* pNurse: theLiveNurses_)	{
 
     // add the working maximum number of working days to the maximum staffing
@@ -384,6 +385,8 @@ void Solver::preprocessTheNurses() {
   // initialize to zero the satisfied demand
   //
   Tools::initVector3D(&satisfiedDemand_, nbDays,pScenario_->nbShifts_, pScenario_->nbSkills_);
+
+  isPreprocessedNurses_ = true;
 }
 
 // Find the position of each nurse
@@ -567,8 +570,7 @@ void Solver::preprocessTheSkills() {
 
   for (int sk=0; sk < pScenario_->nbSkills_; sk++) {
     nbNursesWeighted.push_back(0.0);
-    for (int i = 0; i < pScenario_->nbNurses_; i++) {
-      LiveNurse* pNurse = theLiveNurses_[i];
+    for (LiveNurse* pNurse : theLiveNurses_) {
       if (pNurse->hasSkill(sk)) {
         nbNursesWeighted[sk]+=1.0/(double)pNurse->nbSkills_;
       }
@@ -582,6 +584,8 @@ void Solver::preprocessTheSkills() {
   for (int p=0; p < pScenario_->nbPositions(); p++) {
     pScenario_->pPosition(p)->updateRarities(skillRarity_);
   }
+
+  isPreprocessedSkills_=true;
 }
 
 //------------------------------------------------------------------------

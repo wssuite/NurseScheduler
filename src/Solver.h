@@ -362,6 +362,11 @@ public:
    // skill is
    vector<double> skillRarity_;
 
+   // indicators related to the preprocessing
+   //
+   bool isPreprocessedSkills_;
+   bool isPreprocessedNurses_;
+
 
 public:
 

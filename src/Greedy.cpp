@@ -853,20 +853,18 @@ void Greedy::initializeConstructive() {
   // the result of the preprocessing will be very useful to sort the attributes
   // before greedily covering the demand
   //
-  if (!pDemand_->isPreprocessed_) {
-    pDemand_->preprocessDemand();
-  }
-  this->preprocessTheNurses();
-  this->preprocessTheSkills();
+  if (!pDemand_->isPreprocessed_) pDemand_->preprocessDemand();
+  if (!isPreprocessedSkills_) this->preprocessTheSkills();
+  if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
   // sort the skills
-  SkillSorter compareSkills(skillRarity_);
-  std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
-
-  // sort the shifts (except the shift 0 which must always be rest)
-  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
-  std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
-
-  // sort the nurses
-  sortShuffleTheNurses();
+  // SkillSorter compareSkills(skillRarity_);
+  // std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
+  //
+  // // sort the shifts (except the shift 0 which must always be rest)
+  // ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
+  // std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
+  //
+  // // sort the nurses
+  // sortShuffleTheNurses();
 }
