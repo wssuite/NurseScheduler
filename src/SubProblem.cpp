@@ -394,7 +394,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		return false;
 	}
 
-	cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
+	//cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
 	return ANS;
 
 }
