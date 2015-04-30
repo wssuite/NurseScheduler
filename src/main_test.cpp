@@ -505,7 +505,6 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 				solution[n].push_back(weekSolution[n]);
 			}
 		}
-		delete pSolver;
 
 		// prepare the scenario for next week if we did not reach the last week yet
 		if (week < nbWeeks-1) {
@@ -516,8 +515,6 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 
 			// Read the demand and preferences and link them with the scenario
 			ReadWrite::readWeek(weekPaths[week+1], pScen, &pDemand, &pPref);
-			pScen->linkWithDemand(pDemand);
-			pScen->linkWithPreferences(*pPref);
 
 			// read the initial state of the new week from the last state of the
 			// last week
@@ -526,6 +523,8 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 			// update the scenario to treat next week
 			pScen->updateNewWeek(pDemand, *pPref, initialStates);
 		}
+
+		delete pSolver;
 	}
 
 	// Display the solution if outfile specified in input
