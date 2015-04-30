@@ -403,10 +403,10 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
         }
       }
     }
-    if (!shMin) {
-      std::cout << "there is no possible task for the nurse!" << std::endl;
-    }
-    else {
+
+    // if !shMin, there is no possible task for the nurse
+    // otherwise
+    if (shMin) {
       State stateWork;
       stateWork.addDayToState(states.back(), shMin);
       states2.push_back(stateWork);
@@ -487,17 +487,28 @@ void Greedy::fillTheGaps(LiveNurse &nurse, int day) {
   }
 }
 
+bool compareNursesForMinDemand(LiveNurse* n1, LiveNurse* n2) {
+  if (n1->nbSkills_ != n2->nbSkills_) return n1->nbSkills_ < n2->nbSkills_;
+  else return n1->maxTotalShifts() > n2->maxTotalShifts();
+}
+
 // Assign the unassigned nurses with best costs to the demand input tasks
 // nbAssigned is the number of nurses that have actually obtained a new task
 void Greedy::assignBestNursesToTask(int day, int sh, int sk, int demand,
   vector<LiveNurse*>& pNursesUnassigned, int &nbAssigned, bool isMinDemand) {
 
+  int nbUnassigned = pNursesUnassigned.size();
+
+  // sort the nurses to have those with the smallest number of skills and the
+  // most full-time contracts first
+  std::stable_sort(pNursesUnassigned.begin(),pNursesUnassigned.end(),compareNursesForMinDemand);
+
+
   // indices of the nurses with the minimum cost
   vector<int> nMin;
 
-  int nbUnassigned = pNursesUnassigned.size();
+  // cost of the best compatible nurses
   vector<indexcost> indexcostvect;
-
   for (int n=0; n < std::max(demand,nbUnassigned); n++) {
     indexcostvect.push_back({n,1.0e6});
   }
@@ -795,7 +806,13 @@ bool Greedy::constructiveGreedy() {
 
 // Main method to solve the rostering problem for a given input
 //
-void Greedy::solve() {}
+void Greedy::solve() {
+  bool isFeasible = this->constructiveGreedy();
+
+  if (!isFeasible) {
+    std::cout << "Greedy: the constructive algorithm was unable to find a solution\n";
+  }
+}
 
 //------------------------------------------------------------------------------
 // Create the vector of sorted nurses
@@ -858,13 +875,13 @@ void Greedy::initializeConstructive() {
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
   // sort the skills
-  // SkillSorter compareSkills(skillRarity_);
-  // std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
-  //
-  // // sort the shifts (except the shift 0 which must always be rest)
-  // ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
-  // std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
-  //
-  // // sort the nurses
-  // sortShuffleTheNurses();
+  SkillSorter compareSkills(skillRarity_);
+  std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
+
+  // sort the shifts (except the shift 0 which must always be rest)
+  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
+  std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
+
+  // sort the nurses
+  sortShuffleTheNurses();
 }

@@ -218,8 +218,6 @@ void LiveNurse::checkConstraints(const Roster& roster,
     if (shift != prevShift && prevShift > 0)  {
       missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
       stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
-      if (missingShifts>0)
-        std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; missing= " << missingShifts << std::endl;
     }
 
     // count the penalty for maximum consecutive shifts when the shift is worked
@@ -227,30 +225,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
     if (shift > 0) {
       stat.costConsShifts_[day-1] +=
         (states[day].consShifts_>pScenario_->maxConsShifts_[shift]) ? WEIGHT_CONS_SHIFTS:0;
-
-        if (states[day].consShifts_>pScenario_->maxConsShifts_[shift])
-          std::cout << "Day = " << day-1 << " ; nurse = " << id_ << " ; One extra shift" << std::endl;
     }
-
-      // it only makes sense if the nurse was working last day
-      // int extraShifts = 0
-    //   if (prevShift > 0) {
-    //     missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
-    //     extraShifts =  states[day-1].consShifts_-pScenario_->maxConsShifts_[prevShift];
-
-    //     stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
-
-    //     if (extraShifts>0||missingShifts>0)
-    //     std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << " ; missing= " << missingShifts << std::endl;
-    //   }
-    // }
-
-    // if (shift > 0 && day == nbDays_) {
-    //    int extraShifts =  states[day].consShifts_-pScenario_->maxConsShifts_[shift];
-    //    stat.costConsShifts_[day-1] += (extraShifts>0) ? WEIGHT_CONS_SHIFTS*extraShifts:0;
-    //    if (extraShifts>0)
-    //       std::cout << "Day = " << day-states[day-1].consShifts_-1 << " ; nurse = " << id_ << " ; extra= " << extraShifts << std::endl;
-    // }
 
     // check the preferences
     //
@@ -337,6 +312,22 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
 Solver::~Solver(){
    for(LiveNurse* pNurse: theLiveNurses_)
       delete pNurse;
+}
+
+// Load a solution in the solver
+//
+void Solver::loadSolution(vector<Roster> &solution) {
+
+  if (solution.size() != pScenario_->nbNurses_) {
+    Tools::throwError("Solver::loadSolution: there is not one roster per nurse in the input solution!");
+  }
+
+  solution_ = solution;
+  for (int n = 0; n < pScenario_->nbNurses_; n++) {
+    LiveNurse* pNurse = theLiveNurses_[n];
+    pNurse->roster(solution[n]);
+    pNurse->buildStates();
+  }
 }
 
 
@@ -572,7 +563,7 @@ void Solver::preprocessTheSkills() {
     nbNursesWeighted.push_back(0.0);
     for (LiveNurse* pNurse : theLiveNurses_) {
       if (pNurse->hasSkill(sk)) {
-        nbNursesWeighted[sk]+=1.0/(double)pNurse->nbSkills_;
+        nbNursesWeighted[sk]+=pNurse->maxTotalShifts()/pow((double)pNurse->nbSkills_,2);
       }
     }
     // the skill rarity is the ratio of the the demand for the skill to the
@@ -669,7 +660,9 @@ double Solver::solutionCost() {
       }
     }
 
-    totalCost += stat.costTotalDays_+stat.costTotalWeekEnds_;
+    if ( pScenario_->thisWeek()+pScenario_->nbWeeksLoaded() == pScenario_->nbWeeks() ) {
+      totalCost += stat.costTotalDays_+stat.costTotalWeekEnds_;
+    }
   }
   std::cout << "Total cost due to individual soft constraints = " << totalCost << std::endl;
 
@@ -693,6 +686,18 @@ double Solver::solutionCost() {
 //------------------------------------------------
 // Display functions
 //------------------------------------------------
+
+// return the final states of the nurses
+//
+vector<State> Solver::getFinalStates() {
+  vector<State> pFinalStates;
+  int nbDays = pDemand_->nbDays_;
+  for (LiveNurse* pNurse: theLiveNurses_) {
+    pFinalStates.push_back(pNurse->state(nbDays));
+  }
+
+  return pFinalStates;
+}
 
 // display the whole solution
 //
@@ -819,8 +824,11 @@ string Solver::solutionToLogString() {
 
   for (int n = 0; n < nbNurses; n ++) {
     LiveNurse* pNurse = theLiveNurses_[n];
-    costTotalDays += pNurse->statCt_.costTotalDays_;
-    costTotalWeekEnds += pNurse->statCt_.costTotalWeekEnds_;
+
+    if ( pScenario_->thisWeek()+pScenario_->nbWeeksLoaded() == pScenario_->nbWeeks() ) {
+      costTotalDays += pNurse->statCt_.costTotalDays_;
+      costTotalWeekEnds += pNurse->statCt_.costTotalWeekEnds_;
+    }
 
     for (int day = firstDay; day < firstDay+nbDays; day++){
       // record the violations
@@ -855,7 +863,6 @@ string Solver::solutionToLogString() {
   rep << "Consecutive working days constraints: " << costConsDays << std::endl;
   rep << "Consecutive days off constraints: " << costConsDaysOff << std::endl;
   rep << "Consecutive shifts constraints: " << costConsShifts << std::endl;
-  rep << "Non working days constraints: " << std::endl;
   rep << "Preferences: " << costPref << std::endl;
   rep << "Max working weekend: " << costTotalWeekEnds << std::endl;
   rep << "Complete weekends: " << costWeekEnds << std::endl;

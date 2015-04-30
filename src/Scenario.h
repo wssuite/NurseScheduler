@@ -222,6 +222,10 @@ public:
 	//
 	bool isForbiddenSuccessor(int shNext, int sh);
 
+	// update the scenario to treat a new week
+	//
+	void updateNewWeek(Demand* pDemand, Preferences &preferences, vector<State> &initialStates);
+
 	// Link the scenario with the Demand and the Preferences
 	//
 	inline void linkWithDemand(Demand* pDemand){

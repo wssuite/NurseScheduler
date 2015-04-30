@@ -44,7 +44,7 @@ void Demand::preprocessDemand() {
    Tools::initVector(&optHighestPerSkill_, nbSkills_);
 
    for (int day = 0; day < nbDays_; day++)	{
-      for (int shift = 0; shift < nbShifts_; shift++) {
+      for (int shift = 1; shift < nbShifts_; shift++) {
          for (int skill = 0; skill < nbSkills_; skill++)	{
             // update the total demand
             minTotal_ += minDemand_[day][shift][skill];
