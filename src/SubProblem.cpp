@@ -300,8 +300,6 @@ double SubProblem::consDaysCost(int n){
 bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts,
 		bool optimality, int maxRotationLength, double redCostBound){
 
-	std::cout << "# SP - " << nurse->name_ << endl;
-
 	// Set to true if you want to display contract + preferences (for debug)
 	if(false){
 		std::cout << "# Preferences:" << endl;
@@ -472,6 +470,7 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 		}
 	}
 	//printAllRotations();
+//	std::cout << "# -> " << nFound << std::endl;
 	return (nFound > 0);
 }
 

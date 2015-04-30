@@ -53,10 +53,16 @@ struct Rotation {
    }
 
    Rotation(Rotation& rotation, LiveNurse* pNurse) :
-      pNurse_(pNurse), cost_(DBL_MAX),id_(rotation.id_),
-      consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-      dualCost_(DBL_MAX), firstDay_(rotation.firstDay_), length_(rotation.length_), shifts_(rotation.shifts_)
-   { }
+      pNurse_(pNurse), cost_(rotation.cost_),id_(rotation.id_),
+      consShiftsCost_(rotation.consShiftsCost_), consDaysWorkedCost_(rotation.consDaysWorkedCost_),
+      completeWeekendCost_(rotation.completeWeekendCost_), preferenceCost_(rotation.preferenceCost_), initRestCost_(rotation.preferenceCost_),
+      dualCost_(rotation.dualCost_), firstDay_(rotation.firstDay_), length_(rotation.length_), shifts_(rotation.shifts_)
+   {
+      if(rotation.pNurse_ != pNurse){
+         cost_ = DBL_MAX;
+         dualCost_ = DBL_MAX;
+      }
+   }
 
    ~Rotation(){};
 
@@ -178,6 +184,7 @@ private:
    vector<MyObject*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
 
    vector< vector< vector<MyObject*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
+   vector< vector< vector<MyObject*> > > numberOfNursesByPositionVars_; // count the number of nurses per day, shift, position
    vector< vector< vector< vector<MyObject*> > > > skillsAllocVars_; //makes the allocation of the skills
 
    /*
@@ -196,6 +203,7 @@ private:
 
    vector< vector< vector<MyObject*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
    vector< vector< vector<MyObject*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
+   vector< vector< vector<MyObject*> > > numberOfNursesByPositionCons_; // count the number of nurses per day, shift, position
    vector< vector< vector<MyObject*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
 
    /*
@@ -215,7 +223,7 @@ private:
    //add the correct constraints and coefficients for the nurse i working on a rotation
    //if s=-1, the nurse works on all shifts
    //store the rotation in rotations_
-   void addRotation(Rotation rotation, char* baseName);
+   void addRotation(Rotation& rotation, char* baseName);
 
    //compute and add the last rotation finishing on the day just before the first one
    Rotation computeInitStateRotation(LiveNurse* pNurse);

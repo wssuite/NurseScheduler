@@ -26,11 +26,14 @@ public:
   // useful constructor
   CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons);
 
-  CbcModeler(OsiSolverInterface* osiClp);
+  CbcModeler(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons, OsiSolverInterface* osiClp);
 
   ~CbcModeler() {
     if (model_ != NULL) delete model_;
   }
+
+  //initialize the vectors columnVars, coreVars and cons
+  void initializeVectors(vector<CoinVar*>& coreVars, vector<CoinVar*>& columnVars, vector<CoinCons*>& cons);
 
  //solve the model
  int solve(bool relaxation = false);
@@ -68,6 +71,11 @@ public:
   *
  */
  int setModel();
+
+ /*
+  * Set a high priority on all the variable returned by the branching rule
+  */
+ void setBranchingRule();
 
  /*
   * Get the primal value

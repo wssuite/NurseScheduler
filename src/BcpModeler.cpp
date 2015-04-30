@@ -10,6 +10,7 @@
 #include "CoinTime.hpp"
 #include "BCP_lp.hpp"
 #include "CbcModeler.h"
+#include "RotationPricer.h"
 
 /*
  * BCP_lp_user methods
@@ -18,7 +19,8 @@
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
 pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()),
 lpIteration_(0), lastDiveIteration_(-1), cbcEveryXLpIteration_(100),
-alreadyDuplicated_(false), dive_(false)
+alreadyDuplicated_(false), dive_(false), genColHasBeenRun_(false),
+current_node(0), nb_nodes(0)
 { }
 
 //Initialize the lp parameters and the OsiSolver
@@ -39,61 +41,91 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 
    //if doesn't dive and on the good iteration
    if(!dive_ && ( (lpIteration_-lastDiveIteration_)%cbcEveryXLpIteration_) == 1){
-      //copy the solver of the problem
-      OsiSolverInterface* solver = getLpProblemPointer()->lp_solver->clone();
+//      //copy the solver of the problem
+//      OsiSolverInterface* solver = getLpProblemPointer()->lp_solver->clone();
+//      //Store the active columns
+//      vector<CoinVar*> columns;
+//
+//      for(int i=0; i<vars.size(); ++i){
+//         //Set the type of the columns as the columns can be integrated as continuous var
+//         //As some columns can have been removed, the index are not the same than ours
+//         BcpColumn* column = dynamic_cast<BcpColumn*>(vars[i]);
+//         if(column){
+//            columns.push_back(column);
+//            switch (column->getVarType()) {
+//            case VARTYPE_BINARY:
+//               solver->setInteger(i);
+//               solver->setColUpper(i, 1);
+//               break;
+//            case VARTYPE_INTEGER:
+//               solver->setInteger(i);
+//               break;
+//            default:
+//               break;
+//            }
+//         }
+//         //Reset the bounds of all the core variables
+//         //As they are always in the problem and they are always the first variables,
+//         //they have the same index than our core variables
+//         else{
+//            if(!dynamic_cast<BCP_var_core*>(vars[i]))
+//               Tools::throwError("Not a core variable.");
+//            CoinVar* myVar = pModel_->getCoreVars()[i];
+//            solver->setColLower(i, myVar->getLB());
+//            solver->setColUpper(i, myVar->getUB());
+//         }
+//      }
+//
+//      //initialize the MIP model
+//      CbcModeler MIP(pModel_->getCoreVars(), columns, pModel_->getCons(),solver);
+//      CorePriorityBranchingRule rule(&MIP, "PriorityRule");
+//      MIP.addBranchingRule(&rule);
+//      MIP.setVerbosity(pModel_->getVerbosity());
+//      MIP.solve();
+//
+//      BCP_solution_generic* sol = new BCP_solution_generic(false);
+//     const int nbCoreVars = pModel_->getCoreVars().size();
+//      //same index for BCP_core_var and BcpCoreVar (they are all before the columns)
+//      for(int i=0; i<nbCoreVars; ++i){
+//         BcpCoreVar* var = (BcpCoreVar*) pModel_->getCoreVars()[i];
+//         double value = MIP.getVarValue(var);
+//         if(value>0)
+//            sol->add_entry(vars[i], value);
+//      }
+//      for(int i=nbCoreVars; i<vars.size(); ++i){
+//         //take the colum with the index i
+//         BcpColumn* column = (BcpColumn*)(pModel_->getColumns()[i-nbCoreVars]);
+//         double value = MIP.getVarValue(column);
+//         if(value>0)
+//            sol->add_entry(vars[i], value);
+//      }
 
-      for(int i=0; i<vars.size(); ++i){
-         //Set the type of the columns as the columns can be integrated as continuous var
-         //As some columns can have been removed, the index are not the same than ours
-         BcpColumn* column = dynamic_cast<BcpColumn*>(vars[i]);
-         if(column){
-            switch (column->getVarType()) {
-            case VARTYPE_BINARY:
-               solver->setInteger(i);
-               solver->setColUpper(i, 1);
-               break;
-            case VARTYPE_INTEGER:
-               solver->setInteger(i);
-               break;
-            default:
-               break;
-            }
-         }
-         //Reset the bounds of all the core variables
-         //As they are always in the problem and they are always the first variables,
-         //they have the same index than our core variables
-         else{
-            if(!dynamic_cast<BCP_var_core*>(vars[i]))
-               Tools::throwError("Not a core variable.");
-            CoinVar* myVar = pModel_->getCoreVars()[i];
-            solver->setColLower(i, myVar->getLB());
-            solver->setColUpper(i, myVar->getUB());
-         }
-      }
-
-      //initialize the MIP model
-      CbcModeler MIP(solver);
-      MIP.setVerbosity(0);
-      MIP.solve();
-
-      BCP_solution_generic* sol = new BCP_solution_generic(false);
-     const int nbCoreVars = pModel_->getCoreVars().size();
-      //same index for BCP_core_var and BcpCoreVar (they are all before the columns)
-      for(int i=0; i<nbCoreVars; ++i){
-         BcpCoreVar* var = (BcpCoreVar*) pModel_->getCoreVars()[i];
-         double value = MIP.getVarValue(var);
-         if(value>0)
-            sol->add_entry(vars[i], value);
-      }
-      for(int i=nbCoreVars; i<vars.size(); ++i){
-         //take the colum with the index i
-         BcpColumn* column = (BcpColumn*)(pModel_->getColumns()[i-nbCoreVars]);
-         double value = MIP.getVarValue(column);
-         if(value>0)
-            sol->add_entry(vars[i], value);
-      }
-      cout << "CBC: " << sol->objective_value() << endl;
-      return sol;
+//      //initialize the MIP model
+//      CbcModeler MIP(pModel_->getCoreVars(), pModel_->getColumns(), pModel_->getCons());
+//      CorePriorityBranchingRule rule(&MIP, "PriorityRule");
+//      MIP.addBranchingRule(&rule);
+//      MIP.setBestUB(pModel_->getBestUB());
+//      MIP.setVerbosity(pModel_->getVerbosity());
+//      MIP.setMaxSolvingtime(120);
+//      MIP.solve();
+//
+//      BCP_solution_generic* sol = new BCP_solution_generic(false);
+//      const int nbCoreVars = pModel_->getCoreVars().size();
+//      //same index for BCP_core_var and BcpCoreVar (they are all before the columns)
+//      for(int i=0; i<nbCoreVars; ++i){
+//         double value = MIP.getVarValue(pModel_->getCoreVars()[i]);
+//         if(value>0)
+//            sol->add_entry(vars[i], value);
+//      }
+//      for(int i=nbCoreVars; i<pModel_->getNbVars(); ++i){
+//         //take the colum with the index i
+//         BcpColumn* column = (BcpColumn*)(pModel_->getColumns()[i-nbCoreVars]);
+//         double value = MIP.getVarValue(column);
+//         if(value>0)
+//            sol->add_entry(column, value);
+//      }
+//      cout << "CBC: " << sol->objective_value() << endl;
+//      return sol;
    }
    return NULL;
 }
@@ -103,6 +135,10 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 //Default: empty method.
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
+   if(current_node != current_index()){
+      current_node = current_index();
+      --nb_nodes;
+   }
 }
 
 //This method provides an opportunity for the user to tighten the bounds of variables.
@@ -123,22 +159,15 @@ void BcpLpModel::logical_fixing (const BCP_lp_result& lpres,
    BCP_vec<int>& changed_pos,
    BCP_vec<double>& new_bd){
 
-   //If the node has already been duplicated and that we are diving
-   if(var_bound_changes_since_logical_fixing > 0 && alreadyDuplicated_ && dive_){
+   //if not root and the column generation procedure has been run since last logical_fixing
+   if(dive_ && genColHasBeenRun_){
+      //add all good candidates
       vector<MyObject*> fixingCandidates;
-
-      //add all possibilities
-      for(BCP_var* var: vars){
-         BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-         if(col)
-            fixingCandidates.push_back(col);
-      }
-
-      //remove all bad candidates
       pModel_->logical_fixing(fixingCandidates);
 
-      //if there some candidates
+      //if there some candidates, fix it
       if(fixingCandidates.size() > 0){
+         genColHasBeenRun_ = false;
          changed_pos.reserve(fixingCandidates.size());
          new_bd.reserve(2 * fixingCandidates.size());
 
@@ -178,7 +207,7 @@ void BcpLpModel::restore_feasibility(const BCP_lp_result& lpres,
    BCP_vec<BCP_var*>& vars_to_add,
    BCP_vec<BCP_col*>& cols_to_add){
    //dive is finished
-   dive_ = false;
+   //dive_ = false;
 }
 
 //Convert a set of variables into corresponding columns for the current LP relaxation.
@@ -228,14 +257,21 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    const BCP_vec<BCP_var*>& vars, const BCP_vec<BCP_cut*>& cuts, const bool before_fathom,
    BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
+   //if we are diving and no logical_fixing has been done during 2 generations
+   //then go to logical_fixing
+   if(dive_ && genColHasBeenRun_)
+      return;
+
    ++lpIteration_;
+   genColHasBeenRun_ = true;
    if(dive_) lastDiveIteration_ = lpIteration_;
    pModel_->setLPSol(lpres, vars);
-   pModel_->pricing(0);
+   pModel_->pricing(0, before_fathom);
 
    //check if new columns add been added since the last time
    //if there are some, add all of them in new_vars
    int size = pModel_->getNbColumns();
+   int nbColGenerated = size - nbCurrentColumnVarsBeforePricing_;
    if ( size != nbCurrentColumnVarsBeforePricing_ ) { //|| ! before_fathom
       new_vars.reserve(size-nbCurrentColumnVarsBeforePricing_); //reserve the memory for the new columns
       for(int i=nbCurrentColumnVarsBeforePricing_; i<size; ++i){
@@ -243,16 +279,33 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
          //create a new BcpColumn which will be deleted by BCP
          new_vars.unchecked_push_back(new BcpColumn(*var));
       }
-      //      TransformVarsToColumns(new_vars, new_cols);
       nbCurrentColumnVarsBeforePricing_ = size;
-      return;
    }
 
-   // must be before fathoming. we need vars with red cost below the
-   // negative of (lpobj-ub)/ks_num otherwise we can really fathom.
-   //    const double rc_bound =
-   //   (lpres.dualTolerance() + (lpres.objval() - upper_bound()))/kss.ks_num;
-   //    generate_vars(lpres, vars, rc_bound, new_vars);
+      // must be before fathoming. we need vars with red cost below the
+      // negative of (lpobj-ub)/ks_num otherwise we can really fathom.
+      //    const double rc_bound =
+      //   (lpres.dualTolerance() + (lpres.objval() - upper_bound()))/kss.ks_num;
+      //    generate_vars(lpres, vars, rc_bound, new_vars);
+
+   if(pModel_->getVerbosity() > 0){
+      /* compute number of fractional columns */
+      int frac = 0;
+      int non_zero = 0;
+      for(CoinVar* col: pModel_->getColumns()){
+         if(pModel_->getVarValue(col) > EPSILON)
+            non_zero ++;
+         if(!pModel_->isInteger(col))
+            frac++;
+      }
+
+      /* Print the values */
+      printf("BCP: %5d / %5d %5d | %10.0f %10.2f | %8d %10.2f %5d / %4d %10d| %10.2f %5d %5d  \n",
+         current_node, nb_nodes, current_level(),
+         pModel_->getBestUB(), pModel_->getBestLb(),
+         lpIteration_, lpres.objval(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
+         pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
+   }
 }
 
 /*
@@ -277,33 +330,44 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    if(local_var_pool.size() > 0)
       return BCP_DoNotBranch;
 
+   //start the dive
+   dive_ = true;
+
    //If no more columns have been generated, duplicate the node and:
    //let the function logical_fixing perform its work for the first one
    //keep the second for continuing the branching process later
-   if(!alreadyDuplicated_){
-      cands.push_back(new  BCP_lp_branching_object(2, //2 identical children with nothing changed
-         0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
-      dive_ = true;
-      return BCP_DoBranch;
-   }
+//   if(!alreadyDuplicated_){
+//      cands.push_back(new  BCP_lp_branching_object(2, //2 identical children with nothing changed
+//         0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+//      dive_ = true;
+//      return BCP_DoBranch;
+//   }
+//
+//   //Stop the dive
+//   if(dive_){
+//      if(genColHasBeenRun_)
+//         return BCP_DoNotBranch;
+//      dive_ = false;
+//      return BCP_DoNotBranch_Fathomed;
+//   }
 
-   //Stop the dive
-   if(dive_){
-      dive_ = false;
-      return BCP_DoNotBranch_Fathomed;
-   }
+   alreadyDuplicated_ = true;
+   genColHasBeenRun_ = false;
 
    //branching candidates
    vector<MyObject*> branchingCandidates;
    pModel_->branching_candidates(branchingCandidates);
 
    //branch if some candidates
-   for(MyObject* var: branchingCandidates){
-      CoinVar* var2 = dynamic_cast<CoinVar*>(var);
-      appendCoreIntegerVar(var2, cands);
-   }
-   if(cands.size() > 0)
+//   for(MyObject* var: branchingCandidates){
+//      CoinVar* var2 = dynamic_cast<CoinVar*>(var);
+//      appendCoreIntegerVar(var2, cands);
+//   }
+
+   if(branchingCandidates.size() > 0){
+      appendNewBranchingVar(branchingCandidates, vars, cands);
       return BCP_DoBranch;
+   }
 
    //otherwise fathomed
    return BCP_DoNotBranch_Fathomed;
@@ -327,6 +391,12 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
    //otherwise let perform the default actions
    else
       BCP_lp_user::set_actions_for_children(best);
+
+   nb_nodes += best->action().size();
+
+   if(pModel_->getVerbosity() > 0)
+         printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+            "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
 }
 
 void BcpLpModel::appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands){
@@ -347,7 +417,7 @@ void BcpLpModel::appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching
       0, 0, 0, 0 /* implied parts */));
 }
 
-void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, BCP_vec<BCP_lp_branching_object*>&  cands){
+void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
    const int nbChildren = columns.size();
    BCP_vec<int> vpos; //positions of the variables
    BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
@@ -356,13 +426,28 @@ void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, BCP_vec<BCP_lp
    //then for the second child: old and new bounds for all the variables in vpos
    //....
 
-   int child = 0;
+   int child = columns.size();
    for (MyObject* var: columns) {
+      //put the first column (the best) in the last position
+      //because BCP dives on the last children
+      --child;
       BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-      if(col)
-         vpos.push_back(col->getIndex());
-      else
+      if(!col)
          Tools::throwError("The variable fixed is not a column.");
+
+      //find the index of col in vars
+      int index=-1;
+      for(int i=pModel_->getCoreVars().size(); i<vars.size(); ++i){
+         BcpColumn* col2 = dynamic_cast<BcpColumn*>(vars[i]);
+         if(col->getIndex() == col2->getIndex()){
+            index = i;
+            break;
+         }
+      }
+      if(index==-1)
+         Tools::throwError("The column has not been found.");
+      vpos.push_back(index);
+
       //set the new bound of col to 1 and all the others columns keep 0
       for(int i=0; i<nbChildren; ++i){
          //fix the old bound (0)
@@ -370,7 +455,6 @@ void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, BCP_vec<BCP_lp
          //if i==child, the new bound==1, otherwise 0
          vbd.push_back( (i==child) ? 1: 0 );
       }
-      ++child;
    }
 
    cands.push_back(new  BCP_lp_branching_object(nbChildren, 0, 0, /* vars/cuts_to_add */
@@ -393,6 +477,8 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
    // initialize tm parameters
    set_search_strategy();
    set_param(BCP_tm_par::TmVerb_SingleLineInfoFrequency, pModel_->getFrequency());
+   if (pModel_->getMaxSolvingtime() < DBL_MAX)
+      set_param(BCP_tm_par::MaxRunTime, pModel_->getMaxSolvingtime());
    for(pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
       set_param(entry.first, entry.second);
 
@@ -447,12 +533,14 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
       added_vars.unchecked_push_back(new BcpColumn(*var));
    }
 
+   if(pModel_->getVerbosity() > 0)
+      printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+         "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
 }
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
    // store the solution
-   if(pModel_->getBestUb() > sol->objective_value())
-      pModel_->setBestUb(sol->objective_value());
+   pModel_->setBestUB(sol->objective_value());
 
    BCP_solution_generic* sol2 = (BCP_solution_generic*) sol;
    vector<double> primal(pModel_->getNbVars());
@@ -479,6 +567,11 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
 /*
  * BcpModeler
  */
+BcpModeler::BcpModeler(const char* name):
+   CoinModeler(),
+   primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
+   best_lb_in_root(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
+{ }
 
 //solve the model
 int BcpModeler::solve(bool relaxatione){
@@ -530,14 +623,6 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    if(best_lb_in_root > lpres.objval())
       best_lb_in_root = lpres.objval();
 
-   //clear the old vectors
-   if(primalValues_.size() != 0){
-      primalValues_.clear();
-      dualValues_.clear();
-      reducedCosts_.clear();
-      lhsValues_.clear();
-   }
-
    //copy the new arrays in the vectors for the core vars
    const int nbCoreVar = coreVars_.size();
    const int nbColVar = columnVars_.size();
@@ -548,29 +633,16 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    reducedCosts_.assign(lpres.dj(), lpres.dj()+nbCoreVar);
    lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
 
-   //reserve some space for the columns
-   primalValues_.reserve(nbColVar);
-   reducedCosts_.reserve(nbColVar);
+   //reserve some space for the columns and fill it with 0
+   double zeroArray[nbColVar];
+   CoinFillN(zeroArray, nbColVar, 0.0);
+   primalValues_.insert(primalValues_.end(), zeroArray, zeroArray+nbColVar);
+   reducedCosts_.insert(reducedCosts_.end(), zeroArray, zeroArray+nbColVar);
    //loop through the variables and link the good columns together
-   vector<CoinVar*>::iterator it = columnVars_.begin();
    for(int i=nbCoreVar; i<vars.size(); ++i){
-      BcpColumn* col = (BcpColumn*) *it;
       BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
-      if(! var) Tools::throwError("Column from BCP bad cast");
-      while(col->getIndex() != var->getIndex()){
-         primalValues_.push_back(0);
-         reducedCosts_.push_back(0);
-         ++it;
-         col = (BcpColumn*) *it;
-      }
-      primalValues_.push_back(lpres.x()[i]);
-      reducedCosts_.push_back(lpres.dj()[i]);
-      ++it;
-   }
-   while(it != columnVars_.end()){
-      primalValues_.push_back(0);
-      reducedCosts_.push_back(0);
-      ++it;
+      primalValues_[var->getIndex()] = lpres.x()[i];
+      reducedCosts_[var->getIndex()] = lpres.dj()[i];
    }
 }
 
@@ -603,8 +675,6 @@ int BcpModeler::setVerbosity(int v){
    verbosity_ = v;
 
    if(v>=1){
-      TmVerb_SingleLineInfoFrequency = 10;
-
       tm_parameters[BCP_tm_par::VerbosityShutUp] = 1;
       tm_parameters[BCP_tm_par::TmVerb_First] = 1;
       tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolutionValue] = 1;
@@ -615,7 +685,7 @@ int BcpModeler::setVerbosity(int v){
    }
 
    if(v>=2){
-      TmVerb_SingleLineInfoFrequency = 5;
+      TmVerb_SingleLineInfoFrequency = 1;
 
       lp_parameters[BCP_lp_par::LpVerb_IterationCount] = 1; // Print the "Starting iteration x" line. (BCP_lp_main_loop)
       lp_parameters[BCP_lp_par::LpVerb_GeneratedVarCount] = 1; // Print the number of variables generated during this iteration. (BCP_lp_main_loop)
@@ -636,8 +706,6 @@ int BcpModeler::setVerbosity(int v){
    }
 
    if(v>=4){
-      TmVerb_SingleLineInfoFrequency = 1;
-
       tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolution] = 1;
       tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolution] = 1;
       tm_parameters[BCP_tm_par::TmVerb_TimeOfImprovingSolution] = 1;
