@@ -19,8 +19,8 @@
 
 void main_test()
 {
-	testFunction_Antoine();
-	//testFunction_Jeremy();
+	//testFunction_Antoine();
+	testFunction_Jeremy();
 	//testFunction_Samuel();
 }
 
@@ -80,8 +80,6 @@ void testFunction_Antoine(){
 //      cout << "No solution found by the greedy." << endl;
 //   outStream << pGreedy->solutionToLogString();
 
-	return;
-
    // Instantiate the solver class as a test
    //
    MasterProblem* pBCP =
@@ -126,11 +124,38 @@ void testFunction_Jeremy(){
    timertotal->init();
    timertotal->start();
 
+	// Test directory and instance, the same is used in every test
+	string dataDir = "testdatasets/";// testdatasets datasets
+	string instanceName = "n005w4";// n100w4 n030w4 n005w4
+	string outDir = "outfiles/" + instanceName + "/";
+
    /************************************************************************
    * Go through the demands of the directory to find invariants in the demand
    *************************************************************************/
 
    // ReadWrite::compareDemands("testdatasets/n005w4","outfiles/comparedemands_n005w4.log");
+
+	/***************************************************************************
+	* Test the solution of only one week
+	* Here, we don't want to compare deterministic to stochastic, only greedy to
+	* column generation
+	****************************************************************************/
+	vector<int> weekIndex = {1};
+	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndex, GREEDY,
+		(string)(outDir+"greedyW"+std::to_string(weekIndex[0])+".log"));
+
+
+	/******************************************************************************
+	* Test a solution on multiple weeks
+	* In this method, the weeks are solved sequentially without knowledge of future
+	* demand
+	******************************************************************************/
+	vector<int> weekIndices = {1, 2, 3, 3};
+	//n005w4: {1, 2, 3, 3}
+	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+
+	testMultipleWeeksStochastic(dataDir, instanceName, 0, weekIndices, GREEDY, (string)(outDir+"greedyStochastic.log"));
+	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GREEDY,  (string)(outDir+"greedyDeterministic.log"));
 
    /************************************************************************
    * Initialize the week scenario by reading the input files
@@ -145,29 +170,13 @@ void testFunction_Jeremy(){
    *************************************************************************/
    testRandomDemandGenerator(1,"outfiles/randomdemands.out",pScen);
 
-   /****************************************
-   * Run the greedy to get an initial solution
-   *****************************************/
 
-   Greedy* pGreedy =
-      new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
-   pGreedy->constructiveGreedy();
-
-   // Write the solution in the required output format
-   string greedyFile = "outfiles/greedy.out";
-   Tools::LogOutput greedyStream(greedyFile);
-   greedyStream << pGreedy->solutionToString();
-
-   // Write the solution and advanced information in a more convenient format
-   string greedyLog = "outfiles/greedylog.out";
-   Tools::LogOutput greedyLogStream(greedyLog);
-   greedyLogStream << pGreedy->solutionToLogString();
 
    /****************************************
    * Test the CBC modeler
    *****************************************/
-   std::vector<Roster> solIni = pGreedy->getSolution();
-   testCbc(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(),solIni);
+
+   testCbc(pScen);
 
 
    // Display the total time spent in the tests
@@ -182,7 +191,6 @@ void testFunction_Jeremy(){
    //
    delete timertotal;
    delete pScen;
-   delete pGreedy;
 }
 
 // Function for testing parts of the code (Samuel)
@@ -354,29 +362,37 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 /****************************************
 * Test the CBC modeler
 *****************************************/
-void testCbc(Scenario* pScen, Demand* pDemand, Preferences* pPref,
-   std::vector<State>* pStateIni, std::vector<Roster>& solIni) {
-      // First method: directly instantiate a master problem equipped with a Cbc
-      // modeler as input
-      //
-      MasterProblem* pMPCbc;
-      pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC, solIni);
-      pMPCbc->solve();
+void testCbc(Scenario* pScen) {
 
-      // Write the solution in the required output format
-      string outFile = "outfiles/cbctest1.out";
-      Tools::LogOutput outStream(outFile);
-      outStream << pMPCbc->solutionToString();
+	Demand* pDemand = pScen->pWeekDemand();
+	Preferences* pPref = pScen->pWeekPreferences();
+	vector<State>* pStateIni = pScen->pInitialState();
 
-      // Second method, load the Cbc modeler from the model of the MP
-      //
-      CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
-      CbcModeler* cbcModel =
-         new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
-      cbcModel->solve();
+	// first, get an initial set of columns to input to Cbc by calling the greedy
+	Greedy* pGreedy = new Greedy(pScen, pDemand, pPref, pStateIni);
+	pGreedy->solve();
 
-      // a new method is needed to get the solution in the proper format from this
-      // external Cbc model
+  // First method: directly instantiate a master problem equipped with a Cbc
+  // modeler as input
+  //
+  MasterProblem* pMPCbc;
+  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC, pGreedy->getSolution());
+  pMPCbc->solve();
+
+  // Write the solution in the required output format
+  string outFile = "outfiles/cbctest1.out";
+  Tools::LogOutput outStream(outFile);
+  outStream << pMPCbc->solutionToString();
+
+  // Second method, load the Cbc modeler from the model of the MP
+  //
+  CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
+  CbcModeler* cbcModel =
+     new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
+  cbcModel->solve();
+
+  // a new method is needed to get the solution in the proper format from this
+  // external Cbc model
 }
 
 /************************************************************************
@@ -400,13 +416,49 @@ void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
 }
 
 /******************************************************************************
+* Solve a deterministic input demand with the input algorithm
+* In this method, we assume that all the demands are knwon in advance
+* (the method can also treat only one week)
+******************************************************************************/
+
+void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath) {
+
+	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
+
+	Solver* pSolver;
+	switch(algorithm){
+	case GREEDY:
+		pSolver = new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
+		break;
+	case GENCOL:
+		pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
+		break;
+	default:
+		Tools::throwError("The algorithm is not handled yet");
+		break;
+	}
+
+	pSolver->solve();
+
+	// display the solution if outfile specified in input
+	if (!outPath.empty()) {
+		Tools::LogOutput outStream(outPath);
+		outStream << pSolver->solutionToLogString();
+	}
+
+	delete pSolver;
+	delete pScen;
+}
+
+/******************************************************************************
 * Test a solution on multiple weeks
 * In this method, the weeks are solved sequentially without knowledge of future
 * demand
 ******************************************************************************/
 
-void testMultipleWeeks(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string logPath) {
+void testMultipleWeeksStochastic(string dataDir, string instanceName,
+	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath) {
 
 	int nbWeeks = weekIndices.size();
 	string instanceDir = dataDir + instanceName + "/";
@@ -423,7 +475,8 @@ void testMultipleWeeks(string dataDir, string instanceName,
 	}
 
 	// initialize the scenario object of the first week
-	Scenario* pScen = initializeScenario(scenPath,weekPaths[0],historyPath,logPath);
+	Scenario* pScen = initializeScenario(scenPath,weekPaths[0],historyPath,"");
+	vector<Roster> solution;
 
 	for (int week = 0; week < nbWeeks; week++) {
 		Solver* pSolver;
@@ -438,5 +491,69 @@ void testMultipleWeeks(string dataDir, string instanceName,
 			Tools::throwError("The algorithm is not handled yet");
 			break;
 		}
+
+		pSolver->solve();
+
+		// update the overall solution with the solution of the week that was just
+		// treated
+		// warning: we must make sure that the main solution in pSolver applies only
+		// to the demand of one week
+		vector<Roster> weekSolution = pSolver->getSolution();
+		if (solution.empty()) solution = weekSolution;
+		else {
+			for (int n = 0; n < pScen->nbNurses_; n++) {
+				solution[n].push_back(weekSolution[n]);
+			}
+		}
+		delete pSolver;
+
+		// prepare the scenario for next week if we did not reach the last week yet
+		if (week < nbWeeks-1) {
+
+			// Initialize demand and preferences
+			Demand* pDemand(0);
+			Preferences* pPref(0);
+
+			// Read the demand and preferences and link them with the scenario
+			ReadWrite::readWeek(weekPaths[week+1], pScen, &pDemand, &pPref);
+			pScen->linkWithDemand(pDemand);
+			pScen->linkWithPreferences(*pPref);
+
+			// read the initial state of the new week from the last state of the
+			// last week
+			vector<State> initialStates = pSolver->getFinalStates();
+
+			// update the scenario to treat next week
+			pScen->updateNewWeek(pDemand, *pPref, initialStates);
+		}
 	}
+
+	// Display the solution if outfile specified in input
+	if (!outPath.empty()) {
+		displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outPath);
+	}
+
+	delete pScen;
+}
+
+/******************************************************************************
+* When a solution of multiple consecutive weeks is available, load it in a
+* solver for all the weeks and  display the results
+******************************************************************************/
+void displaySolutionMultipleWeeks(string dataDir, string instanceName,
+	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, string outPath) {
+
+	// load the solution in a new solver
+	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
+	Solver* pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
+	pSolver->loadSolution(solution);
+
+	// display the solution if outfile specified in input
+	if (!outPath.empty()) {
+		Tools::LogOutput outStream(outPath);
+		outStream << pSolver->solutionToLogString();
+	}
+
+	delete pSolver;
+	delete pScen;
 }

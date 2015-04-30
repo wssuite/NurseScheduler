@@ -806,7 +806,13 @@ bool Greedy::constructiveGreedy() {
 
 // Main method to solve the rostering problem for a given input
 //
-void Greedy::solve() {}
+void Greedy::solve() {
+  bool isFeasible = this->constructiveGreedy();
+
+  if (!isFeasible) {
+    std::cout << "Greedy: the constructive algorithm was unable to find a solution\n";
+  }
+}
 
 //------------------------------------------------------------------------------
 // Create the vector of sorted nurses

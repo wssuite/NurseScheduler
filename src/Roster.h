@@ -40,7 +40,7 @@ public:
 
   // Default constructor
   //
-  Roster() {}
+  Roster():nbDays_(0), firstDay_(0) {}
 
   // Constructor form no particular planning
   //
@@ -83,23 +83,13 @@ private:
   //
   vector<int> skills_;
 
-  // vectors of booleans that for each day, is equal to 1 if the nurse is about
-  // to go from a working day to a day off or from a day off to a working day
-  //
-  vector<bool> switchOff_;
-
-  // vectors of booleans that for each day, is equal to 1 if the nurse is about
-  // to take another type of shift
-  //
-  vector<bool> switchShift_;
-
 public:
   // Basic getters
   //
+  int firstDay() {return firstDay_;}
+  int nbDays() {return nbDays_;}
   int shift(int day) const {return shifts_[day];}
   int skill(int day) const {return skills_[day];}
-  bool switchOff(int day) const {return switchOff_[day];}
-  int switchShift(int day) const {return switchShift_[day];}
 
   // initialize the roster
   //
@@ -113,6 +103,14 @@ public:
   // assign a task at on a given day
   //
   void assignTask(int day, int shift, int skill=0);
+
+  // add a roster at the end of the roster
+  //
+  void push_back(Roster& roster);
+
+  // copy the input roster
+  //
+  void copy(Roster& roster);
 
 };
 

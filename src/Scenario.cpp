@@ -13,6 +13,14 @@
 #include "MyTools.h"
 #include "Nurse.h"
 
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   S c e n a r i o
+//
+//  Class that contains all the attributes describing the scenario
+//
+//-----------------------------------------------------------------------------
+
 // Constructor and destructor
 //
 Scenario::Scenario(string name, int nbWeeks,
@@ -52,7 +60,7 @@ Scenario::~Scenario(){
 	for(Position* position: pPositions_)
 	   delete position;
 
-	//delete pWeekDemand_;
+	delete pWeekDemand_;
 }
 
 // return true if the shift shNext is a forbidden successor of sh
@@ -67,6 +75,27 @@ bool Scenario::isForbiddenSuccessor(int shNext, int shLast) {
 	}
 	return false;
 }
+
+// update the scenario to treat a new week
+//
+void Scenario::updateNewWeek(Demand* pDemand, Preferences& preferences, vector<State> &initialStates) {
+
+	// delete the current demand
+	delete pWeekDemand_;
+
+	// set the demand, preferences and initial states
+	this->linkWithDemand(pDemand);
+	this->linkWithPreferences(preferences);
+	this->setInitialState(initialStates);
+
+	// update the index of the week
+	thisWeek_++;
+
+}
+
+//------------------------------------------------
+// Display functions
+//------------------------------------------------
 
 // Display methods: toString + override operator<< (easier)
 //
