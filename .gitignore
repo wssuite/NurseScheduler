@@ -1,13 +1,15 @@
-*.log
-*.o
-src/roster
+# the main source file must be different for each developper
+src/main.cpp
+
+# binaries and compilation files
 bin/*
-logfiles/*
-src/Makefile
-/Default/
-Makefile
 obj/*
-outfiles
+*.o
+
+# ouput and log files
+logfiles/*
+outfiles/
+*.log
 
 #For eclipse
 .cproject*
@@ -18,3 +20,6 @@ formatter*
 
 # for mac
 .fuse*
+
+# this file
+.gitignore

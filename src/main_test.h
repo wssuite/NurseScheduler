@@ -8,8 +8,25 @@
 
 #include "Solver.h"
 
-// Main test function directly called in main.cpp
-void main_test();
+
+// The instances of this class contain the paths of the input files of the
+// problem
+class InputPaths{
+public:
+  InputPaths(string dataDir, string instanceName,int historyIndex, vector<int> weekIndices);
+
+protected:
+  string scenario_;
+  string history_;
+  vector<string> weeks_;
+
+public:
+  string scenario() {return scenario_;}
+  string history() {return history_;}
+  vector<string> weeks() {return weeks_;}
+  string week(int w) {return weeks_[w];}
+};
+
 
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine();
@@ -49,6 +66,9 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 // demand
 void testMultipleWeeksStochastic(string dataDir, string instanceName,
 	int historyIndex, vector<int> weekIndices, Algorithm algo, string logPath="");
+
+// Create a solver of the class specified by the input algorithm type
+Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm);
 
 // When a solution of multiple consecutive weeks is available, load it in a
 // solver for all the weeks and  display the results

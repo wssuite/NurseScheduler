@@ -17,12 +17,6 @@
 #include "MyTools.h"
 
 
-void main_test()
-{
-	testFunction_Antoine();
-	//testFunction_Jeremy();
-	//testFunction_Samuel();
-}
 
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
@@ -142,7 +136,7 @@ void testFunction_Jeremy(){
 	****************************************************************************/
 	vector<int> weekIndex = {1};
 	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndex, GREEDY,
-		(string)(outDir+"greedyW"+std::to_string(weekIndex[0])+".log"));
+		(string)(outDir+"Greedy/"));
 
 
 	/******************************************************************************
@@ -154,8 +148,8 @@ void testFunction_Jeremy(){
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 
-	testMultipleWeeksStochastic(dataDir, instanceName, 0, weekIndices, GREEDY, (string)(outDir+"greedyStochastic.log"));
-	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GREEDY,  (string)(outDir+"greedyDeterministic.log"));
+	testMultipleWeeksStochastic(dataDir, instanceName, 0, weekIndices, GREEDY, (string)(outDir+"GreedyStochastic/"));
+	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GREEDY,  (string)(outDir+"Greedy/"));
 
    /************************************************************************
    * Initialize the week scenario by reading the input files
@@ -286,6 +280,29 @@ void testFunction_Samuel(){
       delete pBCP;
 }
 
+
+/******************************************************************************
+* The instances of InputPaths contain the paths of the input files of the
+* problem
+*******************************************************************************/
+
+InputPaths::InputPaths(string dataDir, string instanceName,int historyIndex, vector<int> weekIndices) {
+
+	int nbWeeks = weekIndices.size();
+	string instanceDir = dataDir + instanceName + "/";
+
+	// initialize the scenario and history file names
+	scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
+	history_ = instanceDir + "H0" + "-" + instanceName + "-" + std::to_string(historyIndex) + ".txt";
+
+	// initialize the file names for each week demand
+	for(int week: weekIndices){
+		string path = instanceDir + "WD-" + instanceName + "-" + std::to_string(week) + ".txt";
+		weeks_.push_back(path);
+	}
+}
+
+
 /************************************************************************
 * Initialize the week scenario by reading the input files
 *************************************************************************/
@@ -326,28 +343,17 @@ Scenario* initializeScenario(string scenPath, string demandPath, string historyP
 Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 	int historyIndex, vector<int> weekIndices, string logPath) {
 
-	int nbWeeks = weekIndices.size();
-	string instanceDir = dataDir + instanceName + "/";
-
-	// initialize the scenario and history file names
-	string scenPath = instanceDir + "Sc-" + instanceName + ".txt";
-	string historyPath = instanceDir + "H0" + "-" + instanceName + "-" + std::to_string(historyIndex) + ".txt";
-
-	// initialize the file names for each week demand
-	vector<string> weekPaths;
-	for(int week: weekIndices){
-		string path = instanceDir + "WD-" + instanceName + "-" + std::to_string(week) + ".txt";
-		weekPaths.push_back(path);
-	}
+	// build the paths of the input files
+	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
 
 	// Read the scenario
-	Scenario* pScen = ReadWrite::readScenario(scenPath);
+	Scenario* pScen = ReadWrite::readScenario(inputPaths.scenario());
 
 	// Read the demand and preferences and link them with the scenario
-	ReadWrite::readWeeks(weekPaths, pScen);
+	ReadWrite::readWeeks(inputPaths.weeks(), pScen);
 
 	// Read the history
-	ReadWrite::readHistory(historyPath, pScen);
+	ReadWrite::readHistory(inputPaths.history(), pScen);
 
 	// Check that the scenario was read properly if logfile specified in input
 	if (!logPath.empty()) {
@@ -358,6 +364,98 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 
 	return pScen;
 }
+
+/******************************************************************************
+* Solve a deterministic input demand with the input algorithm
+* In this method, we assume that all the demands are knwon in advance
+* (the method can also treat only one week)
+******************************************************************************/
+
+void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir) {
+
+	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
+
+	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
+
+	pSolver->solve();
+
+	// Display the solution
+	vector<Roster> solution = pSolver->getSolution();
+	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outDir);
+
+	delete pSolver;
+	delete pScen;
+}
+
+/******************************************************************************
+* Test a solution on multiple weeks
+* In this method, the weeks are solved sequentially without knowledge of future
+* demand
+******************************************************************************/
+
+void testMultipleWeeksStochastic(string dataDir, string instanceName,
+	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir) {
+
+	// build the paths of the input files
+	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
+
+	// initialize the scenario object of the first week
+	Scenario* pScen = initializeScenario(inputPaths.scenario(),inputPaths.week(0),inputPaths.history(),"");
+
+	// solve the problem for each week and store the solution in the vector below
+	vector<Roster> solution;
+	int nbWeeks = weekIndices.size();
+	for (int week = 0; week < nbWeeks; week++) {
+
+		Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
+
+		pSolver->solve();
+
+		// update the overall solution with the solution of the week that was just
+		// treated
+		// warning: we must make sure that the main solution in pSolver applies only
+		// to the demand of one week
+		vector<Roster> weekSolution = pSolver->getSolution();
+		if (solution.empty()) solution = weekSolution;
+		else {
+			for (int n = 0; n < pScen->nbNurses_; n++) {
+				solution[n].push_back(weekSolution[n]);
+			}
+		}
+
+		// prepare the scenario for next week if we did not reach the last week yet
+		if (week < nbWeeks-1) {
+
+			// Initialize demand and preferences
+			Demand* pDemand(0);
+			Preferences* pPref(0);
+
+			// Read the demand and preferences and link them with the scenario
+			ReadWrite::readWeek(inputPaths.week(week+1), pScen, &pDemand, &pPref);
+
+			// read the initial state of the new week from the last state of the
+			// last week
+			// modify the dayId_ to show that this is the first day of the new week
+			vector<State> initialStates = pSolver->getFinalStates();
+			for (int i = 0; i < pScen->nbNurses_; i++) {
+				initialStates[i].dayId_ = 0;
+			}
+
+			// update the scenario to treat next week
+			pScen->updateNewWeek(pDemand, *pPref, initialStates);
+		}
+
+		delete pSolver;
+	}
+
+	// Display the solution
+	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outDir);
+
+	delete pScen;
+}
+
+
 
 /****************************************
 * Test the CBC modeler
@@ -415,16 +513,12 @@ void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
    }
 }
 
+
 /******************************************************************************
-* Solve a deterministic input demand with the input algorithm
-* In this method, we assume that all the demands are knwon in advance
-* (the method can also treat only one week)
+* Create a solver of the class specified by the input algorithm type
 ******************************************************************************/
 
-void testMultipleWeeksDeterministic(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath) {
-
-	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
+Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 
 	Solver* pSolver;
 	switch(algorithm){
@@ -438,101 +532,7 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 		Tools::throwError("The algorithm is not handled yet");
 		break;
 	}
-
-	pSolver->solve();
-
-	// display the solution if outfile specified in input
-	if (!outPath.empty()) {
-		Tools::LogOutput outStream(outPath);
-		outStream << pSolver->solutionToLogString();
-	}
-
-	delete pSolver;
-	delete pScen;
-}
-
-/******************************************************************************
-* Test a solution on multiple weeks
-* In this method, the weeks are solved sequentially without knowledge of future
-* demand
-******************************************************************************/
-
-void testMultipleWeeksStochastic(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath) {
-
-	int nbWeeks = weekIndices.size();
-	string instanceDir = dataDir + instanceName + "/";
-
-	// initialize the scenario and history file names
-	string scenPath = instanceDir + "Sc-" + instanceName + ".txt";
-	string historyPath = instanceDir + "H0" + "-" + instanceName + "-" + std::to_string(historyIndex) + ".txt";
-
-	// initialize the file names for each week demand
-	vector<string> weekPaths;
-	for(int week: weekIndices){
-		string path = instanceDir + "WD-" + instanceName + "-" + std::to_string(week) + ".txt";
-		weekPaths.push_back(path);
-	}
-
-	// initialize the scenario object of the first week
-	Scenario* pScen = initializeScenario(scenPath,weekPaths[0],historyPath,"");
-	vector<Roster> solution;
-
-	for (int week = 0; week < nbWeeks; week++) {
-		Solver* pSolver;
-		switch(algorithm){
-		case GREEDY:
-			pSolver = new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
-			break;
-		case GENCOL:
-			pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
-			break;
-		default:
-			Tools::throwError("The algorithm is not handled yet");
-			break;
-		}
-
-		pSolver->solve();
-
-		// update the overall solution with the solution of the week that was just
-		// treated
-		// warning: we must make sure that the main solution in pSolver applies only
-		// to the demand of one week
-		vector<Roster> weekSolution = pSolver->getSolution();
-		if (solution.empty()) solution = weekSolution;
-		else {
-			for (int n = 0; n < pScen->nbNurses_; n++) {
-				solution[n].push_back(weekSolution[n]);
-			}
-		}
-
-		// prepare the scenario for next week if we did not reach the last week yet
-		if (week < nbWeeks-1) {
-
-			// Initialize demand and preferences
-			Demand* pDemand(0);
-			Preferences* pPref(0);
-
-			// Read the demand and preferences and link them with the scenario
-			ReadWrite::readWeek(weekPaths[week+1], pScen, &pDemand, &pPref);
-
-			// read the initial state of the new week from the last state of the
-			// last week
-			vector<State> initialStates = pSolver->getFinalStates();
-
-			// update the scenario to treat next week
-			pScen->updateNewWeek(pDemand, *pPref, initialStates);
-		}
-
-		delete pSolver;
-	}
-
-	// Display the solution if outfile specified in input
-	if (!outPath.empty()) {
-		displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outPath);
-	}
-
-	delete pScen;
+	return pSolver;
 }
 
 /******************************************************************************
@@ -540,17 +540,31 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 * solver for all the weeks and  display the results
 ******************************************************************************/
 void displaySolutionMultipleWeeks(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, string outPath) {
+	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, string outDir) {
+
+	if (outDir.empty()) return;
 
 	// load the solution in a new solver
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 	Solver* pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
 	pSolver->loadSolution(solution);
 
-	// display the solution if outfile specified in input
-	if (!outPath.empty()) {
-		Tools::LogOutput outStream(outPath);
-		outStream << pSolver->solutionToLogString();
+	// concatenate the week numbers
+	int nbWeeks = weekIndices.size();
+	string catWeeks;
+	for (int w=0; w< nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
+
+	// write the log file for all the weeks
+	string logPath = outDir+"Log-"+catWeeks+".txt";
+	Tools::LogOutput outStream(logPath);
+	outStream << pSolver->solutionToLogString();
+
+	// write separately the solutions of each week in the required output format
+	vector<string> solutions = pSolver->solutionToString(nbWeeks);
+	for(int w=0; w < nbWeeks; ++w){
+		string solutionFile = outDir+"Sol-"+catWeeks+"-"+std::to_string(weekIndices[w])+"-"+std::to_string(w)+".txt";
+		Tools::LogOutput solutionStream(solutionFile);
+		solutionStream << solutions[w];
 	}
 
 	delete pSolver;
