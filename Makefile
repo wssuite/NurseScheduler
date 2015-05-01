@@ -41,8 +41,16 @@ endif
 
 #-----------------------------------------------------------------------------
 # include project Makefile from COIN
+# define BCPDIR and CBCDIR (if not defined)
 #-----------------------------------------------------------------------------
 ifeq ($(USE_COIN), TRUE)
+   ifeq ($(DEBUG), TRUE)
+      BCPDIR = $(BCPDIRDBG)
+      CBCDIR = $(CBCDIRDBG)
+   else
+      BCPDIR = $(BCPDIROPT)
+      CBCDIR = $(CBCDIROPT)
+   endif
    include make.coin
 endif
 

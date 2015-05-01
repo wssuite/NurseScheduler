@@ -18,9 +18,7 @@
 
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
 pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()),
-lpIteration_(0), lastDiveIteration_(-1), cbcEveryXLpIteration_(100),
-alreadyDuplicated_(false), dive_(false), genColHasBeenRun_(false),
-current_node(0), nb_nodes(0)
+lpIteration_(0), current_node(0), nb_nodes(0)
 { }
 
 //Initialize the lp parameters and the OsiSolver
@@ -39,95 +37,71 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
    const BCP_vec<BCP_var*>& vars,
    const BCP_vec<BCP_cut*>& cuts){
 
-   //if doesn't dive and on the good iteration
-   if(!dive_ && ( (lpIteration_-lastDiveIteration_)%cbcEveryXLpIteration_) == 1){
-//      //copy the solver of the problem
-//      OsiSolverInterface* solver = getLpProblemPointer()->lp_solver->clone();
-//      //Store the active columns
-//      vector<CoinVar*> columns;
-//
-//      for(int i=0; i<vars.size(); ++i){
-//         //Set the type of the columns as the columns can be integrated as continuous var
-//         //As some columns can have been removed, the index are not the same than ours
-//         BcpColumn* column = dynamic_cast<BcpColumn*>(vars[i]);
-//         if(column){
-//            columns.push_back(column);
-//            switch (column->getVarType()) {
-//            case VARTYPE_BINARY:
-//               solver->setInteger(i);
-//               solver->setColUpper(i, 1);
-//               break;
-//            case VARTYPE_INTEGER:
-//               solver->setInteger(i);
-//               break;
-//            default:
-//               break;
-//            }
-//         }
-//         //Reset the bounds of all the core variables
-//         //As they are always in the problem and they are always the first variables,
-//         //they have the same index than our core variables
-//         else{
-//            if(!dynamic_cast<BCP_var_core*>(vars[i]))
-//               Tools::throwError("Not a core variable.");
-//            CoinVar* myVar = pModel_->getCoreVars()[i];
-//            solver->setColLower(i, myVar->getLB());
-//            solver->setColUpper(i, myVar->getUB());
-//         }
-//      }
-//
-//      //initialize the MIP model
-//      CbcModeler MIP(pModel_->getCoreVars(), columns, pModel_->getCons(),solver);
-//      CorePriorityBranchingRule rule(&MIP, "PriorityRule");
-//      MIP.addBranchingRule(&rule);
-//      MIP.setVerbosity(pModel_->getVerbosity());
-//      MIP.solve();
-//
-//      BCP_solution_generic* sol = new BCP_solution_generic(false);
-//     const int nbCoreVars = pModel_->getCoreVars().size();
-//      //same index for BCP_core_var and BcpCoreVar (they are all before the columns)
-//      for(int i=0; i<nbCoreVars; ++i){
-//         BcpCoreVar* var = (BcpCoreVar*) pModel_->getCoreVars()[i];
-//         double value = MIP.getVarValue(var);
-//         if(value>0)
-//            sol->add_entry(vars[i], value);
-//      }
-//      for(int i=nbCoreVars; i<vars.size(); ++i){
-//         //take the colum with the index i
-//         BcpColumn* column = (BcpColumn*)(pModel_->getColumns()[i-nbCoreVars]);
-//         double value = MIP.getVarValue(column);
-//         if(value>0)
-//            sol->add_entry(vars[i], value);
-//      }
+   BCP_solution_generic* sol = NULL;
 
-//      //initialize the MIP model
-//      CbcModeler MIP(pModel_->getCoreVars(), pModel_->getColumns(), pModel_->getCons());
-//      CorePriorityBranchingRule rule(&MIP, "PriorityRule");
-//      MIP.addBranchingRule(&rule);
-//      MIP.setBestUB(pModel_->getBestUB());
-//      MIP.setVerbosity(pModel_->getVerbosity());
-//      MIP.setMaxSolvingtime(120);
-//      MIP.solve();
+//   //copy the solver
+//   OsiSolverInterface* solver = getLpProblemPointer()->lp_solver;
 //
-//      BCP_solution_generic* sol = new BCP_solution_generic(false);
-//      const int nbCoreVars = pModel_->getCoreVars().size();
-//      //same index for BCP_core_var and BcpCoreVar (they are all before the columns)
-//      for(int i=0; i<nbCoreVars; ++i){
-//         double value = MIP.getVarValue(pModel_->getCoreVars()[i]);
-//         if(value>0)
-//            sol->add_entry(vars[i], value);
+//   //store the basis
+//   const CoinWarmStart* ws = solver->getWarmStart();
+//
+//   // prepare for heuristic branching
+//   solver->markHotStart();
+//
+//   //define different size
+//   const int size = vars.size(), coreSize = pModel_->getCoreVars().size(), nbColumnsActive = size - coreSize;
+//
+//   //store lower bounds
+//   double lowerBounds[size];
+//   memcpy(lowerBounds, solver->getColLower(), size);
+//   vector<int> indexColLbChanched;
+//
+//   //while the solution is feasible
+//   solver->solveFromHotStart();
+//   while( solver->isProvenOptimal() ){
+//      //store the best column
+//      double bestValue = EPSILON;
+//      int index = -1;
+//
+//      //find the best not integer column
+//      for(int i=coreSize; i<size; ++i){
+//         double value = solver->getColSolution()[i];
+//         if(value ==0 || value > 1 - EPSILON)
+//            continue;
+//         if(value > bestValue){
+//            index = i;
+//            bestValue = value;
+//         }
 //      }
-//      for(int i=nbCoreVars; i<pModel_->getNbVars(); ++i){
-//         //take the colum with the index i
-//         BcpColumn* column = (BcpColumn*)(pModel_->getColumns()[i-nbCoreVars]);
-//         double value = MIP.getVarValue(column);
-//         if(value>0)
-//            sol->add_entry(column, value);
+//
+//      //if we have found a column
+//      if(index >= 0){
+//         indexColLbChanched.push_back(index);
+//         solver->setColLower(index, 1);
+//         solver->solveFromHotStart();
 //      }
-//      cout << "CBC: " << sol->objective_value() << endl;
-//      return sol;
-   }
-   return NULL;
+//      //else the solution is integer, create a BCP_solution_generic to return
+//      else{
+//         sol = new BCP_solution_generic();
+//         for(int i=0; i<size; ++i)
+//            if(solver->getColSolution()[i] > EPSILON)
+//               sol->add_entry(vars[i], solver->getColSolution()[i]);
+//
+//         break;
+//      }
+//   }
+//
+//   //restore bounds
+//   for(int index: indexColLbChanched)
+//      solver->setColLower(index, lowerBounds[index]);
+//
+//   // indicate to the lp solver that the heuristic branching is done
+//   solver->unmarkHotStart();
+//   solver->setWarmStart(ws);
+//
+//   delete ws;
+
+   return sol;
 }
 
 //Modify parameters of the LP solver before optimization.
@@ -150,6 +124,11 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 //var_bound_changes_since_logical_fixing    the number of variables whose bounds have changed (by reduced cost fixing) since the most recent invocation of this method that has actually forced changes returned something in the last two arguments,
 //changed_pos    the positions of the variables whose bounds should be changed
 //new_bd   the new bounds (lb/ub pairs) of these variables.
+///////////////////////////////////////////////////////////////////////////////////////
+//WARNING: JUST FIX BOUNDS THAT ARE COMPULSORY IN AN INTEGER POINT OF VIEW
+//AS THE FINAL LP BOUND OF THE NODE IS GIVEN TO ITS CHILDREN,
+//FIXING WRONG BOUNDS CAN LEAD TO A FALSE LOWER BOUND, THUS FATHOMING WRONG NODES.
+///////////////////////////////////////////////////////////////////////////////////////
 void BcpLpModel::logical_fixing (const BCP_lp_result& lpres,
    const BCP_vec<BCP_var*>& vars,
    const BCP_vec<BCP_cut*>& cuts,
@@ -159,44 +138,6 @@ void BcpLpModel::logical_fixing (const BCP_lp_result& lpres,
    BCP_vec<int>& changed_pos,
    BCP_vec<double>& new_bd){
 
-	return;
-
-   //if not root and the column generation procedure has been run since last logical_fixing
-   if(dive_ && genColHasBeenRun_){
-      //add all good candidates
-      vector<MyObject*> fixingCandidates;
-      pModel_->logical_fixing(fixingCandidates);
-
-      //if there some candidates, fix it
-      if(fixingCandidates.size() > 0){
-         genColHasBeenRun_ = false;
-         changed_pos.reserve(fixingCandidates.size());
-         new_bd.reserve(2 * fixingCandidates.size());
-
-         //fix if some candidates
-         vector<MyObject*>::iterator it = fixingCandidates.begin();
-         BcpColumn* col = (BcpColumn*) *it;
-         for(int i=pModel_->getCoreVars().size(); i<vars.size(); ++i){
-            BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
-
-            //search the column var in fixingCandidates.
-            //If find, set the lower bound of the column to 1
-            if(col->getIndex() == var->getIndex()){
-               changed_pos.push_back(i);
-               new_bd.push_back(1);
-               new_bd.push_back(var->ub());
-
-               //take the next candidate
-               ++it;
-               //if the last one, break;
-               if(it == fixingCandidates.end())
-                  break;
-               col = (BcpColumn*) *it;
-            }
-         }//end loop on fixingCandidates
-
-      }
-   }
 }
 
 // Restoring feasibility.
@@ -265,8 +206,6 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    //   return;
 
    ++lpIteration_;
-   genColHasBeenRun_ = true;
-   if(dive_) lastDiveIteration_ = lpIteration_;
    pModel_->setLPSol(lpres, vars);
    pModel_->pricing(0, before_fathom);
 
@@ -295,7 +234,8 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
       int frac = 0;
       int non_zero = 0;
       for(CoinVar* col: pModel_->getColumns()){
-         if(pModel_->getVarValue(col) > EPSILON)
+         double value = pModel_->getVarValue(col);
+         if(value > EPSILON)
             non_zero ++;
          if(!pModel_->isInteger(col))
             frac++;
@@ -332,47 +272,24 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    if(local_var_pool.size() > 0)
       return BCP_DoNotBranch;
 
-   //start the dive
-   dive_ = true;
+   //fathom if greater than current upper bound
+   if(pModel_->getBestUB() < lpres.objval() + EPSILON)
+      return BCP_DoNotBranch_Fathomed;
 
-   //If no more columns have been generated, duplicate the node and:
-   //let the function logical_fixing perform its work for the first one
-   //keep the second for continuing the branching process later
-//   if(!alreadyDuplicated_){
-//      cands.push_back(new  BCP_lp_branching_object(2, //2 identical children with nothing changed
-//         0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
-//      dive_ = true;
-//      return BCP_DoBranch;
-//   }
-//
-//   //Stop the dive
-//   if(dive_){
-//      if(genColHasBeenRun_)
-//         return BCP_DoNotBranch;
-//      dive_ = false;
-//      return BCP_DoNotBranch_Fathomed;
-//   }
-
-   alreadyDuplicated_ = true;
-   genColHasBeenRun_ = false;
-
-   //branching candidates
+   //branching candidates: numberOfNursesByPosition_
    vector<MyObject*> branchingCandidates;
    pModel_->branching_candidates(branchingCandidates);
 
-   //branch if some candidates
-//   for(MyObject* var: branchingCandidates){
-//      CoinVar* var2 = dynamic_cast<CoinVar*>(var);
-//      appendCoreIntegerVar(var2, cands);
-//   }
+   //fixing candidates: branch on columns greater than BRANCHLB
+   vector<MyObject*> fixingCandidates;
+   pModel_->logical_fixing(fixingCandidates);
 
-   if(branchingCandidates.size() > 0){
-      appendNewBranchingVar(branchingCandidates, vars, cands);
-      return BCP_DoBranch;
-   }
+   if(branchingCandidates.size() == 0)
+      Tools::throwError("Solution is not integer and no branching variable is found.");
 
-   //otherwise fathomed
-   return BCP_DoNotBranch_Fathomed;
+   CoinVar* integrCoreVar = dynamic_cast<CoinVar*>(branchingCandidates[0]);
+   appendNewBranchingVar(integrCoreVar, fixingCandidates, vars, cands);
+   return BCP_DoBranch;
 }
 
 //Decide what to do with the children of the selected branching object.
@@ -384,43 +301,30 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 //However, if BCP dives then one child will be mark with BCP_KeepChild. The decision which child to keep is based on the ChildPreference parameter in BCP_lp_par.
 //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
-   //if first time, duplicate the node
-   if(!alreadyDuplicated_){
-      best->action()[0] = BCP_KeepChild;
-      best->action()[1] = BCP_ReturnChild;
-      alreadyDuplicated_ = true;
-   }
-   //otherwise let perform the default actions
-   else
-      BCP_lp_user::set_actions_for_children(best);
-
-   nb_nodes += best->action().size();
+   nb_nodes += best->candidate()->child_num;
 
    if(pModel_->getVerbosity() > 0)
-         printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
-            "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
+        printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+              "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
+
+   // by default every action is set to BCP_ReturnChild
+
+   //if no column, let BCP decides
+   if(best->candidate()->child_num == 2)
+      BCP_lp_user::set_actions_for_children(best);
+   //choose the column with the lowest bound on the presolve
+   else{
+      int index = 0;
+      for (int i = 0; i<best->candidate()->child_num; ++i)
+             if (best->lpres(i).objval() < best->lpres(index).objval())
+                index = i;
+      //keep the best column to dive
+      best->action()[index] = BCP_KeepChild;
+   }
 }
 
-void BcpLpModel::appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands){
-   BCP_vec<int> vpos; //positions of the variables
-   BCP_vec<double> vbd; // old bound and then new one for each variable
-
-   vpos.push_back(coreVar->getIndex());
-   double value = pModel_->getVarValue(coreVar);
-   vbd.push_back(coreVar->getLB()); // old lower bound
-   vbd.push_back(floor(value)); // new upper bound
-   vbd.push_back(ceil(value)); // new lower bound
-   vbd.push_back(coreVar->getUB()); // new lower bound
-
-
-   cands.push_back(new  BCP_lp_branching_object(2, //2 children
-      0, 0, /* vars/cuts_to_add */
-      &vpos, 0, &vbd, 0, /* forced parts: position and bounds (old bound and then new one) */
-      0, 0, 0, 0 /* implied parts */));
-}
-
-void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
-   const int nbChildren = columns.size();
+void BcpLpModel::appendNewBranchingVar(CoinVar* integerCoreVar, vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
+   const int nbChildren = 2+columns.size();
    BCP_vec<int> vpos; //positions of the variables
    BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
    //this vector is filled is this order:
@@ -428,34 +332,65 @@ void BcpLpModel::appendNewBranchingVar(vector<MyObject*> columns, const BCP_vec<
    //then for the second child: old and new bounds for all the variables in vpos
    //....
 
-   int child = columns.size();
-   for (MyObject* var: columns) {
-      //put the first column (the best) in the last position
-      //because BCP dives on the last children
-      --child;
-      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-      if(!col)
-         Tools::throwError("The variable fixed is not a column.");
-
-      //find the index of col in vars
-      int index=-1;
+   //current index in the BCP formulation
+   vector<int> currentIndex(columns.size());
+   for(int j=0; j<columns.size(); ++j){
+      bool found = false;
+      BcpColumn* col = dynamic_cast<BcpColumn*>(columns[j]);
       for(int i=pModel_->getCoreVars().size(); i<vars.size(); ++i){
          BcpColumn* col2 = dynamic_cast<BcpColumn*>(vars[i]);
          if(col->getIndex() == col2->getIndex()){
-            index = i;
+            currentIndex[j] = i;
+            found = true;
             break;
          }
       }
-      if(index==-1)
+      if(!found)
          Tools::throwError("The column has not been found.");
-      vpos.push_back(index);
+   }
 
-      //set the new bound of col to 1 and all the others columns keep 0
-      for(int i=0; i<nbChildren; ++i){
-         //fix the old bound (0)
-         vbd.push_back(0);
-         //if i==child, the new bound==1, otherwise 0
-         vbd.push_back( (i==child) ? 1: 0 );
+   //positions vector
+   vpos.push_back(integerCoreVar->getIndex());
+   for(int j=0; j<columns.size(); ++j)
+      vpos.push_back(currentIndex[j]);
+
+   /*
+    * BOUNDS VECTOR
+    */
+
+   //branch on floor(value) of integerCoreVar
+   double value = pModel_->getVarValue(integerCoreVar);
+   vbd.push_back(integerCoreVar->getLB()); // old lower bound
+   vbd.push_back(floor(value)); // new upper bound
+   //keep same bound for the columns
+   for(int j=0; j<columns.size(); ++j){
+      vbd.push_back(vars[currentIndex[j]]->lb());
+      vbd.push_back(vars[currentIndex[j]]->ub());
+   }
+
+   //branch on ceil(value) of integerCoreVar
+   vbd.push_back(ceil(value)); // new lower bound
+   vbd.push_back(integerCoreVar->getUB()); // new lower bound
+   //keep same bound for the columns
+   for(int j=0; j<columns.size(); ++j){
+      vbd.push_back(vars[currentIndex[j]]->lb());
+      vbd.push_back(vars[currentIndex[j]]->ub());
+   }
+
+
+   //branch on the columns
+   for(int j=0; j<columns.size(); ++j){
+      //don't change bounds for integerCoreVar
+      vbd.push_back(integerCoreVar->getLB());
+      vbd.push_back(integerCoreVar->getUB());
+
+      //keep same bound for the columns exectp for the column j
+      for(int l=0; l<columns.size(); ++l){
+         if(l==j)
+            vbd.push_back(1);
+         else
+            vbd.push_back(vars[currentIndex[l]]->lb());
+         vbd.push_back(vars[currentIndex[l]]->ub());
       }
    }
 
@@ -642,7 +577,8 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    reducedCosts_.insert(reducedCosts_.end(), zeroArray, zeroArray+nbColVar);
    //loop through the variables and link the good columns together
    for(int i=nbCoreVar; i<vars.size(); ++i){
-      BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
+      BCP_var* var0 = vars[i];
+      BcpColumn* var = dynamic_cast<BcpColumn*>(var0);
       primalValues_[var->getIndex()] = lpres.x()[i];
       reducedCosts_[var->getIndex()] = lpres.dj()[i];
    }

@@ -334,25 +334,62 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
    //search all candidates
-   vector<pair<MyObject*, double> > candidates;
-   for(int i=0; i<master_->getRotations().size(); ++i)
-      for(pair<MyObject*, Rotation> var: (master_->getRotations())[i])
-         //if var is fractional and the rotation is a real rotation (length > 0)
-         if(var.second.length_>0 && !pModel_->isInteger(var.first) )
-            candidates.push_back(pair<MyObject*, double>(var.first, pModel_->getVarValue(var.first)));
 
-   switch(searchStrategy_){
-   case DepthFirstSearch:
-      sort(candidates.begin(), candidates.end(), compareColumnCloseToInt);
-      break;
-   default:
-      sort(candidates.begin(), candidates.end(), compareColumnCloseTo5);
+   if(mediumCandidates_.size() == 0)
+      for(MyObject* var: pModel_->getIntegerCoreVars()){
+         string str2 = "nursesNumber";
+         string str0(var->name_);
+         string str1 = str0.substr(0,str2.size());
+         if(strcmp(str1.c_str(), str2.c_str()) == 0)
+            bestCandidates_.push_back(var);
+         else
+            mediumCandidates_.push_back(var);
+      }
+
+   MyObject *bestVar(0);
+   double bestValue = DBL_MAX;
+
+   //manage integrality on the number of nurses or skill allocation variables
+
+   //variable closest to upper integer
+   for(MyObject* var: bestCandidates_){
+      if(pModel_->isInteger(var))
+         continue;
+
+      double value = pModel_->getVarValue(var);
+      double frac = value - floor(value);
+      double closeToInt = 1-frac;
+
+      if(closeToInt < bestValue){
+         bestVar = var;
+         bestValue = closeToInt;
+         if(closeToInt<EPSILON)
+            break;
+      }
    }
 
-   int maxCandidates = candidates.size();
-   maxCandidates = (nbBranchingCandidates_-1 < maxCandidates) ? nbBranchingCandidates_-1 : maxCandidates;
-   for(int i=0; i<maxCandidates; ++i)
-      branchingCandidates.push_back(candidates[i].first);
+   if(bestVar != 0){
+      branchingCandidates.push_back(bestVar);
+      return;
+   }
+
+   for(MyObject* var: mediumCandidates_){
+      if(pModel_->isInteger(var))
+         continue;
+
+      double value = pModel_->getVarValue(var);
+      double frac = value - floor(value);
+      double closeToInt = 1-frac;
+
+      if(closeToInt < bestValue){
+         bestVar = var;
+         bestValue = closeToInt;
+         if(closeToInt<EPSILON)
+            break;
+      }
+   }
+
+   branchingCandidates.push_back(bestVar);
 }
 
 bool DiveBranchingRule::compareColumnCloseToInt(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2){
