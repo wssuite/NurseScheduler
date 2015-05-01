@@ -380,16 +380,8 @@ protected:
    BcpModeler* pModel_;
    //number of column in the master problem before the pricing
    int nbCurrentColumnVarsBeforePricing_;
-   //count the iteration, store the last iteration of dive and fix the number of iteration between each CBC optimization
-   int lpIteration_,lastDiveIteration_, cbcEveryXLpIteration_;
-   //true if the tree has already been cut into 2 branchs:
-   //1 to perform the logical fixing
-   //2 to continue the branching process later
-   bool alreadyDuplicated_;
-   //dive and perform logical_fixing
-   bool dive_;
-   //=true if some columns have been generated since the last optimization
-   bool genColHasBeenRun_;
+   //count the iteration
+   int lpIteration_;
    //count the nodes
    int current_node, nb_nodes;
 
@@ -397,13 +389,10 @@ protected:
    //cols is the vector where the new columns will be stored
    void TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col*>& cols);
 
-   //Branch on the core integer var: the skill allocation var
+   //Branch on the core integer var: the number of nurses var
    //just 2 children
-   void appendCoreIntegerVar(CoinVar* coreVar, BCP_vec<BCP_lp_branching_object*>&  cands);
-
-   //Try for each nurse to fix to 1 the highest column
-   //maximum number of children = number of nurse
-   void appendNewBranchingVar(vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
+   //Try also to fix to 1 some columns
+   void appendNewBranchingVar(CoinVar* integerCoreVar, vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
 };
 
 /*

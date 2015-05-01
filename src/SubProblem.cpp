@@ -84,7 +84,7 @@ SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * co
 
 	nPathsMin_ = 0;
 
-	std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
+	//std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
 
 	//printGraph();
 	//printShortSucc();

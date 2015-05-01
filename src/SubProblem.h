@@ -848,6 +848,12 @@ protected:
 
 public:
 
+	// Some getters
+	//
+	inline int nPaths(){return nPaths_;}
+	inline int nLongFound(){return nLongFound_;}
+	inline int nVeryShortFound(){return nVeryShortFound_;}
+
 	// Print functions.
 	//
 	void printGraph();

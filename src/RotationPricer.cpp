@@ -98,6 +98,61 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
 	   }
 
+
+	   /* BEGIN - Samuel DEBUG */
+
+       SubProblem * spNew = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
+	   if(!before_fathom)
+		   spNew->solve(pNurse, &costs, options, forbiddenShifts, false, 500, bound);
+	   else
+		   spNew->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
+
+
+
+	   vector<Rotation> rotsOld = subProblem->getRotations();
+	   vector<Rotation> rotsNew = spNew->getRotations();
+
+	   if(rotsOld.size() != rotsNew.size()){
+		   // Comparison of the results of both
+		   cout << "# " << endl;
+		   cout << "# +----------------------------------+";
+		   cout << "# Number of short paths found : " << endl;
+		   cout << "#       | Re-used SP : " << subProblem->nVeryShortFound() << endl;
+		   cout << "#       | Created SP : " << spNew->nVeryShortFound() << endl;
+		   cout << "# Number of long paths found  : " << endl;
+		   cout << "#       | Re-used SP : " << subProblem->nLongFound() << endl;
+		   cout << "#       | Created SP : " << spNew->nLongFound() << endl;
+		   cout << "# Re-used network: " << rotsOld.size() << " != " << rotsNew.size() << "New network" << endl;
+		   getchar();
+		   cout << "# +----------------------------------+";
+		   cout << "# " << endl;
+	   } else {
+		   //cout << "# Same number of rotations found" << endl;
+		   int nDiffCost = 0, nDiffDualCost = 0;
+		   for(int i=0; i<rotsOld.size(); i++){
+			   Rotation r1 = rotsOld[i], r2 = rotsNew[i];
+			   r1.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			   r2.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			   if(r1.cost_ != r2.cost_) nDiffCost ++;
+			   if(r1.dualCost_ != r2.dualCost_) nDiffDualCost ++;
+		   }
+		   if(nDiffCost > 0 or nDiffDualCost > 0){
+			   if(nDiffCost > 0) cout << "# N different cost : " << nDiffCost << endl;
+			   if(nDiffDualCost > 0) cout << "# N different dual cost : " << nDiffDualCost << endl;
+			   cout << "# +----------------------------------+";
+			   cout << "# " << endl;
+			   getchar();
+		   }
+	   }
+
+
+
+
+
+
+	   /* END - Samuel DEBUG */
+
+
 	   /*
 	    * Rotations
 	    */
@@ -265,6 +320,7 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
    //look for fractional columns
    //Fix all column above BRANCH_LB
    //search the good candidates
+   double valueLeft = 1;
    for(int i=0; i<master_->getRotations().size(); ++i)
       for(pair<MyObject*, Rotation> var: master_->getRotations()[i]){
          double value = pModel_->getVarValue(var.first);
@@ -272,32 +328,112 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
          if( var.second.length_==0 || pModel_->isInteger(var.first) )
             continue;
          //if value > BRANCH_LB, add this candidate to candidatesToFix
-         if( value > BRANCH_LB)
+         if( (value > BRANCH_LB) && (1-value < valueLeft) ){
+            valueLeft -= 1-value;
             fixingCandidates.push_back(var.first);
+         }
       }
 }
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
    //search all candidates
-   vector<pair<MyObject*, double> > candidates;
-   for(int i=0; i<master_->getRotations().size(); ++i)
-      for(pair<MyObject*, Rotation> var: (master_->getRotations())[i])
-         //if var is fractional and the rotation is a real rotation (length > 0)
-         if(var.second.length_>0 && !pModel_->isInteger(var.first) )
-            candidates.push_back(pair<MyObject*, double>(var.first, pModel_->getVarValue(var.first)));
 
+   if(mediumCandidates_.size() == 0)
+      for(MyObject* var: pModel_->getIntegerCoreVars()){
+         string str2 = "nursesNumber";
+         string str0(var->name_);
+         string str1 = str0.substr(0,str2.size());
+         if(strcmp(str1.c_str(), str2.c_str()) == 0)
+            bestCandidates_.push_back(var);
+         else
+            mediumCandidates_.push_back(var);
+      }
+
+   MyObject *bestVar(0);
+   double bestValue = DBL_MAX;
+
+   //manage integrality on the skill allocation variables
    switch(searchStrategy_){
    case DepthFirstSearch:
-      sort(candidates.begin(), candidates.end(), compareColumnCloseToInt);
+      //variable closest to upper integer
+      for(MyObject* var: bestCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
+
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeToInt = 1-frac;
+
+         if(closeToInt < bestValue){
+            bestVar = var;
+            bestValue = closeToInt;
+            if(closeToInt<EPSILON)
+               break;
+         }
+      }
+
+      if(bestVar != 0)
+         break;
+
+      for(MyObject* var: mediumCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
+
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeToInt = 1-frac;
+
+         if(closeToInt < bestValue){
+            bestVar = var;
+            bestValue = closeToInt;
+            if(closeToInt<EPSILON)
+               break;
+         }
+      }
+
       break;
    default:
-      sort(candidates.begin(), candidates.end(), compareColumnCloseTo5);
+      //variable closest to .5
+      for(MyObject* var: bestCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
+
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeTo5 = abs(0.5-frac);
+
+         if(closeTo5 < bestValue){
+            bestVar = var;
+            bestValue = closeTo5;
+            if(closeTo5<EPSILON)
+               break;
+         }
+      }
+
+      if(bestVar != 0)
+         break;
+
+      for(MyObject* var: mediumCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
+
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeTo5 = abs(0.5-frac);
+
+         if(closeTo5 < bestValue){
+            bestVar = var;
+            bestValue = closeTo5;
+            if(closeTo5<EPSILON)
+               break;
+         }
+      }
+
+      break;
    }
 
-   int maxCandidates = candidates.size();
-   maxCandidates = (nbBranchingCandidates_-1 < maxCandidates) ? nbBranchingCandidates_-1 : maxCandidates;
-   for(int i=0; i<maxCandidates; ++i)
-      branchingCandidates.push_back(candidates[i].first);
+   if(bestVar != 0)
+      branchingCandidates.push_back(bestVar);
 }
 
 bool DiveBranchingRule::compareColumnCloseToInt(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2){
@@ -311,103 +447,6 @@ bool DiveBranchingRule::compareColumnCloseTo5(pair<MyObject*, double> obj1, pair
    double closeTo5_1 = abs(0.5-frac1), closeTo5_2 = abs(0.5-frac2);
    return (closeTo5_1 < closeTo5_2);
 }
-
-//if(mediumCandidates_.size() == 0)
-//   for(MyObject* var: pModel_->getIntegerCoreVars()){
-//      string str2 = "nursesNumber";
-//      string str0(var->name_);
-//      string str1 = str0.substr(0,str2.size());
-//      if(strcmp(str1.c_str(), str2.c_str()) == 0)
-//         bestCandidates_.push_back(var);
-//      else
-//         mediumCandidates_.push_back(var);
-//   }
-//
-//MyObject *bestVar(0);
-//double bestValue = DBL_MAX;
-//
-////manage integrality on the skill allocation variables
-//switch(searchStrategy_){
-//case DepthFirstSearch:
-//   //variable closest to upper integer
-//   for(MyObject* var: bestCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeToInt = 1-frac;
-//
-//         if(closeToInt < bestValue){
-//            bestVar = var;
-//            bestValue = closeToInt;
-//            if(closeToInt<EPSILON)
-//               break;
-//         }
-//   }
-//
-//   if(bestVar != 0)
-//      break;
-//
-//   for(MyObject* var: mediumCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeToInt = 1-frac;
-//
-//         if(closeToInt < bestValue){
-//            bestVar = var;
-//            bestValue = closeToInt;
-//            if(closeToInt<EPSILON)
-//               break;
-//         }
-//   }
-//
-//   break;
-//default:
-//   //variable closest to .5
-//   for(MyObject* var: bestCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeTo5 = abs(0.5-frac);
-//
-//      if(closeTo5 < bestValue){
-//         bestVar = var;
-//         bestValue = closeTo5;
-//         if(closeTo5<EPSILON)
-//            break;
-//      }
-//   }
-//
-//   if(bestVar != 0)
-//      break;
-//
-//   for(MyObject* var: mediumCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeTo5 = abs(0.5-frac);
-//
-//      if(closeTo5 < bestValue){
-//         bestVar = var;
-//         bestValue = closeTo5;
-//         if(closeTo5<EPSILON)
-//            break;
-//      }
-//   }
-//
-//   break;
-//}
-//
-//if(bestVar != 0)
-//   branchingCandidates.push_back(bestVar);
 
 /*************************************************************
  * CorePriority branching rule: branch on core variables first
