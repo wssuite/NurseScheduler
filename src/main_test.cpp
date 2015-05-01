@@ -110,7 +110,7 @@ void testFunction_Antoine(){
    //
    //   delete vrp;
    delete timertotal;
-   delete pWeekDemand;
+   //delete pWeekDemand;
    delete pScen;
    delete pGreedy;
    delete pBCP;
@@ -209,8 +209,8 @@ void testFunction_Samuel(){
       string outFile = "outfiles/test.out";
       Tools::LogOutput outStream(outFile);
 
-      string data = "datasets/";// testdatasets datasets
-      const char* inst = "n030w4";// n100w4 n030w4 n005w4
+      string data = "testdatasets/";// testdatasets datasets
+      const char* inst = "n005w4";// n100w4 n030w4 n005w4
 
 	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	   //n005w4: {1, 2, 3, 3}

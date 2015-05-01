@@ -98,6 +98,61 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
 	   }
 
+
+	   /* BEGIN - Samuel DEBUG */
+
+       SubProblem * spNew = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
+	   if(!before_fathom)
+		   spNew->solve(pNurse, &costs, options, forbiddenShifts, false, 500, bound);
+	   else
+		   spNew->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
+
+
+
+	   vector<Rotation> rotsOld = subProblem->getRotations();
+	   vector<Rotation> rotsNew = spNew->getRotations();
+
+	   if(rotsOld.size() != rotsNew.size()){
+		   // Comparison of the results of both
+		   cout << "# " << endl;
+		   cout << "# +----------------------------------+";
+		   cout << "# Number of short paths found : " << endl;
+		   cout << "#       | Re-used SP : " << subProblem->nVeryShortFound() << endl;
+		   cout << "#       | Created SP : " << spNew->nVeryShortFound() << endl;
+		   cout << "# Number of long paths found  : " << endl;
+		   cout << "#       | Re-used SP : " << subProblem->nLongFound() << endl;
+		   cout << "#       | Created SP : " << spNew->nLongFound() << endl;
+		   cout << "# Re-used network: " << rotsOld.size() << " != " << rotsNew.size() << "New network" << endl;
+		   getchar();
+		   cout << "# +----------------------------------+";
+		   cout << "# " << endl;
+	   } else {
+		   //cout << "# Same number of rotations found" << endl;
+		   int nDiffCost = 0, nDiffDualCost = 0;
+		   for(int i=0; i<rotsOld.size(); i++){
+			   Rotation r1 = rotsOld[i], r2 = rotsNew[i];
+			   r1.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			   r2.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+			   if(r1.cost_ != r2.cost_) nDiffCost ++;
+			   if(r1.dualCost_ != r2.dualCost_) nDiffDualCost ++;
+		   }
+		   if(nDiffCost > 0 or nDiffDualCost > 0){
+			   if(nDiffCost > 0) cout << "# N different cost : " << nDiffCost << endl;
+			   if(nDiffDualCost > 0) cout << "# N different dual cost : " << nDiffDualCost << endl;
+			   cout << "# +----------------------------------+";
+			   cout << "# " << endl;
+			   getchar();
+		   }
+	   }
+
+
+
+
+
+
+	   /* END - Samuel DEBUG */
+
+
 	   /*
 	    * Rotations
 	    */
