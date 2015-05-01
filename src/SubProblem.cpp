@@ -319,7 +319,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 
 
 	setSolveOptions(options);															// Get the parameters informations
-	maxRotationLength_ = min(nDays_, maxRotationLength);								// Maximum rotation length
+	maxRotationLength_ = min(nDays_+maxOngoingDaysWorked_, max(pContract_->maxConsDaysWork_, maxRotationLength));// Maximum rotation length
 	maxReducedCostBound_ = redCostBound - EPSILON;										// Cost bound
 	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();					// Reset authorizations if needed
 	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();							// Delete all previous solutions if needed
@@ -356,14 +356,18 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
+
 		ANS = ANS or addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
+
 	}
 	// Gather all the pareto-fronts that correspond to the different last worked days
 	else if(isOptionActive(SOLVE_ONE_SINK_PER_LAST_DAY)){
+
 		std::vector<boost::graph_traits<Graph>::vertex_descriptor> allSinks;
 		for(int k=CDMin_-1; k<nDays_; k++){
 			allSinks.push_back( sinkNodesByDay_[k] );
 		}
+
 		r_c_shortest_paths_several_sinks(
 				g_,
 				get( &Vertex_Properties::num, g_ ),
@@ -377,7 +381,9 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
+
 		ANS = ANS or addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
+
 	}
 	else {
 		cout << "# INVALID / OBSOLETE OPTION FOR NUMBER OF SINK(S) IN THE NETWORK" << endl;
@@ -394,7 +400,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		return false;
 	}
 
-	cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
+	//cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
 	return ANS;
 
 }
@@ -408,10 +414,8 @@ void SubProblem::setSolveOptions(vector<SolveOption> options){
 	// Check for incompatible options...
 	for(vector<SolveOption> cluster : incompatibilityClusters){
 		int n=0;
-		SolveOption chosenOption;
 		for(SolveOption o : cluster){
 			if(isOptionActive(o)){
-				chosenOption = o;
 				n++;
 			}
 		}
@@ -486,7 +490,6 @@ Rotation SubProblem::rotationFromPath(vector< boost::graph_traits<Graph>::edge_d
 	for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
 		int a = boost::get(&Arc_Properties::num, g_, path[j]);
 		ArcType aType = arcType(a);
-		int origin = boost::source( path[j], g_ );
 		int destin = boost::target( path[j], g_ );
 
 		// A. Arc from source (equivalent to short rotation
@@ -504,7 +507,6 @@ Rotation SubProblem::rotationFromPath(vector< boost::graph_traits<Graph>::edge_d
 	}
 
 	Rotation rot (firstDay, shiftSuccession, pLiveNurse_, MAX_COST, resource.cost);
-	//rot.computeCost(pScenario_, pLiveNurse_->pWishesOff_, nDays_);
 	return rot;
 }
 
@@ -561,7 +563,7 @@ void SubProblem::createNodes(){
 		// Check nodes
 		for(int l=CD_max; l<=maxRotationLength_; l++){								// Check nodes: from CD_max (longest free) to maximum rotation length, for each day
 			checkNodesForThatDay.insert(pair<int,int>(l,nNodes_));
-			rotationLengthNodesEAT_.insert(pair<int,int>(nNodes_,l));
+			rotationLengthNodesLAT_.insert(pair<int,int>(nNodes_,l));
 			addSingleNode(ROTATION_LENGTH, 0, l);
 		}
 		rotationLengthNodes_.push_back(checkNodesForThatDay);
@@ -591,7 +593,7 @@ void SubProblem::initNodesStructures(){
 	principalToCons_.clear();
 	rotationLengthEntrance_.clear();
 	rotationLengthNodes_.clear();
-	rotationLengthNodesEAT_.clear();
+	rotationLengthNodesLAT_.clear();
 	sinkNodesByDay_.clear();
 
 	// All nodes
@@ -807,7 +809,7 @@ void SubProblem::createArcsAllRotationSize(){
 
 	// 2. ALL INTERNAL ARCS
 	//
-	for(int k=0; k<nDays_; k++){
+	for(int k=CDMin_-1; k<nDays_; k++){
 
 		map<int,int> rotLengthNodesForDay = rotationLengthNodes_[k];
 		map<int,int> arcsRotsizeinToRotsize;
@@ -1239,7 +1241,7 @@ void SubProblem::authorizeArc(int a){
 void SubProblem::authorizeNode(int v){
 	nodeStatus_[v] = true;
 	int lat = maxRotationLength_;
-	if(nodeType(v) == ROTATION_LENGTH) lat = rotationLengthNodesEAT_.at(v);
+	if(nodeType(v) == ROTATION_LENGTH) lat = rotationLengthNodesLAT_.at(v);
 	updateLat(v,lat);
 }
 

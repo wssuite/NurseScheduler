@@ -77,3 +77,40 @@ void Roster::assignTask(int day, int shift, int skill) {
   shifts_[day] = shift;
   skills_[day] = skill;
 }
+
+// add a roster at the end of the roster
+//
+void Roster::push_back(Roster& roster) {
+  if (!this->nbDays_) {
+    this->copy(roster);
+  }
+  else if (!Tools::isSunday(firstDay_+nbDays_)) {
+    Tools::throwError("Roster::push_back: The last day of the current roster is not a sunday!");
+  }
+  else {
+    nbDays_ += roster.nbDays();
+    for (int day = 0; day < roster.nbDays(); day++) {
+      shifts_.push_back(roster.shift(day));
+      skills_.push_back(roster.skill(day));
+    }
+  }
+
+  if (!Tools::isSunday(firstDay_+nbDays_)) {
+    Tools::throwError("Roster::push_back: The last day of the updated roster is not a sunday!");
+  }
+}
+
+// copy the input roster
+//
+void Roster::copy(Roster& roster) {
+  firstDay_ = roster.firstDay();
+  nbDays_ = roster.nbDays();
+  if (!shifts_.empty()) {
+    shifts_.clear();
+    skills_.clear();
+  }
+  for (int day = 0; day < nbDays_; day++) {
+    shifts_.push_back(roster.shift(day));
+    skills_.push_back(roster.skill(day));
+  }
+}

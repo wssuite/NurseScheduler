@@ -198,11 +198,16 @@ public:
   // basic getters
   //
   Position* pPosition() const {return pPosition_;}
+  State state(int day) {return states_[day];}
 
   // advanced getters
   //
   int totalDaysWorked() {return pStateIni_->totalDaysWorked_;}
   int totalWeekendsWorked() {return pStateIni_->totalWeekendsWorked_;}
+
+  // basic setters
+  //
+  void roster(Roster &inputRoster) {roster_ = inputRoster;}
 
    //----------------------------------------------------------------------------
    // Methods that relate to the rosters of a nurse
@@ -274,6 +279,8 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 //  From a given problem (number of weeks, nurses, etc.), can compute a solution.
 //
 //-----------------------------------------------------------------------------
+
+enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL};
 
 class Solver{
 
@@ -370,6 +377,10 @@ public:
 
 public:
 
+  // Load a solution in the solver and build the states of the live nurses
+  //
+  void loadSolution(vector<Roster> &solution);
+
    //------------------------------------------------
    // Preprocess functions
    //------------------------------------------------
@@ -426,6 +437,10 @@ public:
    // return solution_
    //
    vector<Roster> getSolution() { return solution_; }
+
+   // return the final states of the nurses
+   //
+   vector<State> getFinalStates();
 
    // display the whole solution in the required format
    //

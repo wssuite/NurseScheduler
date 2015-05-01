@@ -83,6 +83,7 @@ std::string itoa(long n){
 // Initializes  a vector of the given size (filled only with zeroes)
 //
 void initVector(vector<int>* v1D, int m, int val){
+	v1D->clear();
 	for(int i=0; i < m; i++){
 		v1D->push_back(val);
 	}
@@ -91,6 +92,10 @@ void initVector(vector<int>* v1D, int m, int val){
 // Initializes a vector2D of the given size (filled only with zeroes)
 //
 void initVector2D(vector2D* v2D, int m, int n, int val){
+	for (int i =0; i < v2D->size(); i++) {
+		(*v2D)[i].clear();
+	}
+	v2D->clear();
 	for (int i=0; i<m; i++){
 		vector<int> v;
 		initVector(&v, n, val);
@@ -101,6 +106,13 @@ void initVector2D(vector2D* v2D, int m, int n, int val){
 // Initializes a vector3D of the given size (filled only with zeroes)
 //
 void initVector3D(vector3D* v3D, int m, int n, int p, int val){
+	for (int i =0; i < v3D->size(); i++) {
+		for (int j=0; j < v3D->at(i).size(); j++) {
+			(*v3D)[i][j].clear();
+		}
+		(*v3D)[i].clear();
+	}
+	v3D->clear();
 	for (int i=0; i<m; i++){
 		vector2D v2D;
 		initVector2D(&v2D, n, p, val);
@@ -111,6 +123,7 @@ void initVector3D(vector3D* v3D, int m, int n, int p, int val){
 // Initializes  a vector of the given size (filled only with zeroes), for double vectors
 //
 void initDoubleVector(vector<double>* v1D, int m, double val){
+	v1D->clear();
 	for(int i=0; i < m; i++){
 		v1D->push_back(val);
 	}
@@ -119,6 +132,10 @@ void initDoubleVector(vector<double>* v1D, int m, double val){
 // Initializes  a vector< vector< double > > of the given size (filled only with zeroes), for double vectors
 //
 void initDoubleVector2D(vector< vector< double > > * v2D, int m, int n, double val){
+	for (int i =0; i < v2D->size(); i++) {
+		(*v2D)[i].clear();
+	}
+	v2D->clear();
 	for(int i=0; i < m; i++){
 		vector<double> v1D;
 		initDoubleVector(&v1D, n, val);
