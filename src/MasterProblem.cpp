@@ -256,11 +256,11 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 
    columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
    minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
-   optDemandVars_(pDemand_->nbDays_),numberOfNursesByPositionVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
+   optDemandVars_(pDemand_->nbDays_), numberOfNursesByPositionVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
 
    restFlowCons_(pScenario->nbNurses_), workFlowCons_(pScenario->nbNurses_),
    minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
-   minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_),numberOfNursesByPositionCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
+   minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_), numberOfNursesByPositionCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
 {
    switch(solverType){
    case S_SCIP:
@@ -339,7 +339,7 @@ void MasterProblem::solve(){
   // levels and create the matching in the Modeler subclasses
   if (solverType_ != S_CBC ) {
     //pModel_->setMaxSolvingtime(1200);
-    pModel_->setVerbosity(2);
+    pModel_->setVerbosity(1);
   }
    pModel_->solve();
    pModel_->printStats();

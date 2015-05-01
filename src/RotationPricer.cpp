@@ -91,11 +91,11 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
       optimal = false;
       //if not before fathom, generate just not penalized rotations
 	   if(!before_fathom){
-	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 500, 50);//pNurse->maxConsDaysWork());
+	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 500, bound);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else{
-		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, 50);
+		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
 	   }
 
 	   /*
