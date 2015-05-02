@@ -74,3 +74,7 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm);
 // solver for all the weeks and  display the results
 void displaySolutionMultipleWeeks(string dataDir, string instanceName,
 	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, string outPath="");
+
+// Compute and record stats on all the demand files of all the instances in the
+// input directory
+void computeStatsOnTheDemandsOfAllInstances(string inputDir);

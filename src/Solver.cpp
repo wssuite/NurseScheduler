@@ -297,6 +297,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   // initialize the preprocessed data of the skills
   for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
     maxStaffPerSkillNoPenalty_.push_back(-1.0);
+    maxStaffPerSkillAvgWork_.push_back(-1.0);
     skillRarity_.push_back(1.0);
   }
 
@@ -350,14 +351,17 @@ void Solver::preprocessTheNurses() {
 
   maxTotalStaffNoPenalty_ = 0;
   maxTotalStaffAvgWork_ = 0;
+  for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+    maxStaffPerSkillNoPenalty_[sk] = 0;
+    maxStaffPerSkillAvgWork_[sk] = 0;
+  }
   for (LiveNurse* pNurse: theLiveNurses_)	{
 
     // add the working maximum number of working days to the maximum staffing
     //
     maxTotalStaffNoPenalty_ +=
       std::min(pNurse->maxWorkDaysNoPenaltyConsDays_, pNurse->maxWorkDaysNoPenaltyTotalDays_);
-    maxTotalStaffAvgWork_ +=
-      std::min((double)pNurse->maxWorkDaysNoPenaltyConsDays_, pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+    maxTotalStaffAvgWork_ += pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
 
     // the staffing per skill is very rough here since Nurses can have
     // multiple skills
@@ -367,8 +371,10 @@ void Solver::preprocessTheNurses() {
     for (int sk:pNurse->skills_) {
       totalRarity += skillRarity_[sk];
     }
+    double maxWorkNoPenalty = (double)std::min(pNurse->maxWorkDaysNoPenaltyConsDays_, pNurse->maxWorkDaysNoPenaltyTotalDays_);
     for (int sk: pNurse->skills_) {
-      maxStaffPerSkillNoPenalty_[sk] += skillRarity_[sk]/totalRarity*(double)pNurse->maxWorkDaysNoPenaltyConsDays_;
+      maxStaffPerSkillNoPenalty_[sk] += (skillRarity_[sk]/totalRarity)*maxWorkNoPenalty;
+      maxStaffPerSkillAvgWork_[sk] +=  (skillRarity_[sk]/totalRarity)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
     }
   }
 

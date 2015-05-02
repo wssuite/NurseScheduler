@@ -16,6 +16,12 @@
 #include "CbcModeler.h"
 #include "MyTools.h"
 
+// some include files to go through the files of an input directory
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 
 // Function for testing parts of the code (Antoine)
@@ -35,12 +41,12 @@ void testFunction_Antoine(){
    Tools::LogOutput outStream(outFile);
 
    string data = "testdatasets/";// testdatasets datasets
-   const char* inst = "n012w8";// n100w4 n030w4 n005w4
+   const char* inst = "n005w4";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
+   vector<int> numberWeek = {1, 2, 3, 3};
    vector<string> weekPaths(numberWeek.size());
    for(int i=0; i<numberWeek.size(); ++i){
       string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
@@ -104,7 +110,7 @@ void testFunction_Antoine(){
    //
    //   delete vrp;
    delete timertotal;
-   //delete pWeekDemand;
+   delete pWeekDemand;
    delete pScen;
    delete pGreedy;
    delete pBCP;
@@ -126,8 +132,17 @@ void testFunction_Jeremy(){
    /************************************************************************
    * Go through the demands of the directory to find invariants in the demand
    *************************************************************************/
+	computeStatsOnTheDemandsOfAllInstances("testdatasets/");
+	computeStatsOnTheDemandsOfAllInstances("datasets/");
+  // ReadWrite::compareDemands("testdatasets/n005w4","outfiles/statDemands/n005w4.txt");
+	// ReadWrite::compareDemands("testdatasets/n012w8","outfiles/statDemands/n012w8.txt");
+	// ReadWrite::compareDemands("testdatasets/n021w4","outfiles/statDemands/n021w4.txt");
+	// ReadWrite::compareDemands("datasets/n030w4","outfiles/statDemands/n030w4.txt");
+	// ReadWrite::compareDemands("datasets/n030w8","outfiles/statDemands/n030w8.txt");
+	// ReadWrite::compareDemands("datasets/n040w4","outfiles/statDemands/n040w4.txt");
+	// ReadWrite::compareDemands("datasets/n040w8","outfiles/statDemands/n040w8.txt");
 
-   // ReadWrite::compareDemands("testdatasets/n005w4","outfiles/comparedemands_n005w4.log");
+
 
 	/***************************************************************************
 	* Test the solution of only one week
@@ -203,8 +218,8 @@ void testFunction_Samuel(){
       string outFile = "outfiles/test.out";
       Tools::LogOutput outStream(outFile);
 
-      string data = "testdatasets/";// testdatasets datasets
-      const char* inst = "n005w4";// n100w4 n030w4 n005w4
+      string data = "datasets/";// testdatasets datasets
+      const char* inst = "n030w4";// n100w4 n030w4 n005w4
 
 	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	   //n005w4: {1, 2, 3, 3}
@@ -569,4 +584,32 @@ void displaySolutionMultipleWeeks(string dataDir, string instanceName,
 
 	delete pSolver;
 	delete pScen;
+}
+
+/******************************************************************************
+* Compute and record stats on all the demand files of all the instances in the
+* input directory
+******************************************************************************/
+
+void computeStatsOnTheDemandsOfAllInstances(string inputDir) {
+	struct dirent *dirp;
+	struct stat filestat;
+
+	// Open the input directory
+	DIR* dp = opendir( inputDir.c_str() );
+	if (dp == NULL) {
+		Tools::throwError("Error while opening ");
+	}
+	else{
+		std::cout << "Reading from directory " << inputDir << std::endl;
+	}
+	while ((dirp = readdir( dp )))
+	{
+		std::string filename(dirp->d_name);
+
+		// The instance names start with "WD"
+		if (filename[0] != 'n') continue;
+		ReadWrite::compareDemands((string) (inputDir+filename),(string) ("outfiles/statDemands/"+filename+".txt"));
+	}
+
 }

@@ -363,6 +363,7 @@ public:
 
    // potential staffing for each skill, with and without penalt
    vector<double> maxStaffPerSkillNoPenalty_;
+   vector<double> maxStaffPerSkillAvgWork_;
 
    // rarity of the skills
    // it may depend on how many nurses have a skill and what the demand for this
