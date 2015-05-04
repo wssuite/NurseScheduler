@@ -25,24 +25,49 @@
 class StochasticSolver:public Solver {
 
 public:
-  StochasticSolver();
+  StochasticSolver(Scenario* pScenario, int nbRandomDemands_, int nbDaysRandom_);
   ~StochasticSolver();
 
 protected:
-  // Penalties for the total number of working days on the current period
-  // (for each nurse)
-  vector<double> weightTotalShiftsAvg_;
+
+  // Number of worked week-ends below which there is no penalty for the 
+  // total number of working week-ends
+  // This interval is computed from the max number of working week-ends averaged
+  // over the number of remaining weeks
+  vector<double> maxTotalWeekEndsAvg_;
 
   // Penalties for the number of working weekends on the current period
   // (for each nurse)
-  vector<double> weightTotalWeekEnds_;
+  vector<double> weightTotalWeekEndsAvg_;
 
   // Interval inside of which there is no penalty for the total number of
   // working days (for each nurse)
-  vector<int> minTotalShiftsAvg_;
-  vector<int> maxTotalShiftsAvg_;
+  // This interval is computed from the max/min number of working days averaged
+  // over the number of remaining weeks
+  vector<double> minTotalShiftsAvg_;
+  vector<double> maxTotalShiftsAvg_;
 
-  Solver* pSolver_;
+  // Penalties for values outside of [minTotalShiftsAvg_,maxTotalShiftsAvg_]
+  vector<double> weightTotalShiftsAvg_;
+
+  // Interval outside of which the violation of the total number of working
+  // days is penalized with the complete weight
+  vector<double> minTotalShifts_;
+  vector<double> maxTotalShifts_;
+
+  // Random scenarios that extrapolate the future weeks
+  int nbRandomDemands_;
+  vector<Demand*> pRandomDemands_;
+
+  // Number of days in the random demands that should be taken into account
+  // in the solver
+  int nbDaysRandom_;
+
+  // Vector of solvers that will be used to solve the random instances
+  vector<Solver*> pRandomsSolvers_;
+
+  // Algorithm that is used to solve the stochastic demands
+  Algorithm algo_;
 
 protected:
   // Update the weights

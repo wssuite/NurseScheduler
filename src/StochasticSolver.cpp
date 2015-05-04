@@ -16,8 +16,46 @@
 //
 //-----------------------------------------------------------------------------
 
-StochasticSolver::StochasticSolver() {}
-StochasticSolver::~StochasticSolver() {}
+StochasticSolver(Scenario* pScenario, int nbRandomDemands_, int nbDaysRandom_,vector<Demand*> demandHistory):
+Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
+nbRandomDemands_(nbRandomDemands),nbDaysRandom_(nbDaysRandom) {
+
+	// Generate the random demand
+	// Keep in mind that the generated demand are for one week
+	DemandGenerator generator(nbDemands,demandHistory,pScen);
+	vector<Demand*> pRandomDemands_ = generator.generatePerturbedDemands();
+
+	// Initialize the attributes relative to the penalties added in the model
+	// to take the uncertainties into account
+	for (int n = 0; n < pScenario_->nbNurses(); n++) {
+		maxTotalWeekEndsAvg_.push_back(0.0);
+		weightTotalWeekEndsAvg_.push_back(0.0);
+		minTotalShifts_.push_back(0.0);
+		maxTotalShifts_.push_back(0.0);
+		minTotalShiftsAvg_.push_back(0.0);
+		maxTotalShiftsAvg_.push_back(0.0);
+		weightTotalShiftsAvg_.push_back(0.0);
+	}
+
+	// Compute the weights and bound for the total numbers of working days and
+	// week-ends
+	this->computeWeightsTotalShifts();
+
+
+}
+~StochasticSolver() {
+	// delete the random demands
+	while (!pRandomDemands_.empty()) {
+		if (pRandomDemands_.back()) delete pRandomDemands_.back();
+		pRandomDemands_.pop_back();
+	}
+
+	// delete the solvers
+	while (!pRandomSolvers_.empty()) {
+		if (pRandomSolvers_.back()) delete pRandomSolvers_.back();
+		pRandomSolvers_.pop_back();
+	}
+} 
 
 //-----------------------------------------------------------------------------
 // Compute the weights o the violation of the min/max number of working days
@@ -28,6 +66,41 @@ StochasticSolver::~StochasticSolver() {}
 //-----------------------------------------------------------------------------
 
 void StochasticSolver::computeWeightsTotalShifts() {
+
+	// The nurses must be preprocessed to retrieve the information relative to the
+	// past activity of the nurses and to their capacity to work more in the future
+	if (!isPrepreprocessedNurses_) this->preprocessTheNurses();
+
+	// The important value to infer the importance of respecting the strict constraints 
+	// on the total number of working days/week-ends is the remaining number of days/week-ends
+	// after the demand currently treated
+	int remainingDays = 7*pScenario_->nbWeeks()-7*(pScenario_->thisWeek()+1)-nbDaysRandom_;
+	double factorRemainingDays = (double) remainingDays/(double)(7*pScenario_->nbWeeks());
+	int remainingWeekEnds = pScenario_->nbWeeks()-(pScenario_->thisWeek()+1)-nbDaysRandom_/7;
+	double factorRemainingWeekends = (double)remainingWeekEnds/(double)pScenario_->nbWeeks();
+
+	// Compute the non-penalized intervals and the associated penalties 
+	for (int n = 0; n < pScenario_->nbNurses(); n++) {
+		LiveNurse* pNurse =  theLiveNurses_[n]; 
+
+		// first compute the values relative to the average number of working days
+		// the interval is larger for the first weeks and the associated penalty is smaller
+		minTotalShiftsAvg_[n] = (1.0-factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_;
+		maxTotalShiftsAvg_[n] = (1.0+factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
+		weightTotalShiftsAvg_[n] = (1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS;
+
+		// compute the interval that must be respected to have a chance of not paying 
+		// penalties in the future
+		minTotalShifts_[n] = pNurse->minWorkDaysNoPenaltyTotalDays_;
+		maxTotalShifts_[n] = pNurse->maxWorkDaysNoPenaltyTotalDays_;
+
+		// Number of worked week-ends below which there is no penalty for the 
+	  // total number of working week-ends
+	  // This interval is computed from the max number of working week-ends averaged
+	  // over the number of remaining weeks
+	  maxTotalWeekEndsAvg_[n] = factorRemainingWeekends*(double)pNurse->maxTotalWeekends();
+
+	}
 
   // // short names
   // int nbNurses = pScenario_->nbNurses_;
