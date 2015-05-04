@@ -509,6 +509,10 @@ protected:
 	int nLongFound_;
 	int nVeryShortFound_;
 
+	// Best reduced cost found
+	//
+	double bestReducedCost_;
+
 
 
 	//----------------------------------------------------------------
