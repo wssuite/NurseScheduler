@@ -19,9 +19,9 @@
 
 void main_test()
 {
-	testFunction_Antoine();
+	//testFunction_Antoine();
 	//testFunction_Jeremy();
-	//testFunction_Samuel();
+	testFunction_Samuel();
 }
 
 // Function for testing parts of the code (Antoine)
@@ -202,15 +202,15 @@ void testFunction_Samuel(){
       timertotal->start();
 
       // Create a log file
-      string logFile = "logs/test.log";
+      string logFile = "logfiles/test.log";
       Tools::LogOutput logStream(logFile);
 
       //Create an output file
       string outFile = "outfiles/test.out";
       Tools::LogOutput outStream(outFile);
 
-      string data = "testdatasets/";// testdatasets datasets
-      const char* inst = "n005w4";// n100w4 n030w4 n005w4
+      string data = "testdatasets/";// testdatasets datasets userdatasets
+      const char* inst = "n005w4";// n100w4 n030w4 n005w4 n005w1
 
 	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	   //n005w4: {1, 2, 3, 3}
@@ -265,6 +265,7 @@ void testFunction_Samuel(){
          Tools::LogOutput solutionStream(solutionFile);
          solutionStream << solutions[w];
       }
+      outStream << pBCP->solutionToLogString();
 
       // Write the solution in an output file
       outStream << pBCP->solutionToLogString();
@@ -280,7 +281,7 @@ void testFunction_Samuel(){
       //
       //   delete vrp;
       delete timertotal;
-      delete pWeekDemand;
+      //delete pWeekDemand;
       delete pScen;
       delete pGreedy;
       delete pBCP;
