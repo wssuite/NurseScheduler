@@ -25,7 +25,7 @@
 class StochasticSolver:public Solver {
 
 public:
-  StochasticSolver(Scenario* pScenario, int nbRandomDemands_, int nbDaysRandom_);
+  StochasticSolver(Scenario* pScenario, int nbRandomDemands, int nbDaysRandom,vector<Demand*> demandHistory);
   ~StochasticSolver();
 
 protected:
@@ -34,11 +34,11 @@ protected:
   // total number of working week-ends
   // This interval is computed from the max number of working week-ends averaged
   // over the number of remaining weeks
-  vector<double> maxTotalWeekEndsAvg_;
+  vector<double> maxTotalWeekendsAvg_;
 
   // Penalties for the number of working weekends on the current period
   // (for each nurse)
-  vector<double> weightTotalWeekEndsAvg_;
+  vector<double> weightTotalWeekendsAvg_;
 
   // Interval inside of which there is no penalty for the total number of
   // working days (for each nurse)
@@ -64,7 +64,7 @@ protected:
   int nbDaysRandom_;
 
   // Vector of solvers that will be used to solve the random instances
-  vector<Solver*> pRandomsSolvers_;
+  vector<Solver*> pRandomSolvers_;
 
   // Algorithm that is used to solve the stochastic demands
   Algorithm algo_;
