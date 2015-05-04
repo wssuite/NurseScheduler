@@ -359,7 +359,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				boost::default_r_c_shortest_paths_visitor() );
 
 		tmp_ANS = addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
-		ANS = ANS or tmp_ANS;
+		ANS = tmp_ANS or ANS;
 
 	}
 	// Gather all the pareto-fronts that correspond to the different last worked days
@@ -385,7 +385,7 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 				boost::default_r_c_shortest_paths_visitor() );
 
 		tmp_ANS = addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
-		ANS = ANS or tmp_ANS;
+		ANS = tmp_ANS or ANS;
 
 	}
 	else {
@@ -394,8 +394,19 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 		return false;
 	}
 
-	if(isOptionActive(SOLVE_SHORT_DAY_0_ONLY)){
+	// ALL THAT CONCERNS THE SHORT ROTATIONS IS HERE
+	//
+	if(isOptionActive(SOLVE_SHORT_DAY_0_AND_LAST_ONLY)){
 		tmp_ANS = priceVeryShortRotationsFirstDay();
+		bool tmp_ANS2 = priceVeryShortRotationsLastDay();
+		ANS = tmp_ANS2 or ANS or tmp_ANS;
+	}
+	else if(isOptionActive(SOLVE_SHORT_DAY_0_ONLY)){
+		tmp_ANS = priceVeryShortRotationsFirstDay();
+		ANS = ANS or tmp_ANS;
+	}
+	else if(isOptionActive(SOLVE_SHORT_LAST_ONLY)){
+		tmp_ANS = priceVeryShortRotationsLastDay();
 		ANS = ANS or tmp_ANS;
 	}
 	else if(isOptionActive(SOLVE_SHORT_ALL)){
@@ -464,7 +475,16 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 				b_correctly_extended,
 				ed_last_extended_arc );
 		if( b_is_a_path_at_all && b_feasible && b_correctly_extended )
-		{} else {
+		{
+			if(resources[p].cost < maxReducedCostBound_){
+				Rotation rot = rotationFromPath(paths[p], resources[p]);
+				theRotations_.push_back(rot);
+				nPaths_ ++;
+				nLongFound_++;
+				nFound ++;
+				bestReducedCost_ = min(bestReducedCost_, rot.dualCost_);
+			}
+		} else {
 			if( !b_is_a_path_at_all )
 				std::cout << "Not a path." << std::endl;
 			if( !b_feasible )
@@ -472,15 +492,6 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 			if( !b_correctly_extended )
 				std::cout << "Not correctly extended." << std::endl;
 			//getchar();
-		}
-
-		if(resources[p].cost < maxReducedCostBound_){
-			Rotation rot = rotationFromPath(paths[p], resources[p]);
-			theRotations_.push_back(rot);
-			nPaths_ ++;
-			nLongFound_++;
-			nFound ++;
-			bestReducedCost_ = min(bestReducedCost_, rot.dualCost_);
 		}
 	}
 	//printAllRotations();
@@ -1340,7 +1351,7 @@ int SubProblem::mapAntecedent(map<int,int> m, int val){
 //
 //----------------------------------------------------------------
 
-// Brutally try all possible short rotations from every first day
+// Brutally try all possible short rotations from the very first day
 bool SubProblem::priceVeryShortRotationsFirstDay(){
 	int nFound = 0;
 	for(int c=1; c<CDMin_; c++){
@@ -1354,6 +1365,28 @@ bool SubProblem::priceVeryShortRotationsFirstDay(){
 				nPaths_ ++;
 				nVeryShortFound_++;
 				nFound ++;
+				bestReducedCost_ = min(bestReducedCost_, rot.dualCost_);
+			}
+		}
+	}
+	return nFound > 0;
+}
+
+// Brutally try all possible short rotations that end on the last day
+bool SubProblem::priceVeryShortRotationsLastDay(){
+	int nFound = 0;
+	for(int c=1; c<CDMin_; c++){
+		vector2D succs = allowedShortSuccBySize_[c];
+		for(int i=0; i<succs.size(); i++){
+			vector<int> succ = allowedShortSuccBySize_[c][i];
+			double redCost = costOfVeryShortRotation( nDays_-c ,succ);
+			if(redCost < maxReducedCostBound_){
+				Rotation rot (nDays_-c, succ, pLiveNurse_, MAX_COST, redCost);
+				theRotations_.push_back(rot);
+				nPaths_ ++;
+				nVeryShortFound_++;
+				nFound ++;
+				bestReducedCost_ = min(bestReducedCost_, rot.dualCost_);
 			}
 		}
 	}
@@ -1364,8 +1397,11 @@ bool SubProblem::priceVeryShortRotationsFirstDay(){
 bool SubProblem::priceVeryShortRotations(){
 	int nFound = 0;
 	for(int c=1; c<CDMin_; c++){
-		for(vector<int> succ : allowedShortSuccBySize_[c]){
-			for(int k=0; k<nDays_ - CDMin_; k++){
+		vector2D succs = allowedShortSuccBySize_[c];
+		for(int i = 0; i<succs.size(); i++){
+			vector<int> succ = allowedShortSuccBySize_[c][i];
+			for(int k=0; k <= nDays_ - c; k++){
+				//cout << "# " << k << " - " << (k+c-1) << "    [c=" << c << "]" << endl;
 				double redCost = costOfVeryShortRotation(k,succ);
 				if(redCost < maxReducedCostBound_){
 					Rotation rot (k, succ, pLiveNurse_, MAX_COST, redCost);
@@ -1412,9 +1448,11 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 		}
 	}
 
-	// B. REGULAR COST: CONSECUTIVE NUMBER OF DAYS
+	// B. REGULAR COST: CONSECUTIVE NUMBER OF DAYS (only if it does not end on last day)
 	//
-	consDaysRegCost += consDaysCost(consDays);
+	if(startDate+succ.size() < nDays_ and consDays){
+		consDaysRegCost += consDaysCost(consDays);
+	}
 
 	// C. REGULAR COST: CONSECUTIVE SHIFTS
 	//
@@ -1428,7 +1466,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 			consShifts = 1;
 			shift = newShift;
 		}
-		if(k==endDate) consShiftsRegCost += consShiftCost(shift, consShifts);
+		if(k==endDate and (k<nDays_-1 or consShifts > pScenario_->maxConsShifts_[shift])) consShiftsRegCost += consShiftCost(shift, consShifts);
 	}
 
 	// D. REGULAR COST: COMPLETE WEEKENDS
@@ -1729,8 +1767,8 @@ void SubProblem::r_c_shortest_paths_dispatch_several_sinks( const Graph& g,
               if( cur_outer_splabel->b_is_processed )
               {
                 cur_outer_splabel->b_is_valid = false;
-                l_alloc.destroy( cur_outer_splabel.get() );
-                l_alloc.deallocate( cur_outer_splabel.get(), 1 );
+//                l_alloc.destroy( cur_outer_splabel.get() );
+//                l_alloc.deallocate( cur_outer_splabel.get(), 1 );
               }
               else
                 cur_outer_splabel->b_is_dominated = true;

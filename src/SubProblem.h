@@ -56,12 +56,14 @@ enum SolveOption{
 
 	// One or several sink nodes
 	//
-	SOLVE_SINGLE_SINKNODE,			// DEFAULT: Look for the Pareto-front of all paths within the time horizon
-	SOLVE_ONE_SINK_PER_LAST_DAY,	//          Look for the Pareto-front for each end day
+	SOLVE_ONE_SINK_PER_LAST_DAY,	// DEFAULT: Look for the Pareto-front for each end day
+	SOLVE_SINGLE_SINKNODE,			//        : Look for the Pareto-front of all paths within the time horizon
 
 	// Very short rotations options
 	//
-	SOLVE_SHORT_DAY_0_ONLY,			// DEFAULT: Only consider the short rotations that start on the first day
+	SOLVE_SHORT_DAY_0_AND_LAST_ONLY,// DEFAULT: Only consider the short rotations that start on the first or end on the last day
+	SOLVE_SHORT_DAY_0_ONLY,			//          Only consider the short rotations that start on the first day
+	SOLVE_SHORT_LAST_ONLY,			//          Only consider the short rotations that end on the last day
 	SOLVE_SHORT_ALL,				//          Price all very short rotations
 	SOLVE_SHORT_NONE,				//          Do not consider any very short rotation at all
 
@@ -79,16 +81,16 @@ enum SolveOption{
 
 static const vector<vector<SolveOption> > incompatibilityClusters = {
 		{SOLVE_SOLUTIONS_RESET, SOLVE_SOLUTIONS_KEEP},
-		{SOLVE_SINGLE_SINKNODE, SOLVE_ONE_SINK_PER_LAST_DAY},
-		{SOLVE_SHORT_DAY_0_ONLY, SOLVE_SHORT_ALL, SOLVE_SHORT_NONE},
+		{SOLVE_ONE_SINK_PER_LAST_DAY, SOLVE_SINGLE_SINKNODE},
+		{SOLVE_SHORT_DAY_0_AND_LAST_ONLY, SOLVE_SHORT_DAY_0_ONLY, SOLVE_SHORT_LAST_ONLY, SOLVE_SHORT_ALL, SOLVE_SHORT_NONE},
 		{SOLVE_FORBIDDEN_RESET, SOLVE_FORBIDDEN_KEEP, SOLVE_FORBIDDEN_RANDOM},
 		{SOLVE_COST_GIVEN, SOLVE_COST_RANDOM}
 };
 
 static const vector<string> solveOptionName = {
 		"Delete previous solutions", "Keep Previous solutions and add new ones",
-		"Single sink node", "One sink node per last day",
-		"Only price very short rotations that start on day 0", "Price all very short rotations", "Price NO very short rotation",
+		"One sink node per last day", "Single sink node",
+		"Short rotations that start at 0 or end on last day only", "Short rotations that start on day 0 only", "Short rotations that end on last day only","Price all very short rotations", "Price NO very short rotation",
 		"Reset all forbidden before solve", "Keep all forbidden before solve", "Generate random forbidden day-shift",
 		"Solve for given reduced costs", "Generate random reduced costs"
 };
@@ -688,6 +690,7 @@ protected:
 	//
 	//----------------------------------------------------------------
 	bool priceVeryShortRotationsFirstDay();
+	bool priceVeryShortRotationsLastDay();
 	bool priceVeryShortRotations();
 	double costOfVeryShortRotation(int firstDay, vector<int> succ);
 
