@@ -320,6 +320,7 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
    //look for fractional columns
    //Fix all column above BRANCH_LB
    //search the good candidates
+   double valueLeft = 1;
    for(int i=0; i<master_->getRotations().size(); ++i)
       for(pair<MyObject*, Rotation> var: master_->getRotations()[i]){
          double value = pModel_->getVarValue(var.first);
@@ -327,8 +328,10 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
          if( var.second.length_==0 || pModel_->isInteger(var.first) )
             continue;
          //if value > BRANCH_LB, add this candidate to candidatesToFix
-         if( value > BRANCH_LB)
+         if( (value > BRANCH_LB) && (1-value < valueLeft) ){
+            valueLeft -= 1-value;
             fixingCandidates.push_back(var.first);
+         }
       }
 }
 
@@ -349,47 +352,88 @@ void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandida
    MyObject *bestVar(0);
    double bestValue = DBL_MAX;
 
-   //manage integrality on the number of nurses or skill allocation variables
+   //manage integrality on the skill allocation variables
+   switch(searchStrategy_){
+   case DepthFirstSearch:
+      //variable closest to upper integer
+      for(MyObject* var: bestCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
 
-   //variable closest to upper integer
-   for(MyObject* var: bestCandidates_){
-      if(pModel_->isInteger(var))
-         continue;
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeToInt = 1-frac;
 
-      double value = pModel_->getVarValue(var);
-      double frac = value - floor(value);
-      double closeToInt = 1-frac;
-
-      if(closeToInt < bestValue){
-         bestVar = var;
-         bestValue = closeToInt;
-         if(closeToInt<EPSILON)
-            break;
+         if(closeToInt < bestValue){
+            bestVar = var;
+            bestValue = closeToInt;
+            if(closeToInt<EPSILON)
+               break;
+         }
       }
+
+      if(bestVar != 0)
+         break;
+
+      for(MyObject* var: mediumCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
+
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeToInt = 1-frac;
+
+         if(closeToInt < bestValue){
+            bestVar = var;
+            bestValue = closeToInt;
+            if(closeToInt<EPSILON)
+               break;
+         }
+      }
+
+      break;
+   default:
+      //variable closest to .5
+      for(MyObject* var: bestCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
+
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeTo5 = abs(0.5-frac);
+
+         if(closeTo5 < bestValue){
+            bestVar = var;
+            bestValue = closeTo5;
+            if(closeTo5<EPSILON)
+               break;
+         }
+      }
+
+      if(bestVar != 0)
+         break;
+
+      for(MyObject* var: mediumCandidates_){
+         if(pModel_->isInteger(var))
+            continue;
+
+         double value = pModel_->getVarValue(var);
+         double frac = value - floor(value);
+         double closeTo5 = abs(0.5-frac);
+
+         if(closeTo5 < bestValue){
+            bestVar = var;
+            bestValue = closeTo5;
+            if(closeTo5<EPSILON)
+               break;
+         }
+      }
+
+      break;
    }
 
-   if(bestVar != 0){
+   if(bestVar != 0)
       branchingCandidates.push_back(bestVar);
-      return;
-   }
-
-   for(MyObject* var: mediumCandidates_){
-      if(pModel_->isInteger(var))
-         continue;
-
-      double value = pModel_->getVarValue(var);
-      double frac = value - floor(value);
-      double closeToInt = 1-frac;
-
-      if(closeToInt < bestValue){
-         bestVar = var;
-         bestValue = closeToInt;
-         if(closeToInt<EPSILON)
-            break;
-      }
-   }
-
-   branchingCandidates.push_back(bestVar);
 }
 
 bool DiveBranchingRule::compareColumnCloseToInt(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2){
@@ -403,103 +447,6 @@ bool DiveBranchingRule::compareColumnCloseTo5(pair<MyObject*, double> obj1, pair
    double closeTo5_1 = abs(0.5-frac1), closeTo5_2 = abs(0.5-frac2);
    return (closeTo5_1 < closeTo5_2);
 }
-
-//if(mediumCandidates_.size() == 0)
-//   for(MyObject* var: pModel_->getIntegerCoreVars()){
-//      string str2 = "nursesNumber";
-//      string str0(var->name_);
-//      string str1 = str0.substr(0,str2.size());
-//      if(strcmp(str1.c_str(), str2.c_str()) == 0)
-//         bestCandidates_.push_back(var);
-//      else
-//         mediumCandidates_.push_back(var);
-//   }
-//
-//MyObject *bestVar(0);
-//double bestValue = DBL_MAX;
-//
-////manage integrality on the skill allocation variables
-//switch(searchStrategy_){
-//case DepthFirstSearch:
-//   //variable closest to upper integer
-//   for(MyObject* var: bestCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeToInt = 1-frac;
-//
-//         if(closeToInt < bestValue){
-//            bestVar = var;
-//            bestValue = closeToInt;
-//            if(closeToInt<EPSILON)
-//               break;
-//         }
-//   }
-//
-//   if(bestVar != 0)
-//      break;
-//
-//   for(MyObject* var: mediumCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeToInt = 1-frac;
-//
-//         if(closeToInt < bestValue){
-//            bestVar = var;
-//            bestValue = closeToInt;
-//            if(closeToInt<EPSILON)
-//               break;
-//         }
-//   }
-//
-//   break;
-//default:
-//   //variable closest to .5
-//   for(MyObject* var: bestCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeTo5 = abs(0.5-frac);
-//
-//      if(closeTo5 < bestValue){
-//         bestVar = var;
-//         bestValue = closeTo5;
-//         if(closeTo5<EPSILON)
-//            break;
-//      }
-//   }
-//
-//   if(bestVar != 0)
-//      break;
-//
-//   for(MyObject* var: mediumCandidates_){
-//      if(pModel_->isInteger(var))
-//         continue;
-//
-//      double value = pModel_->getVarValue(var);
-//      double frac = value - floor(value);
-//      double closeTo5 = abs(0.5-frac);
-//
-//      if(closeTo5 < bestValue){
-//         bestVar = var;
-//         bestValue = closeTo5;
-//         if(closeTo5<EPSILON)
-//            break;
-//      }
-//   }
-//
-//   break;
-//}
-//
-//if(bestVar != 0)
-//   branchingCandidates.push_back(bestVar);
 
 /*************************************************************
  * CorePriority branching rule: branch on core variables first

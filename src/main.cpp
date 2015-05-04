@@ -19,6 +19,13 @@
 unsigned int MyObject::s_count = 0;
 unsigned int Rotation::s_count = 0;
 
+void main_test()
+{
+	//testFunction_Antoine();
+	testFunction_Jeremy();
+	//testFunction_Samuel();
+}
+
 int main(int argc, char** argv)
 {
 	std::cout << "Number of arguments= " << argc << std::endl;

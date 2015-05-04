@@ -294,19 +294,20 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
   isPreprocessedSkills_(false), isPreprocessedNurses_(false) {
 
-    // initialize the preprocessed data of the skills
-    for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
-      maxStaffPerSkillNoPenalty_.push_back(-1.0);
-      skillRarity_.push_back(1.0);
-    }
-
-    // copy the nurses in the live nurses vector
-    for (int i = 0; i < pScenario_->nbNurses_; i++) {
-      theLiveNurses_.push_back(
-        new LiveNurse( (pScenario_->theNurses_[i]), pScenario_, pDemand_->nbDays_,
-        pDemand_->firstDay_, &(*pInitState_)[i], &(pPreferences_->wishesOff_[i])  ) );
-    }
+  // initialize the preprocessed data of the skills
+  for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+    maxStaffPerSkillNoPenalty_.push_back(-1.0);
+    maxStaffPerSkillAvgWork_.push_back(-1.0);
+    skillRarity_.push_back(1.0);
   }
+
+  // copy the nurses in the live nurses vector
+  for (int i = 0; i < pScenario_->nbNurses_; i++) {
+    theLiveNurses_.push_back(
+      new LiveNurse( (pScenario_->theNurses_[i]), pScenario_, pDemand_->nbDays_,
+      pDemand_->firstDay_, &(*pInitState_)[i], &(pPreferences_->wishesOff_[i])  ) );
+  }
+}
 
 // Destructor
 Solver::~Solver(){
@@ -350,14 +351,17 @@ void Solver::preprocessTheNurses() {
 
   maxTotalStaffNoPenalty_ = 0;
   maxTotalStaffAvgWork_ = 0;
+  for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+    maxStaffPerSkillNoPenalty_[sk] = 0;
+    maxStaffPerSkillAvgWork_[sk] = 0;
+  }
   for (LiveNurse* pNurse: theLiveNurses_)	{
 
     // add the working maximum number of working days to the maximum staffing
     //
     maxTotalStaffNoPenalty_ +=
       std::min(pNurse->maxWorkDaysNoPenaltyConsDays_, pNurse->maxWorkDaysNoPenaltyTotalDays_);
-    maxTotalStaffAvgWork_ +=
-      std::min((double)pNurse->maxWorkDaysNoPenaltyConsDays_, pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+    maxTotalStaffAvgWork_ += pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
 
     // the staffing per skill is very rough here since Nurses can have
     // multiple skills
@@ -367,8 +371,10 @@ void Solver::preprocessTheNurses() {
     for (int sk:pNurse->skills_) {
       totalRarity += skillRarity_[sk];
     }
+    double maxWorkNoPenalty = (double)std::min(pNurse->maxWorkDaysNoPenaltyConsDays_, pNurse->maxWorkDaysNoPenaltyTotalDays_);
     for (int sk: pNurse->skills_) {
-      maxStaffPerSkillNoPenalty_[sk] += skillRarity_[sk]/totalRarity*(double)pNurse->maxWorkDaysNoPenaltyConsDays_;
+      maxStaffPerSkillNoPenalty_[sk] += (skillRarity_[sk]/totalRarity)*maxWorkNoPenalty;
+      maxStaffPerSkillAvgWork_[sk] +=  (skillRarity_[sk]/totalRarity)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
     }
   }
 
@@ -637,13 +643,7 @@ double Solver::solutionCost() {
   int nbShifts = pScenario_->nbShifts_, nbSkills = pScenario_->nbSkills_;
 
   // reset the satisfied demand to compute it from scratch
-  for(int day = 0; day < nbDays; day++) {
-    for (int sh = 1; sh < nbShifts ; sh++) {
-      for (int sk = 0; sk < nbSkills; sk++) {
-        satisfiedDemand_[day][sh][sk] = 0;
-      }
-    }
-  }
+  Tools::initVector3D(&satisfiedDemand_,nbDays, nbShifts, nbSkills);
 
   // first add the individual cost of each nurse
   for (int n = 0; n < nbNurses; n++) {

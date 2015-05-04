@@ -84,7 +84,7 @@ void Roster::push_back(Roster& roster) {
   if (!this->nbDays_) {
     this->copy(roster);
   }
-  else if (!Tools::isSunday(firstDay_+nbDays_)) {
+  else if (!Tools::isSunday(firstDay_+nbDays_-1)) {
     Tools::throwError("Roster::push_back: The last day of the current roster is not a sunday!");
   }
   else {
@@ -95,7 +95,7 @@ void Roster::push_back(Roster& roster) {
     }
   }
 
-  if (!Tools::isSunday(firstDay_+nbDays_)) {
+  if (!Tools::isSunday(firstDay_+nbDays_-1)) {
     Tools::throwError("Roster::push_back: The last day of the updated roster is not a sunday!");
   }
 }

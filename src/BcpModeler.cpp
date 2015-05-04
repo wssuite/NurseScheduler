@@ -84,8 +84,17 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 //      else{
 //         sol = new BCP_solution_generic();
 //         for(int i=0; i<size; ++i)
-//            if(solver->getColSolution()[i] > EPSILON)
-//               sol->add_entry(vars[i], solver->getColSolution()[i]);
+//            if(solver->getColSolution()[i] > EPSILON){
+//               //create new var that will be deleted by the solution sol
+//               if(i<coreSize){
+//                  BcpCoreVar* var0 = dynamic_cast<BcpCoreVar*>(pModel_->getCoreVars()[i]);
+//                  sol->add_entry(new BcpCoreVar(*var0), solver->getColSolution()[i]);
+//               }
+//               else{
+//                  BcpColumn* var0 = dynamic_cast<BcpColumn*>(vars[i]);
+//                  sol->add_entry(new BcpColumn(*var0), solver->getColSolution()[i]);
+//               }
+//            }
 //
 //         break;
 //      }
@@ -266,8 +275,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
-   pModel_->setLPSol(lpres, vars);
-
    //if some variables have been generated, do not branch
    if(local_var_pool.size() > 0)
       return BCP_DoNotBranch;
@@ -480,15 +487,21 @@ void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
    pModel_->setBestUB(sol->objective_value());
 
    BCP_solution_generic* sol2 = (BCP_solution_generic*) sol;
+   const int size1 = sol2->_vars.size(), size2 = pModel_->getNbVars();
    vector<double> primal(pModel_->getNbVars());
    for(int i=0; i<sol2->_vars.size(); ++i){
-      int index = sol2->_vars[i]->bcpind();
+      BCP_var* var = sol2->_vars[i];
+      int index = var->bcpind();
+      BcpColumn* col = dynamic_cast<BcpColumn*>(var);
+      if(col)
+         index = col->getIndex();
       primal[index] = sol2->_values[i];
    }
    pModel_->setPrimal(primal);
 
    if(pModel_->getSearchStrategy() == DepthFirstSearch){
-      double gap = ( sol->objective_value() - pModel_->getBestLb() ) / pModel_->getBestLb();
+      double lb = min(lower_bound(), pModel_->getBestLb());
+      double gap = ( sol->objective_value() - lb ) / lb;
       if(gap > 0 && gap < minGap_){
          pModel_->setSearchStrategy(BestFirstSearch);
          set_search_strategy();
