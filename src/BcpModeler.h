@@ -188,6 +188,8 @@ public:
 
    inline double getLastMinDualCost(){ return lastMinDualCost_; }
 
+   inline double getLastObj(){ return obj_history_[obj_history_.size()-1]; }
+
    inline  map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
    inline  map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
@@ -309,6 +311,9 @@ public:
    //Default: empty method.
    void modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching);
 
+   //print in cout a line summary of the current solver state
+   void printSummaryLine(const BCP_vec<BCP_var*>& vars = {});
+
    //This method provides an opportunity for the user to tighten the bounds of variables.
    //The method is invoked after reduced cost fixing. The results are returned in the last two parameters.
    //Parameters:
@@ -376,6 +381,9 @@ public:
    //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
    void set_actions_for_children(BCP_presolved_lp_brobj* best);
 
+   //allow to count the nodes
+   void select_cuts_to_delete (const BCP_lp_result &lpres, const BCP_vec< BCP_var * > &vars, const BCP_vec< BCP_cut * > &cuts, const bool before_fathom, BCP_vec< int > &deletable);
+
 protected:
    BcpModeler* pModel_;
    //number of column in the master problem before the pricing
@@ -383,7 +391,7 @@ protected:
    //count the iteration
    int lpIteration_;
    //count the nodes
-   int current_node, nb_nodes;
+   int last_node, nb_nodes;
 
    //vars = are just the giver vars
    //cols is the vector where the new columns will be stored

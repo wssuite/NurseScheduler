@@ -294,6 +294,12 @@ public:
    Solver(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState);
 
+   Solver(Scenario* pScenario, Demand* pDemand,
+      Preferences* pPreferences, vector<State>* pInitState, 
+      vector<double> minTotalShifts, vector<double> maxTotalShifts, 
+      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg, 
+      vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
+
    // Main method to solve the rostering problem for a given input
    virtual void solve() {}
 
@@ -329,6 +335,31 @@ protected:
    // then be preprocessed and get enw attributes
    //
    vector<LiveNurse*> theLiveNurses_;
+
+   // Preprocessed minimum and maximum number of working days on all the weeks
+   //
+   vector<double> minTotalShifts_;
+   vector<double> maxTotalShifts_;
+
+   // Interval inside of which there is no penalty for the total number of
+   // working days (for each nurse)
+   // This interval is computed from the max/min number of working days averaged
+   // over the number of remaining weeks
+   vector<double> minTotalShiftsAvg_;
+   vector<double> maxTotalShiftsAvg_;
+
+   // Penalties for values outside of [minTotalShiftsAvg_,maxTotalShiftsAvg_]
+   vector<double> weightTotalShiftsAvg_;
+
+   // Number of worked week-ends below which there is no penalty for the 
+   // total number of working week-ends
+   // This interval is computed from the max number of working week-ends averaged
+   // over the number of remaining weeks
+   vector<double> maxTotalWeekendsAvg_;
+
+   // Penalties for the number of working weekends on the current period
+   // (for each nurse)
+   vector<double> weightTotalWeekendsAvg_;
 
    //-----------------------------------------------------------------------------
    // Outputs of the solver

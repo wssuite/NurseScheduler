@@ -9,6 +9,7 @@
 #include "OsiClpSolverInterface.hpp"
 #include "CoinTime.hpp"
 #include "BCP_lp.hpp"
+#include "BCP_lp_node.hpp"
 #include "CbcModeler.h"
 #include "RotationPricer.h"
 
@@ -18,7 +19,7 @@
 
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
 pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()),
-lpIteration_(0), current_node(0), nb_nodes(0)
+lpIteration_(0), nb_nodes(0), last_node(-1)
 { }
 
 //Initialize the lp parameters and the OsiSolver
@@ -118,9 +119,55 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 //Default: empty method.
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
-   if(current_node != current_index()){
-      current_node = current_index();
-      --nb_nodes;
+   if(current_index() != last_node){
+      last_node = current_index();
+      printSummaryLine();
+   }
+}
+
+//print in cout a line summary of the current solver state
+void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
+
+   if(pModel_->getVerbosity() > 0){
+
+      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? 1000000 :
+         getLpProblemPointer()->node->true_lower_bound;
+
+      if( vars.size() == 0 ){
+         printf("BCP: %13s %5s | %10s %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+            "Node", "Lvl", "BestUB", "RootLB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
+         printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
+            current_index(), nb_nodes, current_level(),
+            pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
+            "-", "-", "-", "-", "-", "-", "-");
+      }
+
+      else{
+         /* compute number of fractional columns */
+         int frac = 0;
+         int non_zero = 0;
+         for(CoinVar* col: pModel_->getColumns()){
+            double value = pModel_->getVarValue(col);
+            if(value > EPSILON)
+               non_zero ++;
+            if(!pModel_->isInteger(col))
+               frac++;
+         }
+
+         int nbColGenerated = pModel_->getNbColumns() - nbCurrentColumnVarsBeforePricing_;
+
+         if(pModel_->getBestLb() == DBL_MAX)
+            printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
+               current_index(), nb_nodes, current_level(),
+               pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
+               "-", "-", "-", "-", "-", "-", "-");
+         else
+            printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d| %10.2f %5d %5d  \n",
+               current_index(), nb_nodes, current_level(),
+               pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
+               lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
+               pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
+      }
    }
 }
 
@@ -218,10 +265,12 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    pModel_->setLPSol(lpres, vars);
    pModel_->pricing(0, before_fathom);
 
+   /* Print a line summary of the solver state */
+   printSummaryLine(vars);
+
    //check if new columns add been added since the last time
    //if there are some, add all of them in new_vars
    int size = pModel_->getNbColumns();
-   int nbColGenerated = size - nbCurrentColumnVarsBeforePricing_;
    if ( size != nbCurrentColumnVarsBeforePricing_ ) { //|| ! before_fathom
       new_vars.reserve(size-nbCurrentColumnVarsBeforePricing_); //reserve the memory for the new columns
       for(int i=nbCurrentColumnVarsBeforePricing_; i<size; ++i){
@@ -237,26 +286,6 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
       //    const double rc_bound =
       //   (lpres.dualTolerance() + (lpres.objval() - upper_bound()))/kss.ks_num;
       //    generate_vars(lpres, vars, rc_bound, new_vars);
-
-   if(pModel_->getVerbosity() > 0){
-      /* compute number of fractional columns */
-      int frac = 0;
-      int non_zero = 0;
-      for(CoinVar* col: pModel_->getColumns()){
-         double value = pModel_->getVarValue(col);
-         if(value > EPSILON)
-            non_zero ++;
-         if(!pModel_->isInteger(col))
-            frac++;
-      }
-
-      /* Print the values */
-      printf("BCP: %5d / %5d %5d | %10.0f %10.2f | %8d %10.2f %5d / %4d %10d| %10.2f %5d %5d  \n",
-         current_node, nb_nodes, current_level(),
-         pModel_->getBestUB(), pModel_->getBestLb(),
-         lpIteration_, lpres.objval(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
-         pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
-   }
 }
 
 /*
@@ -275,12 +304,20 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
+   //fathom if the true lower bound greater than current upper bound
+   if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
+         pModel_->getAbsoluteGap() - EPSILON)
+      return BCP_DoNotBranch_Fathomed;
+
    //if some variables have been generated, do not branch
    if(local_var_pool.size() > 0)
       return BCP_DoNotBranch;
 
+   //update true_lower_bound, as we reach the end of the column generation
+   getLpProblemPointer()->node->true_lower_bound = lpres.objval();
+
    //fathom if greater than current upper bound
-   if(pModel_->getBestUB() < lpres.objval() + EPSILON)
+   if(pModel_->getBestUB() - lpres.objval() < pModel_->getAbsoluteGap() - EPSILON)
       return BCP_DoNotBranch_Fathomed;
 
    //branching candidates: numberOfNursesByPosition_
@@ -310,10 +347,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
    nb_nodes += best->candidate()->child_num;
 
-   if(pModel_->getVerbosity() > 0)
-        printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
-              "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
-
    // by default every action is set to BCP_ReturnChild
 
    //if no column, let BCP decides
@@ -331,7 +364,8 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
 }
 
 void BcpLpModel::appendNewBranchingVar(CoinVar* integerCoreVar, vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
-   const int nbChildren = 2+columns.size();
+//   const int nbChildren = 2+columns.size();
+   const int nbChildren = (columns.size() > 0 ) ? 3 : 2;
    BCP_vec<int> vpos; //positions of the variables
    BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
    //this vector is filled is this order:
@@ -385,33 +419,52 @@ void BcpLpModel::appendNewBranchingVar(CoinVar* integerCoreVar, vector<MyObject*
    }
 
 
-   //branch on the columns
-   for(int j=0; j<columns.size(); ++j){
+//   //branch on the columns
+//   for(int j=0; j<columns.size(); ++j){
+//      //don't change bounds for integerCoreVar
+//      vbd.push_back(integerCoreVar->getLB());
+//      vbd.push_back(integerCoreVar->getUB());
+//
+//      //keep same bound for the columns exectp for the column j
+//      for(int l=0; l<columns.size(); ++l){
+//         if(l==j)
+//            vbd.push_back(1);
+//         else
+//            vbd.push_back(vars[currentIndex[l]]->lb());
+//         vbd.push_back(vars[currentIndex[l]]->ub());
+//      }
+//   }
+
+   //branch on all the columns
+   if(columns.size() > 0){
       //don't change bounds for integerCoreVar
       vbd.push_back(integerCoreVar->getLB());
       vbd.push_back(integerCoreVar->getUB());
 
       //keep same bound for the columns exectp for the column j
       for(int l=0; l<columns.size(); ++l){
-         if(l==j)
-            vbd.push_back(1);
-         else
-            vbd.push_back(vars[currentIndex[l]]->lb());
+         vbd.push_back(1);
          vbd.push_back(vars[currentIndex[l]]->ub());
       }
    }
 
+   /* create the new candidate */
    cands.push_back(new  BCP_lp_branching_object(nbChildren, 0, 0, /* vars/cuts_to_add */
       &vpos, 0, &vbd, 0, /* forced parts */
       0, 0, 0, 0 /* implied parts */));
 }
 
+//allow to count the nodes
+void  BcpLpModel::select_cuts_to_delete (const BCP_lp_result &lpres, const BCP_vec< BCP_var * > &vars, const BCP_vec< BCP_cut * > &cuts, const bool before_fathom, BCP_vec< int > &deletable){
+   if(before_fathom)
+      nb_nodes --;
+}
 /*
  * BcpBranchingTree
  */
 
 BcpBranchingTree::BcpBranchingTree(BcpModeler* pModel):
-      pModel_(pModel) , nbInitialColumnVars_(pModel->getNbColumns()), minGap_(0.05)
+      pModel_(pModel) , nbInitialColumnVars_(pModel->getNbColumns()), minGap_(0.0)
 { }
 
 // setting the base
@@ -476,10 +529,6 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
       //create a new BcpColumn which will be deleted by BCP
       added_vars.unchecked_push_back(new BcpColumn(*var));
    }
-
-   if(pModel_->getVerbosity() > 0)
-      printf("BCP: %13s %5s | %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
-         "Node", "Lvl", "BestUB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
 }
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
@@ -520,7 +569,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
 BcpModeler::BcpModeler(const char* name):
    CoinModeler(),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-   best_lb_in_root(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
+   best_lb_in_root(1000000), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 { }
 
 //solve the model

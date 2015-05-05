@@ -307,7 +307,45 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
       new LiveNurse( (pScenario_->theNurses_[i]), pScenario_, pDemand_->nbDays_,
       pDemand_->firstDay_, &(*pInitState_)[i], &(pPreferences_->wishesOff_[i])  ) );
   }
+
+  // initialize the minimum and maximum number of total working days
+  for (int i = 0; i < pScenario_->nbNurses(); i++) {
+    minTotalShifts_.push_back(theLiveNurses_[i]->minTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_);
+    maxTotalShifts_.push_back(theLiveNurses_[i]->maxTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_);
+  }
 }
+
+Solver::Solver(Scenario* pScenario, Demand* pDemand,
+  Preferences* pPreferences, vector<State>* pInitState, 
+  vector<double> minTotalShifts, vector<double> maxTotalShifts, 
+  vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg, 
+  vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg):
+  pScenario_(pScenario),  pDemand_(pDemand),
+  pPreferences_(pPreferences), pInitState_(pInitState),
+
+  minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts), 
+  minTotalShiftsAvg_(minTotalShiftsAvg), maxTotalShiftsAvg_(maxTotalShifts_), weightTotalShiftsAvg_(weightTotalWeekendsAvg),
+  maxTotalWeekendsAvg_(maxTotalWeekendsAvg), weightTotalWeekendsAvg_(weightTotalWeekendsAvg),
+
+  totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
+  isPreprocessedSkills_(false), isPreprocessedNurses_(false)
+
+{
+  // initialize the preprocessed data of the skills
+  for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+    maxStaffPerSkillNoPenalty_.push_back(-1.0);
+    maxStaffPerSkillAvgWork_.push_back(-1.0);
+    skillRarity_.push_back(1.0);
+  }
+
+  // copy the nurses in the live nurses vector
+  for (int i = 0; i < pScenario_->nbNurses_; i++) {
+    theLiveNurses_.push_back(
+      new LiveNurse( (pScenario_->theNurses_[i]), pScenario_, pDemand_->nbDays_,
+      pDemand_->firstDay_, &(*pInitState_)[i], &(pPreferences_->wishesOff_[i])  ) );
+  }
+}
+  
 
 // Destructor
 Solver::~Solver(){
@@ -424,7 +462,7 @@ void Solver::specifyNursePositions() {
 void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 
   // number of days that will be covered after the current demand
-  int nbDaysFuture = 7*(pScenario_->nbWeeks()-pScenario_->thisWeek())-pDemand_->nbDays_;
+  int nbDaysFuture = 7*(pScenario_->nbWeeks()-(pScenario_->thisWeek()+1))-pDemand_->nbDays_;
 
   // For each contract, compute the maximum and minimum number of working days
   // that can be done after the current demand without ensuing penalties due to

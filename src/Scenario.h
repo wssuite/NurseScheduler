@@ -165,12 +165,15 @@ public:
 	int nbWeeksLoaded() {return nbWeeksLoaded_;}
 	string weekName() {return weekName_;}
 	Demand* pWeekDemand() {return pWeekDemand_;}
+	int nbShifts() {return nbShifts_;}
 	int nbShiftOffRequests() {return nbShiftOffRequests_;}
 	Preferences* pWeekPreferences() {return &weekPreferences_;}
 	vector<State>* pInitialState() {return &initialState_;}
+	int nbSkills() {return nbSkills_;}
 	int nbPositions() {return nbPositions_;}
 	vector<Position*> pPositions() {return pPositions_;}
 	Position* pPosition(int p) {return pPositions_[p];}
+	int nbNurses() {return nbNurses_;}
 
 	// getters for the attributes of the nurses
 	//

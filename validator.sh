@@ -1,6 +1,8 @@
 #!/bin/bash
 # validator script: launch the validator
 
+#instance = n005w4: (1 2 3 3)
+#instance = n012w8: (3 5 0 2 0 4 5 2)
 dataFile="testdatasets/"
 instance="n005w4"
 #"${dataFile}${instance}/Solution_H_0-WD_1-2-3-3/"

@@ -140,6 +140,11 @@ public:
    MasterProblem(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
       vector<Roster> solution = {});
+   MasterProblem(Scenario* pScenario, Demand* pDemand,
+      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
+      vector<double> minTotalShifts, vector<double> maxTotalShifts, 
+      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg, 
+      vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg );
    ~MasterProblem();
 
    //solve the rostering problem
@@ -183,6 +188,10 @@ private:
    vector<MyObject*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
    vector<MyObject*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
 
+   vector<MyObject*> minWorkedDaysAvgVars_; //count the number of missing worked days from average per nurse
+   vector<MyObject*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
+   vector<MyObject*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
+
    vector< vector< vector<MyObject*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
    vector< vector< vector<MyObject*> > > numberOfNursesByPositionVars_; // count the number of nurses by position on each day, shift
    vector< vector< vector< vector<MyObject*> > > > skillsAllocVars_; //makes the allocation of the skills
@@ -201,6 +210,11 @@ private:
    vector<MyObject*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
    vector<MyObject*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
 
+   vector<MyObject*> minWorkedDaysAvgCons_; //count the number of missing worked days from average per nurse
+   vector<MyObject*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
+   vector<MyObject*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
+
+
    vector< vector< vector<MyObject*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
    vector< vector< vector<MyObject*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
    vector< vector< vector<MyObject*> > > numberOfNursesByPositionCons_; //ensure there are enough nurses for numberOfNursesByPositionVars_
@@ -209,6 +223,9 @@ private:
    /*
     * Methods
     */
+
+   // Initialize the solver at construction
+   void initializeSolver(MySolverType solverType);
 
    // Main method to build the rostering problem for a given input
    void build();
