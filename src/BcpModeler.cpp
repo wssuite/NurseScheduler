@@ -40,6 +40,9 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 
    BCP_solution_generic* sol = NULL;
 
+//   if(pModel_->getLastMinDualCost() < -1)
+//      return sol;
+//
 //   //copy the solver
 //   OsiSolverInterface* solver = getLpProblemPointer()->lp_solver;
 //
@@ -60,25 +63,29 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 //   //while the solution is feasible
 //   solver->solveFromHotStart();
 //   while( solver->isProvenOptimal() ){
-//      //store the best column
-//      double bestValue = EPSILON;
-//      int index = -1;
 //
-//      //find the best not integer column
+//      //find the best not integer columns
+//      vector<pair<int,double>> candidates;
 //      for(int i=coreSize; i<size; ++i){
 //         double value = solver->getColSolution()[i];
 //         if(value ==0 || value > 1 - EPSILON)
 //            continue;
-//         if(value > bestValue){
-//            index = i;
-//            bestValue = value;
-//         }
+//         candidates.push_back(pair<int,double>(i, 1-value));
 //      }
 //
+//      stable_sort(candidates.begin(), candidates.end(), compareCol);
+//
 //      //if we have found a column
-//      if(index >= 0){
-//         indexColLbChanched.push_back(index);
-//         solver->setColLower(index, 1);
+//      if(candidates.size() > 0){
+//         double valueLeft = .99;
+//         for(pair<int,double>& p: candidates){
+//            if(p.second > valueLeft)
+//               break;
+//            if(p.second > .2)
+//               valueLeft -= p.second;
+//            indexColLbChanched.push_back(p.first);
+//            solver->setColLower(p.first, 1);
+//         }
 //         solver->solveFromHotStart();
 //      }
 //      //else the solution is integer, create a BCP_solution_generic to return
@@ -114,6 +121,10 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
    return sol;
 }
 
+bool BcpLpModel::compareCol(const pair<int,double>& p1, const pair<int,double>& p2){
+   return (p1.second < p2.second);
+}
+
 //Modify parameters of the LP solver before optimization.
 //This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
 //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
@@ -146,11 +157,13 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
          /* compute number of fractional columns */
          int frac = 0;
          int non_zero = 0;
-         for(CoinVar* col: pModel_->getColumns()){
-            double value = pModel_->getVarValue(col);
-            if(value > EPSILON)
-               non_zero ++;
-            if(!pModel_->isInteger(col))
+         int nbCol = 0;
+         for(int i=0; i<nbCurrentColumnVarsBeforePricing_; ++i){
+            double value = pModel_->getVarValue(pModel_->getColumns()[i]);
+            if(value < EPSILON)
+               continue;
+            non_zero ++;
+            if(value < 1 - EPSILON)
                frac++;
          }
 
@@ -162,7 +175,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
                pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
                "-", "-", "-", "-", "-", "-", "-");
          else
-            printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d| %10.2f %5d %5d  \n",
+            printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
                current_index(), nb_nodes, current_level(),
                pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
                lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
@@ -328,8 +341,15 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    vector<MyObject*> fixingCandidates;
    pModel_->logical_fixing(fixingCandidates);
 
-   if(branchingCandidates.size() == 0)
+   if(branchingCandidates.size() == 0){
+      for(CoinVar* col: pModel_->getColumns()){
+         double value = pModel_->getVarValue(col);
+         if(value < EPSILON || value > 1 - EPSILON)
+            continue;
+         cout << "Var " << col->name_ << " = " << value << endl;
+      }
       Tools::throwError("Solution is not integer and no branching variable is found.");
+   }
 
    CoinVar* integrCoreVar = dynamic_cast<CoinVar*>(branchingCandidates[0]);
    appendNewBranchingVar(integrCoreVar, fixingCandidates, vars, cands);
@@ -354,8 +374,8 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
       BCP_lp_user::set_actions_for_children(best);
    //choose the column with the lowest bound on the presolve
    else{
-      int index = 0;
-      for (int i = 0; i<best->candidate()->child_num; ++i)
+      int index = 2;
+      for (int i = 3; i<best->candidate()->child_num; ++i)
              if (best->lpres(i).objval() < best->lpres(index).objval())
                 index = i;
       //keep the best column to dive
@@ -627,6 +647,13 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    const int nbColVar = columnVars_.size();
    const int nbCons = cons_.size();
 
+   //clear all
+   primalValues_.clear();
+   dualValues_.clear();
+   reducedCosts_.clear();
+   lhsValues_.clear();
+
+   //assign value for core variables
    primalValues_.assign(lpres.x(), lpres.x()+nbCoreVar);
    dualValues_.assign(lpres.pi(), lpres.pi()+nbCons);
    reducedCosts_.assign(lpres.dj(), lpres.dj()+nbCoreVar);

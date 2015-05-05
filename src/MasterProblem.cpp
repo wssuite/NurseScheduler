@@ -487,8 +487,10 @@ void MasterProblem::storeSolution(){
             }
 
    //build the states of each nurse
-   for(LiveNurse* pNurse: theLiveNurses_)
+   for(LiveNurse* pNurse: theLiveNurses_){
       pNurse->buildStates();
+      solution_.push_back(pNurse->roster_);
+   }
 }
 
 //build the variable of the rotation as well as all the affected constraints with their coefficients

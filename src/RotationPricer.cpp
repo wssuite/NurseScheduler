@@ -22,7 +22,7 @@ static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-                        MyPricer(name), nbMaxRotationsToAdd_(2000), nbSubProblemsToSolve_(15), nursesToSolve_(master->theLiveNurses_),
+                        MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theLiveNurses_),
                         master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
 {
    /* sort the nurses */
@@ -306,6 +306,10 @@ void RotationPricer::computeForbiddenShifts(
 //
 //////////////////////////////////////////////////////////////
 
+bool compareObject(const pair<MyObject*,double>& p1, const pair<MyObject*,double>& p2){
+   return (p1.second < p2.second);
+}
+
 /*************************************************************
  * Diving branching rule: dive then close to .5
  *************************************************************/
@@ -320,19 +324,27 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
    //look for fractional columns
    //Fix all column above BRANCH_LB
    //search the good candidates
-   double valueLeft = 1;
+   vector<pair<MyObject*,double> > candidates;
    for(int i=0; i<master_->getRotations().size(); ++i)
       for(pair<MyObject*, Rotation> var: master_->getRotations()[i]){
          double value = pModel_->getVarValue(var.first);
-         //if var not fractional or the rotation is not a real rotation (length = 0), continue
-         if( var.second.length_==0 || pModel_->isInteger(var.first) )
+         //if the rotation is not a real rotation (length = 0), continue
+         if( var.second.length_==0)
             continue;
-         //if value > BRANCH_LB, add this candidate to candidatesToFix
-         if( (value > BRANCH_LB) && (1-value < valueLeft) ){
-            valueLeft -= 1-value;
-            fixingCandidates.push_back(var.first);
-         }
+         //if var fractional
+         if(value > EPSILON && value < 1 - EPSILON)
+            candidates.push_back(pair<MyObject*, double>(var.first, 1 - value));
       }
+
+   stable_sort(candidates.begin(), candidates.end(), compareObject);
+
+   double valueLeft = 0.99;
+   for(pair<MyObject*,double>& p: candidates){
+      if(valueLeft < p.second)
+         break;
+      fixingCandidates.push_back(p.first);
+      valueLeft -= p.second;
+   }
 }
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){

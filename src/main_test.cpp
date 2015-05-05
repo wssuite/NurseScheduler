@@ -31,12 +31,12 @@ void testFunction_Antoine(){
    timertotal->start();
 
    string data = "testdatasets/";// testdatasets datasets
-   const char* inst = "n005w4";// n100w4 n030w4 n005w4
+   const char* inst = "n012w8";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-   vector<int> numberWeek = {1, 2, 3, 3};
+   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
 
 
    testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
