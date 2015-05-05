@@ -462,7 +462,7 @@ void Solver::specifyNursePositions() {
 void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 
   // number of days that will be covered after the current demand
-  int nbDaysFuture = 7*(pScenario_->nbWeeks()-(pScenario_->thisWeek()+1))-pDemand_->nbDays_;
+  int nbDaysFuture = 7*(pScenario_->nbWeeks()-pScenario_->thisWeek())-pDemand_->nbDays_;
 
   // For each contract, compute the maximum and minimum number of working days
   // that can be done after the current demand without ensuing penalties due to
@@ -520,13 +520,14 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   // the same number of days every week, the nurse will respect the bounds on
   // the total number of working days without penalty
   for (LiveNurse* pNurse:theLiveNurses_) {
-    int nbWeeksLeft = pScenario_->nbWeeks()-pScenario_->thisWeek();
-    int nbDaysToMin = pNurse->minTotalShifts()- pNurse->totalDaysWorked();
-    int nbDaysToMax = pNurse->maxTotalShifts()- pNurse->totalDaysWorked();
-    pNurse->minAvgWorkDaysNoPenaltyTotalDays_ = std::max(0.0,
-      (nbDaysToMin/(double)nbWeeksLeft) * (pDemand_->nbDays_/7.0));
+    double demandMinAvgPerWeek = pNurse->minTotalShifts()/(double) pScenario_->nbWeeks();
+    double demandMaxAvgPerWeek = pNurse->maxTotalShifts()/(double) pScenario_->nbWeeks();
+    double demandMinAvgUntilThisDemand = demandMinAvgPerWeek*(pScenario_->thisWeek()+pDemand_->nbDays_/7.0);
+    double demandMaxAvgUntilThisDemand = demandMaxAvgPerWeek*(pScenario_->thisWeek()+pDemand_->nbDays_/7.0);
+
+    pNurse->minAvgWorkDaysNoPenaltyTotalDays_ = demandMinAvgUntilThisDemand-pNurse->totalDaysWorked();
     pNurse->maxAvgWorkDaysNoPenaltyTotalDays_ = std::max(0.0,
-      (nbDaysToMax/(double)nbWeeksLeft) * (pDemand_->nbDays_/7.0));
+      demandMaxAvgUntilThisDemand-pNurse->totalDaysWorked());
   }
 }
 
@@ -634,6 +635,15 @@ void Solver::preprocessTheSkills() {
 
 void Solver::computeWeightsTotalShiftsForStochastic() {
 
+  // clear the vectors that are about to be filled
+  minTotalShifts_.clear();
+  maxTotalShifts_.clear();
+  minTotalShiftsAvg_.clear();
+  maxTotalShiftsAvg_.clear();
+  weightTotalShiftsAvg_.clear();
+  maxTotalWeekendsAvg_.clear();
+  weightTotalWeekendsAvg_.clear();
+
 	// The nurses must be preprocessed to retrieve the information relative to the
 	// past activity of the nurses and to their capacity to work more in the future
 	if (!isPreprocessedNurses_) this->preprocessTheNurses();
@@ -643,7 +653,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	// after the demand currently treated
 	int remainingDays = 7*pScenario_->nbWeeks()-7*(pScenario_->thisWeek())-pDemand_->nbDays_;
 	double factorRemainingDays = (double) remainingDays/(double)(7*pScenario_->nbWeeks());
-	int remainingWeekends = pScenario_->nbWeeks()-(pScenario_->thisWeek())-pDemand_->nbDays_/7;
+	int remainingWeekends = pScenario_->nbWeeks()-(pScenario_->thisWeek())-((pDemand_->nbDays_-1)/7+1);
 	double factorRemainingWeekends = (double)remainingWeekends/(double)pScenario_->nbWeeks();
 
 	// Compute the non-penalized intervals and the associated penalties
@@ -652,21 +662,21 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 
 		// first compute the values relative to the average number of working days
 		// the interval is larger for the first weeks and the associated penalty is smaller
-		minTotalShiftsAvg_[n] = (1.0-factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_;
-		maxTotalShiftsAvg_[n] = (1.0+factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
-		weightTotalShiftsAvg_[n] = (1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS;
+		minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
+		maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+		weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
 
 		// compute the interval that must be respected to have a chance of not paying
 		// penalties in the future
-		minTotalShifts_[n] = pNurse->minWorkDaysNoPenaltyTotalDays_;
-		maxTotalShifts_[n] = pNurse->maxWorkDaysNoPenaltyTotalDays_;
+		minTotalShifts_.push_back(pNurse->minWorkDaysNoPenaltyTotalDays_);
+		maxTotalShifts_.push_back(pNurse->maxWorkDaysNoPenaltyTotalDays_);
 
 		// Number of worked week-ends below which there is no penalty for the
 	  // total number of working week-ends
 	  // This interval is computed from the max number of working week-ends averaged
 	  // over the number of remaining weeks
-	  maxTotalWeekendsAvg_[n] = factorRemainingWeekends*(double)pNurse->maxTotalWeekends();
-
+	  maxTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)pNurse->maxTotalWeekends());
+    weightTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)WEIGHT_TOTAL_WEEKENDS);
 	}
 }
 

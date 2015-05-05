@@ -123,7 +123,7 @@ public:
 
   // shorten the demand by keeping only the nbDays first days
   //
-  void shortenDemandToNbDays(int nbDays);
+  void keepFirstNDays(int nbDays);
 
 };
 

@@ -90,6 +90,17 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
     }
   }
 
+  //
+  for (LiveNurse* pNurse:theLiveNurses_) {
+    minTotalShifts_.push_back(0);
+    maxTotalShifts_.push_back(pNurse->maxTotalShifts());
+    minTotalShiftsAvg_.push_back(0);
+    maxTotalShiftsAvg_.push_back(pNurse->maxTotalShifts());
+    weightTotalShiftsAvg_.push_back(WEIGHT_TOTAL_SHIFTS);
+    maxTotalWeekendsAvg_.push_back(pNurse->maxTotalWeekends());
+    weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+  }
+
 }
 
 //----------------------------------------------------------------------------
@@ -258,22 +269,23 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill,
   // week-ends (the penalty is not counted twice for the week-ends if the day
   // is sunday and saturday has been worked)
   //
-
-  // get the average target number of working days for this week
-  double avgMinDays, avgMaxDays, avgMaxWeekends, minDays, maxDays, maxWeekends;
-  double factorWeek = (double)pScenario_->thisWeek()/(double) pScenario_->nbWeeks_;
-  avgMinDays = factorWeek * (double) nurse.minTotalShifts();
-  avgMaxDays = factorWeek * (double) nurse.maxTotalShifts();
-  avgMaxWeekends = factorWeek*(double) nurse.maxTotalWeekends();
-  minDays = (int) (avgMinDays-(1.0-factorWeek)*((double)nurse.minTotalShifts()/(double) pScenario_->nbWeeks_-(double)(day%7)));
-  maxDays = (int) (avgMaxDays+(1.0-factorWeek)*((double)nurse.maxTotalShifts()/(double) pScenario_->nbWeeks_-(double)(day%7))) +1;
-  maxWeekends = (int) avgMaxWeekends;
-
-  if (state.totalDaysWorked_ >= maxDays) {
-    cost += factorWeek*WEIGHT_TOTAL_SHIFTS;
+  int id = nurse.id_;
+  if (shift > 0 ) {
+    if (state.totalDaysWorked_ >= maxTotalShifts_[id]) {
+      cost += WEIGHT_TOTAL_SHIFTS;
+    }
+    else if (state.totalDaysWorked_+1 > maxTotalShiftsAvg_[id]) {
+      cost += weightTotalShiftsAvg_[id];
+    }
   }
-  if ( (day%7==5 || (day%7==6 && lastShift==0)) && state.totalWeekendsWorked_ >= maxWeekends) {
-    cost += factorWeek*WEIGHT_TOTAL_WEEKENDS;
+
+  if ( (shift > 0) && (Tools::isSaturday(day) || (Tools::isSunday(day)&&lastShift==0) )) {
+    if (state.totalWeekendsWorked_ >= nurse.maxTotalWeekends() ) {
+      cost += WEIGHT_TOTAL_WEEKENDS;
+    }
+    else if (state.totalWeekendsWorked_+1 > maxTotalWeekendsAvg_[id] ) {
+      cost += weightTotalWeekendsAvg_[id];
+    }
   }
   // if the nurse is below the number of total assignments, getting a shift is
   // rewarded with a negative cost

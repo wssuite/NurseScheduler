@@ -40,8 +40,6 @@ public:
 	~DemandGenerator();
 
 public:
-	// basic getters
-	int nbDemands() {return nbDemands_;}
 
 	// check the feasibility of a demand scenario
 	bool checkDemandFeasibility(Demand* pDemand);

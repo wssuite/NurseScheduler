@@ -216,7 +216,7 @@ Demand* Demand::randomPerturbation() {
 
 // shorten the demand by keeping only the nbDays first days
 //
-void Demand::shortenDemandToNbDays(int nbDays) {
+void Demand::keepFirstNDays(int nbDays) {
 
   minDemand_.erase(minDemand_.begin()+nbDays,minDemand_.end());
   optDemand_.erase(optDemand_.begin()+nbDays,optDemand_.end());
@@ -224,7 +224,7 @@ void Demand::shortenDemandToNbDays(int nbDays) {
   // update the number of days and indicate that this particular demand has not
   // been preprocessed
   nbDays_ = nbDays;
-  isPreprocessed = false;
+  isPreprocessed_ = false;
 }
 
 

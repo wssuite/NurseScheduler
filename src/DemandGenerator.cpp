@@ -85,7 +85,7 @@ vector<Demand*> DemandGenerator::generatePerturbedDemands() {
 		}
 
 		// keep only the required number of days
-		pCompleteDemand->shortenToNbDays(nbDaysInGeneratedDemands_);
+		pCompleteDemand->keepFirstNDays(nbDaysInGeneratedDemands_);
 
 		// keep the generated demand only if it is feasible
 		if (checkDemandFeasibility(pCompleteDemand)) {

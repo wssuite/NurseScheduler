@@ -194,7 +194,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		if(nbSubProblemSolved == nbSubProblemsToSolve_)
 		   break;
    }
-   
+
    //Add the nurse in nursesSolved at the end
    nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
@@ -221,14 +221,17 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
    double minWorkedDays = pModel_->getDual(master_->minWorkedDaysCons_[i], true);
    double maxWorkedDays = pModel_->getDual(master_->maxWorkedDaysCons_[i], true);
 
+   double minWorkedDaysAvg = master_->isMinWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->minWorkedDaysAvgCons_[i], true):0;
+   double maxWorkedDaysAvg = master_->isMaxWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->maxWorkedDaysAvgCons_[i], true):0;
+
    for(int k=0; k<pDemand_->nbDays_; ++k){
       //initialize vector
       vector<double> dualValues2(pScenario_->nbShifts_-1);
 
       for(int s=1; s<pScenario_->nbShifts_; ++s){
          /* Min/Max constraints */
-         dualValues2[s-1] = minWorkedDays;
-         dualValues2[s-1] += maxWorkedDays;
+         dualValues2[s-1] = minWorkedDays + minWorkedDaysAvg;
+         dualValues2[s-1] += maxWorkedDays + maxWorkedDaysAvg;
 
          /* Skills coverage */
          dualValues2[s-1] += pModel_->getDual(
@@ -275,7 +278,13 @@ vector<double> RotationPricer::getEndWorkDualValues(LiveNurse* pNurse){
 }
 
 double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
-   return pModel_->getDual(master_->maxWorkedWeekendCons_[pNurse->id_], true);
+  int id = pNurse->id_;
+  double dualVal = pModel_->getDual(master_->maxWorkedWeekendCons_[id], true);
+  if (master_->isMaxWorkedWeekendAvgCons_[id]) {
+    dualVal += pModel_->getDual(master_->maxWorkedWeekendAvgCons_[id], true);
+  }
+
+  return dualVal;
 }
 
 /******************************************************
@@ -480,5 +489,3 @@ void CorePriorityBranchingRule::branching_candidates(vector<MyObject*>& branchin
          branchingCandidates.push_back(var);
    }
 }
-
-

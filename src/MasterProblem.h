@@ -142,8 +142,8 @@ public:
       vector<Roster> solution = {});
    MasterProblem(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
-      vector<double> minTotalShifts, vector<double> maxTotalShifts, 
-      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg, 
+      vector<double> minTotalShifts, vector<double> maxTotalShifts,
+      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg );
    ~MasterProblem();
 
@@ -214,11 +214,17 @@ private:
    vector<MyObject*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
    vector<MyObject*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
 
-
    vector< vector< vector<MyObject*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
    vector< vector< vector<MyObject*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
    vector< vector< vector<MyObject*> > > numberOfNursesByPositionCons_; //ensure there are enough nurses for numberOfNursesByPositionVars_
    vector< vector< vector<MyObject*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
+
+   // vectors of booleans indicating whether some above constraints are present
+   // in the model
+   vector<bool> isMinWorkedDaysAvgCons_;
+   vector<bool> isMaxWorkedDaysAvgCons_;
+   vector<bool> isMaxWorkedWeekendAvgCons_;
+
 
    /*
     * Methods

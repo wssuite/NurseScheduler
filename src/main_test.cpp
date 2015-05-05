@@ -74,9 +74,6 @@ void testFunction_Antoine(){
    //
    Greedy* pGreedy =
       new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
-//   while(!pGreedy->constructiveGreedy())
-//      cout << "No solution found by the greedy." << endl;
-//   outStream << pGreedy->solutionToLogString();
 
    // Instantiate the solver class as a test
    //
@@ -130,17 +127,8 @@ void testFunction_Jeremy(){
    /************************************************************************
    * Go through the demands of the directory to find invariants in the demand
    *************************************************************************/
-	computeStatsOnTheDemandsOfAllInstances("testdatasets/");
-	computeStatsOnTheDemandsOfAllInstances("datasets/");
-  // ReadWrite::compareDemands("testdatasets/n005w4","outfiles/statDemands/n005w4.txt");
-	// ReadWrite::compareDemands("testdatasets/n012w8","outfiles/statDemands/n012w8.txt");
-	// ReadWrite::compareDemands("testdatasets/n021w4","outfiles/statDemands/n021w4.txt");
-	// ReadWrite::compareDemands("datasets/n030w4","outfiles/statDemands/n030w4.txt");
-	// ReadWrite::compareDemands("datasets/n030w8","outfiles/statDemands/n030w8.txt");
-	// ReadWrite::compareDemands("datasets/n040w4","outfiles/statDemands/n040w4.txt");
-	// ReadWrite::compareDemands("datasets/n040w8","outfiles/statDemands/n040w8.txt");
-
-
+	// computeStatsOnTheDemandsOfAllInstances("testdatasets/");
+	// computeStatsOnTheDemandsOfAllInstances("datasets/");
 
 	/***************************************************************************
 	* Test the solution of only one week
@@ -148,8 +136,8 @@ void testFunction_Jeremy(){
 	* column generation
 	****************************************************************************/
 	vector<int> weekIndex = {1};
-	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndex, GREEDY,
-		(string)(outDir+"Greedy/"));
+	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndex, STOCHASTIC_GREEDY,
+		(string)(outDir+"StochasticGreedy/"));
 
 
 	/******************************************************************************
@@ -542,6 +530,9 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 	case GENCOL:
 		pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
 		break;
+  case STOCHASTIC_GREEDY:
+    pSolver = new StochasticSolver(pScen, GREEDY);
+    break;
 	default:
 		Tools::throwError("The algorithm is not handled yet");
 		break;

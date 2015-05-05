@@ -21,9 +21,7 @@ unsigned int Rotation::s_count = 0;
 
 void main_test()
 {
-	//testFunction_Antoine();
 	testFunction_Jeremy();
-	//testFunction_Samuel();
 }
 
 int main(int argc, char** argv)
