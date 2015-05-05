@@ -517,7 +517,7 @@ void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
 
    vector<Demand*> demandHistory;
    demandHistory.push_back(pScen->pWeekDemand());
-   DemandGenerator generator(nbDemands,demandHistory,pScen);
+   DemandGenerator generator(nbDemands,12,demandHistory,pScen);
    vector<Demand*> randomDemands = generator.generatePerturbedDemands();
 
    while (!randomDemands.empty()) {

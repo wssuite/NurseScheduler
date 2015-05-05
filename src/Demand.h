@@ -121,6 +121,10 @@ public:
   //
   Demand* randomPerturbation();
 
+  // shorten the demand by keeping only the nbDays first days
+  //
+  void shortenDemandToNbDays(int nbDays);
+
 };
 
 #endif

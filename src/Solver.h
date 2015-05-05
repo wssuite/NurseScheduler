@@ -295,9 +295,9 @@ public:
       Preferences* pPreferences, vector<State>* pInitState);
 
    Solver(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState, 
-      vector<double> minTotalShifts, vector<double> maxTotalShifts, 
-      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg, 
+      Preferences* pPreferences, vector<State>* pInitState,
+      vector<double> minTotalShifts, vector<double> maxTotalShifts,
+      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
    // Main method to solve the rostering problem for a given input
@@ -351,7 +351,7 @@ protected:
    // Penalties for values outside of [minTotalShiftsAvg_,maxTotalShiftsAvg_]
    vector<double> weightTotalShiftsAvg_;
 
-   // Number of worked week-ends below which there is no penalty for the 
+   // Number of worked week-ends below which there is no penalty for the
    // total number of working week-ends
    // This interval is computed from the max number of working week-ends averaged
    // over the number of remaining weeks
@@ -438,6 +438,14 @@ public:
    // preferences ; they should be added later
    //
    void computeMinMaxDaysNoPenaltyConsDays();
+
+   // Compute the weights o the violation of the min/max number of working days
+   // For now, the update depends only on the initial states and on the contract
+   // of the nurses, on the number of days on the demand, on the number of weeks
+   // already treated and on the number of weeks left
+   // The required data on the nurses is mostly computed in preprocessTheNurses
+   //
+   void computeWeightsTotalShiftsForStochastic();
 
    // preprocees the skills to get their rarity
    // the value depends on the demand for this skill, on the number of nurses
