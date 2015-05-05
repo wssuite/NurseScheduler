@@ -66,7 +66,7 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 //      //find the best not integer column
 //      for(int i=coreSize; i<size; ++i){
 //         double value = solver->getColSolution()[i];
-//         if(value ==0 || value > 1 - EPSILON)
+//         if(value < EPSILON || value > 1 - EPSILON)
 //            continue;
 //         if(value > bestValue){
 //            index = i;
