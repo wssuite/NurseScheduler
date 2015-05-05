@@ -9,6 +9,7 @@
 #define __MyTools__
 
 #include <iostream>
+#include <iomanip>      // std::setprecision
 #include <sstream>
 #include <fstream>
 #include <map>
@@ -81,9 +82,14 @@ void debugMsg(const char* debugMsg, int debugLevel);
 //
 bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 
-// convert an int to an string
+// convert a number to a string
 //
-std::string itoa(long n);
+template < typename T >
+std::string itoa(T num){
+  std::stringstream stream;
+  stream << std::setprecision(1) << std::fixed << num;
+  return stream.str();
+}
 
 // initializes a 1D, 2D or 3D Vector of the given size (filled only with zeroes)
 //
@@ -168,13 +174,16 @@ private:
 	std::fstream logStream_;
   bool isFormatted_;
 	int width_;
+  int precision_;
 
 public:
-	LogOutput(string logName):width_(0) {
+	LogOutput(string logName):width_(0), precision_(2) {
 		logStream_.open(logName.c_str(), std::fstream::out);
+    std::cout.unsetf ( std::ios::floatfield );                // floatfield not set
 	}
-	LogOutput(string logName, int width):width_(width){
+	LogOutput(string logName, int width):width_(width), precision_(2) {
 		logStream_.open(logName.c_str(), std::fstream::out);
+    std::cout.unsetf ( std::ios::floatfield );                // floatfield not set
 	}
 
 	~LogOutput() {logStream_.close();}
@@ -194,7 +203,11 @@ public:
 
 	// modify the precision used to write in the stream
 	//
-	void setPrecision(int precision) {logStream_.precision(precision);}
+	void setPrecision(int precision) {precision_=precision;}
+
+  // modify the width of the fields
+  //
+  void setWidth(int width) {width_ = width;}
 
   void endl() {logStream_ << std::endl;}
 
@@ -204,7 +217,9 @@ public:
 	LogOutput& operator<<(const T& output)
 	{
 		logStream_.width(width_);
-		logStream_ << std::left << output;
+    logStream_.unsetf ( std::ios::floatfield );
+    logStream_.precision(precision_);
+		logStream_ << std::left << std::setprecision(2) << output;
 
 		return *this;
 	}

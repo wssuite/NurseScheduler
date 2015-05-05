@@ -106,7 +106,9 @@ protected:
 class Modeler {
 public:
 
-   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(1000000), max_solving_time(DBL_MAX) { }
+   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(1000000), max_solving_time(DBL_MAX),
+   relativeGap_(.05), absoluteGap_(5)
+{ }
 
    virtual ~Modeler(){
       for(MyObject* object: objects_)
@@ -388,6 +390,14 @@ public:
 
    inline void setMaxSolvingtime(long solving_time_in_seconds) { max_solving_time = solving_time_in_seconds; }
 
+   inline double getRelativeGap() { return relativeGap_; }
+
+   inline void setRelativeGap(double relativeGap) { relativeGap_ = relativeGap; }
+
+   inline double getAbsoluteGap() { return absoluteGap_; }
+
+   inline void setAbsoluteGap(double absoluteGap) { absoluteGap_ = absoluteGap; }
+
    inline void setSearchStrategy(SearchStrategy searchStrategy){
       searchStrategy_ = searchStrategy;
       set_search_strategy(searchStrategy);
@@ -410,6 +420,9 @@ protected:
    double best_ub;
    //maximal solving time in s
    long max_solving_time;
+   //relative and absolute gap (with the current costs,
+   //the difference between two solution costs is at lest 5
+   double relativeGap_, absoluteGap_;
 };
 
 

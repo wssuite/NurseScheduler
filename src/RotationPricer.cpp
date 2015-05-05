@@ -22,7 +22,7 @@ static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-                        MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theLiveNurses_),
+                        MyPricer(name), nbMaxRotationsToAdd_(2000), nbSubProblemsToSolve_(15), nursesToSolve_(master->theLiveNurses_),
                         master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
 {
    /* sort the nurses */
@@ -90,8 +90,8 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 	   /* Solve subproblems */
       optimal = false;
       //if not before fathom, generate just not penalized rotations
-	   if(!before_fathom){
-	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 500, bound);//pNurse->maxConsDaysWork());
+	   if(true or !before_fathom){
+	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 8, bound);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else{
@@ -100,7 +100,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 
 
 	   /* BEGIN - Samuel DEBUG */
-
+/*
        SubProblem * spNew = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
 	   if(!before_fathom)
 		   spNew->solve(pNurse, &costs, options, forbiddenShifts, false, 500, bound);
@@ -145,7 +145,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		   }
 	   }
 
-
+*/
 
 
 
