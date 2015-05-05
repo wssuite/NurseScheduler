@@ -21,15 +21,9 @@ unsigned int Rotation::s_count = 0;
 
 void main_test()
 {
-<<<<<<< HEAD
-	//testFunction_Antoine();
-	//testFunction_Jeremy();
-	testFunction_Samuel();
-=======
 	testFunction_Antoine();
 	//testFunction_Jeremy();
 	//testFunction_Samuel();
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 }
 
 int main(int argc, char** argv)
