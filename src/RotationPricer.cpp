@@ -80,7 +80,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
       Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
 
       /* Compute forbidden */
-      //computeForbiddenShifts(forbiddenShifts, rotations);
+      computeForbiddenShifts(forbiddenShifts, rotations);
 
 	   /* Solve options */
 	   vector<SolveOption> options;
@@ -172,7 +172,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 //			cout << rot.dualCost_ << " ";
 			master_->addRotation(rot, baseName);
 			++nbRotationsAdded;
-			if(nbRotationsAdded > nbMaxRotationsToAdd_)
+			if(nbRotationsAdded >= nbMaxRotationsToAdd_)
 			   break;
 		}
 //		cout << endl;

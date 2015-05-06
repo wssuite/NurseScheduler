@@ -282,6 +282,8 @@ public:
    virtual int printStats() { return 0; }
 
    virtual int printBestSol(){
+      loadBestSol();
+
       //print the objective value
       printf("%-30s %4.2f \n", "Objective:" , getObjective());
 
@@ -310,6 +312,8 @@ public:
 
       return 1;
    }
+
+   virtual void loadBestSol() {}
 
    virtual double getObjective()=0;
 
