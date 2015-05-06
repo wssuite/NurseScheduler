@@ -30,14 +30,6 @@ void testFunction_Antoine(){
    timertotal->init();
    timertotal->start();
 
-   // Create a log file
-   string logFile = "logs/test.log";
-   Tools::LogOutput logStream(logFile);
-
-   //Create an output file
-   string outFile = "outfiles/test.out";
-   Tools::LogOutput outStream(outFile);
-
    string data = "testdatasets/";// testdatasets datasets
    const char* inst = "n005w4";// n100w4 n030w4 n005w4
 
@@ -45,70 +37,19 @@ void testFunction_Antoine(){
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
    vector<int> numberWeek = {1, 2, 3, 3};
-   vector<string> weekPaths(numberWeek.size());
-   for(int i=0; i<numberWeek.size(); ++i){
-      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
-      weekPaths[i] = path;
-   }
-   string firstHistoryPath = data + inst + "/H0-" + inst + "-0.txt";
-
-   // Read the input data from files
-   Scenario* pScen = ReadWrite::readScenario(scenarPath);
-   Demand* pWeekDemand = ReadWrite::readWeeks(weekPaths, pScen);
-   ReadWrite::readHistory(firstHistoryPath,pScen);
-
-   // Check that the scenario was read properly
-   //
-   // logStream << *pScen << std::endl;
-   logStream << pScen->toString() << std::endl;
-   logStream << pWeekDemand->toString(true) << std::endl;
-
-   // Write the aggregate information on the demand
-   //
 
 
-   // Write aggregate information on the cover capacity of the staff
-   // (TBD)
-
-   //Compute initial solution
-   //
-   Greedy* pGreedy =
-      new Greedy(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState());
-
-   // Instantiate the solver class as a test
-   //
-   MasterProblem* pBCP =
-      new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);//, pGreedy->getSolution());
-   pBCP->solve();
-
-   // Write the solution in the required output format
-   vector<string> solutions = pBCP->solutionToString(pScen->nbWeeks());
-   for(int w=0; w<pScen->nbWeeks(); ++w){
-      int thisWeek = w+pScen->thisWeek();
-      char solutionFile[30];
-      snprintf ( solutionFile, 30, "outfiles/Sol-%s-%d-%d.txt", inst, numberWeek[w], thisWeek );
-      Tools::LogOutput solutionStream(solutionFile);
-      solutionStream << solutions[w];
-   }
-
-   // Write the solution in an output file
-   outStream << pBCP->solutionToLogString();
+   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 
    // Display the total time spent in the algorithm
    timertotal->stop();
-   logStream.print("Total time spent in the algorithm : ");
-   logStream.print(timertotal->dSinceInit());
-   logStream.print("\n");
+   cout << "Total time spent in the algorithm : " << timertotal->dSinceInit() << endl;
 
 
    // free the allocated pointers
    //
    //   delete vrp;
    delete timertotal;
-   delete pWeekDemand;
-   delete pScen;
-   delete pGreedy;
-   delete pBCP;
 }
 
 // Function for testing parts of the code (Jeremy)

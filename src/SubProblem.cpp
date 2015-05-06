@@ -491,7 +491,14 @@ bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph
 				std::cout << "Not a feasible path." << std::endl;
 			if( !b_correctly_extended )
 				std::cout << "Not correctly extended." << std::endl;
-			//getchar();
+		}
+
+		if(resources[p].cost < maxReducedCostBound_){
+			Rotation rot = rotationFromPath(paths[p], resources[p]);
+			theRotations_.push_back(rot);
+			nPaths_ ++;
+			nLongFound_++;
+			nFound ++;
 		}
 	}
 	//printAllRotations();
@@ -536,7 +543,6 @@ Rotation SubProblem::rotationFromPath(vector< boost::graph_traits<Graph>::edge_d
 void SubProblem::resetSolutions(){
 	theRotations_.clear();
 	nPaths_ = 0;
-
 }
 
 
