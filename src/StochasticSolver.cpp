@@ -113,5 +113,6 @@ void StochasticSolver::solveOneWeekWithPenalties() {
 	pSolver->computeWeightsTotalShiftsForStochastic();
 	pSolver->solve();
 	solution_ = pSolver->getSolution();
+	status_ = pSolver->getStatus();
 
 }

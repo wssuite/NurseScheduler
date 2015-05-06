@@ -31,12 +31,12 @@ void testFunction_Antoine(){
    timertotal->start();
 
    string data = "testdatasets/";// testdatasets datasets
-   const char* inst = "n012w8";// n100w4 n030w4 n005w4
+   const char* inst = "n005w4";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
+   vector<int> numberWeek = {1, 2, 3, 3};
 
 
    testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
@@ -81,6 +81,7 @@ void testFunction_Jeremy(){
 		(string)(outDir+"GreedyStochastic/"));
 
 
+
 	/******************************************************************************
 	* Test a solution on multiple weeks
 	* In this method, the weeks are solved sequentially without knowledge of future
@@ -89,6 +90,8 @@ void testFunction_Jeremy(){
 	vector<int> weekIndices = {1, 2, 3, 3};
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+  testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GENCOL,
+    (string)(outDir+"BCP/"));
 
 	testMultipleWeeksStochastic(dataDir, instanceName, 0, weekIndices, GREEDY, (string)(outDir+"GreedyStochastic/"));
 	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GREEDY,  (string)(outDir+"Greedy/"));
@@ -137,13 +140,13 @@ void testFunction_Samuel(){
       string outFile = "outfiles/test.out";
       Tools::LogOutput outStream(outFile);
 
-      string data = "datasets/";// testdatasets datasets userdatasets
-      const char* inst = "n100w4";// n100w4 n030w4 n005w4 n005w1
+      string data = "testdatasets/";// testdatasets datasets userdatasets
+      const char* inst = "n005w4";// n100w4 n030w4 n005w4 n005w1
 
 	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	   //n005w4: {1, 2, 3, 3}
 	   //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-	   vector<int> numberWeek = {3,2};
+	   vector<int> numberWeek = {1, 2, 3, 3};
 	   vector<string> weekPaths(numberWeek.size());
 	   for(int i=0; i<numberWeek.size(); ++i){
 	      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
@@ -317,7 +320,8 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
-	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outDir);
+  Status status = pSolver->getStatus();
+	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution,status, outDir);
 
 	delete pSolver;
 	delete pScen;
@@ -341,11 +345,17 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 	// solve the problem for each week and store the solution in the vector below
 	vector<Roster> solution;
 	int nbWeeks = weekIndices.size();
+  Status solutionStatus;
 	for (int week = 0; week < nbWeeks; week++) {
 
 		Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
 
 		pSolver->solve();
+    solutionStatus = pSolver->getStatus();
+    if (solutionStatus == INFEASIBLE) {
+      delete pSolver;
+      break;
+    }
 
 		// update the overall solution with the solution of the week that was just
 		// treated
@@ -385,7 +395,7 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 	}
 
 	// Display the solution
-	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outDir);
+	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
 	delete pScen;
 }
@@ -478,23 +488,30 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 * solver for all the weeks and  display the results
 ******************************************************************************/
 void displaySolutionMultipleWeeks(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, string outDir) {
+	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, Status status, string outDir) {
 
 	if (outDir.empty()) return;
+
+  // initialize the log stream
+  // first, concatenate the week numbers
+  int nbWeeks = weekIndices.size();
+  string catWeeks;
+  for (int w=0; w< nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
+  string logPath = outDir+"Log-"+catWeeks+".txt";
+  Tools::LogOutput outStream(logPath);
+
+  // treat the case where the solver was unable to find a feasible solution
+  if (status == INFEASIBLE) {
+    outStream << "The solver was not able to find a solution\n";
+    return;
+  }
 
 	// load the solution in a new solver
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 	Solver* pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
 	pSolver->loadSolution(solution);
 
-	// concatenate the week numbers
-	int nbWeeks = weekIndices.size();
-	string catWeeks;
-	for (int w=0; w< nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
-
 	// write the log file for all the weeks
-	string logPath = outDir+"Log-"+catWeeks+".txt";
-	Tools::LogOutput outStream(logPath);
 	outStream << pSolver->solutionToLogString();
 
 	// write separately the solutions of each week in the required output format
