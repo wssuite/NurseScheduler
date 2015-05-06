@@ -321,14 +321,14 @@ bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> opti
 	setSolveOptions(options);															// Get the parameters informations
 	maxRotationLength_ = min(nDays_+maxOngoingDaysWorked_, max(pContract_->maxConsDaysWork_, maxRotationLength));// Maximum rotation length
 	maxReducedCostBound_ = redCostBound - EPSILON;										// Cost bound
-	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();					// Reset authorizations if needed
-	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();							// Delete all previous solutions if needed
 	pLiveNurse_ = nurse;																// Reset the nurse
 	pCosts_ = costs;																	// Reset the costs
+	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();					// Reset authorizations if needed
+	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();							// Delete all previous solutions if needed
 	set<pair<int,int> > forbiddenDayShiftsUsed = forbiddenDayShifts;					// Forbidden shifts
 	if(isOptionActive(SOLVE_FORBIDDEN_RANDOM))
 		forbiddenDayShiftsUsed = randomForbiddenShifts(25);								// If needed, Generate random forbidden
-	initStructuresForSolve(nurse, costs, forbiddenDayShiftsUsed, maxRotationLength_);	// Initialize structures
+	initStructuresForSolve();															// Initialize structures
 	if(isOptionActive(SOLVE_COST_RANDOM)) generateRandomCosts(-50,50);					// If needed, generate other costs
 	forbid(forbiddenDayShifts);															// Forbid arcs
 	updateArcCosts();																	// Update costs
@@ -876,7 +876,7 @@ void SubProblem::createArcsAllRotationSize(){
 //--------------------------------------------
 
 // Initializes some cost vectors that depend on the nurse
-void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength){
+void SubProblem::initStructuresForSolve(){
 
 	// Start and End weekend costs
 	//
@@ -896,7 +896,7 @@ void SubProblem::initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pai
 	for(int k=0; k<nDays_; k++)
 		for(int s=0; s<pScenario_->nbShifts_; s++)
 			preferencesCosts_[k][s] = 0;
-	for(map<int,set<int> >::iterator it = nurse->pWishesOff_->begin(); it != nurse->pWishesOff_->end(); ++it){
+	for(map<int,set<int> >::iterator it = pLiveNurse_->pWishesOff_->begin(); it != pLiveNurse_->pWishesOff_->end(); ++it){
 		for(int s : it->second){
 			preferencesCosts_[it->first][s] = WEIGHT_PREFERENCES;
 
@@ -1365,7 +1365,8 @@ bool SubProblem::priceVeryShortRotationsFirstDay(){
 		for(int i=0; i<succs.size(); i++){
 			vector<int> succ = allowedShortSuccBySize_[c][i];
 			double redCost = costOfVeryShortRotation(0,succ);
-			if(redCost < maxReducedCostBound_){
+			int rotationLength = succ.size() + (pLiveNurse_->pStateIni_->shift_ > 0 ? pLiveNurse_->pStateIni_->consDaysWorked_ : 0);
+			if(redCost < maxReducedCostBound_ and rotationLength <= maxRotationLength_){
 				Rotation rot (0, succ, pLiveNurse_, MAX_COST, redCost);
 				theRotations_.push_back(rot);
 				nPaths_ ++;
@@ -1423,6 +1424,7 @@ bool SubProblem::priceVeryShortRotations(){
 	return nFound > 0;
 }
 
+// Compute the cost of a single short rotation
 double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 
 	int endDate = startDate + succ.size() - 1;
@@ -1957,6 +1959,104 @@ void SubProblem::r_c_shortest_paths_dispatch_several_sinks( const Graph& g,
     }
   }
 } // r_c_shortest_paths_dispatch
+
+
+
+
+
+
+//----------------------------------------------------------------
+//
+// Greedy heuristic for the shortest path problem with resource
+// constraints.
+//
+//----------------------------------------------------------------
+bool SubProblem::solveHeuristic(){
+/*
+	int nFound = 0;
+
+	// SPECIAL CASE OF THE FIRST DAY
+	//
+	// TODO: IMPLEMENTER CETTE PARTIE LA, EVENTUELLEMENT APPELER LA FONCTION DE SHORT SUCC POUR FIRST DAY, EST PEUT-ETRE SUFFISANT POUR UNE HEURISTIQUE ?
+	//       MAIS ATTENTION: VERIFIER QU'IL N'Y A PAS BESOIN D'INITIALISATION DES ARCS OU AUTRE POUR CETTE FONCTION LA.
+
+
+	for(int startDate=1; startDate<nDays_; startDate ++){
+
+		vector<int> bestSucc;
+		double bestCost = 0;
+		int currentDate = startDate;
+		int length = 0;
+		int lastSh = 0;
+		int nConsShift = 0;
+
+		bool mustExtend = true;
+
+		while(mustExtend){
+
+			mustExtend = false;
+
+			// INITIALISATION FOR 1-DAY ROTATION -> TO BE PRICED
+			//
+			if(length == 0){
+				double bestCost1Day = 0;
+				vector<int> bestSucc1Day;
+				for(int newSh=0; newSh<pScenario_->nbShifts_; newSh++){
+					vector<int> succ; succ.push_back(newSh);
+					double potentialCost = costOfVeryShortRotation(startDate,succ);
+					if(potentialCost < bestCost1Day){
+						bestSucc1Day.clear();
+						bestSucc1Day.push_back(newSh);
+						bestCost1Day = potentialCost;
+						mustExtend = true;
+					}
+				}
+				if(mustExtend){
+					bestSucc = bestSucc1Day;
+					bestCost = bestCost1Day;
+					lastSh = bestSucc[0];
+					nConsShift = 1;
+					length = 1;
+					currentDate++;
+					nFound ++;		// Only needs to be updated here: IF a rotation of length 1 has been found, then one will be found (maybe after extension).
+				}
+			}
+
+			// OTHER CASES: EXTENDING THE ROTATION
+			//
+			else{
+
+				for(int newSh=0; newSh<pScenario_->nbShifts_; newSh++){
+
+					// If the succession is allowed -> try to extend the rotation
+					if(!pScenario_->isForbiddenSuccessor(newSh,lastSh)){
+
+						// REG COST: CONSECUTIVE SHIFTS
+						// REG COST: CONSECUTIVE DAYS
+						// REG COST: COMPLETE WEEKENDS ?
+						// REG COST: PREFERENCES ?
+
+						// RED COST: WEEKEND
+						// RED COST: FIRST DAY -> no need here because already in the beginning
+						// RED COST: LAST DAY
+						// RED COST: DAY-SHIFT
+
+					}
+
+
+				}
+
+
+
+			}
+		}
+	}
+	*/
+
+	return false;
+}
+
+
 
 
 
