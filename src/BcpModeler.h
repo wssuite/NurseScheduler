@@ -47,11 +47,15 @@ struct BcpCoreVar: public CoinVar, public BCP_var_core {
    BcpCoreVar(const char* name, int index, double cost, VarType type, double lb, double ub):
       CoinVar(name, index, cost, type, lb, ub),
       BCP_var_core(getBcpVarType(type), cost, lb, ub)
-   { }
+   {
+      set_bcpind(index);
+   }
 
    BcpCoreVar(const BcpCoreVar& var) :
       CoinVar(var), BCP_var_core(getBcpVarType(type_), cost_, lb_, ub_)
-   { }
+   {
+      set_bcpind(var.index_);
+   }
 
    ~BcpCoreVar(){ }
 };
@@ -61,11 +65,15 @@ struct BcpColumn: public CoinVar, public BCP_var_algo{
    BcpColumn(const char* name, int index, double cost, double dualCost, VarType type, double lb, double ub):
       CoinVar(name, index, cost, type, lb, ub, dualCost),
       BCP_var_algo(BcpCoreVar::getBcpVarType(type), cost, lb, ub)
-   { }
+   {
+      set_bcpind(index);
+   }
 
    BcpColumn(const BcpColumn& var) :
       CoinVar(var), BCP_var_algo(BcpCoreVar::getBcpVarType(type_), cost_, lb_, ub_)
-   { }
+   {
+      set_bcpind(var.index_);
+   }
 
    ~BcpColumn(){ }
 };
@@ -172,6 +180,12 @@ public:
 
    void setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars);
 
+   void addBcpSol(const BCP_solution* sol);
+
+   void loadBestSol();
+
+   void loadBcpSol(int index);
+
    inline void setPrimal(vector<double> primal){ primalValues_ = primal; }
 
    inline void setBestLb(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
@@ -197,15 +211,17 @@ public:
 protected:
    //best lb in root
    double best_lb_in_root;
+   //results
+   vector<double> obj_history_;
+   vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
+   //bcp solution
+   vector<BCP_solution_generic> bcpSolutions_;
+
    /* stats */
    //number of sub problems solved on the last iteration of column generation
    int lastNbSubProblemsSolved_;
    //min dual cost for a rotation on the last iteration of column generation
    double lastMinDualCost_;
-
-   //results
-   vector<double> obj_history_;
-   vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
 
    /* Parameters */
    //At every this many search tree node provide a single line info on the progress of the search tree.
@@ -220,8 +236,8 @@ protected:
       { BCP_tm_par::TmVerb_AllFeasibleSolutionValue, 0},
       { BCP_tm_par::TmVerb_AllFeasibleSolution, 0},
       { BCP_tm_par::TmVerb_BetterFeasibleSolutionValue, 0},
-      { BCP_tm_par::TmVerb_BetterFeasibleSolution, 1},
-      { BCP_tm_par::TmVerb_BestFeasibleSolution, 1}, //need this method to store the best feasible solution
+      { BCP_tm_par::TmVerb_BetterFeasibleSolution, 1}, //need this method to store every better feasible solution
+      { BCP_tm_par::TmVerb_BestFeasibleSolution, 0},
       { BCP_tm_par::TmVerb_NewPhaseStart, 0},
       { BCP_tm_par::TmVerb_PrunedNodeInfo, 0},
       { BCP_tm_par::TmVerb_TimeOfImprovingSolution, 0},
@@ -304,6 +320,8 @@ public:
    BCP_solution* generate_heuristic_solution(const BCP_lp_result& lpres,
    const BCP_vec<BCP_var*>& vars,
    const BCP_vec<BCP_cut*>& cuts);
+
+   static bool compareCol(const pair<int,double>& p1, const pair<int,double>& p2);
 
    //Modify parameters of the LP solver before optimization.
    //This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
@@ -392,6 +410,8 @@ protected:
    int lpIteration_;
    //count the nodes
    int last_node, nb_nodes;
+   //if heuristic has been run. To be sure to run the heuristic no more than one time per node
+   bool heuristicHasBeenRun_;
 
    //vars = are just the giver vars
    //cols is the vector where the new columns will be stored
