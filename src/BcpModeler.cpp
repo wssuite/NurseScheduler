@@ -354,8 +354,8 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
       BCP_lp_user::set_actions_for_children(best);
    //choose the column with the lowest bound on the presolve
    else{
-      int index = 0;
-      for (int i = 0; i<best->candidate()->child_num; ++i)
+      int index = 2;
+      for (int i = 2; i<best->candidate()->child_num; ++i)
              if (best->lpres(i).objval() < best->lpres(index).objval())
                 index = i;
       //keep the best column to dive
