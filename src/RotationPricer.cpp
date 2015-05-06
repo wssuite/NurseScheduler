@@ -22,7 +22,7 @@ static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-                        MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theLiveNurses_),
+                        MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theNursesSorted_),
                         master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
 {
    /* sort the nurses */
@@ -72,15 +72,15 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
          subProblem = it->second;
 
       /* Retrieves dual values */
-      vector< vector<double> > workDualCosts; workDualCosts = getWorkDualValues(pNurse);
-      vector<double> startWorkDualCosts; startWorkDualCosts = getStartWorkDualValues(pNurse);
-      vector<double> endWorkDualCosts; endWorkDualCosts = getEndWorkDualValues(pNurse);
+      vector< vector<double> > workDualCosts(getWorkDualValues(pNurse));
+      vector<double> startWorkDualCosts(getStartWorkDualValues(pNurse));
+      vector<double> endWorkDualCosts(getEndWorkDualValues(pNurse));
       double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
 
-      Costs costs (workDualCosts, startWorkDualCosts, endWorkDualCosts, &workedWeekendDualCost);
+      DualCosts dualCosts (workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost, true);
 
       /* Compute forbidden */
-      computeForbiddenShifts(forbiddenShifts, rotations, costs);
+      computeForbiddenShifts(forbiddenShifts, rotations);
 
 	   /* Solve options */
 	   vector<SolveOption> options;
@@ -91,11 +91,11 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
       optimal = false;
       //if not before fathom, generate just not penalized rotations
 	   if(true or !before_fathom){
-	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 8, bound);//pNurse->maxConsDaysWork());
+	      subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 8, bound);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else{
-		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
+		  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, true, 120, bound);
 	   }
 
 
@@ -162,7 +162,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		/* sort rotations */
       for(Rotation& rot: rotations){
          rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-         rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
+         rot.computeDualCost(dualCosts);
       }
 		std::stable_sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
 		/* add them to the master problem */
@@ -290,7 +290,7 @@ double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
 /******************************************************
  * add some forbidden shifts
  ******************************************************/
-void RotationPricer::computeForbiddenShifts(set<pair<int,int>>& forbiddenShifts, vector<Rotation> rotations, Costs& costs){
+void RotationPricer::computeForbiddenShifts(set<pair<int,int>>& forbiddenShifts, vector<Rotation> rotations){
    //search best rotation
    vector<Rotation>::iterator bestRotation(0);
    double bestDualcost = DBL_MAX;
@@ -302,15 +302,8 @@ void RotationPricer::computeForbiddenShifts(set<pair<int,int>>& forbiddenShifts,
 
    //forbid shifts of the best rotation
    if(bestDualcost != DBL_MAX)
-      for(pair<int,int> pair: bestRotation->shifts_){
-         double shiftCost = costs.dayShiftWorkCost(pair.first, pair.second) +
-            costs.startWorkCost(pair.first) +
-            costs.endWorkCost(pair.first);
-         if(Tools::isWeekend(pair.first))
-            shiftCost += costs.workedWeekendCost();
-         if(shiftCost > -master_->bigM/2)
+      for(pair<int,int> pair: bestRotation->shifts_)
             forbiddenShifts.insert(pair);
-      }
 
 }
 

@@ -62,7 +62,7 @@ private:
 
    //compute some forbidden shifts from the lasts rotations and forbidden shifts
    //
-   void computeForbiddenShifts(set<pair<int,int> >& forbiddenShifts, vector<Rotation> rotations, Costs& costs);
+   void computeForbiddenShifts(set<pair<int,int> >& forbiddenShifts, vector<Rotation> rotations);
 };
 
 static bool compareObject(const pair<MyObject*,double>& p1, const pair<MyObject*,double>& p2);

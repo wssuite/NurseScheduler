@@ -306,42 +306,6 @@ public:
 
 
 
-struct Costs{
-public:
-
-	Costs(vector< vector<double> > & workCosts, vector<double> & startWorkCosts, vector<double> & endWorkCosts, double* workedWeekendCost):
-		workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts), workedWeekendCost_(*workedWeekendCost) {}
-
-	// CONSTRUCTOR NOT TO BE USED, ONLY FOR RANDOM GENERATED COSTS...
-	Costs(vector< vector<double> >  workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
-		workedWeekendCost_(workedWeekendCost),  workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts) {}
-
-	// GETTERS
-	//
-	inline double dayShiftWorkCost(int day, int shift){return (workCosts_[day][shift]);}
-	inline double startWorkCost(int day){return (startWorkCosts_[day]);}
-	inline double endWorkCost(int day){return (endWorkCosts_[day]);}
-	inline double workedWeekendCost(){return workedWeekendCost_;}
-
-
-protected:
-
-	// Indexed by : (day, shift) !! 0 = shift 1 !!
-    const vector< vector<double> > & workCosts_;
-
-    // Indexed by : day
-    const vector<double> & startWorkCosts_;
-
-    // Indexed by : day
-    const vector<double> & endWorkCosts_;
-
-    // Reduced cost of the weekends
-    const double workedWeekendCost_;
-
-};
-
-
-
 
 //---------------------------------------------------------------------------
 //
@@ -416,7 +380,7 @@ public:
 
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
-	bool solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST,
+	bool solve(LiveNurse* nurse, DualCosts * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST,
 			bool optimality = false, int maxRotationLength=MAX_TIME, double redCostBound = 0);
 
 	// Returns all rotations saved during the process of solving the SPPRC
@@ -468,7 +432,7 @@ protected:
 
 	// All costs from Master Problem
 	//
-	Costs * pCosts_;
+	DualCosts * pCosts_;
 
 	// Maximum length of a rotation (in consecutive worked days)
 	//
@@ -703,7 +667,7 @@ protected:
 	// FUNCTIONS -- SOLVE
 	//
 	// Initializes some cost vectors that depend on the nurse
-	void initStructuresForSolve(LiveNurse* nurse, Costs * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
+	void initStructuresForSolve(LiveNurse* nurse, DualCosts * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
 	// Resets all solutions data (rotations, number of solutions, etc.)
 	void resetSolutions();
 	// Transforms the solutions found into proper rotations. Returns true if at least one has been added

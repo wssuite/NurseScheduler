@@ -40,12 +40,6 @@ public:
 
 
 protected:
-  // vectors of nurses, skills and shifts that shall be sorted before running
-  // the greedy algorithms
-  //
-  vector<LiveNurse*> theNursesSorted_;
-  vector<int> shiftsSorted_;
-  vector<int> skillsSorted_;
 
   // vector defining the sequence according to which the positions should be
   // treated
@@ -111,21 +105,6 @@ private:
   //
   double bestStatesBlock_rec(LiveNurse &nurse, vector<State> &statesBlock,
     vector<int> &shifts, vector<int> &skills, int dayFirst,int nbUnassigned, double costIni);
-
-  //----------------------------------------------------------------------------
-  // For the initialization of the constructive greedy
-  //----------------------------------------------------------------------------
-
-  // Create the vector of sorted nurses
-  // The nurses are ordered according to their position and the nurses that have
-  // the same position are shuffled
-  //
-  void sortShuffleTheNurses();
-
-  // Initialize the greedy by preprocessing all the input attributes and sorting
-  // the shifts, skills, nurses
-  //
-  void initializeConstructive();
 
 
 

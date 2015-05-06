@@ -28,6 +28,41 @@
 //-----------------------------------------------------------------------------
 enum CostType {TOTAL_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST, COMPLETE_WEEKEND_COST, PREFERENCE_COST, INIT_REST_COST};
 
+struct DualCosts{
+public:
+
+   DualCosts(vector< vector<double> > & workCosts, vector<double> & startWorkCosts, vector<double> & endWorkCosts, double workedWeekendCost, bool isRandom):
+      workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
+
+   // CONSTRUCTOR NOT TO BE USED, ONLY FOR RANDOM GENERATED COSTS...
+   DualCosts(vector< vector<double> >  workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
+      workedWeekendCost_(workedWeekendCost),  workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts) {}
+
+   // GETTERS
+   //
+   inline double dayShiftWorkCost(int day, int shift){return (workCosts_[day][shift]);}
+   inline double startWorkCost(int day){return (startWorkCosts_[day]);}
+   inline double endWorkCost(int day){return (endWorkCosts_[day]);}
+   inline double workedWeekendCost(){return workedWeekendCost_;}
+
+
+protected:
+
+   // Indexed by : (day, shift) !! 0 = shift 1 !!
+    const vector< vector<double> > & workCosts_;
+
+    // Indexed by : day
+    const vector<double> & startWorkCosts_;
+
+    // Indexed by : day
+    const vector<double> & endWorkCosts_;
+
+    // Reduced cost of the weekends
+    const double workedWeekendCost_;
+
+};
+
+
 struct Rotation {
 
    // Specific constructors and destructors
@@ -105,8 +140,7 @@ struct Rotation {
 
    //Compute the dual cost of a rotation
    //
-   void computeDualCost(vector< vector<double> > workDualCosts, vector<double> startWorkDualCosts,
-      vector<double> endWorkDualCosts, double workedWeekendDualCost);
+   void computeDualCost(DualCosts& costs);
 
    //Compare rotations on index
    //

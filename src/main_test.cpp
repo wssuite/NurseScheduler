@@ -30,14 +30,15 @@ void testFunction_Antoine(){
    timertotal->init();
    timertotal->start();
 
-   string data = "datasets/";// testdatasets datasets
-   const char* inst = "n120w4";// n100w4 n030w4 n005w4
+   string data = "testdatasets/";// testdatasets datasets
+   const char* inst = "n005w4";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+   //n021w4:
    //n120w8: {3, 2}
-   vector<int> numberWeek = {3, 2, 2, 1};
+   vector<int> numberWeek = {1, 2, 3, 3};
 
 
    testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
@@ -312,14 +313,21 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 
+	Solver* pInitSolver = setSolverWithInputAlgorithm(pScen, GREEDY);
+	pInitSolver->solve();
+
 	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
 
-	pSolver->solve();
+	if(pInitSolver->status_ == INFEASIBLE )
+	   pSolver->solve();
+	else
+	   pSolver->solve(pInitSolver->getSolution());
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
 	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outDir);
 
+	delete pInitSolver;
 	delete pSolver;
 	delete pScen;
 }

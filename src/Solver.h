@@ -193,7 +193,6 @@ public:
    //
    double minAvgWorkDaysNoPenaltyTotalDays_, maxAvgWorkDaysNoPenaltyTotalDays_;
 
-
 public:
   // basic getters
   //
@@ -394,6 +393,13 @@ protected:
    int totalCostUnderStaffing_;
    vector3D costUnderStaffing_;
 
+   // vectors of nurses, skills and shifts that shall be sorted before running
+   // the greedy algorithms
+   //
+   vector<LiveNurse*> theNursesSorted_;
+   vector<int> shiftsSorted_;
+   vector<int> skillsSorted_;
+
 public:
 
    //------------------------------------------------
@@ -474,6 +480,17 @@ public:
    // compute the rarity indicator for each skill
    //
    void getSkillsRarity();
+
+   // Create the vector of sorted nurses
+   // The nurses are ordered according to their position and the nurses that have
+   // the same position are shuffled
+   //
+   void sortShuffleTheNurses();
+
+   // Initialize the greedy by preprocessing all the input attributes and sorting
+   // the shifts, skills, nurses
+   //
+   void preprocessData();
 
    //------------------------------------------------
    // Postprocess functions
