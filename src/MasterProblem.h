@@ -138,8 +138,7 @@ class MasterProblem : public Solver{
 public:
    // Specific constructor and destructor
    MasterProblem(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
-      vector<Roster> solution = {});
+      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver);
    MasterProblem(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
       vector<double> minTotalShifts, vector<double> maxTotalShifts,
@@ -148,7 +147,7 @@ public:
    ~MasterProblem();
 
    //solve the rostering problem
-   void solve();
+   void solve(vector<Roster> solution = {});
 
    //get the pointer to the model
    Modeler* getModel(){

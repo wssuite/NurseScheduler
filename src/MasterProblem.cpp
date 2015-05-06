@@ -249,8 +249,7 @@ bool Rotation::compareDualCost(const Rotation& rot1, const Rotation& rot2){
 
 // Default constructor
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
-   Preferences* pPreferences, vector<State>* pInitState,
-   MySolverType solverType, vector<Roster> solution):
+   Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType):
 
    Solver(pScenario, pDemand, pPreferences, pInitState), solverType_(solverType), pPricer_(0), pRule_(0),
    positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), rotations_(pScenario->nbNurses_),
@@ -267,9 +266,6 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 {
   // build the model
   this->initializeSolver(solverType);
-
-  // input an initial solution
-  initialize(solution);
 }
 
 // Constructor that allows th introduction of penalties for stochastic approaches
@@ -376,10 +372,14 @@ void MasterProblem::build(){
 }
 
 //solve the rostering problem
-void MasterProblem::solve(){
+void MasterProblem::solve(vector<Roster> solution){
 
   // build the model first
   build();
+
+  // input an initial solution
+  initialize(solution);
+
   pModel_->writeProblem("outfiles/model.lp");
 
   // RqJO: warning, it would be better to define an enumerate type of verbosity

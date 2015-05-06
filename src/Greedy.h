@@ -29,7 +29,7 @@ public:
 
 
   // Main method to solve the rostering problem for a given input
-  void solve();
+  void solve(vector<Roster> solution = {});
 
   // Constructive greedy algorithm
   // Goes through the the demands in a chronological order and assign the nurse

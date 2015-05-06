@@ -30,13 +30,14 @@ void testFunction_Antoine(){
    timertotal->init();
    timertotal->start();
 
-   string data = "testdatasets/";// testdatasets datasets
-   const char* inst = "n012w8";// n100w4 n030w4 n005w4
+   string data = "datasets/";// testdatasets datasets
+   const char* inst = "n120w4";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
+   //n120w8: {3, 2}
+   vector<int> numberWeek = {3, 2, 2, 1};
 
 
    testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
@@ -181,8 +182,8 @@ void testFunction_Samuel(){
       // Instantiate the solver class as a test
       //
       MasterProblem* pBCP =
-         new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
-      pBCP->solve();
+         new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
+      pBCP->solve(pGreedy->getSolution());
 
       // Write the solution in the required output format
       vector<string> solutions = pBCP->solutionToString(pScen->nbWeeks());
@@ -409,8 +410,8 @@ void testCbc(Scenario* pScen) {
   // modeler as input
   //
   MasterProblem* pMPCbc;
-  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC, pGreedy->getSolution());
-  pMPCbc->solve();
+  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC);
+  pMPCbc->solve(pGreedy->getSolution());
 
   // Write the solution in the required output format
   string outFile = "outfiles/cbctest1.out";

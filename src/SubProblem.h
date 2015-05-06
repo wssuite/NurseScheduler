@@ -309,39 +309,34 @@ public:
 struct Costs{
 public:
 
-	Costs(){}
-	Costs(vector< vector<double> > * workCosts, vector<double> * startWorkCosts, vector<double> * endWorkCosts, double workedWeekendCost):
-		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
+	Costs(vector< vector<double> > & workCosts, vector<double> & startWorkCosts, vector<double> & endWorkCosts, double* workedWeekendCost):
+		workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts), workedWeekendCost_(*workedWeekendCost) {}
 
 	// CONSTRUCTOR NOT TO BE USED, ONLY FOR RANDOM GENERATED COSTS...
-	Costs(vector< vector<double> > workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
-		workedWeekendCost_(workedWeekendCost){
-		pWorkCosts_ = new vector<vector<double> > (workCosts);
-		pStartWorkCosts_ = new vector<double> (startWorkCosts);
-		pEndWorkCosts_ = new vector<double> (endWorkCosts);
-	}
+	Costs(vector< vector<double> >  workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
+		workedWeekendCost_(workedWeekendCost),  workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts) {}
 
 	// GETTERS
 	//
-	inline double dayShiftWorkCost(int day, int shift){return ((*pWorkCosts_)[day][shift]);}
-	inline double startWorkCost(int day){return ((*pStartWorkCosts_)[day]);}
-	inline double endWorkCost(int day){return ((*pEndWorkCosts_)[day]);}
+	inline double dayShiftWorkCost(int day, int shift){return (workCosts_[day][shift]);}
+	inline double startWorkCost(int day){return (startWorkCosts_[day]);}
+	inline double endWorkCost(int day){return (endWorkCosts_[day]);}
 	inline double workedWeekendCost(){return workedWeekendCost_;}
 
 
 protected:
 
 	// Indexed by : (day, shift) !! 0 = shift 1 !!
-    vector< vector<double> > * pWorkCosts_;
+    const vector< vector<double> > & workCosts_;
 
     // Indexed by : day
-    vector<double> * pStartWorkCosts_;
+    const vector<double> & startWorkCosts_;
 
     // Indexed by : day
-    vector<double> * pEndWorkCosts_;
+    const vector<double> & endWorkCosts_;
 
     // Reduced cost of the weekends
-    double workedWeekendCost_;
+    const double workedWeekendCost_;
 
 };
 

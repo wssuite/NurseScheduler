@@ -313,8 +313,8 @@ public:
       vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
-   // Main method to solve the rostering problem for a given input
-   virtual void solve() {}
+   // Main method to solve the rostering problem for a given input and an initial solution
+   virtual void solve(vector<Roster> solution = {}) {}
 
    // Should be protected (and not private) because Solver will have subclasses
 protected:
