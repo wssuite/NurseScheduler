@@ -85,7 +85,7 @@ private:
   // The cost depends on the state of the nurse, but the method will not check
   // the feasibility of the task
   //
-  double costTask(const LiveNurse &nurse, int day, int shift, int skill,
+  double costTask(LiveNurse &nurse, int day, int shift, int skill,
     vector<State>* states = NULL);
 
   // Assign the unassigned nurses with best costs to the demand input tasks

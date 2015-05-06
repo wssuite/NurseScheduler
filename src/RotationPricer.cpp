@@ -221,8 +221,8 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
    double minWorkedDays = pModel_->getDual(master_->minWorkedDaysCons_[i], true);
    double maxWorkedDays = pModel_->getDual(master_->maxWorkedDaysCons_[i], true);
 
-   double minWorkedDaysAvg = master_->isMinWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->minWorkedDaysAvgCons_[i], true):0;
-   double maxWorkedDaysAvg = master_->isMaxWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->maxWorkedDaysAvgCons_[i], true):0;
+   double minWorkedDaysAvg = master_->isMinWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->minWorkedDaysAvgCons_[i], true):0.0;
+   double maxWorkedDaysAvg = master_->isMaxWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->maxWorkedDaysAvgCons_[i], true):0.0;
 
    for(int k=0; k<pDemand_->nbDays_; ++k){
       //initialize vector

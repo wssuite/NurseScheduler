@@ -799,7 +799,7 @@ void MasterProblem::buildMinMaxCons(){
 
         // only add the constraint if is tighter than the already added constraint
         if (minTotalShiftsAvg_[i] > minTotalShifts_[i]) {
-        	sprintf(name, "minWorkedDaysVar_N%d", i);
+        	sprintf(name, "minWorkedDaysAvgVar_N%d", i);
   	      pModel_->createPositiveVar(&minWorkedDaysAvgVars_[i], name, weightTotalShiftsAvg_[i]);
 
           sprintf(name, "minWorkedDaysAvgCons_N%d", i);
@@ -811,7 +811,7 @@ void MasterProblem::buildMinMaxCons(){
         }
 
         if (maxTotalShiftsAvg_[i] < maxTotalShifts_[i]) {
-  	      sprintf(name, "maxWorkedDaysVar_N%d", i);
+  	      sprintf(name, "maxWorkedDaysAvgVar_N%d", i);
   	      pModel_->createPositiveVar(&maxWorkedDaysAvgVars_[i], name, weightTotalShiftsAvg_[i]);
 
   	      sprintf(name, "maxWorkedDaysAvgCons_N%d", i);

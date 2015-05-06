@@ -78,7 +78,7 @@ void testFunction_Jeremy(){
 	****************************************************************************/
 	vector<int> weekIndex = {1};
 	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndex, STOCHASTIC_GREEDY,
-		(string)(outDir+"StochasticGreedy/"));
+		(string)(outDir+"GreedyStochastic/"));
 
 
 	/******************************************************************************
@@ -94,25 +94,18 @@ void testFunction_Jeremy(){
 	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GREEDY,  (string)(outDir+"Greedy/"));
 
    /************************************************************************
-   * Initialize the week scenario by reading the input files
-   *************************************************************************/
-
-   Scenario* pScen(0);
-   pScen = initializeScenario("datasets/n030w4/Sc-n030w4.txt",
-      "datasets/n030w4/WD-n030w4-1.txt", "datasets/n030w4/H0-n030w4-0.txt","outfiles/inputdata.log");
-
-   /************************************************************************
    * Test the random demand generator
    *************************************************************************/
-   testRandomDemandGenerator(1,"outfiles/randomdemands.out",pScen);
-
-
+  //  Scenario* pScen(0);
+  //  pScen = initializeScenario("datasets/n030w4/Sc-n030w4.txt",
+  //     "datasets/n030w4/WD-n030w4-1.txt", "datasets/n030w4/H0-n030w4-0.txt","outfiles/inputdata.log");
+  //  testRandomDemandGenerator(1,"outfiles/randomdemands.out",pScen);
+  // delete pScen;
 
    /****************************************
    * Test the CBC modeler
    *****************************************/
-
-   testCbc(pScen);
+  //  testCbc(pScen);
 
 
    // Display the total time spent in the tests
@@ -126,7 +119,6 @@ void testFunction_Jeremy(){
    // free the allocated pointers
    //
    delete timertotal;
-   delete pScen;
 }
 
 // Function for testing parts of the code (Samuel)

@@ -276,6 +276,58 @@ void LiveNurse::buildStates(){
       states_[k].addDayToState(states_[k-1], roster_.shift(k-1));
 }
 
+//-----------------------------------------------------------------------------
+// Compute the maximum and minimum number of working days from the input
+// current state and in the next nbDays without getting any penalty for
+// consecutive working days/days-off
+//-----------------------------------------------------------------------------
+
+void LiveNurse::computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int nbDays,
+  int &minWorkDaysNoPenaltyConsDays, int &maxWorkDaysNoPenaltyConsDays) {
+  minWorkDaysNoPenaltyConsDays = 0;
+  maxWorkDaysNoPenaltyConsDays = 0;
+
+  // first treat the history
+  //
+  // remaining number of days when building a maximum and minimum working days
+  // periods
+  int nbDaysMin = nbDays, nbDaysMax = nbDays;
+  if (pCurrentState->shift_ > 0) {
+    // if the last shift was not a rest
+    // keep working until maximum consecutive number of shifts for maximum
+    // working days or until minimum consecutive number of shifts for minimum
+    // working days
+    maxWorkDaysNoPenaltyConsDays = std::min(nbDays,std::max(0, maxConsDaysWork()-pCurrentState->consDaysWorked_));
+    minWorkDaysNoPenaltyConsDays = std::min(nbDays,std::max(0, minConsDaysWork()-pCurrentState->consDaysWorked_));
+
+    // perform minimum rest for maximum working days and maximum rest for
+    // minimum working days
+    nbDaysMax = nbDays - std::min(nbDays,maxWorkDaysNoPenaltyConsDays+minConsDaysOff());
+    nbDaysMin = nbDays - std::min(nbDays,minWorkDaysNoPenaltyConsDays+maxConsDaysOff());
+  }
+  else if (pCurrentState->shift_ == 0) {
+    // if the last shift was a rest
+    // keep resting until minimum consecutive number of rests for maximum
+    // working days or until maximum consecutive number of rests for minimum
+    // working days
+    nbDaysMax = nbDays - std::min(nbDays,std::max(0, minConsDaysOff()-pCurrentState->consDaysOff_));
+    nbDaysMin = nbDays - std::min(nbDays,std::max(0, maxConsDaysOff()-pCurrentState->consDaysOff_));
+  }
+
+  // lengths of the stints maximizing and minimizing the percentage of working
+  // days respectively
+  //
+  int lengthStintMax = maxConsDaysWork() + minConsDaysOff();
+  int lengthStintMin = minConsDaysWork() + maxConsDaysOff();
+
+  // perform as many of these stints as possible
+  //
+  maxWorkDaysNoPenaltyConsDays += (nbDaysMax/lengthStintMax)*maxConsDaysWork()
+    + std::min(nbDaysMax%lengthStintMax, maxConsDaysWork());
+  minWorkDaysNoPenaltyConsDays += (nbDaysMin/lengthStintMin)*minConsDaysWork()
+    + std::min(nbDaysMin%lengthStintMax, minConsDaysWork());
+}
+
 
 //-----------------------------------------------------------------------------
 //
@@ -292,7 +344,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   pScenario_(pScenario),  pDemand_(pDemand),
   pPreferences_(pPreferences), pInitState_(pInitState),
   totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
-  isPreprocessedSkills_(false), isPreprocessedNurses_(false) {
+  isPreprocessedSkills_(false), isPreprocessedNurses_(false), status_(UNSOLVED) {
 
   // initialize the preprocessed data of the skills
   for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
@@ -328,7 +380,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   maxTotalWeekendsAvg_(maxTotalWeekendsAvg), weightTotalWeekendsAvg_(weightTotalWeekendsAvg),
 
   totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
-  isPreprocessedSkills_(false), isPreprocessedNurses_(false)
+  isPreprocessedSkills_(false), isPreprocessedNurses_(false), status_(UNSOLVED)
 
 {
   // initialize the preprocessed data of the skills
@@ -538,56 +590,9 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 // preferences ; they should be added later
 //
 void Solver::computeMinMaxDaysNoPenaltyConsDays() {
-  // local variables for conciseness of the code
-  //
-  int nbDays = pDemand_->nbDays_;
-
   for (LiveNurse* pNurse: theLiveNurses_)	{
-    pNurse->maxWorkDaysNoPenaltyConsDays_ = 0;
-    pNurse->minWorkDaysNoPenaltyConsDays_ = 0;
-
-    // first treat the history
-    //
-    // remaining number of days when building a maximum and minimum working days
-    // periods
-    int nbDaysMax=nbDays, nbDaysMin = nbDays;
-    State* pState = pNurse->pStateIni_;
-    if (pState->shift_ != 0) {
-      // if the last shift was not a rest
-      // keep working until maximum consecutive number of shifts for maximum
-      // working days or until minimum consecutive number of shifts for minimum
-      // working days
-      pNurse->maxWorkDaysNoPenaltyConsDays_ = std::max(0, pNurse->maxConsDaysWork()-pState->consDaysWorked_);
-      pNurse->minWorkDaysNoPenaltyConsDays_ = std::max(0, pNurse->minConsDaysWork()-pState->consDaysWorked_);
-
-      // perform minimum rest for maximum working days and maximum rest for
-      // minimum working days
-      nbDaysMax = nbDays - pNurse->maxWorkDaysNoPenaltyConsDays_ - pNurse->minConsDaysOff();
-      nbDaysMin = nbDays - pNurse->minWorkDaysNoPenaltyConsDays_ - pNurse->maxConsDaysOff();
-    }
-    else {
-      // if the last shift was a rest
-      // keep resting until minimum consecutive number of rests for maximum
-      // working days or until maximum consecutive number of rests for minimum
-      // working days
-      nbDaysMax = nbDays - std::max(0, pNurse->minConsDaysOff()-pState->consDaysOff_);
-      nbDaysMin = nbDays - std::max(0, pNurse->maxConsDaysWork()-pState->consDaysOff_);
-    }
-
-    // lengths of the stints maximizing and minimizing the percentage of working
-    // days respectively
-    //
-    int lengthStintMax = pNurse->maxConsDaysWork() + pNurse->minConsDaysOff();
-    int lengthStintMin = pNurse->minConsDaysWork() + pNurse->maxConsDaysOff();
-
-    // perform as many of these stints as possible
-    //
-    pNurse->maxWorkDaysNoPenaltyConsDays_ +=
-      (nbDaysMax/lengthStintMax)*pNurse->maxConsDaysWork()
-      + std::min(nbDaysMax%lengthStintMax, pNurse->maxConsDaysWork());
-    pNurse->minWorkDaysNoPenaltyConsDays_ +=
-      (nbDaysMin/lengthStintMin)*pNurse->minConsDaysWork()
-      + std::min(nbDaysMin%lengthStintMax, pNurse->minConsDaysWork());
+    pNurse->computeMinMaxDaysNoPenaltyConsDay(pNurse->pStateIni_, pDemand_->nbDays_,
+      pNurse->minWorkDaysNoPenaltyConsDays_,pNurse->maxWorkDaysNoPenaltyConsDays_);
   }
 }
 

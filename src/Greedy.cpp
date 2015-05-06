@@ -128,7 +128,7 @@ bool Greedy::isFeasibleTask(const LiveNurse &nurse, int day, int shift, int skil
 // The cost depends on the state of the nurse, but the method will not check
 // the feasibility of the task
 //
-double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill,
+double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   vector<State>* states) {
 
   double cost = 0.0;
@@ -261,6 +261,7 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill,
   Position position = *(nurse.pPosition_);
   cost += weightRank_ * (rankMax_-nurse.pPosition_->rank());
 
+  // ---------------------------------------------------------------------------
   // Penalize the violations of the limits in the total assignment and total
   // working week-ends
   // This must take into account the position of the day in the complete
@@ -268,17 +269,41 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill,
   // clearly below or above the average number of working days and working
   // week-ends (the penalty is not counted twice for the week-ends if the day
   // is sunday and saturday has been worked)
-  //
+  // ---------------------------------------------------------------------------
+
+  // To reduce myopia in the execution of the greedy algorithm, compute the
+  // min/max number of days the nurse will be able to work without penalty on
+  // the consecutive number of working days until the end of the demand period
+  int minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay;
+  State nextState;
+  nextState.addDayToState(state, shift);
+  nurse.computeMinMaxDaysNoPenaltyConsDay(&nextState, nurse.nbDays_-(day+1-nurse.firstDay_),
+    minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay);
+
   int id = nurse.id_;
+  // penalyse with respect to the max total number of working days only if the
+  // shift is worked
   if (shift > 0 ) {
-    if (state.totalDaysWorked_ >= maxTotalShifts_[id]) {
+    if (state.totalDaysWorked_+minDaysNoPenaltyConsDay >= maxTotalShifts_[id]) {
       cost += WEIGHT_TOTAL_SHIFTS;
     }
-    else if (state.totalDaysWorked_+1 > maxTotalShiftsAvg_[id]) {
+    else if (state.totalDaysWorked_+minDaysNoPenaltyConsDay+1 > maxTotalShiftsAvg_[id]) {
+      cost += weightTotalShiftsAvg_[id];
+    }
+  }
+  // penalyse with respect to the min total number of working days only if the
+  // shift is rest
+  else {
+    if (state.totalDaysWorked_+maxDaysNoPenaltyConsDay < minTotalShifts_[id]) {
+      cost += WEIGHT_TOTAL_SHIFTS;
+    }
+    else if (state.totalDaysWorked_+maxDaysNoPenaltyConsDay < minTotalShiftsAvg_[id]) {
       cost += weightTotalShiftsAvg_[id];
     }
   }
 
+  // penalyse with respect to the max total number of working weekends only if
+  // the week-end is worked
   if ( (shift > 0) && (Tools::isSaturday(day) || (Tools::isSunday(day)&&lastShift==0) )) {
     if (state.totalWeekendsWorked_ >= nurse.maxTotalWeekends() ) {
       cost += WEIGHT_TOTAL_WEEKENDS;

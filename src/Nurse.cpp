@@ -210,7 +210,7 @@ void State::addDayToState(const State& prevState, int newShift)	{
 
       shift_ = prevShift < 0 ? prevShift-1:-1;
    }
-   else {
+   else if (prevShift >= 0) {
       // Total weekends worked:
       // +1 IF : new day is a Sunday and the nurse works on prevState.shift_ or newShift
       if( Tools::isSunday(dayId_) and (newShift or prevState.shift_) )
@@ -229,6 +229,24 @@ void State::addDayToState(const State& prevState, int newShift)	{
       consDaysOff_ = newShift ? 0 : (prevState.consDaysOff_ + 1);
 
       shift_ = newShift;
+   }
+   else { // the previous shift was not assigned but this one is
+     if (newShift >0) {
+       totalDaysWorked_ = prevState.totalDaysWorked_+1+(prevState.consDaysWorked_ > 0 ? (-prevShift):0);
+       totalWeekendsWorked_ = Tools::isSunday(dayId_) ? prevState.totalWeekendsWorked_+1:prevState.totalWeekendsWorked_;
+       consDaysWorked_ = (prevState.consDaysWorked_ > 0)  ? (prevState.consDaysWorked_ + 1 - prevShift) : 1;
+       consShifts_ = 1;
+       consDaysOff_ = 0;
+       shift_ = newShift;
+     }
+     else {
+       totalDaysWorked_ = prevState.totalDaysWorked_;
+       totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+       consDaysWorked_ = 0;
+       consShifts_ = 0;
+       consDaysOff_ =  (prevState.consDaysOff_ > 0)  ? (prevState.consDaysOff_ + 1 - prevShift) : 1;
+       shift_ = newShift;
+     }
    }
 
    // increment the day index

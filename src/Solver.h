@@ -209,6 +209,18 @@ public:
   //
   void roster(Roster &inputRoster) {roster_ = inputRoster;}
 
+  //----------------------------------------------------------------------------
+  // Methods that relate to the future capacity of a nurse
+  //----------------------------------------------------------------------------
+
+  // Compute the maximum and minimum number of working days from the input
+  // current state until the input lastDay without getting any penalty for
+  // consecutive working days/days-off
+  //
+  void computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int lastDay,
+    int &minWorkDaysNoPenaltyConsDays, int &maxWorkDaysNoPenaltyConsDays);
+
+
    //----------------------------------------------------------------------------
    // Methods that relate to the rosters of a nurse
    //----------------------------------------------------------------------------
@@ -281,6 +293,7 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 //-----------------------------------------------------------------------------
 
 enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL};
+enum Status{UNSOLVED,FEASIBLE,INFEASIBLE,OPTIMAL};
 
 class Solver{
 
@@ -405,6 +418,10 @@ public:
    //
    bool isPreprocessedSkills_;
    bool isPreprocessedNurses_;
+
+   // Status of the solver
+   //
+   Status status_;
 
 
 public:
