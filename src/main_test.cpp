@@ -154,13 +154,13 @@ void testFunction_Samuel(){
       string outFile = "outfiles/test.out";
       Tools::LogOutput outStream(outFile);
 
-      string data = "testdatasets/";// testdatasets datasets userdatasets
-      const char* inst = "n005w4";// n100w4 n030w4 n005w4 n005w1
+      string data = "datasets/";// testdatasets datasets userdatasets
+      const char* inst = "n100w4";// n100w4 n030w4 n005w4 n005w1
 
 	   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	   //n005w4: {1, 2, 3, 3}
 	   //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-	   vector<int> numberWeek = {1, 2, 3, 3};
+	   vector<int> numberWeek = {3,2};
 	   vector<string> weekPaths(numberWeek.size());
 	   for(int i=0; i<numberWeek.size(); ++i){
 	      string path = data + inst + "/WD-" + inst + "-"+std::to_string(numberWeek[i])+".txt";
