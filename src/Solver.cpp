@@ -276,6 +276,58 @@ void LiveNurse::buildStates(){
       states_[k].addDayToState(states_[k-1], roster_.shift(k-1));
 }
 
+//-----------------------------------------------------------------------------
+// Compute the maximum and minimum number of working days from the input
+// current state and in the next nbDays without getting any penalty for
+// consecutive working days/days-off
+//-----------------------------------------------------------------------------
+
+void LiveNurse::computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int nbDays,
+  int &minWorkDaysNoPenaltyConsDays, int &maxWorkDaysNoPenaltyConsDays) {
+  minWorkDaysNoPenaltyConsDays = 0;
+  maxWorkDaysNoPenaltyConsDays = 0;
+
+  // first treat the history
+  //
+  // remaining number of days when building a maximum and minimum working days
+  // periods
+  int nbDaysMin = nbDays, nbDaysMax = nbDays;
+  if (pCurrentState->shift_ > 0) {
+    // if the last shift was not a rest
+    // keep working until maximum consecutive number of shifts for maximum
+    // working days or until minimum consecutive number of shifts for minimum
+    // working days
+    maxWorkDaysNoPenaltyConsDays = std::min(nbDays,std::max(0, maxConsDaysWork()-pCurrentState->consDaysWorked_));
+    minWorkDaysNoPenaltyConsDays = std::min(nbDays,std::max(0, minConsDaysWork()-pCurrentState->consDaysWorked_));
+
+    // perform minimum rest for maximum working days and maximum rest for
+    // minimum working days
+    nbDaysMax = nbDays - std::min(nbDays,maxWorkDaysNoPenaltyConsDays+minConsDaysOff());
+    nbDaysMin = nbDays - std::min(nbDays,minWorkDaysNoPenaltyConsDays+maxConsDaysOff());
+  }
+  else if (pCurrentState->shift_ == 0) {
+    // if the last shift was a rest
+    // keep resting until minimum consecutive number of rests for maximum
+    // working days or until maximum consecutive number of rests for minimum
+    // working days
+    nbDaysMax = nbDays - std::min(nbDays,std::max(0, minConsDaysOff()-pCurrentState->consDaysOff_));
+    nbDaysMin = nbDays - std::min(nbDays,std::max(0, maxConsDaysOff()-pCurrentState->consDaysOff_));
+  }
+
+  // lengths of the stints maximizing and minimizing the percentage of working
+  // days respectively
+  //
+  int lengthStintMax = maxConsDaysWork() + minConsDaysOff();
+  int lengthStintMin = minConsDaysWork() + maxConsDaysOff();
+
+  // perform as many of these stints as possible
+  //
+  maxWorkDaysNoPenaltyConsDays += (nbDaysMax/lengthStintMax)*maxConsDaysWork()
+    + std::min(nbDaysMax%lengthStintMax, maxConsDaysWork());
+  minWorkDaysNoPenaltyConsDays += (nbDaysMin/lengthStintMin)*minConsDaysWork()
+    + std::min(nbDaysMin%lengthStintMax, minConsDaysWork());
+}
+
 
 //-----------------------------------------------------------------------------
 //
@@ -292,7 +344,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   pScenario_(pScenario),  pDemand_(pDemand),
   pPreferences_(pPreferences), pInitState_(pInitState),
   totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
-  isPreprocessedSkills_(false), isPreprocessedNurses_(false) {
+  isPreprocessedSkills_(false), isPreprocessedNurses_(false), status_(UNSOLVED) {
 
   // initialize the preprocessed data of the skills
   for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
@@ -316,19 +368,19 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
 }
 
 Solver::Solver(Scenario* pScenario, Demand* pDemand,
-  Preferences* pPreferences, vector<State>* pInitState, 
-  vector<double> minTotalShifts, vector<double> maxTotalShifts, 
-  vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg, 
+  Preferences* pPreferences, vector<State>* pInitState,
+  vector<double> minTotalShifts, vector<double> maxTotalShifts,
+  vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
   vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg):
   pScenario_(pScenario),  pDemand_(pDemand),
   pPreferences_(pPreferences), pInitState_(pInitState),
 
-  minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts), 
+  minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
   minTotalShiftsAvg_(minTotalShiftsAvg), maxTotalShiftsAvg_(maxTotalShifts_), weightTotalShiftsAvg_(weightTotalWeekendsAvg),
   maxTotalWeekendsAvg_(maxTotalWeekendsAvg), weightTotalWeekendsAvg_(weightTotalWeekendsAvg),
 
   totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
-  isPreprocessedSkills_(false), isPreprocessedNurses_(false)
+  isPreprocessedSkills_(false), isPreprocessedNurses_(false), status_(UNSOLVED)
 
 {
   // initialize the preprocessed data of the skills
@@ -345,7 +397,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
       pDemand_->firstDay_, &(*pInitState_)[i], &(pPreferences_->wishesOff_[i])  ) );
   }
 }
-  
+
 
 // Destructor
 Solver::~Solver(){
@@ -462,7 +514,7 @@ void Solver::specifyNursePositions() {
 void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 
   // number of days that will be covered after the current demand
-  int nbDaysFuture = 7*(pScenario_->nbWeeks()-(pScenario_->thisWeek()+1))-pDemand_->nbDays_;
+  int nbDaysFuture = 7*(pScenario_->nbWeeks()-pScenario_->thisWeek())-pDemand_->nbDays_;
 
   // For each contract, compute the maximum and minimum number of working days
   // that can be done after the current demand without ensuing penalties due to
@@ -520,13 +572,14 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   // the same number of days every week, the nurse will respect the bounds on
   // the total number of working days without penalty
   for (LiveNurse* pNurse:theLiveNurses_) {
-    int nbWeeksLeft = pScenario_->nbWeeks()-pScenario_->thisWeek();
-    int nbDaysToMin = pNurse->minTotalShifts()- pNurse->totalDaysWorked();
-    int nbDaysToMax = pNurse->maxTotalShifts()- pNurse->totalDaysWorked();
-    pNurse->minAvgWorkDaysNoPenaltyTotalDays_ = std::max(0.0,
-      (nbDaysToMin/(double)nbWeeksLeft) * (pDemand_->nbDays_/7.0));
+    double demandMinAvgPerWeek = pNurse->minTotalShifts()/(double) pScenario_->nbWeeks();
+    double demandMaxAvgPerWeek = pNurse->maxTotalShifts()/(double) pScenario_->nbWeeks();
+    double demandMinAvgUntilThisDemand = demandMinAvgPerWeek*(pScenario_->thisWeek()+pDemand_->nbDays_/7.0);
+    double demandMaxAvgUntilThisDemand = demandMaxAvgPerWeek*(pScenario_->thisWeek()+pDemand_->nbDays_/7.0);
+
+    pNurse->minAvgWorkDaysNoPenaltyTotalDays_ = demandMinAvgUntilThisDemand-pNurse->totalDaysWorked();
     pNurse->maxAvgWorkDaysNoPenaltyTotalDays_ = std::max(0.0,
-      (nbDaysToMax/(double)nbWeeksLeft) * (pDemand_->nbDays_/7.0));
+      demandMaxAvgUntilThisDemand-pNurse->totalDaysWorked());
   }
 }
 
@@ -537,56 +590,9 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 // preferences ; they should be added later
 //
 void Solver::computeMinMaxDaysNoPenaltyConsDays() {
-  // local variables for conciseness of the code
-  //
-  int nbDays = pDemand_->nbDays_;
-
   for (LiveNurse* pNurse: theLiveNurses_)	{
-    pNurse->maxWorkDaysNoPenaltyConsDays_ = 0;
-    pNurse->minWorkDaysNoPenaltyConsDays_ = 0;
-
-    // first treat the history
-    //
-    // remaining number of days when building a maximum and minimum working days
-    // periods
-    int nbDaysMax=nbDays, nbDaysMin = nbDays;
-    State* pState = pNurse->pStateIni_;
-    if (pState->shift_ != 0) {
-      // if the last shift was not a rest
-      // keep working until maximum consecutive number of shifts for maximum
-      // working days or until minimum consecutive number of shifts for minimum
-      // working days
-      pNurse->maxWorkDaysNoPenaltyConsDays_ = std::max(0, pNurse->maxConsDaysWork()-pState->consDaysWorked_);
-      pNurse->minWorkDaysNoPenaltyConsDays_ = std::max(0, pNurse->minConsDaysWork()-pState->consDaysWorked_);
-
-      // perform minimum rest for maximum working days and maximum rest for
-      // minimum working days
-      nbDaysMax = nbDays - pNurse->maxWorkDaysNoPenaltyConsDays_ - pNurse->minConsDaysOff();
-      nbDaysMin = nbDays - pNurse->minWorkDaysNoPenaltyConsDays_ - pNurse->maxConsDaysOff();
-    }
-    else {
-      // if the last shift was a rest
-      // keep resting until minimum consecutive number of rests for maximum
-      // working days or until maximum consecutive number of rests for minimum
-      // working days
-      nbDaysMax = nbDays - std::max(0, pNurse->minConsDaysOff()-pState->consDaysOff_);
-      nbDaysMin = nbDays - std::max(0, pNurse->maxConsDaysWork()-pState->consDaysOff_);
-    }
-
-    // lengths of the stints maximizing and minimizing the percentage of working
-    // days respectively
-    //
-    int lengthStintMax = pNurse->maxConsDaysWork() + pNurse->minConsDaysOff();
-    int lengthStintMin = pNurse->minConsDaysWork() + pNurse->maxConsDaysOff();
-
-    // perform as many of these stints as possible
-    //
-    pNurse->maxWorkDaysNoPenaltyConsDays_ +=
-      (nbDaysMax/lengthStintMax)*pNurse->maxConsDaysWork()
-      + std::min(nbDaysMax%lengthStintMax, pNurse->maxConsDaysWork());
-    pNurse->minWorkDaysNoPenaltyConsDays_ +=
-      (nbDaysMin/lengthStintMin)*pNurse->minConsDaysWork()
-      + std::min(nbDaysMin%lengthStintMax, pNurse->minConsDaysWork());
+    pNurse->computeMinMaxDaysNoPenaltyConsDay(pNurse->pStateIni_, pDemand_->nbDays_,
+      pNurse->minWorkDaysNoPenaltyConsDays_,pNurse->maxWorkDaysNoPenaltyConsDays_);
   }
 }
 
@@ -622,6 +628,135 @@ void Solver::preprocessTheSkills() {
 
   isPreprocessedSkills_=true;
 }
+
+//------------------------------------------------------------------------------
+// Create the vector of sorted nurses
+// The nurses are ordered according to their position and the nurses that have
+// the same position are shuffled
+//------------------------------------------------------------------------------
+
+void Solver::sortShuffleTheNurses() {
+
+  vector<Position*> positionsSorted;
+  vector<vector<LiveNurse*>> nursePerPosition;
+
+  // first, sort the position in the order in which the nurses should be treated
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    positionsSorted.push_back(pScenario_->pPosition(p));
+  }
+  std::sort(positionsSorted.begin(),positionsSorted.end(),comparePositions);
+
+  // then organize the nurses depending on their position
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    vector<LiveNurse*> emptyVector;
+    nursePerPosition.push_back(emptyVector);
+  }
+  for (int n=0; n < pScenario_->nbNurses_; n++) {
+    LiveNurse* pNurse = theLiveNurses_[n];
+    nursePerPosition[pNurse->pPosition()->id()].push_back(pNurse);
+  }
+
+  // shuffle the nurses that have the same position
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    std::random_shuffle(nursePerPosition[p].begin(),nursePerPosition[p].end());
+  }
+
+  // fill the sorted vector of live nurses
+  theNursesSorted_.clear();
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    int id = positionsSorted[p]->id();
+    for (int n=0; n < nursePerPosition[id].size(); n++) {
+      theNursesSorted_.push_back(nursePerPosition[id][n]);
+    }
+  }
+
+  // todo: think about sorting the nurses according to their contract, we might
+  // want to use the full-time nurses first
+}
+
+//------------------------------------------------------------------------------
+// Initialize the greedy by preprocessing all the input attributes and sorting
+// the shifts, skills, nurses
+//------------------------------------------------------------------------------
+
+void Solver::preprocessData() {
+
+  // Preprocess the attributes of the greedy solver
+  // the result of the preprocessing will be very useful to sort the attributes
+  // before greedily covering the demand
+  //
+  if (!pDemand_->isPreprocessed_) pDemand_->preprocessDemand();
+  if (!isPreprocessedSkills_) this->preprocessTheSkills();
+  if (!isPreprocessedNurses_) this->preprocessTheNurses();
+
+  // sort the skills
+  SkillSorter compareSkills(skillRarity_);
+  std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
+
+  // sort the shifts (except the shift 0 which must always be rest)
+  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
+  std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
+
+  // sort the nurses
+  sortShuffleTheNurses();
+}
+
+
+//-----------------------------------------------------------------------------
+// Compute the weights o the violation of the min/max number of working days
+// For now, the update depends only on the initial states and on the contract
+// of the nurses, on the number of days on the demand, on the number of weeks
+// already treated and on the number of weeks left
+// The required data on the nurses is mostly computed in preprocessTheNurses
+//-----------------------------------------------------------------------------
+
+void Solver::computeWeightsTotalShiftsForStochastic() {
+
+  // clear the vectors that are about to be filled
+  minTotalShifts_.clear();
+  maxTotalShifts_.clear();
+  minTotalShiftsAvg_.clear();
+  maxTotalShiftsAvg_.clear();
+  weightTotalShiftsAvg_.clear();
+  maxTotalWeekendsAvg_.clear();
+  weightTotalWeekendsAvg_.clear();
+
+	// The nurses must be preprocessed to retrieve the information relative to the
+	// past activity of the nurses and to their capacity to work more in the future
+	if (!isPreprocessedNurses_) this->preprocessTheNurses();
+
+	// The important value to infer the importance of respecting the strict constraints
+	// on the total number of working days/week-ends is the remaining number of days/week-ends
+	// after the demand currently treated
+	int remainingDays = 7*pScenario_->nbWeeks()-7*(pScenario_->thisWeek())-pDemand_->nbDays_;
+	double factorRemainingDays = (double) remainingDays/(double)(7*pScenario_->nbWeeks());
+	int remainingWeekends = pScenario_->nbWeeks()-(pScenario_->thisWeek())-((pDemand_->nbDays_-1)/7+1);
+	double factorRemainingWeekends = (double)remainingWeekends/(double)pScenario_->nbWeeks();
+
+	// Compute the non-penalized intervals and the associated penalties
+	for (int n = 0; n < pScenario_->nbNurses(); n++) {
+		LiveNurse* pNurse =  theLiveNurses_[n];
+
+		// first compute the values relative to the average number of working days
+		// the interval is larger for the first weeks and the associated penalty is smaller
+		minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
+		maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+		weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
+
+		// compute the interval that must be respected to have a chance of not paying
+		// penalties in the future
+		minTotalShifts_.push_back(pNurse->minWorkDaysNoPenaltyTotalDays_);
+		maxTotalShifts_.push_back(pNurse->maxWorkDaysNoPenaltyTotalDays_);
+
+		// Number of worked week-ends below which there is no penalty for the
+	  // total number of working week-ends
+	  // This interval is computed from the max number of working week-ends averaged
+	  // over the number of remaining weeks
+	  maxTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)pNurse->maxTotalWeekends());
+    weightTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)WEIGHT_TOTAL_WEEKENDS);
+	}
+}
+
 
 //------------------------------------------------------------------------
 // Compare two nurses based on their position

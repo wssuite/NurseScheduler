@@ -31,12 +31,14 @@ void testFunction_Antoine(){
    timertotal->start();
 
    string data = "testdatasets/";// testdatasets datasets
-   const char* inst = "n012w8";// n100w4 n030w4 n005w4
+   const char* inst = "n005w4";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
-   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
+   //n021w4:
+   //n120w8: {3, 2}
+   vector<int> numberWeek = {1, 2, 3, 3};
 
 
    testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
@@ -68,17 +70,8 @@ void testFunction_Jeremy(){
    /************************************************************************
    * Go through the demands of the directory to find invariants in the demand
    *************************************************************************/
-	computeStatsOnTheDemandsOfAllInstances("testdatasets/");
-	computeStatsOnTheDemandsOfAllInstances("datasets/");
-  // ReadWrite::compareDemands("testdatasets/n005w4","outfiles/statDemands/n005w4.txt");
-	// ReadWrite::compareDemands("testdatasets/n012w8","outfiles/statDemands/n012w8.txt");
-	// ReadWrite::compareDemands("testdatasets/n021w4","outfiles/statDemands/n021w4.txt");
-	// ReadWrite::compareDemands("datasets/n030w4","outfiles/statDemands/n030w4.txt");
-	// ReadWrite::compareDemands("datasets/n030w8","outfiles/statDemands/n030w8.txt");
-	// ReadWrite::compareDemands("datasets/n040w4","outfiles/statDemands/n040w4.txt");
-	// ReadWrite::compareDemands("datasets/n040w8","outfiles/statDemands/n040w8.txt");
-
-
+	// computeStatsOnTheDemandsOfAllInstances("testdatasets/");
+	// computeStatsOnTheDemandsOfAllInstances("datasets/");
 
 	/***************************************************************************
 	* Test the solution of only one week
@@ -86,8 +79,9 @@ void testFunction_Jeremy(){
 	* column generation
 	****************************************************************************/
 	vector<int> weekIndex = {1};
-	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndex, GREEDY,
-		(string)(outDir+"Greedy/"));
+	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndex, STOCHASTIC_GREEDY,
+		(string)(outDir+"GreedyStochastic/"));
+
 
 
 	/******************************************************************************
@@ -98,30 +92,25 @@ void testFunction_Jeremy(){
 	vector<int> weekIndices = {1, 2, 3, 3};
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+  testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GENCOL,
+    (string)(outDir+"BCP/"));
 
 	testMultipleWeeksStochastic(dataDir, instanceName, 0, weekIndices, GREEDY, (string)(outDir+"GreedyStochastic/"));
 	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GREEDY,  (string)(outDir+"Greedy/"));
 
    /************************************************************************
-   * Initialize the week scenario by reading the input files
-   *************************************************************************/
-
-   Scenario* pScen(0);
-   pScen = initializeScenario("datasets/n030w4/Sc-n030w4.txt",
-      "datasets/n030w4/WD-n030w4-1.txt", "datasets/n030w4/H0-n030w4-0.txt","outfiles/inputdata.log");
-
-   /************************************************************************
    * Test the random demand generator
    *************************************************************************/
-   testRandomDemandGenerator(1,"outfiles/randomdemands.out",pScen);
-
-
+  //  Scenario* pScen(0);
+  //  pScen = initializeScenario("datasets/n030w4/Sc-n030w4.txt",
+  //     "datasets/n030w4/WD-n030w4-1.txt", "datasets/n030w4/H0-n030w4-0.txt","outfiles/inputdata.log");
+  //  testRandomDemandGenerator(1,"outfiles/randomdemands.out",pScen);
+  // delete pScen;
 
    /****************************************
    * Test the CBC modeler
    *****************************************/
-
-   testCbc(pScen);
+  //  testCbc(pScen);
 
 
    // Display the total time spent in the tests
@@ -135,7 +124,6 @@ void testFunction_Jeremy(){
    // free the allocated pointers
    //
    delete timertotal;
-   delete pScen;
 }
 
 // Function for testing parts of the code (Samuel)
@@ -198,8 +186,8 @@ void testFunction_Samuel(){
       // Instantiate the solver class as a test
       //
       MasterProblem* pBCP =
-         new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
-      pBCP->solve();
+         new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
+      pBCP->solve(pGreedy->getSolution());
 
       // Write the solution in the required output format
       vector<string> solutions = pBCP->solutionToString(pScen->nbWeeks());
@@ -328,14 +316,22 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 
+	Solver* pInitSolver = setSolverWithInputAlgorithm(pScen, GREEDY);
+	pInitSolver->solve();
+
 	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
 
-	pSolver->solve();
+	if(pInitSolver->status_ == INFEASIBLE )
+	   pSolver->solve();
+	else
+	   pSolver->solve(pInitSolver->getSolution());
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
-	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outDir);
+  Status status = pSolver->getStatus();
+	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution,status, outDir);
 
+	delete pInitSolver;
 	delete pSolver;
 	delete pScen;
 }
@@ -358,11 +354,17 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 	// solve the problem for each week and store the solution in the vector below
 	vector<Roster> solution;
 	int nbWeeks = weekIndices.size();
+  Status solutionStatus;
 	for (int week = 0; week < nbWeeks; week++) {
 
 		Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
 
 		pSolver->solve();
+    solutionStatus = pSolver->getStatus();
+    if (solutionStatus == INFEASIBLE) {
+      delete pSolver;
+      break;
+    }
 
 		// update the overall solution with the solution of the week that was just
 		// treated
@@ -402,7 +404,7 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 	}
 
 	// Display the solution
-	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, outDir);
+	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
 	delete pScen;
 }
@@ -426,8 +428,8 @@ void testCbc(Scenario* pScen) {
   // modeler as input
   //
   MasterProblem* pMPCbc;
-  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC, pGreedy->getSolution());
-  pMPCbc->solve();
+  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC);
+  pMPCbc->solve(pGreedy->getSolution());
 
   // Write the solution in the required output format
   string outFile = "outfiles/cbctest1.out";
@@ -455,7 +457,7 @@ void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
 
    vector<Demand*> demandHistory;
    demandHistory.push_back(pScen->pWeekDemand());
-   DemandGenerator generator(nbDemands,demandHistory,pScen);
+   DemandGenerator generator(nbDemands,12,demandHistory,pScen);
    vector<Demand*> randomDemands = generator.generatePerturbedDemands();
 
    while (!randomDemands.empty()) {
@@ -480,6 +482,9 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 	case GENCOL:
 		pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
 		break;
+  case STOCHASTIC_GREEDY:
+    pSolver = new StochasticSolver(pScen, GREEDY);
+    break;
 	default:
 		Tools::throwError("The algorithm is not handled yet");
 		break;
@@ -492,23 +497,30 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 * solver for all the weeks and  display the results
 ******************************************************************************/
 void displaySolutionMultipleWeeks(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, string outDir) {
+	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, Status status, string outDir) {
 
 	if (outDir.empty()) return;
+
+  // initialize the log stream
+  // first, concatenate the week numbers
+  int nbWeeks = weekIndices.size();
+  string catWeeks;
+  for (int w=0; w< nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
+  string logPath = outDir+"Log-"+catWeeks+".txt";
+  Tools::LogOutput outStream(logPath);
+
+  // treat the case where the solver was unable to find a feasible solution
+  if (status == INFEASIBLE) {
+    outStream << "The solver was not able to find a solution\n";
+    return;
+  }
 
 	// load the solution in a new solver
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 	Solver* pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
 	pSolver->loadSolution(solution);
 
-	// concatenate the week numbers
-	int nbWeeks = weekIndices.size();
-	string catWeeks;
-	for (int w=0; w< nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
-
 	// write the log file for all the weeks
-	string logPath = outDir+"Log-"+catWeeks+".txt";
-	Tools::LogOutput outStream(logPath);
 	outStream << pSolver->solutionToLogString();
 
 	// write separately the solutions of each week in the required output format

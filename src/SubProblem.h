@@ -306,47 +306,6 @@ public:
 
 
 
-struct Costs{
-public:
-
-	Costs(){}
-	Costs(vector< vector<double> > * workCosts, vector<double> * startWorkCosts, vector<double> * endWorkCosts, double workedWeekendCost):
-		pWorkCosts_(workCosts), pStartWorkCosts_(startWorkCosts), pEndWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
-
-	// CONSTRUCTOR NOT TO BE USED, ONLY FOR RANDOM GENERATED COSTS...
-	Costs(vector< vector<double> > workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
-		workedWeekendCost_(workedWeekendCost){
-		pWorkCosts_ = new vector<vector<double> > (workCosts);
-		pStartWorkCosts_ = new vector<double> (startWorkCosts);
-		pEndWorkCosts_ = new vector<double> (endWorkCosts);
-	}
-
-	// GETTERS
-	//
-	inline double dayShiftWorkCost(int day, int shift){return ((*pWorkCosts_)[day][shift]);}
-	inline double startWorkCost(int day){return ((*pStartWorkCosts_)[day]);}
-	inline double endWorkCost(int day){return ((*pEndWorkCosts_)[day]);}
-	inline double workedWeekendCost(){return workedWeekendCost_;}
-
-
-protected:
-
-	// Indexed by : (day, shift) !! 0 = shift 1 !!
-    vector< vector<double> > * pWorkCosts_;
-
-    // Indexed by : day
-    vector<double> * pStartWorkCosts_;
-
-    // Indexed by : day
-    vector<double> * pEndWorkCosts_;
-
-    // Reduced cost of the weekends
-    double workedWeekendCost_;
-
-};
-
-
-
 
 //---------------------------------------------------------------------------
 //
@@ -421,7 +380,7 @@ public:
 
 	// Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 	//
-	bool solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST,
+	bool solve(LiveNurse* nurse, DualCosts * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts = EMPTY_FORBIDDEN_LIST,
 			bool optimality = false, int maxRotationLength=MAX_TIME, double redCostBound = 0);
 
 	// Returns all rotations saved during the process of solving the SPPRC
@@ -473,7 +432,7 @@ protected:
 
 	// All costs from Master Problem
 	//
-	Costs * pCosts_;
+	DualCosts * pCosts_;
 
 	// Maximum length of a rotation (in consecutive worked days)
 	//

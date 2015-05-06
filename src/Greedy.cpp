@@ -90,6 +90,17 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
     }
   }
 
+  //
+  for (LiveNurse* pNurse:theLiveNurses_) {
+    minTotalShifts_.push_back(0);
+    maxTotalShifts_.push_back(pNurse->maxTotalShifts());
+    minTotalShiftsAvg_.push_back(0);
+    maxTotalShiftsAvg_.push_back(pNurse->maxTotalShifts());
+    weightTotalShiftsAvg_.push_back(WEIGHT_TOTAL_SHIFTS);
+    maxTotalWeekendsAvg_.push_back(pNurse->maxTotalWeekends());
+    weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+  }
+
 }
 
 //----------------------------------------------------------------------------
@@ -117,7 +128,7 @@ bool Greedy::isFeasibleTask(const LiveNurse &nurse, int day, int shift, int skil
 // The cost depends on the state of the nurse, but the method will not check
 // the feasibility of the task
 //
-double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill,
+double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   vector<State>* states) {
 
   double cost = 0.0;
@@ -250,6 +261,7 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill,
   Position position = *(nurse.pPosition_);
   cost += weightRank_ * (rankMax_-nurse.pPosition_->rank());
 
+  // ---------------------------------------------------------------------------
   // Penalize the violations of the limits in the total assignment and total
   // working week-ends
   // This must take into account the position of the day in the complete
@@ -257,23 +269,48 @@ double Greedy::costTask(const LiveNurse &nurse, int day, int shift, int skill,
   // clearly below or above the average number of working days and working
   // week-ends (the penalty is not counted twice for the week-ends if the day
   // is sunday and saturday has been worked)
-  //
+  // ---------------------------------------------------------------------------
 
-  // get the average target number of working days for this week
-  double avgMinDays, avgMaxDays, avgMaxWeekends, minDays, maxDays, maxWeekends;
-  double factorWeek = (double)pScenario_->thisWeek()/(double) pScenario_->nbWeeks_;
-  avgMinDays = factorWeek * (double) nurse.minTotalShifts();
-  avgMaxDays = factorWeek * (double) nurse.maxTotalShifts();
-  avgMaxWeekends = factorWeek*(double) nurse.maxTotalWeekends();
-  minDays = (int) (avgMinDays-(1.0-factorWeek)*((double)nurse.minTotalShifts()/(double) pScenario_->nbWeeks_-(double)(day%7)));
-  maxDays = (int) (avgMaxDays+(1.0-factorWeek)*((double)nurse.maxTotalShifts()/(double) pScenario_->nbWeeks_-(double)(day%7))) +1;
-  maxWeekends = (int) avgMaxWeekends;
+  // To reduce myopia in the execution of the greedy algorithm, compute the
+  // min/max number of days the nurse will be able to work without penalty on
+  // the consecutive number of working days until the end of the demand period
+  int minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay;
+  State nextState;
+  nextState.addDayToState(state, shift);
+  nurse.computeMinMaxDaysNoPenaltyConsDay(&nextState, nurse.nbDays_-(day+1-nurse.firstDay_),
+    minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay);
 
-  if (state.totalDaysWorked_ >= maxDays) {
-    cost += factorWeek*WEIGHT_TOTAL_SHIFTS;
+  int id = nurse.id_;
+  // penalyse with respect to the max total number of working days only if the
+  // shift is worked
+  if (shift > 0 ) {
+    if (state.totalDaysWorked_+minDaysNoPenaltyConsDay >= maxTotalShifts_[id]) {
+      cost += WEIGHT_TOTAL_SHIFTS;
+    }
+    else if (state.totalDaysWorked_+minDaysNoPenaltyConsDay+1 > maxTotalShiftsAvg_[id]) {
+      cost += weightTotalShiftsAvg_[id];
+    }
   }
-  if ( (day%7==5 || (day%7==6 && lastShift==0)) && state.totalWeekendsWorked_ >= maxWeekends) {
-    cost += factorWeek*WEIGHT_TOTAL_WEEKENDS;
+  // penalyse with respect to the min total number of working days only if the
+  // shift is rest
+  else {
+    if (state.totalDaysWorked_+maxDaysNoPenaltyConsDay < minTotalShifts_[id]) {
+      cost += WEIGHT_TOTAL_SHIFTS;
+    }
+    else if (state.totalDaysWorked_+maxDaysNoPenaltyConsDay < minTotalShiftsAvg_[id]) {
+      cost += weightTotalShiftsAvg_[id];
+    }
+  }
+
+  // penalyse with respect to the max total number of working weekends only if
+  // the week-end is worked
+  if ( (shift > 0) && (Tools::isSaturday(day) || (Tools::isSunday(day)&&lastShift==0) )) {
+    if (state.totalWeekendsWorked_ >= nurse.maxTotalWeekends() ) {
+      cost += WEIGHT_TOTAL_WEEKENDS;
+    }
+    else if (state.totalWeekendsWorked_+1 > maxTotalWeekendsAvg_[id] ) {
+      cost += weightTotalWeekendsAvg_[id];
+    }
   }
   // if the nurse is below the number of total assignments, getting a shift is
   // rewarded with a negative cost
@@ -608,13 +645,12 @@ void Greedy::assignBestNursesToTask(int day, int sh, int sk, int demand,
 bool Greedy::constructiveGreedy() {
 
   int nbDays = pDemand_->nbDays_, firstDay = pDemand_->firstDay_;
-  int nbShifts = pScenario_->nbShifts_;
-  int nbSkills = pScenario_->nbSkills_, nbNurses = pScenario_->nbNurses_;
+  int nbNurses = pScenario_->nbNurses();
 
   // initialize the algorithm by sorting the input data
   // the order of construction of the solution is essential in a constructive
   // greedy
-  this->initializeConstructive();
+  this->preprocessData();
 
   // First satisfy the minimum demand
   //
@@ -627,10 +663,10 @@ bool Greedy::constructiveGreedy() {
     }
     int nbUnassigned = nbNurses;
 
-    // RqJO : l'ordre des skills/shifts pourrait etre change pour commencer par
-    // ceux qui sont les plus critiques
-    for (int sh:shiftsSorted_) { // recall that shift 0 is rest
-      for (int sk:skillsSorted_) {
+    // the skills are sorted to include the rarest first, we go through the
+    // skills firts because they are the critical characteristic of the demand
+    for (int sk:skillsSorted_) {
+      for (int sh:shiftsSorted_) {
 
         // demand for the task
         int demand = pDemand_->minDemand_[day][sh][sk];
@@ -806,82 +842,71 @@ bool Greedy::constructiveGreedy() {
 
 // Main method to solve the rostering problem for a given input
 //
-void Greedy::solve() {
+void Greedy::solve(vector<Roster> solution) {
   bool isFeasible = this->constructiveGreedy();
 
   if (!isFeasible) {
+     status_ = INFEASIBLE;
     std::cout << "Greedy: the constructive algorithm was unable to find a solution\n";
+  }
+	else{
+     status_ = FEASIBLE;
   }
 }
 
+
 //------------------------------------------------------------------------------
-// Create the vector of sorted nurses
-// The nurses are ordered according to their position and the nurses that have
-// the same position are shuffled
+// Preprocess the demand to infer implicit demand on day d that is made
+// necessary by the demand on day d+1
+// For instance, assume that for a given skill sk, there is no demand for the
+// shift Early on day d, and a demand of 2 on day d+1 for the same shift. Then,
+// Due to the list of forbidden successor, it is then necessary that at least
+// two nurses with skill sk are either resting or taking the shift Early on day d
 //------------------------------------------------------------------------------
+void Greedy::computeImplicitDemand() {
 
-void Greedy::sortShuffleTheNurses() {
+  int nbDays = pDemand_->nbDays_;
+  int nbShifts = pScenario_->nbShifts(), nbSkills=pScenario_->nbSkills();
 
-  vector<Position*> positionsSorted;
-  vector<vector<LiveNurse*>> nursePerPosition;
-
-  // first, sort the position in the order in which the nurses should be treated
-  for (int p=0; p < pScenario_->nbPositions(); p++) {
-    positionsSorted.push_back(pScenario_->pPosition(p));
-  }
-  std::sort(positionsSorted.begin(),positionsSorted.end(),comparePositions);
-
-  // then organize the nurses depending on their position
-  for (int p=0; p < pScenario_->nbPositions(); p++) {
-    vector<LiveNurse*> emptyVector;
-    nursePerPosition.push_back(emptyVector);
-  }
-  for (int n=0; n < pScenario_->nbNurses_; n++) {
-    LiveNurse* pNurse = theLiveNurses_[n];
-    nursePerPosition[pNurse->pPosition()->id()].push_back(pNurse);
-  }
-
-  // shuffle the nurses that have the same position
-  for (int p=0; p < pScenario_->nbPositions(); p++) {
-    std::random_shuffle(nursePerPosition[p].begin(),nursePerPosition[p].end());
-  }
-
-  // fill the sorted vector of live nurses
-  theNursesSorted_.clear();
-  for (int p=0; p < pScenario_->nbPositions(); p++) {
-    int id = positionsSorted[p]->id();
-    for (int n=0; n < nursePerPosition[id].size(); n++) {
-      theNursesSorted_.push_back(nursePerPosition[id][n]);
+  // get the vector of allowed predecessor for each skill
+  vector<int> nbAllowedPredecessors(pScenario_->nbShifts(),0);
+  vector<vector<int>> allowedPredecessors(pScenario_->nbShifts());
+  for (int shNext = 0; shNext < nbShifts; shNext++) {
+    for (int shPrev = 1; shPrev < nbShifts; shPrev++) {
+      if (!pScenario_->isForbiddenSuccessor(shNext, shPrev)) {
+        nbAllowedPredecessors[shNext]++;
+        allowedPredecessors[shNext].push_back(shPrev);
+      }
     }
   }
 
-  // todo: think about sorting the nurses according to their contract, we might
-  // want to use the full-time nurses first
-}
+  for (int sh = 0; sh < nbShifts; sh++) {
+    ShiftSorter compareShifts(nbAllowedPredecessors, true);
+    std::stable_sort(allowedPredecessors[sh].begin(),allowedPredecessors[sh].end(),compareShifts);
+  }
 
-//------------------------------------------------------------------------------
-// Initialize the greedy by preprocessing all the input attributes and sorting
-// the shifts, skills, nurses
-//------------------------------------------------------------------------------
+  // the implicit demand must be constructed end to beginning
+  vector3D implicitDemand;
+  Tools::initVector3D(&implicitDemand,nbDays,nbShifts,nbSkills,0);
+  vector3D demandTmp = pDemand_->minDemand_;
 
-void Greedy::initializeConstructive() {
+  for (int day= nbDays-1; day > 0; day--) {
+    for (int sh:shiftsSorted_) {
+      for (int sk = 0; sk < nbSkills; sk++) {
+        // if all every shift is a potential predecessor, there is no implicit
+        // demand, so the value of implicitDemand is left to zero
+        if (nbAllowedPredecessors[sh] >= nbShifts-1) continue;
 
-  // Preprocess the attributes of the greedy solver
-  // the result of the preprocessing will be very useful to sort the attributes
-  // before greedily covering the demand
-  //
-  if (!pDemand_->isPreprocessed_) pDemand_->preprocessDemand();
-  if (!isPreprocessedSkills_) this->preprocessTheSkills();
-  if (!isPreprocessedNurses_) this->preprocessTheNurses();
+        implicitDemand[day-1][sh][sk] = pDemand_->minDemand_[day][sh][sk];
+        for (int i=0; i < nbAllowedPredecessors[sh]; i++) {
+          if (implicitDemand[day-1][sh][sk] <= 0) break;
 
-  // sort the skills
-  SkillSorter compareSkills(skillRarity_);
-  std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
-
-  // sort the shifts (except the shift 0 which must always be rest)
-  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
-  std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
-
-  // sort the nurses
-  sortShuffleTheNurses();
+          int shPrev = allowedPredecessors[sh][i];
+          int demand = std::min(implicitDemand[day-1][sh][sk],demandTmp[day-1][shPrev][sk]);
+          implicitDemand[day-1][sh][sk] -= demand;
+          demandTmp[day-1][shPrev][sk] -= demand;
+        }
+      }
+    }
+  }
 }

@@ -95,11 +95,13 @@ private:
 class ShiftSorter {
 public:
    // take the field to sort by in the constructor
-   ShiftSorter (const vector<int> nbForbiddenSuccessors) : nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
+   ShiftSorter (const vector<int> nbForbiddenSuccessors) : nbForbiddenSuccessors_(nbForbiddenSuccessors), reverse_(false) {}
+   ShiftSorter (const vector<int> nbForbiddenSuccessors, bool reverse) : nbForbiddenSuccessors_(nbForbiddenSuccessors), reverse_(reverse) {}
    bool operator() (const int sh1, const int sh2) {
-      return nbForbiddenSuccessors_[sh1] < nbForbiddenSuccessors_[sh2];
+      return (reverse_?-1:1)*nbForbiddenSuccessors_[sh1] < (reverse_?-1:1)*nbForbiddenSuccessors_[sh2];
    }
 private:
+   bool reverse_;
    vector<int> nbForbiddenSuccessors_;
 };
 
@@ -193,7 +195,6 @@ public:
    //
    double minAvgWorkDaysNoPenaltyTotalDays_, maxAvgWorkDaysNoPenaltyTotalDays_;
 
-
 public:
   // basic getters
   //
@@ -208,6 +209,18 @@ public:
   // basic setters
   //
   void roster(Roster &inputRoster) {roster_ = inputRoster;}
+
+  //----------------------------------------------------------------------------
+  // Methods that relate to the future capacity of a nurse
+  //----------------------------------------------------------------------------
+
+  // Compute the maximum and minimum number of working days from the input
+  // current state until the input lastDay without getting any penalty for
+  // consecutive working days/days-off
+  //
+  void computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int lastDay,
+    int &minWorkDaysNoPenaltyConsDays, int &maxWorkDaysNoPenaltyConsDays);
+
 
    //----------------------------------------------------------------------------
    // Methods that relate to the rosters of a nurse
@@ -281,6 +294,7 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 //-----------------------------------------------------------------------------
 
 enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL};
+enum Status{UNSOLVED,FEASIBLE,INFEASIBLE,OPTIMAL};
 
 class Solver{
 
@@ -295,13 +309,13 @@ public:
       Preferences* pPreferences, vector<State>* pInitState);
 
    Solver(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState, 
-      vector<double> minTotalShifts, vector<double> maxTotalShifts, 
-      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg, 
+      Preferences* pPreferences, vector<State>* pInitState,
+      vector<double> minTotalShifts, vector<double> maxTotalShifts,
+      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
-   // Main method to solve the rostering problem for a given input
-   virtual void solve() {}
+   // Main method to solve the rostering problem for a given input and an initial solution
+   virtual void solve(vector<Roster> solution = {}) {}
 
    // Should be protected (and not private) because Solver will have subclasses
 protected:
@@ -351,7 +365,7 @@ protected:
    // Penalties for values outside of [minTotalShiftsAvg_,maxTotalShiftsAvg_]
    vector<double> weightTotalShiftsAvg_;
 
-   // Number of worked week-ends below which there is no penalty for the 
+   // Number of worked week-ends below which there is no penalty for the
    // total number of working week-ends
    // This interval is computed from the max number of working week-ends averaged
    // over the number of remaining weeks
@@ -381,6 +395,13 @@ protected:
    int totalCostUnderStaffing_;
    vector3D costUnderStaffing_;
 
+   // vectors of nurses, skills and shifts that shall be sorted before running
+   // the greedy algorithms
+   //
+   vector<LiveNurse*> theNursesSorted_;
+   vector<int> shiftsSorted_;
+   vector<int> skillsSorted_;
+
 public:
 
    //------------------------------------------------
@@ -405,6 +426,10 @@ public:
    //
    bool isPreprocessedSkills_;
    bool isPreprocessedNurses_;
+
+   // Status of the solver
+   //
+   Status status_;
 
 
 public:
@@ -439,6 +464,14 @@ public:
    //
    void computeMinMaxDaysNoPenaltyConsDays();
 
+   // Compute the weights o the violation of the min/max number of working days
+   // For now, the update depends only on the initial states and on the contract
+   // of the nurses, on the number of days on the demand, on the number of weeks
+   // already treated and on the number of weeks left
+   // The required data on the nurses is mostly computed in preprocessTheNurses
+   //
+   void computeWeightsTotalShiftsForStochastic();
+
    // preprocees the skills to get their rarity
    // the value depends on the demand for this skill, on the number of nurses
    // that have the skill and on the number of skills per nurse that have the
@@ -449,6 +482,17 @@ public:
    // compute the rarity indicator for each skill
    //
    void getSkillsRarity();
+
+   // Create the vector of sorted nurses
+   // The nurses are ordered according to their position and the nurses that have
+   // the same position are shuffled
+   //
+   void sortShuffleTheNurses();
+
+   // Initialize the greedy by preprocessing all the input attributes and sorting
+   // the shifts, skills, nurses
+   //
+   void preprocessData();
 
    //------------------------------------------------
    // Postprocess functions
@@ -465,6 +509,10 @@ public:
    //------------------------------------------------
    // Display functions
    //------------------------------------------------
+
+   // return the status of the solution
+   //
+   Status getStatus() {return status_;}
 
    // return solution_
    //

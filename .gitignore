@@ -1,6 +1,3 @@
-# the main source file must be different for each developper
-src/main.cpp
-
 # binaries and compilation files
 bin/*
 obj/*
@@ -21,4 +18,3 @@ formatter*
 # for mac
 .fuse*
 
-# this file

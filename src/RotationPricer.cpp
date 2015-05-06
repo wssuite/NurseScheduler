@@ -22,7 +22,7 @@ static char* baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
-                        MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theLiveNurses_),
+                        MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theNursesSorted_),
                         master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
 {
    /* sort the nurses */
@@ -72,15 +72,15 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
          subProblem = it->second;
 
       /* Retrieves dual values */
-      vector< vector<double> > workDualCosts; workDualCosts = getWorkDualValues(pNurse);
-      vector<double> startWorkDualCosts; startWorkDualCosts = getStartWorkDualValues(pNurse);
-      vector<double> endWorkDualCosts; endWorkDualCosts = getEndWorkDualValues(pNurse);
+      vector< vector<double> > workDualCosts(getWorkDualValues(pNurse));
+      vector<double> startWorkDualCosts(getStartWorkDualValues(pNurse));
+      vector<double> endWorkDualCosts(getEndWorkDualValues(pNurse));
       double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
 
-      Costs costs (&workDualCosts, &startWorkDualCosts, &endWorkDualCosts, workedWeekendDualCost);
+      DualCosts dualCosts (workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost, true);
 
       /* Compute forbidden */
-      //computeForbiddenShifts(forbiddenShifts, rotations);
+      computeForbiddenShifts(forbiddenShifts, rotations);
 
 	   /* Solve options */
 	   vector<SolveOption> options;
@@ -91,11 +91,11 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
       optimal = false;
       //if not before fathom, generate just not penalized rotations
 	   if(true or !before_fathom){
-	      subProblem->solve(pNurse, &costs, options, forbiddenShifts, false, 8, bound);//pNurse->maxConsDaysWork());
+	      subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 8, bound);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else{
-		  subProblem->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
+		  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, true, 120, bound);
 	   }
 
 
@@ -162,7 +162,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		/* sort rotations */
       for(Rotation& rot: rotations){
          rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-         rot.computeDualCost(workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost);
+         rot.computeDualCost(dualCosts);
       }
 		std::stable_sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
 		/* add them to the master problem */
@@ -172,7 +172,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 //			cout << rot.dualCost_ << " ";
 			master_->addRotation(rot, baseName);
 			++nbRotationsAdded;
-			if(nbRotationsAdded > nbMaxRotationsToAdd_)
+			if(nbRotationsAdded >= nbMaxRotationsToAdd_)
 			   break;
 		}
 //		cout << endl;
@@ -194,7 +194,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		if(nbSubProblemSolved == nbSubProblemsToSolve_)
 		   break;
    }
-   
+
    //Add the nurse in nursesSolved at the end
    nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
@@ -221,14 +221,17 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
    double minWorkedDays = pModel_->getDual(master_->minWorkedDaysCons_[i], true);
    double maxWorkedDays = pModel_->getDual(master_->maxWorkedDaysCons_[i], true);
 
+   double minWorkedDaysAvg = master_->isMinWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->minWorkedDaysAvgCons_[i], true):0.0;
+   double maxWorkedDaysAvg = master_->isMaxWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->maxWorkedDaysAvgCons_[i], true):0.0;
+
    for(int k=0; k<pDemand_->nbDays_; ++k){
       //initialize vector
       vector<double> dualValues2(pScenario_->nbShifts_-1);
 
       for(int s=1; s<pScenario_->nbShifts_; ++s){
          /* Min/Max constraints */
-         dualValues2[s-1] = minWorkedDays;
-         dualValues2[s-1] += maxWorkedDays;
+         dualValues2[s-1] = minWorkedDays + minWorkedDaysAvg;
+         dualValues2[s-1] += maxWorkedDays + maxWorkedDaysAvg;
 
          /* Skills coverage */
          dualValues2[s-1] += pModel_->getDual(
@@ -275,14 +278,19 @@ vector<double> RotationPricer::getEndWorkDualValues(LiveNurse* pNurse){
 }
 
 double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
-   return pModel_->getDual(master_->maxWorkedWeekendCons_[pNurse->id_], true);
+  int id = pNurse->id_;
+  double dualVal = pModel_->getDual(master_->maxWorkedWeekendCons_[id], true);
+  if (master_->isMaxWorkedWeekendAvgCons_[id]) {
+    dualVal += pModel_->getDual(master_->maxWorkedWeekendAvgCons_[id], true);
+  }
+
+  return dualVal;
 }
 
 /******************************************************
  * add some forbidden shifts
  ******************************************************/
-void RotationPricer::computeForbiddenShifts(
-   set<pair<int,int>>& forbiddenShifts, vector<Rotation> rotations){
+void RotationPricer::computeForbiddenShifts(set<pair<int,int>>& forbiddenShifts, vector<Rotation> rotations){
    //search best rotation
    vector<Rotation>::iterator bestRotation(0);
    double bestDualcost = DBL_MAX;
@@ -295,7 +303,7 @@ void RotationPricer::computeForbiddenShifts(
    //forbid shifts of the best rotation
    if(bestDualcost != DBL_MAX)
       for(pair<int,int> pair: bestRotation->shifts_)
-         forbiddenShifts.insert(pair);
+            forbiddenShifts.insert(pair);
 
 }
 
@@ -492,5 +500,3 @@ void CorePriorityBranchingRule::branching_candidates(vector<MyObject*>& branchin
          branchingCandidates.push_back(var);
    }
 }
-
-

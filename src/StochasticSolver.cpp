@@ -7,6 +7,8 @@
 
 #include "StochasticSolver.h"
 #include "DemandGenerator.h"
+#include "Greedy.h"
+#include "MasterProblem.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -16,27 +18,21 @@
 //  From a given problem (number of weeks, nurses, etc.), can compute a solution.
 //
 //-----------------------------------------------------------------------------
-
-StochasticSolver::StochasticSolver(Scenario* pScenario, int nbRandomDemands, int nbDaysRandom,vector<Demand*> demandHistory):
+StochasticSolver::StochasticSolver(Scenario* pScenario, Algorithm algo):
 Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
-nbRandomDemands_(nbRandomDemands),nbDaysRandom_(nbDaysRandom),
+nbRandomDemands_(0),nbDaysRandom_(0), algorithm_(algo) {
+}
 
-maxTotalWeekendsAvg_(pScenario->nbNurses()), weightTotalWeekendsAvg_(pScenario->nbNurses()),
-minTotalShifts_(pScenario->nbNurses()), maxTotalShifts_(pScenario->nbNurses()), 
-minTotalShiftsAvg_(pScenario->nbNurses()), maxTotalShiftsAvg_(pScenario->nbNurses()), weightTotalShiftsAvg_(pScenario->nbNurses())
+StochasticSolver::StochasticSolver(Scenario* pScenario, int nbRandomDemands, int nbDaysRandom,Algorithm algo,vector<Demand*> demandHistory):
+Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
+nbRandomDemands_(nbRandomDemands),nbDaysRandom_(nbDaysRandom), algorithm_(algo)
 {
-
 	// Generate the random demand
 	// Keep in mind that the generated demand are for one week
-	DemandGenerator generator(nbRandomDemands,demandHistory,pScenario);
+	DemandGenerator generator(nbRandomDemands,nbDaysRandom,demandHistory,pScenario);
 	vector<Demand*> pRandomDemands_ = generator.generatePerturbedDemands();
-
-	// Compute the weights and bound for the total numbers of working days and
-	// week-ends
-	this->computeWeightsTotalShifts();
-
-
 }
+
 StochasticSolver::~StochasticSolver() {
 	// delete the random demands
 	while (!pRandomDemands_.empty()) {
@@ -49,60 +45,30 @@ StochasticSolver::~StochasticSolver() {
 		if (pRandomSolvers_.back()) delete pRandomSolvers_.back();
 		pRandomSolvers_.pop_back();
 	}
-} 
-
-//-----------------------------------------------------------------------------
-// Compute the weights o the violation of the min/max number of working days
-// For now, the update depends only on the initial states and on the contract
-// of the nurses, on the number of days on the demand, on the number of weeks
-// already treated and on the number of weeks left
-// The required data on the nurses is mostly computed in preprocessTheNurses
-//-----------------------------------------------------------------------------
-
-void StochasticSolver::computeWeightsTotalShifts() {
-
-	// The weights must the computed for the total demand including the random demand
-	// We thus initialize a solver with the augmented demand to preprocess the nursess
-	// with the proper demand
-	// Demand* pDemand = new Demand(pScenario_->pWeekDemand());
-	// pDemand->push_back(*pRandomDemands_.back());
-	// Solver* pSolver = new Solver(pScenario,pDemand,pScenario->pWeekPreferences(), pScenario->pInitialState());
-
-	// The nurses must be preprocessed to retrieve the information relative to the
-	// past activity of the nurses and to their capacity to work more in the future
-	if (!isPreprocessedNurses_) this->preprocessTheNurses();
-
-	// The important value to infer the importance of respecting the strict constraints 
-	// on the total number of working days/week-ends is the remaining number of days/week-ends
-	// after the demand currently treated
-	int remainingDays = 7*pScenario_->nbWeeks()-7*(pScenario_->thisWeek()+1)-nbDaysRandom_;
-	double factorRemainingDays = (double) remainingDays/(double)(7*pScenario_->nbWeeks());
-	int remainingWeekends = pScenario_->nbWeeks()-(pScenario_->thisWeek()+1)-nbDaysRandom_/7;
-	double factorRemainingWeekends = (double)remainingWeekends/(double)pScenario_->nbWeeks();
-
-	// Compute the non-penalized intervals and the associated penalties 
-	for (int n = 0; n < pScenario_->nbNurses(); n++) {
-		LiveNurse* pNurse =  theLiveNurses_[n]; 
-
-		// first compute the values relative to the average number of working days
-		// the interval is larger for the first weeks and the associated penalty is smaller
-		minTotalShiftsAvg_[n] = (1.0-factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_;
-		maxTotalShiftsAvg_[n] = (1.0+factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
-		weightTotalShiftsAvg_[n] = (1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS;
-
-		// compute the interval that must be respected to have a chance of not paying 
-		// penalties in the future
-		minTotalShifts_[n] = pNurse->minWorkDaysNoPenaltyTotalDays_;
-		maxTotalShifts_[n] = pNurse->maxWorkDaysNoPenaltyTotalDays_;
-
-		// Number of worked week-ends below which there is no penalty for the 
-	  // total number of working week-ends
-	  // This interval is computed from the max number of working week-ends averaged
-	  // over the number of remaining weeks
-	  maxTotalWeekendsAvg_[n] = factorRemainingWeekends*(double)pNurse->maxTotalWeekends();
-
-	}
 }
+
+//-----------------------------------------------------------------------------
+// Generate extended demand that includes the demand for the current week and
+// randomly generated demand for the
+//-----------------------------------------------------------------------------
+
+Solver* StochasticSolver::setSubSolverWithInputAlgorithm(Demand* pDemand) {
+
+	Solver* pSolver;
+	switch(algorithm_){
+	case GREEDY:
+		pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
+		break;
+	case GENCOL:
+		pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_BCP);
+		break;
+	default:
+		Tools::throwError("The algorithm is not handled yet");
+		break;
+	}
+	return pSolver;
+}
+
 
 //-----------------------------------------------------------------------------
 // Solve the problem
@@ -110,8 +76,43 @@ void StochasticSolver::computeWeightsTotalShifts() {
 
 void StochasticSolver::solve() {
 
-	for (Solver* pSolver:pRandomSolvers_) {
-  	pSolver->solve();
-  }
+	// create solvers with the extended demands obtained by appending the random
+	// demands to the current weekly demand
+	// for (Demand* pRandomDemand: pRandomDemands_) {
+	// 	Demand* pExtendedDemand = new Demand(*(pScenario_->pWeekDemand()));
+	// 	pExtendedDemand->push_back(pRandomDemand);
+	//
+	// 	Solver* pSolver = NULL;
+	// 	switch(algorithm_){
+	// 	case GREEDY:
+	// 		pSolver = new Greedy(pScenario_, pExtendedDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
+	// 		break;
+	// 	case GENCOL:
+	// 		pSolver = new MasterProblem(pScenario_, pExtendedDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_BCP);
+	// 		break;
+	// 	default:
+	// 		Tools::throwError("The algorithm is not handled yet");
+	// 		break;
+	// 	}
+	//
+	// 	pSolver->computeWeightsTotalShiftsForStochastic();
+	// 	pRandomSolvers_.push_back(pSolver);
+	// }
+	//
+	// for (Solver* pSolver:pRandomSolvers_) {
+  // 	pSolver->solve();
+  // }
+
+	this->solveOneWeekWithPenalties();
+
+}
+
+void StochasticSolver::solveOneWeekWithPenalties() {
+
+	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand());
+	pSolver->computeWeightsTotalShiftsForStochastic();
+	pSolver->solve();
+	solution_ = pSolver->getSolution();
+	status_ = pSolver->getStatus();
 
 }

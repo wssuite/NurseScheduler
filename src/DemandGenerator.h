@@ -34,14 +34,12 @@ using std::vector;
 class DemandGenerator{
 public:
 	// default constructor and destructor
-	DemandGenerator(int nbDemands, vector<Demand*> demands, Scenario* pScenario):
-		nbDemands_(nbDemands), demandHistory_(demands), pScenario_(pScenario) {
+	DemandGenerator(int nbDemands, int nbDays, vector<Demand*> demands, Scenario* pScenario):
+		nbDemandsToGenerate_(nbDemands), nbDaysInGeneratedDemands_(nbDays),demandHistory_(demands), pScenario_(pScenario) {
 	}
 	~DemandGenerator();
 
 public:
-	// basic getters
-	int nbDemands() {return nbDemands_;}
 
 	// check the feasibility of a demand scenario
 	bool checkDemandFeasibility(Demand* pDemand);
@@ -51,7 +49,10 @@ public:
 
 protected:
 	// number of demand scenarios that should be generated
-	int nbDemands_;
+	int nbDemandsToGenerate_;
+
+	// number of days that must be considered in each generated demand
+	int nbDaysInGeneratedDemands_;
 
 	// demand history from which the random scenarios should be generated
 	vector<Demand*> demandHistory_;

@@ -297,7 +297,7 @@ double SubProblem::consDaysCost(int n){
 //--------------------------------------------
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
-bool SubProblem::solve(LiveNurse* nurse, Costs * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts,
+bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts,
 		bool optimality, int maxRotationLength, double redCostBound){
 
 	// Set to true if you want to display contract + preferences (for debug)
@@ -876,7 +876,11 @@ void SubProblem::createArcsAllRotationSize(){
 //--------------------------------------------
 
 // Initializes some cost vectors that depend on the nurse
+<<<<<<< HEAD
 void SubProblem::initStructuresForSolve(){
+=======
+void SubProblem::initStructuresForSolve(LiveNurse* nurse, DualCosts * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength){
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
 	// Start and End weekend costs
 	//
@@ -1198,7 +1202,7 @@ void SubProblem::generateRandomCosts(double minVal, double maxVal){
 	vector<double> randomEndWorkCosts = Tools::randomDoubleVector(nDays_, minVal, maxVal);
 	double randomWorkedWeekendCost = (maxVal - minVal) * ( (double)rand() / (double)RAND_MAX ) + minVal;
 
-	pCosts_ = new Costs(randomWorkCosts, randomStartWorkCosts, randomEndWorkCosts, randomWorkedWeekendCost);
+	pCosts_ = new DualCosts(randomWorkCosts, randomStartWorkCosts, randomEndWorkCosts, randomWorkedWeekendCost);
 
 }
 
