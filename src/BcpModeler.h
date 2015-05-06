@@ -305,6 +305,8 @@ public:
    const BCP_vec<BCP_var*>& vars,
    const BCP_vec<BCP_cut*>& cuts);
 
+   static bool compareCol(const pair<int,double>& p1, const pair<int,double>& p2);
+
    //Modify parameters of the LP solver before optimization.
    //This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
    //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
