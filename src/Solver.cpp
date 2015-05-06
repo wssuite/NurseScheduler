@@ -629,6 +629,78 @@ void Solver::preprocessTheSkills() {
   isPreprocessedSkills_=true;
 }
 
+//------------------------------------------------------------------------------
+// Create the vector of sorted nurses
+// The nurses are ordered according to their position and the nurses that have
+// the same position are shuffled
+//------------------------------------------------------------------------------
+
+void Solver::sortShuffleTheNurses() {
+
+  vector<Position*> positionsSorted;
+  vector<vector<LiveNurse*>> nursePerPosition;
+
+  // first, sort the position in the order in which the nurses should be treated
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    positionsSorted.push_back(pScenario_->pPosition(p));
+  }
+  std::sort(positionsSorted.begin(),positionsSorted.end(),comparePositions);
+
+  // then organize the nurses depending on their position
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    vector<LiveNurse*> emptyVector;
+    nursePerPosition.push_back(emptyVector);
+  }
+  for (int n=0; n < pScenario_->nbNurses_; n++) {
+    LiveNurse* pNurse = theLiveNurses_[n];
+    nursePerPosition[pNurse->pPosition()->id()].push_back(pNurse);
+  }
+
+  // shuffle the nurses that have the same position
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    std::random_shuffle(nursePerPosition[p].begin(),nursePerPosition[p].end());
+  }
+
+  // fill the sorted vector of live nurses
+  theNursesSorted_.clear();
+  for (int p=0; p < pScenario_->nbPositions(); p++) {
+    int id = positionsSorted[p]->id();
+    for (int n=0; n < nursePerPosition[id].size(); n++) {
+      theNursesSorted_.push_back(nursePerPosition[id][n]);
+    }
+  }
+
+  // todo: think about sorting the nurses according to their contract, we might
+  // want to use the full-time nurses first
+}
+
+//------------------------------------------------------------------------------
+// Initialize the greedy by preprocessing all the input attributes and sorting
+// the shifts, skills, nurses
+//------------------------------------------------------------------------------
+
+void Solver::preprocessData() {
+
+  // Preprocess the attributes of the greedy solver
+  // the result of the preprocessing will be very useful to sort the attributes
+  // before greedily covering the demand
+  //
+  if (!pDemand_->isPreprocessed_) pDemand_->preprocessDemand();
+  if (!isPreprocessedSkills_) this->preprocessTheSkills();
+  if (!isPreprocessedNurses_) this->preprocessTheNurses();
+
+  // sort the skills
+  SkillSorter compareSkills(skillRarity_);
+  std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
+
+  // sort the shifts (except the shift 0 which must always be rest)
+  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
+  std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
+
+  // sort the nurses
+  sortShuffleTheNurses();
+}
+
 
 //-----------------------------------------------------------------------------
 // Compute the weights o the violation of the min/max number of working days

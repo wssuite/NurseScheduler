@@ -36,6 +36,8 @@ void testFunction_Antoine(){
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
+   //n021w4:
+   //n120w8: {3, 2}
    vector<int> numberWeek = {1, 2, 3, 3};
 
 
@@ -184,8 +186,8 @@ void testFunction_Samuel(){
       // Instantiate the solver class as a test
       //
       MasterProblem* pBCP =
-         new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP, pGreedy->getSolution());
-      pBCP->solve();
+         new MasterProblem(pScen, pWeekDemand,   pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
+      pBCP->solve(pGreedy->getSolution());
 
       // Write the solution in the required output format
       vector<string> solutions = pBCP->solutionToString(pScen->nbWeeks());
@@ -314,15 +316,22 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 
+	Solver* pInitSolver = setSolverWithInputAlgorithm(pScen, GREEDY);
+	pInitSolver->solve();
+
 	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
 
-	pSolver->solve();
+	if(pInitSolver->status_ == INFEASIBLE )
+	   pSolver->solve();
+	else
+	   pSolver->solve(pInitSolver->getSolution());
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
   Status status = pSolver->getStatus();
 	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution,status, outDir);
 
+	delete pInitSolver;
 	delete pSolver;
 	delete pScen;
 }
@@ -419,8 +428,8 @@ void testCbc(Scenario* pScen) {
   // modeler as input
   //
   MasterProblem* pMPCbc;
-  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC, pGreedy->getSolution());
-  pMPCbc->solve();
+  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC);
+  pMPCbc->solve(pGreedy->getSolution());
 
   // Write the solution in the required output format
   string outFile = "outfiles/cbctest1.out";

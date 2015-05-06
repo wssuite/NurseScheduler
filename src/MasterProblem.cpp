@@ -151,8 +151,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
 }
 
 
-void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<double> startWorkDualCosts,
-      vector<double> endWorkDualCosts, double workedWeekendDualCost){
+void Rotation::computeDualCost(DualCosts& costs){
       //check if pNurse points to a nurse
       if(pNurse_ == NULL)
          Tools::throwError("LiveNurse = NULL");
@@ -165,17 +164,17 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
 
       /* Working dual cost */
       for(int k=firstDay_; k<firstDay_+length_; ++k)
-         dualCost -= workDualCosts[k][shifts_[k]-1];
+         dualCost -= costs.dayShiftWorkCost(k, shifts_[k]-1);
       /* Start working dual cost */
-      dualCost -= startWorkDualCosts[firstDay_];
+      dualCost -= costs.startWorkCost(firstDay_);
       /* Stop working dual cost */
-      dualCost -= endWorkDualCosts[firstDay_+length_-1];
+      dualCost -= costs.endWorkCost(firstDay_+length_-1);
       /* Working on weekend */
       if(Tools::isSunday(firstDay_))
-         dualCost -= workedWeekendDualCost;
+         dualCost -= costs.workedWeekendCost();
       for(int k=firstDay_; k<firstDay_+length_; ++k)
          if(Tools::isSaturday(k))
-        	 dualCost -= workedWeekendDualCost;
+        	 dualCost -= costs.workedWeekendCost();
 
 
       // Display: set to true if you want to display the details of the cost
@@ -194,14 +193,14 @@ void Rotation::computeDualCost(vector< vector<double> > workDualCosts, vector<do
     	  cout << "#       | Initial rest      : " << initRestCost_ << endl;
 
     	  for(int k=firstDay_; k<firstDay_+length_; ++k)
-    		  cout << "#   | Work day-shift: - " << workDualCosts[k][shifts_[k]-1] << endl;
-    	  cout << "#   | Start work    : - " << startWorkDualCosts[firstDay_] << endl;
-    	  cout << "#   | Finish Work   : - " << endWorkDualCosts[firstDay_+length_-1] << endl;
+    		  cout << "#   | Work day-shift: - " << costs.dayShiftWorkCost(k, shifts_[k]-1) << endl;
+    	  cout << "#   | Start work    : - " << costs.startWorkCost(firstDay_) << endl;
+    	  cout << "#   | Finish Work   : - " << costs.endWorkCost(firstDay_+length_-1) << endl;
     	  if(Tools::isSunday(firstDay_))
-    		  cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
+    		  cout << "#   | Weekends      : - " << costs.workedWeekendCost() << endl;
     	  for(int k=firstDay_; k<firstDay_+length_; ++k)
     		  if(Tools::isSaturday(k))
-    			  cout << "#   | Weekends      : - " << workedWeekendDualCost << endl;
+    			  cout << "#   | Weekends      : - " << costs.workedWeekendCost() << endl;
     	  std::cout << "#   | ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
     	  std::cout << "#               |";
     	  vector<int> allTasks (56);
@@ -249,8 +248,7 @@ bool Rotation::compareDualCost(const Rotation& rot1, const Rotation& rot2){
 
 // Default constructor
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
-   Preferences* pPreferences, vector<State>* pInitState,
-   MySolverType solverType, vector<Roster> solution):
+   Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType):
 
    Solver(pScenario, pDemand, pPreferences, pInitState), solverType_(solverType), pPricer_(0), pRule_(0),
    positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), rotations_(pScenario->nbNurses_),
@@ -267,9 +265,6 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 {
   // build the model
   this->initializeSolver(solverType);
-
-  // input an initial solution
-  initialize(solution);
 }
 
 // Constructor that allows th introduction of penalties for stochastic approaches
@@ -318,7 +313,7 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
       pModel_ = new CbcModeler(PB_NAME);
    }
 
-   this->preprocessTheNurses();
+   this->preprocessData();
 
    /*
     * Build the two vectors linking positions and skills
@@ -376,10 +371,14 @@ void MasterProblem::build(){
 }
 
 //solve the rostering problem
-void MasterProblem::solve(){
+void MasterProblem::solve(vector<Roster> solution){
 
   // build the model first
   build();
+
+  // input an initial solution
+  initialize(solution);
+
   pModel_->writeProblem("outfiles/model.lp");
 
   // RqJO: warning, it would be better to define an enumerate type of verbosity

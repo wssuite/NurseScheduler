@@ -29,7 +29,7 @@ public:
 
 
   // Main method to solve the rostering problem for a given input
-  void solve();
+  void solve(vector<Roster> solution = {});
 
   // Constructive greedy algorithm
   // Goes through the the demands in a chronological order and assign the nurse
@@ -40,12 +40,6 @@ public:
 
 
 protected:
-  // vectors of nurses, skills and shifts that shall be sorted before running
-  // the greedy algorithms
-  //
-  vector<LiveNurse*> theNursesSorted_;
-  vector<int> shiftsSorted_;
-  vector<int> skillsSorted_;
 
   // vector defining the sequence according to which the positions should be
   // treated
@@ -116,12 +110,6 @@ private:
   // For the initialization of the constructive greedy
   //----------------------------------------------------------------------------
 
-  // Create the vector of sorted nurses
-  // The nurses are ordered according to their position and the nurses that have
-  // the same position are shuffled
-  //
-  void sortShuffleTheNurses();
-
   // Preprocess the demand to infer implicit demand on day d that is made
   // necessary by the demand on day d+1
   // For instance, assume that for a given skill sk, there is no demand for the
@@ -130,12 +118,6 @@ private:
   // two nurses with skill sk are either resting or taking the shift Early on day d
   //
   void computeImplicitDemand();
-
-  // Initialize the greedy by preprocessing all the input attributes and sorting
-  // the shifts, skills, nurses
-  //
-  void initializeConstructive();
-
 
 
 };

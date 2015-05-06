@@ -195,7 +195,6 @@ public:
    //
    double minAvgWorkDaysNoPenaltyTotalDays_, maxAvgWorkDaysNoPenaltyTotalDays_;
 
-
 public:
   // basic getters
   //
@@ -315,8 +314,8 @@ public:
       vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
-   // Main method to solve the rostering problem for a given input
-   virtual void solve() {}
+   // Main method to solve the rostering problem for a given input and an initial solution
+   virtual void solve(vector<Roster> solution = {}) {}
 
    // Should be protected (and not private) because Solver will have subclasses
 protected:
@@ -395,6 +394,13 @@ protected:
    //
    int totalCostUnderStaffing_;
    vector3D costUnderStaffing_;
+
+   // vectors of nurses, skills and shifts that shall be sorted before running
+   // the greedy algorithms
+   //
+   vector<LiveNurse*> theNursesSorted_;
+   vector<int> shiftsSorted_;
+   vector<int> skillsSorted_;
 
 public:
 
@@ -476,6 +482,17 @@ public:
    // compute the rarity indicator for each skill
    //
    void getSkillsRarity();
+
+   // Create the vector of sorted nurses
+   // The nurses are ordered according to their position and the nurses that have
+   // the same position are shuffled
+   //
+   void sortShuffleTheNurses();
+
+   // Initialize the greedy by preprocessing all the input attributes and sorting
+   // the shifts, skills, nurses
+   //
+   void preprocessData();
 
    //------------------------------------------------
    // Postprocess functions
