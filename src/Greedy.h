@@ -106,6 +106,18 @@ private:
   double bestStatesBlock_rec(LiveNurse &nurse, vector<State> &statesBlock,
     vector<int> &shifts, vector<int> &skills, int dayFirst,int nbUnassigned, double costIni);
 
+  //----------------------------------------------------------------------------
+  // For the initialization of the constructive greedy
+  //----------------------------------------------------------------------------
+
+  // Preprocess the demand to infer implicit demand on day d that is made
+  // necessary by the demand on day d+1
+  // For instance, assume that for a given skill sk, there is no demand for the
+  // shift Early on day d, and a demand of 2 on day d+1 for the same shift. Then,
+  // Due to the list of forbidden successor, it is then necessary that at least
+  // two nurses with skill sk are either resting or taking the shift Early on day d
+  //
+  void computeImplicitDemand();
 
 
 };

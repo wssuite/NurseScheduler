@@ -138,5 +138,4 @@ int main(int argc, char** argv)
 
       // Todo: delete the demand history (careful of not deleting current demand twice)
    }
-
 }

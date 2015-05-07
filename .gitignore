@@ -1,3 +1,6 @@
+# source files whose changes must remain local
+src/main.cpp
+
 # binaries and compilation files
 bin/*
 obj/*

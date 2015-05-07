@@ -394,6 +394,8 @@ void MasterProblem::solve(vector<Roster> solution){
    pModel_->printBestSol();
    storeSolution();
    costsConstrainstsToString();
+
+   status_ = FEASIBLE;
 }
 //
 //initialize the rostering problem with one column to be feasible if there is no initial solution

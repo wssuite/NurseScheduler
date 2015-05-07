@@ -73,7 +73,7 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm);
 // When a solution of multiple consecutive weeks is available, load it in a
 // solver for all the weeks and  display the results
 void displaySolutionMultipleWeeks(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, string outPath="");
+	int historyIndex, vector<int> weekIndices, vector<Roster> &solution, Status status, string outPath="");
 
 // Compute and record stats on all the demand files of all the instances in the
 // input directory

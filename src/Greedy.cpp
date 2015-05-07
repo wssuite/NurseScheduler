@@ -645,8 +645,7 @@ void Greedy::assignBestNursesToTask(int day, int sh, int sk, int demand,
 bool Greedy::constructiveGreedy() {
 
   int nbDays = pDemand_->nbDays_, firstDay = pDemand_->firstDay_;
-  int nbShifts = pScenario_->nbShifts_;
-  int nbSkills = pScenario_->nbSkills_, nbNurses = pScenario_->nbNurses_;
+  int nbNurses = pScenario_->nbNurses();
 
   // initialize the algorithm by sorting the input data
   // the order of construction of the solution is essential in a constructive
@@ -664,10 +663,10 @@ bool Greedy::constructiveGreedy() {
     }
     int nbUnassigned = nbNurses;
 
-    // RqJO : l'ordre des skills/shifts pourrait etre change pour commencer par
-    // ceux qui sont les plus critiques
-    for (int sh:shiftsSorted_) { // recall that shift 0 is rest
-      for (int sk:skillsSorted_) {
+    // the skills are sorted to include the rarest first, we go through the
+    // skills firts because they are the critical characteristic of the demand
+    for (int sk:skillsSorted_) {
+      for (int sh:shiftsSorted_) {
 
         // demand for the task
         int demand = pDemand_->minDemand_[day][sh][sk];
@@ -850,7 +849,64 @@ void Greedy::solve(vector<Roster> solution) {
      status_ = INFEASIBLE;
     std::cout << "Greedy: the constructive algorithm was unable to find a solution\n";
   }
-  else{
+	else{
      status_ = FEASIBLE;
+  }
+}
+
+
+//------------------------------------------------------------------------------
+// Preprocess the demand to infer implicit demand on day d that is made
+// necessary by the demand on day d+1
+// For instance, assume that for a given skill sk, there is no demand for the
+// shift Early on day d, and a demand of 2 on day d+1 for the same shift. Then,
+// Due to the list of forbidden successor, it is then necessary that at least
+// two nurses with skill sk are either resting or taking the shift Early on day d
+//------------------------------------------------------------------------------
+void Greedy::computeImplicitDemand() {
+
+  int nbDays = pDemand_->nbDays_;
+  int nbShifts = pScenario_->nbShifts(), nbSkills=pScenario_->nbSkills();
+
+  // get the vector of allowed predecessor for each skill
+  vector<int> nbAllowedPredecessors(pScenario_->nbShifts(),0);
+  vector<vector<int>> allowedPredecessors(pScenario_->nbShifts());
+  for (int shNext = 0; shNext < nbShifts; shNext++) {
+    for (int shPrev = 1; shPrev < nbShifts; shPrev++) {
+      if (!pScenario_->isForbiddenSuccessor(shNext, shPrev)) {
+        nbAllowedPredecessors[shNext]++;
+        allowedPredecessors[shNext].push_back(shPrev);
+      }
+    }
+  }
+
+  for (int sh = 0; sh < nbShifts; sh++) {
+    ShiftSorter compareShifts(nbAllowedPredecessors, true);
+    std::stable_sort(allowedPredecessors[sh].begin(),allowedPredecessors[sh].end(),compareShifts);
+  }
+
+  // the implicit demand must be constructed end to beginning
+  vector3D implicitDemand;
+  Tools::initVector3D(&implicitDemand,nbDays,nbShifts,nbSkills,0);
+  vector3D demandTmp = pDemand_->minDemand_;
+
+  for (int day= nbDays-1; day > 0; day--) {
+    for (int sh:shiftsSorted_) {
+      for (int sk = 0; sk < nbSkills; sk++) {
+        // if all every shift is a potential predecessor, there is no implicit
+        // demand, so the value of implicitDemand is left to zero
+        if (nbAllowedPredecessors[sh] >= nbShifts-1) continue;
+
+        implicitDemand[day-1][sh][sk] = pDemand_->minDemand_[day][sh][sk];
+        for (int i=0; i < nbAllowedPredecessors[sh]; i++) {
+          if (implicitDemand[day-1][sh][sk] <= 0) break;
+
+          int shPrev = allowedPredecessors[sh][i];
+          int demand = std::min(implicitDemand[day-1][sh][sk],demandTmp[day-1][shPrev][sk]);
+          implicitDemand[day-1][sh][sk] -= demand;
+          demandTmp[day-1][shPrev][sk] -= demand;
+        }
+      }
+    }
   }
 }

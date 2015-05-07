@@ -667,7 +667,7 @@ protected:
 	// FUNCTIONS -- SOLVE
 	//
 	// Initializes some cost vectors that depend on the nurse
-	void initStructuresForSolve(LiveNurse* nurse, DualCosts * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength);
+	void initStructuresForSolve();
 	// Resets all solutions data (rotations, number of solutions, etc.)
 	void resetSolutions();
 	// Transforms the solutions found into proper rotations. Returns true if at least one has been added
@@ -798,6 +798,18 @@ protected:
 	  // to specify the memory management strategy for the labels
 	  Label_Allocator /*la*/,
 	  Visitor vis );
+
+
+
+
+
+	//----------------------------------------------------------------
+	//
+	// Greedy heuristic for the shortest path problem with resource
+	// constraints.
+	//
+	//----------------------------------------------------------------
+	bool solveHeuristic();
 
 
 
