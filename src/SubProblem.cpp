@@ -876,11 +876,7 @@ void SubProblem::createArcsAllRotationSize(){
 //--------------------------------------------
 
 // Initializes some cost vectors that depend on the nurse
-<<<<<<< HEAD
 void SubProblem::initStructuresForSolve(){
-=======
-void SubProblem::initStructuresForSolve(LiveNurse* nurse, DualCosts * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength){
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
 	// Start and End weekend costs
 	//
