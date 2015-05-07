@@ -74,7 +74,7 @@ Solver* StochasticSolver::setSubSolverWithInputAlgorithm(Demand* pDemand) {
 // Solve the problem
 //-----------------------------------------------------------------------------
 
-void StochasticSolver::solve() {
+void StochasticSolver::solve(vector<Roster> solution) {
 
 	// create solvers with the extended demands obtained by appending the random
 	// demands to the current weekly demand
