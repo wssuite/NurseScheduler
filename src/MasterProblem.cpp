@@ -384,8 +384,10 @@ void MasterProblem::solve(vector<Roster> solution){
   // RqJO: warning, it would be better to define an enumerate type of verbosity
   // levels and create the matching in the Modeler subclasses
   if (solverType_ != S_CBC ) {
-    pModel_->setMaxSolvingtime(12000);
+//    pModel_->setMaxSolvingtime(12000);
     pModel_->setVerbosity(1);
+    if (!minTotalShiftsAvg_.empty() || !maxTotalShiftsAvg_.empty() || !weightTotalShiftsAvg_.empty())
+       pModel_->setAbsoluteGap(0);
   }
    pModel_->solve();
    pModel_->printStats();

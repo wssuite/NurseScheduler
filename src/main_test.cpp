@@ -38,10 +38,11 @@ void testFunction_Antoine(){
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
    //n021w4:
    //n120w8: {3, 2}
-   vector<int> numberWeek = {1, 2, 3, 3};
+   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
 
 
-   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+//   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+   testMultipleWeeksStochastic(data, inst, 0, numberWeek, STOCHASTIC_GENCOL, "outfiles/");
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -255,22 +256,14 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 
-	Solver* pInitSolver = setSolverWithInputAlgorithm(pScen, GREEDY);
-	pInitSolver->solve();
-
 	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
-
-	if(pInitSolver->status_ == INFEASIBLE )
-	   pSolver->solve();
-	else
-	   pSolver->solve(pInitSolver->getSolution());
+	pSolver->solve();
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
   Status status = pSolver->getStatus();
 	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution,status, outDir);
 
-	delete pInitSolver;
 	delete pSolver;
 	delete pScen;
 }
@@ -424,6 +417,9 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
   case STOCHASTIC_GREEDY:
     pSolver = new StochasticSolver(pScen, GREEDY);
     break;
+  case STOCHASTIC_GENCOL:
+      pSolver = new StochasticSolver(pScen, GENCOL);
+      break;
 	default:
 		Tools::throwError("The algorithm is not handled yet");
 		break;

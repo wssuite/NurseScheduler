@@ -346,13 +346,15 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    pModel_->logical_fixing(fixingCandidates);
 
    if(branchingCandidates.size() == 0){
+      bool notIntegerCol = false;
       for(CoinVar* col: pModel_->getColumns()){
          double value = pModel_->getVarValue(col);
-         if(value < EPSILON || value > 1 - EPSILON)
-            continue;
+         if(value < EPSILON || value > 1 - EPSILON) continue;
+         notIntegerCol = true;
          cout << "Var " << col->name_ << " = " << value << endl;
       }
-      Tools::throwError("Solution is not integer and no branching variable is found.");
+      if(notIntegerCol)  Tools::throwError("Solution is not integer and no branching variable is found.");
+      return BCP_DoNotBranch_Fathomed;
    }
 
    CoinVar* integrCoreVar = dynamic_cast<CoinVar*>(branchingCandidates[0]);
