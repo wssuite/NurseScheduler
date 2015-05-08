@@ -300,49 +300,82 @@ double SubProblem::consDaysCost(int n){
 bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, vector<SolveOption> options, set<pair<int,int> > forbiddenDayShifts,
 		bool optimality, int maxRotationLength, double redCostBound){
 
-	// Set to true if you want to display contract + preferences (for debug)
-	if(false){
-		std::cout << "# Preferences:" << endl;
-		for(map<int,set<int> >::iterator it = nurse->pWishesOff_->begin(); it != nurse->pWishesOff_->end(); ++it){
-			cout <<  "      | " << it->first << "  ->  ";
-			for(int s : it->second) cout << pScenario_->intToShift_[s];
-			cout << endl;
-		}
-		std::cout << "# Contract :   ";
-		for(int s=1; s<pScenario_->nbShifts_; s++){
-			std::cout << pScenario_->intToShift_[s] << " [" << pScenario_->minConsShifts_[s] << "<" << pScenario_->maxConsShifts_[s] << "]   ";
-		}
-		std::cout << std::endl;
-		std::cout << "# " << std::endl;
-		std::cout << "# " << std::endl;
-	}
 
 	bestReducedCost_ = 0;
-	setSolveOptions(options);															// Get the parameters informations
+	setSolveOptions(options);												// Get the parameters informations
 	maxRotationLength_ = min(nDays_+maxOngoingDaysWorked_, max(pContract_->maxConsDaysWork_, maxRotationLength));// Maximum rotation length
-	maxReducedCostBound_ = redCostBound - EPSILON;										// Cost bound
-	pLiveNurse_ = nurse;																// Reset the nurse
-	pCosts_ = costs;																	// Reset the costs
-	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();					// Reset authorizations if needed
-	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();							// Delete all previous solutions if needed
-	set<pair<int,int> > forbiddenDayShiftsUsed = forbiddenDayShifts;					// Forbidden shifts
+	maxReducedCostBound_ = redCostBound - EPSILON;							// Cost bound
+	pLiveNurse_ = nurse;													// Reset the nurse
+	pCosts_ = costs;														// Reset the costs
+	if(isOptionActive(SOLVE_FORBIDDEN_RESET)) resetAuthorizations();		// Reset authorizations if needed
+	if(isOptionActive(SOLVE_SOLUTIONS_RESET)) resetSolutions();				// Delete all previous solutions if needed
+	set<pair<int,int> > forbiddenDayShiftsUsed = forbiddenDayShifts;		// Forbidden shifts
 	if(isOptionActive(SOLVE_FORBIDDEN_RANDOM))
-		forbiddenDayShiftsUsed = randomForbiddenShifts(25);								// If needed, Generate random forbidden
-	initStructuresForSolve();															// Initialize structures
-	if(isOptionActive(SOLVE_COST_RANDOM)) generateRandomCosts(-50,50);					// If needed, generate other costs
-	forbid(forbiddenDayShifts);															// Forbid arcs
-	updateArcCosts();																	// Update costs
+		forbiddenDayShiftsUsed = randomForbiddenShifts(25);					// If needed, Generate random forbidden
+	initStructuresForSolve();												// Initialize structures
+	if(isOptionActive(SOLVE_COST_RANDOM)) generateRandomCosts(-50,50);		// If needed, generate other costs
+	nLongFound_=0;															// Initialize number of solutions found at 0 (long rotations)
+	nVeryShortFound_=0;														// Initialize number of solutions found at 0 (short rotations)
+	forbid(forbiddenDayShifts);												// Forbid arcs
 
+	if(false) printContractAndPrefenrences();								// Set to true if you want to display contract + preferences (for debug)
 
-	// SOLUTION OF THE PROBLEM -> DEPENDS ON THE CHOSEN OPTION
+	bool ANS_short = solveShortRotations();
+	bool ANS_long = solveLongRotations(optimality);
+
+	if(isOptionActive(SOLVE_COST_RANDOM)) delete pCosts_;
+
+	return ANS_short or ANS_long;
+
+}
+
+// For the short rotations, depends on the chosen option + on wether we want optimality (more important)
+bool SubProblem::solveShortRotations(){
 	bool ANS = false;
-	bool tmp_ANS;
+	if(isOptionActive(SOLVE_SHORT_DAY_0_AND_LAST_ONLY)){
+		bool tmp_ANS = priceVeryShortRotationsFirstDay();
+		bool tmp_ANS2 = priceVeryShortRotationsLastDay();
+		ANS = tmp_ANS2 or ANS or tmp_ANS;
+	}
+	else if(isOptionActive(SOLVE_SHORT_DAY_0_ONLY)){
+		bool tmp_ANS = priceVeryShortRotationsFirstDay();
+		ANS = ANS or tmp_ANS;
+	}
+	else if(isOptionActive(SOLVE_SHORT_LAST_ONLY)){
+		bool tmp_ANS = priceVeryShortRotationsLastDay();
+		ANS = ANS or tmp_ANS;
+	}
+	else if(isOptionActive(SOLVE_SHORT_ALL)){
+		bool tmp_ANS = priceVeryShortRotations();
+		ANS = ANS or tmp_ANS;
+	}
+	else if(isOptionActive(SOLVE_SHORT_NONE)) {}
+	else {
+		cout << "# INVALID / OBSOLETE OPTION FOR SHORT ROTATIONS" << endl;
+		getchar();
+		return false;
+	}
+	return ANS;
+}
+
+// For the long rotations, depends wether we want optimality or not
+bool SubProblem::solveLongRotations(bool optimality){
+	if(optimality){
+		updateArcCosts();						// Update costs
+		return solveLongRotationsOptimal();		// Solve shortest path problem
+	}
+	else
+		return solveLongRotationsHeuristic();	// Generate new rotations with greedy
+}
+
+// Function called when optimal=true in the arguments of solve -> shortest path problem is to be solved
+bool SubProblem::solveLongRotationsOptimal(){
+
 	vector< vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
 	vector<spp_spptw_res_cont> pareto_opt_rcs_spptw;
-	nLongFound_=0;
-	nVeryShortFound_=0;
 
-	// "Original way of doing" = pareto optimal for the whole month
+	// ONE SINGLE SINK FOR ALL DAYS
+	//
 	if(isOptionActive(SOLVE_SINGLE_SINKNODE)){
 		r_c_shortest_paths(
 				g_,
@@ -357,19 +390,16 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, vector<SolveOption> 
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
-
-		tmp_ANS = addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
-		ANS = tmp_ANS or ANS;
-
+		return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 	}
-	// Gather all the pareto-fronts that correspond to the different last worked days
-	else if(isOptionActive(SOLVE_ONE_SINK_PER_LAST_DAY)){
 
+	// ONE SINK FOR EACH DAY
+	//
+	else if(isOptionActive(SOLVE_ONE_SINK_PER_LAST_DAY)){
 		std::vector<boost::graph_traits<Graph>::vertex_descriptor> allSinks;
 		for(int k=CDMin_-1; k<nDays_; k++){
 			allSinks.push_back( sinkNodesByDay_[k] );
 		}
-
 		r_c_shortest_paths_several_sinks(
 				g_,
 				get( &Vertex_Properties::num, g_ ),
@@ -383,46 +413,14 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, vector<SolveOption> 
 				dominance_spptw(),
 				std::allocator< boost::r_c_shortest_paths_label< Graph, spp_spptw_res_cont> >(),
 				boost::default_r_c_shortest_paths_visitor() );
-
-		tmp_ANS = addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
-		ANS = tmp_ANS or ANS;
-
+		return addRotationsFromPaths(opt_solutions_spptw, pareto_opt_rcs_spptw);
 	}
+
 	else {
 		cout << "# INVALID / OBSOLETE OPTION FOR NUMBER OF SINK(S) IN THE NETWORK" << endl;
 		getchar();
 		return false;
 	}
-
-	// ALL THAT CONCERNS THE SHORT ROTATIONS IS HERE
-	//
-	if(isOptionActive(SOLVE_SHORT_DAY_0_AND_LAST_ONLY)){
-		tmp_ANS = priceVeryShortRotationsFirstDay();
-		bool tmp_ANS2 = priceVeryShortRotationsLastDay();
-		ANS = tmp_ANS2 or ANS or tmp_ANS;
-	}
-	else if(isOptionActive(SOLVE_SHORT_DAY_0_ONLY)){
-		tmp_ANS = priceVeryShortRotationsFirstDay();
-		ANS = ANS or tmp_ANS;
-	}
-	else if(isOptionActive(SOLVE_SHORT_LAST_ONLY)){
-		tmp_ANS = priceVeryShortRotationsLastDay();
-		ANS = ANS or tmp_ANS;
-	}
-	else if(isOptionActive(SOLVE_SHORT_ALL)){
-		tmp_ANS = priceVeryShortRotations();
-		ANS = ANS or tmp_ANS;
-	}
-	else if(isOptionActive(SOLVE_SHORT_NONE)) {}
-	else {
-		cout << "# INVALID / OBSOLETE OPTION FOR SHORT ROTATIONS" << endl;
-		getchar();
-		return false;
-	}
-
-	//cout << "#             " << (nVeryShortFound_ + nLongFound_) << " rotation(s) found   ->  " << nVeryShortFound_ << " SHORT + " << nLongFound_ << " LONG" << endl;
-	return ANS;
-
 }
 
 // Store the options in a readable way
@@ -876,11 +874,7 @@ void SubProblem::createArcsAllRotationSize(){
 //--------------------------------------------
 
 // Initializes some cost vectors that depend on the nurse
-<<<<<<< HEAD
 void SubProblem::initStructuresForSolve(){
-=======
-void SubProblem::initStructuresForSolve(LiveNurse* nurse, DualCosts * costs, set<pair<int,int> > forbiddenDayShifts, int maxRotationLength){
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
 	// Start and End weekend costs
 	//
@@ -1202,7 +1196,8 @@ void SubProblem::generateRandomCosts(double minVal, double maxVal){
 	vector<double> randomEndWorkCosts = Tools::randomDoubleVector(nDays_, minVal, maxVal);
 	double randomWorkedWeekendCost = (maxVal - minVal) * ( (double)rand() / (double)RAND_MAX ) + minVal;
 
-	pCosts_ = new DualCosts(randomWorkCosts, randomStartWorkCosts, randomEndWorkCosts, randomWorkedWeekendCost);
+	bool doNotCopy = false;
+	pCosts_ = new DualCosts(randomWorkCosts, randomStartWorkCosts, randomEndWorkCosts, randomWorkedWeekendCost, doNotCopy);
 
 }
 
@@ -1472,7 +1467,6 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 		int newShift = succ[k-startDate];
 		if(newShift == shift){
 			consShifts ++;
-			shift = newShift;
 		} else {
 			consShiftsRegCost += consShiftCost(shift,consShifts);
 			consShifts = 1;
@@ -1538,7 +1532,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 		cout << "#                      ~TOTAL~ : " << ANS << endl;
 		cout << "#+---------------------------------------------+" << endl;
 		cout << "# " << endl;
-		getchar();
+		//getchar();
 	}
 
 	return ANS;
@@ -1975,89 +1969,199 @@ void SubProblem::r_c_shortest_paths_dispatch_several_sinks( const Graph& g,
 // constraints.
 //
 //----------------------------------------------------------------
-bool SubProblem::solveHeuristic(){
-/*
-	int nFound = 0;
+bool SubProblem::solveLongRotationsHeuristic(){
 
-	// SPECIAL CASE OF THE FIRST DAY
+	// ALL OTHER DAYS
 	//
-	// TODO: IMPLEMENTER CETTE PARTIE LA, EVENTUELLEMENT APPELER LA FONCTION DE SHORT SUCC POUR FIRST DAY, EST PEUT-ETRE SUFFISANT POUR UNE HEURISTIQUE ?
-	//       MAIS ATTENTION: VERIFIER QU'IL N'Y A PAS BESOIN D'INITIALISATION DES ARCS OU AUTRE POUR CETTE FONCTION LA.
-
-
-	for(int startDate=1; startDate<nDays_; startDate ++){
+	int nFound = 0;
+	for(int startDate=1; startDate<nDays_-CDMin_; startDate ++){
 
 		vector<int> bestSucc;
 		double bestCost = 0;
-		int currentDate = startDate;
+		int currentDate = startDate -1;
 		int length = 0;
 		int lastSh = 0;
 		int nConsShift = 0;
+		bool hasFoundBetter = true;
 
-		bool mustExtend = true;
+		// Try to extend the rotation as long as it is of negative reduced cost AND does not exceed the maximum length allowed
+		//
+		while(hasFoundBetter and length < maxRotationLength_-1 and currentDate < nDays_-1){
+			hasFoundBetter = false;
 
-		while(mustExtend){
-
-			mustExtend = false;
-
-			// INITIALISATION FOR 1-DAY ROTATION -> TO BE PRICED
+			// Initialization, rotations of length CDMin_ (so that all rotations generated are long)
 			//
 			if(length == 0){
-				double bestCost1Day = 0;
-				vector<int> bestSucc1Day;
-				for(int newSh=0; newSh<pScenario_->nbShifts_; newSh++){
-					vector<int> succ; succ.push_back(newSh);
-					double potentialCost = costOfVeryShortRotation(startDate,succ);
-					if(potentialCost < bestCost1Day){
-						bestSucc1Day.clear();
-						bestSucc1Day.push_back(newSh);
-						bestCost1Day = potentialCost;
-						mustExtend = true;
+				double bestCostCDMinDays = 0;
+				vector<int> bestSuccCDMinDays;
+				for(int newSh=1; newSh<pScenario_->nbShifts_; newSh++){
+					for(int i=0; i<allowedShortSuccBySize_[CDMin_].size(); i++){
+						vector<int> succ = allowedShortSuccBySize_[CDMin_][i];
+						double potentialCost = costOfVeryShortRotation(startDate,succ);
+						// Store the rotation if it is good
+						if(potentialCost < maxReducedCostBound_){
+							vector<int> succToStore = succ;
+							Rotation rot (startDate, succToStore, pLiveNurse_, MAX_COST, potentialCost);
+							nPaths_ ++;
+							theRotations_.push_back(rot);
+							nLongFound_ ++;
+							nFound ++;
+							bestReducedCost_ = min(bestReducedCost_, rot.dualCost_);
+						}
+						// Chose to extend that one if it is the best
+						if(potentialCost < bestCostCDMinDays){
+							bestSuccCDMinDays = succ;
+							bestCostCDMinDays = potentialCost;
+							hasFoundBetter = true;
+						}
+
 					}
 				}
-				if(mustExtend){
-					bestSucc = bestSucc1Day;
-					bestCost = bestCost1Day;
-					lastSh = bestSucc[0];
-					nConsShift = 1;
-					length = 1;
-					currentDate++;
-					nFound ++;		// Only needs to be updated here: IF a rotation of length 1 has been found, then one will be found (maybe after extension).
+
+				// If a good one has been found -> make it the basis for the next extension
+				if(hasFoundBetter){
+					bestSucc = bestSuccCDMinDays;
+					bestCost = bestCostCDMinDays;
+					lastSh = bestSucc[CDMin_-1];
+					length = CDMin_;
+					currentDate = currentDate + CDMin_;
+					nConsShift = 0;
+					while(bestSucc[bestSucc.size()-nConsShift-1] == lastSh) nConsShift ++;
 				}
+				continue;
 			}
 
-			// OTHER CASES: EXTENDING THE ROTATION
+			// OTHER CASES: EXTEND THE ROTATION
 			//
 			else{
 
-				for(int newSh=0; newSh<pScenario_->nbShifts_; newSh++){
+				int bestNewShift;
+				double bestNewCost = bestCost;
+				hasFoundBetter = false;
+
+				for(int newSh=1; newSh<pScenario_->nbShifts_; newSh++){
+					double potentialCost = bestCost;
 
 					// If the succession is allowed -> try to extend the rotation
-					if(!pScenario_->isForbiddenSuccessor(newSh,lastSh)){
+					if(!pScenario_->isForbiddenSuccessor(newSh,lastSh) and !isDayShiftForbidden(currentDate+1,newSh)){
 
-						// REG COST: CONSECUTIVE SHIFTS
+						// REGULAR COSTS
+						//
+
+						// REG COST: CONSECUTIVE SHIFTS -> if last day + too short, totally cancel that cost !!
+						if(currentDate < nDays_-2){
+							if(newSh==lastSh){
+								potentialCost -= consShiftCost(lastSh,nConsShift);
+								potentialCost += consShiftCost(lastSh,nConsShift+1);
+							} else{
+								potentialCost += consShiftCost(newSh,1);
+							}
+						}
+						// Last day:
+						else {
+							if(newSh == lastSh){
+								potentialCost -= consShiftCost(lastSh,nConsShift);
+								if(newSh == lastSh and nConsShift+1 > pScenario_->maxConsShifts_[newSh])
+									potentialCost += consShiftCost(lastSh,nConsShift+1);
+							}
+						}
+
+						// if last day + too short -> cancel the previous cost:
+
+
 						// REG COST: CONSECUTIVE DAYS
+						potentialCost -= consDaysCost(length);
+						if(currentDate < nDays_-2 or length + 1 >= pContract_->minConsDaysWork_){
+							potentialCost += consDaysCost(length+1);
+						}
+
 						// REG COST: COMPLETE WEEKENDS ?
-						// REG COST: PREFERENCES ?
+						if(pContract_->needCompleteWeekends_){
+							if(Tools::isSaturday(currentDate+1)) potentialCost += WEIGHT_COMPLETE_WEEKEND;
+							if(Tools::isSunday(currentDate+1)) potentialCost -= WEIGHT_COMPLETE_WEEKEND;
+						}
+
+						// REG COST: PREFERENCES
+						if(pLiveNurse_->wishesOff(currentDate+1,newSh)) potentialCost += WEIGHT_PREFERENCES;
+
+
+						// DUAL COSTS
+						//
 
 						// RED COST: WEEKEND
+						if(Tools::isSaturday(currentDate+1)) potentialCost -= pCosts_->workedWeekendCost();
+
 						// RED COST: FIRST DAY -> no need here because already in the beginning
+
 						// RED COST: LAST DAY
+						potentialCost += pCosts_->endWorkCost(currentDate);
+						potentialCost -= pCosts_->endWorkCost(currentDate+1);
+
 						// RED COST: DAY-SHIFT
+						potentialCost -= pCosts_->dayShiftWorkCost(currentDate+1,newSh-1);
 
+
+						if(false){
+							cout << "# COST COMPUTATION for extension to " << startDate << "-";
+							for(int i=0; i<bestSucc.size(); i++) cout << (pScenario_->intToShift_[bestSucc[i]])[0];
+							cout << (pScenario_->intToShift_[newSh])[0] << endl;
+							cout << "#    Previous: " << bestCost << endl;
+							cout << "#          -=: " << consShiftCost(lastSh,nConsShift) << " + " << consShiftCost(lastSh,nConsShift+1) << endl;
+							cout << "#          +=: " << consShiftCost(newSh,1) << endl;
+							cout << "#          -=: " << consDaysCost(length) << " + " << consDaysCost(length+1) << endl;
+							cout << "#          +=: ";
+							if(pContract_->needCompleteWeekends_){
+								if(Tools::isSaturday(currentDate+1)) cout << WEIGHT_COMPLETE_WEEKEND;
+								if(Tools::isSunday(currentDate+1)) cout << " - " << WEIGHT_COMPLETE_WEEKEND;
+							}
+							cout << endl;
+							cout << "#          +=: ";
+							if(pLiveNurse_->wishesOff(currentDate+1,newSh)) cout << WEIGHT_PREFERENCES;
+							cout << endl;
+							cout << "#          -=: ";
+							if(Tools::isSaturday(currentDate+1)) cout << pCosts_->workedWeekendCost();
+							cout << endl;
+							cout << "#          +=: " << pCosts_->endWorkCost(currentDate) << " - " << pCosts_->endWorkCost(currentDate+1) << endl;
+							cout << "#          -=: " << pCosts_->dayShiftWorkCost(currentDate+1,newSh-1) << endl;
+						}
+
+						// CHECK IF CAN BE ADDED
+						//
+						if(potentialCost < maxReducedCostBound_){
+							vector<int> succToStore = bestSucc;
+							succToStore.push_back(newSh);
+							Rotation rot (startDate, succToStore, pLiveNurse_, MAX_COST, potentialCost);
+							nPaths_ ++;
+							theRotations_.push_back(rot);
+							nLongFound_ ++;
+							nFound ++;
+							bestReducedCost_ = min(bestReducedCost_, rot.dualCost_);
+						}
+
+						// CHECK IF BETTER THAN PREVIOUS ONE
+						//
+						if(potentialCost < bestNewCost){
+							bestNewShift = newSh;
+							bestNewCost = potentialCost;
+							hasFoundBetter = true;
+						}
 					}
-
-
 				}
 
-
-
+				// Update the rotation for the next step
+				//
+				if(hasFoundBetter){
+					bestSucc.push_back(bestNewShift);
+					bestCost = bestNewCost;
+					currentDate ++;
+					length ++;
+					nConsShift = (lastSh == bestNewShift) ? (nConsShift+1) : 1;
+					lastSh = bestNewShift;
+				}
 			}
 		}
 	}
-	*/
-
-	return false;
+	return nFound > 0;
 }
 
 
@@ -2370,6 +2474,24 @@ void SubProblem::printActiveSolveOptions(){
 			std::cout << "#     | " << solveOptionName[i] << std::endl;
 	}
 }
+
+// Print the contract type + preferences
+void SubProblem::printContractAndPrefenrences(){
+	std::cout << "# Preferences:" << endl;
+	for(map<int,set<int> >::iterator it = pLiveNurse_->pWishesOff_->begin(); it != pLiveNurse_->pWishesOff_->end(); ++it){
+		cout <<  "      | " << it->first << "  ->  ";
+		for(int s : it->second) cout << pScenario_->intToShift_[s];
+		cout << endl;
+	}
+	std::cout << "# Contract :   ";
+	for(int s=1; s<pScenario_->nbShifts_; s++){
+		std::cout << pScenario_->intToShift_[s] << " [" << pScenario_->minConsShifts_[s] << "<" << pScenario_->maxConsShifts_[s] << "]   ";
+	}
+	std::cout << std::endl;
+	std::cout << "# " << std::endl;
+	std::cout << "# " << std::endl;
+}
+
 
 
 

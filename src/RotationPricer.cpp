@@ -89,68 +89,75 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 
 	   /* Solve subproblems */
       optimal = false;
+
+
+//	  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false , 120, bound);
+
+//      if(!subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 120, bound)){
+		  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, true , 120, bound);
+//      }
+
+      /*
       //if not before fathom, generate just not penalized rotations
-	   if(true or !before_fathom){
+	   if(!before_fathom){
 	      subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 8, bound);//pNurse->maxConsDaysWork());
 	   }
 	   //otherwise, generate all rotations of negative cost
 	   else{
 		  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, true, 120, bound);
 	   }
+	   */
 
 
-	   /* BEGIN - Samuel DEBUG */
+
+      /* BEGIN - Samuel SPEED TEST */
+
 /*
-       SubProblem * spNew = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
-	   if(!before_fathom)
-		   spNew->solve(pNurse, &costs, options, forbiddenShifts, false, 500, bound);
-	   else
-		   spNew->solve(pNurse, &costs, options, forbiddenShifts, true, 120, bound);
+      vector<SolveOption> options_short_first_and_last;
+      options_short_first_and_last.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+      options_short_first_and_last.push_back(SOLVE_SHORT_DAY_0_AND_LAST_ONLY);
+
+      vector<SolveOption> options_short_all;
+      options_short_all.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
+      options_short_all.push_back(SOLVE_SHORT_ALL);
+
+      cout << endl;
+
+      Tools::Timer* timerHeuristic = new Tools::Timer();
+      timerHeuristic->init();
+      timerHeuristic->start();
+      for (int nrun = 0; nrun < 1000; nrun ++){
+    	  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 120, bound);
+      }
+      timerHeuristic->stop();
+      cout << "# HEURISTIC                         : " << timerHeuristic->dSinceInit() << " s." ;
+      cout << " (" << subProblem->nPaths() << " rotations found)"<< endl;
 
 
+      Tools::Timer* timerOptimal = new Tools::Timer();
+      timerOptimal->init();
+      timerOptimal->start();
+      for (int nrun = 0; nrun < 1000; nrun ++){
+    	  subProblem->solve(pNurse, &dualCosts, options_short_first_and_last, forbiddenShifts, true, 120, bound);
+      }
+      timerOptimal->stop();
+      cout << "# SHORTEST PATH (shorts last+first) : " << timerOptimal->dSinceInit() << " s." ;
+      cout << " (" << subProblem->nPaths() << " rotations found)"<< endl;
 
-	   vector<Rotation> rotsOld = subProblem->getRotations();
-	   vector<Rotation> rotsNew = spNew->getRotations();
+      Tools::Timer* timerOptimalShortAll = new Tools::Timer();
+      timerOptimalShortAll->init();
+      timerOptimalShortAll->start();
+      for (int nrun = 0; nrun < 1000; nrun ++){
+    	  subProblem->solve(pNurse, &dualCosts, options_short_all, forbiddenShifts, true, 120, bound);
+      }
+      timerOptimalShortAll->stop();
+      cout << "# SHORTEST PATH (all shorts)        : " << timerOptimalShortAll->dSinceInit() << " s." ;
+      cout << " (" << subProblem->nPaths() << " rotations found)"<< endl;
 
-	   if(rotsOld.size() != rotsNew.size()){
-		   // Comparison of the results of both
-		   cout << "# " << endl;
-		   cout << "# +----------------------------------+";
-		   cout << "# Number of short paths found : " << endl;
-		   cout << "#       | Re-used SP : " << subProblem->nVeryShortFound() << endl;
-		   cout << "#       | Created SP : " << spNew->nVeryShortFound() << endl;
-		   cout << "# Number of long paths found  : " << endl;
-		   cout << "#       | Re-used SP : " << subProblem->nLongFound() << endl;
-		   cout << "#       | Created SP : " << spNew->nLongFound() << endl;
-		   cout << "# Re-used network: " << rotsOld.size() << " != " << rotsNew.size() << "New network" << endl;
-		   getchar();
-		   cout << "# +----------------------------------+";
-		   cout << "# " << endl;
-	   } else {
-		   //cout << "# Same number of rotations found" << endl;
-		   int nDiffCost = 0, nDiffDualCost = 0;
-		   for(int i=0; i<rotsOld.size(); i++){
-			   Rotation r1 = rotsOld[i], r2 = rotsNew[i];
-			   r1.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-			   r2.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-			   if(r1.cost_ != r2.cost_) nDiffCost ++;
-			   if(r1.dualCost_ != r2.dualCost_) nDiffDualCost ++;
-		   }
-		   if(nDiffCost > 0 or nDiffDualCost > 0){
-			   if(nDiffCost > 0) cout << "# N different cost : " << nDiffCost << endl;
-			   if(nDiffDualCost > 0) cout << "# N different dual cost : " << nDiffDualCost << endl;
-			   cout << "# +----------------------------------+";
-			   cout << "# " << endl;
-			   getchar();
-		   }
-	   }
-
+      cout << endl;
 */
 
-
-
-
-	   /* END - Samuel DEBUG */
+      /* END - Samuel SPEED TEST */
 
 
 	   /*
@@ -169,13 +176,11 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		int nbRotationsAdded = 0;
 		double best;
 		for(Rotation& rot: rotations){
-//			cout << rot.dualCost_ << " ";
 			master_->addRotation(rot, baseName);
 			++nbRotationsAdded;
 			if(nbRotationsAdded >= nbMaxRotationsToAdd_)
 			   break;
 		}
-//		cout << endl;
 
 
       //count if the subproblem has generated some rotations and then store the nurse
