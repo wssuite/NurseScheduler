@@ -107,7 +107,7 @@ vector<vector<double> > randomDoubleVector2D(int m, int n, double minVal, double
 // Appends the values of v2 to at the end of v1
 //
 template < typename T >
-vector<T> appendVectors(vector<T> v1, vector<T> v2){
+vector<T> appendVectors(vector<T> & v1, vector<T> & v2){
 	vector<T> ANS;
 	for(int i=0; i<v1.size(); i++) ANS.push_back(v1[i]);
 	for(int i=0; i<v2.size(); i++) ANS.push_back(v2[i]);

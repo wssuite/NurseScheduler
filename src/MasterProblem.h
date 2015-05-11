@@ -31,12 +31,18 @@ enum CostType {TOTAL_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST, COMPLETE_WEE
 struct DualCosts{
 public:
 
-   DualCosts(vector< vector<double> > & workCosts, vector<double> & startWorkCosts, vector<double> & endWorkCosts, double workedWeekendCost, bool isRandom):
-      workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
+   DualCosts(vector< vector<double> > & workCosts, vector<double> & startWorkCosts, vector<double> & endWorkCosts, double workedWeekendCost, bool doNotCopy = true):
+      workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {
 
-   // CONSTRUCTOR NOT TO BE USED, ONLY FOR RANDOM GENERATED COSTS...
-   DualCosts(vector< vector<double> >  workCosts, vector<double> startWorkCosts, vector<double> endWorkCosts, double workedWeekendCost):
-      workedWeekendCost_(workedWeekendCost),  workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts) {}
+	   if(!doNotCopy){
+		   workCosts_.clear();
+		   workCosts_ = Tools::appendVectors(workCosts_, workCosts);
+		   startWorkCosts_.clear();
+		   startWorkCosts_ = Tools::appendVectors(startWorkCosts_, startWorkCosts);
+		   endWorkCosts_.clear();
+		   endWorkCosts_ = Tools::appendVectors(endWorkCosts_, endWorkCosts);
+	   }
+   }
 
    // GETTERS
    //
@@ -49,16 +55,16 @@ public:
 protected:
 
    // Indexed by : (day, shift) !! 0 = shift 1 !!
-    const vector< vector<double> > & workCosts_;
+    vector< vector<double> > & workCosts_;
 
     // Indexed by : day
-    const vector<double> & startWorkCosts_;
+    vector<double> & startWorkCosts_;
 
     // Indexed by : day
-    const vector<double> & endWorkCosts_;
+    vector<double> & endWorkCosts_;
 
     // Reduced cost of the weekends
-    const double workedWeekendCost_;
+    double workedWeekendCost_;
 
 };
 

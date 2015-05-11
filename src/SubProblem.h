@@ -666,6 +666,14 @@ protected:
 
 	// FUNCTIONS -- SOLVE
 	//
+
+	bool solveLongRotations(bool optimality);
+	bool solveShortRotations();
+
+	// Function called when optimal=true in the arguments of solve
+	bool solveLongRotationsOptimal();
+	bool solveLongRotationsHeuristic();
+
 	// Initializes some cost vectors that depend on the nurse
 	void initStructuresForSolve();
 	// Resets all solutions data (rotations, number of solutions, etc.)
@@ -805,18 +813,6 @@ protected:
 
 	//----------------------------------------------------------------
 	//
-	// Greedy heuristic for the shortest path problem with resource
-	// constraints.
-	//
-	//----------------------------------------------------------------
-	bool solveHeuristic();
-
-
-
-
-
-	//----------------------------------------------------------------
-	//
 	// Utilities functions
 	//
 	//----------------------------------------------------------------
@@ -848,6 +844,7 @@ public:
 	void printForbiddenDayShift();
 	void printShortArcs();
 	void printActiveSolveOptions();
+	void printContractAndPrefenrences();
 
 
 };
