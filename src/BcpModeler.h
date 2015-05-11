@@ -21,6 +21,7 @@
 #include "BCP_USER.hpp"
 #include "BCP_solution.hpp"
 #include "OsiClpSolverInterface.hpp"
+#include "CoinSearchTree.hpp"
 
 /*
  * My Variables
@@ -140,41 +141,68 @@ vector<double> coeffs_; //value of these coefficients
 
 struct BcpNode{
 
-   BcpNode(): index_(0), bestLB_(DBL_MAX), pParent_(0), pNurse_(0), day_(0), rest_(false), pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
+   BcpNode(): index_(0), bestLB_(DBL_MAX), pParent_(0), highestGap_(0), pNurse_(0), day_(0), rest_(false), pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
    BcpNode(int index, BcpNode* pParent, vector<MyObject*>& columns):
-      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent),
+      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
       columns_(columns), pNurse_(0), day_(0), rest_(false),
       pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
-   BcpNode(int index, BcpNode* pParent, Nurse* pNurse, int day, bool rest):
-      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent),
-      pNurse_(pNurse), day_(day), rest_(rest),
+   BcpNode(int index, BcpNode* pParent, LiveNurse* pNurse, int day, bool rest, vector<MyObject*>& restArcs):
+      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
+      pNurse_(pNurse), day_(day), rest_(rest), restArcs_(restArcs),
       pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
    BcpNode(int index, BcpNode* pParent, CoinVar* var, double lb, double ub):
-      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent),
+      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
       pNurse_(0), day_(0), rest_(false),
       pNumberOfNurses_(var), lb_(lb), ub_(ub) {}
    virtual ~BcpNode() {}
 
    const int index_;
-   double bestLB_;
 
    //parent
    BcpNode* pParent_;
 
-   //children
-   vector<BcpNode*> children_;
+   inline void pushBackChild(BcpNode* child){
+      children_.push_back(child);
+   }
+
+   inline void updateBestLB(double newLB){
+      bestLB_ = newLB;
+      //if not root
+      if(pParent_){
+         double gap = bestLB_ - pParent_->bestLB_;
+         if(gap > pParent_->highestGap_) pParent_->highestGap_ = gap;
+      }
+   }
+
+   inline double getHighestGap(){
+      //if root, it is the best
+      if(!pParent_)
+         return DBL_MAX;
+
+      //otherwise compare the current gap
+      return pParent_->highestGap_ ;
+   }
 
    //vector of the columns on which we have branched. Can be empty
    const vector<MyObject*> columns_;
 
    //nurse and day on which we have branched for rest or work. pNurse_ can be 0
-   const Nurse* pNurse_;
+   const LiveNurse* pNurse_;
    const int day_;
    const bool rest_;
+   vector<MyObject*> restArcs_;
 
    //number of nurse on which we have branched. pNumberOfNurses_ can be 0
-   CoinVar* pNumberOfNurses_;
-   double lb_, ub_;
+   const CoinVar* pNumberOfNurses_;
+   const double lb_, ub_;
+
+protected:
+   double bestLB_;
+   //highest gap between the bestLB_ and the computed bestLB_ of the children
+   double highestGap_;
+
+   //children
+   vector<BcpNode*> children_;
 };
 
 class BcpModeler: public CoinModeler {
@@ -270,45 +298,80 @@ public:
 
    inline double getLastObj(){ return obj_history_[obj_history_.size()-1]; }
 
-   inline void updateNodeLB(double lb){ currentNode_->bestLB_ = lb; }
+   /*
+    * Manage the storage of our own tree
+    */
+   inline void updateNodeLB(double lb){ currentNode_->updateBestLB(lb); }
 
    inline void pushBackNewNode(){
-         tree_.push_back(new BcpNode);
+         pushBackNode(new BcpNode);
       }
 
    inline void pushBackNewNode(CoinVar* var, double lb, double ub){
       BcpNode* node = new BcpNode(tree_.size(), currentNode_, var, lb, ub);
-      tree_.push_back(node);
-      currentNode_->children_.push_back(node);
+      pushBackNode(node);
    }
 
-   inline void pushBackNewNode(Nurse* pNurse, int day, bool rest){
-      BcpNode* node = new BcpNode(tree_.size(), currentNode_, pNurse, day, rest);
-      tree_.push_back(node);
-      currentNode_->children_.push_back(node);
+   inline void pushBackNewNode(LiveNurse* pNurse, int day, bool rest, vector<MyObject*> restArcs){
+      BcpNode* node = new BcpNode(tree_.size(), currentNode_, pNurse, day, rest, restArcs);
+      pushBackNode(node);
    }
 
    inline void pushBackNewNode(vector<MyObject*>& columns){
       BcpNode* node = new BcpNode(tree_.size(), currentNode_, columns);
+      pushBackNode(node);
+   }
+
+   inline void pushBackNode(BcpNode* node){
       tree_.push_back(node);
-      currentNode_->children_.push_back(node);
+      if(currentNode_)
+         currentNode_->pushBackChild(node);
    }
 
    inline  void addForbidenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbidenShifts) {
       BcpNode* node = currentNode_;
+      vector<MyObject*> arcs;
       while(node->pParent_){
          if(node->pNurse_ == pNurse && node->rest_)
-            for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)
+            for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i){
                forbidenShifts.insert(pair<int,int>(node->day_, i));
+               arcs.insert(arcs.end(), node->restArcs_.begin(), node->restArcs_.end());
+            }
          node = node->pParent_;
       }
+      for(int i=0; i<arcs.size(); ++i)
+         cout << arcs[i]->name_ << " " << getVarValue(arcs[i]) << endl;
    }
 
-   inline void setCurrentNode(int index) { currentNode_ = tree_[index]; }
+   inline void setCurrentNode(const CoinTreeSiblings* s) {
+      currentNode_ = getNode(s);
+   }
+
+   inline void addToMapping(const CoinTreeSiblings* s) {
+      const int nbLeaves = s->size(), size = tree_.size();
+      vector<BcpNode*> leaves(nbLeaves);
+      for(int i=0; i<nbLeaves; ++i) leaves[i] = tree_[size - nbLeaves + i];
+      treeMapping_.insert(pair<const CoinTreeSiblings*, vector<BcpNode*> >(s, leaves));
+      //finally update the current node for the moment. Will not change if diving
+      currentNode_ = tree_[size - nbLeaves];
+   }
+
+   inline BcpNode* getNode(const CoinTreeSiblings* s) {
+      int size = s->size();
+      int nodeIndex = size - s->toProcess();
+      //just for the root
+      if(s->toProcess() == 0)
+         nodeIndex = 0;
+      return treeMapping_[s][nodeIndex];
+   }
 
    inline void pushBackBranchingCons(BcpBranchCons* cons){ branchingCons_.push_back(cons); }
 
    inline vector<BcpBranchCons*>& getBranchingCons(){ return branchingCons_; }
+
+   /*
+    * Parameters getters
+    */
 
    inline  map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
@@ -317,6 +380,9 @@ public:
 protected:
    //branching tree
    vector<BcpNode*> tree_;
+   //mapping between the CoinTreeSiblings* and my BcpNode*
+   //a sibblings contains a list of all its leaves CoinTreeNode
+   map<const CoinTreeSiblings*, vector<BcpNode*>> treeMapping_;
    //current node
    BcpNode* currentNode_;
    //best lb in root
@@ -625,6 +691,20 @@ public:
    // various initializations before a new phase (e.g., pricing strategy)
    void init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates);
 
+   //override current method
+   //WARNINGS: if not, BCP loads automatically a CoinSearchTree<CoinSearchTreeCompareDepth> in new solution()
+//   void
+//   BCP_tm_user::change_candidate_heap(CoinSearchTreeManager& candidates,
+//                  const bool new_solution)
+//   {
+//       if (new_solution) {
+//      candidates.newSolution(p->ub());
+//       } else {
+//      candidates.reevaluateSearchStrategy();
+//       }
+//   }
+   void change_candidate_heap(CoinSearchTreeManager& candidates, const bool new_solution) {}
+
    // set search strategy
    //Values: 0 (BCP_BestFirstSearch), 1 (BCP_BreadthFirstSearch), 2 (BCP_DepthFirstSearch).
    void set_search_strategy(){
@@ -638,6 +718,8 @@ public:
       case DepthFirstSearch:
          set_param(BCP_tm_par::TreeSearchStrategy, 2);
          break;
+      default:
+         break;
       }
    }
 
@@ -645,6 +727,55 @@ protected:
    BcpModeler* pModel_;
    int nbInitialColumnVars_;
    double minGap_;
+};
+
+template<class Comp> class MyCoinSearchTree: public CoinSearchTreeBase {
+public:
+   MyCoinSearchTree(BcpModeler* pModel): CoinSearchTreeBase(), pModel_(pModel), comp_() {}
+   MyCoinSearchTree(const MyCoinSearchTree& t) :
+      CoinSearchTreeBase(), comp_(), pModel_(t.pModel_) {
+      candidateList_ = t.getCandidates();
+      numInserted_ = t.numInserted();
+      size_ = t.size();
+   }
+   virtual ~MyCoinSearchTree() {}
+   const char* compName() const { return Comp::name(); }
+
+protected:
+   /*
+    * Tree: allow to update our own tree
+    */
+
+   void realpop() {
+//      //just put a value as the first element has been already deleted
+//      candidateList_[0] = candidateList_[candidateList_.size()-1];
+//      //update quality
+//      for(CoinTreeSiblings* s: this->candidateList_){
+//         double q = pModel_->getNode(s)->getHighestGap();
+//         s->currentNode()->setQuality(q);
+//      }
+      //reorder the list with the new quality
+      //we dont use a heap
+      std::stable_sort(candidateList_.begin()+1, candidateList_.end(), comp_);
+      //copy the best candidate at the first place
+      candidateList_[0] = candidateList_.back();
+      //and remove the last item
+      candidateList_.pop_back();
+      /* update the current node of the modeler */
+      pModel_->setCurrentNode(this->candidateList_[0]);
+   }
+
+   void fixTop() { }
+
+   void realpush(CoinTreeSiblings* s) {
+      //add the current node to the BcpModeler
+      pModel_->addToMapping(s);
+      this->candidateList_.push_back(s);
+   }
+
+private:
+   BcpModeler* pModel_;
+   Comp comp_;
 };
 
 /*

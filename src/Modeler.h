@@ -36,7 +36,7 @@ enum VarType {VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY};
  * Rule Search Strategy
  */
 
-enum SearchStrategy { BestFirstSearch, BreadthFirstSearch, DepthFirstSearch };
+enum SearchStrategy { BestFirstSearch, BreadthFirstSearch, DepthFirstSearch, HighestGapFirst };
 
 /*
  * My Modeling objects
@@ -84,7 +84,7 @@ struct MyPricer{
  * My branching rule
  */
 struct MyBranchingRule{
-   MyBranchingRule(const char* name): name_(name), searchStrategy_(DepthFirstSearch) { }
+   MyBranchingRule(const char* name): name_(name), searchStrategy_(BestFirstSearch) { }
    virtual ~MyBranchingRule() { }
 
    //name of the branching rule handler
@@ -409,9 +409,9 @@ public:
 
    inline SearchStrategy getSearchStrategy(){ return searchStrategy_; }
 
-   inline void setLastBranchingRest(pair<Nurse*, int> lastBranchingRest){ lastBranchingRest_ = lastBranchingRest; }
+   inline void setLastBranchingRest(pair<LiveNurse*, int> lastBranchingRest){ lastBranchingRest_ = lastBranchingRest; }
 
-   inline pair<Nurse*, int> getLastBranchingRest() { return lastBranchingRest_; }
+   inline pair<LiveNurse*, int> getLastBranchingRest() { return lastBranchingRest_; }
 
 protected:
    //store all MyObject*
@@ -423,7 +423,7 @@ protected:
    MyBranchingRule* pBranchingRule_;
 
    int verbosity_ = 0;
-   SearchStrategy searchStrategy_ = DepthFirstSearch;
+   SearchStrategy searchStrategy_ = BestFirstSearch;
    //best current upper bound found
    double best_ub;
    //maximal solving time in s
@@ -432,7 +432,7 @@ protected:
    //the difference between two solution costs is at lest 5
    double relativeGap_, absoluteGap_;
    //strore the last branching decisions
-   pair<Nurse*, int> lastBranchingRest_;
+   pair<LiveNurse*, int> lastBranchingRest_;
 };
 
 

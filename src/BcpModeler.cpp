@@ -135,7 +135,6 @@ bool BcpLpModel::compareCol(const pair<int,double>& p1, const pair<int,double>& 
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
    if(current_index() != last_node){
       last_node = current_index();
-      pModel_->setCurrentNode(current_index());
       printSummaryLine();
    }
 }
@@ -255,12 +254,12 @@ void BcpLpModel::TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col
 
       //create a new array which will be deleted by ~BCP_col()
       int* indexRows = new int[size];
-      vector<int> index = var->getIndexRows();
+      vector<int>& index = var->getIndexRows();
       copy(index.begin(), index.end(), indexRows);
 
       //create a new array which will be deleted by ~BCP_col()
       double* coeffRows = new double[size];
-      vector<double> coeffs = var->getCoeffRows();
+      vector<double>& coeffs = var->getCoeffRows();
       copy(coeffs.begin(), coeffs.end(), coeffRows);
 
       cols.unchecked_push_back(
@@ -476,7 +475,7 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
       }
 
       /* create the day off */
-      pair<Nurse*, int> dayOff = pModel_->getLastBranchingRest();
+      pair<LiveNurse*, int> dayOff = pModel_->getLastBranchingRest();
 
       //creating the branching cut
       char name[50];
@@ -488,9 +487,11 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
          indexes.push_back(var2->getIndex());
          coeffs.push_back(1);
       }
+      //create a new BcpBranchCons which will be deleted by BCP
       BcpBranchCons* cons = new BcpBranchCons(name, pModel_->getCons().size()+pModel_->getBranchingCons().size(),
          0, 1, indexes, coeffs);
       new_cuts.push_back(cons);
+      //create our own new BcpBranchCons
       pModel_->pushBackBranchingCons(new BcpBranchCons(*cons));
 
       /* bounds of the cut */
@@ -500,11 +501,11 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
       }
       cbd.push_back(0); cbd.push_back(0);
       /* update tree */
-      pModel_->pushBackNewNode(dayOff.first, dayOff.second, true);
+      pModel_->pushBackNewNode(dayOff.first, dayOff.second, true, coreVars);
 
       cbd.push_back(1); cbd.push_back(1);
       /* update tree */
-      pModel_->pushBackNewNode(dayOff.first, dayOff.second, false);
+      pModel_->pushBackNewNode(dayOff.first, dayOff.second, false, coreVars);
 
       //creates the nodes
 
@@ -583,19 +584,19 @@ const BCP_lp_result&   lpres, //solution to the current LP relaxation (IN)
 BCP_object_origin origin, //where the cuts come from (IN)
 bool  allow_multiple) //whether multiple expansion, i.e., lifting, is allowed (IN)
 {
-   if(origin == BCP_Object_Branching){
-      for(BCP_cut* cut: cuts){
-         BcpBranchCons* branchingCut = dynamic_cast<BcpBranchCons*>(cut);
-         if(!cut)
-            Tools::throwError("Should be a branching cut.");
+   rows.reserve(cuts.size());
+   for(BCP_cut* cut: cuts){
+      BcpBranchCons* branchingCut = dynamic_cast<BcpBranchCons*>(cut);
+      if(!cut)
+         Tools::throwError("Should be a branching cut.");
 
-         int size = branchingCut->getIndexCols().size();
-         int* elementIndices = new int[size];
-         copy(branchingCut->getIndexCols().begin(), branchingCut->getIndexCols().end(), elementIndices);
-         double* elementValues = new double[size];
-         copy(branchingCut->getCoeffCols().begin(), branchingCut->getCoeffCols().end(), elementValues);
-         rows.push_back( new BCP_row(size, elementIndices, elementValues, branchingCut->getLhs(), branchingCut->getRhs()) );
-      }
+      //create new arrays which will be deleted by ~BCP_row()
+      const int size = branchingCut->getIndexCols().size();
+      int* elementIndices = new int[size];
+      copy(branchingCut->getIndexCols().begin(), branchingCut->getIndexCols().end(), elementIndices);
+      double* elementValues = new double[size];
+      copy(branchingCut->getCoeffCols().begin(), branchingCut->getCoeffCols().end(), elementValues);
+      rows.unchecked_push_back( new BCP_row(size, elementIndices, elementValues, branchingCut->getLhs(), branchingCut->getRhs()) );
    }
 }
 
@@ -617,7 +618,6 @@ BcpBranchingTree::BcpBranchingTree(BcpModeler* pModel):
 void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
    BCP_vec<BCP_cut_core*>& cuts, BCP_lp_relax*& matrix){
    // initialize tm parameters
-   set_search_strategy();
    set_param(BCP_tm_par::TmVerb_SingleLineInfoFrequency, pModel_->getFrequency());
    if (pModel_->getMaxSolvingtime() < DBL_MAX)
       set_param(BCP_tm_par::MaxRunTime, pModel_->getMaxSolvingtime());
@@ -682,20 +682,29 @@ void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
 
    //store the solution
    pModel_->addBcpSol(sol);
-
-   if(pModel_->getSearchStrategy() == DepthFirstSearch){
-      double lb = min(lower_bound(), pModel_->getBestLb());
-      double gap = ( sol->objective_value() - lb ) / lb;
-      if(gap > 0 && gap < minGap_){
-         pModel_->setSearchStrategy(BestFirstSearch);
-         set_search_strategy();
-      }
-   }
 }
 
-// various initializations before a new phase (e.g., pricing strategy)
+// various initializations before a new phase (e.g., branching strategy)
 void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, CoinSearchTreeBase*& candidates) {
    colgen = BCP_GenerateColumns;
+//   CoinSearchTreeCompareHighestIncrease::pModel = pModel_;
+   switch(pModel_->getSearchStrategy()){
+         case BestFirstSearch:
+            set_param(BCP_tm_par::TreeSearchStrategy, 0);
+            candidates = new MyCoinSearchTree<CoinSearchTreeCompareBest>(pModel_);
+            break;
+         case BreadthFirstSearch:
+            set_param(BCP_tm_par::TreeSearchStrategy, 1);
+            candidates = new MyCoinSearchTree<CoinSearchTreeCompareBreadth>(pModel_);
+            break;
+         case DepthFirstSearch:
+            set_param(BCP_tm_par::TreeSearchStrategy, 2);
+            candidates = new MyCoinSearchTree<CoinSearchTreeCompareDepth>(pModel_);
+            break;
+         default:
+            candidates = new MyCoinSearchTree<CoinSearchTreeCompareBest>(pModel_);
+            break;
+         }
 }
 
 /*
@@ -706,7 +715,8 @@ BcpModeler::BcpModeler(const char* name):
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
    best_lb_in_root(1000000), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 {
-   tree_.push_back(new BcpNode);
+   //create the root
+   pushBackNewNode();
 }
 
 //solve the model

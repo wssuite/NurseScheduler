@@ -370,10 +370,10 @@ void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandida
 void DiveBranchingRule::branchOnRestingArcs(vector<MyObject*>& branchingCandidates){
    //set of rest variable closest to .5
    int bestDay = -1;
-   Nurse* pBestNurse(0);
+   LiveNurse* pBestNurse(0);
    double bestValue = DBL_MAX;
 
-   for(Nurse* pNurse: master_->theLiveNurses_)
+   for(LiveNurse* pNurse: master_->theLiveNurses_)
       for(int k=0; k<master_->pDemand_->nbDays_; ++k){
          double value = 0;
          //choose the set of arcs the closest to .5
@@ -396,10 +396,11 @@ void DiveBranchingRule::branchOnRestingArcs(vector<MyObject*>& branchingCandidat
          }
       }
 
-   for(MyObject* var: master_->getRestsPerDay(pBestNurse)[bestDay])
-      branchingCandidates.push_back(var);
+   if(pBestNurse>0)
+      for(MyObject* var: master_->getRestsPerDay(pBestNurse)[bestDay])
+         branchingCandidates.push_back(var);
 
-   master_->pModel_->setLastBranchingRest(pair<Nurse*, int>(pBestNurse, bestDay));
+   master_->pModel_->setLastBranchingRest(pair<LiveNurse*, int>(pBestNurse, bestDay));
 }
 
 /* branch on the number of nurses */
