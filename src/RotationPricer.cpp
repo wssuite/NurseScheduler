@@ -81,6 +81,8 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 
       /* Compute forbidden */
       computeForbiddenShifts(forbiddenShifts, rotations);
+      set<pair<int,int> > nurseForbiddenShifts(forbiddenShifts);
+      pModel_->addForbidenShifts(pNurse, nurseForbiddenShifts);
 
 	   /* Solve options */
 	   vector<SolveOption> options;
@@ -356,8 +358,48 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
 }
 
 void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
-   //search all candidates
+   branchOnRestingArcs(branchingCandidates);
+}
 
+/* branch on a set of resting arcs */
+void DiveBranchingRule::branchOnRestingArcs(vector<MyObject*>& branchingCandidates){
+   //set of rest variable closest to .5
+   int bestDay = -1;
+   Nurse* pBestNurse(0);
+   double bestValue = DBL_MAX;
+
+   for(Nurse* pNurse: master_->theLiveNurses_)
+      for(int k=0; k<master_->pDemand_->nbDays_; ++k){
+         double value = 0;
+         //choose the set of arcs the closest to .5
+         for(MyObject* var: master_->getRestsPerDay(pNurse)[k])
+            value += pModel_->getVarValue(var);
+
+         //The value has to be not integer
+         if(value < EPSILON || value > 1 - EPSILON)
+            continue;
+
+         double frac = value - floor(value);
+         double closeTo5 = abs(0.5-frac);
+
+         if(closeTo5 < bestValue){
+            bestDay = k;
+            pBestNurse = pNurse;
+            bestValue = closeTo5;
+            if(closeTo5<EPSILON)
+               break;
+         }
+      }
+
+   for(MyObject* var: master_->getRestsPerDay(pBestNurse)[bestDay])
+      branchingCandidates.push_back(var);
+
+   master_->pModel_->setLastBranchingRest(pair<Nurse*, int>(pBestNurse, bestDay));
+}
+
+/* branch on the number of nurses */
+void DiveBranchingRule::branchOnNumberOfNurses(vector<MyObject*>& branchingCandidates){
+   //search all candidates
    if(mediumCandidates_.size() == 0)
       for(MyObject* var: pModel_->getIntegerCoreVars()){
          string str2 = "nursesNumber";

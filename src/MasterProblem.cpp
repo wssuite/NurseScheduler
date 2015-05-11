@@ -250,8 +250,10 @@ bool Rotation::compareDualCost(const Rotation& rot1, const Rotation& rot2){
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType):
 
-   Solver(pScenario, pDemand, pPreferences, pInitState), solverType_(solverType), pPricer_(0), pRule_(0),
-   positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), rotations_(pScenario->nbNurses_),
+   Solver(pScenario, pDemand, pPreferences, pInitState),
+   solverType_(solverType), pModel_(0), pPricer_(0), pRule_(0),
+   positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()),
+   rotations_(pScenario->nbNurses_), restsPerDay_(pScenario->nbNurses_), solvingTime(INT_MAX),
 
    columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
    minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
@@ -276,8 +278,9 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 
    Solver(pScenario, pDemand, pPreferences, pInitState, minTotalShifts, maxTotalShifts,
    	minTotalShiftsAvg, maxTotalShiftsAvg, weightTotalShiftsAvg, maxTotalWeekendsAvg, weightTotalWeekendsAvg),
-   solverType_(solverType), pPricer_(0), pRule_(0),
-   positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), rotations_(pScenario->nbNurses_),
+   solverType_(solverType), pModel_(0), pPricer_(0), pRule_(0),
+   positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()),
+   rotations_(pScenario->nbNurses_), restsPerDay_(pScenario->nbNurses_), solvingTime(INT_MAX),
 
    columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
    minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
@@ -570,6 +573,7 @@ void MasterProblem::buildRotationCons(){
       int const nbRestingArcs( pDemand_->nbDays_- indexStartRestArc );
 
       //initialize vectors
+      vector< vector< MyObject* > > restsPerDay2(pDemand_->nbDays_);
       vector< MyObject* > restingVars2(nbRestingArcs);
       vector< vector<MyObject*> > longRestingVars2(pDemand_->nbDays_);
       vector<MyObject*> restFlowCons2(pDemand_->nbDays_);
@@ -599,6 +603,9 @@ void MasterProblem::buildRotationCons(){
                sprintf(name, "longRestingVars_N%d_%d_%d", i, 0, l);
                pModel_->createPositiveVar(&longRestingVars3_0[l-1], name, cost+rot.cost_);
                rotations_[i].insert(pair<MyObject*,Rotation>(longRestingVars3_0[l-1], rot));
+               //add this resting arc for each day of rest
+               for(int k1=0; k1<l; ++k1)
+                  restsPerDay2[k1].push_back(longRestingVars3_0[l-1]);
             }
 
             //create maxRest arcs, if maxRest=true
@@ -607,6 +614,9 @@ void MasterProblem::buildRotationCons(){
                   sprintf(name, "longRestingVars_N%d_%d_%d", i, 0, l);
                   pModel_->createPositiveVar(&longRestingVars3_0[l-1], name, rot.cost_);
                   rotations_[i].insert(pair<MyObject*,Rotation>(longRestingVars3_0[l-1], rot));
+                  //add this resting arc for each day of rest
+                  for(int k1=0; k1<l; ++k1)
+                     restsPerDay2[k1].push_back(longRestingVars3_0[l-1]);
                }
             }
 
@@ -615,6 +625,8 @@ void MasterProblem::buildRotationCons(){
                sprintf(name, "restingVars_N%d_%d_%d", i, 0, 1);
                pModel_->createPositiveVar(&longRestingVars3_0[0], name, (maxRest) ? WEIGHT_CONS_DAYS_OFF+rot.cost_ : rot.cost_);
                rotations_[i].insert(pair<MyObject*,Rotation>(longRestingVars3_0[0], rot));
+               //add this resting arc for the first day of rest
+               restsPerDay2[0].push_back(longRestingVars3_0[0]);
             }
             //store vectors
             longRestingVars2[0] = longRestingVars3_0;
@@ -634,6 +646,7 @@ void MasterProblem::buildRotationCons(){
 
             //create minRest arcs
             for(int l=1; l<=minConsDaysOff; ++l){
+               bool doBreak = false;
                cost -= WEIGHT_CONS_DAYS_OFF;
                sprintf(name, "longRestingVars_N%d_%d_%d", i, k, k+l);
                //if arc ends before the last day: normal cost
@@ -643,8 +656,13 @@ void MasterProblem::buildRotationCons(){
                //so: cost=0 and we break the loop
                else{
                   pModel_->createPositiveVar(&longRestingVars3[l-1], name, 0);
-                  break;
+                  doBreak = true;
                }
+               //add this resting arc for each day of rest
+               for(int k1=k; k1<k+l; ++k1)
+                  restsPerDay2[k1].push_back(longRestingVars3[l-1]);
+               if(doBreak)
+                  break;
             }
             //create maxRest arcs, if maxRest=true
             if(maxRest)
@@ -654,6 +672,9 @@ void MasterProblem::buildRotationCons(){
                      break;
                   sprintf(name, "longRestingVars_N%d_%d_%d", i, k, k+l);
                   pModel_->createPositiveVar(&longRestingVars3[l-1], name, 0);
+                  //add this resting arc for each day of rest
+                  for(int k1=k; k1<k+l; ++k1)
+                     restsPerDay2[k1].push_back(longRestingVars3[l-1]);
                }
             //store vectors
             longRestingVars2[k] = longRestingVars3;
@@ -664,6 +685,8 @@ void MasterProblem::buildRotationCons(){
          if(k>=indexStartRestArc){
             sprintf(name, "restingVars_N%d_%d_%d", i, k, k+1);
             pModel_->createPositiveVar(&restingVars2[k-indexStartRestArc], name, (maxRest) ? WEIGHT_CONS_DAYS_OFF : 0);
+            //add this resting arc for this day of rest
+            restsPerDay2[k].push_back(restingVars2[k-indexStartRestArc]);
          }
       }
 
@@ -731,10 +754,17 @@ void MasterProblem::buildRotationCons(){
       }
 
       //store vectors
+      restsPerDay_[i] = restsPerDay2;
       restingVars_[i] = restingVars2;
       longRestingVars_[i] = longRestingVars2;
       restFlowCons_[i] = restFlowCons2;
       workFlowCons_[i] = workFlowCons2;
+
+      for(int k=0; k<pDemand_->nbDays_; ++k){
+         cout << "Nurse " << i << " rests on day " << k << endl;
+         for(MyObject* rest: restsPerDay2[k])
+            cout << rest->name_ << endl;
+      }
    }
 }
 

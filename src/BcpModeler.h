@@ -95,6 +95,30 @@ struct BcpCoreCons: public CoinCons, public BCP_cut_core{
    ~BcpCoreCons(){ }
 };
 
+//these constraints are not generated, they are always in the LP problem
+struct BcpBranchCons: public CoinCons, public BCP_cut_algo{
+   BcpBranchCons(const char* name, int index, double lhs, double rhs,
+      vector<int>& indexCols, vector<double>& coeffs):
+      CoinCons(name, index, lhs, rhs),
+      BCP_cut_algo(lhs, rhs),
+      indexCols_(indexCols), coeffs_(coeffs)
+   { }
+
+   BcpBranchCons(const BcpBranchCons& cons) :
+      CoinCons(cons), BCP_cut_algo(lhs_, rhs_), indexCols_(cons.indexCols_), coeffs_(cons.coeffs_)
+   { }
+
+   ~BcpBranchCons(){ }
+
+   vector<int>& getIndexCols() { return indexCols_; }
+
+   vector<double>& getCoeffCols() { return coeffs_; }
+
+protected:
+vector<int> indexCols_; //index of the cols of the matrix where the col has non-zero coefficient
+vector<double> coeffs_; //value of these coefficients
+};
+
 /*
  * My Pricer
  */
@@ -114,10 +138,52 @@ struct BcpCoreCons: public CoinCons, public BCP_cut_core{
 //   SCIP_VAR* rule_;
 //};
 
+struct BcpNode{
+
+   BcpNode(): index_(0), bestLB_(DBL_MAX), pParent_(0), pNurse_(0), day_(0), rest_(false), pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
+   BcpNode(int index, BcpNode* pParent, vector<MyObject*>& columns):
+      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent),
+      columns_(columns), pNurse_(0), day_(0), rest_(false),
+      pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
+   BcpNode(int index, BcpNode* pParent, Nurse* pNurse, int day, bool rest):
+      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent),
+      pNurse_(pNurse), day_(day), rest_(rest),
+      pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
+   BcpNode(int index, BcpNode* pParent, CoinVar* var, double lb, double ub):
+      index_(index), bestLB_(pParent->bestLB_), pParent_(pParent),
+      pNurse_(0), day_(0), rest_(false),
+      pNumberOfNurses_(var), lb_(lb), ub_(ub) {}
+   virtual ~BcpNode() {}
+
+   const int index_;
+   double bestLB_;
+
+   //parent
+   BcpNode* pParent_;
+
+   //children
+   vector<BcpNode*> children_;
+
+   //vector of the columns on which we have branched. Can be empty
+   const vector<MyObject*> columns_;
+
+   //nurse and day on which we have branched for rest or work. pNurse_ can be 0
+   const Nurse* pNurse_;
+   const int day_;
+   const bool rest_;
+
+   //number of nurse on which we have branched. pNumberOfNurses_ can be 0
+   CoinVar* pNumberOfNurses_;
+   double lb_, ub_;
+};
+
 class BcpModeler: public CoinModeler {
 public:
    BcpModeler(const char* name);
-   ~BcpModeler() {}
+   ~BcpModeler() {
+      for(BcpNode* node: tree_) delete node;
+      for(BcpBranchCons* cons: branchingCons_) delete cons;
+   }
 
    //solve the model
    int solve(bool relaxation = false);
@@ -204,16 +270,62 @@ public:
 
    inline double getLastObj(){ return obj_history_[obj_history_.size()-1]; }
 
+   inline void updateNodeLB(double lb){ currentNode_->bestLB_ = lb; }
+
+   inline void pushBackNewNode(){
+         tree_.push_back(new BcpNode);
+      }
+
+   inline void pushBackNewNode(CoinVar* var, double lb, double ub){
+      BcpNode* node = new BcpNode(tree_.size(), currentNode_, var, lb, ub);
+      tree_.push_back(node);
+      currentNode_->children_.push_back(node);
+   }
+
+   inline void pushBackNewNode(Nurse* pNurse, int day, bool rest){
+      BcpNode* node = new BcpNode(tree_.size(), currentNode_, pNurse, day, rest);
+      tree_.push_back(node);
+      currentNode_->children_.push_back(node);
+   }
+
+   inline void pushBackNewNode(vector<MyObject*>& columns){
+      BcpNode* node = new BcpNode(tree_.size(), currentNode_, columns);
+      tree_.push_back(node);
+      currentNode_->children_.push_back(node);
+   }
+
+   inline  void addForbidenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbidenShifts) {
+      BcpNode* node = currentNode_;
+      while(node->pParent_){
+         if(node->pNurse_ == pNurse && node->rest_)
+            for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)
+               forbidenShifts.insert(pair<int,int>(node->day_, i));
+         node = node->pParent_;
+      }
+   }
+
+   inline void setCurrentNode(int index) { currentNode_ = tree_[index]; }
+
+   inline void pushBackBranchingCons(BcpBranchCons* cons){ branchingCons_.push_back(cons); }
+
+   inline vector<BcpBranchCons*>& getBranchingCons(){ return branchingCons_; }
+
    inline  map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
    inline  map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
 
 protected:
+   //branching tree
+   vector<BcpNode*> tree_;
+   //current node
+   BcpNode* currentNode_;
    //best lb in root
    double best_lb_in_root;
    //results
    vector<double> obj_history_;
    vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
+   //bcp branching cons
+   vector<BcpBranchCons*> branchingCons_;
    //bcp solution
    vector<BCP_solution_generic> bcpSolutions_;
 
@@ -237,7 +349,7 @@ protected:
       { BCP_tm_par::TmVerb_AllFeasibleSolution, 0},
       { BCP_tm_par::TmVerb_BetterFeasibleSolutionValue, 0},
       { BCP_tm_par::TmVerb_BetterFeasibleSolution, 1}, //need this method to store every better feasible solution
-      { BCP_tm_par::TmVerb_BestFeasibleSolution, 0},
+      { BCP_tm_par::TmVerb_BestFeasibleSolution, 1},
       { BCP_tm_par::TmVerb_NewPhaseStart, 0},
       { BCP_tm_par::TmVerb_PrunedNodeInfo, 0},
       { BCP_tm_par::TmVerb_TimeOfImprovingSolution, 0},
@@ -368,6 +480,29 @@ public:
       const BCP_lp_result& lpres,
       BCP_object_origin origin, bool allow_multiple);
 
+
+   //Convert (and possibly lift) a set of cuts into corresponding rows for the current LP relaxation.
+   //Converting means computing for each cut the coefficients corresponding to each variable and
+   //creating BCP_row objects that can be added to the formulation.
+   //This method has different purposes depending on the value of the last argument.
+   //If multiple expansion is not allowed then the user must generate a unique row for each cut.
+   //This unique row must always be the same for any given cut.
+   //This kind of operation is needed so that an LP relaxation can be exactly recreated.
+   //On the other hand if multiple expansion is allowed then the user has (almost) free reign over what
+   //she returns. She can delete some of the cuts or append new ones (e.g., lifted ones) to the end.
+   //The result of the LP relaxation and the origin of the cuts are there to help her to make a decision about what to do.
+   //For example, she might want to lift cuts coming from the Cut Generator, but not those coming from the Cut Pool.
+   //The only requirement is that when this method returns the number of cuts and rows must be the same and
+   //the i-th row must be the unique row corresponding to the i-th cut.
+   //Here, we generate a cut to branch on a set of variables
+   void cuts_to_rows(const BCP_vec<BCP_var*>& vars, //the variables currently in the relaxation (IN)
+   BCP_vec<BCP_cut*>& cuts, //the cuts to be converted (IN/OUT)
+   BCP_vec<BCP_row*>& rows, //the rows into which the cuts are converted (OUT)
+   const BCP_lp_result&   lpres, //solution to the current LP relaxation (IN)
+   BCP_object_origin origin, //where the cuts come from (IN)
+   bool  allow_multiple); //whether multiple expansion, i.e., lifting, is allowed (IN)
+
+
    //Generate variables within the LP process.
    void generate_vars_in_lp(const BCP_lp_result& lpres,
       const BCP_vec<BCP_var*>& vars, const BCP_vec<BCP_cut*>& cuts, const bool before_fathom,
@@ -420,7 +555,23 @@ protected:
    //Branch on the core integer var: the number of nurses var
    //just 2 children
    //Try also to fix to 1 some columns
-   void appendNewBranchingVar(CoinVar* integerCoreVar, vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
+   void appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyObject*>& columns,
+      const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
+
+   //Branch on the core integer var: the rest arcs on a day for a nurse
+   //just 2 children
+   //Try also to fix to 1 some columns
+   void appendNewBranchingVarsOnRest(int nbCuts, vector<MyObject*>& coreVars, vector<MyObject*>& columns,
+      const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
+
+   //Try also to fix to 1 some columns
+   void appendNewBranchingVarsOnColumns(vector<MyObject*>& columns,
+      const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
+
+   //build the vector of the branching candidates for the columns
+   //return the indexes of the columns in the current formulation
+   vector<int> buildBranchingColumns(CoinVar* var, vector<MyObject*>& columns,
+      const BCP_vec<BCP_var*>&  vars, BCP_vec<int>& vpos, BCP_vec<double>& vbd);
 };
 
 /*
@@ -515,6 +666,18 @@ public:
          Tools::throwError("Bad column unpacked or packed.");
       return new BcpColumn(*var);
    }
+
+   void pack_cut_algo(const BCP_cut_algo* cons, BCP_buffer& buf) { buf.pack(((BcpBranchCons*)cons)->getIndex()); }
+
+   BCP_cut_algo* unpack_cut_algo(BCP_buffer& buf) {
+         int index = 0;
+         buf.unpack(index);
+         int i = index - pModel_->getCons().size();
+         BcpBranchCons* cons = pModel_->getBranchingCons()[i];
+         if(index != cons->getIndex())
+            Tools::throwError("Bad cons unpacked or packed.");
+         return new BcpBranchCons(*cons);
+      }
 
 protected:
    BcpModeler* pModel_;

@@ -76,6 +76,12 @@ public:
    /* compute branching decisions */
    void branching_candidates(vector<MyObject*>& branchingCandidates);
 
+   /* branch on the number of nurses */
+   void branchOnNumberOfNurses(vector<MyObject*>& branchingCandidates);
+
+   /* branch on a set of resting arcs */
+   void branchOnRestingArcs(vector<MyObject*>& branchingCandidates);
+
    /* compute fixing decisions */
    void logical_fixing(vector<MyObject*>& fixingCandidates);
 

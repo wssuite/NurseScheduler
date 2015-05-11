@@ -20,6 +20,7 @@
 #include <string>
 #include <cmath>
 #include <typeinfo>
+#include "Solver.h"
 
 #include "MyTools.h"
 
@@ -130,6 +131,9 @@ public:
       pBranchingRule_->set_search_strategy(searchStrategy_);
       return 1;
    }
+
+   virtual void addForbidenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbidenShifts) { }
+
 
    /*
     * Class methods for pricer and branching rule
@@ -405,6 +409,10 @@ public:
 
    inline SearchStrategy getSearchStrategy(){ return searchStrategy_; }
 
+   inline void setLastBranchingRest(pair<Nurse*, int> lastBranchingRest){ lastBranchingRest_ = lastBranchingRest; }
+
+   inline pair<Nurse*, int> getLastBranchingRest() { return lastBranchingRest_; }
+
 protected:
    //store all MyObject*
    vector<MyObject*> objects_;
@@ -423,6 +431,8 @@ protected:
    //relative and absolute gap (with the current costs,
    //the difference between two solution costs is at lest 5
    double relativeGap_, absoluteGap_;
+   //strore the last branching decisions
+   pair<Nurse*, int> lastBranchingRest_;
 };
 
 

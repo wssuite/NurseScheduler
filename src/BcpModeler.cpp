@@ -135,6 +135,7 @@ bool BcpLpModel::compareCol(const pair<int,double>& p1, const pair<int,double>& 
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
    if(current_index() != last_node){
       last_node = current_index();
+      pModel_->setCurrentNode(current_index());
       printSummaryLine();
    }
 }
@@ -255,15 +256,15 @@ void BcpLpModel::TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col
       //create a new array which will be deleted by ~BCP_col()
       int* indexRows = new int[size];
       vector<int> index = var->getIndexRows();
-      std::copy(index.begin(), index.end(), indexRows);
+      copy(index.begin(), index.end(), indexRows);
 
       //create a new array which will be deleted by ~BCP_col()
-      double* coeffRows= new double[size];
+      double* coeffRows = new double[size];
       vector<double> coeffs = var->getCoeffRows();
-      std::copy(coeffs.begin(), coeffs.end(), coeffRows);
+      copy(coeffs.begin(), coeffs.end(), coeffRows);
 
       cols.unchecked_push_back(
-         new BCP_col(size, indexRows, coeffRows, var->getCost(), var->getLB(), var->getUB()));
+         new BCP_col(size, indexRows, coeffRows, var->getCost(), var->getLB(), var->getUB()) );
    }
 }
 
@@ -337,6 +338,9 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    if(pModel_->getBestUB() - lpres.objval() < pModel_->getAbsoluteGap() - EPSILON)
       return BCP_DoNotBranch_Fathomed;
 
+   //update node
+   pModel_->updateNodeLB(lpres.objval());
+
    //branching candidates: numberOfNursesByPosition_
    vector<MyObject*> branchingCandidates;
    pModel_->branching_candidates(branchingCandidates);
@@ -353,12 +357,18 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
          notIntegerCol = true;
          cout << "Var " << col->name_ << " = " << value << endl;
       }
-      if(notIntegerCol)  Tools::throwError("Solution is not integer and no branching variable is found.");
+      if(notIntegerCol){
+         appendNewBranchingVarsOnColumns(fixingCandidates, vars, cands);
+         return BCP_DoBranch;
+      }
       return BCP_DoNotBranch_Fathomed;
    }
 
-   CoinVar* integrCoreVar = dynamic_cast<CoinVar*>(branchingCandidates[0]);
-   appendNewBranchingVar(integrCoreVar, fixingCandidates, vars, cands);
+//   CoinVar* integerCoreVar = dynamic_cast<CoinVar*>(branchingCandidates[0]);
+//   appendNewBranchingVarsOnNumberOfNurses(integerCoreVar, fixingCandidates, vars, cands);
+
+   appendNewBranchingVarsOnRest(cuts.size(), branchingCandidates, fixingCandidates, vars, cands);
+
    return BCP_DoBranch;
 }
 
@@ -380,8 +390,8 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
       BCP_lp_user::set_actions_for_children(best);
    //choose the column with the lowest bound on the presolve
    else{
-      int index = 2;
-      for (int i = 3; i<best->candidate()->child_num; ++i)
+      int index = 0;
+      for (int i = 1; i<best->candidate()->child_num - 2; ++i)
              if (best->lpres(i).objval() < best->lpres(index).objval())
                 index = i;
       //keep the best column to dive
@@ -389,9 +399,11 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
    }
 }
 
-void BcpLpModel::appendNewBranchingVar(CoinVar* integerCoreVar, vector<MyObject*> columns, const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
+void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyObject*>& columns,
+   const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
 //   const int nbChildren = 2+columns.size();
    const int nbChildren = (columns.size() > 0 ) ? 3 : 2;
+
    BCP_vec<int> vpos; //positions of the variables
    BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
    //this vector is filled is this order:
@@ -399,68 +411,192 @@ void BcpLpModel::appendNewBranchingVar(CoinVar* integerCoreVar, vector<MyObject*
    //then for the second child: old and new bounds for all the variables in vpos
    //....
 
-   //current index in the BCP formulation
-   vector<int> currentIndex(columns.size());
-   for(int j=0; j<columns.size(); ++j){
-      bool found = false;
-      BcpColumn* col = dynamic_cast<BcpColumn*>(columns[j]);
-      for(int i=pModel_->getCoreVars().size(); i<vars.size(); ++i){
-         BcpColumn* col2 = dynamic_cast<BcpColumn*>(vars[i]);
-         if(col->getIndex() == col2->getIndex()){
-            currentIndex[j] = i;
-            found = true;
-            break;
-         }
-      }
-      if(!found)
-         Tools::throwError("The column has not been found.");
-   }
-
-   //positions vector
-   vpos.push_back(integerCoreVar->getIndex());
-   for(int j=0; j<columns.size(); ++j)
-      vpos.push_back(currentIndex[j]);
+   // set the positions vector and the first node for the columns */
+   vector<int> currentIndex = buildBranchingColumns(integerCoreVar, columns, vars, vpos, vbd);
 
    /*
     * BOUNDS VECTOR
     */
 
+   //keep same bound for the columns
+   for(int j=0; j<columns.size(); ++j){
+      vbd.push_back(vars[currentIndex[j]]->lb());
+      vbd.push_back(vars[currentIndex[j]]->ub());
+   }
    //branch on floor(value) of integerCoreVar
    double value = pModel_->getVarValue(integerCoreVar);
    vbd.push_back(integerCoreVar->getLB()); // old lower bound
    vbd.push_back(floor(value)); // new upper bound
+   /* update tree */
+   pModel_->pushBackNewNode(integerCoreVar, integerCoreVar->getLB(),floor(value));
+
    //keep same bound for the columns
    for(int j=0; j<columns.size(); ++j){
       vbd.push_back(vars[currentIndex[j]]->lb());
       vbd.push_back(vars[currentIndex[j]]->ub());
    }
-
    //branch on ceil(value) of integerCoreVar
    vbd.push_back(ceil(value)); // new lower bound
    vbd.push_back(integerCoreVar->getUB()); // new lower bound
-   //keep same bound for the columns
-   for(int j=0; j<columns.size(); ++j){
-      vbd.push_back(vars[currentIndex[j]]->lb());
-      vbd.push_back(vars[currentIndex[j]]->ub());
-   }
-
-   //branch on all the columns
-   if(columns.size() > 0){
-      //don't change bounds for integerCoreVar
-      vbd.push_back(integerCoreVar->getLB());
-      vbd.push_back(integerCoreVar->getUB());
-
-      //keep same bound for the columns exectp for the column j
-      for(int l=0; l<columns.size(); ++l){
-         vbd.push_back(1);
-         vbd.push_back(vars[currentIndex[l]]->ub());
-      }
-   }
+   /* update tree */
+   pModel_->pushBackNewNode(integerCoreVar, ceil(value),integerCoreVar->getUB());
 
    /* create the new candidate */
    cands.push_back(new  BCP_lp_branching_object(nbChildren, 0, 0, /* vars/cuts_to_add */
       &vpos, 0, &vbd, 0, /* forced parts */
       0, 0, 0, 0 /* implied parts */));
+}
+
+
+   //Branch on the core integer var: the rest arcs on a day for a nurse
+   //just 2 children
+   //Try also to fix to 1 some columns
+   void BcpLpModel::appendNewBranchingVarsOnRest(int nbCuts, vector<MyObject*>& coreVars, vector<MyObject*>& columns,
+      const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
+
+      const int nbChildren = (columns.size() > 0 ) ? 3 : 2;
+
+      BCP_vec<BCP_cut*> new_cuts; //add a branching cut for the set of arcs
+      BCP_vec<int> vpos; //positions of the variables
+      BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
+      BCP_vec<int> cpos; //positions of the cuts
+      BCP_vec<double> cbd; //bounds of the cuts
+
+      // set the positions vector and the first node for the columns */
+      vector<int> currentIndex = buildBranchingColumns(0, columns, vars, vpos, vbd);
+
+      //keep same bounds for the columns for two resting branching nodes
+      for(int j=0; j<columns.size(); ++j){
+         vbd.push_back(vars[currentIndex[j]]->lb());
+         vbd.push_back(vars[currentIndex[j]]->ub());
+      }
+      for(int j=0; j<columns.size(); ++j){
+         vbd.push_back(vars[currentIndex[j]]->lb());
+         vbd.push_back(vars[currentIndex[j]]->ub());
+      }
+
+      /* create the day off */
+      pair<Nurse*, int> dayOff = pModel_->getLastBranchingRest();
+
+      //creating the branching cut
+      char name[50];
+      sprintf(name, "RestBranchingCons_N%d_%d", dayOff.first->id_, dayOff.second);
+      vector<int> indexes;
+      vector<double> coeffs;
+      for(MyObject* var: coreVars){
+         CoinVar* var2 = dynamic_cast<CoinVar*>(var);
+         indexes.push_back(var2->getIndex());
+         coeffs.push_back(1);
+      }
+      BcpBranchCons* cons = new BcpBranchCons(name, pModel_->getCons().size()+pModel_->getBranchingCons().size(),
+         0, 1, indexes, coeffs);
+      new_cuts.push_back(cons);
+      pModel_->pushBackBranchingCons(new BcpBranchCons(*cons));
+
+      /* bounds of the cut */
+      cpos.push_back(nbCuts);
+      if(columns.size() > 0){
+         cbd.push_back(0); cbd.push_back(1);
+      }
+      cbd.push_back(0); cbd.push_back(0);
+      /* update tree */
+      pModel_->pushBackNewNode(dayOff.first, dayOff.second, true);
+
+      cbd.push_back(1); cbd.push_back(1);
+      /* update tree */
+      pModel_->pushBackNewNode(dayOff.first, dayOff.second, false);
+
+      //creates the nodes
+
+      cands.push_back(new  BCP_lp_branching_object(nbChildren, 0, &new_cuts, /* vars/cuts_to_add */
+         &vpos, &cpos, &vbd, &cbd, /* forced parts */
+         0, 0, 0, 0 /* implied parts */));
+   }
+
+   //Try also to fix to 1 some columns
+   void BcpLpModel::appendNewBranchingVarsOnColumns(vector<MyObject*>& columns,
+      const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
+
+      const int nbChildren = 1;
+      BCP_vec<int> vpos; //positions of the variables
+      BCP_vec<double> vbd; // old bound and then new one for each variable and for each children
+
+      buildBranchingColumns(0, columns, vars, vpos, vbd);
+
+      cands.push_back(new  BCP_lp_branching_object(nbChildren, 0, 0, /* vars/cuts_to_add */
+         &vpos, 0, &vbd, 0, /* forced parts */
+         0, 0, 0, 0 /* implied parts */));
+   }
+
+   //build the vector of the branching candidates for the columns
+   //return the indexes of the columns in the current formulation
+   vector<int> BcpLpModel::buildBranchingColumns(CoinVar* var, vector<MyObject*>& columns, const BCP_vec<BCP_var*>&  vars,
+      BCP_vec<int>& vpos, BCP_vec<double>& vbd){
+      //current index in the BCP formulation
+      vector<int> currentIndex(columns.size());
+      for(int j=0; j<columns.size(); ++j){
+         bool found = false;
+         BcpColumn* col = dynamic_cast<BcpColumn*>(columns[j]);
+         for(int i=pModel_->getCoreVars().size(); i<vars.size(); ++i){
+            BcpColumn* col2 = dynamic_cast<BcpColumn*>(vars[i]);
+            if(col->getIndex() == col2->getIndex()){
+               currentIndex[j] = i;
+               found = true;
+               break;
+            }
+         }
+         if(!found)
+            Tools::throwError("The column has not been found.");
+      }
+
+      //positions vector
+      for(int j=0; j<columns.size(); ++j)
+         vpos.push_back(currentIndex[j]);
+      if(var) vpos.push_back(var->getIndex());
+
+      //branch on all the columns
+      if(columns.size() > 0){
+         //set all the columns bounds to 1
+         for(int l=0; l<columns.size(); ++l){
+            vbd.push_back(1);
+            vbd.push_back(vars[currentIndex[l]]->ub());
+         }
+         //don't change bounds for coreVars
+         if(var) {
+            vbd.push_back(var->getLB());
+            vbd.push_back(var->getUB());
+         }
+      }
+
+      /* update tree */
+      if(columns.size() > 0)
+         pModel_->pushBackNewNode(columns);
+
+      return currentIndex;
+   }
+
+//Here, we generate a cut to branch on a set of variables
+void BcpLpModel::cuts_to_rows(const BCP_vec<BCP_var*>& vars, //the variables currently in the relaxation (IN)
+BCP_vec<BCP_cut*>& cuts, //the cuts to be converted (IN/OUT)
+BCP_vec<BCP_row*>& rows, //the rows into which the cuts are converted (OUT)
+const BCP_lp_result&   lpres, //solution to the current LP relaxation (IN)
+BCP_object_origin origin, //where the cuts come from (IN)
+bool  allow_multiple) //whether multiple expansion, i.e., lifting, is allowed (IN)
+{
+   if(origin == BCP_Object_Branching){
+      for(BCP_cut* cut: cuts){
+         BcpBranchCons* branchingCut = dynamic_cast<BcpBranchCons*>(cut);
+         if(!cut)
+            Tools::throwError("Should be a branching cut.");
+
+         int size = branchingCut->getIndexCols().size();
+         int* elementIndices = new int[size];
+         copy(branchingCut->getIndexCols().begin(), branchingCut->getIndexCols().end(), elementIndices);
+         double* elementValues = new double[size];
+         copy(branchingCut->getCoeffCols().begin(), branchingCut->getCoeffCols().end(), elementValues);
+         rows.push_back( new BCP_row(size, elementIndices, elementValues, branchingCut->getLhs(), branchingCut->getRhs()) );
+      }
+   }
 }
 
 //allow to count the nodes
@@ -474,7 +610,7 @@ void  BcpLpModel::select_cuts_to_delete (const BCP_lp_result &lpres, const BCP_v
 
 BcpBranchingTree::BcpBranchingTree(BcpModeler* pModel):
       pModel_(pModel) , nbInitialColumnVars_(pModel->getNbColumns()), minGap_(0.0)
-{ }
+{}
 
 // setting the base
 //Create the core of the problem by filling out the last three arguments.
@@ -566,10 +702,12 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
  * BcpModeler
  */
 BcpModeler::BcpModeler(const char* name):
-   CoinModeler(),
+   CoinModeler(), currentNode_(0),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
    best_lb_in_root(1000000), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
-{ }
+{
+   tree_.push_back(new BcpNode);
+}
 
 //solve the model
 int BcpModeler::solve(bool relaxatione){

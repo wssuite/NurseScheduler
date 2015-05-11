@@ -169,6 +169,7 @@ enum MySolverType { S_SCIP, S_BCP, S_CBC };
 class MasterProblem : public Solver{
    //allows RotationPricer to access all private arguments and methods of MasterProblem
    friend class RotationPricer;
+   friend class DiveBranchingRule;
 public:
    // Specific constructor and destructor
    MasterProblem(Scenario* pScenario, Demand* pDemand,
@@ -188,9 +189,14 @@ public:
       return pModel_;
    }
 
-   //get a constant reference to the rotations
-   vector< map<MyObject*, Rotation> >& getRotations(){
+   //get a reference to the rotations
+   inline vector< map<MyObject*, Rotation> >& getRotations(){
       return rotations_;
+   }
+
+   //get a reference to the restsPerDay_ for a Nurse
+   inline vector< vector<MyObject*> >& getRestsPerDay(Nurse* pNurse){
+      return restsPerDay_[pNurse->id_];
    }
 
    /*
@@ -207,7 +213,9 @@ private:
    MyPricer* pPricer_;//prices the rotations
    MyBranchingRule* pRule_; //choose the variables on which we should branch
    MySolverType solverType_; //which solver is used
-   vector< map<MyObject*, Rotation> > rotations_;//stores the scip variables and the rotations for each nurse
+
+   vector< map<MyObject*, Rotation> > rotations_;//stores the variables and the rotations for each nurse
+   vector< vector< vector<MyObject*> > > restsPerDay_; //stores all the arcs that are resting on a day for each nurse
 
    /*
     * Variables
