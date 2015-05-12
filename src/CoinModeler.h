@@ -44,11 +44,11 @@ struct CoinVar: public MyObject {
 
    int getNbRows() { return indexRows_.size(); }
 
-   vector<int> getIndexRows() { return indexRows_; }
+   vector<int>& getIndexRows() { return indexRows_; }
 
    int getIndexRow(int i) { return indexRows_[i]; }
 
-   vector<double> getCoeffRows() { return coeffs_; }
+   vector<double>& getCoeffRows() { return coeffs_; }
 
    double getCoeffRow(int i) { return coeffs_[i]; }
 

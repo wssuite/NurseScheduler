@@ -20,6 +20,7 @@
 #include <string>
 #include <cmath>
 #include <typeinfo>
+#include "Solver.h"
 
 #include "MyTools.h"
 
@@ -35,7 +36,7 @@ enum VarType {VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY};
  * Rule Search Strategy
  */
 
-enum SearchStrategy { BestFirstSearch, BreadthFirstSearch, DepthFirstSearch };
+enum SearchStrategy { BestFirstSearch, BreadthFirstSearch, DepthFirstSearch, HighestGapFirst };
 
 /*
  * My Modeling objects
@@ -83,7 +84,7 @@ struct MyPricer{
  * My branching rule
  */
 struct MyBranchingRule{
-   MyBranchingRule(const char* name): name_(name), searchStrategy_(DepthFirstSearch) { }
+   MyBranchingRule(const char* name): name_(name), searchStrategy_(BestFirstSearch) { }
    virtual ~MyBranchingRule() { }
 
    //name of the branching rule handler
@@ -130,6 +131,9 @@ public:
       pBranchingRule_->set_search_strategy(searchStrategy_);
       return 1;
    }
+
+   virtual void addForbidenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbidenShifts) { }
+
 
    /*
     * Class methods for pricer and branching rule
@@ -405,6 +409,10 @@ public:
 
    inline SearchStrategy getSearchStrategy(){ return searchStrategy_; }
 
+   inline void setLastBranchingRest(pair<LiveNurse*, int> lastBranchingRest){ lastBranchingRest_ = lastBranchingRest; }
+
+   inline pair<LiveNurse*, int> getLastBranchingRest() { return lastBranchingRest_; }
+
 protected:
    //store all MyObject*
    vector<MyObject*> objects_;
@@ -415,7 +423,7 @@ protected:
    MyBranchingRule* pBranchingRule_;
 
    int verbosity_ = 0;
-   SearchStrategy searchStrategy_ = DepthFirstSearch;
+   SearchStrategy searchStrategy_ = BestFirstSearch;
    //best current upper bound found
    double best_ub;
    //maximal solving time in s
@@ -423,6 +431,8 @@ protected:
    //relative and absolute gap (with the current costs,
    //the difference between two solution costs is at lest 5
    double relativeGap_, absoluteGap_;
+   //strore the last branching decisions
+   pair<LiveNurse*, int> lastBranchingRest_;
 };
 
 

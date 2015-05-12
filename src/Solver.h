@@ -317,6 +317,12 @@ public:
    // Main method to solve the rostering problem for a given input and an initial solution
    virtual void solve(vector<Roster> solution = {}) {}
 
+   // Main method to evaluate an initial state for a given input and an initial solution
+   //same as solve if not redefine
+   virtual void evaluate(vector<Roster> solution = {}) {
+      solve(solution);
+   }
+
    // Should be protected (and not private) because Solver will have subclasses
 protected:
 
