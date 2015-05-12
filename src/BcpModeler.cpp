@@ -340,7 +340,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    //update node
    pModel_->updateNodeLB(lpres.objval());
 
-   //branching candidates: numberOfNursesByPosition_
+   //branching candidates: numberOfNursesByPosition_, rest on a day, ...
    vector<MyObject*> branchingCandidates;
    pModel_->branching_candidates(branchingCandidates);
 
@@ -384,18 +384,18 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
 
    // by default every action is set to BCP_ReturnChild
 
-   //if no column, let BCP decides
-   if(best->candidate()->child_num == 2)
-      BCP_lp_user::set_actions_for_children(best);
-   //choose the column with the lowest bound on the presolve
-   else{
-      int index = 0;
-      for (int i = 1; i<best->candidate()->child_num - 2; ++i)
-             if (best->lpres(i).objval() < best->lpres(index).objval())
-                index = i;
+//   //if no column, let BCP decides
+//   if(best->candidate()->child_num == 2)
+//      BCP_lp_user::set_actions_for_children(best);
+//   //choose the column with the lowest bound on the presolve
+//   else{
+//      int index = 0;
+//      for (int i = 1; i<best->candidate()->child_num - 2; ++i)
+//             if (best->lpres(i).objval() < best->lpres(index).objval())
+//                index = i;
       //keep the best column to dive
-      best->action()[index] = BCP_KeepChild;
-   }
+      best->action()[0] = BCP_KeepChild;
+//   }
 }
 
 void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyObject*>& columns,
@@ -499,11 +499,12 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
       if(columns.size() > 0){
          cbd.push_back(0); cbd.push_back(1);
       }
-      cbd.push_back(0); cbd.push_back(0);
+      //push the node rest on day dayOff.second
+      cbd.push_back(1); cbd.push_back(1);
       /* update tree */
       pModel_->pushBackNewNode(dayOff.first, dayOff.second, true, coreVars);
-
-      cbd.push_back(1); cbd.push_back(1);
+      //push the node work on day dayOff.second
+      cbd.push_back(0); cbd.push_back(0);
       /* update tree */
       pModel_->pushBackNewNode(dayOff.first, dayOff.second, false, coreVars);
 

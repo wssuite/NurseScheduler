@@ -169,7 +169,7 @@ struct BcpNode{
       bestLB_ = newLB;
       //if not root
       if(pParent_){
-         double gap = bestLB_ - pParent_->bestLB_;
+         double gap = (bestLB_ - pParent_->bestLB_)/pParent_->bestLB_;
          if(gap > pParent_->highestGap_) pParent_->highestGap_ = gap;
       }
    }
@@ -301,7 +301,12 @@ public:
    /*
     * Manage the storage of our own tree
     */
-   inline void updateNodeLB(double lb){ currentNode_->updateBestLB(lb); }
+   inline void updateNodeLB(double lb){
+      //if this node was at the minimum, reinitialize best_lb
+      if(currentNode_->bestLB_ < best_lb + EPSILON)
+         best_lb = DBL_MAX;
+      currentNode_->updateBestLB(lb);
+   }
 
    inline void pushBackNewNode(){
          pushBackNode(new BcpNode);
@@ -312,7 +317,7 @@ public:
       pushBackNode(node);
    }
 
-   inline void pushBackNewNode(LiveNurse* pNurse, int day, bool rest, vector<MyObject*> restArcs){
+   inline void pushBackNewNode(LiveNurse* pNurse, int day, bool rest, vector<MyObject*>& restArcs){
       BcpNode* node = new BcpNode(tree_.size(), currentNode_, pNurse, day, rest, restArcs);
       pushBackNode(node);
    }
@@ -324,6 +329,7 @@ public:
 
    inline void pushBackNode(BcpNode* node){
       tree_.push_back(node);
+      //just for pushing root
       if(currentNode_)
          currentNode_->pushBackChild(node);
    }
@@ -332,19 +338,25 @@ public:
       BcpNode* node = currentNode_;
       vector<MyObject*> arcs;
       while(node->pParent_){
-         if(node->pNurse_ == pNurse && node->rest_)
-            for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i){
-               forbidenShifts.insert(pair<int,int>(node->day_, i));
-               arcs.insert(arcs.end(), node->restArcs_.begin(), node->restArcs_.end());
-            }
+         if(node->pNurse_ == pNurse)
+         {
+            if(node->rest_)
+               for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)
+                  forbidenShifts.insert(pair<int,int>(node->day_, i));
+//            for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)
+//               arcs.insert(arcs.end(), node->restArcs_.begin(), node->restArcs_.end());
+         }
          node = node->pParent_;
       }
-      for(int i=0; i<arcs.size(); ++i)
-         cout << arcs[i]->name_ << " " << getVarValue(arcs[i]) << endl;
+//      for(int i=0; i<arcs.size(); ++i)
+//         cout << arcs[i]->name_ << " " << getVarValue(arcs[i]) << endl;
    }
 
    inline void setCurrentNode(const CoinTreeSiblings* s) {
       currentNode_ = getNode(s);
+      /* if no more child in this siblings */
+      if(s->toProcess() == 0)
+         treeMapping_.erase(s);
    }
 
    inline void addToMapping(const CoinTreeSiblings* s) {
@@ -353,16 +365,23 @@ public:
       for(int i=0; i<nbLeaves; ++i) leaves[i] = tree_[size - nbLeaves + i];
       treeMapping_.insert(pair<const CoinTreeSiblings*, vector<BcpNode*> >(s, leaves));
       //finally update the current node for the moment. Will not change if diving
-      currentNode_ = tree_[size - nbLeaves];
+      currentNode_ = leaves[0];
    }
 
    inline BcpNode* getNode(const CoinTreeSiblings* s) {
-      int size = s->size();
-      int nodeIndex = size - s->toProcess();
-      //just for the root
-      if(s->toProcess() == 0)
-         nodeIndex = 0;
+      /* the current node of this siblings is already taken as processed */
+      int nodeIndex = s->size() - s->toProcess() - 1;
       return treeMapping_[s][nodeIndex];
+   }
+
+   inline double getBestLB(){
+      /* if best_lb has been reinitialized */
+      if(best_lb == DBL_MAX)
+         for(pair<const CoinTreeSiblings*, vector<BcpNode*> > p: treeMapping_)
+            for(BcpNode* node: p.second)
+               if(best_lb > node->bestLB_)
+                  best_lb = node->bestLB_;
+      return best_lb;
    }
 
    inline void pushBackBranchingCons(BcpBranchCons* cons){ branchingCons_.push_back(cons); }
@@ -385,8 +404,8 @@ protected:
    map<const CoinTreeSiblings*, vector<BcpNode*>> treeMapping_;
    //current node
    BcpNode* currentNode_;
-   //best lb in root
-   double best_lb_in_root;
+   //best lb in root and current best lb
+   double best_lb_in_root, best_lb;
    //results
    vector<double> obj_history_;
    vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
@@ -747,30 +766,36 @@ protected:
     */
 
    void realpop() {
-//      //just put a value as the first element has been already deleted
-//      candidateList_[0] = candidateList_[candidateList_.size()-1];
-//      //update quality
-//      for(CoinTreeSiblings* s: this->candidateList_){
-//         double q = pModel_->getNode(s)->getHighestGap();
-//         s->currentNode()->setQuality(q);
-//      }
-      //reorder the list with the new quality
-      //we dont use a heap
-      std::stable_sort(candidateList_.begin()+1, candidateList_.end(), comp_);
+      /* update the current node of the modeler */
+      pModel_->setCurrentNode(this->candidateList_[0]);
+      /* the siblings is now empty -> choose the next one */
       //copy the best candidate at the first place
       candidateList_[0] = candidateList_.back();
       //and remove the last item
       candidateList_.pop_back();
+   }
+
+   void fixTop() {
       /* update the current node of the modeler */
       pModel_->setCurrentNode(this->candidateList_[0]);
    }
-
-   void fixTop() { }
 
    void realpush(CoinTreeSiblings* s) {
       //add the current node to the BcpModeler
       pModel_->addToMapping(s);
       this->candidateList_.push_back(s);
+
+      /* update the quality  and then the candidateList */
+      //      //just put a value as the first element has been already deleted
+      //      candidateList_[0] = candidateList_[candidateList_.size()-1];
+      //      //update quality
+      //      for(CoinTreeSiblings* s: this->candidateList_){
+      //         double q = pModel_->getNode(s)->getHighestGap();
+      //         s->currentNode()->setQuality(q);
+      //      }
+      //reorder the list with the new quality
+      //we dont use a heap
+      std::stable_sort(candidateList_.begin()+1, candidateList_.end(), comp_);
    }
 
 private:
