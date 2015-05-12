@@ -842,16 +842,17 @@ bool Greedy::constructiveGreedy() {
 
 // Main method to solve the rostering problem for a given input
 //
-void Greedy::solve(vector<Roster> solution) {
+double Greedy::solve(vector<Roster> solution) {
   bool isFeasible = this->constructiveGreedy();
 
   if (!isFeasible) {
      status_ = INFEASIBLE;
     std::cout << "Greedy: the constructive algorithm was unable to find a solution\n";
+    return DBL_MAX;
   }
-	else{
-     status_ = FEASIBLE;
-  }
+
+  status_ = FEASIBLE;
+  return solutionCost();
 }
 
 

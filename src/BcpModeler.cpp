@@ -144,15 +144,15 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
    if(pModel_->getVerbosity() > 0){
 
-      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? 1000000 :
-         getLpProblemPointer()->node->true_lower_bound;
+//      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->myMax :
+//         getLpProblemPointer()->node->true_lower_bound;
 
       if( vars.size() == 0 ){
          printf("BCP: %13s %5s | %10s %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
             "Node", "Lvl", "BestUB", "RootLB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
          printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
             current_index(), nb_nodes, current_level(),
-            pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
+            pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
             "-", "-", "-", "-", "-", "-", "-");
       }
 
@@ -172,19 +172,34 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
          int nbColGenerated = pModel_->getNbColumns() - nbCurrentColumnVarsBeforePricing_;
 
-         if(pModel_->getBestLb() == DBL_MAX)
+         if(pModel_->getBestLB() == pModel_->myMax)
             printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
                current_index(), nb_nodes, current_level(),
-               pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
+               pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
                "-", "-", "-", "-", "-", "-", "-");
          else
             printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
                current_index(), nb_nodes, current_level(),
-               pModel_->getBestUB(), pModel_->getBestLb(), lower_bound,
+               pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
                lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
                pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
       }
    }
+}
+
+//stop this node or BCP
+bool BcpLpModel::doStop(){
+   //stop BCP if the relative gap is too small
+   if(pModel_->getBestLB() < pModel_->myMax &&
+      pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getRelativeGap() * pModel_->getBestLB() - EPSILON)
+      return true;
+
+   //fathom if the true lower bound greater than current upper bound
+   if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
+         pModel_->getAbsoluteGap() - EPSILON)
+      return true;
+
+   return false;
 }
 
 //This method provides an opportunity for the user to tighten the bounds of variables.
@@ -272,9 +287,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
    const BCP_vec<BCP_var*>& vars, const BCP_vec<BCP_cut*>& cuts, const bool before_fathom,
    BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
-   //fathom if the true lower bound greater than current upper bound
-   if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
-         pModel_->getAbsoluteGap() - EPSILON)
+   if(doStop())
       return;
 
    ++lpIteration_;
@@ -320,9 +333,8 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
-   //fathom if the true lower bound greater than current upper bound
-   if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
-         pModel_->getAbsoluteGap() - EPSILON)
+   //stop this process for BCP or the node
+   if(doStop())
       return BCP_DoNotBranch_Fathomed;
 
    //if some variables have been generated, do not branch
@@ -381,21 +393,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
    nb_nodes += best->candidate()->child_num;
-
-   // by default every action is set to BCP_ReturnChild
-
-//   //if no column, let BCP decides
-//   if(best->candidate()->child_num == 2)
-//      BCP_lp_user::set_actions_for_children(best);
-//   //choose the column with the lowest bound on the presolve
-//   else{
-//      int index = 0;
-//      for (int i = 1; i<best->candidate()->child_num - 2; ++i)
-//             if (best->lpres(i).objval() < best->lpres(index).objval())
-//                index = i;
-      //keep the best column to dive
-      best->action()[0] = BCP_KeepChild;
-//   }
+   best->action()[0] = BCP_KeepChild;
 }
 
 void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyObject*>& columns,
@@ -714,7 +712,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
 BcpModeler::BcpModeler(const char* name):
    CoinModeler(), currentNode_(0),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-   best_lb_in_root(1000000), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
+   best_lb_in_root(myMax), best_lb(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 {
    //create the root
    pushBackNewNode();
@@ -822,7 +820,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    bcpSolutions_.push_back(mySol);
 }
 
-void BcpModeler::loadBestSol(){
+bool BcpModeler::loadBestSol(){
    int i=0, index = -1;
    double bestObj = DBL_MAX;
    for(BCP_solution_generic& sol: bcpSolutions_){
@@ -832,7 +830,11 @@ void BcpModeler::loadBestSol(){
       }
       ++i;
    }
+   if(index == -1)
+      return false;
+
    loadBcpSol(index);
+   return true;
 }
 
 void BcpModeler::loadBcpSol(int index){

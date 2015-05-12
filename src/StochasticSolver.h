@@ -66,7 +66,7 @@ protected:
 
   // Solve the problem
   //
-  virtual void solve(vector<Roster> solution = {});
+  virtual double solve(vector<Roster> solution = {});
 };
 
 #endif

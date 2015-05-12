@@ -74,7 +74,7 @@ Solver* StochasticSolver::setSubSolverWithInputAlgorithm(Demand* pDemand) {
 // Solve the problem
 //-----------------------------------------------------------------------------
 
-void StochasticSolver::solve(vector<Roster> solution) {
+double StochasticSolver::solve(vector<Roster> solution) {
 
 	// create solvers with the extended demands obtained by appending the random
 	// demands to the current weekly demand
@@ -104,6 +104,7 @@ void StochasticSolver::solve(vector<Roster> solution) {
   // }
 
 	this->solveOneWeekWithPenalties();
+	return DBL_MAX;
 
 }
 

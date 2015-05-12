@@ -374,31 +374,46 @@ void MasterProblem::build(){
 }
 
 //solve the rostering problem
-void MasterProblem::solve(vector<Roster> solution){
+double MasterProblem::solve(vector<Roster> solution){
+   return solve(solution, false);
+}
+// Main method to evaluate an initial state for a given input and an initial solution
+double MasterProblem::evaluate(vector<Roster> solution){
+   return solve(solution, true);
+}
 
-  // build the model first
-  build();
+//solve the rostering problem
+double MasterProblem::solve(vector<Roster> solution, bool relaxation){
 
-  // input an initial solution
-  initialize(solution);
+   // build the model first
+   build();
 
-  pModel_->writeProblem("outfiles/model.lp");
+   // input an initial solution
+   initialize(solution);
 
-  // RqJO: warning, it would be better to define an enumerate type of verbosity
-  // levels and create the matching in the Modeler subclasses
-  if (solverType_ != S_CBC ) {
-//    pModel_->setMaxSolvingtime(12000);
-    pModel_->setVerbosity(1);
-    if (!minTotalShiftsAvg_.empty() || !maxTotalShiftsAvg_.empty() || !weightTotalShiftsAvg_.empty())
-       pModel_->setAbsoluteGap(0);
-  }
+   pModel_->writeProblem("outfiles/model.lp");
+
+   // RqJO: warning, it would be better to define an enumerate type of verbosity
+   // levels and create the matching in the Modeler subclasses
+   if (solverType_ != S_CBC ) {
+      //    pModel_->setMaxSolvingtime(12000);
+      pModel_->setVerbosity(1);
+      //cut the branching process at the end of the root node
+      if(relaxation)
+         pModel_->setAbsoluteGap(pModel_->getBestUB());
+      else if (!minTotalShiftsAvg_.empty() || !maxTotalShiftsAvg_.empty() || !weightTotalShiftsAvg_.empty())
+         pModel_->setAbsoluteGap(0);
+   }
    pModel_->solve();
    pModel_->printStats();
-   pModel_->printBestSol();
+
+   if(!pModel_->printBestSol())
+      return pModel_->getRelaxedObjective();
+
    storeSolution();
    costsConstrainstsToString();
-
    status_ = FEASIBLE;
+   return pModel_->getObjective();
 }
 //
 //initialize the rostering problem with one column to be feasible if there is no initial solution

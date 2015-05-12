@@ -282,13 +282,14 @@ public:
    virtual int printStats() { return 0; }
 
    virtual int printBestSol(){
-      loadBestSol();
+      //print the value of the relaxation
+      printf("%-30s %4.2f \n", "Relaxation:" , getRelaxedObjective());
+
+      if(!loadBestSol())
+         return 0;
 
       //print the objective value
       printf("%-30s %4.2f \n", "Objective:" , getObjective());
-
-      //print the value of the relaxation
-      printf("%-30s %4.2f \n", "Relaxation:" , getRelaxedObjective());
 
       if(verbosity_>=2){
          //print the value of the positive variables
@@ -313,7 +314,7 @@ public:
       return 1;
    }
 
-   virtual void loadBestSol() {}
+   virtual bool loadBestSol() { return false; }
 
    virtual double getObjective()=0;
 
