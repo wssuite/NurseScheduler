@@ -47,6 +47,7 @@ void testFunction_Antoine(){
    int nEvaluationDemands = 2;
    int nDaysEvaluation = 7;
 
+   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
    testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 
    // Display the total time spent in the algorithm
@@ -262,7 +263,7 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 
 	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
-	pSolver->evaluate();
+	pSolver->solve();
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
@@ -480,7 +481,7 @@ void displaySolutionMultipleWeeks(string dataDir, string instanceName,
 	// write separately the solutions of each week in the required output format
 	vector<string> solutions = pSolver->solutionToString(nbWeeks);
 	for(int w=0; w < nbWeeks; ++w){
-		string solutionFile = outDir+"Sol-"+catWeeks+"-"+std::to_string(weekIndices[w])+"-"+std::to_string(w)+".txt";
+		string solutionFile = outDir+"Sol-"+instanceName+"-"+catWeeks+"-"+std::to_string(weekIndices[w])+"-"+std::to_string(w)+".txt";
 		Tools::LogOutput solutionStream(solutionFile);
 		solutionStream << solutions[w];
 	}

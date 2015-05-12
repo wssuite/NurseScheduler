@@ -19,7 +19,7 @@
 
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
 pModel_(pModel),nbCurrentColumnVarsBeforePricing_(pModel->getNbColumns()),
-lpIteration_(0), nb_nodes(0), last_node(-1), heuristicHasBeenRun_(false)
+lpIteration_(0), last_node(-1), heuristicHasBeenRun_(false)
 { }
 
 //Initialize the lp parameters and the OsiSolver
@@ -151,7 +151,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
          printf("BCP: %13s %5s | %10s %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
             "Node", "Lvl", "BestUB", "RootLB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
          printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
-            current_index(), nb_nodes, current_level(),
+            current_index(), pModel_->getTreeSize(), current_level(),
             pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
             "-", "-", "-", "-", "-", "-", "-");
       }
@@ -172,27 +172,30 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
          int nbColGenerated = pModel_->getNbColumns() - nbCurrentColumnVarsBeforePricing_;
 
-         if(pModel_->getBestLB() == pModel_->myMax)
-            printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
-               current_index(), nb_nodes, current_level(),
-               pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
-               "-", "-", "-", "-", "-", "-", "-");
-         else
-            printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
-               current_index(), nb_nodes, current_level(),
-               pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
-               lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
-               pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
+         printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
+            current_index(), pModel_->getTreeSize(), current_level(),
+            pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
+            lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
+            pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
       }
    }
 }
 
 //stop this node or BCP
 bool BcpLpModel::doStop(){
-   //stop BCP if the relative gap is too small
-   if(pModel_->getBestLB() < pModel_->myMax &&
-      pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getRelativeGap() * pModel_->getBestLB() - EPSILON)
-      return true;
+   //continue if doesn't have a lb
+   if(pModel_->getBestLB() == pModel_->myMax)
+      return false;
+
+   //check relative gap
+   if(pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getRelativeGap() * pModel_->getBestLB() - EPSILON)
+      //if the relative gap is small enough and if same incumbent since 50 nodes, stop
+      if(pModel_->getNbNodesSinceLastIncumbent() > 50)
+         return true;
+      else
+         //if the relative gap is too big, wait 100 nodes before stopping
+         if(pModel_->getNbNodesSinceLastIncumbent() > 100)
+            return true;
 
    //fathom if the true lower bound greater than current upper bound
    if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
@@ -392,7 +395,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 //However, if BCP dives then one child will be mark with BCP_KeepChild. The decision which child to keep is based on the ChildPreference parameter in BCP_lp_par.
 //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
-   nb_nodes += best->candidate()->child_num;
    best->action()[0] = BCP_KeepChild;
 }
 
@@ -599,11 +601,6 @@ bool  allow_multiple) //whether multiple expansion, i.e., lifting, is allowed (I
    }
 }
 
-//allow to count the nodes
-void  BcpLpModel::select_cuts_to_delete (const BCP_lp_result &lpres, const BCP_vec< BCP_var * > &vars, const BCP_vec< BCP_cut * > &cuts, const bool before_fathom, BCP_vec< int > &deletable){
-   if(before_fathom)
-      nb_nodes --;
-}
 /*
  * BcpBranchingTree
  */
@@ -618,6 +615,8 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
    BCP_vec<BCP_cut_core*>& cuts, BCP_lp_relax*& matrix){
    // initialize tm parameters
    set_param(BCP_tm_par::TmVerb_SingleLineInfoFrequency, pModel_->getFrequency());
+   //always dive
+   set_param(BCP_tm_par::UnconditionalDiveProbability, 1);
    if (pModel_->getMaxSolvingtime() < DBL_MAX)
       set_param(BCP_tm_par::MaxRunTime, pModel_->getMaxSolvingtime());
    for(pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
@@ -710,7 +709,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
  * BcpModeler
  */
 BcpModeler::BcpModeler(const char* name):
-   CoinModeler(), currentNode_(0),
+   CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
    best_lb_in_root(myMax), best_lb(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 {
@@ -765,8 +764,6 @@ int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int i
 
 void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars){
    obj_history_.push_back(lpres.objval());
-   if(best_lb_in_root > lpres.objval())
-      best_lb_in_root = lpres.objval();
 
    //copy the new arrays in the vectors for the core vars
    const int nbCoreVar = coreVars_.size();
@@ -818,6 +815,8 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    }
 
    bcpSolutions_.push_back(mySol);
+   /* reinitialize nb_nodes_last_incumbent_ */
+   nb_nodes_last_incumbent_=0;
 }
 
 bool BcpModeler::loadBestSol(){

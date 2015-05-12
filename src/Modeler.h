@@ -108,7 +108,7 @@ class Modeler {
 public:
 
    Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(myMax), max_solving_time(DBL_MAX),
-   relativeGap_(.05), absoluteGap_(5)
+   relativeGap_(.1), absoluteGap_(5)
 { }
 
    virtual ~Modeler(){
