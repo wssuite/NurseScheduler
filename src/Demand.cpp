@@ -73,6 +73,9 @@ void Demand::preprocessDemand() {
    isPreprocessed_ = true;
 }
 
+
+// add another week demand at the end of the current one
+// update all the parameters
 void Demand::push_back(Demand* pDemand){
    // check if same scenario
    if( (nbShifts_ != pDemand->nbShifts_) || (nbSkills_ != pDemand->nbSkills_) ){
@@ -96,6 +99,33 @@ void Demand::push_back(Demand* pDemand){
 
    // run the preprocessing
    this->preprocessDemand();
+}
+
+// Returns a new demand that appends pDemand to the current one
+Demand * Demand::append(Demand* pDemand){
+
+	Demand * bigDemand = new Demand(*this);
+
+   // check if same scenario
+   if( (nbShifts_ != pDemand->nbShifts_) || (nbSkills_ != pDemand->nbSkills_) ){
+      string error = "Demands are not compatible";
+      Tools::throwError(error.c_str());
+   }
+
+   // number of days covered by the demand and index of the first day
+   //
+   bigDemand->nbDays_ += pDemand->nbDays_;
+
+   //pushes back the second demand on the first
+   for(vector2D vector: pDemand->minDemand_)
+      bigDemand->minDemand_.push_back(vector);
+   for(vector2D vector: pDemand->optDemand_)
+	   bigDemand->optDemand_.push_back(vector);
+
+   // run the preprocessing
+   bigDemand->preprocessDemand();
+
+   return bigDemand;
 }
 
 // modify the demand by randomly swapping the demand of nnSwaps days

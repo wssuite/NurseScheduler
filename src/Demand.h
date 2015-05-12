@@ -107,10 +107,12 @@ public:
   // this includes the total demand per skill, per shift,
   void preprocessDemand();
 
-  // add another week demand at the end of the current one and create a new one
+  // add another week demand at the end of the current one
   // update all the parameters
-  // return the new demand
   void push_back(Demand* pDemand);
+
+  // Returns a new demand that appends pDemand to the current one
+  Demand* append(Demand* pDemand);
 
   // display the demand, and include the preprocessed information if the input
   // boolean is set to true

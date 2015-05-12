@@ -161,7 +161,7 @@ public:
 	// getters for the private class attributes
 	//
 	int nbWeeks() {return nbWeeks_;}
-  int thisWeek() {return thisWeek_;}
+	int thisWeek() {return thisWeek_;}
 	int nbWeeksLoaded() {return nbWeeksLoaded_;}
 	string weekName() {return weekName_;}
 	Demand* pWeekDemand() {return pWeekDemand_;}

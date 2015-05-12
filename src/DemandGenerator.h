@@ -47,6 +47,9 @@ public:
 	// generate nbScenarios_ through perturbations of the demand history
 	vector<Demand*> generatePerturbedDemands();
 
+	// generate 1 demand through perturbations of the demand history
+	Demand * generateSinglePerturbatedDemand();
+
 protected:
 	// number of demand scenarios that should be generated
 	int nbDemandsToGenerate_;

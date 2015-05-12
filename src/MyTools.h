@@ -38,6 +38,7 @@ static const int DECIMALS = 3; // precision when printing floats
 static const double EPSILON = .00001; // precision for the column generation
 static const double BRANCH_LB = 0.8; //branch on a column, if column > branchLB
 static const int NB_SHIFT_UNLIMITED = 28;
+static const int LARGE_SCORE = 9999999;
 
 
 // definitions of multi-dimensional int vector types
