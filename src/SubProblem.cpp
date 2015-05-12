@@ -239,7 +239,6 @@ void SubProblem::initShortSuccessions(){
 						lastShiftSucc.push_back(newSh);								// Record its last shift
 						int newNLast = 1;
 						double newCost = cost;
-						/* Antoine + Samuel ( re-modif) */
 						if(newSh == lastSh){	// BUT : add the cost if longer than the maximum allowed
 							newNLast += nLast;
 							if(newNLast >= pScenario_->maxConsShifts_[newSh]){
