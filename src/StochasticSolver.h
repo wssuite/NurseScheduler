@@ -45,7 +45,7 @@ public:
 	//----------------------------------------------------------------------------
 
 	// Main function
-	void solve();
+	double solve(vector<Roster> initialSolution = {});
 
 protected:
 
@@ -167,10 +167,17 @@ protected:
 	//
 	void computeWeightsTotalShifts();
 
+	Solver * setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algo);
 
-  // Solve the problem
-  //
-  virtual double solve(vector<Roster> solution = {});
+
+
+
+
+
+
+
+
+
 };
 
 #endif

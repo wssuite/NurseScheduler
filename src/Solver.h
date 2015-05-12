@@ -293,7 +293,7 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 //
 //-----------------------------------------------------------------------------
 
-enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL};
+enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL, NONE};
 enum Status{UNSOLVED,FEASIBLE,INFEASIBLE,OPTIMAL};
 
 class Solver{

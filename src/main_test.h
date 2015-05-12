@@ -65,10 +65,15 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 // In this method, the weeks are solved sequentially without knowledge of future
 // demand
 void testMultipleWeeksStochastic(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algo, string logPath="");
+		int historyIndex, vector<int> weekIndices, Algorithm generationAlgorithm, string outDir = "",
+		int nExtraDaysGenerationDemands = 0, int nGenerationDemands = 1, Algorithm evaluationAlgorithm = NONE, int nEvaluationDemands = 10, int nDaysEvaluation = 7);
 
 // Create a solver of the class specified by the input algorithm type
 Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm);
+
+// Create a stochastic solver of the class specified by the input algorithm type
+Solver* setStochasticSolverWithInputAlgorithm(Scenario* pScen, Algorithm generationAlgorithm, Algorithm evaluationAlgorithm,
+		int nExtraDaysGenerationDemands, int nEvaluationDemands, int nDaysEvaluation, int nGenerationDemands, vector<Demand*> demandHistory);
 
 // When a solution of multiple consecutive weeks is available, load it in a
 // solver for all the weeks and  display the results

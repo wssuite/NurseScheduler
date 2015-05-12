@@ -31,18 +31,23 @@ void testFunction_Antoine(){
    timertotal->start();
 
    string data = "datasets/";// testdatasets datasets
-   const char* inst = "n120w8";// n100w4 n030w4 n005w4
+   const char* inst = "n030w4";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
    //n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
    //n021w4:
    //n120w8: {3, 2}
-   vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
+   vector<int> numberWeek = {3, 5, 0, 2}; // , 0, 4, 5, 2};
 
 
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   testMultipleWeeksStochastic(data, inst, 0, numberWeek, STOCHASTIC_GENCOL, "outfiles/");
+   int nGenerationDemands = 1000;
+   int nExtraDaysGenerationDemands = 3;
+   int nEvaluationDemands = 2;
+   int nDaysEvaluation = 7;
+
+   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -96,7 +101,7 @@ void testFunction_Jeremy(){
   testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GENCOL,
     (string)(outDir+"BCP/"));
 
-	testMultipleWeeksStochastic(dataDir, instanceName, 0, weekIndices, GREEDY, (string)(outDir+"GreedyStochastic/"));
+//	testMultipleWeeksStochastic(dataDir, instanceName, 0, weekIndices, GREEDY, (string)(outDir+"GreedyStochastic/"));
 	testMultipleWeeksDeterministic(dataDir, instanceName, 0, weekIndices, GREEDY,  (string)(outDir+"Greedy/"));
 
    /************************************************************************
@@ -275,7 +280,8 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 ******************************************************************************/
 
 void testMultipleWeeksStochastic(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir) {
+	int historyIndex, vector<int> weekIndices, Algorithm generationAlgorithm, string outDir,
+	int nExtraDaysGenerationDemands, int nGenerationDemands, Algorithm evaluationAlgorithm, int nEvaluationDemands, int nDaysEvaluation) {
 
 	// build the paths of the input files
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
@@ -287,9 +293,15 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 	vector<Roster> solution;
 	int nbWeeks = weekIndices.size();
 	Status solutionStatus;
+
+	vector<Demand*> demandHistory;
+
 	for (int week = 0; week < nbWeeks; week++) {
 
-		Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
+		demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+
+		Solver* pSolver = setStochasticSolverWithInputAlgorithm(pScen, generationAlgorithm, evaluationAlgorithm,
+				nExtraDaysGenerationDemands, nEvaluationDemands, nDaysEvaluation, nGenerationDemands, demandHistory);
 
 		pSolver->solve();
 		solutionStatus = pSolver->getStatus();

@@ -27,7 +27,7 @@ StochasticSolver::StochasticSolver(Scenario* pScenario, Algorithm generationAlgo
 		nEvaluationDemands_(nEvaluationDemands), nDaysEvaluation_(nDaysEvaluation), nGenerationDemands_(nGenerationDemands), demandHistory_(demandHistory)
 {
 	bestScore_ = LARGE_SCORE;
-	bestSolution_ = -1;
+	bestSchedule_ = -1;
 	nSchedules_ = 0;
 	pEmptyPreferencesForEvaluation_ = new Preferences(pScenario_->nbNurses(), nDaysEvaluation_, pScenario_->nbShifts());
 }
@@ -69,7 +69,7 @@ StochasticSolver::~StochasticSolver(){
 //----------------------------------------------------------------------------
 
 // Main function
-void StochasticSolver::solve(){
+double StochasticSolver::solve(vector<Roster> initialSolution){
 
 	// Special case of the last week
 	//
@@ -82,21 +82,25 @@ void StochasticSolver::solve(){
 	else {
 		solveOneWeekWithPenalties();
 	}
+
+	return DBL_MAX;
 }
 
 // Does everything for the one week and only keeps the best schedule for it
 void StochasticSolver::solveOneWeekWithPenalties() {
-	/*Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand());
+	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), generationAlgorithm_);
 	pSolver->computeWeightsTotalShiftsForStochastic();
 	pSolver->solve();
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
-	*/
 }
 
 // Special case of the last week
 void StochasticSolver::solveOneWeekWithoutPenalties(){
-
+	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), GENCOL);
+	pSolver->solve();
+	solution_ = pSolver->getSolution();
+	status_ = pSolver->getStatus();
 }
 
 //----------------------------------------------------------------------------
@@ -179,7 +183,7 @@ Solver* StochasticSolver::setGenerationSolverWithInputAlgorithm(Demand* pDemand)
 }
 
 // Generate a new schedule
-double StochasticSolver::generateNewSchedule(){
+void StochasticSolver::generateNewSchedule(){
 	// A. Generate a demand that will be the origin of the scenario generation
 	//
 	generateSingleGenerationDemand();
@@ -195,8 +199,6 @@ double StochasticSolver::generateNewSchedule(){
 	//
 	pGenerationSolvers_.push_back(pGenSolver);
 	nSchedules_ ++;
-
-	return DBL_MAX;
 }
 
 
@@ -233,7 +235,6 @@ void StochasticSolver::initScheduleEvaluation(int sched){
 		v.push_back(s);
 	}
 	pEvaluationSolvers_.push_back(v);
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
 }
 
@@ -292,4 +293,37 @@ void StochasticSolver::updateRankingsAndScores(){
 
 
 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Solver* StochasticSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm) {
+
+	Solver* pSolver;
+	switch(algorithm){
+	case GREEDY:
+		pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
+		break;
+	case GENCOL:
+		pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_BCP);
+		break;
+	default:
+		Tools::throwError("The algorithm is not handled yet");
+		break;
+	}
+	return pSolver;
 }
