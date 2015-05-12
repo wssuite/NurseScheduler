@@ -183,6 +183,8 @@ struct BcpNode{
       return pParent_->highestGap_ ;
    }
 
+   inline double getBestLB() { return bestLB_; }
+
    //vector of the columns on which we have branched. Can be empty
    const vector<MyObject*> columns_;
 
@@ -276,15 +278,15 @@ public:
 
    void addBcpSol(const BCP_solution* sol);
 
-   void loadBestSol();
+   bool loadBestSol();
 
    void loadBcpSol(int index);
 
    inline void setPrimal(vector<double> primal){ primalValues_ = primal; }
 
-   inline void setBestLb(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
+   inline void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
 
-   inline double getBestLb(){ return best_lb_in_root; }
+   inline double getRootLB(){ return best_lb_in_root; }
 
    inline int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
 
@@ -302,9 +304,7 @@ public:
     * Manage the storage of our own tree
     */
    inline void updateNodeLB(double lb){
-      //if this node was at the minimum, reinitialize best_lb
-      if(currentNode_->bestLB_ < best_lb + EPSILON)
-         best_lb = DBL_MAX;
+      best_lb = DBL_MAX;
       currentNode_->updateBestLB(lb);
    }
 
@@ -379,8 +379,10 @@ public:
       if(best_lb == DBL_MAX)
          for(pair<const CoinTreeSiblings*, vector<BcpNode*> > p: treeMapping_)
             for(BcpNode* node: p.second)
-               if(best_lb > node->bestLB_)
-                  best_lb = node->bestLB_;
+               if(best_lb > node->getBestLB())
+                  best_lb = node->getBestLB();
+      if(best_lb == DBL_MAX)
+         return best_lb_in_root;
       return best_lb;
    }
 
@@ -528,6 +530,9 @@ public:
 
    //print in cout a line summary of the current solver state
    void printSummaryLine(const BCP_vec<BCP_var*>& vars = {});
+
+   //stop this node or BCP
+   bool doStop();
 
    //This method provides an opportunity for the user to tighten the bounds of variables.
    //The method is invoked after reduced cost fixing. The results are returned in the last two parameters.
@@ -795,7 +800,7 @@ protected:
       //      }
       //reorder the list with the new quality
       //we dont use a heap
-      std::stable_sort(candidateList_.begin()+1, candidateList_.end(), comp_);
+      std::stable_sort(candidateList_.begin(), candidateList_.end(), comp_);
    }
 
 private:

@@ -107,7 +107,7 @@ protected:
 class Modeler {
 public:
 
-   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(1000000), max_solving_time(DBL_MAX),
+   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(myMax), max_solving_time(DBL_MAX),
    relativeGap_(.05), absoluteGap_(5)
 { }
 
@@ -115,6 +115,9 @@ public:
       for(MyObject* object: objects_)
          delete object;
    }
+
+   //my max
+   int myMax = 1000000;
 
    //solve the model
    virtual int solve(bool relaxation = false)=0;
@@ -353,6 +356,8 @@ public:
    }
 
    virtual double getObjective()=0;
+
+   virtual double getRelaxedObjective() { return DBL_MAX; }
 
    /**************
     * Parameters *

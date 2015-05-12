@@ -315,12 +315,12 @@ public:
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
    // Main method to solve the rostering problem for a given input and an initial solution
-   virtual void solve(vector<Roster> solution = {}) {}
+   virtual double solve(vector<Roster> solution = {}) { return DBL_MAX;}
 
    // Main method to evaluate an initial state for a given input and an initial solution
    //same as solve if not redefine
-   virtual void evaluate(vector<Roster> solution = {}) {
-      solve(solution);
+   virtual double evaluate(vector<Roster> solution = {}) {
+      return solve(solution);
    }
 
    // Should be protected (and not private) because Solver will have subclasses

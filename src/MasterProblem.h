@@ -188,7 +188,14 @@ public:
    ~MasterProblem();
 
    //solve the rostering problem
-   void solve(vector<Roster> solution = {});
+   double solve(vector<Roster> solution = {});
+
+   // Main method to evaluate an initial state for a given input and an initial solution
+   //same as solve if not redifine
+   double evaluate(vector<Roster> solution = {});
+
+   //solve the rostering problem or just the relaxation(root node)
+   double solve(vector<Roster> solution, bool relaxation);
 
    //get the pointer to the model
    Modeler* getModel(){

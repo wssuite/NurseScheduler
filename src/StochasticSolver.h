@@ -168,9 +168,9 @@ protected:
 	void computeWeightsTotalShifts();
 
 
-	// Solve the problem
-	//
-	virtual void solve(vector<Roster> solution = {});
+  // Solve the problem
+  //
+  virtual double solve(vector<Roster> solution = {});
 };
 
 #endif

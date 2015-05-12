@@ -31,7 +31,7 @@ void testFunction_Antoine(){
    timertotal->start();
 
    string data = "datasets/";// testdatasets datasets
-   const char* inst = "n120w4";// n100w4 n030w4 n005w4
+   const char* inst = "n120w8";// n100w4 n030w4 n005w4
 
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    //n005w4: {1, 2, 3, 3}
@@ -257,7 +257,7 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 
 	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
-	pSolver->solve();
+	pSolver->evaluate();
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();

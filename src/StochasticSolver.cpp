@@ -179,8 +179,7 @@ Solver* StochasticSolver::setGenerationSolverWithInputAlgorithm(Demand* pDemand)
 }
 
 // Generate a new schedule
-void StochasticSolver::generateNewSchedule(){
-
+double StochasticSolver::generateNewSchedule(){
 	// A. Generate a demand that will be the origin of the scenario generation
 	//
 	generateSingleGenerationDemand();
@@ -196,6 +195,8 @@ void StochasticSolver::generateNewSchedule(){
 	//
 	pGenerationSolvers_.push_back(pGenSolver);
 	nSchedules_ ++;
+
+	return DBL_MAX;
 }
 
 
@@ -232,6 +233,7 @@ void StochasticSolver::initScheduleEvaluation(int sched){
 		v.push_back(s);
 	}
 	pEvaluationSolvers_.push_back(v);
+>>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 
 }
 
