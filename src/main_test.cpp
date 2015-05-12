@@ -286,17 +286,17 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 	// solve the problem for each week and store the solution in the vector below
 	vector<Roster> solution;
 	int nbWeeks = weekIndices.size();
-  Status solutionStatus;
+	Status solutionStatus;
 	for (int week = 0; week < nbWeeks; week++) {
 
 		Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
 
 		pSolver->solve();
-    solutionStatus = pSolver->getStatus();
-    if (solutionStatus == INFEASIBLE) {
-      delete pSolver;
-      break;
-    }
+		solutionStatus = pSolver->getStatus();
+		if (solutionStatus == INFEASIBLE) {
+			delete pSolver;
+			break;
+		}
 
 		// update the overall solution with the solution of the week that was just
 		// treated
@@ -400,7 +400,7 @@ void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
 }
 
 
-/******************************************************************************
+/*****************************************************************************
 * Create a solver of the class specified by the input algorithm type
 ******************************************************************************/
 
@@ -414,16 +414,23 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 	case GENCOL:
 		pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_BCP);
 		break;
-  case STOCHASTIC_GREEDY:
-    pSolver = new StochasticSolver(pScen, GREEDY);
-    break;
-  case STOCHASTIC_GENCOL:
-      pSolver = new StochasticSolver(pScen, GENCOL);
-      break;
 	default:
 		Tools::throwError("The algorithm is not handled yet");
 		break;
 	}
+	return pSolver;
+}
+
+/*******************************************************************************
+* Create a stochastic solver of the class specified by the input algorithm type
+* (in a way, this function is not necessary, but it fits well with the rest)
+********************************************************************************/
+
+Solver* setStochasticSolverWithInputAlgorithm(Scenario* pScen, Algorithm generationAlgorithm, Algorithm evaluationAlgorithm,
+		int nExtraDaysGenerationDemands, int nEvaluationDemands, int nDaysEvaluation, int nGenerationDemands, vector<Demand*> demandHistory) {
+	Solver* pSolver;
+	pSolver = new StochasticSolver(pScen, generationAlgorithm, evaluationAlgorithm, nExtraDaysGenerationDemands, nEvaluationDemands,
+			nDaysEvaluation, nGenerationDemands, demandHistory);
 	return pSolver;
 }
 
