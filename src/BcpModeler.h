@@ -139,6 +139,11 @@ vector<double> coeffs_; //value of these coefficients
 //   SCIP_VAR* rule_;
 //};
 
+/* Exception to stop BCP */
+struct BcpStop: public exception{
+   BcpStop(string str){ cout << str << endl; }
+};
+
 struct BcpNode{
 
    BcpNode(): index_(0), bestLB_(DBL_MAX), pParent_(0), highestGap_(0), pNurse_(0), day_(0), rest_(false), pNumberOfNurses_(0), lb_(-DBL_MAX), ub_(DBL_MAX) {}
@@ -424,6 +429,9 @@ public:
    inline  map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
    inline  map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
+
+   //check if Bcp stops
+   bool doStop();
 
 protected:
    //branching tree
