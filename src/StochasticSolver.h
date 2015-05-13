@@ -151,7 +151,7 @@ protected:
 	double bestScore_;
 
 	// Return a solver with the algorithm specified for schedule EVALUATION
-	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State>* stateEndOfSchedule);
+	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule);
 	// Initialization
 	void initScheduleEvaluation(int sched);
 	// Evaluate 1 schedule and store the corresponding detailed results

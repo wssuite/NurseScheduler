@@ -42,7 +42,7 @@ void testFunction_Antoine(){
 
 
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   int nGenerationDemands = 1000;
+   int nGenerationDemands = 5;
    int nExtraDaysGenerationDemands = 3;
    int nEvaluationDemands = 2;
    int nDaysEvaluation = 7;
@@ -154,7 +154,7 @@ void testFunction_Samuel(){
 
 	//   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 	int nExtraDaysGenerationDemands = 3;
-	int nGenerationDemands = 1000;
+	int nGenerationDemands = 5;
 	Algorithm evaluationAlgorithm = GENCOL;
 	int nEvaluationDemands = 5;
 	int nDaysEvaluation = 7;
@@ -345,7 +345,7 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 			// read the initial state of the new week from the last state of the
 			// last week
 			// modify the dayId_ to show that this is the first day of the new week
-			vector<State> initialStates = pSolver->getFinalStates();
+			vector<State> initialStates = pSolver->getStatesOfDay(6);
 			for (int i = 0; i < pScen->nbNurses_; i++) {
 				initialStates[i].dayId_ = 0;
 			}

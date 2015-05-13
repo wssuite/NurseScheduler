@@ -569,6 +569,11 @@ public:
    //
    vector<State> getFinalStates();
 
+   // Returns the states(k+1) since the states start at 0
+   // (hence, the state at the end of day k is state(k+1)
+   //
+   vector<State> getStatesOfDay(int k);
+
    // display the whole solution in the required format
    //
    string solutionToString();

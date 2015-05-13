@@ -47,7 +47,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    //if first day of the planning, check on the past , otherwise 0
    int nbConsDaysWorked = (firstDay_==0) ? pNurse_->pStateIni_->consDaysWorked_ : 0;
    //consWorkedCost = cost of be outside of the interval [min,max] of the consecutives worked days
-   consDaysWorkedCost_ = 0;
+   consDaysWorkedCost_ = 0 ;
 
    //cost of not doing the whole weekend
    completeWeekendCost_ = 0;
@@ -96,6 +96,10 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    /*
     * Compute consDaysWorkedCost
     */
+
+   // if already worked too much
+   double diffDays = nbConsDaysWorked - pNurse_->pContract_->maxConsDaysWork_;
+   consDaysWorkedCost_ = (diffDays > 0) ? - diffDays * WEIGHT_CONS_DAYS_WORK : 0 ;
 
    nbConsDaysWorked += length_;
    //check if nbConsDaysWorked < min, if finishes on last day, does not count
@@ -212,7 +216,7 @@ void Rotation::computeDualCost(DualCosts& costs){
     	  }
     	  cout << "# " << endl;
     	  cout << "# " << endl;
-//    	  getchar();
+    	  getchar();
       }
 }
 
@@ -407,9 +411,8 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    pModel_->printStats();
 
    if(!pModel_->printBestSol() or relaxation){
-	   cout << "# " << min(pModel_->getRelaxedObjective(), pModel_->getObjective()) << endl;
-	   //getchar();
-	   return min(pModel_->getRelaxedObjective(), pModel_->getObjective());
+	   cout << "# " << pModel_->getRelaxedObjective() << endl;
+	   return pModel_->getRelaxedObjective();
    }
 
    storeSolution();

@@ -1439,6 +1439,11 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 	if(startDate==0){
 		// The nurse was working
 		if(pLiveNurse_->pStateIni_->shift_ > 0){
+
+			if(pScenario_->isForbiddenSuccessor( succ[0], pLiveNurse_->pStateIni_->shift_)){
+				return MAX_COST;
+			}
+
 			// Change initial values
 			shift = pLiveNurse_->pStateIni_->shift_;
 			consShifts = pLiveNurse_->pStateIni_->consShifts_;
@@ -1513,7 +1518,11 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 		cout << "# " << startDate << "-";
 		for(int i=0; i<succ.size(); i++) cout << pScenario_->intToShift_[succ[i]].at(0);
 		cout << endl;
-		cout << "# length " << consDays << endl;
+		cout << "# length " << consDays;
+		if(startDate == 0 and pLiveNurse_->pStateIni_->shift_ > 0){
+			cout << " (incl. " << pLiveNurse_->pStateIni_->consDaysWorked_ << " before planing horizon)";
+		}
+		cout << endl;
 
 		cout << "# REG- Consecutive days cost   : " << consDaysRegCost << endl;
 		cout << "# REG- Consecutive shifts cost : " << consShiftsRegCost << endl;
@@ -2483,6 +2492,7 @@ void SubProblem::printContractAndPrefenrences(){
 		cout << endl;
 	}
 	std::cout << "# Contract :   ";
+	std::cout << "Days [" << pContract_->minConsDaysOff_ << "<" << pContract_->maxConsDaysOff_ << "]   ";
 	for(int s=1; s<pScenario_->nbShifts_; s++){
 		std::cout << pScenario_->intToShift_[s] << " [" << pScenario_->minConsShifts_[s] << "<" << pScenario_->maxConsShifts_[s] << "]   ";
 	}

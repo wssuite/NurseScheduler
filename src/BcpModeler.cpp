@@ -339,9 +339,15 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
+	//update node
+	if(local_var_pool.size() == 0)
+		pModel_->updateNodeLB(lpres.objval());
+
    //stop this process for BCP or the node
-   if(doStop())
+   if(doStop()){
       return BCP_DoNotBranch_Fathomed;
+
+   }
 
    //if some variables have been generated, do not branch
    if(local_var_pool.size() > 0)
@@ -354,9 +360,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    //fathom if greater than current upper bound
    if(pModel_->getBestUB() - lpres.objval() < pModel_->getAbsoluteGap() - EPSILON)
       return BCP_DoNotBranch_Fathomed;
-
-   //update node
-   pModel_->updateNodeLB(lpres.objval());
 
    //branching candidates: numberOfNursesByPosition_, rest on a day, ...
    vector<MyObject*> branchingCandidates;

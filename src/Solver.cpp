@@ -911,6 +911,17 @@ vector<State> Solver::getFinalStates() {
   return pFinalStates;
 }
 
+// return the states of the nurses at day k
+//
+vector<State> Solver::getStatesOfDay(int k) {
+  vector<State> pStatesOfDayK;
+  int nbDays = pDemand_->nbDays_;
+  for (LiveNurse* pNurse: theLiveNurses_) {
+	  pStatesOfDayK.push_back(pNurse->state(k+1));
+  }
+  return pStatesOfDayK;
+}
+
 // display the whole solution
 //
 string Solver::solutionToString() {

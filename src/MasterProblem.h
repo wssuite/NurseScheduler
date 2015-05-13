@@ -227,7 +227,7 @@ public:
     */
    const char* PB_NAME = "GenCol";
    int solvingTime;
-   int bigM = 10000;
+   int bigM = 1000000;
 
 private:
    Modeler* pModel_;

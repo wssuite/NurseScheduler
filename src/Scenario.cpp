@@ -81,7 +81,7 @@ bool Scenario::isForbiddenSuccessor(int shNext, int shLast) {
 void Scenario::updateNewWeek(Demand* pDemand, Preferences& preferences, vector<State> &initialStates) {
 
 	// delete the current demand
-	delete pWeekDemand_;
+	if(pWeekDemand_) delete pWeekDemand_;
 
 	// set the demand, preferences and initial states
 	this->linkWithDemand(pDemand);

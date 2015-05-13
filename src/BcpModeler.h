@@ -166,12 +166,12 @@ struct BcpNode{
    }
 
    inline void updateBestLB(double newLB){
-      bestLB_ = newLB;
-      //if not root
-      if(pParent_){
-         double gap = (bestLB_ - pParent_->bestLB_)/pParent_->bestLB_;
-         if(gap > pParent_->highestGap_) pParent_->highestGap_ = gap;
-      }
+	   bestLB_ = newLB;
+	   //if not root
+	   if(pParent_){
+		   double gap = (bestLB_ - pParent_->bestLB_)/pParent_->bestLB_;
+		   if(gap > pParent_->highestGap_) pParent_->highestGap_ = gap;
+	   }
    }
 
    inline double getHighestGap(){
@@ -304,8 +304,7 @@ public:
     * Manage the storage of our own tree
     */
    inline void updateNodeLB(double lb){
-      best_lb = DBL_MAX;
-      if(best_lb_in_root == myMax)
+      if(best_lb_in_root > lb)
          best_lb_in_root = lb;
       currentNode_->updateBestLB(lb);
    }
@@ -390,13 +389,12 @@ public:
    }
 
    inline double getBestLB(){
-      /* if best_lb has been reinitialized */
-      if(best_lb == DBL_MAX)
-         for(pair<const CoinTreeSiblings*, vector<BcpNode*> > p: treeMapping_)
-            for(BcpNode* node: p.second)
-               if(best_lb > node->getBestLB())
-                  best_lb = node->getBestLB();
-      if(best_lb == DBL_MAX)
+	   best_lb = currentNode_->getBestLB();
+	   for(pair<const CoinTreeSiblings*, vector<BcpNode*> > p: treeMapping_)
+		   for(BcpNode* node: p.second)
+			   if(best_lb > node->getBestLB())
+				   best_lb = node->getBestLB();
+	   if(best_lb == DBL_MAX)
          return myMax;
       return best_lb;
    }
