@@ -109,8 +109,14 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 void StochasticSolver::solveOneWeekWithPenalties() {
 	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), generationAlgorithm_);
 	pSolver->computeWeightsTotalShiftsForStochastic();
+//	pSolver->computeWeightsTotalShiftsForPrimalDual();
 	pSolver->solve();
 	solution_ = pSolver->getSolution();
+   /* update nurse States */
+	for(int n=0; n<pScenario_->nbNurses_; ++n){
+	   theLiveNurses_[n]->roster_ = solution_[n];
+	   theLiveNurses_[n]->buildStates();
+	}
 	status_ = pSolver->getStatus();
 }
 
@@ -119,6 +125,11 @@ void StochasticSolver::solveOneWeekWithoutPenalties(){
 	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), GENCOL);
 	pSolver->solve();
 	solution_ = pSolver->getSolution();
+	/* update nurse States */
+   for(int n=0; n<pScenario_->nbNurses_; ++n){
+      theLiveNurses_[n]->roster_ = solution_[n];
+      theLiveNurses_[n]->buildStates();
+   }
 	status_ = pSolver->getStatus();
 }
 
