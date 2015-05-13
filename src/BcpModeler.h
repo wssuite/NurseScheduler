@@ -364,6 +364,9 @@ public:
          treeMapping_.erase(s);
       //one more node without new incumbent
       ++nb_nodes_last_incumbent_;
+      //we start a new dive
+      if(diveDepth_ > 0 && diveLenght_ == myMax)
+         diveLenght_ = 1+diveDepth_;
    }
 
    inline void addToMapping(const CoinTreeSiblings* s) {
@@ -377,6 +380,8 @@ public:
       tree_size_ += nbLeaves -1; //-1 as diving
       //one more node without new incumbent
       ++nb_nodes_last_incumbent_;
+      //we dive
+      diveDepth_ = s->currentNode()->getDepth();
    }
 
    inline BcpNode* getNode(const CoinTreeSiblings* s) {
@@ -396,9 +401,17 @@ public:
       return best_lb;
    }
 
+   inline void setBestUB(double ub) {
+      /* reinitialize nb_nodes_last_incumbent_ */
+      if(ub + 1 < best_ub) nb_nodes_last_incumbent_=0;
+      if(ub < best_ub) best_ub = ub;
+   }
+
    inline int getTreeSize(){ return tree_size_; }
 
    inline int getNbNodesSinceLastIncumbent() { return nb_nodes_last_incumbent_; }
+
+   inline int getDiveLength() { return diveLenght_; }
 
    inline void pushBackBranchingCons(BcpBranchCons* cons){ branchingCons_.push_back(cons); }
 
@@ -418,8 +431,8 @@ protected:
    //mapping between the CoinTreeSiblings* and my BcpNode*
    //a sibblings contains a list of all its leaves CoinTreeNode
    map<const CoinTreeSiblings*, vector<BcpNode*>> treeMapping_;
-   //tree size, number of nodes since last incumbent
-   int tree_size_, nb_nodes_last_incumbent_;
+   //tree size, number of nodes since last incumbent, depth of the current dive, length of a dive
+   int tree_size_, nb_nodes_last_incumbent_, diveDepth_, diveLenght_;
    //current node
    BcpNode* currentNode_;
    //best lb in root and current best lb

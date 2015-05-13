@@ -47,7 +47,7 @@ void testFunction_Antoine(){
    int nEvaluationDemands = 2;
    int nDaysEvaluation = 7;
 
-   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+//   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
    testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 
    // Display the total time spent in the algorithm

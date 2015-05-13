@@ -108,7 +108,7 @@ class Modeler {
 public:
 
    Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(myMax), max_solving_time(DBL_MAX),
-   relativeGap_(.1), absoluteGap_(5)
+   relativeGap_(.1), minRelativeGap_(.05), absoluteGap_(5)
 { }
 
    virtual ~Modeler(){
@@ -393,7 +393,7 @@ public:
 
    inline double getBestUB() { return best_ub; }
 
-   inline void setBestUB(double ub) { if(ub < best_ub) best_ub = ub; }
+   inline virtual void setBestUB(double ub) { if(ub < best_ub) best_ub = ub; }
 
    inline long getMaxSolvingtime() { return max_solving_time; }
 
@@ -402,6 +402,10 @@ public:
    inline double getRelativeGap() { return relativeGap_; }
 
    inline void setRelativeGap(double relativeGap) { relativeGap_ = relativeGap; }
+
+   inline double getMinRelativeGap() { return minRelativeGap_; }
+
+   inline void setMinRelativeGap(double minRelativeGap) { minRelativeGap_ = minRelativeGap; }
 
    inline double getAbsoluteGap() { return absoluteGap_; }
 
@@ -435,7 +439,10 @@ protected:
    long max_solving_time;
    //relative and absolute gap (with the current costs,
    //the difference between two solution costs is at lest 5
-   double relativeGap_, absoluteGap_;
+   //if sol below minRelativeGap_, we stop immediately
+   //if sol below relativeGap_, we stop after a dive without new incumbent
+   //if sol over relativeGap_, we stop after 2 divse without new incumbent
+   double relativeGap_, minRelativeGap_, absoluteGap_;
    //strore the last branching decisions
    pair<LiveNurse*, int> lastBranchingRest_;
 };

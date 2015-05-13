@@ -188,14 +188,17 @@ bool BcpLpModel::doStop(){
       return false;
 
    //check relative gap
-   if(pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getRelativeGap() * pModel_->getBestLB() - EPSILON)
-      //if the relative gap is small enough and if same incumbent since 50 nodes, stop
-      if(pModel_->getNbNodesSinceLastIncumbent() > 50)
+   if(pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getMinRelativeGap() * pModel_->getBestLB() - EPSILON)
+      return true;
+   if(pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getRelativeGap() * pModel_->getBestLB() - EPSILON){
+      //if the relative gap is small enough and if same incumbent since the last dive, stop
+      if(pModel_->getNbNodesSinceLastIncumbent() > pModel_->getDiveLength())
          return true;
-      else
-         //if the relative gap is too big, wait 100 nodes before stopping
-         if(pModel_->getNbNodesSinceLastIncumbent() > 100)
-            return true;
+   }
+   else
+      //if the relative gap is too big, wait 2 dives before stopping
+      if(pModel_->getNbNodesSinceLastIncumbent() > 2*pModel_->getDiveLength())
+         return true;
 
    //fathom if the true lower bound greater than current upper bound
    if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
@@ -363,20 +366,8 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    vector<MyObject*> fixingCandidates;
    pModel_->logical_fixing(fixingCandidates);
 
-   if(branchingCandidates.size() == 0){
-      bool notIntegerCol = false;
-      for(CoinVar* col: pModel_->getColumns()){
-         double value = pModel_->getVarValue(col);
-         if(value < EPSILON || value > 1 - EPSILON) continue;
-         notIntegerCol = true;
-         cout << "Var " << col->name_ << " = " << value << endl;
-      }
-      if(notIntegerCol){
-         appendNewBranchingVarsOnColumns(fixingCandidates, vars, cands);
-         return BCP_DoBranch;
-      }
+   if(branchingCandidates.size() == 0)
       return BCP_DoNotBranch_Fathomed;
-   }
 
 //   CoinVar* integerCoreVar = dynamic_cast<CoinVar*>(branchingCandidates[0]);
 //   appendNewBranchingVarsOnNumberOfNurses(integerCoreVar, fixingCandidates, vars, cands);
@@ -709,7 +700,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
  * BcpModeler
  */
 BcpModeler::BcpModeler(const char* name):
-   CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0),
+   CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0), diveDepth_(0), diveLenght_(myMax),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
    best_lb_in_root(myMax), best_lb(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 {
@@ -815,8 +806,6 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    }
 
    bcpSolutions_.push_back(mySol);
-   /* reinitialize nb_nodes_last_incumbent_ */
-   nb_nodes_last_incumbent_=0;
 }
 
 bool BcpModeler::loadBestSol(){
