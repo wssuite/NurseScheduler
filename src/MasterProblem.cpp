@@ -774,12 +774,6 @@ void MasterProblem::buildRotationCons(){
       longRestingVars_[i] = longRestingVars2;
       restFlowCons_[i] = restFlowCons2;
       workFlowCons_[i] = workFlowCons2;
-
-      for(int k=0; k<pDemand_->nbDays_; ++k){
-         cout << "Nurse " << i << " rests on day " << k << endl;
-         for(MyObject* rest: restsPerDay2[k])
-            cout << rest->name_ << endl;
-      }
    }
 }
 

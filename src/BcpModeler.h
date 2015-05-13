@@ -305,6 +305,8 @@ public:
     */
    inline void updateNodeLB(double lb){
       best_lb = DBL_MAX;
+      if(best_lb_in_root == myMax)
+         best_lb_in_root = lb;
       currentNode_->updateBestLB(lb);
    }
 
@@ -353,10 +355,15 @@ public:
    }
 
    inline void setCurrentNode(const CoinTreeSiblings* s) {
-      currentNode_ = getNode(s);
+      /* the current node of this siblings is already taken as processed */
+      int nodeIndex = s->size() - s->toProcess() - 1;
+      currentNode_ = treeMapping_[s][nodeIndex];
+      --tree_size_;
       /* if no more child in this siblings */
       if(s->toProcess() == 0)
          treeMapping_.erase(s);
+      //one more node without new incumbent
+      ++nb_nodes_last_incumbent_;
    }
 
    inline void addToMapping(const CoinTreeSiblings* s) {
@@ -364,13 +371,16 @@ public:
       vector<BcpNode*> leaves(nbLeaves);
       for(int i=0; i<nbLeaves; ++i) leaves[i] = tree_[size - nbLeaves + i];
       treeMapping_.insert(pair<const CoinTreeSiblings*, vector<BcpNode*> >(s, leaves));
-      //finally update the current node for the moment. Will not change if diving
+      //finally update the current node for the moment.
+      //Will not change for the first node as diving
       currentNode_ = leaves[0];
+      tree_size_ += nbLeaves -1; //-1 as diving
+      //one more node without new incumbent
+      ++nb_nodes_last_incumbent_;
    }
 
    inline BcpNode* getNode(const CoinTreeSiblings* s) {
-      /* the current node of this siblings is already taken as processed */
-      int nodeIndex = s->size() - s->toProcess() - 1;
+      int nodeIndex = s->size() - s->toProcess();
       return treeMapping_[s][nodeIndex];
    }
 
@@ -382,9 +392,13 @@ public:
                if(best_lb > node->getBestLB())
                   best_lb = node->getBestLB();
       if(best_lb == DBL_MAX)
-         return best_lb_in_root;
+         return myMax;
       return best_lb;
    }
+
+   inline int getTreeSize(){ return tree_size_; }
+
+   inline int getNbNodesSinceLastIncumbent() { return nb_nodes_last_incumbent_; }
 
    inline void pushBackBranchingCons(BcpBranchCons* cons){ branchingCons_.push_back(cons); }
 
@@ -404,6 +418,8 @@ protected:
    //mapping between the CoinTreeSiblings* and my BcpNode*
    //a sibblings contains a list of all its leaves CoinTreeNode
    map<const CoinTreeSiblings*, vector<BcpNode*>> treeMapping_;
+   //tree size, number of nodes since last incumbent
+   int tree_size_, nb_nodes_last_incumbent_;
    //current node
    BcpNode* currentNode_;
    //best lb in root and current best lb
@@ -624,9 +640,6 @@ public:
    //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
    void set_actions_for_children(BCP_presolved_lp_brobj* best);
 
-   //allow to count the nodes
-   void select_cuts_to_delete (const BCP_lp_result &lpres, const BCP_vec< BCP_var * > &vars, const BCP_vec< BCP_cut * > &cuts, const bool before_fathom, BCP_vec< int > &deletable);
-
 protected:
    BcpModeler* pModel_;
    //number of column in the master problem before the pricing
@@ -634,7 +647,7 @@ protected:
    //count the iteration
    int lpIteration_;
    //count the nodes
-   int last_node, nb_nodes;
+   int last_node;
    //if heuristic has been run. To be sure to run the heuristic no more than one time per node
    bool heuristicHasBeenRun_;
 
@@ -791,13 +804,11 @@ protected:
       this->candidateList_.push_back(s);
 
       /* update the quality  and then the candidateList */
-      //      //just put a value as the first element has been already deleted
-      //      candidateList_[0] = candidateList_[candidateList_.size()-1];
-      //      //update quality
-      //      for(CoinTreeSiblings* s: this->candidateList_){
-      //         double q = pModel_->getNode(s)->getHighestGap();
-      //         s->currentNode()->setQuality(q);
-      //      }
+      //update quality
+      for(CoinTreeSiblings* s: this->candidateList_){
+         double q = pModel_->getNode(s)->getHighestGap();
+         s->currentNode()->setQuality(q);
+      }
       //reorder the list with the new quality
       //we dont use a heap
       std::stable_sort(candidateList_.begin(), candidateList_.end(), comp_);
