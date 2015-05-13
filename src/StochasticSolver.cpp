@@ -20,14 +20,15 @@
 //-----------------------------------------------------------------------------
 
 StochasticSolver::StochasticSolver(Scenario* pScenario, Algorithm generationAlgorithm, Algorithm evaluationAlgorithm,
-		int nExtraDaysGenerationDemands, int nEvaluationDemands, int nDaysEvaluation, int nGenerationDemands,
+		int nExtraDaysGenerationDemands, int nEvaluationDemands, int nDaysEvaluation, int nMaxGenerationDemands,
 		vector<Demand*> demandHistory):
 		Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
 		generationAlgorithm_(generationAlgorithm), evaluationAlgorithm_(evaluationAlgorithm), nExtraDaysGenerationDemands_(nExtraDaysGenerationDemands),
-		nEvaluationDemands_(nEvaluationDemands), nDaysEvaluation_(nDaysEvaluation), nGenerationDemands_(nGenerationDemands), demandHistory_(demandHistory)
+		nEvaluationDemands_(nEvaluationDemands), nDaysEvaluation_(nDaysEvaluation), nGenerationDemandsMax_(nMaxGenerationDemands), demandHistory_(demandHistory)
 {
 	bestScore_ = LARGE_SCORE;
 	bestSchedule_ = -1;
+	nGenerationDemands_ = 0;
 	nSchedules_ = 0;
 	pEmptyPreferencesForEvaluation_ = new Preferences(pScenario_->nbNurses(), nDaysEvaluation_, pScenario_->nbShifts());
 }
@@ -71,16 +72,22 @@ StochasticSolver::~StochasticSolver(){
 // Main function
 double StochasticSolver::solve(vector<Roster> initialSolution){
 
-	// Special case of the last week
+	// A. Special case of the last week
 	//
+
 	if(pScenario_->nbWeeks() == pScenario_->thisWeek()){
 		solveOneWeekWithoutPenalties();
 	}
 
-	// Regular week
+	// B. Regular week when using the perturbation + generate single schedule
 	//
-	else {
+	else if(evaluationAlgorithm_ == NONE){
 		solveOneWeekWithPenalties();
+	}
+
+	// C. Regular week when using generation-evaluation
+	else {
+		solveOneWeekGenerationEvaluation();
 	}
 
 	return DBL_MAX;
@@ -112,6 +119,22 @@ void StochasticSolver::solveOneWeekWithoutPenalties(){
       theLiveNurses_[n]->buildStates();
    }
 	status_ = pSolver->getStatus();
+}
+
+// Solves the problem by generation + evaluation of scenarios
+void StochasticSolver::solveOneWeekGenerationEvaluation(){
+	int prevBestSchedule = -1;
+	// TODO: Add a time constraint in the while condition
+	while(nSchedules_<nGenerationDemandsMax_){
+		addAndSolveNewSchedule();
+
+		// TODO: write the output NOW so that it is not lost
+		if(prevBestSchedule != bestSchedule_){
+
+		}
+
+		prevBestSchedule = bestSchedule_;
+	}
 }
 
 //----------------------------------------------------------------------------
