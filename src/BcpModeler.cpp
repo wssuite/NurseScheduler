@@ -183,22 +183,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
 //stop this node or BCP
 bool BcpLpModel::doStop(){
-   //continue if doesn't have a lb
-   if(pModel_->getBestLB() == pModel_->myMax)
-      return false;
-
-   //check relative gap
-   if(pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getMinRelativeGap() * pModel_->getBestLB() - EPSILON)
-      return true;
-   if(pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getRelativeGap() * pModel_->getBestLB() - EPSILON){
-      //if the relative gap is small enough and if same incumbent since the last dive, stop
-      if(pModel_->getNbNodesSinceLastIncumbent() > pModel_->getDiveLength())
-         return true;
-   }
-   else
-      //if the relative gap is too big, wait 2 dives before stopping
-      if(pModel_->getNbNodesSinceLastIncumbent() > 2*pModel_->getDiveLength())
-         return true;
+   pModel_->doStop();
 
    //fathom if the true lower bound greater than current upper bound
    if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
@@ -715,7 +700,11 @@ BcpModeler::BcpModeler(const char* name):
 int BcpModeler::solve(bool relaxatione){
    BcpInitialize bcp(this);
    char* argv[0];
-   return bcp_main(0, argv, &bcp);
+   try{
+      return bcp_main(0, argv, &bcp);
+   }catch(BcpStop& e) { }
+
+   return 0;
 }
 
 /*
@@ -918,6 +907,39 @@ int BcpModeler::setVerbosity(int v){
    }
 
    return 1;
+}
+
+//Check if BCP must stop
+bool BcpModeler::doStop(){
+   //continue if doesn't have a lb
+   if(getBestLB() == myMax)
+      return false;
+
+   //check relative gap
+   if(best_ub - getBestLB() < minRelativeGap_ * getBestLB() - EPSILON){
+      char error[100];
+      sprintf(error, "Stopped: relative gap < %.2f.", minRelativeGap_);
+      throw BcpStop(error);
+   }
+   if(best_ub - getBestLB() < relativeGap_ * getBestLB() - EPSILON){
+      //if the relative gap is small enough and if same incumbent since the last dive, stop
+      if(nb_nodes_last_incumbent_ > diveLenght_){
+         char error[100];
+         sprintf(error, "Stopped: relative gap < %.2f and more than %d nodes without new incumbent.",
+            relativeGap_, diveLenght_);
+         throw BcpStop(error);
+      }
+   }
+   else
+      //if the relative gap is too big, wait 2 dives before stopping
+      if(nb_nodes_last_incumbent_ > 2*diveLenght_){
+         char error[100];
+         sprintf(error, "Stopped: relative gap > %.2f and more than %d nodes without new incumbent.",
+            relativeGap_, diveLenght_);
+         throw BcpStop(error);
+      }
+
+   return false;
 }
 
 /**************
