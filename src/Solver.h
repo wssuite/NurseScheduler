@@ -286,6 +286,31 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 
 //-----------------------------------------------------------------------------
 //
+//  C l a s s   S o l v e r P a r a m
+//
+//  Structure that gather parameters for a solver. Can be given as an input of
+//  the solve function of any solver
+//
+//-----------------------------------------------------------------------------
+
+class SolverParam{
+
+public:
+	SolverParam(): maxSolvingTime_(LARGE_TIME){}
+	SolverParam(int maxSolvingTime): maxSolvingTime_(maxSolvingTime){}
+
+	void setMaxSolvingTime(int maxSolvingTime){ maxSolvingTime_ = maxSolvingTime; }
+	int maxSolvingTime(){return maxSolvingTime_;}
+
+protected:
+
+	int maxSolvingTime_;
+
+};
+
+
+//-----------------------------------------------------------------------------
+//
 //  C l a s s   S o l v e r
 //
 //  Solves the offline problem
@@ -318,9 +343,20 @@ public:
    virtual double solve(vector<Roster> solution = {}) { return DBL_MAX;}
 
    // Main method to evaluate an initial state for a given input and an initial solution
-   //same as solve if not redefine
+   // same as solve if not redefine
    virtual double evaluate(vector<Roster> solution = {}) {
       return solve(solution);
+   }
+
+   // Main method to solve the rostering problem for a given input and an initial solution and parameters
+   virtual double solve(SolverParam parameters, vector<Roster> solution = {}){
+	   return solve(solution);
+   }
+
+   // Main method to evaluate an initial state for a given input and an initial solution and parameters
+   // same as solve if not redefine
+   virtual double evaluate(SolverParam parameters, vector<Roster> solution = {}){
+	   return solve(parameters, solution);
    }
 
    // Should be protected (and not private) because Solver will have subclasses
@@ -544,6 +580,9 @@ public:
    // information on the solution quality
    //
    string solutionToLogString();
+
+   // Returns the number of days over which the solver solves the problem
+   int getNbDays(){return pDemand_->nbDays_;}
 
 };
 

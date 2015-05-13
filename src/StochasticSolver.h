@@ -124,6 +124,7 @@ protected:
 	// Schedules
 	int nSchedules_;
 	vector<Solver*> pGenerationSolvers_;
+	SolverParam generationParameters_;
 
 	// Return a solver with the algorithm specified for schedule GENERATION
 	Solver * setGenerationSolverWithInputAlgorithm(Demand* pDemand);
@@ -141,6 +142,7 @@ protected:
 	// Empty preferences -> only 1 to avoid multiplying them
 	Preferences * pEmptyPreferencesForEvaluation_;
 	// Evaluation
+	SolverParam evaluationParameters_;
 	vector<vector<Solver*> > pEvaluationSolvers_;
 	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemand_;
 	// Scores

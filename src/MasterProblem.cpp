@@ -396,7 +396,6 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    // RqJO: warning, it would be better to define an enumerate type of verbosity
    // levels and create the matching in the Modeler subclasses
    if (solverType_ != S_CBC ) {
-      //    pModel_->setMaxSolvingtime(12000);
       pModel_->setVerbosity(1);
       //cut the branching process at the end of the root node
       if(relaxation)
@@ -407,15 +406,39 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    pModel_->solve();
    pModel_->printStats();
 
-   if(!pModel_->printBestSol())
-      return pModel_->getRelaxedObjective();
+   if(!pModel_->printBestSol() or relaxation){
+	   cout << "# " << min(pModel_->getRelaxedObjective(), pModel_->getObjective()) << endl;
+	   //getchar();
+	   return min(pModel_->getRelaxedObjective(), pModel_->getObjective());
+   }
 
    storeSolution();
    costsConstrainstsToString();
    status_ = FEASIBLE;
    return pModel_->getObjective();
 }
-//
+
+// Solve the rostering problem with parameters
+
+double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
+	setParameters(parameters);
+	return solve(solution);
+}
+
+// Main method to evaluate an initial state for a given input and an initial solution and parameters
+//same as solve if not redefine
+double MasterProblem::evaluate(SolverParam parameters, vector<Roster> solution){
+	setParameters(parameters);
+	return evaluate(solution);
+}
+
+void MasterProblem::setParameters(SolverParam parameters){
+	if (solverType_ != S_CBC )
+		pModel_->setMaxSolvingtime(parameters.maxSolvingTime());
+
+}
+
+
 //initialize the rostering problem with one column to be feasible if there is no initial solution
 //otherwise build the columns corresponding to the initial solution
 void MasterProblem::initialize(vector<Roster> solution){

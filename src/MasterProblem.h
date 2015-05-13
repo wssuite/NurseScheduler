@@ -191,11 +191,21 @@ public:
    double solve(vector<Roster> solution = {});
 
    // Main method to evaluate an initial state for a given input and an initial solution
-   //same as solve if not redifine
+   //same as solve if not redefine
    double evaluate(vector<Roster> solution = {});
 
    //solve the rostering problem or just the relaxation(root node)
    double solve(vector<Roster> solution, bool relaxation);
+
+   // Solve with parameters
+   double solve(SolverParam parameters, vector<Roster> solution = {});
+
+   // Main method to evaluate an initial state for a given input and an initial solution and parameters
+   //same as solve if not redefine
+   double evaluate(SolverParam parameters, vector<Roster> solution = {});
+
+   // Method used for reading and setting parameters
+   void setParameters(SolverParam parameters);
 
    //get the pointer to the model
    Modeler* getModel(){
