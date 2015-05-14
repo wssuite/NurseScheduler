@@ -13,7 +13,7 @@
 #include "MasterProblem.h"
 #include "StochasticSolver.h"
 #include "SubProblem.h"
-#include "CbcModeler.h"
+//#include "CbcModeler.h"
 #include "MyTools.h"
 
 // some include files to go through the files of an input directory
@@ -393,10 +393,10 @@ void testCbc(Scenario* pScen) {
 
   // Second method, load the Cbc modeler from the model of the MP
   //
-  CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
-  CbcModeler* cbcModel =
-     new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
-  cbcModel->solve();
+//  CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
+//  CbcModeler* cbcModel =
+//     new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
+//  cbcModel->solve();
 
   // a new method is needed to get the solution in the proper format from this
   // external Cbc model
