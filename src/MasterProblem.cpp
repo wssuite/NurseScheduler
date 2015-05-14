@@ -7,7 +7,7 @@
 
 #include "MasterProblem.h"
 #include "BcpModeler.h"
-#include "CbcModeler.h"
+//#include "CbcModeler.h"
 #include "ScipModeler.h"
 #include "RotationPricer.h"
 
@@ -313,7 +313,7 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
       pModel_ = new BcpModeler(PB_NAME);
       break;
    case S_CBC:
-      pModel_ = new CbcModeler(PB_NAME);
+      pModel_ = new BcpModeler(PB_NAME);
    }
 
    this->preprocessData();
@@ -838,7 +838,7 @@ void MasterProblem::buildMinMaxCons(){
 
       // add constraints on the total number of shifts to satisfy bounds that
       // correspond to the global bounds averaged over the weeks
-      // RqJO: commentaire pas si clair, toute suggestion sera appréciée...
+      // RqJO: commentaire pas si clair, toute suggestion sera appr��ci��e...
       if (!minTotalShiftsAvg_.empty() && !maxTotalShiftsAvg_.empty() && !weightTotalShiftsAvg_.empty()) {
 
         // only add the constraint if is tighter than the already added constraint
