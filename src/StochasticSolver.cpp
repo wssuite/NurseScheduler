@@ -32,13 +32,13 @@ StochasticSolver::StochasticSolver(Scenario* pScenario, Algorithm generationAlgo
 	nSchedules_ = 0;
 	pEmptyPreferencesForEvaluation_ = new Preferences(pScenario_->nbNurses(), nDaysEvaluation_, pScenario_->nbShifts());
 
-	int maxTimePerGeneration = 10;
-	SolverParam sp_gen (maxTimePerGeneration);
-	generationParameters_ = sp_gen;
+	SolverParam spGen;
+	spGen.maxSolvingTimeSeconds_ = 10;
+	generationParameters_ = spGen;
 
-	int maxTimePerEvaluation = 5;
-	SolverParam sp_eval (maxTimePerEvaluation);
-	evaluationParameters_ = sp_eval;
+	SolverParam spEval ;
+	spEval.maxSolvingTimeSeconds_ = 5;
+	evaluationParameters_ = spEval;
 }
 
 StochasticSolver::~StochasticSolver(){
@@ -83,7 +83,7 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 	// A. Special case of the last week
 	//
 
-	if(pScenario_->nbWeeks() == pScenario_->thisWeek()){
+	if(pScenario_->nbWeeks()-1 == pScenario_->thisWeek()){
 		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving " << pScenario_->thisWeek() << "th week with NO PERTURBATION (should be the last week)." << std::endl;
 		solveOneWeekWithoutPenalties();
 	}

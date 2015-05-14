@@ -276,11 +276,11 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 // Constructor that allows th introduction of penalties for stochastic approaches
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType,
-  vector<double> minTotalShifts, vector<double> maxTotalShifts,
+  vector<double> minTotalShifts, vector<double> maxTotalShifts, vector<double> maxTotalWeekends,
   vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
   vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg ):
 
-   Solver(pScenario, pDemand, pPreferences, pInitState, minTotalShifts, maxTotalShifts,
+   Solver(pScenario, pDemand, pPreferences, pInitState, minTotalShifts, maxTotalShifts, maxTotalWeekends,
    	minTotalShiftsAvg, maxTotalShiftsAvg, weightTotalShiftsAvg, maxTotalWeekendsAvg, weightTotalWeekendsAvg),
    solverType_(solverType), pModel_(0), pPricer_(0), pRule_(0),
    positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()),
@@ -437,7 +437,7 @@ double MasterProblem::evaluate(SolverParam parameters, vector<Roster> solution){
 
 void MasterProblem::setParameters(SolverParam parameters){
 	if (solverType_ != S_CBC )
-		pModel_->setMaxSolvingtime(parameters.maxSolvingTime());
+		pModel_->setMaxSolvingtime(parameters.maxSolvingTimeSeconds_);
 
 }
 
@@ -887,7 +887,7 @@ void MasterProblem::buildMinMaxCons(){
   	      sprintf(name, "maxWorkedDaysAvgCons_N%d", i);
   	      vector<MyObject*> varsAvg2 = {maxWorkedDaysVars_[i],maxWorkedDaysAvgVars_[i]};
   	      vector<double> coeffsAvg2 = {-1,-1};
-  	      pModel_->createLEConsLinear(&maxWorkedDaysAvgCons_[i], name, maxTotalShifts_[i], varsAvg2, coeffsAvg2);
+  	      pModel_->createLEConsLinear(&maxWorkedDaysAvgCons_[i], name, maxTotalShiftsAvg_[i], varsAvg2, coeffsAvg2);
 
           isMaxWorkedDaysAvgCons_[i] = true;
         }
@@ -899,18 +899,18 @@ void MasterProblem::buildMinMaxCons(){
       sprintf(name, "maxWorkedWeekendCons_N%d", i);
       vector<MyObject*> vars3 = {maxWorkedWeekendVars_[i]};
       vector<double> coeffs3 = {-1};
-      pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
+      pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, maxTotalWeekends_[i],
          vars3, coeffs3);
 
       if ( !maxTotalWeekendsAvg_.empty()  && !weightTotalWeekendsAvg_.empty()
-      && maxTotalWeekendsAvg_[i] < theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_) {
+      && maxTotalWeekendsAvg_[i] < maxTotalWeekends_[i]) {
       	sprintf(name, "maxWorkedWeekendAvgVar_N%d", i);
       	pModel_->createPositiveVar(&maxWorkedWeekendAvgVars_[i], name, weightTotalWeekendsAvg_[i]);
 
       	sprintf(name, "maxWorkedWeekendAvgCons_N%d", i);
 	      vector<MyObject*> varsAvg3 = {maxWorkedWeekendVars_[i],maxWorkedWeekendAvgVars_[i]};
 	      vector<double> coeffsAvg3 = {-1,-1};
-	      pModel_->createLEConsLinear(&maxWorkedWeekendAvgCons_[i], name, maxTotalWeekendsAvg_[i]- theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
+	      pModel_->createLEConsLinear(&maxWorkedWeekendAvgCons_[i], name, maxTotalWeekendsAvg_[i],
           varsAvg3, coeffsAvg3);
 
         isMaxWorkedWeekendAvgCons_[i] = true;

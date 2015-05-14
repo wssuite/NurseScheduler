@@ -141,8 +141,8 @@ void testFunction_Samuel(){
 	timertotal->init();
 	timertotal->start();
 
-	string data = "testdatasets/";// testdatasets datasets userdataset
-	const char* inst = "n005w4";// n100w4 n030w4 n005w4 n005w1
+	string data = "datasets/";// testdatasets datasets userdataset
+	const char* inst = "n030w4";// n100w4 n030w4 n005w4 n005w1
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
@@ -158,11 +158,12 @@ void testFunction_Samuel(){
 	Algorithm evaluationAlgorithm = GENCOL;
 	int nEvaluationDemands = 5;
 	int nDaysEvaluation = 7;
-
-	//	   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 	//	   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/",
 			nExtraDaysGenerationDemands, nGenerationDemands, evaluationAlgorithm, nEvaluationDemands, nDaysEvaluation);
+
+
+	//testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 
 	// Display the total time spent in the algorithm
 	timertotal->stop();

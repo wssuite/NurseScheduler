@@ -296,15 +296,23 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 class SolverParam{
 
 public:
-	SolverParam(): maxSolvingTime_(LARGE_TIME){}
-	SolverParam(int maxSolvingTime): maxSolvingTime_(maxSolvingTime){}
+	SolverParam(){}
 
-	void setMaxSolvingTime(int maxSolvingTime){ maxSolvingTime_ = maxSolvingTime; }
-	int maxSolvingTime(){return maxSolvingTime_;}
+	int maxSolvingTimeSeconds_ = LARGE_TIME;
 
-protected:
+	bool printEverySolution_ = false;
+	string outfile_ = "outdir/";
 
-	int maxSolvingTime_;
+	double minRelativeGap_ = .05;
+	double relativeGap_ = .1;
+	double absoluteGap_ = 5;
+
+	int nbDiveIfMinGap_ = 1;
+	int nbDiveIfRelGap_ = 2;
+
+	bool solveToOptimality_ = false;
+
+
 
 };
 
@@ -335,7 +343,7 @@ public:
 
    Solver(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState,
-      vector<double> minTotalShifts, vector<double> maxTotalShifts,
+      vector<double> minTotalShifts, vector<double> maxTotalShifts, vector<double> maxTotalWeekends,
       vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
@@ -396,6 +404,7 @@ protected:
    //
    vector<double> minTotalShifts_;
    vector<double> maxTotalShifts_;
+   vector<double> maxTotalWeekends_;
 
    // Interval inside of which there is no penalty for the total number of
    // working days (for each nurse)

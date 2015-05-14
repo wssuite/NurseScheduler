@@ -182,7 +182,7 @@ public:
       Preferences* pPreferences, vector<State>* pInitState, MySolverType solver);
    MasterProblem(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
-      vector<double> minTotalShifts, vector<double> maxTotalShifts,
+      vector<double> minTotalShifts, vector<double> maxTotalShifts, vector<double> maxTotalWeekends,
       vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
       vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg );
    ~MasterProblem();
