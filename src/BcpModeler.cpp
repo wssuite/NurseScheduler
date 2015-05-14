@@ -183,19 +183,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
 //stop this node or BCP
 bool BcpLpModel::doStop(){
-   //continue if doesn't have a lb
-   if(pModel_->getBestLB() == pModel_->myMax)
-      return false;
-
-   //check relative gap
-   if(pModel_->getBestUB() - pModel_->getBestLB() < pModel_->getRelativeGap() * pModel_->getBestLB() - EPSILON)
-      //if the relative gap is small enough and if same incumbent since 50 nodes, stop
-      if(pModel_->getNbNodesSinceLastIncumbent() > 50)
-         return true;
-      else
-         //if the relative gap is too big, wait 100 nodes before stopping
-         if(pModel_->getNbNodesSinceLastIncumbent() > 100)
-            return true;
+   pModel_->doStop();
 
    //fathom if the true lower bound greater than current upper bound
    if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
@@ -363,20 +351,8 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    vector<MyObject*> fixingCandidates;
    pModel_->logical_fixing(fixingCandidates);
 
-   if(branchingCandidates.size() == 0){
-      bool notIntegerCol = false;
-      for(CoinVar* col: pModel_->getColumns()){
-         double value = pModel_->getVarValue(col);
-         if(value < EPSILON || value > 1 - EPSILON) continue;
-         notIntegerCol = true;
-         cout << "Var " << col->name_ << " = " << value << endl;
-      }
-      if(notIntegerCol){
-         appendNewBranchingVarsOnColumns(fixingCandidates, vars, cands);
-         return BCP_DoBranch;
-      }
+   if(branchingCandidates.size() == 0)
       return BCP_DoNotBranch_Fathomed;
-   }
 
 //   CoinVar* integerCoreVar = dynamic_cast<CoinVar*>(branchingCandidates[0]);
 //   appendNewBranchingVarsOnNumberOfNurses(integerCoreVar, fixingCandidates, vars, cands);
@@ -709,7 +685,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
  * BcpModeler
  */
 BcpModeler::BcpModeler(const char* name):
-   CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0),
+   CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0), diveDepth_(0), diveLenght_(myMax),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
    best_lb_in_root(myMax), best_lb(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 {
@@ -721,7 +697,11 @@ BcpModeler::BcpModeler(const char* name):
 int BcpModeler::solve(bool relaxatione){
    BcpInitialize bcp(this);
    char* argv[0];
-   return bcp_main(0, argv, &bcp);
+   try{
+      return bcp_main(0, argv, &bcp);
+   }catch(BcpStop& e) { }
+
+   return 0;
 }
 
 /*
@@ -815,8 +795,6 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    }
 
    bcpSolutions_.push_back(mySol);
-   /* reinitialize nb_nodes_last_incumbent_ */
-   nb_nodes_last_incumbent_=0;
 }
 
 bool BcpModeler::loadBestSol(){
@@ -926,6 +904,39 @@ int BcpModeler::setVerbosity(int v){
    }
 
    return 1;
+}
+
+//Check if BCP must stop
+bool BcpModeler::doStop(){
+   //continue if doesn't have a lb
+   if(getBestLB() == myMax)
+      return false;
+
+   //check relative gap
+   if(best_ub - getBestLB() < minRelativeGap_ * getBestLB() - EPSILON){
+      char error[100];
+      sprintf(error, "Stopped: relative gap < %.2f.", minRelativeGap_);
+      throw BcpStop(error);
+   }
+   if(best_ub - getBestLB() < relativeGap_ * getBestLB() - EPSILON){
+      //if the relative gap is small enough and if same incumbent since the last dive, stop
+      if(nb_nodes_last_incumbent_ > diveLenght_){
+         char error[100];
+         sprintf(error, "Stopped: relative gap < %.2f and more than %d nodes without new incumbent.",
+            relativeGap_, diveLenght_);
+         throw BcpStop(error);
+      }
+   }
+   else
+      //if the relative gap is too big, wait 2 dives before stopping
+      if(nb_nodes_last_incumbent_ > 2*diveLenght_){
+         char error[100];
+         sprintf(error, "Stopped: relative gap > %.2f and more than %d nodes without new incumbent.",
+            relativeGap_, diveLenght_);
+         throw BcpStop(error);
+      }
+
+   return false;
 }
 
 /**************

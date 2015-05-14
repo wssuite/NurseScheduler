@@ -60,10 +60,12 @@ protected:
 	// SUBSOLVE FUNCTIONS
 	//
 	//----------------------------------------------------------------------------
+	// Solves the problem by generation + evaluation of scenarios
+	void solveOneWeekGenerationEvaluation();
 	// Does everything for one schedule (for one week): Includes generation,
 	// evaluation of the score, and update of the rankings and data.
 	void addAndSolveNewSchedule();
-	// Does everything for the one week and only keeps the best schedule for it
+	// Solves the problem by generating a schedule + using cost penalties
 	void solveOneWeekWithPenalties();
 	// Special case of the last week
 	void solveOneWeekWithoutPenalties();
@@ -78,6 +80,8 @@ protected:
 
 	// Number of days that extend the current week
 	int nExtraDaysGenerationDemands_;
+	// Maximum number of demands generated
+	int nGenerationDemandsMax_;
 	// Number of demands generated
 	int nGenerationDemands_;
 	// Algorithm that is used to generate the schedules

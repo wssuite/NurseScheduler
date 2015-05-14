@@ -466,6 +466,12 @@ void Solver::preprocessTheNurses() {
       maxStaffPerSkillNoPenalty_[sk] += (skillRarity_[sk]/totalRarity)*maxWorkNoPenalty;
       maxStaffPerSkillAvgWork_[sk] +=  (skillRarity_[sk]/totalRarity)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_;
     }
+
+    //compute global penalties
+    //default penalties for the moment
+    weightTotalShiftsMin_.push_back(WEIGHT_TOTAL_SHIFTS);
+    weightTotalShiftsMax_.push_back(WEIGHT_TOTAL_SHIFTS);
+    weightTotalWeekendsMax_.push_back(WEIGHT_TOTAL_WEEKENDS);
   }
 
 
@@ -755,6 +761,39 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	  maxTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)pNurse->maxTotalWeekends());
     weightTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)WEIGHT_TOTAL_WEEKENDS);
 	}
+}
+
+void Solver::computeWeightsTotalShiftsForPrimalDual(){
+   // clear the vectors that are about to be filled
+     minTotalShifts_.clear();
+     maxTotalShifts_.clear();
+     minTotalShiftsAvg_.clear();
+     maxTotalShiftsAvg_.clear();
+     weightTotalShiftsAvg_.clear();
+     maxTotalWeekendsAvg_.clear();
+     weightTotalWeekendsAvg_.clear();
+
+      // The nurses must be preprocessed to retrieve the information relative to the
+      // past activity of the nurses and to their capacity to work more in the future
+      if (!isPreprocessedNurses_) this->preprocessTheNurses();
+
+      // Compute the non-penalized intervals and the associated penalties
+      for (int n = 0; n < pScenario_->nbNurses(); n++) {
+         LiveNurse* pNurse =  theLiveNurses_[n];
+         double ratio = WEIGHT_TOTAL_SHIFTS * pNurse->pStateIni_->totalDaysWorked_;
+
+         weightTotalShiftsMin_[n] = WEIGHT_TOTAL_SHIFTS - ratio * 1.0 / pNurse->minTotalShifts();
+         if(weightTotalShiftsMin_[n]<0) weightTotalShiftsMin_[n] = 0;
+
+         weightTotalShiftsMax_[n] = ratio * 1.0 / pNurse->maxTotalShifts();
+         if(weightTotalShiftsMax_[n]>WEIGHT_TOTAL_SHIFTS) weightTotalShiftsMax_[n] = WEIGHT_TOTAL_SHIFTS;
+
+         weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
+            1.0 / pNurse->maxTotalWeekends();
+         if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+
+         std::cout << weightTotalShiftsMin_[n] << " " << weightTotalShiftsMax_[n] << " " << weightTotalWeekendsMax_[n] << std::endl;
+      }
 }
 
 

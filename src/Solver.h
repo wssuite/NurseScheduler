@@ -381,6 +381,9 @@ protected:
    // (for each nurse)
    vector<double> weightTotalWeekendsAvg_;
 
+   //Penalties
+   vector<double> weightTotalShiftsMin_, weightTotalShiftsMax_, weightTotalWeekendsMax_;
+
    //-----------------------------------------------------------------------------
    // Outputs of the solver
    //-----------------------------------------------------------------------------
@@ -477,6 +480,8 @@ public:
    // The required data on the nurses is mostly computed in preprocessTheNurses
    //
    void computeWeightsTotalShiftsForStochastic();
+
+   void computeWeightsTotalShiftsForPrimalDual();
 
    // preprocees the skills to get their rarity
    // the value depends on the demand for this skill, on the number of nurses

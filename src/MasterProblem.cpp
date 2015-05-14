@@ -822,9 +822,9 @@ void MasterProblem::buildMinMaxCons(){
       LiveNurse* pNurse = theLiveNurses_[i];
 
       sprintf(name, "minWorkedDaysVar_N%d", i);
-      pModel_->createPositiveVar(&minWorkedDaysVars_[i], name, WEIGHT_TOTAL_SHIFTS);
+      pModel_->createPositiveVar(&minWorkedDaysVars_[i], name, weightTotalShiftsMin_[i]);
       sprintf(name, "maxWorkedDaysVar_N%d", i);
-      pModel_->createPositiveVar(&maxWorkedDaysVars_[i], name, WEIGHT_TOTAL_SHIFTS);
+      pModel_->createPositiveVar(&maxWorkedDaysVars_[i], name, weightTotalShiftsMax_[i]);
 
       sprintf(name, "minWorkedDaysCons_N%d", i);
       vector<MyObject*> vars1 = {minWorkedDaysVars_[i]};
@@ -868,7 +868,7 @@ void MasterProblem::buildMinMaxCons(){
 	    }
 
       sprintf(name, "maxWorkedWeekendVar_N%d", i);
-      pModel_->createPositiveVar(&maxWorkedWeekendVars_[i], name, WEIGHT_TOTAL_WEEKENDS);
+      pModel_->createPositiveVar(&maxWorkedWeekendVars_[i], name, weightTotalWeekendsMax_[i]);
 
       sprintf(name, "maxWorkedWeekendCons_N%d", i);
       vector<MyObject*> vars3 = {maxWorkedWeekendVars_[i]};
