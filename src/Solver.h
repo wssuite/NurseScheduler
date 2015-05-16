@@ -286,6 +286,39 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 
 //-----------------------------------------------------------------------------
 //
+//  C l a s s   S o l v e r P a r a m
+//
+//  Structure that gather parameters for a solver. Can be given as an input of
+//  the solve function of any solver
+//
+//-----------------------------------------------------------------------------
+
+class SolverParam{
+
+public:
+	SolverParam(){}
+
+	int maxSolvingTimeSeconds_ = LARGE_TIME;
+
+	bool printEverySolution_ = false;
+	string outfile_ = "outdir/";
+
+	double minRelativeGap_ = .05;
+	double relativeGap_ = .1;
+	double absoluteGap_ = 5;
+
+	int nbDiveIfMinGap_ = 1;
+	int nbDiveIfRelGap_ = 2;
+
+	bool solveToOptimality_ = false;
+
+
+
+};
+
+
+//-----------------------------------------------------------------------------
+//
 //  C l a s s   S o l v e r
 //
 //  Solves the offline problem
@@ -313,9 +346,20 @@ public:
    virtual double solve(vector<Roster> solution = {}) { return DBL_MAX;}
 
    // Main method to evaluate an initial state for a given input and an initial solution
-   //same as solve if not redefine
+   // same as solve if not redefine
    virtual double evaluate(vector<Roster> solution = {}) {
       return solve(solution);
+   }
+
+   // Main method to solve the rostering problem for a given input and an initial solution and parameters
+   virtual double solve(SolverParam parameters, vector<Roster> solution = {}){
+	   return solve(solution);
+   }
+
+   // Main method to evaluate an initial state for a given input and an initial solution and parameters
+   // same as solve if not redefine
+   virtual double evaluate(SolverParam parameters, vector<Roster> solution = {}){
+	   return solve(parameters, solution);
    }
 
    // Should be protected (and not private) because Solver will have subclasses
@@ -354,7 +398,6 @@ protected:
    // Preprocessed minimum and maximum number of working days on all the weeks
    //
    vector<double> minTotalShifts_, maxTotalShifts_, maxTotalWeekends_;
-
 
    // Interval inside of which there is no penalty for the total number of
    // working days (for each nurse)
@@ -528,6 +571,11 @@ public:
    //
    vector<State> getFinalStates();
 
+   // Returns the states(k+1) since the states start at 0
+   // (hence, the state at the end of day k is state(k+1)
+   //
+   vector<State> getStatesOfDay(int k);
+
    // display the whole solution in the required format
    //
    string solutionToString();
@@ -544,6 +592,9 @@ public:
    // information on the solution quality
    //
    string solutionToLogString();
+
+   // Returns the number of days over which the solver solves the problem
+   int getNbDays(){return pDemand_->nbDays_;}
 
 };
 

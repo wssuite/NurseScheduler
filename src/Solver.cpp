@@ -713,6 +713,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	int remainingDays = 7*pScenario_->nbWeeks()-7*(pScenario_->thisWeek())-pDemand_->nbDays_;
 	double factorRemainingDays = (double) remainingDays/(double)(7*pScenario_->nbWeeks());
 
+
 	//number of weekends before the end of the planning
 	int remainingWeekends = pScenario_->nbWeeks() - pScenario_->thisWeek();
 	//portion of these remaining weekends in this demand
@@ -736,14 +737,14 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
          1.0 / pNurse->maxTotalWeekends());
       if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
       else{
-      //compute the proportion of weekends that can be worked in this demand without exceeding the max in the future
-      //round with a certain probability to the floor or the ceil
-	   int remainingWeekendsToWork = pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_;
-	   double numberOfAuthorizedWeekend = remainingWeekendsToWork * factorRemainingWeekends;
-	   double probFactor = numberOfAuthorizedWeekend - floor(numberOfAuthorizedWeekend);
-	   if(rand() < probFactor) maxTotalWeekendsAvg_.push_back( (int)floor(numberOfAuthorizedWeekend) );
-	   else maxTotalWeekendsAvg_.push_back( (int)ceil(numberOfAuthorizedWeekend) );
-	   weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+         //compute the proportion of weekends that can be worked in this demand without exceeding the max in the future
+         //round with a certain probability to the floor or the ceil
+         int remainingWeekendsToWork = pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_;
+         double numberOfAuthorizedWeekend = remainingWeekendsToWork * factorRemainingWeekends;
+         double probFactor = numberOfAuthorizedWeekend - floor(numberOfAuthorizedWeekend);
+         if(rand() < probFactor) maxTotalWeekendsAvg_.push_back( (int)floor(numberOfAuthorizedWeekend) );
+         else maxTotalWeekendsAvg_.push_back( (int)ceil(numberOfAuthorizedWeekend) );
+         weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
       }
 
 	       // Number of worked week-ends below which there is no penalty for the
@@ -763,8 +764,6 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 
 void Solver::computeWeightsTotalShiftsForPrimalDual(){
    // clear the vectors that are about to be filled
-     minTotalShifts_.clear();
-     maxTotalShifts_.clear();
      minTotalShiftsAvg_.clear();
      maxTotalShiftsAvg_.clear();
      weightTotalShiftsAvg_.clear();
@@ -777,6 +776,10 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(){
 
       // Compute the non-penalized intervals and the associated penalties
       for (int n = 0; n < pScenario_->nbNurses(); n++) {
+//    	  minTotalShifts_[n] = 0;
+//    	  maxTotalShifts_[n] = 0;
+//    	  maxTotalWeekends_[n] = 0;
+
          LiveNurse* pNurse =  theLiveNurses_[n];
          double ratio = WEIGHT_TOTAL_SHIFTS * pNurse->pStateIni_->totalDaysWorked_;
 
@@ -907,6 +910,17 @@ vector<State> Solver::getFinalStates() {
   }
 
   return pFinalStates;
+}
+
+// return the states of the nurses at day k
+//
+vector<State> Solver::getStatesOfDay(int k) {
+  vector<State> pStatesOfDayK;
+  int nbDays = pDemand_->nbDays_;
+  for (LiveNurse* pNurse: theLiveNurses_) {
+	  pStatesOfDayK.push_back(pNurse->state(k+1));
+  }
+  return pStatesOfDayK;
 }
 
 // display the whole solution
