@@ -2,8 +2,8 @@
 //  main_test.h
 //  RosterDesNurses
 //
-//  Created by Jérémy Omer on 04/03/2015.
-//  Copyright (c) 2015 Jérémy Omer. All rights reserved.
+//  Created by J��r��my Omer on 04/03/2015.
+//  Copyright (c) 2015 J��r��my Omer. All rights reserved.
 //
 
 #include "Solver.h"
@@ -36,6 +36,7 @@ void testFunction_Jeremy();
 
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel();
+
 
 //Initialize the week scenario by reading the input files
 Scenario* initializeScenario(string scenFile, string demandFile, string historyFile, string logFile="");

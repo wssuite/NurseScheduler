@@ -10,7 +10,7 @@
 #include "CoinTime.hpp"
 #include "BCP_lp.hpp"
 #include "BCP_lp_node.hpp"
-#include "CbcModeler.h"
+//#include "CbcModeler.h"
 #include "RotationPricer.h"
 
 /*
@@ -324,9 +324,15 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
+	//update node
+	if(local_var_pool.size() == 0)
+		pModel_->updateNodeLB(lpres.objval());
+
    //stop this process for BCP or the node
-   if(doStop())
+   if(doStop()){
       return BCP_DoNotBranch_Fathomed;
+
+   }
 
    //if some variables have been generated, do not branch
    if(local_var_pool.size() > 0)
@@ -339,9 +345,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    //fathom if greater than current upper bound
    if(pModel_->getBestUB() - lpres.objval() < pModel_->getAbsoluteGap() - EPSILON)
       return BCP_DoNotBranch_Fathomed;
-
-   //update node
-   pModel_->updateNodeLB(lpres.objval());
 
    //branching candidates: numberOfNursesByPosition_, rest on a day, ...
    vector<MyObject*> branchingCandidates;
@@ -920,19 +923,19 @@ bool BcpModeler::doStop(){
    }
    if(best_ub - getBestLB() < relativeGap_ * getBestLB() - EPSILON){
       //if the relative gap is small enough and if same incumbent since the last dive, stop
-      if(nb_nodes_last_incumbent_ > diveLenght_){
+      if(nb_nodes_last_incumbent_ > 2*diveLenght_){
          char error[100];
          sprintf(error, "Stopped: relative gap < %.2f and more than %d nodes without new incumbent.",
-            relativeGap_, diveLenght_);
+            relativeGap_, 2*diveLenght_);
          throw BcpStop(error);
       }
    }
    else
       //if the relative gap is too big, wait 2 dives before stopping
-      if(nb_nodes_last_incumbent_ > 2*diveLenght_){
+      if(nb_nodes_last_incumbent_ > 4*diveLenght_){
          char error[100];
          sprintf(error, "Stopped: relative gap > %.2f and more than %d nodes without new incumbent.",
-            relativeGap_, diveLenght_);
+            relativeGap_, 4*diveLenght_);
          throw BcpStop(error);
       }
 

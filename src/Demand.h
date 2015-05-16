@@ -32,6 +32,7 @@ class Demand {
 public:
 
   // generic constructor and destructor
+	Demand(): nbDays_(0), firstDay_(0), nbShifts_(0) , nbSkills_(0), name_(""){}
   Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string name,
   vector3D minDemand, vector3D optDemand);
   ~Demand();

@@ -13,7 +13,7 @@
 #include "MasterProblem.h"
 #include "StochasticSolver.h"
 #include "SubProblem.h"
-#include "CbcModeler.h"
+//#include "CbcModeler.h"
 #include "MyTools.h"
 
 // some include files to go through the files of an input directory
@@ -21,6 +21,10 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+//initialize the counter of object
+unsigned int MyObject::s_count = 0;
+unsigned int Rotation::s_count = 0;
 
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
@@ -42,13 +46,13 @@ void testFunction_Antoine(){
 
 
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   int nGenerationDemands = 1000;
+   int nGenerationDemands = 5;
    int nExtraDaysGenerationDemands = 3;
    int nEvaluationDemands = 2;
    int nDaysEvaluation = 7;
 
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/");
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -141,8 +145,7 @@ void testFunction_Samuel(){
 	timertotal->init();
 	timertotal->start();
 
-
-	string data = "datasets/";// testdatasets datasets userdatasets
+	string data = "datasets/";// testdatasets datasets userdataset
 	const char* inst = "n030w4";// n100w4 n030w4 n005w4 n005w1
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
@@ -150,10 +153,21 @@ void testFunction_Samuel(){
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 	//n021w4:
 	//n120w8: {3, 2}
-	vector<int> numberWeek = {4,6};
+	vector<int> numberWeek = {3, 5, 0, 2}; // , 0, 4, 5, 2};
 
 
-	testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+	//   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+	int nExtraDaysGenerationDemands = 3;
+	int nGenerationDemands = 5;
+	Algorithm evaluationAlgorithm = GENCOL;
+	int nEvaluationDemands = 5;
+	int nDaysEvaluation = 7;
+	//	   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/",
+			nExtraDaysGenerationDemands, nGenerationDemands, evaluationAlgorithm, nEvaluationDemands, nDaysEvaluation);
+
+
+	//testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 
 	// Display the total time spent in the algorithm
 	timertotal->stop();
@@ -336,7 +350,7 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 			// read the initial state of the new week from the last state of the
 			// last week
 			// modify the dayId_ to show that this is the first day of the new week
-			vector<State> initialStates = pSolver->getFinalStates();
+			vector<State> initialStates = pSolver->getStatesOfDay(6);
 			for (int i = 0; i < pScen->nbNurses_; i++) {
 				initialStates[i].dayId_ = 0;
 			}
@@ -383,10 +397,10 @@ void testCbc(Scenario* pScen) {
 
   // Second method, load the Cbc modeler from the model of the MP
   //
-  CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
-  CbcModeler* cbcModel =
-     new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
-  cbcModel->solve();
+//  CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
+//  CbcModeler* cbcModel =
+//     new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
+//  cbcModel->solve();
 
   // a new method is needed to get the solution in the proper format from this
   // external Cbc model

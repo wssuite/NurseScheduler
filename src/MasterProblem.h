@@ -1,7 +1,7 @@
 /*
  * MasterProblem.h
  *
- *  Created on: 3 f��vr. 2015
+ *  Created on: 3 f������vr. 2015
  *      Author: samuel
  */
 
@@ -180,22 +180,27 @@ public:
    // Specific constructor and destructor
    MasterProblem(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState, MySolverType solver);
-   MasterProblem(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
-      vector<double> minTotalShifts, vector<double> maxTotalShifts,
-      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
-      vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg );
    ~MasterProblem();
 
    //solve the rostering problem
    double solve(vector<Roster> solution = {});
 
    // Main method to evaluate an initial state for a given input and an initial solution
-   //same as solve if not redifine
+   //same as solve if not redefine
    double evaluate(vector<Roster> solution = {});
 
    //solve the rostering problem or just the relaxation(root node)
    double solve(vector<Roster> solution, bool relaxation);
+
+   // Solve with parameters
+   double solve(SolverParam parameters, vector<Roster> solution = {});
+
+   // Main method to evaluate an initial state for a given input and an initial solution and parameters
+   //same as solve if not redefine
+   double evaluate(SolverParam parameters, vector<Roster> solution = {});
+
+   // Method used for reading and setting parameters
+   void setParameters(SolverParam parameters);
 
    //get the pointer to the model
    Modeler* getModel(){
@@ -217,7 +222,7 @@ public:
     */
    const char* PB_NAME = "GenCol";
    int solvingTime;
-   int bigM = 10000;
+   int bigM = 1000000;
 
 private:
    Modeler* pModel_;

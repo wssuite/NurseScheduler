@@ -9,7 +9,6 @@ instance="n030w4"
 solutionFile="outfiles/"
 weeksValue=(3 5 0 2)
 weeksName="3502"
-
 history="${dataFile}${instance}/H0-${instance}-0.txt"
 scenario="${dataFile}${instance}/Sc-${instance}.txt"
 

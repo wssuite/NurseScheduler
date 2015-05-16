@@ -7,7 +7,7 @@
 
 #include "MasterProblem.h"
 #include "BcpModeler.h"
-#include "CbcModeler.h"
+//#include "CbcModeler.h"
 #include "ScipModeler.h"
 #include "RotationPricer.h"
 
@@ -47,7 +47,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    //if first day of the planning, check on the past , otherwise 0
    int nbConsDaysWorked = (firstDay_==0) ? pNurse_->pStateIni_->consDaysWorked_ : 0;
    //consWorkedCost = cost of be outside of the interval [min,max] of the consecutives worked days
-   consDaysWorkedCost_ = 0;
+   consDaysWorkedCost_ = 0 ;
 
    //cost of not doing the whole weekend
    completeWeekendCost_ = 0;
@@ -96,6 +96,10 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, int h
    /*
     * Compute consDaysWorkedCost
     */
+
+   // if already worked too much
+   double diffDays = nbConsDaysWorked - pNurse_->pContract_->maxConsDaysWork_;
+   consDaysWorkedCost_ = (diffDays > 0) ? - diffDays * WEIGHT_CONS_DAYS_WORK : 0 ;
 
    nbConsDaysWorked += length_;
    //check if nbConsDaysWorked < min, if finishes on last day, does not count
@@ -212,7 +216,7 @@ void Rotation::computeDualCost(DualCosts& costs){
     	  }
     	  cout << "# " << endl;
     	  cout << "# " << endl;
-//    	  getchar();
+    	  getchar();
       }
 }
 
@@ -269,33 +273,6 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
   this->initializeSolver(solverType);
 }
 
-// Constructor that allows th introduction of penalties for stochastic approaches
-MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
-  Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType,
-  vector<double> minTotalShifts, vector<double> maxTotalShifts,
-  vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
-  vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg ):
-
-   Solver(pScenario, pDemand, pPreferences, pInitState, minTotalShifts, maxTotalShifts,
-   	minTotalShiftsAvg, maxTotalShiftsAvg, weightTotalShiftsAvg, maxTotalWeekendsAvg, weightTotalWeekendsAvg),
-   solverType_(solverType), pModel_(0), pPricer_(0), pRule_(0),
-   positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()),
-   rotations_(pScenario->nbNurses_), restsPerDay_(pScenario->nbNurses_), solvingTime(INT_MAX),
-
-   columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
-   minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
-   minWorkedDaysAvgVars_(pScenario->nbNurses_), maxWorkedDaysAvgVars_(pScenario->nbNurses_), maxWorkedWeekendAvgVars_(pScenario_->nbNurses_),
-   optDemandVars_(pDemand_->nbDays_),numberOfNursesByPositionVars_(pDemand_->nbDays_), skillsAllocVars_(pDemand_->nbDays_),
-
-   restFlowCons_(pScenario->nbNurses_), workFlowCons_(pScenario->nbNurses_),
-   minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
-   minWorkedDaysAvgCons_(pScenario->nbNurses_), maxWorkedDaysAvgCons_(pScenario->nbNurses_), maxWorkedWeekendAvgCons_(pScenario_->nbNurses_),
-   minDemandCons_(pDemand_->nbDays_), optDemandCons_(pDemand_->nbDays_),numberOfNursesByPositionCons_(pDemand_->nbDays_), feasibleSkillsAllocCons_(pDemand_->nbDays_)
-{
-  // build the model
-  this->initializeSolver(solverType);
-}
-
 MasterProblem::~MasterProblem(){
    delete pPricer_;
    delete pRule_;
@@ -313,7 +290,7 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
       pModel_ = new BcpModeler(PB_NAME);
       break;
    case S_CBC:
-      pModel_ = new CbcModeler(PB_NAME);
+      pModel_ = new BcpModeler(PB_NAME);
    }
 
    this->preprocessData();
@@ -396,7 +373,6 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    // RqJO: warning, it would be better to define an enumerate type of verbosity
    // levels and create the matching in the Modeler subclasses
    if (solverType_ != S_CBC ) {
-      //    pModel_->setMaxSolvingtime(12000);
       pModel_->setVerbosity(1);
       //cut the branching process at the end of the root node
       if(relaxation)
@@ -407,15 +383,38 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    pModel_->solve();
    pModel_->printStats();
 
-   if(!pModel_->printBestSol())
-      return pModel_->getRelaxedObjective();
+   if(!pModel_->printBestSol() or relaxation){
+	   cout << "# " << pModel_->getRelaxedObjective() << endl;
+	   return pModel_->getRelaxedObjective();
+   }
 
    storeSolution();
    costsConstrainstsToString();
    status_ = FEASIBLE;
    return pModel_->getObjective();
 }
-//
+
+// Solve the rostering problem with parameters
+
+double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
+	setParameters(parameters);
+	return solve(solution);
+}
+
+// Main method to evaluate an initial state for a given input and an initial solution and parameters
+//same as solve if not redefine
+double MasterProblem::evaluate(SolverParam parameters, vector<Roster> solution){
+	setParameters(parameters);
+	return evaluate(solution);
+}
+
+void MasterProblem::setParameters(SolverParam parameters){
+	if (solverType_ != S_CBC )
+		pModel_->setMaxSolvingtime(parameters.maxSolvingTimeSeconds_);
+
+}
+
+
 //initialize the rostering problem with one column to be feasible if there is no initial solution
 //otherwise build the columns corresponding to the initial solution
 void MasterProblem::initialize(vector<Roster> solution){
@@ -838,7 +837,7 @@ void MasterProblem::buildMinMaxCons(){
 
       // add constraints on the total number of shifts to satisfy bounds that
       // correspond to the global bounds averaged over the weeks
-      // RqJO: commentaire pas si clair, toute suggestion sera appréciée...
+      // RqJO: commentaire pas si clair, toute suggestion sera appr��ci��e...
       if (!minTotalShiftsAvg_.empty() && !maxTotalShiftsAvg_.empty() && !weightTotalShiftsAvg_.empty()) {
 
         // only add the constraint if is tighter than the already added constraint
@@ -861,7 +860,7 @@ void MasterProblem::buildMinMaxCons(){
   	      sprintf(name, "maxWorkedDaysAvgCons_N%d", i);
   	      vector<MyObject*> varsAvg2 = {maxWorkedDaysVars_[i],maxWorkedDaysAvgVars_[i]};
   	      vector<double> coeffsAvg2 = {-1,-1};
-  	      pModel_->createLEConsLinear(&maxWorkedDaysAvgCons_[i], name, maxTotalShifts_[i], varsAvg2, coeffsAvg2);
+  	      pModel_->createLEConsLinear(&maxWorkedDaysAvgCons_[i], name, maxTotalShiftsAvg_[i], varsAvg2, coeffsAvg2);
 
           isMaxWorkedDaysAvgCons_[i] = true;
         }
@@ -873,17 +872,20 @@ void MasterProblem::buildMinMaxCons(){
       sprintf(name, "maxWorkedWeekendCons_N%d", i);
       vector<MyObject*> vars3 = {maxWorkedWeekendVars_[i]};
       vector<double> coeffs3 = {-1};
-      pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
+      pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, maxTotalWeekends_[i],
          vars3, coeffs3);
 
-      if ( !maxTotalWeekendsAvg_.empty()  && !weightTotalWeekendsAvg_.empty()
-      && maxTotalWeekendsAvg_[i] < theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_) {
+      if ( !maxTotalWeekendsAvg_.empty()  && !weightTotalWeekendsAvg_.empty() ){
+//      && maxTotalWeekendsAvg_[i] < theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_) {
+
       	sprintf(name, "maxWorkedWeekendAvgVar_N%d", i);
       	pModel_->createPositiveVar(&maxWorkedWeekendAvgVars_[i], name, weightTotalWeekendsAvg_[i]);
 
       	sprintf(name, "maxWorkedWeekendAvgCons_N%d", i);
-	      vector<MyObject*> varsAvg3 = {maxWorkedWeekendVars_[i],maxWorkedWeekendAvgVars_[i]};
-	      vector<double> coeffsAvg3 = {-1,-1};
+//	      vector<MyObject*> varsAvg3 = {maxWorkedWeekendVars_[i],maxWorkedWeekendAvgVars_[i]};
+//	      vector<double> coeffsAvg3 = {-1,-1};
+         vector<MyObject*> varsAvg3 = {maxWorkedWeekendAvgVars_[i]};
+         vector<double> coeffsAvg3 = {-1 };
 	      pModel_->createLEConsLinear(&maxWorkedWeekendAvgCons_[i], name, maxTotalWeekendsAvg_[i]- theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
           varsAvg3, coeffsAvg3);
 
