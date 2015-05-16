@@ -78,7 +78,7 @@ SRCDIR      =  src
 OBJDIR      =  obj
 
 MAINNAME 	=  roster
-MAINOBJ     =  main.o main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
+MAINOBJ     =  MyMain.o main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
 ifeq ($(USE_SCIP), TRUE)
    MAINOBJ  += ScipModeler.o 
 endif
