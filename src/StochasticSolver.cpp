@@ -75,7 +75,7 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 	// A. Special case of the last week
 	//
 
-	if(pScenario_->nbWeeks() == pScenario_->thisWeek()){
+	if(pScenario_->nbWeeks() == pScenario_->thisWeek() - 1){
 		solveOneWeekWithoutPenalties();
 	}
 

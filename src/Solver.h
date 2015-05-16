@@ -1,7 +1,7 @@
 /*
  * Solver.h
  *
- *  Created on: 22 déc. 2014
+ *  Created on: 22 d��c. 2014
  *      Author: jeremy
  */
 
@@ -308,11 +308,6 @@ public:
    Solver(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState);
 
-   Solver(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState,
-      vector<double> minTotalShifts, vector<double> maxTotalShifts,
-      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
-      vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
    // Main method to solve the rostering problem for a given input and an initial solution
    virtual double solve(vector<Roster> solution = {}) { return DBL_MAX;}
@@ -358,8 +353,8 @@ protected:
 
    // Preprocessed minimum and maximum number of working days on all the weeks
    //
-   vector<double> minTotalShifts_;
-   vector<double> maxTotalShifts_;
+   vector<double> minTotalShifts_, maxTotalShifts_, maxTotalWeekends_;
+
 
    // Interval inside of which there is no penalty for the total number of
    // working days (for each nurse)

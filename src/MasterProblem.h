@@ -1,7 +1,7 @@
 /*
  * MasterProblem.h
  *
- *  Created on: 3 f��vr. 2015
+ *  Created on: 3 f������vr. 2015
  *      Author: samuel
  */
 
@@ -180,11 +180,7 @@ public:
    // Specific constructor and destructor
    MasterProblem(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState, MySolverType solver);
-   MasterProblem(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState, MySolverType solver,
-      vector<double> minTotalShifts, vector<double> maxTotalShifts,
-      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
-      vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg );
+
    ~MasterProblem();
 
    //solve the rostering problem
