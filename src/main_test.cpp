@@ -140,6 +140,8 @@ void testFunction_Jeremy(){
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel(){
 
+	std::cout << "test" << endl;
+
 	// Time the complete execution of the algorithm
 	Tools::Timer* timertotal = new Tools::Timer();
 	timertotal->init();
@@ -164,9 +166,11 @@ void testFunction_Samuel(){
 	int nEvaluationDemands = 3;
 	int nDaysEvaluation = 21;
 
-//		   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/",
-			nExtraDaysGenerationDemands, nGenerationDemands, evaluationAlgorithm, nEvaluationDemands, nDaysEvaluation);
+	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+
+
+//	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/",
+//			nExtraDaysGenerationDemands, nGenerationDemands, evaluationAlgorithm, nEvaluationDemands, nDaysEvaluation);
 
 
 	//testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");

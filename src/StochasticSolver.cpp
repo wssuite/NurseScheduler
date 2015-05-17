@@ -27,6 +27,8 @@ StochasticSolver::StochasticSolver(Scenario* pScenario, Algorithm generationAlgo
 		nEvaluationDemands_(nEvaluationDemands), nDaysEvaluation_(nDaysEvaluation), nGenerationDemandsMax_(nMaxGenerationDemands), demandHistory_(demandHistory)
 {
 
+	std::cout << "# New solver created!" << endl;
+
 	int totalDays = pScenario_->nbWeeks_ * 7;
 	int untilEndOfThisWeek = 7*(pScenario_->thisWeek()+1);
 	if( untilEndOfThisWeek + nDaysEvaluation_ > totalDays){

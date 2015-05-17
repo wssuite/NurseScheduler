@@ -897,8 +897,6 @@ void MasterProblem::buildMinMaxCons(){
 
         isMaxWorkedWeekendAvgCons_[i] = true;
 
-        cout << "prout" << endl;
-        getchar();
 	    }
    }
 }
