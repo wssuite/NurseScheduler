@@ -222,7 +222,6 @@ public:
     */
    const char* PB_NAME = "GenCol";
    int solvingTime;
-   int bigM = 1000000;
 
 private:
    Modeler* pModel_;
@@ -297,6 +296,9 @@ private:
 
    //Initialization of the rostering problem with/without solution
    void initialize(vector<Roster> solution);
+
+   //solve method to catch execption
+   void solveWithCatch();
 
    //solve a solution in the output
    void storeSolution();

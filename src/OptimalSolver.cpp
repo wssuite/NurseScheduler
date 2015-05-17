@@ -35,7 +35,10 @@ int main(int argc, char** argv)
    string data = "datasets/";
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 
-   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "~/git/RosterDesNurses/outfiles/Competition/"+outdir+"/Opt");
+   SolverParam optParam;
+   optParam.nbDiveIfMinGap_ = 2;
+   optParam.nbDiveIfRelGap_ = 4;
+   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt", optParam);
 
    // Display the total time spent in the algorithm
    timertotal->stop();

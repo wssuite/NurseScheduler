@@ -297,23 +297,25 @@ class SolverParam{
 
 public:
 	SolverParam(){}
+   //maximal solving time in s
+   int maxSolvingTimeSeconds_ = LARGE_TIME;
 
-	int maxSolvingTimeSeconds_ = LARGE_TIME;
+   bool printEverySolution_ = false;
+   string outfile_ = "outdir/";
 
-	bool printEverySolution_ = false;
-	string outfile_ = "outdir/";
-
-	double minRelativeGap_ = .05;
+   //relative and absolute gap (with the current costs,
+   //the difference between two solution costs is at lest 5
+   //if sol below minRelativeGap_, we stop immediately
+   //if sol below relativeGap_, we stop after nbDiveIfMinGap_*dive without new incumbent
+   //if sol over relativeGap_, we stop after nbDiveIfRelGap_*dive without new incumbent
+   double absoluteGap_ = 5;
+   double minRelativeGap_ = .05;
 	double relativeGap_ = .1;
-	double absoluteGap_ = 5;
 
 	int nbDiveIfMinGap_ = 1;
 	int nbDiveIfRelGap_ = 2;
 
 	bool solveToOptimality_ = false;
-
-
-
 };
 
 
