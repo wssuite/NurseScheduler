@@ -2,8 +2,8 @@
 //  main_test.h
 //  RosterDesNurses
 //
-//  Created by Jérémy Omer on 04/03/2015.
-//  Copyright (c) 2015 Jérémy Omer. All rights reserved.
+//  Created by J��r��my Omer on 04/03/2015.
+//  Copyright (c) 2015 J��r��my Omer. All rights reserved.
 //
 
 #include "Solver.h"
@@ -27,7 +27,6 @@ public:
   string week(int w) {return weeks_[w];}
 };
 
-
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine();
 
@@ -36,6 +35,7 @@ void testFunction_Jeremy();
 
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel();
+
 
 //Initialize the week scenario by reading the input files
 Scenario* initializeScenario(string scenFile, string demandFile, string historyFile, string logFile="");
@@ -59,7 +59,9 @@ void compareDemands(std::string inputDir);
 // In this method, we assume that all the demands are knwon in advance
 // (the method can also treat only one week)
 void testMultipleWeeksDeterministic(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath);
+   int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath);
+void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath, SolverParam param);
 
 // Test a solution on multiple weeks
 // In this method, the weeks are solved sequentially without knowledge of future

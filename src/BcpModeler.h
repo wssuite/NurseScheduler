@@ -139,10 +139,6 @@ vector<double> coeffs_; //value of these coefficients
 //   SCIP_VAR* rule_;
 //};
 
-/* Exception to stop BCP */
-struct BcpStop: public exception{
-   BcpStop(string str){ cout << str << endl; }
-};
 
 struct BcpNode{
 
@@ -369,7 +365,7 @@ public:
       //one more node without new incumbent
       ++nb_nodes_last_incumbent_;
       //we start a new dive
-      if(diveDepth_ > 0 && diveLenght_ == myMax)
+      if(diveDepth_ > 0 && diveLenght_ == LARGE_SCORE)
          diveLenght_ = 1+diveDepth_;
    }
 
@@ -400,7 +396,7 @@ public:
 			   if(best_lb > node->getBestLB())
 				   best_lb = node->getBestLB();
 	   if(best_lb == DBL_MAX)
-         return myMax;
+         return LARGE_SCORE;
       return best_lb;
    }
 

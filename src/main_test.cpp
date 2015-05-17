@@ -22,6 +22,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+//initialize the counter of object
+unsigned int MyObject::s_count = 0;
+unsigned int Rotation::s_count = 0;
+
 // Function for testing parts of the code (Antoine)
 void testFunction_Antoine(){
 
@@ -48,7 +52,7 @@ void testFunction_Antoine(){
    int nDaysEvaluation = 7;
 
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/");
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -268,14 +272,19 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 * In this method, we assume that all the demands are knwon in advance
 * (the method can also treat only one week)
 ******************************************************************************/
+void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+   int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir) {
+   SolverParam param;
+   testMultipleWeeksDeterministic(dataDir, instanceName, historyIndex, weekIndices, algorithm, outDir, param);
+}
 
 void testMultipleWeeksDeterministic(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir) {
+	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir, SolverParam current_param) {
 
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 
 	Solver* pSolver = setSolverWithInputAlgorithm(pScen, algorithm);
-	pSolver->solve();
+	pSolver->solve(current_param);
 
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
@@ -495,7 +504,7 @@ void displaySolutionMultipleWeeks(string dataDir, string instanceName,
 	for(int w=0; w < nbWeeks; ++w){
 		string solutionFile = outDir+"Sol-"+instanceName+"-"+catWeeks+"-"+std::to_string(weekIndices[w])+"-"+std::to_string(w)+".txt";
 		Tools::LogOutput solutionStream(solutionFile);
-		solutionStream << solutions[w];
+ 		solutionStream << solutions[w];
 	}
 
 	delete pSolver;

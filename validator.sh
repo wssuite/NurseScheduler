@@ -3,18 +3,18 @@
 
 #instance = n005w4: (1 2 3 3)
 #instance = n012w8: (3 5 0 2 0 4 5 2)
-dataFile="testdatasets/"
-instance="n005w4"
+dataFile="datasets/"
+instance="n030w4"
 #"${dataFile}${instance}/Solution_H_0-WD_1-2-3-3/"
 solutionFile="outfiles/"
-weeksValue=(1 2 3 3)
-weeksNames="1233"
+weeksValue=(3 5 0 2)
+weeksName=3502
 
 history="${dataFile}${instance}/H0-${instance}-0.txt"
 scenario="${dataFile}${instance}/Sc-${instance}.txt"
 
 demand0="WD-${instance}-"
-solution0="Sol-${instance}-${weeksNames}-"
+solution0="Sol-${instance}-${weeksName}-"
 weeks=""
 sols=""
 i=0

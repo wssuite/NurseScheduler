@@ -172,7 +172,7 @@ void State::addNewDay(int newShift){
 
    // Total weekends worked :
    // +1 IF : new day is a Sunday and the nurse works on shift_ or newShift
-   if( Tools::isSunday(dayId_) and (newShift or shift_) )
+   if( Tools::isSunday(dayId_-1) and (newShift or shift_) )
       totalWeekendsWorked_ ++;
 
    // Consecutives : +1 iff it is the same as the previous one
@@ -213,7 +213,7 @@ void State::addDayToState(const State& prevState, int newShift)	{
    else if (prevShift >= 0) {
       // Total weekends worked:
       // +1 IF : new day is a Sunday and the nurse works on prevState.shift_ or newShift
-      if( Tools::isSunday(dayId_) and (newShift or prevState.shift_) )
+      if( Tools::isSunday(dayId_-1) and (newShift or prevState.shift_) )
          totalWeekendsWorked_ = prevState.totalWeekendsWorked_+1;
       else {
           totalWeekendsWorked_ = prevState.totalWeekendsWorked_;

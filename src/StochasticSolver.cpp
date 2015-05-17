@@ -236,7 +236,7 @@ void StochasticSolver::generateSingleGenerationDemand(){
 	pGenerationDemands_.push_back( pScenario_->pWeekDemand()->append(pSingleDemand) );
 	nGenerationDemands_ ++;
 	delete pSingleDemand;
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Generation demand n°" << nGenerationDemands_ << " created (over " << pGenerationDemands_[nGenerationDemands_-1]->nbDays_ << " days)." << std::endl;
+	std::cout << "# [week=" << pScenario_->thisWeek() << "] Generation demand n��" << nGenerationDemands_ << " created (over " << pGenerationDemands_[nGenerationDemands_-1]->nbDays_ << " days)." << std::endl;
 }
 
 
@@ -255,7 +255,7 @@ void StochasticSolver::generateAllEvaluationDemands(){
 	for(int j=0; j<nEvaluationDemands_; j++){
 		map<double, set<int> > m;
 		schedulesFromObjectiveByEvaluationDemand_.push_back(m);
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Evaluation demand n°" << j << " created (over " << nDaysEvaluation_ << " days)." << std::endl;
+		std::cout << "# [week=" << pScenario_->thisWeek() << "] Evaluation demand n��" << j << " created (over " << nDaysEvaluation_ << " days)." << std::endl;
 	}
 }
 
@@ -307,7 +307,7 @@ void StochasticSolver::generateNewSchedule(){
 
 	// D. Display
 	//
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Candidate schedule n°" << (nSchedules_-1) << " generated: (length: " << pGenerationSolvers_[nSchedules_-1]->getNbDays() << " days)" << std::endl;
+	std::cout << "# [week=" << pScenario_->thisWeek() << "] Candidate schedule n��" << (nSchedules_-1) << " generated: (length: " << pGenerationSolvers_[nSchedules_-1]->getNbDays() << " days)" << std::endl;
 }
 
 
@@ -355,7 +355,7 @@ void StochasticSolver::initScheduleEvaluation(int sched){
 // Evaluate 1 schedule on all evaluation instances
 void StochasticSolver::evaluateSchedule(int sched){
 
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Evaluation of the schedule n°" << sched << std::endl;
+	std::cout << "# [week=" << pScenario_->thisWeek() << "] Evaluation of the schedule n��" << sched << std::endl;
 
 	initScheduleEvaluation(sched);
 	vector<State> initialStates = pGenerationSolvers_[sched]->getStatesOfDay(6);
@@ -365,7 +365,7 @@ void StochasticSolver::evaluateSchedule(int sched){
 
 		for(int j=0; j<nEvaluationDemands_; j++){
 
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Starting evaluation of schedule n°" << sched << " over evaluation demand n°" << j << std::endl;
+		std::cout << "# [week=" << pScenario_->thisWeek() << "] Starting evaluation of schedule n��" << sched << " over evaluation demand n��" << j << std::endl;
 
 
 
@@ -380,7 +380,7 @@ void StochasticSolver::evaluateSchedule(int sched){
 
 		// Display
 		//
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Schedule n°" << sched << " evaluated over evaluation demand n°" << j << " (solution cost: " << currentCost << ")." << std::endl;
+		std::cout << "# [week=" << pScenario_->thisWeek() << "] Schedule n��" << sched << " evaluated over evaluation demand n��" << j << " (solution cost: " << currentCost << ")." << std::endl;
 
 		// Insert the solution cost and solution
 		//
@@ -395,7 +395,7 @@ void StochasticSolver::evaluateSchedule(int sched){
 		}
 	}
 
-	std::cout << "# Evaluation of schedule n°" << sched << " done!" << std::endl;
+	std::cout << "# Evaluation of schedule n��" << sched << " done!" << std::endl;
 }
 
 // Recompute all scores after one schedule evaluation
@@ -407,7 +407,7 @@ void StochasticSolver::updateRankingsAndScores(){
 	Tools::initDoubleVector(&theNewScores, nSchedules_, 0);
 
 	for(int j=0; j<nEvaluationDemands_; j++){
-		cout << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand n°" << j << endl;
+		cout << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand n��" << j << endl;
 		int localRank = 1;
 		map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
 		for(map<double, set<int> >::iterator it = localCosts.begin(); it != localCosts.end(); ++it){
@@ -421,7 +421,7 @@ void StochasticSolver::updateRankingsAndScores(){
 
 	theScores_ = theNewScores;
 
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Update of the scores and ranking done!  (current best is schedule n°" << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
+	std::cout << "# [week=" << pScenario_->thisWeek() << "] Update of the scores and ranking done!  (current best is schedule n��" << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
 
 }
 

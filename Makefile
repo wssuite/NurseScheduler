@@ -7,7 +7,7 @@
 #@file    Makefile
 #@brief   Makefile for C++ nurse rostering branch-and-price
 #@author  Antoine Legrain
-#@author  Jérémy Omer
+#@author  J��r��my Omer
 #@author  Samuel Rosat
 
 
@@ -15,7 +15,8 @@
 # OPTIONS
 #-----------------------------------------------------------------------------
 USE_SCIP = FALSE
-USE_COIN = TRUE
+USE_BCP = TRUE
+USE_CBC = FALSE
 DEBUG  = TRUE
 
 #-----------------------------------------------------------------------------
@@ -43,14 +44,21 @@ endif
 # include project Makefile from COIN
 # define BCPDIR and CBCDIR (if not defined)
 #-----------------------------------------------------------------------------
-ifeq ($(USE_COIN), TRUE)
+ifeq ($(USE_BCP), TRUE)
    ifeq ($(DEBUG), TRUE)
       BCPDIR = $(BCPDIRDBG)
-      CBCDIR = $(CBCDIRDBG)
-   else
+    else
       BCPDIR = $(BCPDIROPT)
-      CBCDIR = $(CBCDIROPT)
-   endif
+    endif
+   include make.coin
+endif
+
+ifeq ($(USE_BCP), TRUE)
+   ifeq ($(DEBUG), TRUE)
+      BCPDIR = $(BCPDIRDBG)
+    else
+      BCPDIR = $(BCPDIROPT)
+    endif
    include make.coin
 endif
 
@@ -58,7 +66,7 @@ endif
 # add user flags
 #-----------------------------------------------------------------------------
 INCLUDESFLAGS  += -I$(BOOST_DIR)
-CXXFLAGS    += -w -fPIC -fexceptions -std=c++11 -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
+CXXFLAGS    += -w -fPIC -fexceptions -std=c++11  -DNDEBUG -DIL_STD  $(INCLUDESFLAGS)
 ifeq ($(DEBUG), TRUE)
    CXXFLAGS += -g -O0
    LDFLAGS  += -g -O0
@@ -78,12 +86,16 @@ SRCDIR      =  src
 OBJDIR      =  obj
 
 MAINNAME 	=  roster
-MAINOBJ     =  main.o main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
+MAINOBJ     =  OptimalSolver.o #main.o 
+MAINOBJ		+= main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
 ifeq ($(USE_SCIP), TRUE)
    MAINOBJ  += ScipModeler.o 
 endif
-ifeq ($(USE_COIN), TRUE)
-   MAINOBJ  += BcpModeler.o CbcModeler.o
+ifeq ($(USE_BCP), TRUE)
+   MAINOBJ  += BcpModeler.o
+endif
+ifeq ($(USE_CBC), TRUE)
+   MAINOBJ  += CbcModeler.o
 endif
 MAINSRC     =  $(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 

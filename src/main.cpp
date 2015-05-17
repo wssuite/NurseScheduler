@@ -2,8 +2,8 @@
 //  main.cpp
 //  RosterDesNurses
 //
-//  Created by J��r��my Omer on 16/11/2014.
-//  Copyright (c) 2014 J��r��my Omer. All rights reserved.
+//  Created by J������r������my Omer on 16/11/2014.
+//  Copyright (c) 2014 J������r������my Omer. All rights reserved.
 //
 
 #include "main_test.h"
@@ -15,9 +15,6 @@
 #include "Modeler.h"
 #include "MasterProblem.h"
 
-//initialize the counter of object
-unsigned int MyObject::s_count = 0;
-unsigned int Rotation::s_count = 0;
 
 void main_test()
 {
@@ -57,7 +54,7 @@ int main(int argc, char** argv)
 
       while (narg < argc) {
          std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
-         // Attention usine �� gaz: problem with the java simulator that add quote
+         // Attention usine ������ gaz: problem with the java simulator that add quote
          // marks in the arguments, which fucks up the open file methods
          // the code below is here to remove these quote marks
          //

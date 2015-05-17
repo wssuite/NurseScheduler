@@ -144,7 +144,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
    if(pModel_->getVerbosity() > 0){
 
-//      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->myMax :
+//      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->LARGE_SCORE :
 //         getLpProblemPointer()->node->true_lower_bound;
 
       if( vars.size() == 0 ){
@@ -187,7 +187,7 @@ bool BcpLpModel::doStop(){
 
    //fathom if the true lower bound greater than current upper bound
    if(pModel_->getBestUB() - getLpProblemPointer()->node->true_lower_bound <
-         pModel_->getAbsoluteGap() - EPSILON)
+         pModel_->getParameters().absoluteGap_ - EPSILON)
       return true;
 
    return false;
@@ -329,10 +329,8 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 		pModel_->updateNodeLB(lpres.objval());
 
    //stop this process for BCP or the node
-   if(doStop()){
+   if(doStop())
       return BCP_DoNotBranch_Fathomed;
-
-   }
 
    //if some variables have been generated, do not branch
    if(local_var_pool.size() > 0)
@@ -342,8 +340,14 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    getLpProblemPointer()->node->true_lower_bound = lpres.objval();
    heuristicHasBeenRun_ = false;
 
+   //if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
+   if(current_index() == 0)
+      for(CoinVar* col: pModel_->getColumns())
+         if(col->getCost() == LARGE_SCORE && pModel_->getVarValue(col))
+            throw InfeasibleStop("Feasibility columns are still present in the solution");
+
    //fathom if greater than current upper bound
-   if(pModel_->getBestUB() - lpres.objval() < pModel_->getAbsoluteGap() - EPSILON)
+   if(pModel_->getBestUB() - lpres.objval() < pModel_->getParameters().absoluteGap_ - EPSILON)
       return BCP_DoNotBranch_Fathomed;
 
    //branching candidates: numberOfNursesByPosition_, rest on a day, ...
@@ -596,8 +600,7 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
    set_param(BCP_tm_par::TmVerb_SingleLineInfoFrequency, pModel_->getFrequency());
    //always dive
    set_param(BCP_tm_par::UnconditionalDiveProbability, 1);
-   if (pModel_->getMaxSolvingtime() < DBL_MAX)
-      set_param(BCP_tm_par::MaxRunTime, pModel_->getMaxSolvingtime());
+   set_param(BCP_tm_par::MaxRunTime, pModel_->getParameters().maxSolvingTimeSeconds_);
    for(pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
       set_param(entry.first, entry.second);
 
@@ -688,9 +691,9 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
  * BcpModeler
  */
 BcpModeler::BcpModeler(const char* name):
-   CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0), diveDepth_(0), diveLenght_(myMax),
+   CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0), diveDepth_(0), diveLenght_(LARGE_SCORE),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-   best_lb_in_root(myMax), best_lb(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
+   best_lb_in_root(LARGE_SCORE), best_lb(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 {
    //create the root
    pushBackNewNode();
@@ -700,11 +703,7 @@ BcpModeler::BcpModeler(const char* name):
 int BcpModeler::solve(bool relaxatione){
    BcpInitialize bcp(this);
    char* argv[0];
-   try{
-      return bcp_main(0, argv, &bcp);
-   }catch(BcpStop& e) { }
-
-   return 0;
+   return bcp_main(0, argv, &bcp);
 }
 
 /*
@@ -912,31 +911,34 @@ int BcpModeler::setVerbosity(int v){
 //Check if BCP must stop
 bool BcpModeler::doStop(){
    //continue if doesn't have a lb
-   if(getBestLB() == myMax)
+   if(getBestLB() == LARGE_SCORE)
       return false;
 
    //check relative gap
-   if(best_ub - getBestLB() < minRelativeGap_ * getBestLB() - EPSILON){
-      char error[100];
-      sprintf(error, "Stopped: relative gap < %.2f.", minRelativeGap_);
-      throw BcpStop(error);
+   if(parameters_.solveToOptimality_) {
+      return false;
    }
-   if(best_ub - getBestLB() < relativeGap_ * getBestLB() - EPSILON){
+   else if(best_ub - getBestLB() < parameters_.minRelativeGap_ * getBestLB() - EPSILON){
+      char error[100];
+      sprintf(error, "Stopped: relative gap < %.2f.", parameters_.minRelativeGap_);
+      throw OptimalStop(error);
+   }
+   if(best_ub - getBestLB() < parameters_.relativeGap_ * getBestLB() - EPSILON){
       //if the relative gap is small enough and if same incumbent since the last dive, stop
-      if(nb_nodes_last_incumbent_ > diveLenght_){
+      if(nb_nodes_last_incumbent_ > parameters_.nbDiveIfMinGap_*diveLenght_){
          char error[100];
          sprintf(error, "Stopped: relative gap < %.2f and more than %d nodes without new incumbent.",
-            relativeGap_, diveLenght_);
-         throw BcpStop(error);
+            parameters_.relativeGap_, parameters_.nbDiveIfMinGap_*diveLenght_);
+         throw FeasibleStop(error);
       }
    }
    else
       //if the relative gap is too big, wait 2 dives before stopping
-      if(nb_nodes_last_incumbent_ > 2*diveLenght_){
+      if(nb_nodes_last_incumbent_ > parameters_.nbDiveIfRelGap_*diveLenght_){
          char error[100];
          sprintf(error, "Stopped: relative gap > %.2f and more than %d nodes without new incumbent.",
-            relativeGap_, diveLenght_);
-         throw BcpStop(error);
+            parameters_.relativeGap_, parameters_.nbDiveIfRelGap_*diveLenght_);
+         throw FeasibleStop(error);
       }
 
    return false;

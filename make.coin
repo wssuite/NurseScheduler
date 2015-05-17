@@ -19,17 +19,22 @@ LINKCXX +=  -Wl,--rpath -Wl,$(BCPDIR)/lib
 # C Compiler options
 CFLAGS += -pipe -pedantic-errors -Wimplicit -Wparentheses -Wsequence-point -Wreturn-type -Wcast-qual -Wall -Wno-unknown-pragmas -Wno-long-long -DCLP_BUILD -DCBC_BUILD
 
-# Include BCP directories 
-INCLUDESFLAGS += -I$(BCPDIR)/include/coin
+ifeq ($(USE_BCP), TRUE)
+   # Include BCP directories 
+	INCLUDESFLAGS += -I$(BCPDIR)/include/coin
+	
+	# BCP Linker flags
+	LIBS += -L$(BCPDIR)/lib 
+	
+	LIBS += -lBcp -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm
+endif
 
-# Include CBC directories
-INCLUDESFLAGS += -I$(CBCDIR)/include/coin
-
-# CBC Linker flags
-LIBS += -L$(CBCDIR)/lib
-
-# BCP Linker flags
-LIBS += -L$(BCPDIR)/lib 
-
-LIBS += -lCbcSolver -lCbc -lCgl -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm
-LIBS += -lBcp -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm 
+ifeq ($(USE_CBC), TRUE)
+   # Include CBC directories
+	INCLUDESFLAGS += -I$(CBCDIR)/include/coin
+	
+	# CBC Linker flags
+	LIBS += -L$(CBCDIR)/lib
+	
+	LIBS += -lCbcSolver -lCbc -lCgl -lOsiClp -lClpSolver -lClp -lOsi -lCoinUtils -lbz2 -lz -llapack -lblas -lm
+endif

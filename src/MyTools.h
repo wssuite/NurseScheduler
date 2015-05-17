@@ -1,8 +1,8 @@
 //
 //  MyTools.h
 //
-//  Created by J������r������my Omer on 19/11/2013.
-//  Copyright (c) 2013 J������r������my Omer. All rights reserved.
+//  Created by J������������������r������������������my Omer on 19/11/2013.
+//  Copyright (c) 2013 J������������������r������������������my Omer. All rights reserved.
 //
 
 #ifndef __MyTools__
@@ -223,6 +223,7 @@ public:
     logStream_.unsetf ( std::ios::floatfield );
     logStream_.precision(precision_);
 		logStream_ << std::left << std::setprecision(2) << output;
+		logStream_ <<  output;
 
 		return *this;
 	}

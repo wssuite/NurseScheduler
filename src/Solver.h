@@ -1,7 +1,7 @@
 /*
  * Solver.h
  *
- *  Created on: 22 déc. 2014
+ *  Created on: 22 d��c. 2014
  *      Author: jeremy
  */
 
@@ -297,23 +297,25 @@ class SolverParam{
 
 public:
 	SolverParam(){}
+   //maximal solving time in s
+   int maxSolvingTimeSeconds_ = LARGE_TIME;
 
-	int maxSolvingTimeSeconds_ = LARGE_TIME;
+   bool printEverySolution_ = false;
+   string outfile_ = "outdir/";
 
-	bool printEverySolution_ = false;
-	string outfile_ = "outdir/";
-
-	double minRelativeGap_ = .05;
+   //relative and absolute gap (with the current costs,
+   //the difference between two solution costs is at lest 5
+   //if sol below minRelativeGap_, we stop immediately
+   //if sol below relativeGap_, we stop after nbDiveIfMinGap_*dive without new incumbent
+   //if sol over relativeGap_, we stop after nbDiveIfRelGap_*dive without new incumbent
+   double absoluteGap_ = 5;
+   double minRelativeGap_ = .05;
 	double relativeGap_ = .1;
-	double absoluteGap_ = 5;
 
 	int nbDiveIfMinGap_ = 1;
 	int nbDiveIfRelGap_ = 2;
 
 	bool solveToOptimality_ = false;
-
-
-
 };
 
 
@@ -341,11 +343,6 @@ public:
    Solver(Scenario* pScenario, Demand* pDemand,
       Preferences* pPreferences, vector<State>* pInitState);
 
-   Solver(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, vector<State>* pInitState,
-      vector<double> minTotalShifts, vector<double> maxTotalShifts, vector<double> maxTotalWeekends,
-      vector<double> minTotalShiftsAvg, vector<double> maxTotalShiftsAvg, vector<double> weightTotalShiftsAvg,
-      vector<double> maxTotalWeekendsAvg, vector<double> weightTotalWeekendsAvg);
 
    // Main method to solve the rostering problem for a given input and an initial solution
    virtual double solve(vector<Roster> solution = {}) { return DBL_MAX;}
@@ -402,9 +399,7 @@ protected:
 
    // Preprocessed minimum and maximum number of working days on all the weeks
    //
-   vector<double> minTotalShifts_;
-   vector<double> maxTotalShifts_;
-   vector<double> maxTotalWeekends_;
+   vector<double> minTotalShifts_, maxTotalShifts_, maxTotalWeekends_;
 
    // Interval inside of which there is no penalty for the total number of
    // working days (for each nurse)
