@@ -1072,8 +1072,6 @@ string Solver::solutionToLogString() {
       costWeekEnds += pNurse->statCt_.costWeekEnd_[day];
 
     }
-
-    std::cout << pNurse->state(nbDays).totalWeekendsWorked_ << std::endl;
   }
 
   // write the status of hard and soft constraints
@@ -1099,8 +1097,6 @@ string Solver::solutionToLogString() {
 
   rep << "\n---------------------------\n";
   rep << "\nTotal cost: " << totalCost << std::endl;
-
-  std::cout << rep.str() << std::endl;
 
   return rep.str();
 }

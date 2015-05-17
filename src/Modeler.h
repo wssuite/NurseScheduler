@@ -103,21 +103,28 @@ protected:
    SearchStrategy searchStrategy_;
 };
 
+/* Exception to stop the solver */
+struct FeasibleStop: public exception{
+   FeasibleStop(string str){ cout << str << endl; }
+};
+
+struct InfeasibleStop: public exception{
+   InfeasibleStop(string str){ cout << str << endl; }
+};
+
+struct OptimalStop: public exception{
+   OptimalStop(string str){ cout << str << endl; }
+};
 
 class Modeler {
 public:
 
-   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(myMax), max_solving_time(DBL_MAX),
-   relativeGap_(.1), minRelativeGap_(.05), absoluteGap_(5)
-{ }
+   Modeler(): pPricer_(0), pBranchingRule_(0), best_ub(LARGE_SCORE) { }
 
    virtual ~Modeler(){
       for(MyObject* object: objects_)
          delete object;
    }
-
-   //my max
-   int myMax = 1000000;
 
    //solve the model
    virtual int solve(bool relaxation = false)=0;
@@ -395,22 +402,6 @@ public:
 
    inline virtual void setBestUB(double ub) { if(ub < best_ub) best_ub = ub; }
 
-   inline long getMaxSolvingtime() { return max_solving_time; }
-
-   inline void setMaxSolvingtime(long solving_time_in_seconds) { max_solving_time = solving_time_in_seconds; }
-
-   inline double getRelativeGap() { return relativeGap_; }
-
-   inline void setRelativeGap(double relativeGap) { relativeGap_ = relativeGap; }
-
-   inline double getMinRelativeGap() { return minRelativeGap_; }
-
-   inline void setMinRelativeGap(double minRelativeGap) { minRelativeGap_ = minRelativeGap; }
-
-   inline double getAbsoluteGap() { return absoluteGap_; }
-
-   inline void setAbsoluteGap(double absoluteGap) { absoluteGap_ = absoluteGap; }
-
    inline void setSearchStrategy(SearchStrategy searchStrategy){
       searchStrategy_ = searchStrategy;
       set_search_strategy(searchStrategy);
@@ -421,6 +412,10 @@ public:
    inline void setLastBranchingRest(pair<LiveNurse*, int> lastBranchingRest){ lastBranchingRest_ = lastBranchingRest; }
 
    inline pair<LiveNurse*, int> getLastBranchingRest() { return lastBranchingRest_; }
+
+   inline void setParameters(SolverParam parameters){ parameters_ = parameters; }
+
+   inline SolverParam& getParameters() { return parameters_; }
 
 protected:
    //store all MyObject*
@@ -435,14 +430,9 @@ protected:
    SearchStrategy searchStrategy_ = BestFirstSearch;
    //best current upper bound found
    double best_ub;
-   //maximal solving time in s
-   long max_solving_time;
-   //relative and absolute gap (with the current costs,
-   //the difference between two solution costs is at lest 5
-   //if sol below minRelativeGap_, we stop immediately
-   //if sol below relativeGap_, we stop after a dive without new incumbent
-   //if sol over relativeGap_, we stop after 2 divse without new incumbent
-   double relativeGap_, minRelativeGap_, absoluteGap_;
+
+   SolverParam parameters_;
+
    //strore the last branching decisions
    pair<LiveNurse*, int> lastBranchingRest_;
 };

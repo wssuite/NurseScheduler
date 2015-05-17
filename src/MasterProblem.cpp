@@ -257,7 +257,7 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    Solver(pScenario, pDemand, pPreferences, pInitState),
    solverType_(solverType), pModel_(0), pPricer_(0), pRule_(0),
    positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()),
-   rotations_(pScenario->nbNurses_), restsPerDay_(pScenario->nbNurses_), solvingTime(INT_MAX),
+   rotations_(pScenario->nbNurses_), restsPerDay_(pScenario->nbNurses_),
 
    columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
    minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
@@ -376,11 +376,11 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
       pModel_->setVerbosity(1);
       //cut the branching process at the end of the root node
       if(relaxation)
-         pModel_->setAbsoluteGap(pModel_->getBestUB());
+         pModel_->getParameters().absoluteGap_ = LARGE_SCORE;
       else if (!minTotalShiftsAvg_.empty() || !maxTotalShiftsAvg_.empty() || !weightTotalShiftsAvg_.empty())
-         pModel_->setAbsoluteGap(0);
+         pModel_->getParameters().absoluteGap_ = 0;
    }
-   pModel_->solve();
+   solveWithCatch();
    pModel_->printStats();
 
    if(!pModel_->printBestSol() or relaxation){
@@ -394,26 +394,32 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    return pModel_->getObjective();
 }
 
+void MasterProblem::solveWithCatch(){
+   try{
+      pModel_->solve();
+      status_ = OPTIMAL;
+   }catch(OptimalStop& e) {
+      status_ = OPTIMAL;
+   }catch(FeasibleStop& e) {
+      status_ = FEASIBLE;
+   }catch(InfeasibleStop& e) {
+      status_ = INFEASIBLE;
+   }
+}
+
 // Solve the rostering problem with parameters
 
 double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
-	setParameters(parameters);
+	pModel_->setParameters(parameters);
 	return solve(solution);
 }
 
 // Main method to evaluate an initial state for a given input and an initial solution and parameters
 //same as solve if not redefine
 double MasterProblem::evaluate(SolverParam parameters, vector<Roster> solution){
-	setParameters(parameters);
+   pModel_->setParameters(parameters);
 	return evaluate(solution);
 }
-
-void MasterProblem::setParameters(SolverParam parameters){
-	if (solverType_ != S_CBC )
-		pModel_->setMaxSolvingtime(parameters.maxSolvingTimeSeconds_);
-
-}
-
 
 //initialize the rostering problem with one column to be feasible if there is no initial solution
 //otherwise build the columns corresponding to the initial solution
@@ -428,7 +434,7 @@ void MasterProblem::initialize(vector<Roster> solution){
          shifts.insert(pair<int,int>( k , -1 ));
 
       for(int i=0; i<pScenario_->nbNurses_; ++i){
-         Rotation rotation(shifts, theLiveNurses_[i], bigM);
+         Rotation rotation(shifts, theLiveNurses_[i], LARGE_SCORE);
          addRotation(rotation, baseName);
       }
    }
