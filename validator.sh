@@ -8,12 +8,13 @@ instance="n005w4"
 #"${dataFile}${instance}/Solution_H_0-WD_1-2-3-3/"
 solutionFile="outfiles/"
 weeksValue=(1 2 3 3)
+weeksNames="1233"
 
 history="${dataFile}${instance}/H0-${instance}-0.txt"
 scenario="${dataFile}${instance}/Sc-${instance}.txt"
 
 demand0="WD-${instance}-"
-solution0="Sol-${instance}-"
+solution0="Sol-${instance}-${weeksNames}-"
 weeks=""
 sols=""
 i=0
