@@ -748,59 +748,30 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
          weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
       }
 
-<<<<<<< HEAD
-
-		/* Antoind from primal-dual */
-//		maxTotalWeekends_[n] = 0;
-//		weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
-//				1.0 / pNurse->maxTotalWeekends();
-//		if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
-
-
-		/* Jerem (commente) */
-
-		// Number of worked week-ends below which there is no penalty for the
-		// total number of working week-ends
-		// This interval is computed from the max number of working week-ends averaged
-		// over the number of remaining weeks
-//		maxTotalWeekendsAvg_.push_back( (1.0-factorRemainingWeekends) * (double)(pNurse->maxTotalWeekends()) );
-//		weightTotalWeekendsAvg_.push_back( (1.0-factorRemainingWeekends) * (double)WEIGHT_TOTAL_WEEKENDS );
-=======
-	       // Number of worked week-ends below which there is no penalty for the
-	       // total number of working week-ends
-	       // This interval is computed from the max number of working week-ends averaged
-	       // over the number of remaining weeks
-//	       maxTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)pNurse->maxTotalWeekends());
-//	      weightTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)WEIGHT_TOTAL_WEEKENDS);
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
-
-<<<<<<< HEAD
 		/* Essai Sam */
-		maxTotalWeekends_[n] = 0;
-		double costOfWeekendForNurse;
+//		maxTotalWeekends_[n] = 0;
+//		double costOfWeekendForNurse;
+//
+//		int nWEAlreadyDoneByNurse = pNurse->pStateIni_->totalWeekendsWorked_;
+//		int nWERemainingIncludingNow = pScenario_->nbWeeks_ - pScenario_->thisWeek();
+//		int nWEMaxForNurse = pNurse->pContract_->maxTotalWeekends_;
+//
+//		if(nWEAlreadyDoneByNurse >= nWEMaxForNurse)
+//			costOfWeekendForNurse = nWERemainingIncludingNow * WEIGHT_TOTAL_WEEKENDS;
+//		else if(nWERemainingIncludingNow <= nWEMaxForNurse)
+//			costOfWeekendForNurse = std::max( 0, nWEAlreadyDoneByNurse + nWERemainingIncludingNow - nWEMaxForNurse );
+//		else
+//			costOfWeekendForNurse = nWEAlreadyDoneByNurse;
+//
+//		weightTotalWeekendsMax_[n] = costOfWeekendForNurse ;
 
-		int nWEAlreadyDoneByNurse = pNurse->pStateIni_->totalWeekendsWorked_;
-		int nWERemainingIncludingNow = pScenario_->nbWeeks_ - pScenario_->thisWeek();
-		int nWEMaxForNurse = pNurse->pContract_->maxTotalWeekends_;
-
-		if(nWEAlreadyDoneByNurse >= nWEMaxForNurse)
-			costOfWeekendForNurse = nWERemainingIncludingNow * WEIGHT_TOTAL_WEEKENDS;
-		else if(nWERemainingIncludingNow <= nWEMaxForNurse)
-			costOfWeekendForNurse = std::max( 0, nWEAlreadyDoneByNurse + nWERemainingIncludingNow - nWEMaxForNurse );
-		else
-			costOfWeekendForNurse = nWEAlreadyDoneByNurse;
-
-		weightTotalWeekendsMax_[n] = costOfWeekendForNurse ;
 
 
-
-=======
 	      // first compute the values relative to the average number of working days
 	      // the interval is larger for the first weeks and the associated penalty is smaller
 	      minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
 	      maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
 	      weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
->>>>>>> branch 'master' of https://github.com/jeremyomer/RosterDesNurses
 	}
 }
 
