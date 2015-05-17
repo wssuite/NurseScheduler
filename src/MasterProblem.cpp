@@ -411,8 +411,8 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    pModel_->printStats();
 
    if(!pModel_->printBestSol() or relaxation){
-	   cout << "# " << pModel_->getRelaxedObjective() << endl;
-	   return pModel_->getRelaxedObjective();
+	   cout << "# " << min(pModel_->getRelaxedObjective(), pModel_->getObjective()) << endl;
+	   return min(pModel_->getRelaxedObjective(), pModel_->getObjective());
    }
 
    storeSolution();
@@ -902,8 +902,7 @@ void MasterProblem::buildMinMaxCons(){
       pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, maxTotalWeekends_[i],
          vars3, coeffs3);
 
-      if ( !maxTotalWeekendsAvg_.empty()  && !weightTotalWeekendsAvg_.empty()
-      && maxTotalWeekendsAvg_[i] < maxTotalWeekends_[i]) {
+      if ( !maxTotalWeekendsAvg_.empty()  && !weightTotalWeekendsAvg_.empty() && maxTotalWeekendsAvg_[i] < maxTotalWeekends_[i]) {
       	sprintf(name, "maxWorkedWeekendAvgVar_N%d", i);
       	pModel_->createPositiveVar(&maxWorkedWeekendAvgVars_[i], name, weightTotalWeekendsAvg_[i]);
 
@@ -914,6 +913,9 @@ void MasterProblem::buildMinMaxCons(){
           varsAvg3, coeffsAvg3);
 
         isMaxWorkedWeekendAvgCons_[i] = true;
+
+        cout << "prout" << endl;
+        getchar();
 	    }
    }
 }

@@ -6,6 +6,7 @@
 */
 
 
+#include <math.h>
 #include "Solver.h"
 
 
@@ -748,6 +749,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 
 	// Compute the non-penalized intervals and the associated penalties
 	for (int n = 0; n < pScenario_->nbNurses(); n++) {
+
 		LiveNurse* pNurse =  theLiveNurses_[n];
 
 		// first compute the values relative to the average number of working days
@@ -761,18 +763,41 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 		minTotalShifts_.push_back(pNurse->minWorkDaysNoPenaltyTotalDays_);
 		maxTotalShifts_.push_back(pNurse->maxWorkDaysNoPenaltyTotalDays_);
 
+
+		/* Antoind from primal-dual */
+//		maxTotalWeekends_[n] = 0;
+//		weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
+//				1.0 / pNurse->maxTotalWeekends();
+//		if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+
+
+		/* Jerem (commente) */
+
 		// Number of worked week-ends below which there is no penalty for the
 		// total number of working week-ends
 		// This interval is computed from the max number of working week-ends averaged
 		// over the number of remaining weeks
-		//maxTotalWeekendsAvg_.push_back( (1.0-factorRemainingWeekends) * (double)(pNurse->maxTotalWeekends()) );
-		maxTotalWeekendsAvg_.push_back( 0 );
-		weightTotalWeekendsAvg_.push_back( (1.0-factorRemainingWeekends) * (double)WEIGHT_TOTAL_WEEKENDS );
+//		maxTotalWeekendsAvg_.push_back( (1.0-factorRemainingWeekends) * (double)(pNurse->maxTotalWeekends()) );
+//		weightTotalWeekendsAvg_.push_back( (1.0-factorRemainingWeekends) * (double)WEIGHT_TOTAL_WEEKENDS );
 
+		/* Essai Sam */
 		maxTotalWeekends_[n] = 0;
-		weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
-				1.0 / pNurse->maxTotalWeekends();
-		if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+		double costOfWeekendForNurse;
+
+		int nWEAlreadyDoneByNurse = pNurse->pStateIni_->totalWeekendsWorked_;
+		int nWERemainingIncludingNow = pScenario_->nbWeeks_ - pScenario_->thisWeek();
+		int nWEMaxForNurse = pNurse->pContract_->maxTotalWeekends_;
+
+		if(nWEAlreadyDoneByNurse >= nWEMaxForNurse)
+			costOfWeekendForNurse = nWERemainingIncludingNow * WEIGHT_TOTAL_WEEKENDS;
+		else if(nWERemainingIncludingNow <= nWEMaxForNurse)
+			costOfWeekendForNurse = std::max( 0, nWEAlreadyDoneByNurse + nWERemainingIncludingNow - nWEMaxForNurse );
+		else
+			costOfWeekendForNurse = nWEAlreadyDoneByNurse;
+
+		weightTotalWeekendsMax_[n] = costOfWeekendForNurse ;
+
+
 
 	}
 }
@@ -914,6 +939,25 @@ double Solver::solutionCost() {
 //------------------------------------------------
 // Display functions
 //------------------------------------------------
+
+// Return the solution at day k
+//
+vector<Roster> Solver::getSolutionAtDay(int k){
+	vector<Roster> ans;
+	for(int i=0; i<solution_.size(); i++){
+		Roster r = solution_[i];
+		int nbDays = k+1;
+		int firstDay = r.firstDay();
+		vector<int> shifts, skills;
+		for(int j=0; j<=k; j++){
+			shifts.push_back(r.shift(j));
+			skills.push_back(r.skill(j));
+		}
+		Roster s (nbDays, firstDay, shifts, skills);
+		ans.push_back(s);
+	}
+	return ans;
+}
 
 // return the final states of the nurses
 //

@@ -574,6 +574,10 @@ public:
    //
    vector<Roster> getSolution() { return solution_; }
 
+   // return the solution, but only for the k first days
+   //
+   vector<Roster> getSolutionAtDay(int k);
+
    // return the final states of the nurses
    //
    vector<State> getFinalStates();
