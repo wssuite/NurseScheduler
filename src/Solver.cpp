@@ -742,9 +742,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
          //round with a certain probability to the floor or the ceil
          int remainingWeekendsToWork = pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_;
          double numberOfAuthorizedWeekend = remainingWeekendsToWork * factorRemainingWeekends;
-         double probFactor = numberOfAuthorizedWeekend - floor(numberOfAuthorizedWeekend);
-         if(rand() < probFactor) maxTotalWeekendsAvg_.push_back( (int)floor(numberOfAuthorizedWeekend) );
-         else maxTotalWeekendsAvg_.push_back( (int)ceil(numberOfAuthorizedWeekend) );
+         maxTotalWeekendsAvg_.push_back( Tools::roundWithProbability(numberOfAuthorizedWeekend) );
          weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
       }
 
@@ -777,36 +775,64 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 
 void Solver::computeWeightsTotalShiftsForPrimalDual(){
    // clear the vectors that are about to be filled
-     minTotalShiftsAvg_.clear();
-     maxTotalShiftsAvg_.clear();
-     weightTotalShiftsAvg_.clear();
-     maxTotalWeekendsAvg_.clear();
-     weightTotalWeekendsAvg_.clear();
+   minTotalShiftsAvg_.clear();
+   maxTotalShiftsAvg_.clear();
+   weightTotalShiftsAvg_.clear();
+   maxTotalWeekendsAvg_.clear();
+   weightTotalWeekendsAvg_.clear();
+
+   minTotalShiftsContractAvg_.clear();
+   maxTotalShiftsContractAvg_.clear();
+   weightTotalShiftsContractAvg_.clear();
+   maxTotalWeekendsContractAvg_.clear();
+   weightTotalWeekendsContractAvg_.clear();
 
       // The nurses must be preprocessed to retrieve the information relative to the
       // past activity of the nurses and to their capacity to work more in the future
       if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
+      //initialize the non-penalized intervals and the associated penalties for each contract
+      for(int p=0; p<pScenario_->nbContracts_; ++p){
+         minTotalShiftsContractAvg_.push_back(0);
+         maxTotalShiftsContractAvg_.push_back(0);
+         weightTotalShiftsContractAvg_.push_back(WEIGHT_TOTAL_SHIFTS);
+         maxTotalWeekendsContractAvg_.push_back(0);
+         weightTotalWeekendsContractAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+      }
+
       // Compute the non-penalized intervals and the associated penalties
       for (int n = 0; n < pScenario_->nbNurses(); n++) {
-//    	  minTotalShifts_[n] = 0;
-//    	  maxTotalShifts_[n] = 0;
-//    	  maxTotalWeekends_[n] = 0;
-
          LiveNurse* pNurse =  theLiveNurses_[n];
          double ratio = WEIGHT_TOTAL_SHIFTS * pNurse->pStateIni_->totalDaysWorked_;
 
+         minTotalShifts_[n] = 0;
          weightTotalShiftsMin_[n] = WEIGHT_TOTAL_SHIFTS - ratio * 1.0 / pNurse->minTotalShifts();
          if(weightTotalShiftsMin_[n]<0) weightTotalShiftsMin_[n] = 0;
 
+         maxTotalShifts_[n] = 0;
          weightTotalShiftsMax_[n] = ratio * 1.0 / pNurse->maxTotalShifts();
          if(weightTotalShiftsMax_[n]>WEIGHT_TOTAL_SHIFTS) weightTotalShiftsMax_[n] = WEIGHT_TOTAL_SHIFTS;
 
+         maxTotalWeekends_[n] = 0;
          weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
             1.0 / pNurse->maxTotalWeekends();
          if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
 
          std::cout << weightTotalShiftsMin_[n] << " " << weightTotalShiftsMax_[n] << " " << weightTotalWeekendsMax_[n] << std::endl;
+
+         int p = pNurse->pContract_->id_;
+         minTotalShiftsContractAvg_[p] += std::max(0, pNurse->minTotalShifts() - pNurse->pStateIni_->totalDaysWorked_);
+         maxTotalShiftsContractAvg_[p] += std::max(0, pNurse->maxTotalShifts() - pNurse->pStateIni_->totalDaysWorked_);
+         maxTotalWeekendsContractAvg_[p] += std::max(0, pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_);
+      }
+
+      //round the min/max values of the interval associated to the contract
+      int remainingWeeks = pScenario_->nbWeeks() - pScenario_->thisWeek();
+      for(int p=0; p<pScenario_->nbContracts_; ++p){
+         minTotalShiftsContractAvg_[p] = Tools::roundWithProbability( minTotalShiftsContractAvg_[p] / remainingWeeks);
+         maxTotalShiftsContractAvg_[p] = Tools::roundWithProbability( maxTotalShiftsContractAvg_[p] / remainingWeeks);
+         maxTotalWeekendsContractAvg_[p] = Tools::roundWithProbability( maxTotalWeekendsContractAvg_[p] / remainingWeeks);
+         std::cout << minTotalShiftsContractAvg_[p] << " " << maxTotalShiftsContractAvg_[p] << " " << maxTotalWeekendsContractAvg_[p] << std::endl;
       }
 }
 

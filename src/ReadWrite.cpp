@@ -173,7 +173,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
             file >> isTotalWeekend;
             readUntilChar(&file,'\n',&strTmp);
 
-            Contract * pContract = new Contract (contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
+            Contract * pContract = new Contract (i, contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
             contracts.insert(pair<string,Contract*>(contractName,pContract));
             intToContract.push_back(contractName);
          }

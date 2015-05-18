@@ -33,6 +33,10 @@ using std::vector;
 class Contract{
 
 public:
+   //Id of the contract and index in the vector intToContract_
+   //
+   const int id_;
+
    // Name of the contract
    //
    const string name_;
@@ -56,11 +60,11 @@ public:
 
    // Constructor and Destructor
    //
-   Contract(string name, int minTotalShifts, int maxTotalShifts,
+   Contract(int id, string name, int minTotalShifts, int maxTotalShifts,
       int minConsDaysWork, int maxConsDaysWork,
       int minConsDaysOff, int maxConsDaysOff,
       int maxTotalWeekends, int needCompleteWeekends) :
-         name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
+         id_(id), name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
          minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
          minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
          maxTotalWeekends_(maxTotalWeekends), needCompleteWeekends_(needCompleteWeekends) {
