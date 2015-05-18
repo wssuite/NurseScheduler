@@ -223,7 +223,6 @@ public:
     logStream_.unsetf ( std::ios::floatfield );
     logStream_.precision(precision_);
 		logStream_ << std::left << std::setprecision(2) << output;
-		logStream_ <<  output;
 
 		return *this;
 	}
