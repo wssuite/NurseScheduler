@@ -12,14 +12,14 @@ instance=n030w4
 weeksValue=(6 2 9 1 )
 
 demand0="WD-${instance}-"
-solutionFile="outfiles/n030w4_1_6-2-9-1/OptSol-n030w4-6291-"
+solutionFile="outfiles/Competition/n030w4_1_6-2-9-1/OptSol-n030w4-6291-"
 weeks=""
 sols=""
 i=0
 
 for var in ${weeksValue[*]}
 do
-demand[$i]="datatsets/${instance}/${demand0}${var}.txt"
+demand[$i]="datasets/${instance}/${demand0}${var}.txt"
 weeks="${weeks} ${demand[$i]}"
 solution[$i]="${solutionFile}${var}-${i}.txt"
 sols="${sols} ${solution[$i]}"

@@ -145,7 +145,7 @@ ifneq ($(OBJDIR),)
 endif
 ifneq ($(BINDIR),)
 		-rm -f $(BINDIR)/$(MAINNAME)
-		-rmdir $(BINDIR)
+#		-rmdir $(BINDIR)
 endif
 
 

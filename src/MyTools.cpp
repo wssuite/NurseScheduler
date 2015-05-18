@@ -2,8 +2,8 @@
 //  MyTools.cxx
 //  IDSReseau
 //
-//  Created by J��r��my Omer on 19/11/2013.
-//  Copyright (c) 2013 J��r��my Omer. All rights reserved.
+//  Created by J������r������my Omer on 19/11/2013.
+//  Copyright (c) 2013 J������r������my Omer. All rights reserved.
 //
 
 #include "MyTools.h"
@@ -70,6 +70,14 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 		return false;
 
 	return true;
+}
+
+//round with probability
+int roundWithProbability(double number){
+   //round with a certain probability to the floor or the ceil
+   double probFactor = number - floor(number);
+   if(rand() < probFactor) return (int)floor(number);
+   else return (int)ceil(number);
 }
 
 // Initializes  a vector of the given size (filled only with zeroes)

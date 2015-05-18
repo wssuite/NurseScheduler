@@ -85,6 +85,9 @@ void debugMsg(const char* debugMsg, int debugLevel);
 //
 bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 
+//round with probability
+int roundWithProbability(double number);
+
 // convert a number to a string
 //
 template < typename T >

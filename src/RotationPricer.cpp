@@ -223,6 +223,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
    vector< vector<double> > dualValues(pDemand_->nbDays_);
    int i = pNurse->id_;
+   int p = pNurse->pContract_->id_;
 
    /* Min/Max constraints */
    double minWorkedDays = pModel_->getDual(master_->minWorkedDaysCons_[i], true);
@@ -231,14 +232,19 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
    double minWorkedDaysAvg = master_->isMinWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->minWorkedDaysAvgCons_[i], true):0.0;
    double maxWorkedDaysAvg = master_->isMaxWorkedDaysAvgCons_[i] ? pModel_->getDual(master_->maxWorkedDaysAvgCons_[i], true):0.0;
 
+   double minWorkedDaysContractAvg = master_->isMinWorkedDaysContractAvgCons_[p] ?
+      pModel_->getDual(master_->minWorkedDaysContractAvgCons_[p], true):0.0;
+   double maxWorkedDaysContractAvg = master_->isMaxWorkedDaysContractAvgCons_[p] ?
+      pModel_->getDual(master_->maxWorkedDaysContractAvgCons_[p], true):0.0;
+
    for(int k=0; k<pDemand_->nbDays_; ++k){
       //initialize vector
       vector<double> dualValues2(pScenario_->nbShifts_-1);
 
       for(int s=1; s<pScenario_->nbShifts_; ++s){
          /* Min/Max constraints */
-         dualValues2[s-1] = minWorkedDays + minWorkedDaysAvg;
-         dualValues2[s-1] += maxWorkedDays + maxWorkedDaysAvg;
+         dualValues2[s-1] = minWorkedDays + minWorkedDaysAvg + minWorkedDaysContractAvg;
+         dualValues2[s-1] += maxWorkedDays + maxWorkedDaysAvg + maxWorkedDaysContractAvg;
 
          /* Skills coverage */
          dualValues2[s-1] += pModel_->getDual(
@@ -289,6 +295,9 @@ double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
   double dualVal = pModel_->getDual(master_->maxWorkedWeekendCons_[id], true);
   if (master_->isMaxWorkedWeekendAvgCons_[id]) {
     dualVal += pModel_->getDual(master_->maxWorkedWeekendAvgCons_[id], true);
+  }
+  if (master_->isMaxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_]) {
+     dualVal += pModel_->getDual(master_->maxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_], true);
   }
 
   return dualVal;

@@ -113,8 +113,8 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 // Does everything for the one week and only keeps the best schedule for it
 void StochasticSolver::solveOneWeekWithPenalties() {
 	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), generationAlgorithm_);
-	pSolver->computeWeightsTotalShiftsForStochastic();
-//	pSolver->computeWeightsTotalShiftsForPrimalDual();
+//	pSolver->computeWeightsTotalShiftsForStochastic();
+	pSolver->computeWeightsTotalShiftsForPrimalDual();
 	pSolver->solve();
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
