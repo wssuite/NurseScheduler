@@ -140,31 +140,37 @@ void testFunction_Jeremy(){
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel(){
 
+	std::cout << "test" << endl;
+
 	// Time the complete execution of the algorithm
 	Tools::Timer* timertotal = new Tools::Timer();
 	timertotal->init();
 	timertotal->start();
 
-	string data = "datasets/";// testdatasets datasets userdataset
-	const char* inst = "n030w4";// n100w4 n030w4 n005w4 n005w1
+	string data = "testdatasets/";// testdatasets datasets userdataset
+	const char* inst = "n005w4";// n100w4 n030w4 n005w4 n005w1
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 	//n021w4:
 	//n120w8: {3, 2}
-	vector<int> numberWeek = {3, 5, 0, 2}; // , 0, 4, 5, 2};
+	vector<int> numberWeek = {1, 2, 3, 3};
 
 
-	//   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-	int nExtraDaysGenerationDemands = 3;
-	int nGenerationDemands = 5;
+//	testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+
+	int nExtraDaysGenerationDemands = 7;
+	int nGenerationDemands = 3;
 	Algorithm evaluationAlgorithm = GENCOL;
-	int nEvaluationDemands = 5;
-	int nDaysEvaluation = 7;
-	//	   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/",
-			nExtraDaysGenerationDemands, nGenerationDemands, evaluationAlgorithm, nEvaluationDemands, nDaysEvaluation);
+	int nEvaluationDemands = 3;
+	int nDaysEvaluation = 21;
+
+	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+
+
+//	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/",
+//			nExtraDaysGenerationDemands, nGenerationDemands, evaluationAlgorithm, nEvaluationDemands, nDaysEvaluation);
 
 
 	//testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
@@ -334,7 +340,7 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 		// treated
 		// warning: we must make sure that the main solution in pSolver applies only
 		// to the demand of one week
-		vector<Roster> weekSolution = pSolver->getSolution();
+		vector<Roster> weekSolution = pSolver->getSolutionAtDay(6);
 		if (solution.empty()) solution = weekSolution;
 		else {
 			for (int n = 0; n < pScen->nbNurses_; n++) {

@@ -42,7 +42,10 @@ bool DemandGenerator::checkDemandFeasibility(Demand* pDemand) {
 	// Todo: build empty preferences and empty initial state to test the feasibility
 	Greedy* pGreedy =
 		new Greedy(pScenario_, pDemand, pPref, &emptyStates);
-	return pGreedy->constructiveGreedy();
+	bool ans = pGreedy->constructiveGreedy();
+	if(ans) std::cout << "# Demand has been checked and is valid" << endl;
+	return ans;
+
 }
 
 //----------------------------------------------------------------------------
