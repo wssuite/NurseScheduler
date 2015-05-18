@@ -93,73 +93,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
       optimal = false;
 
 
-//	  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false , 120, bound);
-
-//      if(!subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 120, bound)){
-		  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, true , 120, bound);
-//      }
-
-      /*
-      //if not before fathom, generate just not penalized rotations
-	   if(!before_fathom){
-	      subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 8, bound);//pNurse->maxConsDaysWork());
-	   }
-	   //otherwise, generate all rotations of negative cost
-	   else{
-		  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, true, 120, bound);
-	   }
-	   */
-
-
-
-      /* BEGIN - Samuel SPEED TEST */
-
-/*
-      vector<SolveOption> options_short_first_and_last;
-      options_short_first_and_last.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
-      options_short_first_and_last.push_back(SOLVE_SHORT_DAY_0_AND_LAST_ONLY);
-
-      vector<SolveOption> options_short_all;
-      options_short_all.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
-      options_short_all.push_back(SOLVE_SHORT_ALL);
-
-      cout << endl;
-
-      Tools::Timer* timerHeuristic = new Tools::Timer();
-      timerHeuristic->init();
-      timerHeuristic->start();
-      for (int nrun = 0; nrun < 1000; nrun ++){
-    	  subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, false, 120, bound);
-      }
-      timerHeuristic->stop();
-      cout << "# HEURISTIC                         : " << timerHeuristic->dSinceInit() << " s." ;
-      cout << " (" << subProblem->nPaths() << " rotations found)"<< endl;
-
-
-      Tools::Timer* timerOptimal = new Tools::Timer();
-      timerOptimal->init();
-      timerOptimal->start();
-      for (int nrun = 0; nrun < 1000; nrun ++){
-    	  subProblem->solve(pNurse, &dualCosts, options_short_first_and_last, forbiddenShifts, true, 120, bound);
-      }
-      timerOptimal->stop();
-      cout << "# SHORTEST PATH (shorts last+first) : " << timerOptimal->dSinceInit() << " s." ;
-      cout << " (" << subProblem->nPaths() << " rotations found)"<< endl;
-
-      Tools::Timer* timerOptimalShortAll = new Tools::Timer();
-      timerOptimalShortAll->init();
-      timerOptimalShortAll->start();
-      for (int nrun = 0; nrun < 1000; nrun ++){
-    	  subProblem->solve(pNurse, &dualCosts, options_short_all, forbiddenShifts, true, 120, bound);
-      }
-      timerOptimalShortAll->stop();
-      cout << "# SHORTEST PATH (all shorts)        : " << timerOptimalShortAll->dSinceInit() << " s." ;
-      cout << " (" << subProblem->nPaths() << " rotations found)"<< endl;
-
-      cout << endl;
-*/
-
-      /* END - Samuel SPEED TEST */
+      subProblem->solve(pNurse, &dualCosts, options, forbiddenShifts, true , 120, bound);
 
 
 	   /*

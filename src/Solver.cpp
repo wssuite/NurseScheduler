@@ -6,6 +6,7 @@
 */
 
 
+#include <math.h>
 #include "Solver.h"
 
 
@@ -747,12 +748,24 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
          weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
       }
 
-	       // Number of worked week-ends below which there is no penalty for the
-	       // total number of working week-ends
-	       // This interval is computed from the max number of working week-ends averaged
-	       // over the number of remaining weeks
-//	       maxTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)pNurse->maxTotalWeekends());
-//	      weightTotalWeekendsAvg_.push_back((1.0-factorRemainingWeekends)*(double)WEIGHT_TOTAL_WEEKENDS);
+		/* Essai Sam */
+//		maxTotalWeekends_[n] = 0;
+//		double costOfWeekendForNurse;
+//
+//		int nWEAlreadyDoneByNurse = pNurse->pStateIni_->totalWeekendsWorked_;
+//		int nWERemainingIncludingNow = pScenario_->nbWeeks_ - pScenario_->thisWeek();
+//		int nWEMaxForNurse = pNurse->pContract_->maxTotalWeekends_;
+//
+//		if(nWEAlreadyDoneByNurse >= nWEMaxForNurse)
+//			costOfWeekendForNurse = nWERemainingIncludingNow * WEIGHT_TOTAL_WEEKENDS;
+//		else if(nWERemainingIncludingNow <= nWEMaxForNurse)
+//			costOfWeekendForNurse = std::max( 0, nWEAlreadyDoneByNurse + nWERemainingIncludingNow - nWEMaxForNurse );
+//		else
+//			costOfWeekendForNurse = nWEAlreadyDoneByNurse;
+//
+//		weightTotalWeekendsMax_[n] = costOfWeekendForNurse ;
+
+
 
 	      // first compute the values relative to the average number of working days
 	      // the interval is larger for the first weeks and the associated penalty is smaller
@@ -899,6 +912,25 @@ double Solver::solutionCost() {
 //------------------------------------------------
 // Display functions
 //------------------------------------------------
+
+// Return the solution at day k
+//
+vector<Roster> Solver::getSolutionAtDay(int k){
+	vector<Roster> ans;
+	for(int i=0; i<solution_.size(); i++){
+		Roster r = solution_[i];
+		int nbDays = k+1;
+		int firstDay = r.firstDay();
+		vector<int> shifts, skills;
+		for(int j=0; j<=k; j++){
+			shifts.push_back(r.shift(j));
+			skills.push_back(r.skill(j));
+		}
+		Roster s (nbDays, firstDay, shifts, skills);
+		ans.push_back(s);
+	}
+	return ans;
+}
 
 // return the final states of the nurses
 //

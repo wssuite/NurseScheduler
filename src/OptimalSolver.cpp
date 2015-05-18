@@ -12,6 +12,8 @@
 // Function for solving the optimal solution
 int main(int argc, char** argv)
 {
+	std::cout << "# Launching Optimal Roster..." << std::endl;
+
    int locINT;
 
    char* inst = argv[1];

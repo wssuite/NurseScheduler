@@ -384,8 +384,8 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation){
    pModel_->printStats();
 
    if(!pModel_->printBestSol() or relaxation){
-	   cout << "# " << pModel_->getRelaxedObjective() << endl;
-	   return pModel_->getRelaxedObjective();
+	   cout << "# " << min(pModel_->getRelaxedObjective(), pModel_->getObjective()) << endl;
+	   return min(pModel_->getRelaxedObjective(), pModel_->getObjective());
    }
 
    storeSolution();
@@ -896,6 +896,7 @@ void MasterProblem::buildMinMaxCons(){
           varsAvg3, coeffsAvg3);
 
         isMaxWorkedWeekendAvgCons_[i] = true;
+
 	    }
    }
 }

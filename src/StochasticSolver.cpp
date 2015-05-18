@@ -26,6 +26,15 @@ StochasticSolver::StochasticSolver(Scenario* pScenario, Algorithm generationAlgo
 		generationAlgorithm_(generationAlgorithm), evaluationAlgorithm_(evaluationAlgorithm), nExtraDaysGenerationDemands_(nExtraDaysGenerationDemands),
 		nEvaluationDemands_(nEvaluationDemands), nDaysEvaluation_(nDaysEvaluation), nGenerationDemandsMax_(nMaxGenerationDemands), demandHistory_(demandHistory)
 {
+
+	std::cout << "# New solver created!" << endl;
+
+	int totalDays = pScenario_->nbWeeks_ * 7;
+	int untilEndOfThisWeek = 7*(pScenario_->thisWeek()+1);
+	if( untilEndOfThisWeek + nDaysEvaluation_ > totalDays){
+		nDaysEvaluation_ = totalDays - untilEndOfThisWeek;
+	}
+
 	bestScore_ = LARGE_SCORE;
 	bestSchedule_ = -1;
 	nGenerationDemands_ = 0;
@@ -33,11 +42,11 @@ StochasticSolver::StochasticSolver(Scenario* pScenario, Algorithm generationAlgo
 	pEmptyPreferencesForEvaluation_ = new Preferences(pScenario_->nbNurses(), nDaysEvaluation_, pScenario_->nbShifts());
 
 	SolverParam spGen;
-	spGen.maxSolvingTimeSeconds_ = 10;
+	spGen.maxSolvingTimeSeconds_ = 20;
 	generationParameters_ = spGen;
 
 	SolverParam spEval ;
-	spEval.maxSolvingTimeSeconds_ = 5;
+	spEval.maxSolvingTimeSeconds_ = 10;
 	evaluationParameters_ = spEval;
 }
 
@@ -84,20 +93,20 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 	//
 
 	if(pScenario_->nbWeeks()-1 == pScenario_->thisWeek()){
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving " << pScenario_->thisWeek() << "th week with NO PERTURBATION (should be the last week)." << std::endl;
+		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving week n°" << pScenario_->thisWeek() << " with NO PERTURBATION (should be the last week)." << std::endl;
 		solveOneWeekWithoutPenalties();
 	}
 
 	// B. Regular week when using the perturbation + generate single schedule
 	//
-	else if(true or evaluationAlgorithm_ == NONE){
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving " << pScenario_->thisWeek() << "th week with PERTURBATIONS." << std::endl;
+	else if(evaluationAlgorithm_ == NONE){
+		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving week n°" << pScenario_->thisWeek() << " with PERTURBATIONS." << std::endl;
 		solveOneWeekWithPenalties();
 	}
 
 	// C. Regular week when using generation-evaluation
 	else {
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving " << pScenario_->thisWeek() << "th week with GENERATION-EVALUATION." << std::endl;
+		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving week n°" << pScenario_->thisWeek() << " with GENERATION-EVALUATION." << std::endl;
 		solveOneWeekGenerationEvaluation();
 	}
 
@@ -112,9 +121,14 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 
 // Does everything for the one week and only keeps the best schedule for it
 void StochasticSolver::solveOneWeekWithPenalties() {
-	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), generationAlgorithm_);
+
+	nExtraDaysGenerationDemands_ = 7;
+	generateSingleGenerationDemand();
+	Solver* pSolver = setSubSolverWithInputAlgorithm(pGenerationDemands_[0], generationAlgorithm_);
+
+//	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), generationAlgorithm_);
+
 	pSolver->computeWeightsTotalShiftsForStochastic();
-//	pSolver->computeWeightsTotalShiftsForPrimalDual();
 	pSolver->solve();
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
@@ -220,6 +234,7 @@ void StochasticSolver::generateSingleGenerationDemand(){
 			delete pSingleDemand;
 		}
 	}
+
 	pGenerationDemands_.push_back( pScenario_->pWeekDemand()->append(pSingleDemand) );
 	nGenerationDemands_ ++;
 	delete pSingleDemand;
@@ -284,6 +299,7 @@ void StochasticSolver::generateNewSchedule(){
 	// B. Solve this schedule (in a way that should be defined) so as to have a schedule
 	//
 	Solver* pGenSolver = setGenerationSolverWithInputAlgorithm( newDemand );
+	pGenSolver->computeWeightsTotalShiftsForStochastic();
 	pGenSolver->solve(generationParameters_);
 
 	// C. Update the data
@@ -357,10 +373,12 @@ void StochasticSolver::evaluateSchedule(int sched){
 
 		pEvaluationSolvers_[sched][j] = setEvaluationWithInputAlgorithm(pEvaluationDemands_[j], & initialStates);
 
-		pEvaluationSolvers_[sched][j]->evaluate(evaluationParameters_);
+		if(pEvaluationSolvers_[sched][j]->getNbDays() + (7*pScenario_->thisWeek()+1) < 7* pScenario_->nbWeeks_){
+			pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForStochastic();
+		}
 
 		// TODO : ici, arondi a l'entier -> peut etre modifie si besoin
-		double currentCost = ((int) pEvaluationSolvers_[sched][j]->solutionCost());
+		double currentCost = (int) pEvaluationSolvers_[sched][j]->evaluate(evaluationParameters_);
 
 		// Display
 		//
@@ -396,8 +414,8 @@ void StochasticSolver::updateRankingsAndScores(){
 		map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
 		for(map<double, set<int> >::iterator it = localCosts.begin(); it != localCosts.end(); ++it){
 			for(int sched : it->second){
-				theNewScores[sched] += ((double)(localRank + it->second.size() - 1)) / ((double) it->second.size());
-				cout << "#     | sched " << sched << " -> " << it->first << " (score += " << (((double)(localRank + it->second.size() - 1)) / ((double) it->second.size())) << ")" << endl;
+				theNewScores[sched] += (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size());
+				cout << "#     | sched " << sched << " -> " << it->first << " (score += " << (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size()) << ")" << endl;
 			}
 			localRank += it->second.size();
 		}
