@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #$ -cwd
 #$ -j y
-#$ -o /dev/null
+# -o /dev/null
 #$ -q idra
 #
 # optimal script: launch optimal solver and then the validator
