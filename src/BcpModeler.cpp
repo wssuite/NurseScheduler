@@ -822,7 +822,8 @@ void BcpModeler::loadBcpSol(int index){
    vector<double> primal(size2);
    for(int i=0; i<sol._vars.size(); ++i){
       int index = sol._vars[i]->bcpind();
-      primal[index] = sol._values[i];
+      double value = sol._values[i];
+      primal[index] = value;
    }
    setPrimal(primal);
 }

@@ -51,8 +51,11 @@ void testFunction_Antoine(){
    int nEvaluationDemands = 2;
    int nDaysEvaluation = 7;
 
-//   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/");
+   SolverParam optParam;
+   optParam.nbDiveIfMinGap_ = 0;
+   optParam.nbDiveIfRelGap_ = 0;
+   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/", optParam);
+//   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/");
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -293,6 +296,7 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 	// Display the solution
 	vector<Roster> solution = pSolver->getSolution();
   Status status = pSolver->getStatus();
+
 	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution,status, outDir);
 
 	delete pSolver;
@@ -347,6 +351,8 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 				solution[n].push_back(weekSolution[n]);
 			}
 		}
+
+		std::cout << pSolver->solutionToLogString() << std::endl;
 
 		// prepare the scenario for next week if we did not reach the last week yet
 		if (week < nbWeeks-1) {

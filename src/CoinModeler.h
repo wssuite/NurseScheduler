@@ -14,6 +14,38 @@
 #include <CoinPackedMatrix.hpp>
 
 /*
+ * My Constraints
+ */
+//Coin cons, just a virtual class
+struct CoinCons: public MyObject{
+public:
+   CoinCons(const char* name, int index, double lhs, double rhs):
+      MyObject(name), index_(index), lhs_(lhs), rhs_(rhs)
+{ }
+
+   CoinCons(const CoinCons& cons) :
+      MyObject(cons.name_), index_(cons.index_), lhs_(cons.lhs_), rhs_(cons.rhs_)
+   { }
+
+   virtual ~CoinCons(){ }
+
+   /*
+    * Getters
+    */
+
+   int getIndex() { return index_; }
+
+   double getLhs() { return lhs_; }
+
+   double getRhs() { return rhs_; }
+
+protected:
+   int index_; //index of the row of the matrix here
+   double lhs_; //left hand side == lower bound
+   double rhs_; //rihgt hand side == upper bound
+};
+
+/*
  * My Variables
  */
 //Coin var, just a virtual class
@@ -36,6 +68,13 @@ struct CoinVar: public MyObject {
    void addRow(int index, double coeff){
       indexRows_.push_back(index);
       coeffs_.push_back(coeff);
+   }
+
+   void toString(vector<CoinCons*>& cons) {
+      cout << name_ << ":";
+      for(int i=0; i<indexRows_.size(); ++i)
+         cout << " " << cons[indexRows_[i]]->name_ << ":" << coeffs_[i];
+      cout << endl;
    }
 
    int getIndex() { return index_; }
@@ -69,38 +108,6 @@ protected:
    double ub_; //upper bound
    vector<int> indexRows_; //index of the rows of the matrix where the variable has non-zero coefficient
    vector<double> coeffs_; //value of these coefficients
-};
-
-/*
- * My Constraints
- */
-//Coin cons, just a virtual class
-struct CoinCons: public MyObject{
-public:
-   CoinCons(const char* name, int index, double lhs, double rhs):
-      MyObject(name), index_(index), lhs_(lhs), rhs_(rhs)
-{ }
-
-   CoinCons(const CoinCons& cons) :
-      MyObject(cons.name_), index_(cons.index_), lhs_(cons.lhs_), rhs_(cons.rhs_)
-   { }
-
-   virtual ~CoinCons(){ }
-
-   /*
-    * Getters
-    */
-
-   int getIndex() { return index_; }
-
-   double getLhs() { return lhs_; }
-
-   double getRhs() { return rhs_; }
-
-protected:
-   int index_; //index of the row of the matrix here
-   double lhs_; //left hand side == lower bound
-   double rhs_; //rihgt hand side == upper bound
 };
 
 class CoinModeler: public Modeler {
@@ -272,10 +279,12 @@ public:
     *************/
 
    //compute the total cost of a var*
-   double getTotalCost(MyObject* var){
+   double getTotalCost(MyObject* var, bool print = false){
       CoinVar* var2 = (CoinVar*) var;
 
       double value = getVarValue(var);
+      if(print && value>EPSILON)
+         cout << var->name_ << ": " << value << "*" << var2->getCost() << endl;
       return value *  var2->getCost();
    }
 
@@ -324,6 +333,11 @@ public:
 
    virtual int writeLP(string fileName) { return 0; }
 
+   virtual void toString(MyObject* obj){
+      CoinVar* var = dynamic_cast<CoinVar*>(obj);
+      if(var) var->toString(cons_);
+      else Modeler::toString(obj);
+   }
 
    //get the variables that are always present in the model
    vector<CoinVar*>& getCoreVars(){ return coreVars_; }

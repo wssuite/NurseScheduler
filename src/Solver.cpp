@@ -1101,6 +1101,12 @@ string Solver::solutionToLogString() {
         violMinCover += std::max(0,pDemand_->minDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]);
         costOptCover += WEIGHT_OPTIMAL_DEMAND
           * std::max(0,pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]);
+//        if(pDemand_->minDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]>0)
+//           std::cout << day << " " << sh  << " " << sk << " " << pDemand_->minDemand_[day][sh][sk] << " " << satisfiedDemand_[day][sh][sk] << std::endl;
+//        else if(pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]>0)
+//                   std::cout << day << " " << sh  << " " << sk << " " << satisfiedDemand_[day][sh][sk] << " " << pDemand_->optDemand_[day][sh][sk] << std::endl;
+//        else if(pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]<0)
+//                           std::cout << "*" << day << " " << sh  << " " << sk << " " << satisfiedDemand_[day][sh][sk] << " " << pDemand_->optDemand_[day][sh][sk] << std::endl;
       }
     }
   }

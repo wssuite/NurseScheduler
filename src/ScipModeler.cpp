@@ -212,7 +212,7 @@ int ScipModeler::setVerbosity(int v){
  *************/
 
 //compute the total cost of SCIP_VAR* in the solution sol*
-double ScipModeler::getTotalCost(MyObject* var){
+double ScipModeler::getTotalCost(MyObject* var, bool print){
    ScipVar* var2 = (ScipVar*) var;
    SCIP_VAR* var3 = var2->var_;
 

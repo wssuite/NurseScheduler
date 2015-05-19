@@ -148,6 +148,20 @@ struct Rotation {
    //
    void computeDualCost(DualCosts& costs);
 
+
+   string toString(int nbDays){
+      std::cout << "#   | ROTATION: N=" << pNurse_->id_ << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
+      std::cout << "#               |";
+      vector<int> allTasks (nbDays);
+      for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
+         allTasks[itTask->first] = itTask->second;
+      for(int i=0; i<allTasks.size(); i++){
+         if(allTasks[i] < 1) std::cout << " |";
+         else std::cout << allTasks[i] << "|";
+      }
+      std::cout << std::endl;
+   }
+
    //Compare rotations on index
    //
    static bool compareId(const Rotation& rot1, const Rotation& rot2);
@@ -329,7 +343,7 @@ private:
    void buildRotationCons();
    int addRotationConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool firstDay, bool lastDay);
    void buildMinMaxCons();
-   int addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool weekend = false);
+   int addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int nbDays, int nbWeekends);
    void buildSkillsCoverageCons();
    int addSkillsCoverageConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, int s=-1);
 

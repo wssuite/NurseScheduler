@@ -344,21 +344,21 @@ public:
     */
 
    //compute the total cost of MyObject* in the solution
-   virtual double getTotalCost(MyObject* var)=0;
+   virtual double getTotalCost(MyObject* var, bool print = false)=0;
 
    //compute the total cost of a vector of MyObject* in the solution
-   template<typename T>  inline double getTotalCost(map<MyObject*, T> map0){
+   template<typename T>  inline double getTotalCost(map<MyObject*, T> map0, bool print = false){
       double value = 0 ;
       for(pair<MyObject*, T> var: map0)
-         value += getTotalCost(var.first);
+         value += getTotalCost(var.first, print);
       return value;
    }
 
    //compute the total cost of a multiple vectors of MyObject* in the solution
-   template<typename V> inline double getTotalCost(vector<V> vector){
+   template<typename V> inline double getTotalCost(vector<V> vector, bool print = false){
       double value = 0 ;
       for(V vect: vector)
-         value += getTotalCost(vect);
+         value += getTotalCost(vect, print);
       return value;
    }
 
@@ -382,6 +382,8 @@ public:
    virtual int writeProblem(string fileName)=0;
 
    virtual int writeLP(string fileName)=0;
+
+   virtual void toString(MyObject* obj){ cout << obj->name_ << endl; }
 
    /**************
     * Getters *

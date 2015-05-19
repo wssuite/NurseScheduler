@@ -207,13 +207,7 @@ void Rotation::computeDualCost(DualCosts& costs){
     			  cout << "#   | Weekends      : - " << costs.workedWeekendCost() << endl;
     	  std::cout << "#   | ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
     	  std::cout << "#               |";
-    	  vector<int> allTasks (56);
-    	  for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
-    		  allTasks[itTask->first] = itTask->second;
-    	  for(int i=0; i<allTasks.size(); i++){
-    		  if(allTasks[i] < 1) std::cout << " |";
-    		  else std::cout << allTasks[i] << "|";
-    	  }
+    	  toString(56);
     	  cout << "# " << endl;
     	  cout << "# " << endl;
     	  getchar();
@@ -511,11 +505,11 @@ void MasterProblem::storeSolution(){
    //build the rosters
    for(LiveNurse* pNurse: theLiveNurses_)
       for(pair<MyObject*, Rotation> p: rotations_[pNurse->id_])
-         if(pModel_->getVarValue(p.first) > 0)
+         if(pModel_->getVarValue(p.first) > EPSILON)
             for(int k=p.second.firstDay_; k<p.second.firstDay_+p.second.length_; ++k){
                bool assigned = false;
                for(int sk=0; sk<pScenario_->nbSkills_; ++sk)
-                  if(skillsAllocation[k][p.second.shifts_[k]-1][sk][pNurse->pPosition_->id_] > 0){
+                  if(skillsAllocation[k][p.second.shifts_[k]-1][sk][pNurse->pPosition_->id_] > EPSILON){
                      pNurse->roster_.assignTask(k,p.second.shifts_[k],sk);
                      skillsAllocation[k][p.second.shifts_[k]-1][sk][pNurse->pPosition_->id_] --;
                      assigned = true;
@@ -552,19 +546,8 @@ void MasterProblem::addRotation(Rotation& rotation, char* baseName){
 	addRotationConsToCol(cons, coeffs, i, rotation.firstDay_+rotation.length_-1, false, true);
 
 	/* Min/Max constraints */
-	for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k){
-		//check if the nurse works on a saturday and add it in the constraints
-		//not yet added in the constraints maxWorkedWeekend
-		if(Tools::isSaturday(k))
-			addMinMaxConsToCol(cons, coeffs, i, k, true);
-		//check if the nurse works on a sunday and does not work on a saturday
-		//not yet added in the constraints maxWorkedWeekend
-		else if( (k==rotation.firstDay_) && Tools::isSunday(k) )
-			addMinMaxConsToCol(cons, coeffs, i, k, true);
-		//otherwise, do not add in the constraints maxWorkedWeekend
-		else
-			addMinMaxConsToCol(cons, coeffs, i, k, false);
-	}
+	int nbWeekends = Tools::containsWeekend(rotation.firstDay_, rotation.firstDay_+rotation.length_-1);
+	addMinMaxConsToCol(cons, coeffs, i, rotation.length_, nbWeekends);
 
 	/* Skills coverage constraints */
 	for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k)
@@ -943,52 +926,52 @@ void MasterProblem::buildMinMaxCons(){
    }
 }
 
-int MasterProblem::addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool weekend){
+int MasterProblem::addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int nbDays, int nbWeekends){
    int nbCons(0);
    int p = theLiveNurses_[i]->pContract_->id_;
    ++nbCons;
    cons.push_back(minWorkedDaysCons_[i]);
-   coeffs.push_back(1.0);
+   coeffs.push_back(nbDays);
    ++nbCons;
    cons.push_back(maxWorkedDaysCons_[i]);
-   coeffs.push_back(1.0);
+   coeffs.push_back(nbDays);
    if (isMinWorkedDaysAvgCons_[i]) {
      ++nbCons;
      cons.push_back(minWorkedDaysAvgCons_[i]);
-     coeffs.push_back(1.0);
+     coeffs.push_back(nbDays);
    }
    if (isMaxWorkedDaysAvgCons_[i]) {
      ++nbCons;
      cons.push_back(maxWorkedDaysAvgCons_[i]);
-     coeffs.push_back(1.0);
+     coeffs.push_back(nbDays);
    }
    if (isMinWorkedDaysContractAvgCons_[p]) {
      ++nbCons;
      cons.push_back(minWorkedDaysContractAvgCons_[p]);
-     coeffs.push_back(1.0);
+     coeffs.push_back(nbDays);
    }
    if (isMaxWorkedDaysContractAvgCons_[p]) {
      ++nbCons;
      cons.push_back(maxWorkedDaysContractAvgCons_[p]);
-     coeffs.push_back(1.0);
+     coeffs.push_back(nbDays);
    }
 
 
-   if(weekend){
+   if(nbWeekends){
       ++nbCons;
       cons.push_back(maxWorkedWeekendCons_[i]);
-      coeffs.push_back(1.0);
+      coeffs.push_back(nbWeekends);
 
       if (isMaxWorkedWeekendAvgCons_[i]) {
         ++nbCons;
         cons.push_back(maxWorkedWeekendAvgCons_[i]);
-        coeffs.push_back(1.0);
+        coeffs.push_back(nbWeekends);
       }
 
       if (isMaxWorkedWeekendContractAvgCons_[p]) {
         ++nbCons;
         cons.push_back(maxWorkedWeekendContractAvgCons_[p]);
-        coeffs.push_back(1.0);
+        coeffs.push_back(nbWeekends);
       }
    }
 
@@ -1153,7 +1136,7 @@ string MasterProblem::costsConstrainstsToString(){
    rep << buffer;
    sprintf(buffer, "%-30s %10.0f \n", "Max worked weekend costs", pModel_->getTotalCost(maxWorkedWeekendVars_));
    rep << buffer;
-   sprintf(buffer, "%-30s %10.0f \n", "Coverage costs", pModel_->getTotalCost(optDemandVars_));
+   sprintf(buffer, "%-30s %10.0f \n", "Coverage costs", pModel_->getTotalCost(optDemandVars_));//, true));
    rep << buffer;
    rep << "-----------------------------------------\n";
    rep << "\n";
@@ -1171,20 +1154,25 @@ double MasterProblem::getRotationCosts(CostType costType, bool initStateRotation
          if(initStateRotation && rot.second.shifts_.size()>0)
             continue;
          double value = pModel_->getVarValue(rot.first);
-         switch(costType){
-         case CONS_SHIFTS_COST: cost += rot.second.consShiftsCost_*value;
-         break;
-         case CONS_WORKED_DAYS_COST: cost += rot.second.consDaysWorkedCost_*value;
-         break;
-         case COMPLETE_WEEKEND_COST: cost += rot.second.completeWeekendCost_*value;
-         break;
-         case PREFERENCE_COST: cost += rot.second.preferenceCost_*value;
-         break;
-         case INIT_REST_COST: cost += rot.second.initRestCost_*value;
-         break;
-         default: cost += rot.second.cost_*value;
-         break;
-         }
+         if(value > EPSILON)
+            switch(costType){
+            case CONS_SHIFTS_COST: cost += rot.second.consShiftsCost_*value;
+            break;
+            case CONS_WORKED_DAYS_COST: cost += rot.second.consDaysWorkedCost_*value;
+            break;
+            case COMPLETE_WEEKEND_COST: cost += rot.second.completeWeekendCost_*value;
+            break;
+            case PREFERENCE_COST: cost += rot.second.preferenceCost_*value;
+            break;
+            case INIT_REST_COST: cost += rot.second.initRestCost_*value;
+            break;
+            default: cost += rot.second.cost_*value;
+//            if(!initStateRotation && rot.second.length_>0){
+//               rot.second.toString(pDemand_->nbDays_);
+//               pModel_->toString(rot.first);
+//            }
+            break;
+            }
       }
    }
    return cost;
