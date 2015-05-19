@@ -3,12 +3,12 @@
 
 #instance = n005w4: (1 2 3 3)
 #instance = n012w8: (3 5 0 2 0 4 5 2)
-dataFile="datasets/"
-instance="n030w4"
+dataFile="testdatasets/"
+instance="n005w4"
 #"${dataFile}${instance}/Solution_H_0-WD_1-2-3-3/"
-solutionFile="outfiles/MyTests/"
-weeksValue=(3 5 0 2)
-weeksName="3502"
+solutionFile="outfiles/"
+weeksValue=(1 2 3 3)
+weeksName="1233"
 history="${dataFile}${instance}/H0-${instance}-0.txt"
 scenario="${dataFile}${instance}/Sc-${instance}.txt"
 

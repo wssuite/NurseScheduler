@@ -1,7 +1,12 @@
 #!/bin/bash
-
+prefix="Off"
 for entry in "outfiles/Competition/"*
 do
-	mv ${entry}/log.txt ${entry}/OptLog.txt 
-	mv ${entry}/validatorOutput.txt ${entry}/OptValidatorOutput.txt
+	cd ${entry}
+	mv log.txt ${prefix}Log.txt 
+	mv validatorOutput.txt ${prefix}ValidatorOutput.txt
+	for entry2 in "OptSol"*
+	do
+		mv ${entry2} ${prefix}${entry2}
+	done
 done

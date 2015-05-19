@@ -210,7 +210,7 @@ void Rotation::computeDualCost(DualCosts& costs){
     	  toString(56);
     	  cout << "# " << endl;
     	  cout << "# " << endl;
-    	  getchar();
+
       }
 }
 
