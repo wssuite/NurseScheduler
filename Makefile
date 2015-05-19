@@ -7,7 +7,7 @@
 #@file    Makefile
 #@brief   Makefile for C++ nurse rostering branch-and-price
 #@author  Antoine Legrain
-#@author  J��r��my Omer
+#@author  Jeremy Omer
 #@author  Samuel Rosat
 
 
@@ -85,9 +85,10 @@ BINDIR      =  bin
 SRCDIR      =  src
 OBJDIR      =  obj
 
-MAINNAME 	=  roster
-MAINOBJ    =  OptimalSolver.o       #main.o 
-MAINOBJ		+= main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
+MAINNAME    = roster
+MAINOBJ     = main.o # OptimalSolver.o
+MAINOBJ	   += main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
+
 ifeq ($(USE_SCIP), TRUE)
    MAINOBJ  += ScipModeler.o 
 endif

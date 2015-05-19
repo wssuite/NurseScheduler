@@ -46,13 +46,9 @@ void testFunction_Antoine(){
 
 
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   int nGenerationDemands = 5;
-   int nExtraDaysGenerationDemands = 3;
-   int nEvaluationDemands = 2;
-   int nDaysEvaluation = 7;
 
-//   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-   testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/");
+   StochasticSolverOptions stochasticSolverOptions;
+   testMultipleWeeksStochastic(data, inst, 0, numberWeek, stochasticSolverOptions, "outfiles/MyTests/");
 
    // Display the total time spent in the algorithm
    timertotal->stop();
@@ -148,32 +144,58 @@ void testFunction_Samuel(){
 	timertotal->start();
 
 	string data = "testdatasets/";// testdatasets datasets userdataset
-	const char* inst = "n005w4";// n100w4 n030w4 n005w4 n005w1
+	const char* inst = "n012w8";// n100w4 n030w4 n012w8 n005w4 n005w1
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 	//n021w4:
 	//n120w8: {3, 2}
-	vector<int> numberWeek = {1, 2, 3, 3};
+	vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
 
 
 //	testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
 
-	int nExtraDaysGenerationDemands = 7;
-	int nGenerationDemands = 3;
-	Algorithm evaluationAlgorithm = GENCOL;
-	int nEvaluationDemands = 3;
-	int nDaysEvaluation = 21;
+	StochasticSolverOptions stochasticSolverOptions;
+	stochasticSolverOptions.withEvaluation_ = false;
+	stochasticSolverOptions.generationCostPerturbation_ = true;
+	stochasticSolverOptions.evaluationCostPerturbation_ = false;
+	stochasticSolverOptions.generationAlgorithm_ = GENCOL;
+	stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
+	stochasticSolverOptions.totalTimeLimitSeconds_ = LARGE_TIME;
+	stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
+	stochasticSolverOptions.nEvaluationDemands_ = 3;
+	stochasticSolverOptions.nDaysEvaluation_ = 21;
+	stochasticSolverOptions.nGenerationDemandsMax_ = 3;
 
-	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+	SolverParam generationParameters;
+	generationParameters.maxSolvingTimeSeconds_ = 30;
+	generationParameters.printEverySolution_ = false;
+	generationParameters.outfile_ = "outdir/";
+	generationParameters.absoluteGap_ = 5;
+	generationParameters.minRelativeGap_ = .05;
+	generationParameters.relativeGap_ = .1;
+	generationParameters.nbDiveIfMinGap_ = 1;
+	generationParameters.nbDiveIfRelGap_ = 2;
+	generationParameters.solveToOptimality_ = false;
 
+	stochasticSolverOptions.generationParameters_ = generationParameters;
 
-//	testMultipleWeeksStochastic(data, inst, 0, numberWeek, GENCOL, "outfiles/",
-//			nExtraDaysGenerationDemands, nGenerationDemands, evaluationAlgorithm, nEvaluationDemands, nDaysEvaluation);
+	SolverParam evaluationParameters;
+	evaluationParameters.maxSolvingTimeSeconds_ = 7;
+	evaluationParameters.printEverySolution_ = false;
+	evaluationParameters.outfile_ = "outdir/";
+	evaluationParameters.absoluteGap_ = 5;
+	evaluationParameters.minRelativeGap_ = .05;
+	evaluationParameters.relativeGap_ = .1;
+	evaluationParameters.nbDiveIfMinGap_ = 1;
+	evaluationParameters.nbDiveIfRelGap_ = 2;
+	evaluationParameters.solveToOptimality_ = false;
 
+	stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
 
-	//testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
+	testMultipleWeeksStochastic(data, inst, 0, numberWeek, stochasticSolverOptions, "outfiles/");
+
 
 	// Display the total time spent in the algorithm
 	timertotal->stop();
@@ -305,9 +327,9 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 * demand
 ******************************************************************************/
 
-void testMultipleWeeksStochastic(string dataDir, string instanceName,
-	int historyIndex, vector<int> weekIndices, Algorithm generationAlgorithm, string outDir,
-	int nExtraDaysGenerationDemands, int nGenerationDemands, Algorithm evaluationAlgorithm, int nEvaluationDemands, int nDaysEvaluation) {
+
+void testMultipleWeeksStochastic(string dataDir, string instanceName, int historyIndex,
+		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outDir) {
 
 	// build the paths of the input files
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
@@ -326,8 +348,7 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName,
 
 		demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
 
-		Solver* pSolver = setStochasticSolverWithInputAlgorithm(pScen, generationAlgorithm, evaluationAlgorithm,
-				nExtraDaysGenerationDemands, nEvaluationDemands, nDaysEvaluation, nGenerationDemands, demandHistory);
+		Solver* pSolver = new StochasticSolver(pScen, stochasticSolverOptions, demandHistory);
 
 		pSolver->solve();
 		solutionStatus = pSolver->getStatus();
@@ -456,19 +477,6 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 		Tools::throwError("The algorithm is not handled yet");
 		break;
 	}
-	return pSolver;
-}
-
-/*******************************************************************************
-* Create a stochastic solver of the class specified by the input algorithm type
-* (in a way, this function is not necessary, but it fits well with the rest)
-********************************************************************************/
-
-Solver* setStochasticSolverWithInputAlgorithm(Scenario* pScen, Algorithm generationAlgorithm, Algorithm evaluationAlgorithm,
-		int nExtraDaysGenerationDemands, int nEvaluationDemands, int nDaysEvaluation, int nGenerationDemands, vector<Demand*> demandHistory) {
-	Solver* pSolver;
-	pSolver = new StochasticSolver(pScen, generationAlgorithm, evaluationAlgorithm, nExtraDaysGenerationDemands, nEvaluationDemands,
-			nDaysEvaluation, nGenerationDemands, demandHistory);
 	return pSolver;
 }
 

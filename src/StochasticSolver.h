@@ -13,6 +13,44 @@
 #include "MasterProblem.h"
 
 
+class StochasticSolverOptions{
+
+public:
+
+	StochasticSolverOptions(){
+
+		SolverParam gp;
+		generationParameters_ = gp;
+
+		SolverParam ep;
+		evaluationParameters_ = ep;
+
+	};
+	~StochasticSolverOptions(){};
+
+	bool withEvaluation_ = false;
+
+	bool generationCostPerturbation_ = true;
+	bool evaluationCostPerturbation_ = false;
+
+	Algorithm generationAlgorithm_ = GENCOL;
+	Algorithm evaluationAlgorithm_ = NONE;
+
+	int totalTimeLimitSeconds_ = LARGE_TIME;
+
+	int nExtraDaysGenerationDemands_ = 7;
+
+	int nEvaluationDemands_ = 0;
+	int nDaysEvaluation_ = 0;
+	int nGenerationDemandsMax_ = 1;
+
+	SolverParam generationParameters_;
+	SolverParam evaluationParameters_;
+
+};
+
+
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S t o c h a s t i c S o l v e r
@@ -25,10 +63,8 @@
 class StochasticSolver:public Solver {
 
 public:
-	StochasticSolver(Scenario* pScenario, Algorithm generationAlgorithm, Algorithm evaluationAlgorithm);
 
-	StochasticSolver(Scenario* pScenario, Algorithm generationAlgo, Algorithm evaluationAlgo, int nExtraDaysGenerationDemands,
-			int nEvaluationDemands, int nDaysEvaluation, int nGenerationDemands, vector<Demand*> demandHistory);
+	StochasticSolver(Scenario* pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory);
 
 	~StochasticSolver();
 
@@ -50,9 +86,8 @@ public:
 protected:
 
 	void init();
+	StochasticSolverOptions options_;
 
-	// Previous demands
-	vector<Demand*> demandHistory_;
 
 
 	//----------------------------------------------------------------------------
@@ -66,7 +101,7 @@ protected:
 	// evaluation of the score, and update of the rankings and data.
 	void addAndSolveNewSchedule();
 	// Solves the problem by generating a schedule + using cost penalties
-	void solveOneWeekWithPenalties();
+	void solveOneWeekNoGenerationEvaluation();
 	// Special case of the last week
 	void solveOneWeekWithoutPenalties();
 
@@ -78,14 +113,10 @@ protected:
 	//
 	//----------------------------------------------------------------------------
 
-	// Number of days that extend the current week
-	int nExtraDaysGenerationDemands_;
-	// Maximum number of demands generated
-	int nGenerationDemandsMax_;
+	// History
+	vector<Demand *> demandHistory_;
 	// Number of demands generated
 	int nGenerationDemands_;
-	// Algorithm that is used to generate the schedules
-	Algorithm generationAlgorithm_;
 	// Vector of random demands that are used to GENERATE the schedules
 	vector<Demand*> pGenerationDemands_;
 	// Generate a new demand for generation
@@ -99,12 +130,6 @@ protected:
 	//
 	//----------------------------------------------------------------------------
 
-	// Length of the evaluation demands
-	int nDaysEvaluation_;
-	// Number of schedules that are used to evaluate the schedules
-	int nEvaluationDemands_;
-	// Algorithm that is used to evaluate the schedules
-	Algorithm evaluationAlgorithm_;
 	// Vector of random demands that are used to EVAULATE the generated schedules
 	vector<Demand*> pEvaluationDemands_;
 	// Generate the schedules that are used for evaluation
@@ -124,7 +149,6 @@ protected:
 	// Schedules
 	int nSchedules_;
 	vector<Solver*> pGenerationSolvers_;
-	SolverParam generationParameters_;
 
 	// Return a solver with the algorithm specified for schedule GENERATION
 	Solver * setGenerationSolverWithInputAlgorithm(Demand* pDemand);
@@ -142,7 +166,6 @@ protected:
 	// Empty preferences -> only 1 to avoid multiplying them
 	Preferences * pEmptyPreferencesForEvaluation_;
 	// Evaluation
-	SolverParam evaluationParameters_;
 	vector<vector<Solver*> > pEvaluationSolvers_;
 	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemand_;
 	// Scores
