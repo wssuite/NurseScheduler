@@ -250,6 +250,10 @@ private:
    vector<MyObject*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
    vector<MyObject*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
 
+   vector<MyObject*> minWorkedDaysContractAvgVars_; //count the number of missing worked days from average per contract
+   vector<MyObject*> maxWorkedDaysContractAvgVars_; // count the number of exceeding worked days from average per contract
+   vector<MyObject*> maxWorkedWeekendContractAvgVars_; //count the number of exceeding worked weekends from average per contract
+
    vector< vector< vector<MyObject*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
    vector< vector< vector<MyObject*> > > numberOfNursesByPositionVars_; // count the number of nurses by position on each day, shift
    vector< vector< vector< vector<MyObject*> > > > skillsAllocVars_; //makes the allocation of the skills
@@ -272,6 +276,10 @@ private:
    vector<MyObject*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
    vector<MyObject*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
 
+   vector<MyObject*> minWorkedDaysContractAvgCons_; //count the number of missing worked days from average per contract
+   vector<MyObject*> maxWorkedDaysContractAvgCons_; // count the number of exceeding worked days from average per contract
+   vector<MyObject*> maxWorkedWeekendContractAvgCons_; //count the number of exceeding worked weekends from average per contract
+
    vector< vector< vector<MyObject*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
    vector< vector< vector<MyObject*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
    vector< vector< vector<MyObject*> > > numberOfNursesByPositionCons_; //ensure there are enough nurses for numberOfNursesByPositionVars_
@@ -282,6 +290,8 @@ private:
    vector<bool> isMinWorkedDaysAvgCons_;
    vector<bool> isMaxWorkedDaysAvgCons_;
    vector<bool> isMaxWorkedWeekendAvgCons_;
+
+   vector<bool> isMinWorkedDaysContractAvgCons_, isMaxWorkedDaysContractAvgCons_, isMaxWorkedWeekendContractAvgCons_;
 
 
    /*
@@ -317,11 +327,11 @@ private:
 
    /* Build each set of constraints - Add also the coefficient of a column for each set */
    void buildRotationCons();
-   int addRotationConsToCol(vector<MyObject*>* cons, vector<double>* coeffs, int i, int k, bool firstDay, bool lastDay);
+   int addRotationConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool firstDay, bool lastDay);
    void buildMinMaxCons();
-   int addMinMaxConsToCol(vector<MyObject*>* cons, vector<double>* coeffs, int i, int k, bool weekend = false);
+   int addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool weekend = false);
    void buildSkillsCoverageCons();
-   int addSkillsCoverageConsToCol(vector<MyObject*>* cons, vector<double>* coeffs, int i, int k, int s=-1);
+   int addSkillsCoverageConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, int s=-1);
 
    /* Display functions */
    string costsConstrainstsToString();

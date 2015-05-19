@@ -1,0 +1,76 @@
+Complete shift schedule
+
+			| M | T | W | T | F | S | S | M | T | W | T | F | S | S | M | T | W | T | F | S | S | M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| E | - | D | D | D | - | - | | L | L | L | L | L | - | - | | D | D | N | N | N | N | - | | - | - | E | E | E | D | D | |
+HN_1	| N | N | - | - | D | D | E | | E | - | - | E | E | E | L | | - | - | L | L | L | - | - | | N | N | N | N | N | - | - | |
+HN_2	| - | - | E | E | E | - | - | | - | E | E | E | - | - | - | | - | - | E | E | E | - | - | | - | - | - | L | L | L | L | |
+HN_3	| - | - | L | L | L | - | - | | - | D | D | D | D | - | - | | D | D | D | - | - | D | D | | D | - | - | - | - | E | E | |
+HN_4	| L | L | L | - | - | N | N | | N | N | N | - | - | - | - | | L | L | L | - | - | L | L | | L | L | - | - | - | - | - | |
+HN_5	| E | E | E | - | - | - | - | | - | N | N | N | N | - | - | | - | - | L | L | L | - | - | | - | - | L | L | L | - | - | |
+NU_6	| D | D | E | E | E | - | - | | D | D | D | E | E | - | - | | E | E | E | L | L | - | - | | E | E | E | D | D | - | - | |
+NU_7	| - | - | L | L | L | - | - | | - | - | N | N | N | N | - | | - | - | E | E | E | - | - | | - | - | D | D | D | - | - | |
+NU_8	| L | L | L | - | - | - | - | | D | D | E | E | - | - | - | | - | - | N | N | N | N | N | | - | - | - | - | L | L | N | |
+NU_9	| E | E | E | E | - | - | - | | D | D | D | - | - | E | E | | E | - | - | - | D | D | E | | E | E | - | - | - | - | - | |
+NU_10	| D | D | D | D | D | - | - | | D | D | D | D | D | - | - | | D | D | D | D | D | - | - | | E | E | D | D | D | - | - | |
+NU_11	| E | E | D | D | - | - | - | | E | E | E | D | D | - | - | | E | E | E | D | D | - | - | | L | L | L | - | - | D | D | |
+NU_12	| D | D | D | E | E | - | - | | D | D | E | E | E | - | - | | L | L | L | - | - | L | L | | L | L | - | - | E | E | E | |
+NU_13	| L | - | - | - | - | E | E | | D | D | - | - | - | - | - | | E | E | E | L | L | - | - | | - | - | E | E | E | - | - | |
+NU_14	| E | E | - | - | N | N | N | | N | - | - | L | L | L | L | | - | - | E | E | E | - | - | | D | D | D | - | - | - | - | |
+NU_15	| E | E | - | - | N | N | N | | N | - | - | - | - | L | L | | L | L | - | - | - | - | - | | N | N | N | N | N | - | - | |
+NU_16	| N | - | - | - | L | L | L | | L | L | - | - | - | - | - | | E | E | E | L | L | - | - | | - | - | - | L | L | L | N | |
+NU_17	| - | - | L | L | L | - | - | | - | L | L | L | - | - | - | | L | L | L | - | - | - | - | | E | E | E | - | - | - | - | |
+NU_18	| D | D | D | - | - | - | - | | N | N | N | N | - | - | - | | - | - | E | E | E | - | - | | - | L | L | L | - | - | - | |
+NU_19	| L | - | - | E | E | E | E | | - | - | N | N | N | N | N | | - | - | E | E | E | - | - | | E | E | E | D | D | - | - | |
+NU_20	| N | - | - | - | E | E | E | | L | L | - | - | N | N | N | | N | - | - | - | E | E | E | | - | - | L | L | L | - | - | |
+NU_21	| D | D | D | D | D | - | - | | E | E | D | D | D | - | - | | N | N | N | N | N | - | - | | D | D | E | E | E | - | - | |
+NU_22	| L | - | - | D | D | D | D | | - | - | E | E | D | D | D | | - | - | D | D | D | - | - | | D | D | E | E | E | - | - | |
+NU_23	| D | - | L | L | L | - | - | | N | N | N | N | N | - | - | | L | L | L | L | L | - | - | | E | E | E | - | - | N | N | |
+NU_24	| N | N | N | N | N | - | - | | D | D | L | L | L | - | - | | L | L | L | - | - | E | E | | L | L | - | - | E | E | D | |
+NU_25	| - | - | L | L | L | - | - | | D | D | D | E | E | - | - | | N | N | N | N | N | - | - | | N | N | N | N | N | - | - | |
+NU_26	| - | - | N | N | N | N | N | | - | - | L | L | L | - | - | | N | N | N | N | N | - | - | | N | N | N | N | N | - | - | |
+NU_27	| - | - | - | D | D | D | E | | E | - | - | - | D | D | E | | E | E | - | - | - | - | - | | N | N | N | N | N | - | - | |
+CT_28	| D | D | - | - | E | E | E | | E | E | - | - | L | L | L | | L | - | - | E | E | D | D | | D | - | - | D | D | N | N | |
+CT_29	| N | - | - | - | D | D | D | | L | L | - | - | - | E | E | | D | D | D | - | - | - | - | | - | L | L | L | L | - | - | |
+CT_30	| - | - | E | E | E | - | - | | - | E | E | E | - | - | - | | - | - | D | D | D | - | - | | - | - | L | L | L | - | - | |
+CT_31	| N | N | N | N | N | - | - | | E | E | E | D | D | - | - | | N | N | N | N | N | - | - | | N | N | N | N | N | - | - | |
+CT_32	| L | L | L | - | - | - | - | | - | N | N | N | N | - | - | | D | D | D | D | - | - | - | | D | D | D | - | - | N | N | |
+CT_33	| N | N | N | N | N | - | - | | L | L | L | L | L | - | - | | N | N | N | N | N | - | - | | D | D | D | L | L | - | - | |
+CT_34	| L | L | L | - | - | - | - | | N | N | N | N | - | - | - | | - | - | D | D | L | L | L | | - | - | E | E | E | - | - | |
+CT_35	| E | E | E | - | - | - | - | | - | N | N | N | N | - | - | | - | - | N | N | N | N | N | | - | - | - | - | D | D | E | |
+CT_36	| - | D | D | D | - | - | - | | - | L | L | L | - | - | - | | L | L | - | - | - | D | D | | L | L | - | - | - | - | - | |
+CT_37	| D | D | - | - | L | L | L | | L | L | - | - | E | E | D | | D | - | - | D | D | L | L | | L | - | - | E | E | L | L | |
+CT_38	| N | N | N | N | N | - | - | | E | E | E | D | D | - | - | | E | E | E | - | - | E | E | | D | D | - | - | D | D | E | |
+CT_39	| - | - | - | - | - | L | L | | L | L | - | - | - | - | - | | N | N | N | N | - | - | - | | - | - | D | D | D | - | - | |
+TR_40	| D | - | - | N | N | N | N | | N | - | - | - | - | E | N | | N | N | N | - | - | - | - | | - | N | N | N | N | - | - | |
+TR_41	| L | - | - | - | L | L | L | | - | - | D | D | D | - | - | | - | - | L | L | L | - | - | | E | E | E | D | D | - | - | |
+TR_42	| - | - | D | D | D | - | - | | - | - | - | E | E | E | D | | D | - | - | - | - | E | E | | D | D | D | - | - | - | - | |
+TR_43	| N | N | N | - | - | D | D | | E | E | - | - | L | L | L | | L | - | - | E | E | D | D | | D | - | - | E | E | E | L | |
+TR_44	| E | E | - | - | - | - | - | | L | L | L | - | - | - | - | | D | D | D | D | - | - | - | | - | - | N | N | N | N | N | |
+TR_45	| L | L | L | - | - | E | E | | E | E | - | - | D | D | D | | - | - | E | E | L | L | L | | - | - | E | E | N | N | N | |
+TR_46	| - | D | D | E | E | - | - | | - | - | - | L | L | L | L | | - | - | - | - | - | L | L | | L | L | - | - | - | - | - | |
+TR_47	| N | N | N | N | - | - | - | | - | N | N | N | N | - | - | | - | - | - | N | N | N | N | | N | - | - | - | - | D | D | |
+TR_48	| - | - | L | L | L | - | - | | - | - | N | N | N | N | N | | - | - | N | N | N | N | N | | - | - | L | L | L | - | - | |
+TR_49	| E | E | E | - | - | - | - | | - | D | D | D | - | - | - | | E | E | E | - | - | - | - | | - | L | L | L | - | - | - | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 2
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 420
+Consecutive working days constraints: 90
+Consecutive days off constraints: 60
+Consecutive shifts constraints: 30
+Preferences: 70
+Max working weekend: 330
+Complete weekends: 60
+Optimal coverage constraints: 780
+
+---------------------------
+
+Total cost: 1840

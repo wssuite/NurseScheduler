@@ -421,6 +421,11 @@ protected:
    // (for each nurse)
    vector<double> weightTotalWeekendsAvg_;
 
+   //Number of min, max and weekends allowed for all nurses under the same contract
+   vector<double> minTotalShiftsContractAvg_, maxTotalShiftsContractAvg_, maxTotalWeekendsContractAvg_;
+   //Penalties for exceeding the average number of shifts allowed for all the nurses under the same contract
+   vector<double> weightTotalShiftsContractAvg_, weightTotalWeekendsContractAvg_;
+
    //Penalties
    vector<double> weightTotalShiftsMin_, weightTotalShiftsMax_, weightTotalWeekendsMax_;
 

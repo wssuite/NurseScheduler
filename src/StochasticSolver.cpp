@@ -114,10 +114,10 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 }
 
 // Does everything for the one week and only keeps the best schedule for it
+
 void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 
 	Solver * pSolver;
-
 	// Need to extend the current demand?
 	//
 	if(options_.nExtraDaysGenerationDemands_ > 0){
