@@ -105,7 +105,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		/* sort rotations */
       for(Rotation& rot: rotations){
          rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
-         rot.computeDualCost(dualCosts);
+//         rot.computeDualCost(dualCosts);
       }
 		std::stable_sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
 		/* add them to the master problem */

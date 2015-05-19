@@ -766,7 +766,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 //		weightTotalWeekendsMax_[n] = costOfWeekendForNurse ;
 
 
-
+		/* Essai Antoine */
 	      // first compute the values relative to the average number of working days
 	      // the interval is larger for the first weeks and the associated penalty is smaller
 	      minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);

@@ -40,10 +40,11 @@ bool DemandGenerator::checkDemandFeasibility(Demand* pDemand) {
 
 
 	// Todo: build empty preferences and empty initial state to test the feasibility
-	Greedy* pGreedy =
-		new Greedy(pScenario_, pDemand, pPref, &emptyStates);
+	Greedy* pGreedy = new Greedy(pScenario_, pDemand, pPref, &emptyStates);
 	bool ans = pGreedy->constructiveGreedy();
-	if(ans) std::cout << "# Demand has been checked and is valid" << endl;
+	if(ans){
+		std::cout << "# Demand has been checked and is valid" << std::endl;
+	}
 	return ans;
 
 }
@@ -91,6 +92,10 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(){
 
 		// create the first week
 		Demand* pCompleteDemand = demandHistory_[indexInHistory[0]]->randomPerturbation();
+
+		int t = demandHistory_.size();
+		int i = indexInHistory[0];
+
 
 		// create the following weeks append them to the complete demand
 		for (int i = 0; i < nbWeeksInGeneratedDemands-1; i++) {
