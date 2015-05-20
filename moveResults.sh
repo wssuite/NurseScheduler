@@ -9,4 +9,5 @@ do
 	do
 		mv ${entry2} ${prefix}${entry2}
 	done
+	cd ../../..
 done
