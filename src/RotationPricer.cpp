@@ -242,7 +242,7 @@ double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
  ******************************************************/
 void RotationPricer::computeForbiddenShifts(set<pair<int,int>>& forbiddenShifts, vector<Rotation> rotations){
    //search best rotation
-   vector<Rotation>::iterator bestRotation(0);
+   vector<Rotation>::iterator bestRotation;
    double bestDualcost = DBL_MAX;
    for(vector<Rotation>::iterator it = rotations.begin(); it != rotations.end(); ++it)
       if(it->dualCost_ < bestDualcost){

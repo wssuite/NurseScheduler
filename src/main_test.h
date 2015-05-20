@@ -56,6 +56,9 @@ void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen);
 // This is done to find some invariant properties among demands
 void compareDemands(std::string inputDir);
 
+// Solve one week inside the stochastic process
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, StochasticSolverOptions options);
+
 // Solve a deterministic input demand with the input algorithm
 // In this method, we assume that all the demands are knwon in advance
 // (the method can also treat only one week)

@@ -14,13 +14,14 @@
 #include <exception>
 #include "Modeler.h"
 #include "MasterProblem.h"
+#include "StochasticSolver.h"
 
 
 void main_test()
 {
-   testFunction_Antoine();
+   //testFunction_Antoine();
    //testFunction_Jeremy();
-//   testFunction_Samuel();
+	testFunction_Samuel();
 }
 
 int main(int argc, char** argv)
@@ -105,34 +106,31 @@ int main(int argc, char** argv)
 
       // Read the input files
       //
-      Scenario* pScen(0);
-      pScen = initializeScenario(scenarioFile,weekDataFile,initialHistoryFile);
-      std::cout << "Scenario file is read\n";
-      if (!customInputFile.empty()) {
-         vector<Demand*> demandHistory;
-         demandHistory.push_back(pScen->pWeekDemand());
-         int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
-      }
+      // if (!customInputFile.empty()) {
+      //    vector<Demand*> demandHistory;
+      //    demandHistory.push_back(pScen->pWeekDemand());
+      //    int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
+      // }
 
       // Instantiate the solver class as a test
       //
-      Greedy* pSolverTest =
-      new Greedy(pScen, pScen->pWeekDemand(),   pScen->pWeekPreferences(), pScen->pInitialState());
-      pSolverTest->constructiveGreedy();
+      StochasticSolverOptions stochasticSolverOptions;
+      solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, stochasticSolverOptions);
+
+
+      // Greedy* pSolverTest =
+      // new Greedy(pScen, pScen->pWeekDemand(),   pScen->pWeekPreferences(), pScen->pInitialState());
+      // pSolverTest->constructiveGreedy();
 
       // Write the solution in the required output format
       //
-      Tools::LogOutput outStream(solutionFile);
-      outStream << pSolverTest->solutionToString();
-      if (!customOutputFile.empty()) {
-         ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
-      }
+      // if (!customOutputFile.empty()) {
+      //    ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
+      // }
       // Todo: the method that writes the history file corresponding to the
       // solution
-      string outputHistoryFile("history-week");
-      outputHistoryFile += std::to_string(pScen->thisWeek()) + ".txt";
-      std::cout << "Output history file: " << outputHistoryFile << std::endl;
-
-      // Todo: delete the demand history (careful of not deleting current demand twice)
+      // string outputHistoryFile("history-week");
+      // outputHistoryFile += std::to_string(pScen->thisWeek()) + ".txt";
+      // std::cout << "Output history file: " << outputHistoryFile << std::endl;
    }
 }

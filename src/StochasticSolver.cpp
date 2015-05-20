@@ -136,6 +136,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 
 	// Solve
 	//
+	std::cout << "# Solve without evaluation\n";
 	pSolver->solve();
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();

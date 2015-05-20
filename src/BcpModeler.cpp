@@ -609,7 +609,13 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
    const int colnum = pModel_->getCoreVars().size();
 
    // bounds and objective
-   double lb[colnum], ub[colnum], obj[colnum], rhs[rownum], lhs[rownum];
+   double* lb, *ub, *obj, *rhs, *lhs;
+   lb = (double*) malloc(colnum*sizeof(double));
+   ub = (double*) malloc(colnum*sizeof(double));   
+   obj = (double*) malloc(colnum*sizeof(double));
+   rhs = (double*) malloc(rownum*sizeof(double));
+   lhs = (double*) malloc(rownum*sizeof(double));
+
    //copy of the core variables
    vars.reserve(colnum);
    for(int i=0; i<colnum; ++i){
@@ -637,6 +643,13 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
 
    matrix = new BCP_lp_relax;
    matrix->copyOf(pModel_->buildCoinMatrix(true), obj, lb, ub, rhs, lhs);
+
+   if (lb) free(lb);
+   if (ub) free(ub);
+   if (obj) free(obj);
+   if (rhs) free(rhs);
+   if (lhs) free(lhs);
+
 }
 
 // create the root node
@@ -702,7 +715,7 @@ BcpModeler::BcpModeler(const char* name):
 //solve the model
 int BcpModeler::solve(bool relaxatione){
    BcpInitialize bcp(this);
-   char* argv[0];
+   char** argv;
    return bcp_main(0, argv, &bcp);
 }
 
@@ -765,7 +778,8 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
 
    //reserve some space for the columns and fill it with 0
-   double zeroArray[nbColVar];
+   double* zeroArray;
+   zeroArray = (double*)malloc(nbColVar*sizeof(double));
    CoinFillN(zeroArray, nbColVar, 0.0);
    primalValues_.insert(primalValues_.end(), zeroArray, zeroArray+nbColVar);
    reducedCosts_.insert(reducedCosts_.end(), zeroArray, zeroArray+nbColVar);
@@ -776,6 +790,8 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
       primalValues_[var->getIndex()] = lpres.x()[i];
       reducedCosts_[var->getIndex()] = lpres.dj()[i];
    }
+
+   if (zeroArray) free(zeroArray);
 }
 
 void BcpModeler::addBcpSol(const BCP_solution* sol){
