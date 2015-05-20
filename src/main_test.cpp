@@ -325,6 +325,34 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 }
 
 /******************************************************************************
+* Solve one week inside the stochastic process
+******************************************************************************/
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, StochasticSolverOptions options) {
+
+	Scenario* pScen = initializeScenario(scenPath,demandPath,historyPath);
+
+	vector<Demand*> demandHistory;
+	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+
+	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);
+
+	std::cout << "# Solve the week" << std::endl; 
+	pSolver->solve();
+	int solutionStatus = pSolver->getStatus();
+
+	Tools::LogOutput solStream(solPath);
+	solStream << pSolver->solutionToString() << std::endl;
+
+	//  release memory
+	if (pScen) delete pScen;
+	if (pSolver) delete pSolver;
+	while (!demandHistory.empty()) {
+		delete demandHistory.back();
+		demandHistory.pop_back();
+	}
+}
+
+/******************************************************************************
 * Test a solution on multiple weeks
 * In this method, the weeks are solved sequentially without knowledge of future
 * demand

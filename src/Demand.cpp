@@ -117,10 +117,14 @@ Demand * Demand::append(Demand* pDemand){
    bigDemand->nbDays_ += pDemand->nbDays_;
 
    //pushes back the second demand on the first
-   for(vector2D vector: pDemand->minDemand_)
+   for(vector2D vector: pDemand->minDemand_) {
       bigDemand->minDemand_.push_back(vector);
-   for(vector2D vector: pDemand->optDemand_)
+   }
+
+   std::cout << "End min demand\n";
+   for(vector2D vector: pDemand->optDemand_) {
 	   bigDemand->optDemand_.push_back(vector);
+   }
 
    // run the preprocessing
    bigDemand->preprocessDemand();
@@ -215,7 +219,7 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
     while (isAtUpperBound && coTrials < 10*nbPerturb) {
       day = rand()%nbDays_;
       sh = 1+rand()%(nbShifts_-1); // make sure shift 0 is not taken
-      sk = rand()%nbShifts_;
+      sk = rand()%nbSkills_;
       isAtUpperBound = (valPerturb >= 0)? (minDemand_[day][sh][sk] >= minHighestPerSkill_[sk]):false;
       coTrials++;
     }

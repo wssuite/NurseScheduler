@@ -1180,7 +1180,7 @@ double MasterProblem::getRotationCosts(CostType costType, bool initStateRotation
 
 Rotation MasterProblem::computeInitStateRotation(LiveNurse* pNurse){
    //initialize rotation
-   Rotation rot({}, pNurse);
+   Rotation rot(map<int,int>(), pNurse);
 
    //compute cost for previous cons worked shifts and days
    int lastShift = pNurse->pStateIni_->shift_;
