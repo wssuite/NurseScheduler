@@ -1,0 +1,12 @@
+Error reading solution file: outfiles/Competition/n120w8_0_0-9-9-4-5-1-0-3/OptSol-n120w8-09945103-0-0.txt
+
+     Syntax:
+     java -jar validator.jar --sce scenario --his history --weeks week_1...week_n --sols sol_1...sol_n [--penaltyonly] [--out outFile] [--verbose]
+
+          scenario           the file containing the scenario
+          history            the file containing the initial history
+          week_1...week_n    the files containing the week data
+          sol_1...sol_n      the files containing the solutions for the weeks
+          --penaltyonly      option to print only the penalty value
+          --out outfile      option: print output to outfile
+          --verbose          option: prints a detailed report of violations per nurse
