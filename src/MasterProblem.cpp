@@ -248,7 +248,7 @@ bool Rotation::compareDualCost(const Rotation& rot1, const Rotation& rot2){
 MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
    Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType):
 
-   Solver(pScenario, pDemand, pPreferences, pInitState),
+   Solver(pScenario, pDemand, pPreferences, pInitState), PrintSolution(),
    solverType_(solverType), pModel_(0), pPricer_(0), pRule_(0),
    positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()),
    rotations_(pScenario->nbNurses_), restsPerDay_(pScenario->nbNurses_),
@@ -411,6 +411,7 @@ void MasterProblem::solveWithCatch(){
 // Solve the rostering problem with parameters
 
 double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
+   parameters.saveFunction_ = this;
 	pModel_->setParameters(parameters);
 	return solve(solution);
 }
@@ -418,6 +419,7 @@ double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
 // Main method to evaluate an initial state for a given input and an initial solution and parameters
 //same as solve if not redefine
 double MasterProblem::evaluate(SolverParam parameters, vector<Roster> solution){
+   parameters.saveFunction_ = this;
    pModel_->setParameters(parameters);
 	return evaluate(solution);
 }
@@ -503,7 +505,8 @@ void MasterProblem::storeSolution(){
    }
 
    //build the rosters
-   for(LiveNurse* pNurse: theLiveNurses_)
+   for(LiveNurse* pNurse: theLiveNurses_){
+      pNurse->roster_.reset();
       for(pair<MyObject*, Rotation> p: rotations_[pNurse->id_])
          if(pModel_->getVarValue(p.first) > EPSILON)
             for(int k=p.second.firstDay_; k<p.second.firstDay_+p.second.length_; ++k){
@@ -521,11 +524,32 @@ void MasterProblem::storeSolution(){
                   Tools::throwError((const char*) error);
                }
             }
+   }
 
    //build the states of each nurse
+   solution_.clear();
    for(LiveNurse* pNurse: theLiveNurses_){
       pNurse->buildStates();
       solution_.push_back(pNurse->roster_);
+   }
+}
+
+void MasterProblem::save(vector<int>& weekIndices, string outdir){
+   storeSolution();
+
+   // initialize the log stream
+   // first, concatenate the week numbers
+   int nbWeeks = weekIndices.size();
+   string catWeeks;
+   for (int w=0; w< nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
+
+   // write separately the solutions of each week in the required output format
+   int firstDay = pDemand_->firstDay_;
+   for(int w=0; w<nbWeeks; ++w){
+      string solutionFile = outdir+catWeeks+"-"+std::to_string(weekIndices[w])+"-"+std::to_string(w)+".txt";
+      Tools::LogOutput solutionStream(solutionFile);
+      solutionStream << solutionToString(firstDay, 7, pScenario_->thisWeek()+w);
+      firstDay += 7;
    }
 }
 

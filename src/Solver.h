@@ -286,6 +286,18 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 
 //-----------------------------------------------------------------------------
 //
+//  C l a s s   Print Solution
+//    Allow to display a solution
+//
+//-----------------------------------------------------------------------------
+struct PrintSolution{
+   PrintSolution() {}
+   virtual ~PrintSolution() {}
+   virtual void save(vector<int>& weekIndices, string outdir) = 0;
+};
+
+//-----------------------------------------------------------------------------
+//
 //  C l a s s   S o l v e r P a r a m
 //
 //  Structure that gather parameters for a solver. Can be given as an input of
@@ -302,6 +314,8 @@ public:
 
    bool printEverySolution_ = false;
    string outfile_ = "outdir/";
+   vector<int> weekIndices_ = {};
+   PrintSolution* saveFunction_ = 0;
 
    //relative and absolute gap (with the current costs,
    //the difference between two solution costs is at lest 5

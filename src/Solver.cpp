@@ -1046,7 +1046,6 @@ string Solver::solutionToString(int firstDay, int nbDays, int firstWeek){
   return rep.str();
 }
 
-
 // display the whole solution in a more readable format and append advanced
 // information on the solution quality
 //

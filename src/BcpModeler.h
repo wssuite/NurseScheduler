@@ -283,7 +283,7 @@ public:
 
    void loadBcpSol(int index);
 
-   inline void setPrimal(vector<double> primal){ primalValues_ = primal; }
+   inline void setPrimal(vector<double>& primal){ primalValues_ = primal; }
 
    inline void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
 
@@ -424,6 +424,8 @@ public:
 
    inline  map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
 
+   inline bool is_solution_changed() { return solHasChanged_; }
+
    //check if Bcp stops
    bool doStop();
 
@@ -442,6 +444,7 @@ protected:
    //results
    vector<double> obj_history_;
    vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
+   bool solHasChanged_ = false; //reload solution ?
    //bcp branching cons
    vector<BcpBranchCons*> branchingCons_;
    //bcp solution
