@@ -192,7 +192,13 @@ public:
     std::cout.unsetf ( std::ios::floatfield );                // floatfield not set
 	}
 
-	~LogOutput() {logStream_.close();}
+	~LogOutput() {
+		if (logStream_.is_open()) logStream_.close();
+	}
+
+	void close() {
+		if (logStream_.is_open()) logStream_.close();
+	}
 
 	// switch from unformatted to formatted inputs and reversely
 	//
