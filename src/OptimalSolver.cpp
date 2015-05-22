@@ -41,6 +41,7 @@ int main(int argc, char** argv)
    optParam.printEverySolution_ = true;
    optParam.weekIndices_ = numberWeek;
    optParam.outfile_ = "outfiles/Competition/"+outdir+"/OptSol-"+inst+"-";
+   optParam.logfile_ = "outfiles/Competition/"+outdir+"/log2.txt";
    optParam.nbDiveIfMinGap_ = 2;
    optParam.nbDiveIfRelGap_ = 8;
    testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt", optParam);

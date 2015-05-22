@@ -290,6 +290,10 @@ public:
 
    virtual int printStats() { return 0; }
 
+   virtual int nbSolutions() { return 0; }
+
+   virtual double getObjective(int index) { return LARGE_SCORE; }
+
    virtual int printBestSol(){
       FILE * pFile;
       pFile = logfile_.empty() ? stdout : fopen (logfile_.c_str(),"a");
@@ -301,6 +305,11 @@ public:
 
       //print the objective value
       fprintf(pFile,"%-30s %4.2f \n", "Objective:" , getObjective());
+
+      //display all objective solution found
+      fprintf(pFile,"%-30s \n", "All Objective:");
+      for(int n=0; n<nbSolutions(); ++n)
+         fprintf(pFile,"Solution number: %-5d: %4.2f \n", n , getObjective(n));
 
       if(verbosity_>=2){
          //print the value of the positive variables

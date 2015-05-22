@@ -426,6 +426,10 @@ public:
 
    inline bool is_solution_changed() { return solHasChanged_; }
 
+   inline int nbSolutions() { return obj_history_.size(); }
+
+   inline double getObjective(int index) { return obj_history_[index]; }
+
    //check if Bcp stops
    bool doStop();
 
