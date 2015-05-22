@@ -24,7 +24,7 @@
 StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory):
 Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
 options_(options), demandHistory_(demandHistory){
-	std::cout << "# New solver created!" << endl;
+	std::cout << "# New stochastic solver created!" << endl;
 
 	bestScore_ = LARGE_SCORE;
 	bestSchedule_ = -1;

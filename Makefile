@@ -17,7 +17,7 @@
 USE_SCIP = FALSE
 USE_BCP = TRUE
 USE_CBC = FALSE
-DEBUG  = FALSE
+DEBUG  = TRUE
 
 #-----------------------------------------------------------------------------
 # default flags
@@ -86,7 +86,7 @@ SRCDIR      =  src
 OBJDIR      =  obj
 
 MAINNAME 	=  roster
-MAINOBJ     =  main.o #OptimalSolver.o #main.o 
+MAINOBJ     =  OptimalSolver.o #main.o 
 MAINOBJ		+= main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
 
 ifeq ($(USE_SCIP), TRUE)

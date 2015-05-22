@@ -145,15 +145,15 @@ void testFunction_Samuel(){
 	timertotal->init();
 	timertotal->start();
 
-	string data = "testdatasets/";// testdatasets datasets userdataset
-	const char* inst = "n012w8";// n100w4 n030w4 n012w8 n005w4 n005w1
+	string data = "datasets/";// testdatasets datasets userdataset
+	const char* inst = "n120w4";// n100w4 n030w4 n012w8 n005w4 n005w1
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 	//n021w4:
 	//n120w8: {3, 2}
-	vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
+	vector<int> numberWeek = {4, 6, 2, 6};
 
 	StochasticSolverOptions stochasticSolverOptions;
 	stochasticSolverOptions.withEvaluation_ = false;
@@ -168,14 +168,14 @@ void testFunction_Samuel(){
 	stochasticSolverOptions.nGenerationDemandsMax_ = 3;
 
 	SolverParam generationParameters;
-	generationParameters.maxSolvingTimeSeconds_ = 30;
+	generationParameters.maxSolvingTimeSeconds_ = 3000;
 	generationParameters.printEverySolution_ = false;
 	generationParameters.outfile_ = "outdir/";
 	generationParameters.absoluteGap_ = 5;
-	generationParameters.minRelativeGap_ = .05;
+	generationParameters.minRelativeGap_ = .001;
 	generationParameters.relativeGap_ = .1;
-	generationParameters.nbDiveIfMinGap_ = 1;
-	generationParameters.nbDiveIfRelGap_ = 2;
+	generationParameters.nbDiveIfMinGap_ = 1000;
+	generationParameters.nbDiveIfRelGap_ = 1000;
 	generationParameters.solveToOptimality_ = false;
 
 	stochasticSolverOptions.generationParameters_ = generationParameters;
@@ -193,7 +193,7 @@ void testFunction_Samuel(){
 
 	stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
 
-	testMultipleWeeksStochastic(data, inst, 0, numberWeek, stochasticSolverOptions, "outfiles/");
+	testMultipleWeeksStochastic(data, inst, 1, numberWeek, stochasticSolverOptions, "outfiles/");
 
 
 	// Display the total time spent in the algorithm

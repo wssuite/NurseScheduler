@@ -344,6 +344,8 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    getLpProblemPointer()->node->true_lower_bound = lpres.objval();
    heuristicHasBeenRun_ = false;
 
+   if(pModel_->is_solution_changed()) pModel_->setLPSol(lpres, vars);
+
    //if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
    if(current_index() == 0)
       for(CoinVar* col: pModel_->getColumns())
@@ -674,9 +676,6 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
 }
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
-   // store the solution
-   pModel_->setBestUB(sol->objective_value());
-
    //store the solution
    pModel_->addBcpSol(sol);
 }
@@ -763,6 +762,7 @@ int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int i
 
 void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars){
    obj_history_.push_back(lpres.objval());
+   solHasChanged_ = false;
 
    //copy the new arrays in the vectors for the core vars
    const int nbCoreVar = coreVars_.size();
@@ -817,6 +817,15 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    }
 
    bcpSolutions_.push_back(mySol);
+
+   if(best_ub > sol->objective_value() + EPSILON){
+      best_ub = sol->objective_value();
+      if(parameters_.printEverySolution_){
+         loadBcpSol(bcpSolutions_.size()-1);
+         solHasChanged_ = true;
+         parameters_.saveFunction_->save(parameters_.weekIndices_, parameters_.outfile_);
+      }
+   }
 }
 
 bool BcpModeler::loadBestSol(){

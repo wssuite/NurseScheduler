@@ -53,6 +53,14 @@ void Roster::init(int nbDays, int firstDay, int skillDefault) {
   for (int day = 0; day < nbDays_; day++) shifts_.push_back(0);
 }
 
+//re-inialize the roster
+//
+void Roster::reset(){
+   skills_.clear();
+   shifts_.clear();
+   init(nbDays_, firstDay_);
+}
+
 // get a vector of consecutive states that will result from applying the
 // the roster from a given initial state
 //

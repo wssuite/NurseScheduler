@@ -38,6 +38,9 @@ int main(int argc, char** argv)
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 
    SolverParam optParam;
+   optParam.printEverySolution_ = true;
+   optParam.weekIndices_ = numberWeek;
+   optParam.outfile_ = "outfiles/MyTests/Sol-"+outdir+"-";
    optParam.nbDiveIfMinGap_ = 2;
    optParam.nbDiveIfRelGap_ = 8;
    testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt", optParam);

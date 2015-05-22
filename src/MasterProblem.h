@@ -186,7 +186,7 @@ struct Rotation {
 
 enum MySolverType { S_SCIP, S_BCP, S_CBC };
 
-class MasterProblem : public Solver{
+class MasterProblem : public Solver, public PrintSolution{
    //allows RotationPricer to access all private arguments and methods of MasterProblem
    friend class RotationPricer;
    friend class DiveBranchingRule;
@@ -217,6 +217,10 @@ public:
    Modeler* getModel(){
       return pModel_;
    }
+
+   //override PrintSolution virtual method
+   void save(vector<int>& weekIndices, string outdir);
+
 
    //get a reference to the rotations
    inline vector< map<MyObject*, Rotation> >& getRotations(){
@@ -346,7 +350,6 @@ private:
 
    /* Display functions */
    string costsConstrainstsToString();
-
 };
 
 #endif /* MASTERPROBLEM_H_ */
