@@ -46,18 +46,14 @@ Scenario* initializeScenario(string scenFile, string demandFile, string historyF
 Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
   int historyIndex, vector<int> weekIndices, string logPath="");
 
-// Test the cbc modeler
-void testCbc(Scenario* pScen);
-
-// Test the random demand generator
-void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen);
-
-// Print the main characteristics of all the demands of an input directory
-// This is done to find some invariant properties among demands
-void compareDemands(std::string inputDir);
-
 // Solve one week inside the stochastic process
-void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, StochasticSolverOptions options);
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, string logPath);
+
+// Set the options of the stochastic solver
+// This is not automated, so the options need to be changed inside the code 
+// during the tests
+// The solution time depends on the number of nurses and on the computed
+void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni);
 
 // Solve a deterministic input demand with the input algorithm
 // In this method, we assume that all the demands are knwon in advance
@@ -84,3 +80,9 @@ void displaySolutionMultipleWeeks(string dataDir, string instanceName,
 // Compute and record stats on all the demand files of all the instances in the
 // input directory
 void computeStatsOnTheDemandsOfAllInstances(string inputDir);
+
+// Test the random demand generator
+void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen);
+
+// Test the cbc modeler
+void testCbc(Scenario* pScen);

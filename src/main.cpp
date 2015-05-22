@@ -112,15 +112,12 @@ int main(int argc, char** argv)
       //    int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
       // }
 
-      // Instantiate the solver class as a test
-      //
-      StochasticSolverOptions stochasticSolverOptions;
-      solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, stochasticSolverOptions);
+		unsigned found = solutionFile.find_last_of(".");
+		string logFile = solutionFile.substr(0,found);
 
+      // Solve the week
+      solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, logFile);
 
-      // Greedy* pSolverTest =
-      // new Greedy(pScen, pScen->pWeekDemand(),   pScen->pWeekPreferences(), pScen->pInitialState());
-      // pSolverTest->constructiveGreedy();
 
       // Write the solution in the required output format
       //

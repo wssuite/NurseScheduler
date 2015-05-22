@@ -142,15 +142,18 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 //print in cout a line summary of the current solver state
 void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
+   FILE * pFile;
+   pFile = pModel_->logfile().empty() ? stdout : fopen (pModel_->logfile().c_str(),"a");
+
    if(pModel_->getVerbosity() > 0){
 
 //      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->LARGE_SCORE :
 //         getLpProblemPointer()->node->true_lower_bound;
 
       if( vars.size() == 0 ){
-         printf("BCP: %13s %5s | %10s %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+         fprintf(pFile,"BCP: %13s %5s | %10s %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
             "Node", "Lvl", "BestUB", "RootLB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
-         printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
+         fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
             current_index(), pModel_->getTreeSize(), current_level(),
             pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
             "-", "-", "-", "-", "-", "-", "-");
@@ -172,13 +175,14 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
          int nbColGenerated = pModel_->getNbColumns() - nbCurrentColumnVarsBeforePricing_;
 
-         printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
+         fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
             current_index(), pModel_->getTreeSize(), current_level(),
             pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
             lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
             pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
       }
    }
+   if (!pModel_->logfile().empty()) fclose(pFile);
 }
 
 //stop this node or BCP

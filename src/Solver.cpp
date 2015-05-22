@@ -736,7 +736,11 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	   maxTotalWeekends_.push_back(0);
       weightTotalWeekendsMax_.push_back(WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
          1.0 / pNurse->maxTotalWeekends());
-      if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+      if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) { 
+      	weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+      	maxTotalWeekendsAvg_.push_back(pNurse->maxTotalWeekends());
+        weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+      }
       else{
          //compute the proportion of weekends that can be worked in this demand without exceeding the max in the future
          //round with a certain probability to the floor or the ceil

@@ -177,22 +177,33 @@ public:
 class LogOutput
 {
 private:
-	std::fstream logStream_;
+  std::ostream* pLogStream_;
   bool isFormatted_;
-	int width_;
+  int width_;
   int precision_;
 
 public:
 	LogOutput(string logName):width_(0), precision_(2) {
-		logStream_.open(logName.c_str(), std::fstream::out);
-    std::cout.unsetf ( std::ios::floatfield );                // floatfield not set
+		if (logName.empty()) {
+			pLogStream_ = &(std::cout);
+		}
+		else {
+			pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
+		}
+		// logStream_.open(logName.c_str(), std::fstream::out);
 	}
 	LogOutput(string logName, int width):width_(width), precision_(2) {
-		logStream_.open(logName.c_str(), std::fstream::out);
-    std::cout.unsetf ( std::ios::floatfield );                // floatfield not set
+		pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
+		// logStream_.open(logName.c_str(), std::fstream::out);
 	}
 
-	~LogOutput() {logStream_.close();}
+	~LogOutput() {
+		// if (pLogStream_.is_open()) logStream_.close();
+	}
+
+	void close() {
+		// if (logStream_.is_open()) logStream_.close();
+	}
 
 	// switch from unformatted to formatted inputs and reversely
 	//
@@ -205,7 +216,7 @@ public:
 
 	// set flags in the log stream
 	//
-	void setFlags(std::ios_base::fmtflags flag) {logStream_.flags(flag);}
+	void setFlags(std::ios_base::fmtflags flag) {pLogStream_->flags(flag);}
 
 	// modify the precision used to write in the stream
 	//
@@ -215,17 +226,17 @@ public:
   //
   void setWidth(int width) {width_ = width;}
 
-  void endl() {logStream_ << std::endl;}
+  void endl() {(*pLogStream_) << std::endl;}
 
 	// redefine the output function
 	//
 	template<typename T>
 	LogOutput& operator<<(const T& output)
 	{
-		logStream_.width(width_);
-    logStream_.unsetf ( std::ios::floatfield );
-    logStream_.precision(precision_);
-		logStream_ << std::left << std::setprecision(2) << output;
+		pLogStream_->width(width_);
+    	pLogStream_->unsetf ( std::ios::floatfield );
+    	pLogStream_->precision(precision_);
+		(*pLogStream_) << std::left << std::setprecision(2) << output;
 
 		return *this;
 	}
@@ -234,13 +245,13 @@ public:
 	//
 	template<typename T>
 	void print(const T& output) {
-		logStream_ << output;
+		(*pLogStream_) << output;
 		std::cout << output;
 	}
 
 	LogOutput& operator<<(std::ostream& (*func)(std::ostream&)) {
 
-		func(logStream_);
+		func(*pLogStream_);
 		return *this;
 	}
 };

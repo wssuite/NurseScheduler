@@ -313,7 +313,8 @@ public:
    int maxSolvingTimeSeconds_ = LARGE_TIME;
 
    bool printEverySolution_ = false;
-   string outfile_ = "outdir/";
+   string outfile_ = "outf/";
+   string logfile_ = "outdir/";
    vector<int> weekIndices_ = {};
    PrintSolution* saveFunction_ = 0;
 

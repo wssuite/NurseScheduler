@@ -155,9 +155,6 @@ void testFunction_Samuel(){
 	//n120w8: {3, 2}
 	vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
 
-
-//	testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-
 	StochasticSolverOptions stochasticSolverOptions;
 	stochasticSolverOptions.withEvaluation_ = false;
 	stochasticSolverOptions.generationCostPerturbation_ = true;
@@ -208,6 +205,112 @@ void testFunction_Samuel(){
 	//
 	//   delete vrp;
 	delete timertotal;
+}
+
+/******************************************************************************
+* Solve one week inside the stochastic process
+******************************************************************************/
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, string logPathIni) {
+
+	string logPath = logPathIni+"LogStochastic.txt";
+	Tools::LogOutput logStream(logPath);
+
+
+	// set the scenario
+	logStream << "# Initialize the scenario" << std::endl; 
+	Scenario* pScen = initializeScenario(scenPath,demandPath,historyPath);
+
+	// set the options of the stochastic solver 
+	// (the corresponding method needs to be change manually for tests)
+	logStream << "# Set the options" << std::endl; 
+	StochasticSolverOptions options;
+	setStochasticSolverOptions(options, pScen, solPath, logPathIni); 
+
+	// get history demands
+	// TODO: should read additional history from the custom file
+	vector<Demand*> demandHistory;
+	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+
+	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);
+
+	logStream << "# Solve the week" << std::endl; 
+	logStream.close();
+	pSolver->solve();
+	int solutionStatus = pSolver->getStatus();
+	// logStream << "# Solution status = " << solutionStatus <<  std::endl; 
+
+	Tools::LogOutput solStream(solPath);
+	solStream << pSolver->solutionToString() << std::endl;
+
+	//  release memory
+	if (pScen) delete pScen;
+	if (pSolver) delete pSolver;
+	while (!demandHistory.empty()) {
+		delete demandHistory.back();
+		demandHistory.pop_back();
+	}
+	logStream.close();
+}
+
+
+/******************************************************************************
+* Set the options of the stochastic solver
+* This is not automated, so the options need to be changed inside the code 
+* during the tests
+* The solution time depends on the number of nurses and on the computed
+******************************************************************************/
+
+void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni) {
+	#ifdef __MACH__
+	double cpuMaxFor30Nurses = 60.0;
+	double cpuMaxPer10Nurses = 45.0;
+	#else
+	double cpuMaxFor30Nurses = 45.0;
+	double cpuMaxPer10Nurses = 35.0;
+	#endif
+
+	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
+	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
+
+	options.withEvaluation_ = false;
+	options.generationCostPerturbation_ = true;
+	options.evaluationCostPerturbation_ = false;
+	options.generationAlgorithm_ = GENCOL;
+	options.evaluationAlgorithm_ = GENCOL;
+	options.totalTimeLimitSeconds_ = cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
+	options.nExtraDaysGenerationDemands_ = 7;
+	options.nEvaluationDemands_ = 10;
+	options.nDaysEvaluation_ = 7;
+	options.nGenerationDemandsMax_ = 5;
+	options.logfile_ = logStochastic;
+
+	SolverParam generationParameters;
+	generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;
+	generationParameters.printEverySolution_ = false;
+	generationParameters.outfile_ = solPath;
+	generationParameters.logfile_ = logSolver;
+	generationParameters.absoluteGap_ = 5;
+	generationParameters.minRelativeGap_ = .05;
+	generationParameters.relativeGap_ = .1;
+	generationParameters.nbDiveIfMinGap_ = 1;
+	generationParameters.nbDiveIfRelGap_ = 2;
+	generationParameters.solveToOptimality_ = false;
+
+	options.generationParameters_ = generationParameters;
+
+	SolverParam evaluationParameters;
+	evaluationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/(2.0*options.nEvaluationDemands_);
+	evaluationParameters.printEverySolution_ = false;
+	evaluationParameters.outfile_ = "outdir/";
+	evaluationParameters.logfile_ = logSolver;
+	evaluationParameters.absoluteGap_ = 5;
+	evaluationParameters.minRelativeGap_ = .05;
+	evaluationParameters.relativeGap_ = .1;
+	evaluationParameters.nbDiveIfMinGap_ = 1;
+	evaluationParameters.nbDiveIfRelGap_ = 2;
+	evaluationParameters.solveToOptimality_ = false;
+
+	options.evaluationParameters_ = evaluationParameters;
 }
 
 
@@ -324,33 +427,6 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 	delete pScen;
 }
 
-/******************************************************************************
-* Solve one week inside the stochastic process
-******************************************************************************/
-void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, StochasticSolverOptions options) {
-
-	Scenario* pScen = initializeScenario(scenPath,demandPath,historyPath);
-
-	vector<Demand*> demandHistory;
-	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
-
-	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);
-
-	std::cout << "# Solve the week" << std::endl; 
-	pSolver->solve();
-	int solutionStatus = pSolver->getStatus();
-
-	Tools::LogOutput solStream(solPath);
-	solStream << pSolver->solutionToString() << std::endl;
-
-	//  release memory
-	if (pScen) delete pScen;
-	if (pSolver) delete pSolver;
-	while (!demandHistory.empty()) {
-		delete demandHistory.back();
-		demandHistory.pop_back();
-	}
-}
 
 /******************************************************************************
 * Test a solution on multiple weeks
@@ -431,64 +507,6 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName, int histor
 	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
 	delete pScen;
-}
-
-
-
-/****************************************
-* Test the CBC modeler
-*****************************************/
-void testCbc(Scenario* pScen) {
-
-	Demand* pDemand = pScen->pWeekDemand();
-	Preferences* pPref = pScen->pWeekPreferences();
-	vector<State>* pStateIni = pScen->pInitialState();
-
-	// first, get an initial set of columns to input to Cbc by calling the greedy
-	Greedy* pGreedy = new Greedy(pScen, pDemand, pPref, pStateIni);
-	pGreedy->solve();
-
-  // First method: directly instantiate a master problem equipped with a Cbc
-  // modeler as input
-  //
-  MasterProblem* pMPCbc;
-  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC);
-  pMPCbc->solve(pGreedy->getSolution());
-
-  // Write the solution in the required output format
-  string outFile = "outfiles/cbctest1.out";
-  Tools::LogOutput outStream(outFile);
-  outStream << pMPCbc->solutionToString();
-
-  // Second method, load the Cbc modeler from the model of the MP
-  //
-//  CoinModeler* coinModel = (CoinModeler*) pMPCbc->getModel();
-//  CbcModeler* cbcModel =
-//     new CbcModeler(coinModel->getCoreVars(),coinModel->getColumns(),coinModel->getCons());
-//  cbcModel->solve();
-
-  // a new method is needed to get the solution in the proper format from this
-  // external Cbc model
-}
-
-/************************************************************************
-* Test the random demand generator
-*************************************************************************/
-
-void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
-
-   Tools::LogOutput logStream(logFile);
-
-   vector<Demand*> demandHistory;
-   demandHistory.push_back(pScen->pWeekDemand());
-   DemandGenerator generator(nbDemands,12,demandHistory,pScen);
-   vector<Demand*> randomDemands = generator.generatePerturbedDemands();
-
-   while (!randomDemands.empty()) {
-      logStream << randomDemands.back()->toString(true) << std::endl;
-      if (randomDemands.back()) delete randomDemands.back();
-      randomDemands.pop_back();
-   }
 }
 
 
@@ -583,3 +601,51 @@ void computeStatsOnTheDemandsOfAllInstances(string inputDir) {
 	}
 
 }
+
+/************************************************************************
+* Test the random demand generator
+*************************************************************************/
+
+void testRandomDemandGenerator(int nbDemands,string logFile, Scenario* pScen) {
+
+   Tools::LogOutput logStream(logFile);
+
+   vector<Demand*> demandHistory;
+   demandHistory.push_back(pScen->pWeekDemand());
+   DemandGenerator generator(nbDemands,12,demandHistory,pScen);
+   vector<Demand*> randomDemands = generator.generatePerturbedDemands();
+
+   while (!randomDemands.empty()) {
+      logStream << randomDemands.back()->toString(true) << std::endl;
+      if (randomDemands.back()) delete randomDemands.back();
+      randomDemands.pop_back();
+   }
+}
+
+
+/****************************************
+* Test the CBC modeler
+*****************************************/
+void testCbc(Scenario* pScen) {
+
+	Demand* pDemand = pScen->pWeekDemand();
+	Preferences* pPref = pScen->pWeekPreferences();
+	vector<State>* pStateIni = pScen->pInitialState();
+
+	// first, get an initial set of columns to input to Cbc by calling the greedy
+	Greedy* pGreedy = new Greedy(pScen, pDemand, pPref, pStateIni);
+	pGreedy->solve();
+
+  // First method: directly instantiate a master problem equipped with a Cbc
+  // modeler as input
+  //
+  MasterProblem* pMPCbc;
+  pMPCbc = new MasterProblem(pScen, pDemand, pPref, pStateIni, S_CBC);
+  pMPCbc->solve(pGreedy->getSolution());
+
+  // Write the solution in the required output format
+  string outFile = "outfiles/cbctest1.out";
+  Tools::LogOutput outStream(outFile);
+  outStream << pMPCbc->solutionToString();
+}
+

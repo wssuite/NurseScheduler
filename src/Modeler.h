@@ -415,9 +415,15 @@ public:
 
    inline pair<LiveNurse*, int> getLastBranchingRest() { return lastBranchingRest_; }
 
-   inline void setParameters(SolverParam parameters){ parameters_ = parameters; }
+   inline void setParameters(SolverParam parameters){ 
+    parameters_ = parameters;
+    logfile_ = parameters.logfile_;
+   }
+   inline string logfile() {return logfile_;}
 
    inline SolverParam& getParameters() { return parameters_; }
+
+   inline void setLogFile(string fileName) {logfile_ = fileName;}
 
 protected:
    //store all MyObject*
@@ -437,6 +443,9 @@ protected:
 
    //strore the last branching decisions
    pair<LiveNurse*, int> lastBranchingRest_;
+
+   // log file where outputs must be written
+   string logfile_="";
 };
 
 

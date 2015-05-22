@@ -213,9 +213,6 @@ public:
    //same as solve if not redefine
    double evaluate(SolverParam parameters, vector<Roster> solution = {});
 
-   // Method used for reading and setting parameters
-   void setParameters(SolverParam parameters);
-
    //get the pointer to the model
    Modeler* getModel(){
       return pModel_;
