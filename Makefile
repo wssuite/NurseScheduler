@@ -17,7 +17,7 @@
 USE_SCIP = FALSE
 USE_BCP = TRUE
 USE_CBC = FALSE
-DEBUG  = TRUE
+DEBUG  = FALSE
 
 #-----------------------------------------------------------------------------
 # default flags

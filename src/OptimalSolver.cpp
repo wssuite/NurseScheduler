@@ -16,7 +16,7 @@ int main(int argc, char** argv)
 
    int locINT;
 
-   char* inst = argv[1];
+   string inst = argv[1];
 
    std::istringstream(argv[2]) >> locINT;
    int historyID = locINT;
@@ -40,7 +40,7 @@ int main(int argc, char** argv)
    SolverParam optParam;
    optParam.printEverySolution_ = true;
    optParam.weekIndices_ = numberWeek;
-   optParam.outfile_ = "outfiles/MyTests/Sol-"+outdir+"-";
+   optParam.outfile_ = "outfiles/Competition/"+outdir+"/OptSol-"+inst+"-";
    optParam.nbDiveIfMinGap_ = 2;
    optParam.nbDiveIfRelGap_ = 8;
    testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt", optParam);
