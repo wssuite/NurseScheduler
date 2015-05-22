@@ -25,6 +25,8 @@ void main_test()
 
 int main(int argc, char** argv)
 {
+	srand(1);
+
    std::cout << "Number of arguments= " << argc << std::endl;
 
    // Detect errors in the number of arguments
