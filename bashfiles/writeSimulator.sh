@@ -53,7 +53,6 @@ echo "Validator log file: ${validatorLog}"
 
 
 sungridfile="bashfiles/sungridSimulator/${1}.sh"
-chmod 755 "${sungridfile}"
 echo "#!/bin/bash -l
 #$ -cwd
 #$ -j y
@@ -62,6 +61,7 @@ echo "#!/bin/bash -l
 #
 # optimal script: launch the simulator" > ${sungridfile}
 
-echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./bin/roster --runDir ./ --outDir ${outputDir}" >> ${sungridfile}
+echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver roster --runDir ./bin --outDir ${outputDir}" >> ${sungridfile}
 
+chmod 755 "${sungridfile}"
 #echo "java -jar validator.jar --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${solutionFiles[*]} > ${validatorLog}" >> ${sungridfile}

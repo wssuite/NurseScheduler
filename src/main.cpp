@@ -118,7 +118,8 @@ int main(int argc, char** argv)
 		string logFile = solutionFile.substr(0,found);
 
       // Solve the week
-      solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, logFile);
+    srand(0);  
+		solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, logFile);
 
 
       // Write the solution in the required output format

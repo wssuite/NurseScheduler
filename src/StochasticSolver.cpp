@@ -106,7 +106,7 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 		options_.generationCostPerturbation_ = false;
 		// Options for the generation algo (-> optimality, no time limit, write every solution)
 		options_.generationParameters_.solveToOptimality_ = true;
-		options_.generationParameters_.maxSolvingTimeSeconds_ = LARGE_TIME;
+		//options_.generationParameters_.maxSolvingTimeSeconds_ = LARGE_TIME;
 		options_.generationParameters_.printEverySolution_ = true;
 	}
 
