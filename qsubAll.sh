@@ -2,5 +2,5 @@
 
 for entry in "sungrid"/*
 do
-  qsub ${entry}
+  qsub ${entry} $1
 done

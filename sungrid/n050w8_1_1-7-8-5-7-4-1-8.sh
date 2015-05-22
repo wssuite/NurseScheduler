@@ -6,13 +6,13 @@
 #
 # optimal script: launch optimal solver and then the validator
 
-./bin/optimalRoster n050w8 1 1 7 8 5 7 4 1 8 n050w8_1_1-7-8-5-7-4-1-8 > outfiles/Competition/n050w8_1_1-7-8-5-7-4-1-8/log.txt
+./bin/optimalRoster n050w8 1 1 7 8 5 7 4 1 8 n050w8_1_1-7-8-5-7-4-1-8 $1 > outfiles/Competition/n050w8_1_1-7-8-5-7-4-1-8/${1}Log.txt
 
 instance=n050w8
 weeksValue=(1 7 8 5 7 4 1 8 )
 
 demand0="WD-${instance}-"
-solutionFile="outfiles/Competition/n050w8_1_1-7-8-5-7-4-1-8/OptSol-n050w8-17857418-"
+solutionFile="outfiles/Competition/n050w8_1_1-7-8-5-7-4-1-8/${1}Sol-n050w8-17857418-"
 weeks=""
 sols=""
 i=0
@@ -26,6 +26,6 @@ sols="${sols} ${solution[$i]}"
 ((i++))
 done
 
-java -jar validator.jar --sce datasets/n050w8/Sc-n050w8.txt --his datasets/n050w8/H0-n050w8-1.txt --weeks $weeks --sols $sols > outfiles/Competition/n050w8_1_1-7-8-5-7-4-1-8/validatorOutput.txt 
+java -jar validator.jar --sce datasets/n050w8/Sc-n050w8.txt --his datasets/n050w8/H0-n050w8-1.txt --weeks $weeks --sols $sols > outfiles/Competition/n050w8_1_1-7-8-5-7-4-1-8/${1}ValidatorOutput.txt 
 
 exit 0;

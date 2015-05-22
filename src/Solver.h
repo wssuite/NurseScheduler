@@ -304,6 +304,7 @@ struct PrintSolution{
 //  the solve function of any solver
 //
 //-----------------------------------------------------------------------------
+enum WeightStrategy { MAX, MEAN, NO_STRAT };
 
 class SolverParam{
 
@@ -331,6 +332,9 @@ public:
 	int nbDiveIfRelGap_ = 2;
 
 	bool solveToOptimality_ = false;
+
+	//primal-dual strategy
+	WeightStrategy weightStrategy =  NO_STRAT;
 };
 
 
@@ -541,7 +545,7 @@ public:
    //
    void computeWeightsTotalShiftsForStochastic();
 
-   void computeWeightsTotalShiftsForPrimalDual();
+   void computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy);
 
    // preprocees the skills to get their rarity
    // the value depends on the demand for this skill, on the number of nurses

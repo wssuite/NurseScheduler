@@ -805,7 +805,10 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
   getchar();
 }
 
-void Solver::computeWeightsTotalShiftsForPrimalDual(){
+void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
+	if(strategy == NO_STRAT)
+		Tools::throwError("Weight strategy not defined.");
+
    // clear the vectors that are about to be filled
    minTotalShiftsAvg_.clear();
    maxTotalShiftsAvg_.clear();
@@ -903,14 +906,17 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(){
          maxTotalShiftsContractAvg_[p] = Tools::roundWithProbability( maxTotalShiftsContractAvg_[p] * ratioDays);
          maxTotalWeekendsContractAvg_[p] = Tools::roundWithProbability( maxTotalWeekendsContractAvg_[p] * ratioWeekends);
 
-
          meanPrimalDualCostForContractDays[p] /= ((double)nbNursesPerContract[p]);
          meanPrimalDualCostForContractWE[p] /= ((double)nbNursesPerContract[p]);
 
-//         weightTotalShiftsContractAvg_[p] -= maxPrimalDualCostForContractDays[p];
-//         weightTotalWeekendsContractAvg_[p] -= maxPrimalDualCostForContractWE[p];
-         weightTotalShiftsContractAvg_[p] -= meanPrimalDualCostForContractDays[p];
-         weightTotalWeekendsContractAvg_[p] -= meanPrimalDualCostForContractWE[p];
+         if(strategy == MAX){
+        	 weightTotalShiftsContractAvg_[p] -= maxPrimalDualCostForContractDays[p];
+        	 weightTotalWeekendsContractAvg_[p] -= maxPrimalDualCostForContractWE[p];
+         }
+         else if(strategy == MEAN){
+        	 weightTotalShiftsContractAvg_[p] -= meanPrimalDualCostForContractDays[p];
+        	 weightTotalWeekendsContractAvg_[p] -= meanPrimalDualCostForContractWE[p];
+         }
 
          std::cout << "# " << std::endl;
          std::cout << "##################################################" << std::endl;
