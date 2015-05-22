@@ -146,15 +146,15 @@ void testFunction_Samuel(){
 	timertotal->start();
 
 	string data = "datasets/";// testdatasets datasets userdataset
-	const char* inst = "n080w4";// n100w4 n030w4 n012w8 n005w4 n005w1
+	const char* inst = "n060w4";// n100w4 n030w4 n012w8 n005w4 n005w1
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 	//n021w4:
 	//n120w8: {3, 2}
-	vector<int> numberWeek = {4, 3, 3, 3};
-	int historyId = 2;
+	vector<int> numberWeek = {6,1,1,5};
+	int historyId = 1;
 
 	StochasticSolverOptions stochasticSolverOptions;
 	stochasticSolverOptions.withEvaluation_ = false;

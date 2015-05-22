@@ -105,7 +105,7 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 		options_.withEvaluation_ = false;
 		options_.generationCostPerturbation_ = false;
 		// Options for the generation algo (-> optimality, no time limit, write every solution)
-		options_.generationParameters_.solveToOptimality_ = true;
+//		options_.generationParameters_.solveToOptimality_ = true;
 		//options_.generationParameters_.maxSolvingTimeSeconds_ = LARGE_TIME;
 		options_.generationParameters_.printEverySolution_ = true;
 	}
@@ -156,7 +156,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 	//
 	if(options_.generationCostPerturbation_){
 //		pSolver->computeWeightsTotalShiftsForStochastic();
-		pSolver->computeWeightsTotalShiftsForPrimalDual();
+		pSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
 	}
 
 	// Solve
@@ -355,7 +355,7 @@ void StochasticSolver::generateNewSchedule(){
 	// B. Solve this schedule (in a way that should be defined) so as to have a schedule
 	//
 	Solver* pGenSolver = setGenerationSolverWithInputAlgorithm( newDemand );
-	pGenSolver->computeWeightsTotalShiftsForStochastic();
+	pGenSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
 	pGenSolver->solve(options_.generationParameters_);
 
 	// C. Update the data
@@ -447,7 +447,7 @@ void StochasticSolver::evaluateSchedule(int sched){
 		#endif
 
 		if(pEvaluationSolvers_[sched][j]->getNbDays() + (7*pScenario_->thisWeek()+1) < 7* pScenario_->nbWeeks_){
-			pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForStochastic();
+			pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForPrimalDual(options_.evaluationParameters_.weightStrategy);
 
 			#ifdef COMPARE_EVALUATIONS
 			pGreedyEvaluators[j]->computeWeightsTotalShiftsForStochastic();
