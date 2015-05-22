@@ -155,9 +155,6 @@ void testFunction_Samuel(){
 	//n120w8: {3, 2}
 	vector<int> numberWeek = {3, 5, 0, 2, 0, 4, 5, 2};
 
-
-//	testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/");
-
 	StochasticSolverOptions stochasticSolverOptions;
 	stochasticSolverOptions.withEvaluation_ = false;
 	stochasticSolverOptions.generationCostPerturbation_ = true;
@@ -213,8 +210,9 @@ void testFunction_Samuel(){
 /******************************************************************************
 * Solve one week inside the stochastic process
 ******************************************************************************/
-void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, string logPath) {
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, string logPathIni) {
 
+	string logPath = logPathIni+"LogStochastic.txt";
 	Tools::LogOutput logStream(logPath);
 
 
@@ -226,7 +224,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	// (the corresponding method needs to be change manually for tests)
 	logStream << "# Set the options" << std::endl; 
 	StochasticSolverOptions options;
-	setStochasticSolverOptions(options, pScen, solPath); 
+	setStochasticSolverOptions(options, pScen, solPath, logPathIni); 
 
 	// get history demands
 	// TODO: should read additional history from the custom file
@@ -262,16 +260,19 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 * The solution time depends on the number of nurses and on the computed
 ******************************************************************************/
 
-void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath) {
+void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni) {
 	#ifdef __MACH__
 	double cpuMaxFor30Nurses = 60.0;
 	double cpuMaxPer10Nurses = 45.0;
 	#else
-	double cpuMaxFor30Nurses = 310.0;
-	double cpuMaxPer10Nurses = 300.0;
+	double cpuMaxFor30Nurses = 45.0;
+	double cpuMaxPer10Nurses = 35.0;
 	#endif
 
-	options.withEvaluation_ = true;
+	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
+	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
+
+	options.withEvaluation_ = false;
 	options.generationCostPerturbation_ = true;
 	options.evaluationCostPerturbation_ = false;
 	options.generationAlgorithm_ = GENCOL;
@@ -281,11 +282,13 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 	options.nEvaluationDemands_ = 10;
 	options.nDaysEvaluation_ = 7;
 	options.nGenerationDemandsMax_ = 5;
+	options.logfile_ = logStochastic;
 
 	SolverParam generationParameters;
-	generationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/2.0;
+	generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;
 	generationParameters.printEverySolution_ = false;
 	generationParameters.outfile_ = solPath;
+	generationParameters.logfile_ = logSolver;
 	generationParameters.absoluteGap_ = 5;
 	generationParameters.minRelativeGap_ = .05;
 	generationParameters.relativeGap_ = .1;
@@ -299,6 +302,7 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 	evaluationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/(2.0*options.nEvaluationDemands_);
 	evaluationParameters.printEverySolution_ = false;
 	evaluationParameters.outfile_ = "outdir/";
+	evaluationParameters.logfile_ = logSolver;
 	evaluationParameters.absoluteGap_ = 5;
 	evaluationParameters.minRelativeGap_ = .05;
 	evaluationParameters.relativeGap_ = .1;

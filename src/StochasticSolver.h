@@ -44,6 +44,8 @@ public:
 	int nDaysEvaluation_ = 0;
 	int nGenerationDemandsMax_ = 1;
 
+	string logfile_ = "";
+
 	SolverParam generationParameters_;
 	SolverParam evaluationParameters_;
 

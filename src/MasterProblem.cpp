@@ -418,7 +418,7 @@ double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
 // Main method to evaluate an initial state for a given input and an initial solution and parameters
 //same as solve if not redefine
 double MasterProblem::evaluate(SolverParam parameters, vector<Roster> solution){
-   pModel_->setParameters(parameters);
+  pModel_->setParameters(parameters);
 	return evaluate(solution);
 }
 

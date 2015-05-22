@@ -291,34 +291,37 @@ public:
    virtual int printStats() { return 0; }
 
    virtual int printBestSol(){
+      FILE * pFile;
+      pFile = logfile_.empty() ? stdout : fopen (logfile_.c_str(),"a");
       //print the value of the relaxation
-      printf("%-30s %4.2f \n", "Relaxation:" , getRelaxedObjective());
+      fprintf(pFile,"%-30s %4.2f \n", "Relaxation:" , getRelaxedObjective());
 
       if(!loadBestSol())
          return 0;
 
       //print the objective value
-      printf("%-30s %4.2f \n", "Objective:" , getObjective());
+      fprintf(pFile,"%-30s %4.2f \n", "Objective:" , getObjective());
 
       if(verbosity_>=2){
          //print the value of the positive variables
-         printf("%-30s \n", "Variables:");
+         fprintf(pFile,"%-30s \n", "Variables:");
          double tolerance = pow(.1, DECIMALS);
          //iterate on core variables
          for(CoinVar* var: coreVars_){
             double value = getVarValue(var);
             if( value > tolerance)
-               printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+               fprintf(pFile,"%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
          }
          //iterate on column variables
          for(CoinVar* var: columnVars_){
             double value = getVarValue(var);
             if( value > tolerance)
-               printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+               fprintf(pFile,"%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
          }
 
-         printf("\n");
+         fprintf(pFile,"\n");
       }
+      if (!logfile_.empty()) fclose(pFile);
 
       return 1;
    }

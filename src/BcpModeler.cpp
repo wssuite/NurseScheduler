@@ -143,7 +143,7 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
    FILE * pFile;
-   pFile = fopen ("outfiles/logMP.txt","a");
+   pFile = pModel_->logfile().empty() ? stdout : fopen (pModel_->logfile().c_str(),"a");
 
    if(pModel_->getVerbosity() > 0){
 
@@ -182,7 +182,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
             pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
       }
    }
-   fclose(pFile);
+   if (!pModel_->logfile().empty()) fclose(pFile);
 }
 
 //stop this node or BCP

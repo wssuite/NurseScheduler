@@ -53,7 +53,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 // This is not automated, so the options need to be changed inside the code 
 // during the tests
 // The solution time depends on the number of nurses and on the computed
-void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath);
+void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni);
 
 // Solve a deterministic input demand with the input algorithm
 // In this method, we assume that all the demands are knwon in advance

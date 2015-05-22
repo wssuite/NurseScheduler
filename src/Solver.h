@@ -302,6 +302,7 @@ public:
 
    bool printEverySolution_ = false;
    string outfile_ = "outdir/";
+   string logfile_ = "outdir/";
 
    //relative and absolute gap (with the current costs,
    //the difference between two solution costs is at lest 5

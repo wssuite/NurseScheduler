@@ -10,10 +10,27 @@ numHist=${arrayArgs[1]}
 nbArgs=${#arrayArgs[@]}
 nbWeeks=$((nbArgs - 2))
 
+# create the output directory if it does not exist
+outputDir="outfiles/${1}/"
+if test ! -d "outfiles" ; then
+	echo "Create output directory"
+	mkdir "outfiles"
+fi
+if test ! -d "${outputDir}" ; then
+	echo "Create output directory"
+	mkdir "${outputDir}"
+fi
+outputDir="outfiles/${1}/WithNoEvaluation/"
+if test ! -d "${outputDir}" ; then
+	echo "Create output directory"
+	mkdir "${outputDir}"
+fi
+
 # create the files that are going to be used in the execution
 scenarioFile="datasets/${instance}/Sc-${instance}.txt"
 historyFile="datasets/${instance}/H0-${instance}-${numHist}.txt"
-outputDir="outfiles/${1}/"
+
+
 for ((i=0; i<=$nbWeeks; i++)); do
 	solutionFiles[$i]="${outputDir}sol-week${i}.txt"
 done
@@ -33,15 +50,7 @@ echo "Output directory: ${outputDir}"
 echo "Solution files: ${solutionFiles[*]}"
 echo "Validator log file: ${validatorLog}"
 
-# create the output directory if it does not exist
-if test ! -d "outfiles" ; then
-	echo "Create output directory"
-	mkdir "outfiles"
-fi
-if test ! -d "${outputDir}" ; then
-	echo "Create output directory"
-	mkdir "${outputDir}"
-fi
+
 
 sungridfile="bashfiles/sungridSimulator/${1}.sh"
 chmod 755 "${sungridfile}"

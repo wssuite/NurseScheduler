@@ -39,11 +39,14 @@ options_(options), demandHistory_(demandHistory){
     timerTotal_->start();
 
     // initialize the log output
-    pLogStream_ = new Tools::LogOutput("outfiles/log.txt");
-    FILE * pFile;
-   	pFile = fopen ("outfiles/logMP.txt","w");
-   	fprintf(pFile,"HERE COME THE LOGS OF THE MASTER PROBLEM\n\n");
-   	fclose(pFile);
+    pLogStream_ = new Tools::LogOutput(options_.logfile_);
+
+    if (!options_.generationParameters_.logfile_.empty()) {
+		FILE * pFile;
+		pFile = fopen (options_.generationParameters_.logfile_.c_str(),"w");
+		fprintf(pFile,"HERE COME THE LOGS OF THE MASTER PROBLEM\n\n");
+		fclose(pFile);
+   }
 }
 
 StochasticSolver::~StochasticSolver(){
@@ -158,7 +161,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 	// Solve
 	//
 	(*pLogStream_) << "# Solve without evaluation\n";
-	pSolver->solve();
+	pSolver->solve(options_.generationParameters_);
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
 }
@@ -166,7 +169,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 // Special case of the last week
 void StochasticSolver::solveOneWeekWithoutPenalties(){
 	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), GENCOL);
-	pSolver->solve();
+	pSolver->solve(options_.generationParameters_);
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
 }
@@ -425,6 +428,11 @@ void StochasticSolver::evaluateSchedule(int sched){
 		initialStates[i].dayId_ = 0;
 	}
 
+	// set the time per evaluation to the ratio of the time left over the number of evaluations
+	double timeLeft = options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
+	options_.evaluationParameters_.maxSolvingTimeSeconds_ = (timeLeft-1.0)/(double)options_.nEvaluationDemands_;
+
+
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
 
 		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting evaluation of schedule no. " << sched << " over evaluation demand no. " << j << std::endl;
@@ -445,13 +453,24 @@ void StochasticSolver::evaluateSchedule(int sched){
 			#endif
 		}
 
-		// TODO : ici, arondi a l'entier -> peut etre modifie si besoin
+		// If the first schedule took more than half the available time to be solved, there is
+		// no need to go through evaluation since there will not be any time left for 
+		// a second schedule
+		bool isTimeForMoreThanOneSchedule = true;
+		if ( (nSchedules_==0) && (timerTotal_->dSinceInit() > options_.totalTimeLimitSeconds_/2.0) ) {
+			isTimeForMoreThanOneSchedule = false;
+		}
+
+		// Only perform the evaluation if the schedule is feasible and 
+		// there is time for more than one schedule
 		double currentCost, currentCostGreedy;
-		if (pGenerationSolvers_[sched]->getStatus() == INFEASIBLE) {
+		if (pGenerationSolvers_[sched]->getStatus() == INFEASIBLE && isTimeForMoreThanOneSchedule) {
 			currentCost = 1.0e6;
 			currentCostGreedy = 1.0e6;
 		}
 		else {
+			// Perform the actual evaluation on demand j by running the chosen algorithm
+			// TODO : ici, arondi a l'entier -> peut etre modifie si besoin	
 			currentCost = (int) pEvaluationSolvers_[sched][j]->evaluate(options_.evaluationParameters_);
 			#ifdef COMPARE_EVALUATIONS
 			pGreedyEvaluators[j]->solve();

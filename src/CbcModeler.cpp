@@ -281,7 +281,8 @@ int CbcModeler::printStats(){
  /* Print the solution.  CbcModel clones the solver so we
     need to get current copy from the CbcModel */
 int CbcModeler::printBestSol(){
-
+  FILE * pFile;
+   pFile = logfile_.empty() ? stdout : fopen (pModel_->logfile_.c_str(),"a");
   if(primalValues_ == 0) {
      Tools::throwError("Primal solution has not been initialized.");
    }
@@ -289,26 +290,27 @@ int CbcModeler::printBestSol(){
   int numberColumns = model_->solver()->getNumCols();
 
   //print the objective value
-  printf("%-30s %4.2f \n", "Objective:" , objVal_);
+  fprintf(pFile, "%-30s %4.2f \n", "Objective:" , objVal_);
 
   //print the value of the positive variables
-  printf("%-30s \n", "Variables:");
+  fprintf(pFile, "%-30s \n", "Variables:");
   double tolerance = pow(.1, DECIMALS);
   //iterate on core variables
   for(CoinVar* var: coreVars_){
     double value = getVarValue(var);
      if( fabs(value)>tolerance)
-        printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+        fprintf(pFile, "%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
   }
 
   //iterate on column variables
   for(CoinVar* var: columnVars_){
     double value = getVarValue(var);
      if( fabs(value)>tolerance)
-        printf("%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
+        fprintf(pFile, "%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
   }
 
-  printf("\n");
+  fprintf(pFile, "\n");
+  if (!logfile_.empty()) fclose(pFile);
 
   return 1;
  }

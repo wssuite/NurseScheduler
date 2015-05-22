@@ -112,18 +112,12 @@ int main(int argc, char** argv)
       //    int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
       // }
 
-		unsigned found = solutionFile.find_last_of("/");
-		string logFile = solutionFile.substr(0,found+1);
-		logFile += "logLastSolve.txt";
-
+		unsigned found = solutionFile.find_last_of(".");
+		string logFile = solutionFile.substr(0,found);
 
       // Solve the week
       solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, logFile);
 
-
-      // Greedy* pSolverTest =
-      // new Greedy(pScen, pScen->pWeekDemand(),   pScen->pWeekPreferences(), pScen->pInitialState());
-      // pSolverTest->constructiveGreedy();
 
       // Write the solution in the required output format
       //
