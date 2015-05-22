@@ -142,15 +142,18 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 //print in cout a line summary of the current solver state
 void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
+   FILE * pFile;
+   pFile = pModel_->logfile().empty() ? stdout : fopen (pModel_->logfile().c_str(),"a");
+
    if(pModel_->getVerbosity() > 0){
 
 //      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->LARGE_SCORE :
 //         getLpProblemPointer()->node->true_lower_bound;
 
       if( vars.size() == 0 ){
-         printf("BCP: %13s %5s | %10s %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
+         fprintf(pFile,"BCP: %13s %5s | %10s %10s %10s | %8s %10s %12s %10s | %10s %5s %5s \n",
             "Node", "Lvl", "BestUB", "RootLB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
-         printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
+         fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
             current_index(), pModel_->getTreeSize(), current_level(),
             pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
             "-", "-", "-", "-", "-", "-", "-");
@@ -172,13 +175,14 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
          int nbColGenerated = pModel_->getNbColumns() - nbCurrentColumnVarsBeforePricing_;
 
-         printf("BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
+         fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10d | %10.2f %5d %5d  \n",
             current_index(), pModel_->getTreeSize(), current_level(),
             pModel_->getBestUB(), pModel_->getRootLB(), pModel_->getBestLB(),
             lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
             pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbColGenerated);
       }
    }
+   if (!pModel_->logfile().empty()) fclose(pFile);
 }
 
 //stop this node or BCP
@@ -339,6 +343,8 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    //update true_lower_bound, as we reach the end of the column generation
    getLpProblemPointer()->node->true_lower_bound = lpres.objval();
    heuristicHasBeenRun_ = false;
+
+   if(pModel_->is_solution_changed()) pModel_->setLPSol(lpres, vars);
 
    //if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
    if(current_index() == 0)
@@ -609,7 +615,13 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
    const int colnum = pModel_->getCoreVars().size();
 
    // bounds and objective
-   double lb[colnum], ub[colnum], obj[colnum], rhs[rownum], lhs[rownum];
+   double* lb, *ub, *obj, *rhs, *lhs;
+   lb = (double*) malloc(colnum*sizeof(double));
+   ub = (double*) malloc(colnum*sizeof(double));   
+   obj = (double*) malloc(colnum*sizeof(double));
+   rhs = (double*) malloc(rownum*sizeof(double));
+   lhs = (double*) malloc(rownum*sizeof(double));
+
    //copy of the core variables
    vars.reserve(colnum);
    for(int i=0; i<colnum; ++i){
@@ -637,6 +649,13 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
 
    matrix = new BCP_lp_relax;
    matrix->copyOf(pModel_->buildCoinMatrix(true), obj, lb, ub, rhs, lhs);
+
+   if (lb) free(lb);
+   if (ub) free(ub);
+   if (obj) free(obj);
+   if (rhs) free(rhs);
+   if (lhs) free(lhs);
+
 }
 
 // create the root node
@@ -657,9 +676,6 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
 }
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
-   // store the solution
-   pModel_->setBestUB(sol->objective_value());
-
    //store the solution
    pModel_->addBcpSol(sol);
 }
@@ -702,7 +718,7 @@ BcpModeler::BcpModeler(const char* name):
 //solve the model
 int BcpModeler::solve(bool relaxatione){
    BcpInitialize bcp(this);
-   char* argv[0];
+   char** argv;
    return bcp_main(0, argv, &bcp);
 }
 
@@ -746,6 +762,7 @@ int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int i
 
 void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars){
    obj_history_.push_back(lpres.objval());
+   solHasChanged_ = false;
 
    //copy the new arrays in the vectors for the core vars
    const int nbCoreVar = coreVars_.size();
@@ -765,7 +782,8 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
    lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
 
    //reserve some space for the columns and fill it with 0
-   double zeroArray[nbColVar];
+   double* zeroArray;
+   zeroArray = (double*)malloc(nbColVar*sizeof(double));
    CoinFillN(zeroArray, nbColVar, 0.0);
    primalValues_.insert(primalValues_.end(), zeroArray, zeroArray+nbColVar);
    reducedCosts_.insert(reducedCosts_.end(), zeroArray, zeroArray+nbColVar);
@@ -776,6 +794,8 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
       primalValues_[var->getIndex()] = lpres.x()[i];
       reducedCosts_[var->getIndex()] = lpres.dj()[i];
    }
+
+   if (zeroArray) free(zeroArray);
 }
 
 void BcpModeler::addBcpSol(const BCP_solution* sol){
@@ -797,6 +817,15 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    }
 
    bcpSolutions_.push_back(mySol);
+
+   if(best_ub > sol->objective_value() + EPSILON){
+      best_ub = sol->objective_value();
+      if(parameters_.printEverySolution_){
+         loadBcpSol(bcpSolutions_.size()-1);
+         solHasChanged_ = true;
+         parameters_.saveFunction_->save(parameters_.weekIndices_, parameters_.outfile_);
+      }
+   }
 }
 
 bool BcpModeler::loadBestSol(){
@@ -822,7 +851,8 @@ void BcpModeler::loadBcpSol(int index){
    vector<double> primal(size2);
    for(int i=0; i<sol._vars.size(); ++i){
       int index = sol._vars[i]->bcpind();
-      primal[index] = sol._values[i];
+      double value = sol._values[i];
+      primal[index] = value;
    }
    setPrimal(primal);
 }

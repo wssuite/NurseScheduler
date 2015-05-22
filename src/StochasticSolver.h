@@ -44,6 +44,8 @@ public:
 	int nDaysEvaluation_ = 0;
 	int nGenerationDemandsMax_ = 1;
 
+	string logfile_ = "";
+
 	SolverParam generationParameters_;
 	SolverParam evaluationParameters_;
 
@@ -86,7 +88,15 @@ public:
 protected:
 
 	void init();
+
+	// Options that characterize the execution of the stochastic solver
 	StochasticSolverOptions options_;
+
+	// Timer started at the creation of the solver and stopped at destruction
+	Tools::Timer* timerTotal_;
+
+	// Log file that can be useful when calling the solver through simulator
+	Tools::LogOutput* pLogStream_;
 
 
 
@@ -168,8 +178,12 @@ protected:
 	// Evaluation
 	vector<vector<Solver*> > pEvaluationSolvers_;
 	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemand_;
+	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemandGreedy_;
 	// Scores
 	vector<double> theScores_;
+	vector<double> theScoresGreedy_;
+
+
 	int bestSchedule_;
 	double bestScore_;
 

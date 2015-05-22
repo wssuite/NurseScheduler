@@ -344,21 +344,21 @@ public:
     */
 
    //compute the total cost of MyObject* in the solution
-   virtual double getTotalCost(MyObject* var)=0;
+   virtual double getTotalCost(MyObject* var, bool print = false)=0;
 
    //compute the total cost of a vector of MyObject* in the solution
-   template<typename T>  inline double getTotalCost(map<MyObject*, T> map0){
+   template<typename T>  inline double getTotalCost(map<MyObject*, T> map0, bool print = false){
       double value = 0 ;
       for(pair<MyObject*, T> var: map0)
-         value += getTotalCost(var.first);
+         value += getTotalCost(var.first, print);
       return value;
    }
 
    //compute the total cost of a multiple vectors of MyObject* in the solution
-   template<typename V> inline double getTotalCost(vector<V> vector){
+   template<typename V> inline double getTotalCost(vector<V> vector, bool print = false){
       double value = 0 ;
       for(V vect: vector)
-         value += getTotalCost(vect);
+         value += getTotalCost(vect, print);
       return value;
    }
 
@@ -382,6 +382,8 @@ public:
    virtual int writeProblem(string fileName)=0;
 
    virtual int writeLP(string fileName)=0;
+
+   virtual void toString(MyObject* obj){ cout << obj->name_ << endl; }
 
    /**************
     * Getters *
@@ -413,9 +415,15 @@ public:
 
    inline pair<LiveNurse*, int> getLastBranchingRest() { return lastBranchingRest_; }
 
-   inline void setParameters(SolverParam parameters){ parameters_ = parameters; }
+   inline void setParameters(SolverParam parameters){ 
+    parameters_ = parameters;
+    logfile_ = parameters.logfile_;
+   }
+   inline string logfile() {return logfile_;}
 
    inline SolverParam& getParameters() { return parameters_; }
+
+   inline void setLogFile(string fileName) {logfile_ = fileName;}
 
 protected:
    //store all MyObject*
@@ -435,6 +443,9 @@ protected:
 
    //strore the last branching decisions
    pair<LiveNurse*, int> lastBranchingRest_;
+
+   // log file where outputs must be written
+   string logfile_="";
 };
 
 

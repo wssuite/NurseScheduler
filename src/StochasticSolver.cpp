@@ -10,6 +10,8 @@
 #include "Greedy.h"
 #include "MasterProblem.h"
 
+// #define COMPARE_EVALUATIONS
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S t o c h a s t i c S o l v e r
@@ -31,9 +33,31 @@ options_(options), demandHistory_(demandHistory){
 
 	pEmptyPreferencesForEvaluation_ = new Preferences(pScenario_->nbNurses(), options_.nDaysEvaluation_, pScenario_->nbShifts());
 
+	// create the timer that records the life time of the solver and start it
+	timerTotal_ = new Tools::Timer();
+    timerTotal_->init();
+    timerTotal_->start();
+
+    // initialize the log output
+    pLogStream_ = new Tools::LogOutput(options_.logfile_);
+
+    if (!options_.generationParameters_.logfile_.empty()) {
+		FILE * pFile;
+		pFile = fopen (options_.generationParameters_.logfile_.c_str(),"w");
+		fprintf(pFile,"HERE COME THE LOGS OF THE MASTER PROBLEM\n\n");
+		fclose(pFile);
+   }
 }
 
 StochasticSolver::~StochasticSolver(){
+	// kill the timer and display the total time spent in the algorithm
+	timerTotal_->stop();
+	(*pLogStream_) << "Total time spent in the algorithm : " << timerTotal_->dSinceInit() << endl;
+	delete timerTotal_;
+
+	// Delete the output
+    delete pLogStream_;
+
 	// delete the demands used for generation
 	while (!pGenerationDemands_.empty()) {
 		if (pGenerationDemands_.back()) delete pGenerationDemands_.back();
@@ -75,7 +99,7 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 	// Special case of the last week -> always to optimality with no time limit
 	//
 	if(pScenario_->nbWeeks()-1 == pScenario_->thisWeek()){
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " as the LAST WEEK (hence, to optimality !)" << std::endl;
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " as the LAST WEEK (hence, to optimality !)" << std::endl;
 		// General options
 		options_.nExtraDaysGenerationDemands_ = 0;
 		options_.withEvaluation_ = false;
@@ -89,18 +113,18 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 	// A. No generation-evaluation
 	//
 	if(! options_.withEvaluation_){
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS." << std::endl;
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS." << std::endl;
 		solveOneWeekNoGenerationEvaluation();
 		while(status_ == INFEASIBLE or status_ == UNSOLVED){
-			std::cout << "# [week=" << pScenario_->thisWeek() << "] Status is INFEASIBLE or UNSOLVED..." << std::endl;
-			std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS -> trying again." << std::endl;
+			(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Status is INFEASIBLE or UNSOLVED..." << std::endl;
+			(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS -> trying again." << std::endl;
 			solveOneWeekNoGenerationEvaluation();
 		}
 	}
 
 	// B. Generation-evaluation
 	else {
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with GENERATION-EVALUATION." << std::endl;
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with GENERATION-EVALUATION." << std::endl;
 		solveOneWeekGenerationEvaluation();
 	}
 
@@ -116,6 +140,7 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 // Does everything for the one week and only keeps the best schedule for it
 
 void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
+
 
 	Solver * pSolver;
 	// Need to extend the current demand?
@@ -135,7 +160,8 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 
 	// Solve
 	//
-	pSolver->solve();
+	(*pLogStream_) << "# Solve without evaluation\n";
+	pSolver->solve(options_.generationParameters_);
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
 }
@@ -143,16 +169,27 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 // Special case of the last week
 void StochasticSolver::solveOneWeekWithoutPenalties(){
 	Solver* pSolver = setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), GENCOL);
-	pSolver->solve();
+	pSolver->solve(options_.generationParameters_);
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
 }
 
 // Solves the problem by generation + evaluation of scenarios
 void StochasticSolver::solveOneWeekGenerationEvaluation(){
-	// TODO: Add a time constraint in the while condition
+
 	while(nSchedules_<options_.nGenerationDemandsMax_){
 
+		// get the time left to solve another schedule
+		double timeLeft = options_.totalTimeLimitSeconds_;
+		if (nSchedules_ > 0) {
+			timeLeft = options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
+			if (timeLeft < 1.0) break;
+			options_.generationParameters_.maxSolvingTimeSeconds_  = (timeLeft-1.0)/2.0;
+			options_.evaluationParameters_.maxSolvingTimeSeconds_  = (timeLeft-1.0)/(2.0*options_.nEvaluationDemands_);
+		}
+		(*pLogStream_) << "# Time left: " << timeLeft << std::endl;
+
+		// This the main function that finds a new schedule and evaluates it
 		addAndSolveNewSchedule();
 
 		// Get the new best schedule
@@ -166,41 +203,39 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 			}
 		}
 
-		// TODO: write the output NOW so that it is not lost
+		// write the output NOW so that it is not lost
 		//
 		bestScore_ = newBestScore;
 		if(newBestSchedule != bestSchedule_){
 			bestSchedule_ = newBestSchedule;
 
-			solution_ = pGenerationSolvers_[bestSchedule_]->getSolution();
+			solution_ = pGenerationSolvers_[bestSchedule_]->getSolutionAtDay(6);
+			loadSolution(solution_);
+			Tools::LogOutput outStream(options_.generationParameters_.outfile_);
+			outStream << solutionToString();
 
-			std::cout << "# New best is schedule n°" << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
-
-
-			// TODO: A verifier
-
-/*
-		      Tools::LogOutput outStream(solutionFile);
-		      outStream << pSolverTest->solutionToString();
-		      if (!customOutputFile.empty()) {
-		         ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
-		      }
-		      // Todo: the method that writes the history file corresponding to the
-		      // solution
-		      string outputHistoryFile("history-week");
-		      outputHistoryFile += std::to_string(pScen->thisWeek()) + ".txt";
-		      std::cout << "Output history file: " << outputHistoryFile << std::endl;
-
-			*/
-
-
+			(*pLogStream_) << "# New best is schedule n°" << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
+			(*pLogStream_) << "# The new best solution was written in " << options_.generationParameters_.outfile_ << std::endl;
 		}
 		else {
-			std::cout << "# Best schedule did not change and is no. " << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
+			(*pLogStream_) << "# Best schedule did not change and is no. " << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
 
 		}
+
+		// Stop if the average time per schedule is smaller than the time left
+		// no need to start building a schedule if there a risk that we won't
+		// have any time left to evaluate it
+		timeLeft = options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
+		double avgTimePerSchedule = timerTotal_->dSinceInit()/nSchedules_;
+		if (timeLeft < avgTimePerSchedule) break;
 	}
+	#ifdef COMPARE_EVALUATIONS
+	for(int i=0; i<nSchedules_; i++){
+		(*pLogStream_) << " The score of schedule " << i << ". GENCOL : " << theScores_[i] << " ; GREEDY : " << theScoresGreedy_[i] << std::endl;
+	}
+	#endif
 }
+
 
 //----------------------------------------------------------------------------
 //
@@ -237,6 +272,8 @@ void StochasticSolver::generateSingleGenerationDemand(){
 	Demand * pCompleteDemand;
 	Demand * pSingleDemand;
 
+	(*pLogStream_) << "# Generating new schedule" << std::endl;
+
 	while(!isFeasible){
 		DemandGenerator dg (1, nDaysInDemand, demandHistory_ , pScenario_);
 		pSingleDemand = dg.generateSinglePerturbatedDemand();
@@ -251,7 +288,7 @@ void StochasticSolver::generateSingleGenerationDemand(){
 	pGenerationDemands_.push_back( pScenario_->pWeekDemand()->append(pSingleDemand) );
 	nGenerationDemands_ ++;
 	delete pSingleDemand;
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Generation demand no. " << nGenerationDemands_ << " created (over " << pGenerationDemands_[nGenerationDemands_-1]->nbDays_ << " days)." << std::endl;
+	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Generation demand no. " << nGenerationDemands_ << " created (over " << pGenerationDemands_[nGenerationDemands_-1]->nbDays_ << " days)." << std::endl;
 }
 
 
@@ -270,7 +307,12 @@ void StochasticSolver::generateAllEvaluationDemands(){
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
 		map<double, set<int> > m;
 		schedulesFromObjectiveByEvaluationDemand_.push_back(m);
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Evaluation demand no. " << j << " created (over " << options_.nDaysEvaluation_ << " days)." << std::endl;
+
+		#ifdef COMPARE_EVALUATIONS
+		schedulesFromObjectiveByEvaluationDemandGreedy_.push_back(m);
+		#endif
+
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Evaluation demand no. " << j << " created (over " << options_.nDaysEvaluation_ << " days)." << std::endl;
 	}
 }
 
@@ -322,7 +364,7 @@ void StochasticSolver::generateNewSchedule(){
 
 	// D. Display
 	//
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Candidate schedule no. " << (nSchedules_-1) << " generated: (length: " << pGenerationSolvers_[nSchedules_-1]->getNbDays() << " days)" << std::endl;
+	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Candidate schedule no. " << (nSchedules_-1) << " generated: (length: " << pGenerationSolvers_[nSchedules_-1]->getNbDays() << " days)" << std::endl;
 }
 
 
@@ -370,7 +412,15 @@ void StochasticSolver::initScheduleEvaluation(int sched){
 // Evaluate 1 schedule on all evaluation instances
 void StochasticSolver::evaluateSchedule(int sched){
 
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Evaluation of the schedule no. " << sched << std::endl;
+	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Evaluation of the schedule no. " << sched << std::endl;
+
+	#ifdef COMPARE_EVALUATIONS
+	vector<Solver*> pGreedyEvaluators;
+	for(int j=0; j<options_.nEvaluationDemands_; j++){
+		Solver * s;
+		pGreedyEvaluators.push_back(s);
+	}
+	#endif
 
 	initScheduleEvaluation(sched);
 	vector<State> initialStates = pGenerationSolvers_[sched]->getStatesOfDay(6);
@@ -378,24 +428,59 @@ void StochasticSolver::evaluateSchedule(int sched){
 		initialStates[i].dayId_ = 0;
 	}
 
-		for(int j=0; j<options_.nEvaluationDemands_; j++){
+	// set the time per evaluation to the ratio of the time left over the number of evaluations
+	double timeLeft = options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
+	options_.evaluationParameters_.maxSolvingTimeSeconds_ = (timeLeft-1.0)/(double)options_.nEvaluationDemands_;
 
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Starting evaluation of schedule no. " << sched << " over evaluation demand no. " << j << std::endl;
 
+	for(int j=0; j<options_.nEvaluationDemands_; j++){
 
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting evaluation of schedule no. " << sched << " over evaluation demand no. " << j << std::endl;
 
 		pEvaluationSolvers_[sched][j] = setEvaluationWithInputAlgorithm(pEvaluationDemands_[j], & initialStates);
 
+		#ifdef COMPARE_EVALUATIONS
+		options_.evaluationAlgorithm_ = GREEDY;
+		pGreedyEvaluators[j] = setEvaluationWithInputAlgorithm(pEvaluationDemands_[j], & initialStates);
+		options_.evaluationAlgorithm_ = GENCOL;
+		#endif
+
 		if(pEvaluationSolvers_[sched][j]->getNbDays() + (7*pScenario_->thisWeek()+1) < 7* pScenario_->nbWeeks_){
 			pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForStochastic();
+
+			#ifdef COMPARE_EVALUATIONS
+			pGreedyEvaluators[j]->computeWeightsTotalShiftsForStochastic();
+			#endif
 		}
 
-		// TODO : ici, arondi a l'entier -> peut etre modifie si besoin
-		double currentCost = (int) pEvaluationSolvers_[sched][j]->evaluate(options_.evaluationParameters_);
+		// If the first schedule took more than half the available time to be solved, there is
+		// no need to go through evaluation since there will not be any time left for 
+		// a second schedule
+		bool isTimeForMoreThanOneSchedule = true;
+		if ( (nSchedules_==0) && (timerTotal_->dSinceInit() > options_.totalTimeLimitSeconds_/2.0) ) {
+			isTimeForMoreThanOneSchedule = false;
+		}
+
+		// Only perform the evaluation if the schedule is feasible and 
+		// there is time for more than one schedule
+		double currentCost, currentCostGreedy;
+		if (pGenerationSolvers_[sched]->getStatus() == INFEASIBLE && isTimeForMoreThanOneSchedule) {
+			currentCost = 1.0e6;
+			currentCostGreedy = 1.0e6;
+		}
+		else {
+			// Perform the actual evaluation on demand j by running the chosen algorithm
+			// TODO : ici, arondi a l'entier -> peut etre modifie si besoin	
+			currentCost = (int) pEvaluationSolvers_[sched][j]->evaluate(options_.evaluationParameters_);
+			#ifdef COMPARE_EVALUATIONS
+			pGreedyEvaluators[j]->solve();
+			currentCostGreedy = pGreedyEvaluators[j]->solutionCost();
+			#endif
+		}
 
 		// Display
 		//
-		std::cout << "# [week=" << pScenario_->thisWeek() << "] Schedule no. " << sched << " evaluated over evaluation demand no. " << j << " (solution cost: " << currentCost << ")." << std::endl;
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Schedule no. " << sched << " evaluated over evaluation demand no. " << j << " (solution cost: " << currentCost << ")." << std::endl;
 
 		// Insert the solution cost and solution
 		//
@@ -408,22 +493,30 @@ void StochasticSolver::evaluateSchedule(int sched){
 			set<int> s; s.insert(sched);
 			schedulesFromObjectiveByEvaluationDemand_[j].insert(pair<double, set<int> >( currentCost, s));
 		}
+		#ifdef COMPARE_EVALUATIONS
+		if(schedulesFromObjectiveByEvaluationDemandGreedy_[j].find(currentCostGreedy) != schedulesFromObjectiveByEvaluationDemandGreedy_[j].end()){
+			schedulesFromObjectiveByEvaluationDemandGreedy_[j].at(currentCostGreedy).insert(sched);
+		}
+		else {
+			set<int> s; s.insert(sched);
+			schedulesFromObjectiveByEvaluationDemandGreedy_[j].insert(pair<double, set<int> >( currentCostGreedy, s));
+		}
+		#endif
 	}
 
-	std::cout << "# Evaluation of schedule no. " << sched << " done!" << std::endl;
+	(*pLogStream_) << "# Evaluation of schedule no. " << sched << " done!" << std::endl;
 }
 
 // Recompute all scores after one schedule evaluation
 void StochasticSolver::updateRankingsAndScores(){
 
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Starting the update of the scores and ranking." << std::endl;
+	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting the update of the scores and ranking." << std::endl;
 
 	vector<double> theNewScores;
-	cout << nSchedules_ << endl;
 	Tools::initDoubleVector(&theNewScores, nSchedules_, 0);
 
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
-		cout << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
 		int localRank = 1;
 		map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
 		for(map<double, set<int> >::iterator it = localCosts.begin(); it != localCosts.end(); ++it){
@@ -433,14 +526,36 @@ void StochasticSolver::updateRankingsAndScores(){
 				if((pEvaluationSolvers_[sched][j])->getStatus() == INFEASIBLE){
 					theNewScores[sched] += (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size());
 				}
-				cout << "#     | sched " << sched << " -> " << it->first << " (score += " << (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size()) << ")" << endl;
+				(*pLogStream_) << "#     | sched " << sched << " -> " << it->first << " (score += " << (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size()) << ")" << endl;
 			}
 			localRank += it->second.size();
 		}
 	}
 
+	#ifdef COMPARE_EVALUATIONS
+	vector<double> theNewScoresGreedy;
+	Tools::initDoubleVector(&theNewScoresGreedy, nSchedules_, 0);
+	for(int j=0; j<options_.nEvaluationDemands_; j++){
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
+		int localRank = 1;
+		map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemandGreedy_[j];
+		for(map<double, set<int> >::iterator it = localCosts.begin(); it != localCosts.end(); ++it){
+			for(int sched : it->second){
+				theNewScoresGreedy[sched] += (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size());
+				// If is infeasible -> double that amount to get more robust
+				if((pEvaluationSolvers_[sched][j])->getStatus() == INFEASIBLE){
+					theNewScoresGreedy[sched] += (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size());
+				}
+				(*pLogStream_) << "#     | sched " << sched << " -> " << it->first << " (score += " << (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size()) << ")" << endl;
+			}
+			localRank += it->second.size();
+		}
+	}
+	theScoresGreedy_ = theNewScoresGreedy;
+	#endif
+
 	theScores_ = theNewScores;
-	std::cout << "# [week=" << pScenario_->thisWeek() << "] Update of the scores and ranking done!" << std::endl;
+	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Update of the scores and ranking done!" << std::endl;
 
 }
 

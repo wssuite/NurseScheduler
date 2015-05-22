@@ -142,7 +142,7 @@ public:
     *************/
 
    //compute the total cost of SCIP_VAR* in the solution sol*
-   double getTotalCost(MyObject* var);
+   double getTotalCost(MyObject* var, bool print = false);
 
    int printStats();
 

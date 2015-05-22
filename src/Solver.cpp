@@ -736,7 +736,11 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	   maxTotalWeekends_.push_back(0);
       weightTotalWeekendsMax_.push_back(WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
          1.0 / pNurse->maxTotalWeekends());
-      if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+      if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) { 
+      	weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+      	maxTotalWeekendsAvg_.push_back(pNurse->maxTotalWeekends());
+        weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+      }
       else{
          //compute the proportion of weekends that can be worked in this demand without exceeding the max in the future
          //round with a certain probability to the floor or the ceil
@@ -1046,7 +1050,6 @@ string Solver::solutionToString(int firstDay, int nbDays, int firstWeek){
   return rep.str();
 }
 
-
 // display the whole solution in a more readable format and append advanced
 // information on the solution quality
 //
@@ -1101,6 +1104,12 @@ string Solver::solutionToLogString() {
         violMinCover += std::max(0,pDemand_->minDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]);
         costOptCover += WEIGHT_OPTIMAL_DEMAND
           * std::max(0,pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]);
+//        if(pDemand_->minDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]>0)
+//           std::cout << day << " " << sh  << " " << sk << " " << pDemand_->minDemand_[day][sh][sk] << " " << satisfiedDemand_[day][sh][sk] << std::endl;
+//        else if(pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]>0)
+//                   std::cout << day << " " << sh  << " " << sk << " " << satisfiedDemand_[day][sh][sk] << " " << pDemand_->optDemand_[day][sh][sk] << std::endl;
+//        else if(pDemand_->optDemand_[day][sh][sk]-satisfiedDemand_[day][sh][sk]<0)
+//                           std::cout << "*" << day << " " << sh  << " " << sk << " " << satisfiedDemand_[day][sh][sk] << " " << pDemand_->optDemand_[day][sh][sk] << std::endl;
       }
     }
   }

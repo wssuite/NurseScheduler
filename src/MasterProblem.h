@@ -148,6 +148,20 @@ struct Rotation {
    //
    void computeDualCost(DualCosts& costs);
 
+
+   string toString(int nbDays){
+      std::cout << "#   | ROTATION: N=" << pNurse_->id_ << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
+      std::cout << "#               |";
+      vector<int> allTasks (nbDays);
+      for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
+         allTasks[itTask->first] = itTask->second;
+      for(int i=0; i<allTasks.size(); i++){
+         if(allTasks[i] < 1) std::cout << " |";
+         else std::cout << allTasks[i] << "|";
+      }
+      std::cout << std::endl;
+   }
+
    //Compare rotations on index
    //
    static bool compareId(const Rotation& rot1, const Rotation& rot2);
@@ -172,7 +186,7 @@ struct Rotation {
 
 enum MySolverType { S_SCIP, S_BCP, S_CBC };
 
-class MasterProblem : public Solver{
+class MasterProblem : public Solver, public PrintSolution{
    //allows RotationPricer to access all private arguments and methods of MasterProblem
    friend class RotationPricer;
    friend class DiveBranchingRule;
@@ -199,13 +213,14 @@ public:
    //same as solve if not redefine
    double evaluate(SolverParam parameters, vector<Roster> solution = {});
 
-   // Method used for reading and setting parameters
-   void setParameters(SolverParam parameters);
-
    //get the pointer to the model
    Modeler* getModel(){
       return pModel_;
    }
+
+   //override PrintSolution virtual method
+   void save(vector<int>& weekIndices, string outdir);
+
 
    //get a reference to the rotations
    inline vector< map<MyObject*, Rotation> >& getRotations(){
@@ -329,13 +344,12 @@ private:
    void buildRotationCons();
    int addRotationConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool firstDay, bool lastDay);
    void buildMinMaxCons();
-   int addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool weekend = false);
+   int addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int nbDays, int nbWeekends);
    void buildSkillsCoverageCons();
    int addSkillsCoverageConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, int s=-1);
 
    /* Display functions */
    string costsConstrainstsToString();
-
 };
 
 #endif /* MASTERPROBLEM_H_ */

@@ -1,0 +1,19 @@
+# Launching Optimal Roster...
+Reading datasets/n120w8/Sc-n120w8.txt
+Reading datasets/n120w8/WD-n120w8-7.txt
+Demand created
+Reading datasets/n120w8/WD-n120w8-2.txt
+Demand created
+Reading datasets/n120w8/WD-n120w8-6.txt
+Demand created
+Reading datasets/n120w8/WD-n120w8-4.txt
+Demand created
+Reading datasets/n120w8/WD-n120w8-5.txt
+Demand created
+Reading datasets/n120w8/WD-n120w8-2.txt
+Demand created
+Reading datasets/n120w8/WD-n120w8-0.txt
+Demand created
+Reading datasets/n120w8/WD-n120w8-2.txt
+Demand created
+Reading datasets/n120w8/H0-n120w8-1.txt

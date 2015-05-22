@@ -8,7 +8,7 @@
 #include "main_test.h"
 #include "MyTools.h"
 
-
+//n030w4 1 6 2 9 1 n030w4_1_6-2-9-1
 // Function for solving the optimal solution
 int main(int argc, char** argv)
 {
@@ -38,10 +38,13 @@ int main(int argc, char** argv)
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 
    SolverParam optParam;
+   optParam.printEverySolution_ = true;
+   optParam.weekIndices_ = numberWeek;
+   optParam.outfile_ = "outfiles/MyTests/Sol-"+outdir+"-";
    optParam.nbDiveIfMinGap_ = 2;
-   optParam.nbDiveIfRelGap_ = 4;
-//   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt", optParam);
-   testMultipleWeeksStochastic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt");
+   optParam.nbDiveIfRelGap_ = 8;
+   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt", optParam);
+//   testMultipleWeeksStochastic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Opt");
 
    // Display the total time spent in the algorithm
    timertotal->stop();

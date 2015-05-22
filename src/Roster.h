@@ -95,6 +95,10 @@ public:
   //
   void init(int nbDays, int firstDay, int shiftDefault=0);
 
+  //re-inialize the roster
+  //
+  void reset();
+
   // get a vector of consecutive states that will result from applying the
   // the roster from a given initial state
   //

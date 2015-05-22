@@ -85,9 +85,9 @@ BINDIR      =  bin
 SRCDIR      =  src
 OBJDIR      =  obj
 
-MAINNAME    = roster
-MAINOBJ     = main.o # OptimalSolver.o
-MAINOBJ	   += main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
+MAINNAME 	=  roster
+MAINOBJ     =  OptimalSolver.o #main.o 
+MAINOBJ		+= main_test.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o DemandGenerator.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o StochasticSolver.o RotationPricer.o
 
 ifeq ($(USE_SCIP), TRUE)
    MAINOBJ  += ScipModeler.o 
