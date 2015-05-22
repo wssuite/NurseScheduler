@@ -155,7 +155,8 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 	// Need to perturb the costs?
 	//
 	if(options_.generationCostPerturbation_){
-		pSolver->computeWeightsTotalShiftsForStochastic();
+//		pSolver->computeWeightsTotalShiftsForStochastic();
+		pSolver->computeWeightsTotalShiftsForPrimalDual();
 	}
 
 	// Solve
