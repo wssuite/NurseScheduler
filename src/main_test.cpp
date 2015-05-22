@@ -146,14 +146,15 @@ void testFunction_Samuel(){
 	timertotal->start();
 
 	string data = "datasets/";// testdatasets datasets userdataset
-	const char* inst = "n120w4";// n100w4 n030w4 n012w8 n005w4 n005w1
+	const char* inst = "n080w4";// n100w4 n030w4 n012w8 n005w4 n005w1
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 	//n021w4:
 	//n120w8: {3, 2}
-	vector<int> numberWeek = {4, 6, 2, 6};
+	vector<int> numberWeek = {4, 3, 3, 3};
+	int historyId = 2;
 
 	StochasticSolverOptions stochasticSolverOptions;
 	stochasticSolverOptions.withEvaluation_ = false;
@@ -170,12 +171,13 @@ void testFunction_Samuel(){
 	SolverParam generationParameters;
 	generationParameters.maxSolvingTimeSeconds_ = 3000;
 	generationParameters.printEverySolution_ = false;
-	generationParameters.outfile_ = "outdir/";
+	generationParameters.outfile_ = "outfiles/";
+//	generationParameters.logfile_ = generationParameters.outfile_;
 	generationParameters.absoluteGap_ = 5;
-	generationParameters.minRelativeGap_ = .001;
+	generationParameters.minRelativeGap_ = .05;
 	generationParameters.relativeGap_ = .1;
-	generationParameters.nbDiveIfMinGap_ = 1000;
-	generationParameters.nbDiveIfRelGap_ = 1000;
+	generationParameters.nbDiveIfMinGap_ = 1;
+	generationParameters.nbDiveIfRelGap_ = 2;
 	generationParameters.solveToOptimality_ = false;
 
 	stochasticSolverOptions.generationParameters_ = generationParameters;
@@ -183,7 +185,8 @@ void testFunction_Samuel(){
 	SolverParam evaluationParameters;
 	evaluationParameters.maxSolvingTimeSeconds_ = 7;
 	evaluationParameters.printEverySolution_ = false;
-	evaluationParameters.outfile_ = "outdir/";
+	evaluationParameters.outfile_ = "outfiles/";
+//	evaluationParameters.logfile_ = evaluationParameters.outfile_;
 	evaluationParameters.absoluteGap_ = 5;
 	evaluationParameters.minRelativeGap_ = .05;
 	evaluationParameters.relativeGap_ = .1;
@@ -193,7 +196,7 @@ void testFunction_Samuel(){
 
 	stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
 
-	testMultipleWeeksStochastic(data, inst, 1, numberWeek, stochasticSolverOptions, "outfiles/");
+	testMultipleWeeksStochastic(data, inst, historyId, numberWeek, stochasticSolverOptions, "outfiles/");
 
 
 	// Display the total time spent in the algorithm

@@ -706,75 +706,103 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 
 	// The nurses must be preprocessed to retrieve the information relative to the
 	// past activity of the nurses and to their capacity to work more in the future
-	if (!isPreprocessedNurses_) this->preprocessTheNurses();
+  if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
-	// The important value to infer the importance of respecting the strict constraints
-	// on the total number of working days/week-ends is the remaining number of days/week-ends
-	// after the demand currently treated
-	int remainingDays = 7*pScenario_->nbWeeks()-7*(pScenario_->thisWeek())-pDemand_->nbDays_;
-	double factorRemainingDays = (double) remainingDays/(double)(7*pScenario_->nbWeeks());
-
-
-	//number of weekends before the end of the planning
-	int remainingWeekends = pScenario_->nbWeeks() - pScenario_->thisWeek();
-	//portion of these remaining weekends in this demand
-	double factorRemainingWeekends =  (pDemand_->nbDays_/7)* 1.0 / remainingWeekends;
-//	double factorRemainingWeekends = (double)remainingWeekends/(double)pScenario_->nbWeeks();
-
-	// Compute the non-penalized intervals and the associated penalties
-	for (int n = 0; n < pScenario_->nbNurses(); n++) {
-	   LiveNurse* pNurse =  theLiveNurses_[n];
-
-	   // compute the interval that must be respected to have a chance of not paying
-	   // penalties in the future
-	   minTotalShifts_.push_back(pNurse->minWorkDaysNoPenaltyTotalDays_);
-	   weightTotalShiftsMin_.push_back(WEIGHT_TOTAL_SHIFTS);
-	   maxTotalShifts_.push_back(pNurse->maxWorkDaysNoPenaltyTotalDays_);
-	   weightTotalShiftsMax_.push_back(WEIGHT_TOTAL_SHIFTS);
-
-	   //penalize each worked weekend with primal-dual costs
-	   maxTotalWeekends_.push_back(0);
-      weightTotalWeekendsMax_.push_back(WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
-         1.0 / pNurse->maxTotalWeekends());
-      if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) { 
-      	weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
-      	maxTotalWeekendsAvg_.push_back(pNurse->maxTotalWeekends());
-        weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
-      }
-      else{
-         //compute the proportion of weekends that can be worked in this demand without exceeding the max in the future
-         //round with a certain probability to the floor or the ceil
-         int remainingWeekendsToWork = pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_;
-         double numberOfAuthorizedWeekend = remainingWeekendsToWork * factorRemainingWeekends;
-         maxTotalWeekendsAvg_.push_back( Tools::roundWithProbability(numberOfAuthorizedWeekend) );
-         weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
-      }
-
-		/* Essai Sam */
-//		maxTotalWeekends_[n] = 0;
-//		double costOfWeekendForNurse;
-//
-//		int nWEAlreadyDoneByNurse = pNurse->pStateIni_->totalWeekendsWorked_;
-//		int nWERemainingIncludingNow = pScenario_->nbWeeks_ - pScenario_->thisWeek();
-//		int nWEMaxForNurse = pNurse->pContract_->maxTotalWeekends_;
-//
-//		if(nWEAlreadyDoneByNurse >= nWEMaxForNurse)
-//			costOfWeekendForNurse = nWERemainingIncludingNow * WEIGHT_TOTAL_WEEKENDS;
-//		else if(nWERemainingIncludingNow <= nWEMaxForNurse)
-//			costOfWeekendForNurse = std::max( 0, nWEAlreadyDoneByNurse + nWERemainingIncludingNow - nWEMaxForNurse );
-//		else
-//			costOfWeekendForNurse = nWEAlreadyDoneByNurse;
-//
-//		weightTotalWeekendsMax_[n] = costOfWeekendForNurse ;
+  // The important value to infer the importance of respecting the strict constraints
+  // on the total number of working days/week-ends is the remaining number of days/week-ends
+  // after the demand currently treated
+  int remainingDays = 7*pScenario_->nbWeeks()-7*(pScenario_->thisWeek())-pDemand_->nbDays_;
+  double factorRemainingDays = (double) remainingDays/(double)(7*pScenario_->nbWeeks());
 
 
-		/* Essai Antoine */
-	      // first compute the values relative to the average number of working days
-	      // the interval is larger for the first weeks and the associated penalty is smaller
-	      minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
-	      maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
-	      weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
+  //number of weekends before the end of the planning
+  int remainingWeekends = pScenario_->nbWeeks() - pScenario_->thisWeek();
+  //portion of these remaining weekends in this demand
+  double factorRemainingWeekends =  (pDemand_->nbDays_/7)* 1.0 / remainingWeekends;
+  //	double factorRemainingWeekends = (double)remainingWeekends/(double)pScenario_->nbWeeks();
+
+  // Compute the non-penalized intervals and the associated penalties
+  for (int n = 0; n < pScenario_->nbNurses(); n++) {
+	  LiveNurse* pNurse =  theLiveNurses_[n];
+
+	  // compute the interval that must be respected to have a chance of not paying
+	  // penalties in the future
+	  minTotalShifts_.push_back(pNurse->minWorkDaysNoPenaltyTotalDays_);
+	  weightTotalShiftsMin_.push_back(WEIGHT_TOTAL_SHIFTS);
+	  maxTotalShifts_.push_back(pNurse->maxWorkDaysNoPenaltyTotalDays_);
+	  weightTotalShiftsMax_.push_back(WEIGHT_TOTAL_SHIFTS);
+
+	  //penalize each worked weekend with primal-dual costs
+	  maxTotalWeekends_.push_back(0);
+	  weightTotalWeekendsMax_.push_back(WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
+			  1.0 / pNurse->maxTotalWeekends());
+
+
+	  if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) {
+		  weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
+		  maxTotalWeekendsAvg_.push_back(pNurse->maxTotalWeekends());
+		  weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+	  }
+	  else{
+		  //compute the proportion of weekends that can be worked in this demand without exceeding the max in the future
+		  //round with a certain probability to the floor or the ceil
+		  int remainingWeekendsToWork = pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_;
+		  double numberOfAuthorizedWeekend = remainingWeekendsToWork * factorRemainingWeekends;
+		  maxTotalWeekendsAvg_.push_back( Tools::roundWithProbability(numberOfAuthorizedWeekend) );
+		  weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+	  }
+
+
+	  /* Essai Antoine */
+	  // first compute the values relative to the average number of working days
+	  // the interval is larger for the first weeks and the associated penalty is smaller
+	  minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
+	  maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+	  weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
+
+
+
+	  // Affichage des valeurs
+	  std::cout << std::endl;
+	  std::cout << "###############################################" << std::endl;
+	  std::cout << "# Nurse " << pNurse->name_ << std::endl;
+	  std::cout << "#   | Contract: " << pNurse->pContract_->name_ << std::endl;
+	  std::cout << "#   |           " << (*(pNurse->pContract_)) << std::endl;
+	  std::cout << "#   | History : " << pNurse->pStateIni_->totalDaysWorked_ << " days and " << pNurse->pStateIni_->totalWeekendsWorked_ << " weekends" << std::endl;
+	  std::cout << "# " << std::endl;
+	  std::cout << "# Costs / Bounds:" << std::endl;
+	  std::cout << "#   | Min total shifts: " << pNurse->minWorkDaysNoPenaltyTotalDays_ << std::endl;
+	  std::cout << "#   | Max total shifts: " << pNurse->maxWorkDaysNoPenaltyTotalDays_ << std::endl;
+	  std::cout << "#   | Weight total we : " << (WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ * 1.0 / pNurse->maxTotalWeekends()) << std::endl;
+	  std::cout << "#   | Min tot shifts av " << ((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_) << std::endl;
+	  std::cout << "#   | Max tot shifts av " << ((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_) << std::endl;
+	  std::cout << "#   | Weight tot sh avg " << ((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS) << std::endl;
+	  std::cout << "###############################################" << std::endl;
+	  std::cout << std::endl;
+
+
+
+
+	  /* Essai Sam (couts d'oportunite) */
+	  //		maxTotalWeekends_[n] = 0;
+	  //		double costOfWeekendForNurse;
+	  //
+	  //		int nWEAlreadyDoneByNurse = pNurse->pStateIni_->totalWeekendsWorked_;
+	  //		int nWERemainingIncludingNow = pScenario_->nbWeeks_ - pScenario_->thisWeek();
+	  //		int nWEMaxForNurse = pNurse->pContract_->maxTotalWeekends_;
+	  //
+	  //		if(nWEAlreadyDoneByNurse >= nWEMaxForNurse)
+	  //			costOfWeekendForNurse = nWERemainingIncludingNow * WEIGHT_TOTAL_WEEKENDS;
+	  //		else if(nWERemainingIncludingNow <= nWEMaxForNurse)
+	  //			costOfWeekendForNurse = std::max( 0, nWEAlreadyDoneByNurse + nWERemainingIncludingNow - nWEMaxForNurse );
+	  //		else
+	  //			costOfWeekendForNurse = nWEAlreadyDoneByNurse;
+	  //
+	  //		weightTotalWeekendsMax_[n] = costOfWeekendForNurse ;
+
 	}
+
+  getchar();
 }
 
 void Solver::computeWeightsTotalShiftsForPrimalDual(){
@@ -791,6 +819,12 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(){
    maxTotalWeekendsContractAvg_.clear();
    weightTotalWeekendsContractAvg_.clear();
 
+   vector<double> maxPrimalDualCostForContractDays;
+   vector<double> maxPrimalDualCostForContractWE;
+   vector<double> meanPrimalDualCostForContractDays;
+   vector<double> meanPrimalDualCostForContractWE;
+   vector<int> nbNursesPerContract;
+
       // The nurses must be preprocessed to retrieve the information relative to the
       // past activity of the nurses and to their capacity to work more in the future
       if (!isPreprocessedNurses_) this->preprocessTheNurses();
@@ -802,42 +836,102 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(){
          weightTotalShiftsContractAvg_.push_back(WEIGHT_TOTAL_SHIFTS);
          maxTotalWeekendsContractAvg_.push_back(0);
          weightTotalWeekendsContractAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
+         maxPrimalDualCostForContractDays.push_back(0);
+         maxPrimalDualCostForContractWE.push_back(0);
+         meanPrimalDualCostForContractDays.push_back(0);
+         meanPrimalDualCostForContractWE.push_back(0);
+         nbNursesPerContract.push_back(0);
       }
 
-      // Compute the non-penalized intervals and the associated penalties
+      // Compute the non-penalized intervals and the associated penalties for each contract
       for (int n = 0; n < pScenario_->nbNurses(); n++) {
          LiveNurse* pNurse =  theLiveNurses_[n];
          double ratio = WEIGHT_TOTAL_SHIFTS * pNurse->pStateIni_->totalDaysWorked_;
 
+         // Deactivate minimum constraints
          minTotalShifts_[n] = 0;
-         weightTotalShiftsMin_[n] = WEIGHT_TOTAL_SHIFTS - ratio * 1.0 / pNurse->minTotalShifts();
-         if(weightTotalShiftsMin_[n]<0) weightTotalShiftsMin_[n] = 0;
+         weightTotalShiftsMin_[n] = 0; //WEIGHT_TOTAL_SHIFTS - ratio * 1.0 / pNurse->minTotalShifts();
 
+         // Activate maximum constraints (work) with primal-dual cost
+         // Remark: these costs are always nonnegative here because, for the competition, nurses are always in shortage
+         //         If this does not apply -> find another formulation
+         //
          maxTotalShifts_[n] = 0;
-         weightTotalShiftsMax_[n] = ratio * 1.0 / pNurse->maxTotalShifts();
-         if(weightTotalShiftsMax_[n]>WEIGHT_TOTAL_SHIFTS) weightTotalShiftsMax_[n] = WEIGHT_TOTAL_SHIFTS;
+         weightTotalShiftsMax_[n] = ratio * 1.0 / pNurse->maxTotalShifts(); 								// Primal-dual cost of max working days
+//         weightTotalShiftsMax_[n] += - WEIGHT_TOTAL_SHIFTS + ratio * 1.0 / pNurse->minTotalShifts(); 		// Primal-dual cost of min working days
+         if(weightTotalShiftsMax_[n]>WEIGHT_TOTAL_SHIFTS) weightTotalShiftsMax_[n] = WEIGHT_TOTAL_SHIFTS;	// Must not be higher that WEIGHT
+         else if(weightTotalShiftsMax_[n]<0) weightTotalShiftsMax_[n] = 0;									// Must not be negative
 
+         // Activate maximum constraints (WE) with primal-dual cost
+         //
          maxTotalWeekends_[n] = 0;
          weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ *
             1.0 / pNurse->maxTotalWeekends();
          if(weightTotalWeekendsMax_[n]>WEIGHT_TOTAL_WEEKENDS) weightTotalWeekendsMax_[n] = WEIGHT_TOTAL_WEEKENDS;
 
+
+
          std::cout << weightTotalShiftsMin_[n] << " " << weightTotalShiftsMax_[n] << " " << weightTotalWeekendsMax_[n] << std::endl;
 
+         // Update average days/weekends in contract
+         //
          int p = pNurse->pContract_->id_;
          minTotalShiftsContractAvg_[p] += std::max(0, pNurse->minTotalShifts() - pNurse->pStateIni_->totalDaysWorked_);
          maxTotalShiftsContractAvg_[p] += std::max(0, pNurse->maxTotalShifts() - pNurse->pStateIni_->totalDaysWorked_);
          maxTotalWeekendsContractAvg_[p] += std::max(0, pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_);
+
+         // Check for maximum primal-dual costs
+         //
+         maxPrimalDualCostForContractDays[p] = std::max( maxPrimalDualCostForContractDays[p] , weightTotalShiftsMax_[n]);
+         maxPrimalDualCostForContractWE[p] = std::max( maxPrimalDualCostForContractWE[p] , weightTotalWeekendsMax_[n]);
+         meanPrimalDualCostForContractDays[p] += weightTotalShiftsMax_[n];
+         meanPrimalDualCostForContractWE[p] += weightTotalWeekendsMax_[n];
+         nbNursesPerContract[p] ++;
+
       }
 
       //round the min/max values of the interval associated to the contract
       int remainingWeeks = pScenario_->nbWeeks() - pScenario_->thisWeek();
+      int remainingDays = 7* remainingWeeks;
+      int nDaysInHorizon = pDemand_->nbDays_;
+      int nWeekendsInHorizon = (pDemand_->nbDays_+1) / 7;
+      double ratioDays = nDaysInHorizon * (1.0/remainingDays);
+      double ratioWeekends = nWeekendsInHorizon * (1.0/remainingWeeks);
+
       for(int p=0; p<pScenario_->nbContracts_; ++p){
-         minTotalShiftsContractAvg_[p] = Tools::roundWithProbability( minTotalShiftsContractAvg_[p] / remainingWeeks);
-         maxTotalShiftsContractAvg_[p] = Tools::roundWithProbability( maxTotalShiftsContractAvg_[p] / remainingWeeks);
-         maxTotalWeekendsContractAvg_[p] = Tools::roundWithProbability( maxTotalWeekendsContractAvg_[p] / remainingWeeks);
-         std::cout << minTotalShiftsContractAvg_[p] << " " << maxTotalShiftsContractAvg_[p] << " " << maxTotalWeekendsContractAvg_[p] << std::endl;
+         minTotalShiftsContractAvg_[p] = Tools::roundWithProbability( minTotalShiftsContractAvg_[p] * ratioDays);
+         maxTotalShiftsContractAvg_[p] = Tools::roundWithProbability( maxTotalShiftsContractAvg_[p] * ratioDays);
+         maxTotalWeekendsContractAvg_[p] = Tools::roundWithProbability( maxTotalWeekendsContractAvg_[p] * ratioWeekends);
+
+
+         meanPrimalDualCostForContractDays[p] /= ((double)nbNursesPerContract[p]);
+         meanPrimalDualCostForContractWE[p] /= ((double)nbNursesPerContract[p]);
+
+//         weightTotalShiftsContractAvg_[p] -= maxPrimalDualCostForContractDays[p];
+//         weightTotalWeekendsContractAvg_[p] -= maxPrimalDualCostForContractWE[p];
+         weightTotalShiftsContractAvg_[p] -= meanPrimalDualCostForContractDays[p];
+         weightTotalWeekendsContractAvg_[p] -= meanPrimalDualCostForContractWE[p];
+
+         std::cout << "# " << std::endl;
+         std::cout << "##################################################" << std::endl;
+         const string contractName = pScenario_->intToContract_[p];
+         std::cout << "# " << (*(pScenario_->contracts_.at( contractName ))) << std::endl;
+         std::cout << "# min/max : " << std::endl;
+         std::cout << "#    | min total shifts: " << minTotalShiftsContractAvg_[p] << std::endl;
+         std::cout << "#    | max total shifts: " << maxTotalShiftsContractAvg_[p] << std::endl;
+         std::cout << "#    | max total we    : " << maxTotalWeekendsContractAvg_[p] << std::endl;
+         std::cout << "# costs   : " << std::endl;
+         std::cout << "#    | cost shift: " << weightTotalShiftsContractAvg_[p] << std::endl;
+         std::cout << "#    | cost we   : " << weightTotalWeekendsContractAvg_[p] << std::endl;
+         std::cout << "##################################################" << std::endl;
+         std::cout << "# " << std::endl;
       }
+
+      // PRIMAL-DUAL COSTS FOR WORKING DAY & WEEKEND
+
+
+
+
 }
 
 
