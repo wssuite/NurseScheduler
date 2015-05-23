@@ -39,64 +39,65 @@ int main(int argc, char** argv)
    string data = "datasets/";
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 
-//   SolverParam optParam;
-//   optParam.printEverySolution_ = true;
-//   optParam.weekIndices_ = numberWeek;
-//   optParam.outfile_ = "outfiles/Competition/"+outdir+"/OptSol-"+inst+"-";
-//   optParam.logfile_ = "outfiles/Competition/"+outdir+"/log2.txt";
-//   optParam.nbDiveIfMinGap_ = 2;
-//   optParam.nbDiveIfRelGap_ = 8;
-//   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/"+prefix, optParam);
+   SolverParam optParam;
+   optParam.printEverySolution_ = true;
+   optParam.weekIndices_ = numberWeek;
+   optParam.outfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Sol-"+inst+"-";
+   optParam.logfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Log.txt";
+   optParam.solveToOptimality_ = true;
+   optParam.nbDiveIfMinGap_ = 2;
+   optParam.nbDiveIfRelGap_ = 8;
+   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/"+prefix, optParam);
 
 
-	StochasticSolverOptions stochasticSolverOptions;
-	stochasticSolverOptions.withEvaluation_ = false;
-	stochasticSolverOptions.generationCostPerturbation_ = true;
-	stochasticSolverOptions.evaluationCostPerturbation_ = false;
-	stochasticSolverOptions.generationAlgorithm_ = GENCOL;
-	stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
-	stochasticSolverOptions.totalTimeLimitSeconds_ = LARGE_TIME;
-	stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
-	stochasticSolverOptions.nEvaluationDemands_ = 3;
-	stochasticSolverOptions.nDaysEvaluation_ = 21;
-	stochasticSolverOptions.nGenerationDemandsMax_ = 3;
-
-	SolverParam generationParameters;
-	generationParameters.maxSolvingTimeSeconds_ = 3000;
-	generationParameters.printEverySolution_ = false;
-	generationParameters.outfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Sol-"+inst+"-";
-//	generationParameters.logfile_ = "";
-	generationParameters.absoluteGap_ = 5;
-	generationParameters.minRelativeGap_ = .05;
-	generationParameters.relativeGap_ = .1;
-	generationParameters.nbDiveIfMinGap_ = 1;
-	generationParameters.nbDiveIfRelGap_ = 2;
-	generationParameters.solveToOptimality_ = false;
-	if(prefix == "mean"){
-		generationParameters.weightStrategy = MEAN;
-	} else if(prefix == "max"){
-		generationParameters.weightStrategy = MAX;
-	}
-
-
-	stochasticSolverOptions.generationParameters_ = generationParameters;
-
-	SolverParam evaluationParameters;
-	evaluationParameters.maxSolvingTimeSeconds_ = 7;
-	evaluationParameters.printEverySolution_ = false;
-//	evaluationParameters.outfile_ = "outfiles/";
-//	evaluationParameters.logfile_ = evaluationParameters.outfile_;
-	evaluationParameters.absoluteGap_ = 5;
-	evaluationParameters.minRelativeGap_ = .05;
-	evaluationParameters.relativeGap_ = .1;
-	evaluationParameters.nbDiveIfMinGap_ = 1;
-	evaluationParameters.nbDiveIfRelGap_ = 2;
-	evaluationParameters.solveToOptimality_ = false;
-
-	stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
-
-	testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptions, "outfiles/Competition/"+outdir+"/"+prefix);
-//   testMultipleWeeksStochastic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Test");
+//	StochasticSolverOptions stochasticSolverOptions;
+//	stochasticSolverOptions.withEvaluation_ = false;
+//	stochasticSolverOptions.generationCostPerturbation_ = true;
+//	stochasticSolverOptions.evaluationCostPerturbation_ = false;
+//	stochasticSolverOptions.generationAlgorithm_ = GENCOL;
+//	stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
+//	stochasticSolverOptions.totalTimeLimitSeconds_ = LARGE_TIME;
+//	stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
+//	stochasticSolverOptions.nEvaluationDemands_ = 3;
+//	stochasticSolverOptions.nDaysEvaluation_ = 21;
+//	stochasticSolverOptions.nGenerationDemandsMax_ = 3;
+//
+//	SolverParam generationParameters;
+//	generationParameters.maxSolvingTimeSeconds_ = 3000;
+//	generationParameters.printEverySolution_ = false;
+//	generationParameters.outfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Sol-"+inst+"-";
+////	generationParameters.logfile_ = "";
+//	generationParameters.absoluteGap_ = 5;
+//	generationParameters.minRelativeGap_ = .05;
+//	generationParameters.relativeGap_ = .1;
+//	generationParameters.nbDiveIfMinGap_ = 1;
+//	generationParameters.nbDiveIfRelGap_ = 2;
+//	generationParameters.solveToOptimality_ = false;
+//	if(prefix == "mean"){
+//		generationParameters.weightStrategy = MEAN;
+//	} else if(prefix == "max"){
+//		generationParameters.weightStrategy = MAX;
+//	}
+//
+//
+//	stochasticSolverOptions.generationParameters_ = generationParameters;
+//
+//	SolverParam evaluationParameters;
+//	evaluationParameters.maxSolvingTimeSeconds_ = 7;
+//	evaluationParameters.printEverySolution_ = false;
+////	evaluationParameters.outfile_ = "outfiles/";
+////	evaluationParameters.logfile_ = evaluationParameters.outfile_;
+//	evaluationParameters.absoluteGap_ = 5;
+//	evaluationParameters.minRelativeGap_ = .05;
+//	evaluationParameters.relativeGap_ = .1;
+//	evaluationParameters.nbDiveIfMinGap_ = 1;
+//	evaluationParameters.nbDiveIfRelGap_ = 2;
+//	evaluationParameters.solveToOptimality_ = false;
+//
+//	stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
+//
+//	testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptions, "outfiles/Competition/"+outdir+"/"+prefix);
+////   testMultipleWeeksStochastic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Test");
 
    // Display the total time spent in the algorithm
    timertotal->stop();

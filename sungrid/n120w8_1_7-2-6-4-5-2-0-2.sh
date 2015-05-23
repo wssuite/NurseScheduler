@@ -6,13 +6,14 @@
 #
 # optimal script: launch optimal solver and then the validator
 
-./bin/optimalRoster n120w8 1 7 2 6 4 5 2 0 2 n120w8_1_7-2-6-4-5-2-0-2 $1 > outfiles/Competition/n120w8_1_7-2-6-4-5-2-0-2/${1}Log.txt
+#./bin/optimalRoster n120w8 1 7 2 6 4 5 2 0 2 n120w8_1_7-2-6-4-5-2-0-2 $1 > outfiles/Competition/n120w8_1_7-2-6-4-5-2-0-2/${1}Log.txt
 
 instance=n120w8
 weeksValue=(7 2 6 4 5 2 0 2 )
 
 demand0="WD-${instance}-"
 solutionFile="outfiles/Competition/n120w8_1_7-2-6-4-5-2-0-2/${1}Sol-n120w8-72645202-"
+echo $solutionFile
 weeks=""
 sols=""
 i=0
