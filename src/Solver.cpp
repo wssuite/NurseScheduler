@@ -756,9 +756,13 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	  /* Essai Antoine */
 	  // first compute the values relative to the average number of working days
 	  // the interval is larger for the first weeks and the associated penalty is smaller
-	  minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
-	  maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
-	  weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
+	  // minTotalShiftsAvg_.push_back((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
+	  // maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+	  // weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
+    double factorMarginOnAvg = 0.25*factorRemainingDays*7.0/(double)pDemand_->nbDays_;
+    minTotalShiftsAvg_.push_back((1.0-factorMarginOnAvg)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
+    maxTotalShiftsAvg_.push_back((1.0+factorMarginOnAvg)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+     weightTotalShiftsAvg_.push_back((double)WEIGHT_TOTAL_SHIFTS);
 
 
 
@@ -773,10 +777,10 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	  std::cout << "# Costs / Bounds:" << std::endl;
 	  std::cout << "#   | Min total shifts: " << pNurse->minWorkDaysNoPenaltyTotalDays_ << std::endl;
 	  std::cout << "#   | Max total shifts: " << pNurse->maxWorkDaysNoPenaltyTotalDays_ << std::endl;
-	  std::cout << "#   | Weight total we : " << (WEIGHT_TOTAL_WEEKENDS * pNurse->pStateIni_->totalWeekendsWorked_ * 1.0 / pNurse->maxTotalWeekends()) << std::endl;
-	  std::cout << "#   | Min tot shifts av " << ((1.0-0.25*factorRemainingDays)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_) << std::endl;
-	  std::cout << "#   | Max tot shifts av " << ((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_) << std::endl;
-	  std::cout << "#   | Weight tot sh avg " << ((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS) << std::endl;
+	  std::cout << "#   | Weight total we : " << weightTotalWeekendsMax_.back() << std::endl;
+	  std::cout << "#   | Min tot shifts av " << minTotalShiftsAvg_.back() << std::endl;
+	  std::cout << "#   | Max tot shifts av " << maxTotalShiftsAvg_.back() << std::endl;
+	  std::cout << "#   | Weight tot sh avg " << weightTotalShiftsAvg_.back() << std::endl;
 	  std::cout << "###############################################" << std::endl;
 	  std::cout << std::endl;
 
@@ -802,7 +806,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 
 	}
 
-  getchar();
+//  getchar();
 }
 
 void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){

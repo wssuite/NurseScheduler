@@ -110,9 +110,19 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 		options_.generationParameters_.printEverySolution_ = true;
 	}
 
-	// A. No generation-evaluation
-	//
-	if(! options_.withEvaluation_){
+
+	// A. Generation-evaluation
+	if (options_.withEvaluation_) {
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with GENERATION-EVALUATION." << std::endl;
+		solveOneWeekGenerationEvaluation();
+	}
+	// B. Iterative increase in the demand
+	else if (options_.withIterativeDemandIncrease_) {
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with ITERATIVE DEMAND INCREASE." << std::endl;
+		solveIterativelyWithIncreasingDemand();
+	}
+	// C. No generation-evaluation
+	else {
 		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS." << std::endl;
 		solveOneWeekNoGenerationEvaluation();
 		while(status_ == INFEASIBLE or status_ == UNSOLVED){
@@ -120,12 +130,6 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 			(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS -> trying again." << std::endl;
 			solveOneWeekNoGenerationEvaluation();
 		}
-	}
-
-	// B. Generation-evaluation
-	else {
-		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with GENERATION-EVALUATION." << std::endl;
-		solveOneWeekGenerationEvaluation();
 	}
 
 	/* update nurse States */
@@ -155,16 +159,22 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 	// Need to perturb the costs?
 	//
 	if(options_.generationCostPerturbation_){
-//		pSolver->computeWeightsTotalShiftsForStochastic();
-		pSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+		if (options_.generationParameters_.weightStrategy == NO_STRAT) {
+			pSolver->computeWeightsTotalShiftsForStochastic();
+		}
+		else {
+			pSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+		}
 	}
 
 	// Solve
 	//
 	(*pLogStream_) << "# Solve without evaluation\n";
 	pSolver->solve(options_.generationParameters_);
-	solution_ = pSolver->getSolution();
+	solution_ = pSolver->getSolutionAtDay(6);
 	status_ = pSolver->getStatus();
+
+	delete pSolver;
 }
 
 // Special case of the last week
@@ -173,6 +183,7 @@ void StochasticSolver::solveOneWeekWithoutPenalties(){
 	pSolver->solve(options_.generationParameters_);
 	solution_ = pSolver->getSolution();
 	status_ = pSolver->getStatus();
+	delete pSolver;
 }
 
 // Solves the problem by generation + evaluation of scenarios
@@ -237,6 +248,84 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 	#endif
 }
 
+//----------------------------------------------------------------------------
+//
+// Iterative solution process in which the week is first solved by itsef,
+// before adding one perturbebd week demand and solving the new extended
+// demand demand until no time is left
+//
+//----------------------------------------------------------------------------
+
+void StochasticSolver::solveIterativelyWithIncreasingDemand() {
+
+	// Set the options corresponding to this algorithm
+	options_.withEvaluation_ = false;
+	options_.generationCostPerturbation_ = true;
+
+	// Initialize the values that intervene in the stopping criterion
+	double timeLeft = options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
+	Tools::Timer* timerSolve = new Tools::Timer();
+	timerSolve->init();
+	double timeLastSolve = 0.0;
+	int maxNbAddedWeeks = pScenario_->nbWeeks()- (pScenario_->thisWeek()+1);
+	int nbAddedWeeks = 0;
+
+	// Launch the iterative process
+	vector<Roster> previousSolution;
+	while (timeLeft > timeLastSolve && nbAddedWeeks <= maxNbAddedWeeks) {
+		(*pLogStream_) << "# Solve with " << nbAddedWeeks << " additional weeks to the demand" << std::endl;
+		(*pLogStream_) << "# Time left: " << timeLeft << std::endl;
+
+		// Update the properties of the solver
+		options_.generationParameters_.maxSolvingTimeSeconds_  = timeLeft-1.0;
+		options_.nExtraDaysGenerationDemands_ = 7*nbAddedWeeks;
+
+		// Solve the week with no evaluation and nbAddedWeek extra weeks in the demand
+		timerSolve->start();
+		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS." << std::endl;
+		solveOneWeekNoGenerationEvaluation();
+		if (nbAddedWeeks > 0) {
+			while(status_ == INFEASIBLE or status_ == UNSOLVED){
+				(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Status is INFEASIBLE or UNSOLVED..." << std::endl;
+				(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with PERTURBATIONS -> trying again." << std::endl;
+				solveOneWeekNoGenerationEvaluation();
+			}
+			// Go back to the last solution if the solver was interrupted
+			timeLeft = options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
+			if (timeLeft <= 1.0) {
+				(*pLogStream_) << "# The execution had to be interrupted, so the solution is not kept" << std::endl;
+				loadSolution(previousSolution);
+			}
+			else {
+				(*pLogStream_) << "# New schedule based on extended demand with " << nbAddedWeeks << " extra weeks" << std::endl;
+				loadSolution(solution_);
+				previousSolution = solution_;
+				Tools::LogOutput outStream(options_.generationParameters_.outfile_);
+				outStream << solutionToString();
+			} 
+
+			// Delete and popback the last generation demand to be consistent with the implementation of solveOneWeekNoGenerationEvaluation
+			delete pGenerationDemands_.back();
+			pGenerationDemands_.pop_back();
+			nGenerationDemands_--;
+		}
+		else if (status_ == INFEASIBLE or status_ == UNSOLVED) {
+			Tools::throwError("# solveIterativelyWithIncreasingDemand: no solution was found for this instance!");
+		}
+		else {
+			(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] The demand is feasible, write the schedule based on one week" << std::endl;
+			previousSolution = solution_;
+			Tools::LogOutput outStream(options_.generationParameters_.outfile_);
+			outStream << solutionToString();
+		}
+
+		timerSolve->stop();
+		timeLastSolve = timerSolve->dSinceStart();
+		nbAddedWeeks++;
+	}
+
+}
+
 
 //----------------------------------------------------------------------------
 //
@@ -286,7 +375,7 @@ void StochasticSolver::generateSingleGenerationDemand(){
 		}
 	}
 
-	pGenerationDemands_.push_back( pScenario_->pWeekDemand()->append(pSingleDemand) );
+	pGenerationDemands_.push_back( pCompleteDemand );
 	nGenerationDemands_ ++;
 	delete pSingleDemand;
 	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Generation demand no. " << nGenerationDemands_ << " created (over " << pGenerationDemands_[nGenerationDemands_-1]->nbDays_ << " days)." << std::endl;
@@ -355,7 +444,13 @@ void StochasticSolver::generateNewSchedule(){
 	// B. Solve this schedule (in a way that should be defined) so as to have a schedule
 	//
 	Solver* pGenSolver = setGenerationSolverWithInputAlgorithm( newDemand );
-	pGenSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+
+	if (options_.generationParameters_.weightStrategy == NO_STRAT) {
+		pGenSolver->computeWeightsTotalShiftsForStochastic();
+	}
+	else {
+		pGenSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+	}
 	pGenSolver->solve(options_.generationParameters_);
 
 	// C. Update the data
@@ -447,7 +542,12 @@ void StochasticSolver::evaluateSchedule(int sched){
 		#endif
 
 		if(pEvaluationSolvers_[sched][j]->getNbDays() + (7*pScenario_->thisWeek()+1) < 7* pScenario_->nbWeeks_){
-			pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForPrimalDual(options_.evaluationParameters_.weightStrategy);
+			if (options_.generationParameters_.weightStrategy == NO_STRAT) {
+				pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForStochastic();
+			}
+			else {
+				pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+			}
 
 			#ifdef COMPARE_EVALUATIONS
 			pGreedyEvaluators[j]->computeWeightsTotalShiftsForStochastic();
