@@ -1,0 +1,11 @@
+# Launching Optimal Roster...
+Reading datasets/n030w4/Sc-n030w4.txt
+Reading datasets/n030w4/WD-n030w4-6.txt
+Demand created
+Reading datasets/n030w4/WD-n030w4-2.txt
+Demand created
+Reading datasets/n030w4/WD-n030w4-9.txt
+Demand created
+Reading datasets/n030w4/WD-n030w4-1.txt
+Demand created
+Reading datasets/n030w4/H0-n030w4-1.txt

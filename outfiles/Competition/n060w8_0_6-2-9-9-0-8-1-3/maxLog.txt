@@ -1,0 +1,2822 @@
+# Launching Optimal Roster...
+Reading datasets/n060w8/Sc-n060w8.txt
+Reading datasets/n060w8/WD-n060w8-6.txt
+Demand created
+Reading datasets/n060w8/H0-n060w8-0.txt
+# New stochastic solver created!
+# [week=0] Solving week no. 0 with PERTURBATIONS.
+# Generating new schedule
+# Demand has been checked and is valid
+End min demand
+# Demand has been checked and is valid
+End min demand
+# [week=0] Generation demand no. 1 created (over 14 days).
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+0 0 0
+# 
+##################################################
+# FullTime  -  Tot:30<40  |  Work:3<5  |  Rest:2<3  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 2e+02
+#    | max total shifts: 2.6e+02
+#    | max total we    : 26
+# costs   : 
+#    | cost shift: 20
+#    | cost we   : 30
+##################################################
+# 
+# 
+##################################################
+# PartTime  -  Tot:20<30  |  Work:3<5  |  Rest:2<5  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 80
+#    | max total shifts: 1.2e+02
+#    | max total we    : 16
+# costs   : 
+#    | cost shift: 20
+#    | cost we   : 30
+##################################################
+# 
+# 
+##################################################
+# HalfTime  -  Tot:15<20  |  Work:3<5  |  Rest:3<5  |  WE:2  |  complete
+# min/max : 
+#    | min total shifts: 68
+#    | max total shifts: 90
+#    | max total we    : 9
+# costs   : 
+#    | cost shift: 20
+#    | cost we   : 30
+##################################################
+# 
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+TM 0.068: Sol from proc: 1  val: 110020749.000000 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 110020749.00     0 /   11         60 | -9999489.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 100015886.43     2 /   28        360 | -9999460.43    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 90011373.73     5 /   43        660 | -9999759.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 80008217.00     6 /   64        960 | -9999539.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 70005075.50     7 /   84       1260 | -9999640.50    15   300  
+TM 0.576: Sol from proc: 1  val: 40005985.999858 (prev best: 110020749.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 40005986.00     0 /   97       1560 | -9998994.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 40005152.25    42 /  123        755 | -9999859.00    15   300  
+TM 0.749: Sol from proc: 1  val: 40004361.000000 (prev best: 40005985.999858)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8 40004361.00     0 /  105       1055 |    -287.50    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9 40003318.50    20 /  124        831 | -9999316.50    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10 30003616.06    84 /  165       1131 |    -282.12    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11 30002173.56    85 /  169       1431 | -9999994.00    15   289  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12 20001965.10    91 /  176       1720 |    -202.50    15   241  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13 20001678.56   114 /  191       1961 | -9999531.33    15   293  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14 20001311.69   141 /  206       2254 |     -99.37    15   262  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       15 20001024.34   124 /  196       2516 | -9999734.00    15   290  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       16 13334466.79   139 /  208       2806 | -9999529.97    18   163  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       17 10001332.95   171 /  230       2969 | -4999558.78    15   188  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       18 5001970.02   220 /  261       3157 | -9999147.71    17   192  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       19 1668859.20   237 /  279       3349 |    -107.04    24   173  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       20 1668697.36   233 /  271       3522 | -1666263.45    18   168  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       21    2300.83   178 /  243       3690 | -3332346.69    30   153  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       22    1771.61   178 /  243       3843 |     -35.11    29   107  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       23    1729.34   179 /  242       3950 |     -97.46    28    68  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       24    1697.09   180 /  242       4018 |     -32.67    60    53  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       25    1689.35    87 /  190       4071 |     -86.08    60    68  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       26    1689.35    87 /  190       4139 |     -55.00    60    59  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       27    1641.57   215 /  263       4198 |     -37.97    57    92  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       28    1613.75   220 /  268       4290 |     -62.00    60    53  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       29    1546.90   214 /  262       4343 |     -56.32    60    75  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       30    1539.02   201 /  252       4418 |     -82.26    60    58  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       31    1464.53   216 /  266       4476 |     -93.78    60    58  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       32    1412.50   145 /  214       4534 |     -15.62    60    57  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       33    1395.06   214 /  263       4591 |     -74.70    60    50  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       34    1348.86   226 /  272       4641 |     -95.69    60    51  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       35    1304.12   233 /  275       4692 |     -19.73    60    57  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       36    1273.61   206 /  254       4749 |     -19.58    60    40  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       37    1261.33   229 /  279       4789 |     -19.98    60    33  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       38    1251.04   220 /  269       4822 |     -55.83    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       39    1244.64   232 /  280       4854 |     -85.11    60    45  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       40    1178.26   216 /  267       4899 |     -20.94    60    46  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       41    1162.28   159 /  230       4945 |     -29.41    60    36  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       42    1159.68   158 /  229       4981 |     -30.00    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       43    1124.93   218 /  267       5011 |     -68.50    60    38  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       44    1114.17   216 /  263       5049 |     -18.59    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       45    1094.61   218 /  266       5077 |     -16.37    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       46    1094.05   170 /  233       5099 |     -47.38    60    52  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       47    1070.14   182 /  237       5151 |     -36.61    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       48    1064.66   210 /  260       5179 |      -8.97    60    21  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       49    1059.58   209 /  256       5200 |     -44.17    60    40  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       50    1030.82   235 /  277       5240 |      -7.68    60    25  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       51    1027.21   200 /  249       5265 |      -9.65    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       52    1018.46   164 /  222       5297 |     -14.23    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       53    1010.95   197 /  246       5325 |      -3.92    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       54    1010.84   193 /  243       5343 |     -26.24    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       55     997.50   111 /  190       5373 |      -3.30    60    20  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       56     997.50   111 /  190       5393 |      -5.00    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       57     996.20   142 /  210       5405 |     -17.50    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       58     996.13   145 /  214       5419 |      -3.37    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       59     996.13   145 /  214       5431 |      -9.85    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       60     996.13   145 /  214       5445 |      -3.68    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       61     996.13   145 /  214       5453 |      -3.96    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       62     995.25   190 /  245       5461 |      -6.25    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       63     995.00   186 /  242       5473 |      -3.75    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       64     990.83   177 /  233       5487 |      -6.25    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       65     990.83   177 /  233       5499 |     -10.00    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       66     990.83   177 /  233       5509 |      -5.83    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       67     990.83   177 /  233       5527 |      -2.50    60     6  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       68     988.75   178 /  235       5533 |      -0.31    60     4  
+TM 9.667: Sol from proc: 1  val: 1025.000000 (prev best: 40004361.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       1025 9999999.00 9999999.00 |       69     988.67   182 /  235       5537 |       0.00    60     0  
+Stopped: relative gap < 0.05.
+Relaxation:                    988.67 
+Objective:                     1025.00 
+All Objective:                 
+Solution number: 0    : 110020749.00 
+Solution number: 1    : 100015886.43 
+Solution number: 2    : 90011373.73 
+Solution number: 3    : 80008217.00 
+Solution number: 4    : 70005075.50 
+Solution number: 5    : 40005986.00 
+Solution number: 6    : 40005152.25 
+Solution number: 7    : 40004361.00 
+Solution number: 8    : 40003318.50 
+Solution number: 9    : 30003616.06 
+Solution number: 10   : 30002173.56 
+Solution number: 11   : 20001965.10 
+Solution number: 12   : 20001678.56 
+Solution number: 13   : 20001311.69 
+Solution number: 14   : 20001024.34 
+Solution number: 15   : 13334466.79 
+Solution number: 16   : 10001332.95 
+Solution number: 17   : 5001970.02 
+Solution number: 18   : 1668859.20 
+Solution number: 19   : 1668697.36 
+Solution number: 20   : 2300.83 
+Solution number: 21   : 1771.61 
+Solution number: 22   : 1729.34 
+Solution number: 23   : 1697.09 
+Solution number: 24   : 1689.35 
+Solution number: 25   : 1689.35 
+Solution number: 26   : 1641.57 
+Solution number: 27   : 1613.75 
+Solution number: 28   : 1546.90 
+Solution number: 29   : 1539.02 
+Solution number: 30   : 1464.53 
+Solution number: 31   : 1412.50 
+Solution number: 32   : 1395.06 
+Solution number: 33   : 1348.86 
+Solution number: 34   : 1304.12 
+Solution number: 35   : 1273.61 
+Solution number: 36   : 1261.33 
+Solution number: 37   : 1251.04 
+Solution number: 38   : 1244.64 
+Solution number: 39   : 1178.26 
+Solution number: 40   : 1162.28 
+Solution number: 41   : 1159.68 
+Solution number: 42   : 1124.93 
+Solution number: 43   : 1114.17 
+Solution number: 44   : 1094.61 
+Solution number: 45   : 1094.05 
+Solution number: 46   : 1070.14 
+Solution number: 47   : 1064.66 
+Solution number: 48   : 1059.58 
+Solution number: 49   : 1030.82 
+Solution number: 50   : 1027.21 
+Solution number: 51   : 1018.46 
+Solution number: 52   : 1010.95 
+Solution number: 53   : 1010.84 
+Solution number: 54   : 997.50 
+Solution number: 55   : 997.50 
+Solution number: 56   : 996.20 
+Solution number: 57   : 996.13 
+Solution number: 58   : 996.13 
+Solution number: 59   : 996.13 
+Solution number: 60   : 996.13 
+Solution number: 61   : 995.25 
+Solution number: 62   : 995.00 
+Solution number: 63   : 990.83 
+Solution number: 64   : 990.83 
+Solution number: 65   : 990.83 
+Solution number: 66   : 990.83 
+Solution number: 67   : 988.75 
+Solution number: 68   : 988.67 
+Column costs                          255 
+-----------------------------------------
+     Cons. shifts costs               135 
+     Cons. worked days costs            0 
+     Complete weekend costs             0 
+     Preferences costs                120 
+-----------------------------------------
+History costs (counted)                 0 
+Resting costs                           0 
+Min worked days costs                   0 
+Max worked days costs                   0 
+Max worked weekend costs                0 
+Coverage costs                        270 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 2e+02
+Total cost = 2.6e+02
+Total cost due to individual soft constraints = 2e+02
+Total cost = 2.6e+02
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| N | N | N | N | N | - | - | |
+HN_1	| D | D | D | D | D | - | - | |
+HN_2	| - | E | L | L | - | - | - | |
+HN_3	| L | L | L | - | - | D | D | |
+HN_4	| L | L | L | - | - | E | E | |
+HN_5	| D | D | - | - | - | L | L | |
+HN_6	| L | L | - | - | D | D | N | |
+NU_7	| D | - | - | - | L | L | L | |
+NU_8	| E | E | D | D | D | - | - | |
+NU_9	| - | - | N | N | N | N | N | |
+NU_10	| - | E | E | E | - | - | - | |
+NU_11	| - | - | - | - | - | L | L | |
+NU_12	| - | - | - | - | - | N | N | |
+NU_13	| - | L | L | L | - | - | - | |
+NU_14	| - | L | L | L | L | - | - | |
+NU_15	| D | D | L | L | L | - | - | |
+NU_16	| N | N | - | - | - | - | - | |
+NU_17	| - | N | N | N | N | - | - | |
+NU_18	| L | L | L | L | L | - | - | |
+NU_19	| - | - | E | E | E | - | - | |
+NU_20	| N | N | N | - | - | E | E | |
+NU_21	| D | D | D | L | L | - | - | |
+NU_22	| - | L | L | L | - | - | - | |
+NU_23	| - | - | E | E | E | D | D | |
+NU_24	| E | - | - | D | D | L | L | |
+NU_25	| N | N | - | - | E | E | D | |
+NU_26	| N | N | N | - | - | - | - | |
+NU_27	| - | - | - | - | E | E | D | |
+NU_28	| - | E | E | D | D | - | - | |
+NU_29	| - | - | - | - | - | D | D | |
+CT_30	| N | N | - | - | - | - | - | |
+CT_31	| - | D | D | D | - | - | - | |
+CT_32	| D | D | D | D | D | - | - | |
+CT_33	| L | L | L | L | L | - | - | |
+CT_34	| E | E | E | E | E | - | - | |
+CT_35	| L | L | - | - | N | N | N | |
+CT_36	| - | - | E | E | E | - | - | |
+CT_37	| E | E | D | D | D | - | - | |
+CT_38	| - | - | N | N | N | N | N | |
+CT_39	| E | E | E | E | E | - | - | |
+CT_40	| - | - | - | N | N | N | N | |
+CT_41	| D | D | - | - | - | - | - | |
+CT_42	| E | E | E | L | L | - | - | |
+CT_43	| - | - | - | - | - | E | E | |
+CT_44	| - | D | D | D | - | - | - | |
+CT_45	| N | N | N | N | - | - | - | |
+CT_46	| - | - | E | E | E | - | - | |
+CT_47	| L | L | L | L | L | - | - | |
+CT_48	| - | N | N | N | N | - | - | |
+CT_49	| - | D | D | D | - | - | - | |
+TR_50	| - | N | N | N | - | - | - | |
+TR_51	| - | - | - | D | D | D | E | |
+TR_52	| L | - | - | - | - | N | N | |
+TR_53	| - | - | D | D | E | E | E | |
+TR_54	| L | L | L | L | - | - | - | |
+TR_55	| N | - | - | L | L | L | L | |
+TR_56	| D | D | L | L | - | - | - | |
+TR_57	| D | D | E | E | E | - | - | |
+TR_58	| E | E | E | - | - | E | E | |
+TR_59	| E | N | N | N | N | - | - | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive working days constraints: 0
+Consecutive days off constraints: 0
+Consecutive shifts constraints: 75
+Preferences: 120
+Max working weekend: 0
+Complete weekends: 0
+Optimal coverage constraints: 60
+
+---------------------------
+
+Total cost: 255
+
+Reading datasets/n060w8/WD-n060w8-2.txt
+Demand created
+Total time spent in the algorithm : 9.5
+# New stochastic solver created!
+# [week=1] Solving week no. 1 with PERTURBATIONS.
+# Generating new schedule
+# Demand has been checked and is valid
+End min demand
+# Demand has been checked and is valid
+End min demand
+# [week=1] Generation demand no. 1 created (over 14 days).
+0 3.3 0
+0 2.5 0
+0 3 0
+0 2.5 7.5
+0 2.5 7.5
+0 4 15
+0 3.3 7.5
+0 2 7.5
+0 3.3 0
+0 2.5 7.5
+0 3 0
+0 2 15
+0 2 15
+0 3 0
+0 2.7 0
+0 2.5 0
+0 1.3 0
+0 2.7 0
+0 2.5 0
+0 3 0
+0 2.5 7.5
+0 2.5 0
+0 3 0
+0 2.5 7.5
+0 2.5 7.5
+0 2.5 7.5
+0 3 0
+0 2 7.5
+0 2.7 0
+0 2 15
+0 2 0
+0 3 0
+0 2.5 0
+0 2.5 0
+0 2.5 0
+0 2.5 7.5
+0 3 0
+0 2.5 0
+0 2.5 7.5
+0 2.5 0
+0 4 15
+0 1.3 0
+0 2.5 0
+0 1.3 7.5
+0 3 0
+0 2.7 0
+0 2 0
+0 2.5 0
+0 4 0
+0 3 0
+0 3 0
+0 2.7 7.5
+0 2 7.5
+0 2.5 7.5
+0 2.7 0
+0 2.5 7.5
+0 2.7 0
+0 2.5 0
+0 2.5 7.5
+0 2.5 0
+# 
+##################################################
+# FullTime  -  Tot:30<40  |  Work:3<5  |  Rest:2<3  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 1.9e+02
+#    | max total shifts: 2.6e+02
+#    | max total we    : 26
+# costs   : 
+#    | cost shift: 18
+#    | cost we   : 22
+##################################################
+# 
+# 
+##################################################
+# PartTime  -  Tot:20<30  |  Work:3<5  |  Rest:2<5  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 75
+#    | max total shifts: 1.2e+02
+#    | max total we    : 17
+# costs   : 
+#    | cost shift: 17
+#    | cost we   : 22
+##################################################
+# 
+# 
+##################################################
+# HalfTime  -  Tot:15<20  |  Work:3<5  |  Rest:3<5  |  WE:2  |  complete
+# min/max : 
+#    | min total shifts: 62
+#    | max total shifts: 88
+#    | max total we    : 9
+# costs   : 
+#    | cost shift: 16
+#    | cost we   : 15
+##################################################
+# 
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+TM 0.104: Sol from proc: 1  val: 100021076.666667 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 100021076.67     0 /   10         60 | -9999412.33    15   300  
+TM 0.186: Sol from proc: 1  val: 90016338.333333 (prev best: 100021076.666667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 90016338.33     0 /   29        360 | -9999519.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 90011593.55     4 /   51        410 | -9999798.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 80008958.57     2 /   63        710 | -9999737.29    15   300  
+TM 0.413: Sol from proc: 1  val: 70005357.333333 (prev best: 90016338.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 70005357.33     0 /   91       1010 | -9999864.83    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 70004985.00    22 /  107        582 | -9999986.00    15   300  
+TM 0.621: Sol from proc: 1  val: 60004349.999999 (prev best: 70005357.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 60004350.00     0 /  101        882 | -9999965.50    15   300  
+TM 0.682: Sol from proc: 1  val: 50003945.166667 (prev best: 60004349.999999)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8 50003945.17     0 /  108        658 | -9999809.44    15   296  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9 40004070.25    15 /  118        638 | -9999728.08    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10 30004123.42    29 /  131        938 | -9999317.83    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11 20003941.39    90 /  171       1238 | -9999845.21    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12 20003166.96   103 /  180       1538 |    -182.32    15   288  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13 20002618.70   105 /  183       1826 | -9999735.82    15   265  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14 20002321.94   100 /  181       2091 |    -209.86    15   239  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       15 20002036.53   128 /  200       2330 | -10000019.01    15   285  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       16 10002372.30   167 /  227       2615 | -9999754.75    16   208  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       17    3033.57   178 /  242       2823 |    -204.64    18   216  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       18    2969.71   232 /  276       3039 |    -204.41    17   176  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       19    2828.20   228 /  277       3215 |    -156.07    28   187  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       20    2642.44   268 /  302       3402 |    -102.94    19   117  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       21    2583.11   226 /  273       3519 |     -85.59    30   100  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       22    2545.09   179 /  241       3619 |     -28.65    21    77  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       23    2510.97   228 /  272       3696 |     -28.84    27   123  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       24    2469.72   241 /  285       3819 |     -49.10    30   107  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       25    2382.83   260 /  304       3926 |      -9.33    60    59  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       26    2374.43   237 /  282       3985 |     -17.65    60    71  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       27    2360.68   238 /  285       4056 |     -46.60    60   114  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       28    2284.86   249 /  288       4170 |     -14.66    45    48  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       29    2262.52   209 /  261       4218 |     -56.27    60    62  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       30    2242.07   211 /  259       4280 |     -48.90    60    69  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       31    2224.49   220 /  274       4349 |     -27.54    60    55  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       32    2202.19   224 /  273       4404 |     -29.51    60    46  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       33    2178.13   189 /  254       4450 |     -24.97    60    68  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       34    2140.17   207 /  260       4518 |     -28.84    60    72  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       35    2115.43   190 /  248       4590 |     -26.81    60    72  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       36    2102.93   206 /  259       4662 |     -36.18    60    44  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       37    2081.28   185 /  246       4706 |      -6.40    60    34  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       38    2080.26   127 /  208       4740 |     -12.50    60    49  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       39    2071.80   207 /  262       4789 |      -7.41    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       40    2067.57   177 /  241       4819 |     -10.26    60    54  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       41    2060.89   178 /  241       4873 |     -23.46    60    66  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       42    2053.14   204 /  263       4939 |     -13.42    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       43    2049.30   217 /  272       4961 |      -6.84    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       44    2048.39   219 /  273       4985 |     -14.41    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       45    2032.37   217 /  271       5003 |     -16.95    60    36  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       46    2011.37   180 /  242       5039 |      -6.15    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       47    2010.44   228 /  279       5061 |     -13.27    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       48    2002.44   187 /  250       5091 |     -14.18    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       49    1994.80   146 /  220       5119 |      -8.97    60    34  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       50    1989.17   186 /  247       5153 |     -10.44    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       51    1983.69   177 /  241       5177 |     -11.97    60    34  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       52    1976.79   151 /  224       5211 |      -1.61    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       53    1976.47   136 /  215       5243 |      -8.62    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       54    1971.54    98 /  194       5269 |      -4.65    60    27  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       55    1970.91   148 /  228       5296 |      -2.66    60    16  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       56    1970.57   154 /  230       5312 |      -3.40    60    20  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       57    1970.05   152 /  231       5332 |      -2.45    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       58    1969.43   112 /  198       5346 |      -3.07    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       59    1968.93   151 /  223       5354 |      -1.61    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       60    1968.93   151 /  223       5362 |      -0.67    60     4  
+TM 10.280: Sol from proc: 1  val: 2051.333333 (prev best: 50003945.166667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       2051 9999999.00 9999999.00 |       61    1968.93   151 /  223       5366 |      -0.91    60     6  
+BCP:     0 /     0     0 |       2051 9999999.00 9999999.00 |       62    1968.90   143 /  217       5148 |      -0.19    60     6  
+BCP:     0 /     0     0 |       2051 9999999.00 9999999.00 |       63    1968.90   143 /  217       5154 |       0.00    60     0  
+Stopped: relative gap < 0.05.
+Relaxation:                    1968.90 
+Objective:                     2051.33 
+All Objective:                 
+Solution number: 0    : 100021076.67 
+Solution number: 1    : 90016338.33 
+Solution number: 2    : 90011593.55 
+Solution number: 3    : 80008958.57 
+Solution number: 4    : 70005357.33 
+Solution number: 5    : 70004985.00 
+Solution number: 6    : 60004350.00 
+Solution number: 7    : 50003945.17 
+Solution number: 8    : 40004070.25 
+Solution number: 9    : 30004123.42 
+Solution number: 10   : 20003941.39 
+Solution number: 11   : 20003166.96 
+Solution number: 12   : 20002618.70 
+Solution number: 13   : 20002321.94 
+Solution number: 14   : 20002036.53 
+Solution number: 15   : 10002372.30 
+Solution number: 16   : 3033.57 
+Solution number: 17   : 2969.71 
+Solution number: 18   : 2828.20 
+Solution number: 19   : 2642.44 
+Solution number: 20   : 2583.11 
+Solution number: 21   : 2545.09 
+Solution number: 22   : 2510.97 
+Solution number: 23   : 2469.72 
+Solution number: 24   : 2382.83 
+Solution number: 25   : 2374.43 
+Solution number: 26   : 2360.68 
+Solution number: 27   : 2284.86 
+Solution number: 28   : 2262.52 
+Solution number: 29   : 2242.07 
+Solution number: 30   : 2224.49 
+Solution number: 31   : 2202.19 
+Solution number: 32   : 2178.13 
+Solution number: 33   : 2140.17 
+Solution number: 34   : 2115.43 
+Solution number: 35   : 2102.93 
+Solution number: 36   : 2081.28 
+Solution number: 37   : 2080.26 
+Solution number: 38   : 2071.80 
+Solution number: 39   : 2067.57 
+Solution number: 40   : 2060.89 
+Solution number: 41   : 2053.14 
+Solution number: 42   : 2049.30 
+Solution number: 43   : 2048.39 
+Solution number: 44   : 2032.37 
+Solution number: 45   : 2011.37 
+Solution number: 46   : 2010.44 
+Solution number: 47   : 2002.44 
+Solution number: 48   : 1994.80 
+Solution number: 49   : 1989.17 
+Solution number: 50   : 1983.69 
+Solution number: 51   : 1976.79 
+Solution number: 52   : 1976.47 
+Solution number: 53   : 1971.54 
+Solution number: 54   : 1970.91 
+Solution number: 55   : 1970.57 
+Solution number: 56   : 1970.05 
+Solution number: 57   : 1969.43 
+Solution number: 58   : 1968.93 
+Solution number: 59   : 1968.93 
+Solution number: 60   : 1968.93 
+Solution number: 61   : 1968.90 
+Solution number: 62   : 1968.90 
+Column costs                          150 
+-----------------------------------------
+     Cons. shifts costs                30 
+     Cons. worked days costs            0 
+     Complete weekend costs             0 
+     Preferences costs                120 
+-----------------------------------------
+History costs (counted)                 0 
+Resting costs                           0 
+Min worked days costs                   0 
+Max worked days costs                1243 
+Max worked weekend costs              218 
+Coverage costs                        120 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 1.4e+02
+Total cost = 1.6e+02
+Total cost due to individual soft constraints = 1.4e+02
+Total cost = 1.6e+02
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| N | N | N | N | N | - | - | |
+HN_1	| D | D | L | L | L | - | - | |
+HN_2	| - | - | D | D | E | E | E | |
+HN_3	| D | - | - | D | D | L | L | |
+HN_4	| E | E | E | - | - | N | N | |
+HN_5	| L | L | - | - | - | - | - | |
+HN_6	| N | N | - | - | - | - | - | |
+NU_7	| L | L | - | - | D | D | D | |
+NU_8	| - | - | - | D | D | E | E | |
+NU_9	| - | - | N | N | N | N | N | |
+NU_10	| - | - | E | E | E | - | - | |
+NU_11	| L | L | - | - | - | - | - | |
+NU_12	| N | N | N | - | - | - | - | |
+NU_13	| - | - | E | E | E | - | - | |
+NU_14	| L | L | L | - | - | - | - | |
+NU_15	| E | E | L | L | L | - | - | |
+NU_16	| E | E | E | - | - | - | - | |
+NU_17	| - | - | L | L | L | - | - | |
+NU_18	| L | L | L | L | L | - | - | |
+NU_19	| - | - | - | D | D | E | E | |
+NU_20	| D | D | D | - | - | L | L | |
+NU_21	| N | N | N | N | N | - | - | |
+NU_22	| - | - | D | D | D | - | - | |
+NU_23	| - | - | N | N | N | N | N | |
+NU_24	| L | - | - | N | N | N | N | |
+NU_25	| D | D | - | - | D | D | D | |
+NU_26	| E | E | E | - | - | - | - | |
+NU_27	| D | D | - | - | - | - | - | |
+NU_28	| - | - | L | L | L | - | - | |
+NU_29	| L | L | - | - | - | - | - | |
+CT_30	| E | E | E | - | - | - | - | |
+CT_31	| - | - | E | E | E | - | - | |
+CT_32	| N | N | N | N | N | - | - | |
+CT_33	| E | E | E | E | E | - | - | |
+CT_34	| - | D | D | L | L | - | - | |
+CT_35	| N | - | - | D | D | E | E | |
+CT_36	| - | - | - | E | E | L | L | |
+CT_37	| N | N | N | N | N | - | - | |
+CT_38	| - | - | D | D | E | E | E | |
+CT_39	| D | D | D | E | E | - | - | |
+CT_40	| - | - | - | - | D | D | D | |
+CT_41	| D | D | D | - | - | L | L | |
+CT_42	| N | N | N | N | N | - | - | |
+CT_43	| E | E | - | - | D | D | D | |
+CT_44	| - | - | L | L | L | - | - | |
+CT_45	| - | - | D | D | D | - | - | |
+CT_46	| D | D | D | - | - | - | - | |
+CT_47	| N | N | N | N | N | - | - | |
+CT_48	| - | L | L | L | - | - | - | |
+CT_49	| E | E | E | - | - | - | - | |
+TR_50	| - | - | E | E | E | - | - | |
+TR_51	| E | - | - | - | N | N | N | |
+TR_52	| N | N | N | - | - | - | - | |
+TR_53	| - | - | L | L | L | - | - | |
+TR_54	| D | D | D | - | - | L | L | |
+TR_55	| - | - | E | E | E | D | D | |
+TR_56	| N | N | N | N | N | - | - | |
+TR_57	| L | L | L | L | L | - | - | |
+TR_58	| E | - | - | D | D | E | E | |
+TR_59	| D | D | D | D | D | - | - | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive working days constraints: 0
+Consecutive days off constraints: 0
+Consecutive shifts constraints: 15
+Preferences: 120
+Max working weekend: 0
+Complete weekends: 0
+Optimal coverage constraints: 30
+
+---------------------------
+
+Total cost: 165
+
+Reading datasets/n060w8/WD-n060w8-9.txt
+Demand created
+Total time spent in the algorithm : 10
+# New stochastic solver created!
+# [week=2] Solving week no. 2 with PERTURBATIONS.
+# Generating new schedule
+# Demand has been checked and is valid
+End min demand
+# Demand has been checked and is valid
+End min demand
+# [week=2] Generation demand no. 1 created (over 14 days).
+0 6.7 0
+0 5 0
+0 8 15
+0 5 15
+0 5 15
+0 6 15
+0 4.7 7.5
+0 4.5 15
+0 6 7.5
+0 5 15
+0 6 0
+0 4 15
+0 5 15
+0 6 0
+0 4.7 0
+0 5 0
+0 3.3 0
+0 4.7 0
+0 5 0
+0 7 15
+0 5 15
+0 5 0
+0 6 0
+0 5 15
+0 5 15
+0 5 15
+0 6 0
+0 3.3 7.5
+0 4.7 0
+0 4 15
+0 5 0
+0 6 0
+0 5 0
+0 5 0
+0 4.5 0
+0 5 15
+0 7 15
+0 5 0
+0 5 15
+0 5 0
+0 7 30
+0 4.7 7.5
+0 5 0
+0 4.7 15
+0 6 0
+0 4.7 0
+0 4 0
+0 5 0
+0 7 0
+0 6 0
+0 6 0
+0 5.3 15
+0 4 7.5
+0 4 7.5
+0 6 7.5
+0 5 15
+0 6 0
+0 5 0
+0 5 15
+0 5 0
+# 
+##################################################
+# FullTime  -  Tot:30<40  |  Work:3<5  |  Rest:2<3  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 1.8e+02
+#    | max total shifts: 2.6e+02
+#    | max total we    : 27
+# costs   : 
+#    | cost shift: 15
+#    | cost we   : 15
+##################################################
+# 
+# 
+##################################################
+# PartTime  -  Tot:20<30  |  Work:3<5  |  Rest:2<5  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 68
+#    | max total shifts: 1.2e+02
+#    | max total we    : 18
+# costs   : 
+#    | cost shift: 13
+#    | cost we   : 15
+##################################################
+# 
+# 
+##################################################
+# HalfTime  -  Tot:15<20  |  Work:3<5  |  Rest:3<5  |  WE:2  |  complete
+# min/max : 
+#    | min total shifts: 54
+#    | max total shifts: 84
+#    | max total we    : 9
+# costs   : 
+#    | cost shift: 12
+#    | cost we   : 0
+##################################################
+# 
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+TM 0.164: Sol from proc: 1  val: 100020672.666667 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 100020672.67     0 /   10         60 | -9999639.00    15   300  
+TM 0.228: Sol from proc: 1  val: 90016521.500000 (prev best: 100020672.666667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 90016521.50     0 /   24        360 | -9999569.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 80012930.42     4 /   47        406 | -9999696.46    15   300  
+TM 0.367: Sol from proc: 1  val: 70010201.000000 (prev best: 90016521.500000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 70010201.00     0 /   61        706 | -9999497.00    15   300  
+TM 0.426: Sol from proc: 1  val: 70006557.833333 (prev best: 70010201.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 70006557.83     0 /   86        522 | -9999809.33    15   300  
+TM 0.473: Sol from proc: 1  val: 70005830.833333 (prev best: 70006557.833333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 70005830.83     0 /   93        603 | -9999844.00    15   300  
+TM 0.581: Sol from proc: 1  val: 40006360.333334 (prev best: 70005830.833333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 40006360.33     0 /  107        643 | -9999962.07    15   300  
+TM 0.641: Sol from proc: 1  val: 40005816.333333 (prev best: 40006360.333334)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8 40005816.33     0 /  114        649 | -9999116.17    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9 30006025.33    18 /  126        664 | -9999304.50    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10 30005050.33    24 /  131        964 |    -263.33    15   295  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11 30004600.57    62 /  155       1259 | -9999604.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12 30004146.36    49 /  150       1559 |    -139.92    15   299  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13 30003827.76    83 /  171       1858 | -9999849.89    15   292  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14 30003525.28    85 /  173       2150 |    -145.07    15   198  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       15 30003225.73    77 /  169       2348 | -9999991.98    15   295  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       16 20003194.21   121 /  199       2643 | -9999743.50    16   160  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       17 12503634.79   140 /  211       2803 | -4999593.01    15   233  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       18 10003651.21   171 /  234       3036 | -9999780.42    17   139  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       19 10003595.45   143 /  216       3175 | -9999779.82    15   224  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       20    4070.91   193 /  249       3399 |    -148.00    17   103  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       21    4021.94   203 /  256       3502 |    -119.71    33   170  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       22    3838.72   168 /  237       3672 |     -18.33    21    99  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       23    3812.79   181 /  244       3771 |     -65.37    22   114  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       24    3745.10   210 /  264       3885 |     -28.31    27    96  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       25    3730.92   214 /  268       3981 |     -41.92    39    72  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       26    3688.33   198 /  253       4053 |     -53.39    60    59  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       27    3632.21   170 /  236       4112 |     -19.45    47    50  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       28    3622.22   189 /  247       4162 |     -27.89    60    74  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       29    3604.63   193 /  250       4236 |     -43.95    60    78  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       30    3566.03   179 /  239       4314 |     -24.07    60    59  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       31    3529.55   199 /  252       4373 |     -33.07    60    39  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       32    3523.08   204 /  257       4412 |     -59.00    60    50  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       33    3502.58   207 /  262       4462 |     -23.26    60    38  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       34    3474.52   226 /  275       4500 |     -11.66    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       35    3467.76   225 /  272       4524 |     -16.40    60    40  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       36    3455.62   217 /  267       4564 |     -23.91    60    48  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       37    3438.30   237 /  284       4612 |     -30.16    60    41  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       38    3409.59   220 /  271       4653 |     -15.69    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       39    3404.87   218 /  269       4679 |     -35.58    60    49  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       40    3392.82   221 /  272       4728 |     -20.03    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       41    3379.18   233 /  279       4758 |     -20.32    60    46  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       42    3375.69   209 /  261       4804 |     -10.87    60    36  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       43    3365.59   212 /  267       4840 |      -6.95    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       44    3359.77   194 /  257       4854 |      -1.95    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       45    3359.27   184 /  248       4872 |     -13.00    60    34  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       46    3352.23   205 /  261       4906 |     -22.46    60    40  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       47    3334.74   188 /  250       4946 |     -13.00    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       48    3334.20   203 /  258       4974 |      -4.78    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       49    3332.26   200 /  256       4998 |     -12.98    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       50    3331.69   194 /  252       5010 |      -9.98    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       51    3329.98   193 /  249       5036 |     -10.08    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       52    3327.47   193 /  251       5060 |      -3.90    60    16  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       53    3327.36   188 /  244       5076 |      -4.02    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       54    3327.17   219 /  268       5088 |      -2.57    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       55    3326.36   223 /  270       5098 |      -7.11    60    20  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       56    3322.01   183 /  243       5118 |     -20.00    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       57    3310.27   210 /  262       5148 |      -0.67    60     8  
+TM 7.876: Sol from proc: 1  val: 3354.333333 (prev best: 40005816.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       58    3309.75   171 /  233       5156 |      -1.40    60    14  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       59    3309.70   140 /  215       4324 |      -1.36    60    18  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       60    3309.69   130 /  210       4342 |      -2.44    60     4  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       61    3307.38   126 /  204       4346 |      -0.41    60    10  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       62    3307.38   126 /  204       4356 |      -2.84    60     8  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       63    3307.38   126 /  204       4364 |      -0.68    60     6  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       64    3307.23   176 /  236       4370 |      -2.34    60    12  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       65    3306.72   127 /  205       4382 |      -0.85    60    12  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       66    3306.72   127 /  205       4394 |      -0.45    60     6  
+BCP:     0 /     0     0 |       3354 9999999.00 9999999.00 |       67    3306.72   127 /  205       4400 |       0.00    60     0  
+Stopped: relative gap < 0.05.
+Relaxation:                    3306.72 
+Objective:                     3354.33 
+All Objective:                 
+Solution number: 0    : 100020672.67 
+Solution number: 1    : 90016521.50 
+Solution number: 2    : 80012930.42 
+Solution number: 3    : 70010201.00 
+Solution number: 4    : 70006557.83 
+Solution number: 5    : 70005830.83 
+Solution number: 6    : 40006360.33 
+Solution number: 7    : 40005816.33 
+Solution number: 8    : 30006025.33 
+Solution number: 9    : 30005050.33 
+Solution number: 10   : 30004600.57 
+Solution number: 11   : 30004146.36 
+Solution number: 12   : 30003827.76 
+Solution number: 13   : 30003525.28 
+Solution number: 14   : 30003225.73 
+Solution number: 15   : 20003194.21 
+Solution number: 16   : 12503634.79 
+Solution number: 17   : 10003651.21 
+Solution number: 18   : 10003595.45 
+Solution number: 19   : 4070.91 
+Solution number: 20   : 4021.94 
+Solution number: 21   : 3838.72 
+Solution number: 22   : 3812.79 
+Solution number: 23   : 3745.10 
+Solution number: 24   : 3730.92 
+Solution number: 25   : 3688.33 
+Solution number: 26   : 3632.21 
+Solution number: 27   : 3622.22 
+Solution number: 28   : 3604.63 
+Solution number: 29   : 3566.03 
+Solution number: 30   : 3529.55 
+Solution number: 31   : 3523.08 
+Solution number: 32   : 3502.58 
+Solution number: 33   : 3474.52 
+Solution number: 34   : 3467.76 
+Solution number: 35   : 3455.62 
+Solution number: 36   : 3438.30 
+Solution number: 37   : 3409.59 
+Solution number: 38   : 3404.87 
+Solution number: 39   : 3392.82 
+Solution number: 40   : 3379.18 
+Solution number: 41   : 3375.69 
+Solution number: 42   : 3365.59 
+Solution number: 43   : 3359.77 
+Solution number: 44   : 3359.27 
+Solution number: 45   : 3352.23 
+Solution number: 46   : 3334.74 
+Solution number: 47   : 3334.20 
+Solution number: 48   : 3332.26 
+Solution number: 49   : 3331.69 
+Solution number: 50   : 3329.98 
+Solution number: 51   : 3327.47 
+Solution number: 52   : 3327.36 
+Solution number: 53   : 3327.17 
+Solution number: 54   : 3326.36 
+Solution number: 55   : 3322.01 
+Solution number: 56   : 3310.27 
+Solution number: 57   : 3309.75 
+Solution number: 58   : 3309.70 
+Solution number: 59   : 3309.69 
+Solution number: 60   : 3307.38 
+Solution number: 61   : 3307.38 
+Solution number: 62   : 3307.38 
+Solution number: 63   : 3307.23 
+Solution number: 64   : 3306.72 
+Solution number: 65   : 3306.72 
+Solution number: 66   : 3306.72 
+Column costs                           95 
+-----------------------------------------
+     Cons. shifts costs                45 
+     Cons. worked days costs            0 
+     Complete weekend costs             0 
+     Preferences costs                 50 
+-----------------------------------------
+History costs (counted)                15 
+Resting costs                           0 
+Min worked days costs                   0 
+Max worked days costs                2450 
+Max worked weekend costs              285 
+Coverage costs                        210 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 80
+Total cost = 1.4e+02
+Total cost due to individual soft constraints = 80
+Total cost = 1.4e+02
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| - | - | - | D | D | D | E | |
+HN_1	| N | N | N | N | N | - | - | |
+HN_2	| - | - | - | - | - | L | N | |
+HN_3	| L | - | - | - | D | D | D | |
+HN_4	| N | N | - | - | E | E | E | |
+HN_5	| D | D | D | - | - | - | - | |
+HN_6	| E | E | L | L | - | - | - | |
+NU_7	| - | - | D | D | D | - | - | |
+NU_8	| E | - | - | - | E | E | E | |
+NU_9	| - | - | E | E | E | - | - | |
+NU_10	| - | - | - | E | E | D | D | |
+NU_11	| N | N | N | N | - | - | - | |
+NU_12	| N | N | N | N | - | - | - | |
+NU_13	| - | - | - | L | L | L | L | |
+NU_14	| - | D | D | D | D | - | - | |
+NU_15	| D | D | E | E | E | - | - | |
+NU_16	| N | N | N | N | N | - | - | |
+NU_17	| - | - | - | D | D | L | L | |
+NU_18	| D | D | D | L | L | - | - | |
+NU_19	| - | - | - | - | - | N | N | |
+NU_20	| L | L | - | - | N | N | N | |
+NU_21	| D | D | D | - | - | D | D | |
+NU_22	| - | - | - | D | D | D | D | |
+NU_23	| - | - | E | E | E | - | - | |
+NU_24	| - | - | L | L | L | - | - | |
+NU_25	| L | L | - | - | N | N | N | |
+NU_26	| - | D | D | D | - | - | - | |
+NU_27	| N | N | N | N | N | - | - | |
+NU_28	| - | N | N | N | N | - | - | |
+NU_29	| E | E | E | - | - | - | - | |
+CT_30	| - | D | D | D | - | - | - | |
+CT_31	| - | - | L | L | L | - | - | |
+CT_32	| E | E | E | L | L | - | - | |
+CT_33	| E | E | E | D | D | - | - | |
+CT_34	| E | E | L | L | L | - | - | |
+CT_35	| E | - | - | - | E | E | E | |
+CT_36	| L | - | - | - | - | L | L | |
+CT_37	| N | N | N | N | N | - | - | |
+CT_38	| - | - | E | E | E | - | - | |
+CT_39	| E | E | E | D | D | - | - | |
+CT_40	| D | D | - | - | - | - | - | |
+CT_41	| L | L | - | - | - | - | - | |
+CT_42	| L | L | L | - | - | D | D | |
+CT_43	| D | D | - | - | - | - | - | |
+CT_44	| - | - | - | L | L | L | L | |
+CT_45	| - | N | N | N | N | - | - | |
+CT_46	| L | L | L | - | - | E | E | |
+CT_47	| L | L | L | L | L | - | - | |
+CT_48	| - | - | E | E | E | - | - | |
+CT_49	| - | D | D | D | D | - | - | |
+TR_50	| - | E | E | E | - | - | - | |
+TR_51	| - | - | D | D | D | - | - | |
+TR_52	| N | N | N | N | - | - | - | |
+TR_53	| D | D | L | L | L | - | - | |
+TR_54	| L | - | - | - | - | N | N | |
+TR_55	| - | - | E | E | D | D | D | |
+TR_56	| D | D | D | D | - | - | - | |
+TR_57	| L | L | L | - | - | E | E | |
+TR_58	| E | - | - | E | E | L | L | |
+TR_59	| - | N | N | N | N | - | - | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive working days constraints: 0
+Consecutive days off constraints: 0
+Consecutive shifts constraints: 30
+Preferences: 50
+Max working weekend: 0
+Complete weekends: 0
+Optimal coverage constraints: 60
+
+---------------------------
+
+Total cost: 140
+
+Reading datasets/n060w8/WD-n060w8-9.txt
+Demand created
+Total time spent in the algorithm : 8.7
+# New stochastic solver created!
+# [week=3] Solving week no. 3 with PERTURBATIONS.
+# Generating new schedule
+# Demand has been checked and is valid
+End min demand
+# Demand has been checked and is valid
+End min demand
+# [week=3] Generation demand no. 1 created (over 14 days).
+0 9.3 7.5
+0 7.5 0
+0 10 30
+0 7 22
+0 7.5 22
+0 9 15
+0 7.3 7.5
+0 6 15
+0 8.7 15
+0 6.5 15
+0 10 15
+0 8 15
+0 9 15
+0 10 15
+0 7.3 0
+0 7.5 0
+0 6.7 0
+0 7.3 7.5
+0 7.5 0
+0 9 30
+0 7.5 22
+0 7.5 7.5
+0 10 15
+0 6.5 15
+0 6.5 15
+0 7.5 22
+0 9 0
+0 6.7 7.5
+0 7.3 0
+0 7 15
+0 8 0
+0 9 0
+0 7.5 0
+0 7.5 0
+0 7 0
+0 7 22
+0 10 30
+0 7.5 0
+0 6.5 15
+0 7.5 0
+0 9 30
+0 6 7.5
+0 7.5 7.5
+0 6 15
+0 10 15
+0 7.3 0
+0 7.3 7.5
+0 7.5 0
+0 10 0
+0 10 0
+0 9 0
+0 7.3 15
+0 6.7 7.5
+0 6.5 7.5
+0 8 15
+0 7.5 22
+0 8.7 0
+0 7.5 7.5
+0 7.5 22
+0 7 0
+# 
+##################################################
+# FullTime  -  Tot:30<40  |  Work:3<5  |  Rest:2<3  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 1.6e+02
+#    | max total shifts: 2.7e+02
+#    | max total we    : 28
+# costs   : 
+#    | cost shift: 12
+#    | cost we   : 7.5
+##################################################
+# 
+# 
+##################################################
+# PartTime  -  Tot:20<30  |  Work:3<5  |  Rest:2<5  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 58
+#    | max total shifts: 1.2e+02
+#    | max total we    : 20
+# costs   : 
+#    | cost shift: 11
+#    | cost we   : 15
+##################################################
+# 
+# 
+##################################################
+# HalfTime  -  Tot:15<20  |  Work:3<5  |  Rest:3<5  |  WE:2  |  complete
+# min/max : 
+#    | min total shifts: 42
+#    | max total shifts: 78
+#    | max total we    : 8
+# costs   : 
+#    | cost shift: 10
+#    | cost we   : 0
+##################################################
+# 
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+TM 0.134: Sol from proc: 1  val: 110019320.833333 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 110019320.83     0 /   11         60 | -9999739.00    15   300  
+TM 0.194: Sol from proc: 1  val: 100015584.166667 (prev best: 110019320.833333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 100015584.17     0 /   29        360 | -9999579.07    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 80013188.21     2 /   48        453 | -9999750.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 70010223.83     8 /   68        753 | -9999559.50    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 60007249.58     8 /   96       1053 | -9999710.83    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 50006992.92    39 /  117       1353 | -9999568.58    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 30007943.58    18 /  117       1653 | -9999858.33    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8 30007087.65    71 /  153       1953 |    -305.50    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9 30005846.12    72 /  160       2253 | -9999565.56    15   298  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10 30005483.93   104 /  179       2551 |    -191.07    15   259  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11 30005003.82   110 /  182       2810 | -9999994.22    15   295  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12 20004968.15   115 /  189       3105 |     -67.00    15   254  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13 20004695.45    93 /  180       3359 | -9999820.15    15   238  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14 10004959.32   148 /  214       3597 | -9999693.57    17   180  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       15    5896.55   159 /  223       3777 | -9997875.26    16   274  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       16    5412.84   208 /  258       4051 |     -95.58    16   149  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       17    5355.22   209 /  256       4200 |     -51.37    18   149  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       18    5296.46   156 /  225       4349 |     -72.61    18   120  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       19    5169.62   191 /  246       4469 |    -111.97    17   165  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       20    4932.12   188 /  243       4634 |     -12.29    22    98  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       21    4904.85   172 /  231       4732 |     -71.92    36    96  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       22    4839.55   187 /  241       4828 |     -34.02    25    67  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       23    4812.96   187 /  240       4895 |     -71.28    59    91  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       24    4725.67   155 /  218       4986 |     -54.59    45    83  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       25    4687.36    97 /  181       5069 |     -45.93    45    81  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       26    4668.36   148 /  210       5150 |     -15.39    60    39  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       27    4667.50   140 /  205       5189 |     -35.70    60    46  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       28    4656.21   160 /  221       5235 |     -31.00    60    86  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       29    4568.67   157 /  218       5321 |     -15.13    60    64  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       30    4556.79   168 /  228       5385 |     -46.13    60    41  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       31    4554.23   200 /  252       5426 |     -26.64    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       32    4547.78   133 /  211       5454 |     -12.54    60    44  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       33    4541.38   138 /  214       5498 |     -30.19    60    72  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       34    4528.89   215 /  262       5570 |      -8.69    60    44  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       35    4517.50   117 /  195       5614 |     -10.51    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       36    4516.78   171 /  236       5646 |     -13.02    60    46  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       37    4512.23   170 /  231       5692 |      -5.37    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       38    4509.82   169 /  231       5714 |     -11.98    60    55  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       39    4502.68   211 /  263       5769 |     -20.94    60    42  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       40    4492.63   172 /  230       5811 |     -32.56    60    34  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       41    4489.38   191 /  248       5845 |     -19.58    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       42    4484.95   202 /  255       5877 |      -6.23    60    20  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       43    4483.75   190 /  245       5897 |      -2.50    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       44    4483.42   177 /  234       5923 |      -5.00    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       45    4483.29   199 /  248       5937 |      -4.75    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       46    4481.40   175 /  235       5955 |      -2.46    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       47    4480.96   175 /  234       5969 |     -16.15    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       48    4474.46   185 /  240       5995 |     -10.75    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       49    4473.58   188 /  242       6021 |      -1.42    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       50    4473.56   190 /  244       6035 |      -2.83    60     4  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       51    4473.56   190 /  244       6039 |      -1.25    60     4  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       52    4473.56   190 /  244       6043 |      -2.25    60     2  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       53    4473.33   174 /  234       6045 |      -0.67    60     2  
+TM 8.480: Sol from proc: 1  val: 4541.000000 (prev best: 100015584.166667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       4541 9999999.00 9999999.00 |       54    4473.12   181 /  239       6047 |       0.00    60     0  
+Stopped: relative gap < 0.05.
+Relaxation:                    4473.12 
+Objective:                     4541.00 
+All Objective:                 
+Solution number: 0    : 110019320.83 
+Solution number: 1    : 100015584.17 
+Solution number: 2    : 80013188.21 
+Solution number: 3    : 70010223.83 
+Solution number: 4    : 60007249.58 
+Solution number: 5    : 50006992.92 
+Solution number: 6    : 30007943.58 
+Solution number: 7    : 30007087.65 
+Solution number: 8    : 30005846.12 
+Solution number: 9    : 30005483.93 
+Solution number: 10   : 30005003.82 
+Solution number: 11   : 20004968.15 
+Solution number: 12   : 20004695.45 
+Solution number: 13   : 10004959.32 
+Solution number: 14   : 5896.55 
+Solution number: 15   : 5412.84 
+Solution number: 16   : 5355.22 
+Solution number: 17   : 5296.46 
+Solution number: 18   : 5169.62 
+Solution number: 19   : 4932.12 
+Solution number: 20   : 4904.85 
+Solution number: 21   : 4839.55 
+Solution number: 22   : 4812.96 
+Solution number: 23   : 4725.67 
+Solution number: 24   : 4687.36 
+Solution number: 25   : 4668.36 
+Solution number: 26   : 4667.50 
+Solution number: 27   : 4656.21 
+Solution number: 28   : 4568.67 
+Solution number: 29   : 4556.79 
+Solution number: 30   : 4554.23 
+Solution number: 31   : 4547.78 
+Solution number: 32   : 4541.38 
+Solution number: 33   : 4528.89 
+Solution number: 34   : 4517.50 
+Solution number: 35   : 4516.78 
+Solution number: 36   : 4512.23 
+Solution number: 37   : 4509.82 
+Solution number: 38   : 4502.68 
+Solution number: 39   : 4492.63 
+Solution number: 40   : 4489.38 
+Solution number: 41   : 4484.95 
+Solution number: 42   : 4483.75 
+Solution number: 43   : 4483.42 
+Solution number: 44   : 4483.29 
+Solution number: 45   : 4481.40 
+Solution number: 46   : 4480.96 
+Solution number: 47   : 4474.46 
+Solution number: 48   : 4473.58 
+Solution number: 49   : 4473.56 
+Solution number: 50   : 4473.56 
+Solution number: 51   : 4473.56 
+Solution number: 52   : 4473.33 
+Solution number: 53   : 4473.12 
+Column costs                          110 
+-----------------------------------------
+     Cons. shifts costs                60 
+     Cons. worked days costs            0 
+     Complete weekend costs             0 
+     Preferences costs                 50 
+-----------------------------------------
+History costs (counted)                15 
+Resting costs                           0 
+Min worked days costs                   0 
+Max worked days costs                3629 
+Max worked weekend costs              262 
+Coverage costs                        270 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 80
+Total cost = 2e+02
+Total cost due to individual soft constraints = 80
+Total cost = 2e+02
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| E | - | - | - | E | E | E | |
+HN_1	| E | E | E | - | - | L | L | |
+HN_2	| N | N | N | - | - | - | - | |
+HN_3	| D | D | - | - | D | D | D | |
+HN_4	| - | - | L | L | L | - | - | |
+HN_5	| - | D | D | D | - | - | - | |
+HN_6	| - | N | N | N | N | - | - | |
+NU_7	| N | N | N | N | N | - | - | |
+NU_8	| - | - | D | D | D | - | - | |
+NU_9	| E | E | E | E | E | - | - | |
+NU_10	| - | - | - | - | - | L | L | |
+NU_11	| - | D | D | D | - | - | - | |
+NU_12	| - | D | D | D | - | - | - | |
+NU_13	| L | - | - | - | D | D | E | |
+NU_14	| - | - | - | N | N | N | N | |
+NU_15	| L | L | L | L | L | - | - | |
+NU_16	| - | - | - | L | L | L | L | |
+NU_17	| L | - | - | - | E | E | E | |
+NU_18	| L | L | L | L | L | - | - | |
+NU_19	| N | N | - | - | - | - | - | |
+NU_20	| N | N | - | - | E | E | E | |
+NU_21	| D | D | - | - | D | D | D | |
+NU_22	| - | - | - | - | - | N | N | |
+NU_23	| E | E | E | L | L | - | - | |
+NU_24	| D | D | E | E | E | - | - | |
+NU_25	| - | - | L | L | L | - | - | |
+NU_26	| - | - | E | E | E | - | - | |
+NU_27	| - | N | N | N | N | - | - | |
+NU_28	| - | - | - | D | D | D | D | |
+NU_29	| - | D | D | D | - | - | - | |
+CT_30	| - | - | E | E | E | - | - | |
+CT_31	| - | - | - | D | D | E | E | |
+CT_32	| N | N | N | N | N | - | - | |
+CT_33	| N | N | N | N | N | - | - | |
+CT_34	| D | D | D | D | D | - | - | |
+CT_35	| - | - | E | E | E | - | - | |
+CT_36	| L | L | - | - | - | - | - | |
+CT_37	| L | L | L | L | L | - | - | |
+CT_38	| D | D | D | D | D | - | - | |
+CT_39	| E | E | E | - | - | D | D | |
+CT_40	| E | E | E | - | - | - | - | |
+CT_41	| E | E | L | L | - | - | - | |
+CT_42	| D | D | - | - | N | N | N | |
+CT_43	| L | L | L | - | - | - | - | |
+CT_44	| L | - | - | - | - | N | N | |
+CT_45	| - | - | D | D | D | - | - | |
+CT_46	| E | L | L | - | - | - | - | |
+CT_47	| N | N | N | N | N | - | - | |
+CT_48	| - | - | - | L | L | L | L | |
+CT_49	| - | - | - | E | E | D | D | |
+TR_50	| - | E | E | E | - | - | - | |
+TR_51	| - | N | N | N | - | - | - | |
+TR_52	| D | D | L | L | - | - | - | |
+TR_53	| D | D | D | D | D | - | - | |
+TR_54	| N | N | N | - | - | - | - | |
+TR_55	| - | - | E | E | E | L | L | |
+TR_56	| L | L | L | - | - | E | E | |
+TR_57	| E | - | - | N | N | N | N | |
+TR_58	| - | - | D | D | D | - | - | |
+TR_59	| L | L | L | - | - | D | D | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive working days constraints: 0
+Consecutive days off constraints: 0
+Consecutive shifts constraints: 30
+Preferences: 50
+Max working weekend: 0
+Complete weekends: 0
+Optimal coverage constraints: 120
+
+---------------------------
+
+Total cost: 200
+
+Reading datasets/n060w8/WD-n060w8-0.txt
+Demand created
+Total time spent in the algorithm : 8.6
+# New stochastic solver created!
+# [week=4] Solving week no. 4 with PERTURBATIONS.
+# Generating new schedule
+# Demand has been checked and is valid
+End min demand
+# Demand has been checked and is valid
+End min demand
+# [week=4] Generation demand no. 1 created (over 14 days).
+0 12 15
+0 10 7.5
+0 13 30
+0 9.5 30
+0 9 22
+0 12 15
+0 10 7.5
+0 8.5 15
+0 11 15
+0 9 15
+0 12 30
+0 11 15
+0 12 15
+0 14 30
+0 10 7.5
+0 10 0
+0 9.3 7.5
+0 10 15
+0 10 0
+0 11 30
+0 10 30
+0 10 15
+0 12 30
+0 9 15
+0 9 15
+0 9 22
+0 12 0
+0 9.3 7.5
+0 10 7.5
+0 10 15
+0 11 0
+0 13 15
+0 10 0
+0 10 0
+0 9.5 0
+0 8.5 22
+0 12 30
+0 10 0
+0 9 15
+0 10 7.5
+0 12 30
+0 8.7 7.5
+0 10 15
+0 8 15
+0 13 30
+0 9.3 0
+0 9.3 7.5
+0 10 0
+0 14 15
+0 14 15
+0 12 0
+0 9.3 15
+0 9.3 7.5
+0 9 7.5
+0 10 15
+0 10 30
+0 12 7.5
+0 10 15
+0 9 22
+0 9.5 7.5
+# 
+##################################################
+# FullTime  -  Tot:30<40  |  Work:3<5  |  Rest:2<3  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 1.4e+02
+#    | max total shifts: 2.7e+02
+#    | max total we    : 30
+# costs   : 
+#    | cost shift: 10
+#    | cost we   : 0
+##################################################
+# 
+# 
+##################################################
+# PartTime  -  Tot:20<30  |  Work:3<5  |  Rest:2<5  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 42
+#    | max total shifts: 1.2e+02
+#    | max total we    : 22
+# costs   : 
+#    | cost shift: 8
+#    | cost we   : 15
+##################################################
+# 
+# 
+##################################################
+# HalfTime  -  Tot:15<20  |  Work:3<5  |  Rest:3<5  |  WE:2  |  complete
+# min/max : 
+#    | min total shifts: 25
+#    | max total shifts: 70
+#    | max total we    : 7
+# costs   : 
+#    | cost shift: 6
+#    | cost we   : 0
+##################################################
+# 
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+TM 0.140: Sol from proc: 1  val: 100019761.000000 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 100019761.00     0 /   10         60 | -9999490.86    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 90016570.64     2 /   32        360 | -9999575.64    15   300  
+TM 0.301: Sol from proc: 1  val: 80013727.333333 (prev best: 100019761.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 80013727.33     0 /   52        660 | -9999909.00    15   300  
+TM 0.366: Sol from proc: 1  val: 80010648.666667 (prev best: 80013727.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 80010648.67     0 /   72        532 | -9999641.83    15   300  
+TM 0.422: Sol from proc: 1  val: 80007839.666667 (prev best: 80010648.666667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 80007839.67     0 /   93        592 | -9999865.17    15   300  
+TM 0.504: Sol from proc: 1  val: 50009307.166667 (prev best: 80007839.666667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 50009307.17     0 /  105        663 | -9999147.17    15   300  
+TM 0.589: Sol from proc: 1  val: 50008461.666667 (prev best: 50009307.166667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 50008461.67     0 /  107        656 | -10000027.50    15   300  
+TM 0.644: Sol from proc: 1  val: 50007689.833333 (prev best: 50008461.666667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8 50007689.83     0 /  116        667 | -6666310.08    15   300  
+TM 0.706: Sol from proc: 1  val: 40007784.333333 (prev best: 50007689.833333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9 40007784.33     0 /  123        667 | -9999635.50    15   297  
+TM 0.768: Sol from proc: 1  val: 40007491.833333 (prev best: 40007784.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10 40007491.83     0 /  121        660 | -9999517.92    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11 40007070.79    25 /  137        688 | -9999904.00    15   297  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12 30006964.83    12 /  132        985 |    -210.83    15   298  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13 30006525.43    40 /  147       1283 | -10000110.20    15   298  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14 20006505.11    88 /  179       1581 |    -170.83    15   287  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       15 20006235.18    92 /  184       1868 | -9999834.54    15   297  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       16 10006554.04    72 /  173       2165 |    -101.29    15   247  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       17 10006195.22    91 /  184       2412 | -9999892.29    15   267  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       18 3339905.66   140 /  216       2679 |     -83.98    15   181  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       19 3339821.45   149 /  226       2860 |    -253.86    16   211  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       20 3339572.23   200 /  257       3071 | -6665636.38    17   184  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       21    6949.40   185 /  248       3255 | -4998900.28    16   162  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       22    6501.67   141 /  223       3417 |     -30.70    30   107  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       23    6454.89   170 /  238       3524 |     -59.83    27   134  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       24    6384.23   130 /  212       3658 |    -149.57    21   150  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       25    6331.94   155 /  228       3808 |    -134.83    56   108  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       26    6203.94    65 /  178       3916 |     -28.18    60    85  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       27    6188.36    93 /  191       4001 |     -46.72    60    72  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       28    6164.91    73 /  177       4073 |     -31.86    60    63  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       29    6154.17    57 /  169       4136 |     -36.25    60    52  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       30    6113.36   133 /  212       4188 |     -18.02    60    63  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       31    6111.44   140 /  217       4251 |     -27.17    60    58  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       32    6094.56   106 /  196       4309 |     -64.78    60    69  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       33    6087.30   116 /  201       4378 |     -23.17    60    52  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       34    6075.93    90 /  186       4430 |     -42.01    60    40  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       35    6073.61    77 /  180       4470 |     -60.00    60    40  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       36    6058.74   144 /  217       4510 |     -49.32    60    51  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       37    6049.28   210 /  261       4561 |     -54.68    60    63  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       38    5991.70    80 /  180       4624 |     -87.04    60    51  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       39    5971.56   147 /  220       4675 |     -15.00    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       40    5970.75   115 /  202       4703 |     -20.95    60    44  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       41    5965.62   156 /  223       4747 |     -24.17    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       42    5965.62   156 /  223       4771 |     -27.43    60    35  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       43    5956.12   202 /  263       4806 |     -23.80    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       44    5938.57   171 /  235       4838 |     -32.67    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       45    5935.88   159 /  228       4870 |     -24.08    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       46    5929.97   205 /  262       4892 |     -18.24    60    16  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       47    5929.56   198 /  254       4908 |     -16.38    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       48    5924.22   195 /  253       4938 |     -22.79    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       49    5913.59   198 /  257       4962 |      -5.20    60    16  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       50    5912.27   187 /  252       4978 |     -10.93    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       51    5909.93   199 /  257       4996 |     -12.82    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       52    5906.73   182 /  245       5014 |      -3.66    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       53    5905.78   171 /  240       5028 |      -4.22    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       54    5904.59   186 /  250       5040 |      -6.67    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       55    5903.24   160 /  229       5058 |      -6.17    60    16  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       56    5899.03   164 /  232       5074 |      -3.57    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       57    5898.36   175 /  243       5084 |      -8.62    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       58    5892.71   143 /  216       5098 |     -13.27    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       59    5885.92   141 /  217       5116 |      -1.67    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       60    5885.92   141 /  217       5124 |      -6.04    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       61    5885.91   175 /  238       5136 |      -3.16    60     6  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       62    5885.75   173 /  236       5142 |      -4.65    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       63    5885.08   161 /  228       5152 |      -1.79    60     4  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       64    5885.08   148 /  222       5156 |      -1.87    60     2  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       65    5884.21   161 /  227       5158 |      -1.63    60     2  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       66    5883.50   140 /  215       5160 |      -0.71    60     2  
+TM 7.849: Sol from proc: 1  val: 5902.000000 (prev best: 40007491.833333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       5902 9999999.00 9999999.00 |       67    5883.50   140 /  215       5162 |       0.00    60     0  
+Stopped: relative gap < 0.05.
+Relaxation:                    5883.50 
+Objective:                     5902.00 
+All Objective:                 
+Solution number: 0    : 100019761.00 
+Solution number: 1    : 90016570.64 
+Solution number: 2    : 80013727.33 
+Solution number: 3    : 80010648.67 
+Solution number: 4    : 80007839.67 
+Solution number: 5    : 50009307.17 
+Solution number: 6    : 50008461.67 
+Solution number: 7    : 50007689.83 
+Solution number: 8    : 40007784.33 
+Solution number: 9    : 40007491.83 
+Solution number: 10   : 40007070.79 
+Solution number: 11   : 30006964.83 
+Solution number: 12   : 30006525.43 
+Solution number: 13   : 20006505.11 
+Solution number: 14   : 20006235.18 
+Solution number: 15   : 10006554.04 
+Solution number: 16   : 10006195.22 
+Solution number: 17   : 3339905.66 
+Solution number: 18   : 3339821.45 
+Solution number: 19   : 3339572.23 
+Solution number: 20   : 6949.40 
+Solution number: 21   : 6501.67 
+Solution number: 22   : 6454.89 
+Solution number: 23   : 6384.23 
+Solution number: 24   : 6331.94 
+Solution number: 25   : 6203.94 
+Solution number: 26   : 6188.36 
+Solution number: 27   : 6164.91 
+Solution number: 28   : 6154.17 
+Solution number: 29   : 6113.36 
+Solution number: 30   : 6111.44 
+Solution number: 31   : 6094.56 
+Solution number: 32   : 6087.30 
+Solution number: 33   : 6075.93 
+Solution number: 34   : 6073.61 
+Solution number: 35   : 6058.74 
+Solution number: 36   : 6049.28 
+Solution number: 37   : 5991.70 
+Solution number: 38   : 5971.56 
+Solution number: 39   : 5970.75 
+Solution number: 40   : 5965.62 
+Solution number: 41   : 5965.62 
+Solution number: 42   : 5956.12 
+Solution number: 43   : 5938.57 
+Solution number: 44   : 5935.88 
+Solution number: 45   : 5929.97 
+Solution number: 46   : 5929.56 
+Solution number: 47   : 5924.22 
+Solution number: 48   : 5913.59 
+Solution number: 49   : 5912.27 
+Solution number: 50   : 5909.93 
+Solution number: 51   : 5906.73 
+Solution number: 52   : 5905.78 
+Solution number: 53   : 5904.59 
+Solution number: 54   : 5903.24 
+Solution number: 55   : 5899.03 
+Solution number: 56   : 5898.36 
+Solution number: 57   : 5892.71 
+Solution number: 58   : 5885.92 
+Solution number: 59   : 5885.92 
+Solution number: 60   : 5885.91 
+Solution number: 61   : 5885.75 
+Solution number: 62   : 5885.08 
+Solution number: 63   : 5885.08 
+Solution number: 64   : 5884.21 
+Solution number: 65   : 5883.50 
+Solution number: 66   : 5883.50 
+Column costs                           65 
+-----------------------------------------
+     Cons. shifts costs                15 
+     Cons. worked days costs            0 
+     Complete weekend costs            30 
+     Preferences costs                 20 
+-----------------------------------------
+History costs (counted)                 0 
+Resting costs                          30 
+Min worked days costs                   0 
+Max worked days costs                4882 
+Max worked weekend costs              398 
+Coverage costs                        300 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 50
+Total cost = 1.4e+02
+Total cost due to individual soft constraints = 50
+Total cost = 1.4e+02
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| E | - | - | - | N | N | N | |
+HN_1	| L | - | - | E | E | D | D | |
+HN_2	| - | L | L | L | - | - | - | |
+HN_3	| - | - | E | E | E | E | E | |
+HN_4	| N | N | N | N | N | - | - | |
+HN_5	| - | - | D | D | D | - | - | |
+HN_6	| D | D | D | - | - | L | L | |
+NU_7	| E | E | D | D | D | - | - | |
+NU_8	| - | - | E | E | E | - | - | |
+NU_9	| L | L | L | L | L | - | - | |
+NU_10	| L | L | - | - | - | - | - | |
+NU_11	| - | - | E | E | E | - | - | |
+NU_12	| - | - | L | L | L | - | - | |
+NU_13	| E | E | - | - | - | - | - | |
+NU_14	| - | - | D | D | D | - | - | |
+NU_15	| L | L | L | - | - | E | E | |
+NU_16	| - | - | E | E | E | - | - | |
+NU_17	| D | D | - | - | - | - | - | |
+NU_18	| L | L | L | - | - | E | E | |
+NU_19	| D | D | D | - | - | - | - | |
+NU_20	| - | - | D | D | D | - | - | |
+NU_21	| L | L | - | - | L | L | L | |
+NU_22	| N | N | - | - | - | - | - | |
+NU_23	| E | E | L | L | L | - | - | |
+NU_24	| D | D | D | L | L | - | - | |
+NU_25	| L | L | L | L | L | - | - | |
+NU_26	| - | - | - | D | D | D | D | |
+NU_27	| - | N | N | N | N | - | - | |
+NU_28	| D | - | - | N | N | N | N | |
+NU_29	| N | N | N | N | - | - | - | |
+CT_30	| - | - | - | N | N | N | N | |
+CT_31	| E | - | - | - | - | - | - | |
+CT_32	| E | E | E | D | D | - | - | |
+CT_33	| E | E | E | L | L | - | - | |
+CT_34	| E | E | E | - | - | E | E | |
+CT_35	| N | N | N | N | - | - | - | |
+CT_36	| N | N | N | N | - | - | - | |
+CT_37	| D | D | D | D | D | - | - | |
+CT_38	| E | E | E | E | E | - | - | |
+CT_39	| D | D | - | - | N | N | N | |
+CT_40	| - | L | L | L | - | - | - | |
+CT_41	| - | - | E | E | E | - | - | |
+CT_42	| N | N | - | - | L | L | L | |
+CT_43	| N | N | N | N | - | - | - | |
+CT_44	| N | N | - | - | - | - | - | |
+CT_45	| - | - | - | N | N | N | N | |
+CT_46	| D | D | E | E | E | - | - | |
+CT_47	| D | D | E | E | E | - | - | |
+CT_48	| - | - | - | - | D | D | D | |
+CT_49	| - | - | - | - | - | L | L | |
+TR_50	| - | - | E | E | E | L | L | |
+TR_51	| N | N | N | N | N | - | - | |
+TR_52	| D | D | D | L | L | - | - | |
+TR_53	| E | E | E | - | - | N | N | |
+TR_54	| - | L | L | L | L | - | - | |
+TR_55	| - | - | D | D | D | - | - | |
+TR_56	| L | L | - | - | E | E | E | |
+TR_57	| - | - | E | E | E | - | - | |
+TR_58	| N | N | N | N | N | - | - | |
+TR_59	| L | L | - | - | D | D | D | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive working days constraints: 0
+Consecutive days off constraints: 30
+Consecutive shifts constraints: 0
+Preferences: 20
+Max working weekend: 0
+Complete weekends: 0
+Optimal coverage constraints: 90
+
+---------------------------
+
+Total cost: 140
+
+Reading datasets/n060w8/WD-n060w8-8.txt
+Demand created
+Total time spent in the algorithm : 7.9
+# New stochastic solver created!
+# [week=5] Solving week no. 5 with PERTURBATIONS.
+# Generating new schedule
+# Demand has been checked and is valid
+End min demand
+# Demand has been checked and is valid
+End min demand
+# [week=5] Generation demand no. 1 created (over 14 days).
+0 15 22
+0 12 15
+0 16 30
+0 12 30
+0 12 22
+0 15 15
+0 13 15
+0 11 15
+0 13 15
+0 12 15
+0 14 30
+0 14 15
+0 15 15
+0 16 30
+0 12 7.5
+0 12 7.5
+0 11 7.5
+0 11 15
+0 12 7.5
+0 14 30
+0 12 30
+0 12 22
+0 14 30
+0 12 15
+0 12 15
+0 12 22
+0 16 15
+0 12 7.5
+0 13 15
+0 14 15
+0 15 15
+0 14 15
+0 12 0
+0 12 0
+0 12 7.5
+0 10 22
+0 16 30
+0 12 0
+0 12 15
+0 12 15
+0 15 30
+0 11 7.5
+0 12 22
+0 11 15
+0 15 30
+0 12 7.5
+0 13 7.5
+0 12 0
+0 17 30
+0 16 30
+0 17 15
+0 13 15
+0 13 7.5
+0 12 15
+0 13 15
+0 12 30
+0 15 15
+0 12 15
+0 12 22
+0 12 15
+# 
+##################################################
+# FullTime  -  Tot:30<40  |  Work:3<5  |  Rest:2<3  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 1.1e+02
+#    | max total shifts: 2.8e+02
+#    | max total we    : 34
+# costs   : 
+#    | cost shift: 7.5
+#    | cost we   : 0
+##################################################
+# 
+# 
+##################################################
+# PartTime  -  Tot:20<30  |  Work:3<5  |  Rest:2<5  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 17
+#    | max total shifts: 1.2e+02
+#    | max total we    : 26
+# costs   : 
+#    | cost shift: 4.7
+#    | cost we   : 7.5
+##################################################
+# 
+# 
+##################################################
+# HalfTime  -  Tot:15<20  |  Work:3<5  |  Rest:3<5  |  WE:2  |  complete
+# min/max : 
+#    | min total shifts: 4
+#    | max total shifts: 58
+#    | max total we    : 6
+# costs   : 
+#    | cost shift: 3
+#    | cost we   : 0
+##################################################
+# 
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 110019086.02     3 /   13         60 | -9999937.57    15   300  
+TM 0.186: Sol from proc: 1  val: 110016158.000000 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 110016158.00     0 /   28        360 | -9999996.50    15   300  
+TM 0.232: Sol from proc: 1  val: 110013448.500000 (prev best: 110016158.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 110013448.50     0 /   46        425 | -9999903.36    15   300  
+TM 0.277: Sol from proc: 1  val: 100010992.166667 (prev best: 110013448.500000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 100010992.17     0 /   65        511 | -9999999.00    15   300  
+TM 0.334: Sol from proc: 1  val: 90008984.333333 (prev best: 100010992.166667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 90008984.33     0 /   80        594 | -9999980.00    15   300  
+TM 0.386: Sol from proc: 1  val: 70009368.833333 (prev best: 90008984.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 70009368.83     0 /   90        650 | -9999561.17    15   300  
+TM 0.444: Sol from proc: 1  val: 60008901.333333 (prev best: 70009368.833333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 60008901.33     0 /   98        649 | -10000114.67    15   300  
+TM 0.497: Sol from proc: 1  val: 50008527.666667 (prev best: 60008901.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8 50008527.67     0 /  104        705 | -9999627.67    15   300  
+TM 0.546: Sol from proc: 1  val: 50007431.000000 (prev best: 50008527.666667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9 50007431.00     0 /  115        708 | -9999794.50    15   300  
+TM 0.644: Sol from proc: 1  val: 30007959.499992 (prev best: 50007431.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10 30007959.50     0 /  127        750 | -9999084.83    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11 23341697.06    30 /  148        753 | -9999849.75    15   290  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12 20008447.39    29 /  147       1043 |    -399.89    15   295  
+TM 0.931: Sol from proc: 1  val: 20007627.166663 (prev best: 30007959.499992)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13 20007627.17     0 /  130       1338 | -9999417.79    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14 20007389.35    67 /  167       1638 |    -110.92    15   276  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       15 20007304.95   101 /  185       1903 | -9999993.17    16   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       16 20007166.66   100 /  183       2203 | -9999667.94    16   242  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       17 13757500.46   136 /  207       2445 | -6249358.36    15   251  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       18 10007762.56   178 /  238       2696 | -9999914.22    16   135  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       19 10007724.41   122 /  204       2831 | -9999804.29    15   271  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       20    8075.68   147 /  222       3102 |    -164.50    18   183  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       21    7962.51   175 /  244       3285 |    -148.05    28   160  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       22    7727.25   142 /  218       3445 |    -104.05    19   135  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       23    7698.62   182 /  245       3580 |     -51.06    15   180  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       24    7637.32   201 /  256       3760 |     -33.91    22    76  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       25    7584.22   167 /  234       3836 |     -54.95    60    88  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       26    7545.09   134 /  211       3924 |     -21.83    60    68  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       27    7523.01   169 /  233       3992 |     -46.71    35    54  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       28    7495.56   161 /  227       4046 |     -78.15    52    79  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       29    7451.38   186 /  241       4125 |     -54.49    43    56  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       30    7428.20   179 /  232       4181 |      -9.57    60    57  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       31    7417.94   169 /  227       4238 |      -9.48    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       32    7416.95   171 /  228       4268 |     -12.03    60    36  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       33    7409.03   120 /  197       4304 |     -17.51    60    54  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       34    7394.79   159 /  223       4358 |     -48.60    60    52  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       35    7390.30   203 /  252       4410 |     -23.00    59    59  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       36    7386.92   209 /  255       4469 |     -53.11    60    65  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       37    7346.28    97 /  185       4534 |     -14.14    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       38    7345.25    72 /  170       4566 |     -10.88    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       39    7343.42    90 /  180       4592 |     -36.68    60    58  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       40    7316.65   192 /  248       4650 |     -11.81    60    59  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       41    7304.39   149 /  213       4709 |     -19.88    60    46  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       42    7300.81   190 /  250       4755 |     -15.58    60    36  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       43    7297.09   181 /  239       4791 |     -14.57    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       44    7290.47   181 /  239       4817 |     -22.72    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       45    7285.43   181 /  239       4845 |     -15.42    60    29  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       46    7277.88   193 /  249       4874 |     -12.22    60    35  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       47    7270.31   180 /  237       4909 |     -16.65    60    20  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       48    7267.83   145 /  215       4929 |     -18.08    60    20  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       49    7250.03   104 /  187       4949 |     -31.22    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       50    7232.78   130 /  206       4975 |     -13.69    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       51    7232.39   117 /  198       5005 |      -7.19    60    16  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       52    7231.67   130 /  208       5021 |      -6.19    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       53    7228.78   140 /  214       5035 |     -38.39    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       54    7210.17    50 /  159       5061 |     -11.83    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       55    7205.67    46 /  157       5087 |      -2.71    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       56    7205.67    46 /  157       5099 |     -15.33    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       57    7203.09   113 /  193       5113 |      -5.61    60     6  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       58    7201.83   117 /  194       5119 |      -6.58    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       59    7201.83   117 /  194       5127 |      -2.92    60     6  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       60    7201.83   117 /  194       5133 |      -0.33    60     4  
+TM 7.204: Sol from proc: 1  val: 7255.000000 (prev best: 20007627.166663)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       7255 9999999.00 9999999.00 |       61    7201.83   117 /  194       5137 |      -1.83    60     4  
+BCP:     0 /     0     0 |       7255 9999999.00 9999999.00 |       62    7201.83   117 /  194       4482 |      -1.43    60     4  
+BCP:     0 /     0     0 |       7255 9999999.00 9999999.00 |       63    7201.83   117 /  194       4486 |      -0.40    60     4  
+BCP:     0 /     0     0 |       7255 9999999.00 9999999.00 |       64    7201.83   117 /  194       4490 |      -0.25    60     2  
+BCP:     0 /     0     0 |       7255 9999999.00 9999999.00 |       65    7201.83   117 /  194       4492 |       0.00    60     0  
+Stopped: relative gap < 0.05.
+Relaxation:                    7201.83 
+Objective:                     7255.00 
+All Objective:                 
+Solution number: 0    : 110019086.02 
+Solution number: 1    : 110016158.00 
+Solution number: 2    : 110013448.50 
+Solution number: 3    : 100010992.17 
+Solution number: 4    : 90008984.33 
+Solution number: 5    : 70009368.83 
+Solution number: 6    : 60008901.33 
+Solution number: 7    : 50008527.67 
+Solution number: 8    : 50007431.00 
+Solution number: 9    : 30007959.50 
+Solution number: 10   : 23341697.06 
+Solution number: 11   : 20008447.39 
+Solution number: 12   : 20007627.17 
+Solution number: 13   : 20007389.35 
+Solution number: 14   : 20007304.95 
+Solution number: 15   : 20007166.66 
+Solution number: 16   : 13757500.46 
+Solution number: 17   : 10007762.56 
+Solution number: 18   : 10007724.41 
+Solution number: 19   : 8075.68 
+Solution number: 20   : 7962.51 
+Solution number: 21   : 7727.25 
+Solution number: 22   : 7698.62 
+Solution number: 23   : 7637.32 
+Solution number: 24   : 7584.22 
+Solution number: 25   : 7545.09 
+Solution number: 26   : 7523.01 
+Solution number: 27   : 7495.56 
+Solution number: 28   : 7451.38 
+Solution number: 29   : 7428.20 
+Solution number: 30   : 7417.94 
+Solution number: 31   : 7416.95 
+Solution number: 32   : 7409.03 
+Solution number: 33   : 7394.79 
+Solution number: 34   : 7390.30 
+Solution number: 35   : 7386.92 
+Solution number: 36   : 7346.28 
+Solution number: 37   : 7345.25 
+Solution number: 38   : 7343.42 
+Solution number: 39   : 7316.65 
+Solution number: 40   : 7304.39 
+Solution number: 41   : 7300.81 
+Solution number: 42   : 7297.09 
+Solution number: 43   : 7290.47 
+Solution number: 44   : 7285.43 
+Solution number: 45   : 7277.88 
+Solution number: 46   : 7270.31 
+Solution number: 47   : 7267.83 
+Solution number: 48   : 7250.03 
+Solution number: 49   : 7232.78 
+Solution number: 50   : 7232.39 
+Solution number: 51   : 7231.67 
+Solution number: 52   : 7228.78 
+Solution number: 53   : 7210.17 
+Solution number: 54   : 7205.67 
+Solution number: 55   : 7205.67 
+Solution number: 56   : 7203.09 
+Solution number: 57   : 7201.83 
+Solution number: 58   : 7201.83 
+Solution number: 59   : 7201.83 
+Solution number: 60   : 7201.83 
+Solution number: 61   : 7201.83 
+Solution number: 62   : 7201.83 
+Solution number: 63   : 7201.83 
+Solution number: 64   : 7201.83 
+Column costs                          150 
+-----------------------------------------
+     Cons. shifts costs                30 
+     Cons. worked days costs            0 
+     Complete weekend costs             0 
+     Preferences costs                120 
+-----------------------------------------
+History costs (counted)                 0 
+Resting costs                           0 
+Min worked days costs                   0 
+Max worked days costs                6097 
+Max worked weekend costs              592 
+Coverage costs                        240 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 1.2e+02
+Total cost = 1.5e+02
+Total cost due to individual soft constraints = 1.2e+02
+Total cost = 1.5e+02
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| N | N | - | - | D | D | D | |
+HN_1	| D | - | - | D | D | N | N | |
+HN_2	| - | E | E | L | L | - | - | |
+HN_3	| - | - | L | L | L | - | - | |
+HN_4	| N | N | N | N | N | - | - | |
+HN_5	| - | - | - | E | E | E | E | |
+HN_6	| L | L | - | - | L | L | L | |
+NU_7	| E | E | E | E | E | - | - | |
+NU_8	| - | L | L | L | L | - | - | |
+NU_9	| E | E | E | L | L | - | - | |
+NU_10	| D | D | E | E | - | - | - | |
+NU_11	| - | - | - | E | E | L | L | |
+NU_12	| - | - | E | E | E | - | - | |
+NU_13	| D | D | D | - | - | - | - | |
+NU_14	| - | - | - | D | D | D | D | |
+NU_15	| L | L | - | - | D | D | E | |
+NU_16	| - | N | N | N | N | - | - | |
+NU_17	| D | D | D | L | L | - | - | |
+NU_18	| L | L | - | - | N | N | N | |
+NU_19	| - | L | L | L | L | - | - | |
+NU_20	| E | E | E | E | E | - | - | |
+NU_21	| - | - | D | D | D | - | - | |
+NU_22	| N | N | N | N | - | - | - | |
+NU_23	| E | E | E | D | D | - | - | |
+NU_24	| N | N | N | N | N | - | - | |
+NU_25	| E | E | E | E | E | - | - | |
+NU_26	| - | - | - | - | - | E | E | |
+NU_27	| - | - | - | N | N | N | N | |
+NU_28	| - | - | - | - | L | L | L | |
+NU_29	| - | D | D | D | D | - | - | |
+CT_30	| - | - | - | - | - | E | E | |
+CT_31	| E | E | E | E | - | - | - | |
+CT_32	| L | L | L | - | - | N | N | |
+CT_33	| D | D | D | - | - | E | E | |
+CT_34	| E | E | - | - | N | N | N | |
+CT_35	| N | N | N | N | - | - | - | |
+CT_36	| - | - | L | L | L | - | - | |
+CT_37	| D | D | D | - | - | D | D | |
+CT_38	| N | N | N | N | N | - | - | |
+CT_39	| N | - | - | E | E | D | D | |
+CT_40	| - | D | D | D | - | - | - | |
+CT_41	| - | - | - | D | D | D | D | |
+CT_42	| - | - | L | L | L | - | - | |
+CT_43	| N | N | N | N | N | - | - | |
+CT_44	| L | L | L | - | - | - | - | |
+CT_45	| N | - | - | N | N | N | N | |
+CT_46	| - | - | - | D | D | E | E | |
+CT_47	| D | D | D | - | - | L | L | |
+CT_48	| D | D | - | - | - | - | - | |
+CT_49	| L | L | - | - | - | - | - | |
+TR_50	| - | - | - | N | N | N | N | |
+TR_51	| - | N | N | N | N | - | - | |
+TR_52	| D | D | D | - | - | E | E | |
+TR_53	| N | N | - | - | E | E | N | |
+TR_54	| - | L | L | L | - | - | - | |
+TR_55	| D | D | E | E | - | - | - | |
+TR_56	| E | E | - | - | - | D | D | |
+TR_57	| - | L | L | L | - | - | - | |
+TR_58	| E | E | D | D | D | - | - | |
+TR_59	| L | L | - | - | - | L | L | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive working days constraints: 0
+Consecutive days off constraints: 0
+Consecutive shifts constraints: 0
+Preferences: 120
+Max working weekend: 0
+Complete weekends: 0
+Optimal coverage constraints: 30
+
+---------------------------
+
+Total cost: 150
+
+Reading datasets/n060w8/WD-n060w8-1.txt
+Demand created
+Total time spent in the algorithm : 7.5
+# New stochastic solver created!
+# [week=6] Solving week no. 6 with PERTURBATIONS.
+# Generating new schedule
+# Demand has been checked and is valid
+End min demand
+# Demand has been checked and is valid
+End min demand
+# [week=6] Generation demand no. 1 created (over 14 days).
+0 18 30
+0 15 22
+0 20 30
+0 14 30
+0 14 22
+0 19 30
+0 17 22
+0 14 15
+0 15 15
+0 14 15
+0 18 30
+0 18 30
+0 18 15
+0 19 30
+0 15 15
+0 15 15
+0 14 7.5
+0 15 15
+0 15 15
+0 18 30
+0 14 30
+0 14 22
+0 18 30
+0 14 15
+0 14 15
+0 14 22
+0 18 30
+0 15 15
+0 15 22
+0 18 15
+0 17 30
+0 18 15
+0 15 7.5
+0 15 7.5
+0 14 15
+0 12 22
+0 19 30
+0 15 7.5
+0 14 15
+0 15 22
+0 18 30
+0 13 15
+0 14 22
+0 14 15
+0 18 30
+0 15 15
+0 15 15
+0 15 7.5
+0 19 30
+0 18 30
+0 20 30
+0 15 15
+0 16 15
+0 14 22
+0 15 15
+0 14 30
+0 18 22
+0 13 15
+0 14 22
+0 14 22
+# 
+##################################################
+# FullTime  -  Tot:30<40  |  Work:3<5  |  Rest:2<3  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 43
+#    | max total shifts: 3e+02
+#    | max total we    : 40
+# costs   : 
+#    | cost shift: 5
+#    | cost we   : 0
+##################################################
+# 
+# 
+##################################################
+# PartTime  -  Tot:20<30  |  Work:3<5  |  Rest:2<5  |  WE:4  |  complete
+# min/max : 
+#    | min total shifts: 0
+#    | max total shifts: 1.1e+02
+#    | max total we    : 28
+# costs   : 
+#    | cost shift: 2
+#    | cost we   : 0
+##################################################
+# 
+# 
+##################################################
+# HalfTime  -  Tot:15<20  |  Work:3<5  |  Rest:3<5  |  WE:2  |  complete
+# min/max : 
+#    | min total shifts: 0
+#    | max total shifts: 29
+#    | max total we    : 3
+# costs   : 
+#    | cost shift: 0
+#    | cost we   : 0
+##################################################
+# 
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+TM 0.137: Sol from proc: 1  val: 100019690.000000 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 100019690.00     0 /   10         60 | -9999541.29    15   300  
+TM 0.195: Sol from proc: 1  val: 90017192.000000 (prev best: 100019690.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 90017192.00     0 /   32        360 | -9999490.12    15   300  
+TM 0.251: Sol from proc: 1  val: 90014412.666667 (prev best: 90017192.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 90014412.67     0 /   53        447 | -9999906.00    15   300  
+TM 0.304: Sol from proc: 1  val: 80012262.000000 (prev best: 90014412.666667)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 80012262.00     0 /   80        530 | -9999686.50    15   300  
+TM 0.368: Sol from proc: 1  val: 70010196.500000 (prev best: 80012262.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 70010196.50     0 /   93        600 | -9999504.00    15   300  
+TM 0.412: Sol from proc: 1  val: 70009793.333333 (prev best: 70010196.500000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 70009793.33     0 /   97        641 | -9999760.00    15   300  
+TM 0.491: Sol from proc: 1  val: 60009642.833333 (prev best: 70009793.333333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 60009642.83     0 /  103        689 | -10000142.00    15   300  
+TM 0.556: Sol from proc: 1  val: 50009507.000000 (prev best: 60009642.833333)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8 50009507.00     0 /  109        688 | -9999476.67    15   300  
+TM 0.644: Sol from proc: 1  val: 30010191.500000 (prev best: 50009507.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9 30010191.50     0 /  122        674 | -9999560.83    15   300  
+TM 0.718: Sol from proc: 1  val: 30010065.499999 (prev best: 30010191.500000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10 30010065.50     0 /  121        692 | -9999450.88    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11 30009719.28    39 /  144        729 | -10000005.50    15   275  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12 20009789.25     5 /  128       1004 |    -162.08    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13 20009154.68    71 /  166       1304 | -4999927.54    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14 20009025.29    95 /  178       1604 |     -65.52    15   265  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       15 20008785.21   105 /  188       1869 | -9999793.00    15   283  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       16 20008550.56    75 /  170       2152 |     -86.46    15   231  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       17 20008424.11   109 /  190       2383 | -9999553.93    15   243  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       18 10009231.68   142 /  216       2626 |     -39.85    15   172  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       19 10009162.94   117 /  202       2798 | -9999756.42    15   290  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       20    9472.63   194 /  249       3088 |     -30.00    15   118  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       21    9412.51   179 /  240       3206 |    -208.95    15   215  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       22    9178.42   189 /  246       3421 |     -28.76    19   106  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       23    9149.52   220 /  265       3527 |     -31.60    31   121  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       24    9109.70   191 /  243       3648 |     -44.55    34    67  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       25    9068.83   208 /  256       3715 |     -57.48    60    84  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       26    9022.18   215 /  264       3799 |     -10.45    43    54  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       27    9007.90   228 /  273       3853 |     -16.00    20    72  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       28    8999.42   157 /  230       3925 |     -31.08    41    88  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       29    8982.60   201 /  254       4013 |     -21.69    60    41  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       30    8972.96   196 /  252       4054 |     -17.21    60    48  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       31    8960.44   202 /  255       4102 |     -14.00    50    44  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       32    8958.11   199 /  256       4146 |     -11.67    60    40  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       33    8951.51   200 /  254       4186 |     -14.95    60    47  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       34    8932.07   217 /  268       4233 |     -10.36    60    39  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       35    8926.97   213 /  267       4272 |      -6.47    60    32  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       36    8923.14   215 /  268       4304 |     -14.36    60    42  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       37    8916.89   172 /  244       4346 |     -12.08    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       38    8912.97   173 /  246       4376 |     -27.97    60    42  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       39    8905.97   179 /  250       4418 |      -6.72    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       40    8903.32   188 /  255       4442 |     -12.53    60    36  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       41    8887.83   232 /  278       4478 |     -14.05    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       42    8876.91   179 /  244       4500 |      -5.91    60    34  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       43    8876.37   178 /  242       4534 |     -31.65    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       44    8874.69   207 /  259       4556 |     -22.67    60    30  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       45    8872.36   186 /  243       4586 |     -13.87    60    28  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       46    8862.75   167 /  233       4614 |      -8.00    60    20  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       47    8858.47   208 /  260       4634 |     -10.00    60    24  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       48    8855.86   196 /  254       4658 |     -18.50    60    26  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       49    8853.93   196 /  254       4684 |     -14.50    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       50    8849.86   161 /  226       4702 |      -6.38    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       51    8847.75   165 /  232       4716 |      -3.50    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       52    8846.58   166 /  231       4726 |      -8.50    60    16  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       53    8844.49   167 /  236       4742 |      -7.00    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       54    8842.85   147 /  220       4752 |      -2.93    60    18  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       55    8842.06   185 /  248       4770 |      -7.25    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       56    8836.33   125 /  203       4780 |     -13.64    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       57    8832.33   144 /  215       4802 |      -1.97    60    15  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       58    8831.75   123 /  200       4817 |      -5.00    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       59    8831.00   125 /  201       4825 |     -11.17    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       60    8831.00   125 /  201       4839 |     -10.48    60    14  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       61    8831.00   125 /  201       4853 |      -4.00    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       62    8831.00   125 /  201       4861 |      -7.00    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       63    8826.58   133 /  207       4871 |      -3.61    60    12  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       64    8826.58   133 /  207       4883 |      -3.36    60    10  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       65    8825.47   173 /  236       4893 |      -3.22    60     6  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       66    8825.47   173 /  236       4899 |      -2.78    60     8  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       67    8825.47   173 /  236       4907 |      -1.11    60     6  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       68    8825.29   154 /  222       4913 |       0.00    60     0  
+TM 6.378: Sol from proc: 1  val: 8832.666667 (prev best: 30010065.499999)  tree size/procd: 1/0  cand list ins/size: 1/0
+Stopped: relative gap < 0.05.
+Relaxation:                    8825.29 
+Objective:                     8832.67 
+All Objective:                 
+Solution number: 0    : 100019690.00 
+Solution number: 1    : 90017192.00 
+Solution number: 2    : 90014412.67 
+Solution number: 3    : 80012262.00 
+Solution number: 4    : 70010196.50 
+Solution number: 5    : 70009793.33 
+Solution number: 6    : 60009642.83 
+Solution number: 7    : 50009507.00 
+Solution number: 8    : 30010191.50 
+Solution number: 9    : 30010065.50 
+Solution number: 10   : 30009719.28 
+Solution number: 11   : 20009789.25 
+Solution number: 12   : 20009154.68 
+Solution number: 13   : 20009025.29 
+Solution number: 14   : 20008785.21 
+Solution number: 15   : 20008550.56 
+Solution number: 16   : 20008424.11 
+Solution number: 17   : 10009231.68 
+Solution number: 18   : 10009162.94 
+Solution number: 19   : 9472.63 
+Solution number: 20   : 9412.51 
+Solution number: 21   : 9178.42 
+Solution number: 22   : 9149.52 
+Solution number: 23   : 9109.70 
+Solution number: 24   : 9068.83 
+Solution number: 25   : 9022.18 
+Solution number: 26   : 9007.90 
+Solution number: 27   : 8999.42 
+Solution number: 28   : 8982.60 
+Solution number: 29   : 8972.96 
+Solution number: 30   : 8960.44 
+Solution number: 31   : 8958.11 
+Solution number: 32   : 8951.51 
+Solution number: 33   : 8932.07 
+Solution number: 34   : 8926.97 
+Solution number: 35   : 8923.14 
+Solution number: 36   : 8916.89 
+Solution number: 37   : 8912.97 
+Solution number: 38   : 8905.97 
+Solution number: 39   : 8903.32 
+Solution number: 40   : 8887.83 
+Solution number: 41   : 8876.91 
+Solution number: 42   : 8876.37 
+Solution number: 43   : 8874.69 
+Solution number: 44   : 8872.36 
+Solution number: 45   : 8862.75 
+Solution number: 46   : 8858.47 
+Solution number: 47   : 8855.86 
+Solution number: 48   : 8853.93 
+Solution number: 49   : 8849.86 
+Solution number: 50   : 8847.75 
+Solution number: 51   : 8846.58 
+Solution number: 52   : 8844.49 
+Solution number: 53   : 8842.85 
+Solution number: 54   : 8842.06 
+Solution number: 55   : 8836.33 
+Solution number: 56   : 8832.33 
+Solution number: 57   : 8831.75 
+Solution number: 58   : 8831.00 
+Solution number: 59   : 8831.00 
+Solution number: 60   : 8831.00 
+Solution number: 61   : 8831.00 
+Solution number: 62   : 8826.58 
+Solution number: 63   : 8826.58 
+Solution number: 64   : 8825.47 
+Solution number: 65   : 8825.47 
+Solution number: 66   : 8825.47 
+Solution number: 67   : 8825.29 
+Column costs                          140 
+-----------------------------------------
+     Cons. shifts costs                90 
+     Cons. worked days costs            0 
+     Complete weekend costs             0 
+     Preferences costs                 50 
+-----------------------------------------
+History costs (counted)                45 
+Resting costs                          30 
+Min worked days costs                   0 
+Max worked days costs                7311 
+Max worked weekend costs              870 
+Coverage costs                        480 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 1.4e+02
+Total cost = 2.9e+02
+Total cost due to individual soft constraints = 1.4e+02
+Total cost = 2.9e+02
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| - | - | - | N | N | N | N | |
+HN_1	| N | - | - | - | D | D | L | |
+HN_2	| - | D | D | D | - | - | - | |
+HN_3	| N | N | N | N | N | - | - | |
+HN_4	| E | E | E | - | - | E | E | |
+HN_5	| - | - | - | E | E | L | L | |
+HN_6	| L | L | - | - | - | - | - | |
+NU_7	| E | E | E | E | E | - | - | |
+NU_8	| - | N | N | N | N | - | - | |
+NU_9	| E | E | L | L | L | - | - | |
+NU_10	| N | N | N | N | - | - | - | |
+NU_11	| - | - | - | - | E | E | E | |
+NU_12	| - | N | N | N | N | - | - | |
+NU_13	| - | D | D | D | - | - | - | |
+NU_14	| - | - | L | L | L | - | - | |
+NU_15	| E | - | - | - | D | D | D | |
+NU_16	| - | - | - | N | N | N | N | |
+NU_17	| - | N | N | N | N | - | - | |
+NU_18	| N | - | - | - | E | E | E | |
+NU_19	| - | N | N | N | N | - | - | |
+NU_20	| D | D | E | E | E | - | - | |
+NU_21	| E | E | E | E | - | - | - | |
+NU_22	| N | N | N | N | - | - | - | |
+NU_23	| D | D | E | E | E | - | - | |
+NU_24	| E | E | E | E | E | - | - | |
+NU_25	| E | E | D | D | D | - | - | |
+NU_26	| L | L | - | - | - | - | - | |
+NU_27	| - | - | - | - | L | L | L | |
+NU_28	| L | L | - | - | - | - | - | |
+NU_29	| - | - | - | E | E | D | D | |
+CT_30	| L | L | - | - | - | - | - | |
+CT_31	| D | D | E | E | E | - | - | |
+CT_32	| N | N | - | - | - | N | N | |
+CT_33	| L | L | - | - | E | E | E | |
+CT_34	| N | N | - | - | D | D | L | |
+CT_35	| D | D | D | L | L | - | - | |
+CT_36	| - | D | D | D | - | - | - | |
+CT_37	| L | L | - | - | - | N | N | |
+CT_38	| D | D | D | L | L | - | - | |
+CT_39	| - | - | L | L | L | - | - | |
+CT_40	| D | D | D | - | - | - | - | |
+CT_41	| - | - | L | L | L | - | - | |
+CT_42	| D | D | D | D | D | - | - | |
+CT_43	| - | - | - | D | D | D | D | |
+CT_44	| E | E | E | - | - | - | - | |
+CT_45	| - | - | D | D | D | - | - | |
+CT_46	| E | - | - | - | L | L | L | |
+CT_47	| L | - | - | D | D | E | E | |
+CT_48	| L | L | L | - | - | - | - | |
+CT_49	| L | L | L | - | - | - | - | |
+TR_50	| - | - | L | L | L | - | - | |
+TR_51	| - | L | L | L | - | - | - | |
+TR_52	| E | - | - | - | D | D | D | |
+TR_53	| - | - | E | E | E | - | - | |
+TR_54	| - | - | D | D | E | E | E | |
+TR_55	| N | N | N | N | N | - | - | |
+TR_56	| D | D | D | - | - | - | - | |
+TR_57	| D | D | D | - | - | L | L | |
+TR_58	| N | N | N | N | N | - | - | |
+TR_59	| L | - | - | - | N | N | N | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 0
+Consecutive working days constraints: 0
+Consecutive days off constraints: 30
+Consecutive shifts constraints: 60
+Preferences: 50
+Max working weekend: 0
+Complete weekends: 0
+Optimal coverage constraints: 150
+
+---------------------------
+
+Total cost: 290
+
+Reading datasets/n060w8/WD-n060w8-3.txt
+Demand created
+Total time spent in the algorithm : 6.3
+# New stochastic solver created!
+# [week=7] Solving week no. 7 as the LAST WEEK (hence, to optimality !)
+# [week=7] Solving week no. 7 with PERTURBATIONS.
+# Solve without evaluation
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+BCP_parameters::read_from_stream   Scanning parameter stream.
+##########################################################
+TM: Starting phase 0
+##########################################################
+BCP:          Node   Lvl |     BestUB     RootLB     BestLB |      #It        Obj        #Frac    #Active |      ObjSP   #SP  #Col 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        -          -            -          - |          -     -     - 
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        1 100007927.86     4 /   12         60 | -9999694.71    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        2 90006326.00     2 /   24        360 | -9999859.00    15   299  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        3 40007683.00     4 /   42        659 | -9999909.00    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        4 25006452.37    44 /   77        959 |    -599.06    15   300  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        5 25003010.00    20 /   77       1259 | -9999689.00    15   251  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        6 15003258.50    42 /   93       1510 | -4999949.50    18   182  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        7 1253900.50    33 /   97       1692 | -3333264.67    16   244  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        8    3452.50    15 /   85       1936 |     -95.56    21   140  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |        9    3255.00    61 /  113       2076 |     -70.00    33    85  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       10    3082.00    51 /  104       2161 |     -90.00    24    73  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       11    3032.19    52 /  106       2234 |     -83.44    60    66  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       12    2900.00    12 /   83       2300 |     -29.83    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       13    2880.00    40 /  100       2322 |     -25.00    60    22  
+BCP:     0 /     0     0 |    9999999 9999999.00 9999999.00 |       14    2870.00     7 /   81       2344 |     -47.86    60    35  
+TM 0.609: Sol from proc: 1  val: 2815.000000 (prev best: infinity)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       15    2815.00     0 /   77       2379 |     -90.34    60    51  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       16    2797.50    37 /   96       2430 |     -40.00    60    31  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       17    2733.33    34 /   94       1025 |     -30.00    60    21  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       18    2696.54    44 /  103       1046 |     -81.87    60    31  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       19    2611.82    69 /  114       1077 |     -38.18    60    32  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       20    2582.50    56 /  109       1109 |     -30.00    60    31  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       21    2572.95    82 /  121       1140 |    -120.00    60    31  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       22    2465.90    46 /  102       1171 |     -16.00    60    20  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       23    2445.00    56 /  107       1191 |     -25.00    60    28  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       24    2441.67    51 /  103       1219 |     -65.00    60    22  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       25    2415.83    48 /  103       1241 |     -15.00    60    17  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       26    2415.00    43 /   99       1258 |     -15.00    60    16  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       27    2410.12    66 /  114       1274 |     -15.00    60    18  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       28    2401.43    66 /  114       1292 |     -22.50    60    25  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       29    2401.22    72 /  118       1317 |     -21.59    60    18  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       30    2399.17    72 /  116       1335 |     -25.00    60    22  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       31    2395.00    85 /  125       1357 |     -10.00    60    14  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       32    2385.00    88 /  128       1371 |     -10.00    60    12  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       33    2380.83    65 /  113       1383 |     -16.00    60    18  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       34    2380.00    59 /  109       1401 |     -12.50    60    14  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       35    2377.92    81 /  121       1415 |     -16.25    60    16  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       36    2376.67    76 /  120       1431 |     -17.50    60    14  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       37    2375.67    83 /  125       1445 |     -20.00    60    10  
+BCP:     0 /     0     0 |       2815 9999999.00 9999999.00 |       38    2369.00    28 /   94       1455 |     -30.00    60    12  
+TM 1.067: Sol from proc: 1  val: 2365.000000 (prev best: 2815.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       2365 9999999.00 9999999.00 |       39    2365.00     0 /   76       1467 |     -58.33    60    22  
+BCP:     0 /     0     0 |       2365 9999999.00 9999999.00 |       40    2365.00     0 /   76       1489 |     -13.33    60     8  
+BCP:     0 /     0     0 |       2365 9999999.00 9999999.00 |       41    2365.00     0 /   76       1497 |     -50.00    60    14  
+TM 1.121: Sol from proc: 1  val: 2320.000000 (prev best: 2365.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       42    2320.00     0 /   77       1511 |      -6.67    60     9  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       43    2320.00     0 /   77       1520 |      -7.50    60     8  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       44    2320.00     0 /   77       1528 |     -15.00    60    13  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       45    2312.50    12 /   82       1541 |     -12.50    60     6  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       46    2312.50    12 /   82        850 |      -8.13    60     8  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       47    2310.00    50 /  104        843 |     -25.00    60     6  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       48    2310.00    50 /  104        849 |     -25.00    60     9  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       49    2310.00    50 /  104        822 |     -22.50    60    16  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       50    2310.00    50 /  104        838 |      -7.50    60     8  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       51    2307.50    54 /  107        822 |     -10.00    60     8  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       52    2303.21    62 /  112        830 |      -2.86    60     8  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       53    2303.21    62 /  112        838 |      -2.86    60     4  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       54    2302.50    51 /  104        842 |      -6.67    60     6  
+BCP:     0 /     0     0 |       2320 9999999.00 9999999.00 |       55    2297.50    38 /   97        848 |      -1.00    60     2  
+TM 1.407: Sol from proc: 1  val: 2300.000000 (prev best: 2320.000000)  tree size/procd: 1/0  cand list ins/size: 1/0
+BCP:     0 /     0     0 |       2300 9999999.00 9999999.00 |       56    2297.50    38 /   97        850 |       0.00    60     0  
+Stopped: relative gap < 0.05.
+Relaxation:                    2297.50 
+Objective:                     2300.00 
+All Objective:                 
+Solution number: 0    : 100007927.86 
+Solution number: 1    : 90006326.00 
+Solution number: 2    : 40007683.00 
+Solution number: 3    : 25006452.37 
+Solution number: 4    : 25003010.00 
+Solution number: 5    : 15003258.50 
+Solution number: 6    : 1253900.50 
+Solution number: 7    : 3452.50 
+Solution number: 8    : 3255.00 
+Solution number: 9    : 3082.00 
+Solution number: 10   : 3032.19 
+Solution number: 11   : 2900.00 
+Solution number: 12   : 2880.00 
+Solution number: 13   : 2870.00 
+Solution number: 14   : 2815.00 
+Solution number: 15   : 2797.50 
+Solution number: 16   : 2733.33 
+Solution number: 17   : 2696.54 
+Solution number: 18   : 2611.82 
+Solution number: 19   : 2582.50 
+Solution number: 20   : 2572.95 
+Solution number: 21   : 2465.90 
+Solution number: 22   : 2445.00 
+Solution number: 23   : 2441.67 
+Solution number: 24   : 2415.83 
+Solution number: 25   : 2415.00 
+Solution number: 26   : 2410.12 
+Solution number: 27   : 2401.43 
+Solution number: 28   : 2401.22 
+Solution number: 29   : 2399.17 
+Solution number: 30   : 2395.00 
+Solution number: 31   : 2385.00 
+Solution number: 32   : 2380.83 
+Solution number: 33   : 2380.00 
+Solution number: 34   : 2377.92 
+Solution number: 35   : 2376.67 
+Solution number: 36   : 2375.67 
+Solution number: 37   : 2369.00 
+Solution number: 38   : 2365.00 
+Solution number: 39   : 2365.00 
+Solution number: 40   : 2365.00 
+Solution number: 41   : 2320.00 
+Solution number: 42   : 2320.00 
+Solution number: 43   : 2320.00 
+Solution number: 44   : 2312.50 
+Solution number: 45   : 2312.50 
+Solution number: 46   : 2310.00 
+Solution number: 47   : 2310.00 
+Solution number: 48   : 2310.00 
+Solution number: 49   : 2310.00 
+Solution number: 50   : 2307.50 
+Solution number: 51   : 2303.21 
+Solution number: 52   : 2303.21 
+Solution number: 53   : 2302.50 
+Solution number: 54   : 2297.50 
+Solution number: 55   : 2297.50 
+Column costs                          120 
+-----------------------------------------
+     Cons. shifts costs                30 
+     Cons. worked days costs            0 
+     Complete weekend costs             0 
+     Preferences costs                 90 
+-----------------------------------------
+History costs (counted)                 0 
+Resting costs                          30 
+Min worked days costs                   0 
+Max worked days costs                1820 
+Max worked weekend costs              270 
+Coverage costs                         60 
+-----------------------------------------
+
+Total cost due to individual soft constraints = 2.2e+03
+Total cost = 2.3e+03
+Total cost due to individual soft constraints = 2.2e+03
+Total cost = 2.3e+03
+Complete shift schedule
+
+			| M | T | W | T | F | S | S |
+-------------------------------------
+HN_0	| - | - | - | - | - | N | N | |
+HN_1	| L | - | - | L | L | L | L | |
+HN_2	| - | - | D | D | D | - | - | |
+HN_3	| N | N | N | N | N | - | - | |
+HN_4	| D | D | - | - | E | E | E | |
+HN_5	| - | - | - | - | - | D | D | |
+HN_6	| E | E | E | - | - | - | - | |
+NU_7	| N | N | N | N | N | - | - | |
+NU_8	| - | L | L | L | - | - | - | |
+NU_9	| E | E | E | E | E | - | - | |
+NU_10	| - | L | L | L | - | - | - | |
+NU_11	| L | L | - | - | - | - | - | |
+NU_12	| - | L | L | L | - | - | - | |
+NU_13	| - | L | L | L | - | - | - | |
+NU_14	| - | - | - | E | E | N | N | |
+NU_15	| D | - | - | D | D | E | E | |
+NU_16	| - | - | E | E | E | E | E | |
+NU_17	| - | N | N | N | N | - | - | |
+NU_18	| E | - | - | L | L | L | L | |
+NU_19	| - | - | E | E | E | - | - | |
+NU_20	| E | E | E | E | E | - | - | |
+NU_21	| N | N | N | N | N | - | - | |
+NU_22	| E | E | E | E | - | - | - | |
+NU_23	| N | N | N | - | - | N | N | |
+NU_24	| D | D | D | E | E | - | - | |
+NU_25	| N | N | N | N | N | - | - | |
+NU_26	| D | D | D | - | - | - | - | |
+NU_27	| L | - | - | D | D | D | D | |
+NU_28	| E | E | E | E | E | - | - | |
+NU_29	| D | - | - | - | - | - | - | |
+CT_30	| L | L | L | - | - | - | - | |
+CT_31	| - | D | D | D | - | - | - | |
+CT_32	| N | N | - | - | E | E | E | |
+CT_33	| E | - | - | L | L | L | L | |
+CT_34	| L | - | - | D | D | E | E | |
+CT_35	| L | L | L | L | L | - | - | |
+CT_36	| - | E | E | E | - | - | - | |
+CT_37	| N | N | N | - | - | D | D | |
+CT_38	| N | N | N | N | N | - | - | |
+CT_39	| L | L | L | L | L | - | - | |
+CT_40	| - | D | D | D | - | - | - | |
+CT_41	| - | - | D | D | L | L | L | |
+CT_42	| - | N | N | N | N | - | - | |
+CT_43	| D | - | - | D | D | D | D | |
+CT_44	| D | D | D | - | - | - | - | |
+CT_45	| - | N | N | N | N | - | - | |
+CT_46	| L | - | - | - | - | D | D | |
+CT_47	| E | - | - | D | D | N | N | |
+CT_48	| - | E | E | E | - | - | - | |
+CT_49	| D | D | D | - | - | - | - | |
+TR_50	| - | D | D | D | - | - | - | |
+TR_51	| - | N | N | N | N | - | - | |
+TR_52	| - | - | - | - | N | N | N | |
+TR_53	| E | E | E | E | E | - | - | |
+TR_54	| - | - | - | D | D | D | D | |
+TR_55	| E | E | N | N | N | - | - | |
+TR_56	| L | L | L | - | - | - | - | |
+TR_57	| L | L | L | - | - | E | E | |
+TR_58	| D | D | L | L | L | - | - | |
+TR_59	| N | N | - | - | L | L | L | |
+
+Hard constraints violations
+---------------------------
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+Cost per constraint type
+------------------------
+Total assignment constraints: 1820
+Consecutive working days constraints: 0
+Consecutive days off constraints: 30
+Consecutive shifts constraints: 30
+Preferences: 90
+Max working weekend: 270
+Complete weekends: 0
+Optimal coverage constraints: 60
+
+---------------------------
+
+Total cost: 2300
+
+Total time spent in the algorithm : 1.3
+Reading datasets/n060w8/Sc-n060w8.txt
+Reading datasets/n060w8/WD-n060w8-6.txt
+Demand created
+Reading datasets/n060w8/WD-n060w8-2.txt
+Demand created
+Reading datasets/n060w8/WD-n060w8-9.txt
+Demand created
+Reading datasets/n060w8/WD-n060w8-9.txt
+Demand created
+Reading datasets/n060w8/WD-n060w8-0.txt
+Demand created
+Reading datasets/n060w8/WD-n060w8-8.txt
+Demand created
+Reading datasets/n060w8/WD-n060w8-1.txt
+Demand created
+Reading datasets/n060w8/WD-n060w8-3.txt
+Demand created
+Reading datasets/n060w8/H0-n060w8-0.txt
+Total cost due to individual soft constraints = 3e+03
+Total cost = 3.6e+03
+Total time spent in the algorithm : 60

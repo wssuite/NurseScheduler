@@ -1,0 +1,77 @@
+      |M|T|W|T|F|S|S| |M|T|W|T|F|S|S| |M|T|W|T|F|S|S| |M|T|W|T|F|S|S|
+-----------------------------------------------------------------------
+HN_0  |E|-|-|L|L|L|L| |L|-|-|E|E|E|D| |D|-|-|E|E|D|D| |D|-|-|D|D|D|D|
+HN_1  |N|N|N|-|-|D|D| |D|E|E|-|-|E|E| |L|L|-|-|E|E|E| |E|-|-|L|L|L|L|
+HN_2  |-|-|-|E|E|E|E| |-|-|-|D|D|-|-| |-|-|E|E|E|-|-| |-|-|E|E|E|-|-|
+HN_3  |-|-|N|N|N|-|-| |D|D|L|L|-|-|-| |-|L|L|L|L|L|-| |-|N|N|N|N|-|-|
+HN_4  |D|D|D|-|-|-|-| |L|L|L|-|-|L|L| |L|L|-|-|-|-|-| |N|N|N|N|N|-|-|
+HN_5  |E|E|E|-|-|-|-| |N|N|N|N|-|-|-| |N|N|N|N|-|-|-| |L|L|L|-|-|-|-|
+NU_6  |D|D|E|E|E|-|-| |L|L|L|-|-|N|N| |N|N|N|-|-|N|N| |N|N|-|-|D|D|E|
+NU_7  |-|-|E|E|E|-|-| |-|-|-|D|D|D|D| |-|-|-|L|L|-|-| |-|-|D|D|D|-|-|
+NU_8  |-|N|N|N|N|-|-| |-|-|N|N|N|N|N| |-|-|-|-|E|E|E| |-|-|E|E|E|-|-|
+NU_9  |N|N|N|N|-|-|-| |N|N|N|N|N|-|-| |-|-|-|D|D|L|L| |L|-|-|-|-|N|N|
+NU_10 |L|L|L|L|L|-|-| |E|E|E|D|D|-|-| |E|E|E|D|D|-|-| |E|E|E|D|D|-|-|
+NU_11 |D|D|D|-|-|L|L| |L|-|-|-|E|E|D| |D|D|-|-|D|D|D| |D|D|-|-|E|E|D|
+NU_12 |D|D|D|L|L|-|-| |L|L|L|L|L|-|-| |L|L|L|-|-|L|L| |L|-|-|L|L|L|L|
+NU_13 |-|-|-|-|E|E|E| |L|L|-|-|-|-|-| |D|D|D|L|L|-|-| |-|E|E|E|-|-|-|
+NU_14 |L|L|L|-|-|-|-| |N|N|N|N|N|-|-| |-|-|N|N|N|N|N| |-|-|-|-|-|E|E|
+NU_15 |E|E|-|-|E|E|E| |-|-|E|E|E|-|-| |D|D|D|L|L|-|-| |L|L|L|-|-|-|-|
+NU_16 |N|-|-|-|N|N|N| |N|N|-|-|-|-|-| |E|E|D|D|D|-|-| |N|N|N|N|-|-|-|
+NU_17 |-|-|D|D|D|-|-| |-|-|D|D|D|-|-| |-|-|L|L|L|-|-| |-|-|L|L|L|-|-|
+NU_18 |N|N|N|N|-|-|-| |L|L|L|-|-|-|-| |L|L|L|-|-|-|-| |E|E|E|-|-|-|-|
+NU_19 |L|L|-|-|D|D|D| |-|-|E|E|E|-|-| |N|N|N|N|N|-|-| |L|L|L|-|-|N|N|
+NU_20 |-|-|D|D|D|-|-| |-|-|-|L|L|L|L| |-|-|L|L|L|-|-| |E|E|E|D|D|-|-|
+NU_21 |E|E|E|D|D|-|-| |L|N|N|N|N|-|-| |E|E|E|D|D|-|-| |L|N|N|N|N|-|-|
+NU_22 |L|L|-|-|N|N|N| |N|N|-|-|L|L|L| |-|-|D|D|D|-|-| |D|D|E|E|E|-|-|
+NU_23 |D|-|-|D|D|D|E| |E|-|-|E|E|L|L| |-|-|E|E|E|-|-| |D|D|L|L|L|-|-|
+NU_24 |E|E|E|D|D|-|-| |D|D|D|-|-|N|N| |N|N|-|-|D|D|E| |E|E|-|-|E|E|D|
+NU_25 |-|-|L|L|L|-|-| |E|E|E|-|-|N|N| |N|N|N|-|-|E|E| |E|-|-|E|E|L|L|
+NU_26 |D|-|-|D|D|L|L| |-|-|L|L|L|-|-| |N|N|N|N|N|-|-| |N|N|N|N|N|-|-|
+NU_27 |-|E|E|L|L|-|-| |E|E|E|-|-|L|L| |L|L|-|-|-|-|-| |D|D|D|-|-|N|N|
+CT_28 |L|L|-|-|D|D|D| |D|D|-|-|D|D|E| |-|-|E|E|E|-|-| |N|N|N|N|N|-|-|
+CT_29 |N|-|-|-|N|N|N| |N|N|-|-|-|-|-| |D|D|D|E|E|-|-| |N|N|N|N|-|-|-|
+CT_30 |-|-|E|E|E|-|-| |-|-|-|E|E|D|D| |D|-|-|-|L|L|L| |L|L|-|-|-|-|-|
+CT_31 |D|D|D|E|E|-|-| |L|N|N|N|N|-|-| |N|N|N|N|N|-|-| |D|D|D|D|D|-|-|
+CT_32 |-|-|E|E|E|-|-| |D|D|D|D|D|-|-| |-|-|N|N|N|N|N| |-|-|-|-|-|D|D|
+CT_33 |L|L|L|L|L|-|-| |D|D|L|L|L|-|-| |E|E|E|D|D|-|-| |D|D|L|L|L|-|-|
+CT_34 |N|N|N|N|-|-|-| |E|E|E|-|-|D|D| |E|E|-|-|-|-|-| |L|L|L|-|-|L|L|
+CT_35 |N|N|N|N|-|-|-| |E|E|D|D|D|-|-| |-|-|-|E|E|D|D| |-|-|D|D|D|-|-|
+CT_36 |-|L|L|L|-|-|-| |D|D|D|-|-|-|-| |L|L|L|L|-|-|-| |-|-|L|L|L|-|-|
+CT_37 |D|D|-|-|L|L|L| |-|-|E|E|E|-|-| |E|E|E|L|L|-|-| |D|D|D|-|-|N|N|
+CT_38 |E|E|L|L|L|-|-| |D|D|L|L|L|-|-| |D|D|D|-|-|N|N| |N|N|-|-|E|E|D|
+CT_39 |-|-|-|-|N|N|N| |N|N|-|-|-|-|-| |D|D|E|E|E|-|-| |-|E|E|E|-|-|-|
+TR_40 |D|-|-|-|-|N|N| |N|N|N|-|-|-|-| |D|D|E|E|-|-|-| |-|-|L|L|L|N|N|
+TR_41 |-|-|L|L|L|-|-| |-|-|N|N|N|N|N| |-|-|L|L|L|-|-| |-|-|N|N|N|N|N|
+TR_42 |-|-|D|D|D|-|-| |-|-|-|E|E|E|L| |L|L|-|-|-|-|-| |L|L|L|-|-|-|-|
+TR_43 |N|N|-|-|E|E|L| |-|-|D|D|D|-|-| |N|N|N|N|N|-|-| |E|E|E|-|-|D|D|
+TR_44 |E|-|-|-|-|D|D| |D|-|-|-|N|N|N| |-|-|D|D|D|-|-| |-|D|D|D|-|-|-|
+TR_45 |L|L|N|N|N|-|-| |L|L|L|-|-|D|D| |D|-|-|E|E|E|L| |L|-|-|E|E|E|L|
+TR_46 |-|E|E|E|-|-|-| |-|-|E|E|E|-|-| |-|-|N|N|N|N|N| |-|-|-|-|-|L|L|
+TR_47 |D|D|E|E|-|-|-| |-|-|L|L|L|L|L| |-|-|-|-|-|D|D| |D|-|-|E|E|E|E|
+TR_48 |-|-|N|N|N|N|N| |-|-|-|-|-|E|E| |E|E|E|-|-|-|-| |N|N|N|N|N|-|-|
+TR_49 |-|L|L|L|-|-|-| |-|D|D|D|-|-|-| |-|L|L|L|-|-|-| |-|-|D|D|D|-|-|
+
+
+Hard constraint violations
+--------------------------
+
+Minimal coverage constraints: 0
+Required skill constraints: 0
+Illegal shift type succession constraints: 0
+Single assignment per day: 0
+
+
+Cost per constraint type
+------------------------
+
+Total assignment constraints: 560
+Consecutive constraints: 210
+Non working days constraints: 0
+Preferences: 220
+Max working weekend: 390
+Complete weekends: 30
+Optimal coverage constraints: 510
+
+------------------------
+
+Total cost: 1920
