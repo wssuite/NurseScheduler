@@ -110,7 +110,6 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
 		options_.generationParameters_.printEverySolution_ = true;
 	}
 
-
 	// A. Generation-evaluation
 	if (options_.withEvaluation_) {
 		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solving week no. " << pScenario_->thisWeek() << " with GENERATION-EVALUATION." << std::endl;

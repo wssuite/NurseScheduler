@@ -157,6 +157,7 @@ void testFunction_Samuel(){
 	int historyId = 1;
 
 	StochasticSolverOptions stochasticSolverOptions;
+	stochasticSolverOptions.withIterativeDemandIncrease_ = true;
 	stochasticSolverOptions.withEvaluation_ = false;
 	stochasticSolverOptions.generationCostPerturbation_ = true;
 	stochasticSolverOptions.evaluationCostPerturbation_ = false;
