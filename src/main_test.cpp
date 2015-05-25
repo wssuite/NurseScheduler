@@ -46,6 +46,7 @@ void testFunction_Antoine(){
 
 
    SolverParam optParam;
+   optParam.stopAfterXSolution_ = 2;
 //   optParam.nbDiveIfMinGap_ = 0;
 //   optParam.nbDiveIfRelGap_ = 0;
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/", optParam);
@@ -55,7 +56,7 @@ void testFunction_Antoine(){
    Scenario* pScen = initializeMultipleWeeks(data, inst, 0, {0});
 
    Solver* pSolver = setSolverWithInputAlgorithm(pScen, GENCOL);
-   pSolver->evaluate(optParam);
+   pSolver->solve(optParam);
 
    for(int i=1; i<10; ++i){
       printf("**********************************************\n"
@@ -65,8 +66,12 @@ void testFunction_Antoine(){
       Tools::Timer timer;
       timer.init();
 
+      //build the corresponding scenario
       vector<int> demand = {i};
       InputPaths inputPaths(data, inst,0,demand);
+      Scenario* pScen2 = initializeMultipleWeeks(data, inst, 0, demand);
+      Solver* pSolver0 = setSolverWithInputAlgorithm(pScen2, GREEDY);
+      pSolver0->solve();
 
       //read the new demand
       Demand* newDemand(0);
@@ -75,19 +80,19 @@ void testFunction_Antoine(){
       delete newPref;
       //resolve
       timer.start();
-      pSolver->reevaluate(newDemand,optParam);
+      pSolver->resolve(newDemand, optParam,pSolver0->getSolution());
       timer.stop();
       cout << "Total time spent in the algorithm : " << timer.dSinceInit() << endl;
 
       //solve
       timer.init();
-      Scenario* pScen2 = initializeMultipleWeeks(data, inst, 0, demand);
       Solver* pSolver2 = setSolverWithInputAlgorithm(pScen2, GENCOL);
       timer.start();
-      pSolver2->evaluate(optParam);
+      pSolver2->solve(optParam, pSolver0->getSolution());
       timer.stop();
       cout << "Total time spent in the algorithm : " << timer.dSinceInit() << endl;
 
+      delete pSolver0;
       delete pSolver2;
       delete pScen2;
    }

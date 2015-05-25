@@ -158,11 +158,11 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 	// Need to perturb the costs?
 	//
 	if(options_.generationCostPerturbation_){
-		if (options_.generationParameters_.weightStrategy == NO_STRAT) {
+		if (options_.generationParameters_.weightStrategy_ == NO_STRAT) {
 			pSolver->computeWeightsTotalShiftsForStochastic();
 		}
 		else {
-			pSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+			pSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy_);
 		}
 	}
 
@@ -444,11 +444,11 @@ void StochasticSolver::generateNewSchedule(){
 	//
 	Solver* pGenSolver = setGenerationSolverWithInputAlgorithm( newDemand );
 
-	if (options_.generationParameters_.weightStrategy == NO_STRAT) {
+	if (options_.generationParameters_.weightStrategy_ == NO_STRAT) {
 		pGenSolver->computeWeightsTotalShiftsForStochastic();
 	}
 	else {
-		pGenSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+		pGenSolver->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy_);
 	}
 	pGenSolver->solve(options_.generationParameters_);
 
@@ -541,11 +541,11 @@ void StochasticSolver::evaluateSchedule(int sched){
 		#endif
 
 		if(pEvaluationSolvers_[sched][j]->getNbDays() + (7*pScenario_->thisWeek()+1) < 7* pScenario_->nbWeeks_){
-			if (options_.generationParameters_.weightStrategy == NO_STRAT) {
+			if (options_.generationParameters_.weightStrategy_ == NO_STRAT) {
 				pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForStochastic();
 			}
 			else {
-				pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy);
+				pEvaluationSolvers_[sched][j]->computeWeightsTotalShiftsForPrimalDual(options_.generationParameters_.weightStrategy_);
 			}
 
 			#ifdef COMPARE_EVALUATIONS
@@ -571,7 +571,7 @@ void StochasticSolver::evaluateSchedule(int sched){
 		else {
 			// Perform the actual evaluation on demand j by running the chosen algorithm
 			// TODO : ici, arondi a l'entier -> peut etre modifie si besoin	
-			currentCost = (int) pEvaluationSolvers_[sched][j]->evaluate(options_.evaluationParameters_);
+			currentCost = (int) pEvaluationSolvers_[sched][j]->solve(options_.evaluationParameters_);
 			#ifdef COMPARE_EVALUATIONS
 			pGreedyEvaluators[j]->solve();
 			currentCostGreedy = pGreedyEvaluators[j]->solutionCost();

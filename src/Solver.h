@@ -313,6 +313,7 @@ public:
    //maximal solving time in s
    int maxSolvingTimeSeconds_ = LARGE_TIME;
 
+   //print parameters
    bool printEverySolution_ = false;
    string outfile_ = "outfiles/";
    string logfile_ = "";
@@ -333,8 +334,12 @@ public:
 
 	bool solveToOptimality_ = false;
 
+	//stop the algorithm after founding X solutions
+	//if 0, the algorithm computes the relaxation if the algorithm is a column generation procedure
+	int stopAfterXSolution_ = 9999999;
+
 	//primal-dual strategy
-	WeightStrategy weightStrategy =  NO_STRAT;
+	WeightStrategy weightStrategy_ =  NO_STRAT;
 };
 
 
@@ -366,33 +371,14 @@ public:
    // Main method to solve the rostering problem for a given input and an initial solution
    virtual double solve(vector<Roster> solution = {}) { return DBL_MAX;}
 
-   // Main method to evaluate an initial state for a given input and an initial solution
-   // same as solve if not redefine
-   virtual double evaluate(vector<Roster> solution = {}) {
-      return solve(solution);
-   }
-
    // Main method to solve the rostering problem for a given input and an initial solution and parameters
    virtual double solve(SolverParam parameters, vector<Roster> solution = {}){
 	   return solve(solution);
    }
 
-   // Main method to evaluate an initial state for a given input and an initial solution and parameters
-   // same as solve if not redefine
-   virtual double evaluate(SolverParam parameters, vector<Roster> solution = {}){
-	   return solve(parameters, solution);
-   }
-
    //Resolve the problem with another demand and keep the same preferences
    //
    virtual double resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {}){
-      pDemand_ = pDemand;
-      return solve(parameters, solution);
-   }
-
-   //Reevaluate the problem with another demand and keep the same preferences
-   //
-   virtual double reevaluate(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {}){
       pDemand_ = pDemand;
       return solve(parameters, solution);
    }
