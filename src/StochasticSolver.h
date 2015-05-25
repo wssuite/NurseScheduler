@@ -29,6 +29,7 @@ public:
 	~StochasticSolverOptions(){};
 
 	bool withEvaluation_ = false;
+	bool withIterativeDemandIncrease_ = false;
 
 	bool generationCostPerturbation_ = true;
 	bool evaluationCostPerturbation_ = false;
@@ -110,6 +111,10 @@ protected:
 	// Does everything for one schedule (for one week): Includes generation,
 	// evaluation of the score, and update of the rankings and data.
 	void addAndSolveNewSchedule();
+	// Iterative solution process in which the week is first solved by itsef,
+	// before adding one perturbebd week demand and solving the new extended
+	// demand demand until no time is left
+	void solveIterativelyWithIncreasingDemand();
 	// Solves the problem by generating a schedule + using cost penalties
 	void solveOneWeekNoGenerationEvaluation();
 	// Special case of the last week

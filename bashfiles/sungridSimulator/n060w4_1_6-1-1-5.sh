@@ -5,4 +5,4 @@
 #$ -q idra
 #
 # optimal script: launch the simulator
-java -jar Simulator.jar  --sce datasets/n060w4/Sc-n060w4.txt --his datasets/n060w4/H0-n060w4-1.txt --weeks datasets/n060w4/WD-n060w4-6.txt datasets/n060w4/WD-n060w4-1.txt datasets/n060w4/WD-n060w4-1.txt datasets/n060w4/WD-n060w4-5.txt --solver ./bin/roster --runDir ./ --outDir outfiles/n060w4_1_6-1-1-5/
+java -jar Simulator.jar  --sce datasets/n060w4/Sc-n060w4.txt --his datasets/n060w4/H0-n060w4-1.txt --weeks datasets/n060w4/WD-n060w4-6.txt datasets/n060w4/WD-n060w4-1.txt datasets/n060w4/WD-n060w4-1.txt datasets/n060w4/WD-n060w4-5.txt --solver ./roster --runDir ./bin --outDir outfiles/n060w4_1_6-1-1-5/WithNoEvaluation/

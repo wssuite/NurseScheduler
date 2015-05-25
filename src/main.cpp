@@ -116,6 +116,7 @@ int main(int argc, char** argv)
 
 		unsigned found = solutionFile.find_last_of(".");
 		string logFile = solutionFile.substr(0,found);
+      logFile = "";
 
       // Solve the week
     srand(0);  
