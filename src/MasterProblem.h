@@ -204,7 +204,7 @@ public:
    double evaluate(vector<Roster> solution = {});
 
    //solve the rostering problem or just the relaxation(root node)
-   double solve(vector<Roster> solution, bool relaxation);
+   double solve(vector<Roster> solution, bool relaxation, bool rebuild=true);
 
    // Solve with parameters
    double solve(SolverParam parameters, vector<Roster> solution = {});
@@ -212,6 +212,14 @@ public:
    // Main method to evaluate an initial state for a given input and an initial solution and parameters
    //same as solve if not redefine
    double evaluate(SolverParam parameters, vector<Roster> solution = {});
+
+   //Resolve the problem with another demand and keep the same preferences
+   //
+  double resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {});
+
+   //Reevaluate the problem with another demand and keep the same preferences
+   //
+   double reevaluate(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {});
 
    //get the pointer to the model
    Modeler* getModel(){
@@ -223,12 +231,12 @@ public:
 
 
    //get a reference to the rotations
-   inline vector< map<MyObject*, Rotation> >& getRotations(){
+   inline vector< map<MyVar*, Rotation> >& getRotations(){
       return rotations_;
    }
 
    //get a reference to the restsPerDay_ for a Nurse
-   inline vector< vector<MyObject*> >& getRestsPerDay(Nurse* pNurse){
+   inline vector< vector<MyVar*> >& getRestsPerDay(Nurse* pNurse){
       return restsPerDay_[pNurse->id_];
    }
 
@@ -246,59 +254,59 @@ private:
    MyBranchingRule* pRule_; //choose the variables on which we should branch
    MySolverType solverType_; //which solver is used
 
-   vector< map<MyObject*, Rotation> > rotations_;//stores the variables and the rotations for each nurse
-   vector< vector< vector<MyObject*> > > restsPerDay_; //stores all the arcs that are resting on a day for each nurse
+   vector< map<MyVar*, Rotation> > rotations_;//stores the variables and the rotations for each nurse
+   vector< vector< vector<MyVar*> > > restsPerDay_; //stores all the arcs that are resting on a day for each nurse
 
    /*
     * Variables
     */
-   vector< vector<MyObject*> > columnVars_; //binary variables for the columns
+   vector< vector<MyVar*> > columnVars_; //binary variables for the columns
 
-   vector< vector<MyObject*> > restingVars_; //binary variables for the resting arcs in the rotation network
-   vector< vector< vector<MyObject*> > > longRestingVars_; //binary variables for the resting arcs in the rotation network
+   vector< vector<MyVar*> > restingVars_; //binary variables for the resting arcs in the rotation network
+   vector< vector< vector<MyVar*> > > longRestingVars_; //binary variables for the resting arcs in the rotation network
 
-   vector<MyObject*> minWorkedDaysVars_; //count the number of missing worked days per nurse
-   vector<MyObject*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
-   vector<MyObject*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
+   vector<MyVar*> minWorkedDaysVars_; //count the number of missing worked days per nurse
+   vector<MyVar*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
+   vector<MyVar*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
 
-   vector<MyObject*> minWorkedDaysAvgVars_; //count the number of missing worked days from average per nurse
-   vector<MyObject*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
-   vector<MyObject*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
+   vector<MyVar*> minWorkedDaysAvgVars_; //count the number of missing worked days from average per nurse
+   vector<MyVar*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
+   vector<MyVar*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
 
-   vector<MyObject*> minWorkedDaysContractAvgVars_; //count the number of missing worked days from average per contract
-   vector<MyObject*> maxWorkedDaysContractAvgVars_; // count the number of exceeding worked days from average per contract
-   vector<MyObject*> maxWorkedWeekendContractAvgVars_; //count the number of exceeding worked weekends from average per contract
+   vector<MyVar*> minWorkedDaysContractAvgVars_; //count the number of missing worked days from average per contract
+   vector<MyVar*> maxWorkedDaysContractAvgVars_; // count the number of exceeding worked days from average per contract
+   vector<MyVar*> maxWorkedWeekendContractAvgVars_; //count the number of exceeding worked weekends from average per contract
 
-   vector< vector< vector<MyObject*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
-   vector< vector< vector<MyObject*> > > numberOfNursesByPositionVars_; // count the number of nurses by position on each day, shift
-   vector< vector< vector< vector<MyObject*> > > > skillsAllocVars_; //makes the allocation of the skills
+   vector< vector< vector<MyVar*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
+   vector< vector< vector<MyVar*> > > numberOfNursesByPositionVars_; // count the number of nurses by position on each day, shift
+   vector< vector< vector< vector<MyVar*> > > > skillsAllocVars_; //makes the allocation of the skills
 
    /*
     * Constraints
     */
    //transmission of the flow on the resting nodes
    //initialization of the flow constraint at the first position of each restFlowCons_[i] (i=nurse)
-   vector< vector<MyObject*> > restFlowCons_;
+   vector< vector<MyCons*> > restFlowCons_;
    //transmission of the flow on the working nodes
    //end of the flow constraint at the last position of each workFlowCons_[i] (i=nurse)
-   vector< vector<MyObject*> > workFlowCons_;
+   vector< vector<MyCons*> > workFlowCons_;
 
-   vector<MyObject*> minWorkedDaysCons_; //count the number of missing worked days per nurse
-   vector<MyObject*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
-   vector<MyObject*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
+   vector<MyCons*> minWorkedDaysCons_; //count the number of missing worked days per nurse
+   vector<MyCons*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
+   vector<MyCons*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
 
-   vector<MyObject*> minWorkedDaysAvgCons_; //count the number of missing worked days from average per nurse
-   vector<MyObject*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
-   vector<MyObject*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
+   vector<MyCons*> minWorkedDaysAvgCons_; //count the number of missing worked days from average per nurse
+   vector<MyCons*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
+   vector<MyCons*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
 
-   vector<MyObject*> minWorkedDaysContractAvgCons_; //count the number of missing worked days from average per contract
-   vector<MyObject*> maxWorkedDaysContractAvgCons_; // count the number of exceeding worked days from average per contract
-   vector<MyObject*> maxWorkedWeekendContractAvgCons_; //count the number of exceeding worked weekends from average per contract
+   vector<MyCons*> minWorkedDaysContractAvgCons_; //count the number of missing worked days from average per contract
+   vector<MyCons*> maxWorkedDaysContractAvgCons_; // count the number of exceeding worked days from average per contract
+   vector<MyCons*> maxWorkedWeekendContractAvgCons_; //count the number of exceeding worked weekends from average per contract
 
-   vector< vector< vector<MyObject*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
-   vector< vector< vector<MyObject*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
-   vector< vector< vector<MyObject*> > > numberOfNursesByPositionCons_; //ensure there are enough nurses for numberOfNursesByPositionVars_
-   vector< vector< vector<MyObject*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
+   vector< vector< vector<MyCons*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
+   vector< vector< vector<MyCons*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
+   vector< vector< vector<MyCons*> > > numberOfNursesByPositionCons_; //ensure there are enough nurses for numberOfNursesByPositionVars_
+   vector< vector< vector<MyCons*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
 
    // vectors of booleans indicating whether some above constraints are present
    // in the model
@@ -337,16 +345,20 @@ private:
    //compute and add the last rotation finishing on the day just before the first one
    Rotation computeInitStateRotation(LiveNurse* pNurse);
 
+   //update the demand with a new one of the same size
+   //change the rhs of the constraints minDemandCons_ and optDemandCons_
+   void updateDemand(Demand* pDemand);
+
    //get the cost of all shosen rotations in solution sol for a certain CostType
    double getRotationCosts(CostType costType = TOTAL_COST, bool initStateRotation = false);
 
    /* Build each set of constraints - Add also the coefficient of a column for each set */
    void buildRotationCons();
-   int addRotationConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, bool firstDay, bool lastDay);
+   int addRotationConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int k, bool firstDay, bool lastDay);
    void buildMinMaxCons();
-   int addMinMaxConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int nbDays, int nbWeekends);
+   int addMinMaxConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int nbDays, int nbWeekends);
    void buildSkillsCoverageCons();
-   int addSkillsCoverageConsToCol(vector<MyObject*>& cons, vector<double>& coeffs, int i, int k, int s=-1);
+   int addSkillsCoverageConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int k, int s=-1);
 
    /* Display functions */
    string costsConstrainstsToString();

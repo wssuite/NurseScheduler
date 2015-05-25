@@ -120,34 +120,14 @@ vector<int> indexCols_; //index of the cols of the matrix where the col has non-
 vector<double> coeffs_; //value of these coefficients
 };
 
-/*
- * My Pricer
- */
-//struct BcpPricer: public MyObject  {
-//public:
-//   BcpPricer(ObjPricer* pricer):MyObject(){ pricer_=pricer; }
-//   ~BcpPricer(){ }
-//   ObjPricer* pricer_;
-//};
-
-/*
- * My Branching Rule
- */
-//struct ScipRule: public MyRule  {
-//   ScipRule(){ }
-//   ~ScipRule(){ }
-//   SCIP_VAR* rule_;
-//};
-
-
 struct BcpNode{
 
    BcpNode(): index_(0), bestLB_(DBL_MAX), pParent_(0), highestGap_(0), pNurse_(0), day_(0), rest_(false), pNumberOfNurses_(0), nursesLhs_(-DBL_MAX), nursesRhs_(DBL_MAX) {}
-   BcpNode(int index, BcpNode* pParent, vector<MyObject*>& columns):
+   BcpNode(int index, BcpNode* pParent, vector<MyVar*>& columns):
       index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
       columns_(columns), pNurse_(0), day_(0), rest_(false),
       pNumberOfNurses_(0), nursesLhs_(-DBL_MAX), nursesRhs_(DBL_MAX) {}
-   BcpNode(int index, BcpNode* pParent, LiveNurse* pNurse, int day, bool rest, vector<MyObject*>& restArcs):
+   BcpNode(int index, BcpNode* pParent, LiveNurse* pNurse, int day, bool rest, vector<MyVar*>& restArcs):
       index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
       pNurse_(pNurse), day_(day), rest_(rest), restArcs_(restArcs),
       pNumberOfNurses_(0), nursesLhs_(-DBL_MAX), nursesRhs_(DBL_MAX) {}
@@ -187,13 +167,13 @@ struct BcpNode{
    inline double getBestLB() { return bestLB_; }
 
    //vector of the columns on which we have branched. Can be empty
-   const vector<MyObject*> columns_;
+   const vector<MyVar*> columns_;
 
    //nurse and day on which we have branched for rest or work. pNurse_ can be 0
    const LiveNurse* pNurse_;
    const int day_;
    const bool rest_;
-   vector<MyObject*> restArcs_;
+   vector<MyVar*> restArcs_;
 
    //number of nurse on which we have branched. pNumberOfNurses_ can be 0
    const CoinVar* pNumberOfNurses_;
@@ -244,13 +224,13 @@ public:
     * Get the primal value
     */
 
-   double getVarValue(MyObject* var);
+   double getVarValue(MyVar* var);
 
    /*
     * Get the dual variables
     */
 
-   double getDual(MyObject* cons, bool transformed = false);
+   double getDual(MyCons* cons, bool transformed = false);
 
    /**************
     * Parameters *
@@ -319,12 +299,12 @@ public:
       pushBackNode(node);
    }
 
-   inline void pushBackNewNode(LiveNurse* pNurse, int day, bool rest, vector<MyObject*>& restArcs){
+   inline void pushBackNewNode(LiveNurse* pNurse, int day, bool rest, vector<MyVar*>& restArcs){
       BcpNode* node = new BcpNode(tree_.size(), currentNode_, pNurse, day, rest, restArcs);
       pushBackNode(node);
    }
 
-   inline void pushBackNewNode(vector<MyObject*>& columns){
+   inline void pushBackNewNode(vector<MyVar*>& columns){
       BcpNode* node = new BcpNode(tree_.size(), currentNode_, columns);
       pushBackNode(node);
    }
@@ -338,7 +318,7 @@ public:
 
    inline  void addForbidenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbidenShifts) {
       BcpNode* node = currentNode_;
-      vector<MyObject*> arcs;
+      vector<MyVar*> arcs;
       while(node->pParent_){
          if(node->pNurse_ == pNurse)
          {
@@ -680,22 +660,22 @@ protected:
    //Branch on the core integer var: the number of nurses var
    //just 2 children
    //Try also to fix to 1 some columns
-   void appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyObject*>& columns,
+   void appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyVar*>& columns,
       const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
 
    //Branch on the core integer var: the rest arcs on a day for a nurse
    //just 2 children
    //Try also to fix to 1 some columns
-   void appendNewBranchingVarsOnRest(int nbCuts, vector<MyObject*>& coreVars, vector<MyObject*>& columns,
+   void appendNewBranchingVarsOnRest(int nbCuts, vector<MyVar*>& coreVars, vector<MyVar*>& columns,
       const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
 
    //Try also to fix to 1 some columns
-   void appendNewBranchingVarsOnColumns(vector<MyObject*>& columns,
+   void appendNewBranchingVarsOnColumns(vector<MyVar*>& columns,
       const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands);
 
    //build the vector of the branching candidates for the columns
    //return the indexes of the columns in the current formulation
-   vector<int> buildBranchingColumns(CoinVar* var, vector<MyObject*>& columns,
+   vector<int> buildBranchingColumns(CoinVar* var, vector<MyVar*>& columns,
       const BCP_vec<BCP_var*>&  vars, BCP_vec<int>& vpos, BCP_vec<double>& vbd);
 };
 

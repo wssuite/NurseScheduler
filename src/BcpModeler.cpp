@@ -357,11 +357,11 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
       return BCP_DoNotBranch_Fathomed;
 
    //branching candidates: numberOfNursesByPosition_, rest on a day, ...
-   vector<MyObject*> branchingCandidates;
+   vector<MyVar*> branchingCandidates;
    pModel_->branching_candidates(branchingCandidates);
 
    //fixing candidates: branch on columns greater than BRANCHLB
-   vector<MyObject*> fixingCandidates;
+   vector<MyVar*> fixingCandidates;
    pModel_->logical_fixing(fixingCandidates);
 
    if(branchingCandidates.size() == 0)
@@ -387,7 +387,7 @@ void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
    best->action()[0] = BCP_KeepChild;
 }
 
-void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyObject*>& columns,
+void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar, vector<MyVar*>& columns,
    const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
 //   const int nbChildren = 2+columns.size();
    const int nbChildren = (columns.size() > 0 ) ? 3 : 2;
@@ -439,7 +439,7 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
    //Branch on the core integer var: the rest arcs on a day for a nurse
    //just 2 children
    //Try also to fix to 1 some columns
-   void BcpLpModel::appendNewBranchingVarsOnRest(int nbCuts, vector<MyObject*>& coreVars, vector<MyObject*>& columns,
+   void BcpLpModel::appendNewBranchingVarsOnRest(int nbCuts, vector<MyVar*>& coreVars, vector<MyVar*>& columns,
       const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
 
       const int nbChildren = (columns.size() > 0 ) ? 3 : 2;
@@ -471,7 +471,7 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
       sprintf(name, "RestBranchingCons_N%d_%d", dayOff.first->id_, dayOff.second);
       vector<int> indexes;
       vector<double> coeffs;
-      for(MyObject* var: coreVars){
+      for(MyVar* var: coreVars){
          CoinVar* var2 = dynamic_cast<CoinVar*>(var);
          indexes.push_back(var2->getIndex());
          coeffs.push_back(1);
@@ -505,7 +505,7 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
    }
 
    //Try also to fix to 1 some columns
-   void BcpLpModel::appendNewBranchingVarsOnColumns(vector<MyObject*>& columns,
+   void BcpLpModel::appendNewBranchingVarsOnColumns(vector<MyVar*>& columns,
       const BCP_vec<BCP_var*>&  vars, BCP_vec<BCP_lp_branching_object*>&  cands){
 
       const int nbChildren = 1;
@@ -521,7 +521,7 @@ void BcpLpModel::appendNewBranchingVarsOnNumberOfNurses(CoinVar* integerCoreVar,
 
    //build the vector of the branching candidates for the columns
    //return the indexes of the columns in the current formulation
-   vector<int> BcpLpModel::buildBranchingColumns(CoinVar* var, vector<MyObject*>& columns, const BCP_vec<BCP_var*>&  vars,
+   vector<int> BcpLpModel::buildBranchingColumns(CoinVar* var, vector<MyVar*>& columns, const BCP_vec<BCP_var*>&  vars,
       BCP_vec<int>& vpos, BCP_vec<double>& vbd){
       //current index in the BCP formulation
       vector<int> currentIndex(columns.size());
@@ -861,7 +861,7 @@ void BcpModeler::loadBcpSol(int index){
  * get the primal values
  */
 
-double BcpModeler::getVarValue(MyObject* var){
+double BcpModeler::getVarValue(MyVar* var){
    CoinVar* var2 = (CoinVar*) var;
    if(primalValues_.size() ==0 )
       Tools::throwError("Primal solution has been initialized.");
@@ -872,7 +872,7 @@ double BcpModeler::getVarValue(MyObject* var){
  * Get the dual variables
  */
 
-double BcpModeler::getDual(MyObject* cons, bool transformed){
+double BcpModeler::getDual(MyCons* cons, bool transformed){
    CoinCons* cons2 = (CoinCons*) cons;
    if(dualValues_.size() == 0)
       Tools::throwError("Dual solution has been initialized.");
