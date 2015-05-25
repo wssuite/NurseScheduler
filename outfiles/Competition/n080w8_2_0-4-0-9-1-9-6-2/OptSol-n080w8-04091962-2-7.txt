@@ -1,7 +1,7 @@
 SOLUTION
 7 n080w8
 
-ASSIGNMENTS = 265
+ASSIGNMENTS = 268
 HN_0 Tue Late HeadNurse
 HN_0 Wed Late HeadNurse
 HN_0 Thu Late HeadNurse
@@ -32,8 +32,8 @@ HN_7 Thu Early HeadNurse
 HN_7 Fri Early Nurse
 HN_8 Mon Night Nurse
 HN_8 Tue Night Nurse
-NU_10 Mon Day Nurse
-NU_10 Tue Day Nurse
+NU_10 Mon Night Caretaker
+NU_10 Tue Night Caretaker
 NU_10 Wed Night Nurse
 NU_10 Thu Night Caretaker
 NU_10 Fri Night Nurse
@@ -55,7 +55,7 @@ NU_15 Tue Late Caretaker
 NU_15 Wed Late Nurse
 NU_15 Thu Late Nurse
 NU_16 Mon Day Nurse
-NU_16 Tue Day Caretaker
+NU_16 Tue Day Nurse
 NU_16 Wed Day Caretaker
 NU_17 Wed Early Caretaker
 NU_17 Thu Early Caretaker
@@ -65,7 +65,7 @@ NU_18 Thu Late Nurse
 NU_18 Fri Late Nurse
 NU_18 Sat Late Nurse
 NU_18 Sun Late Nurse
-NU_19 Mon Day Caretaker
+NU_19 Mon Day Nurse
 NU_19 Thu Early Caretaker
 NU_19 Fri Early Caretaker
 NU_19 Sat Day Nurse
@@ -84,6 +84,8 @@ CT_22 Wed Day Caretaker
 CT_23 Mon Day Caretaker
 CT_24 Mon Night Caretaker
 CT_24 Tue Night Caretaker
+CT_24 Sat Day Caretaker
+CT_24 Sun Day Caretaker
 CT_25 Tue Late Caretaker
 CT_25 Wed Late Caretaker
 CT_25 Thu Late Caretaker
@@ -123,8 +125,9 @@ CT_34 Wed Late Caretaker
 CT_34 Thu Late Caretaker
 CT_35 Mon Night Caretaker
 CT_35 Tue Night Caretaker
-CT_35 Sat Day Caretaker
-CT_35 Sun Day Caretaker
+CT_35 Fri Late Caretaker
+CT_35 Sat Late Caretaker
+CT_35 Sun Late Caretaker
 CT_36 Wed Day Caretaker
 CT_36 Thu Day Caretaker
 CT_36 Fri Day Caretaker
@@ -198,8 +201,8 @@ CT_56 Thu Day Caretaker
 CT_56 Fri Day Caretaker
 CT_56 Sat Day Caretaker
 CT_56 Sun Day Caretaker
-CT_57 Mon Night Caretaker
-CT_57 Tue Night Caretaker
+CT_57 Mon Day Caretaker
+CT_57 Tue Day Caretaker
 CT_57 Wed Night Caretaker
 CT_57 Thu Night Caretaker
 CT_57 Fri Night Caretaker

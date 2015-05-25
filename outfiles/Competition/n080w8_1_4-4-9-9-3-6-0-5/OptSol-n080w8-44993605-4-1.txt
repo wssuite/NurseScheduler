@@ -1,7 +1,7 @@
 SOLUTION
 1 n080w8
 
-ASSIGNMENTS = 267
+ASSIGNMENTS = 266
 HN_0 Mon Early HeadNurse
 HN_0 Tue Early HeadNurse
 HN_0 Wed Early HeadNurse
@@ -37,10 +37,10 @@ HN_9 Wed Day Nurse
 NU_10 Wed Late Nurse
 NU_10 Thu Late Nurse
 NU_10 Fri Late Nurse
-NU_11 Tue Early Nurse
-NU_11 Wed Early Nurse
 NU_11 Thu Early Caretaker
 NU_11 Fri Early Nurse
+NU_11 Sat Late Nurse
+NU_11 Sun Late Caretaker
 NU_12 Mon Late Caretaker
 NU_12 Tue Late Nurse
 NU_13 Wed Late Nurse
@@ -49,8 +49,6 @@ NU_13 Fri Late Nurse
 NU_14 Mon Day Nurse
 NU_14 Tue Day Nurse
 NU_14 Wed Day Nurse
-NU_14 Sat Late Nurse
-NU_14 Sun Late Caretaker
 NU_15 Thu Day Nurse
 NU_15 Fri Day Nurse
 NU_15 Sat Early Nurse
@@ -58,18 +56,21 @@ NU_15 Sun Early Nurse
 NU_16 Wed Late Caretaker
 NU_16 Thu Late Caretaker
 NU_16 Fri Late Caretaker
-NU_17 Mon Day Nurse
+NU_17 Mon Night Nurse
+NU_17 Tue Night Nurse
+NU_17 Wed Night Caretaker
 NU_17 Sat Day Nurse
 NU_17 Sun Day Nurse
-NU_18 Mon Night Nurse
-NU_18 Tue Night Nurse
+NU_18 Mon Day Nurse
+NU_18 Tue Early Nurse
+NU_18 Wed Early Nurse
 NU_18 Sat Night Nurse
 NU_18 Sun Night Nurse
 NU_19 Mon Night Nurse
-NU_19 Tue Night Caretaker
-NU_19 Wed Night Caretaker
 NU_19 Thu Night Nurse
 NU_19 Fri Night Nurse
+NU_19 Sat Night Nurse
+NU_19 Sun Night Nurse
 CT_20 Fri Late Caretaker
 CT_20 Sat Late Caretaker
 CT_20 Sun Late Caretaker
@@ -230,7 +231,8 @@ TR_64 Tue Night Trainee
 TR_64 Wed Night Trainee
 TR_64 Thu Night Trainee
 TR_64 Fri Night Trainee
-TR_65 Sat Early Trainee
+TR_65 Fri Day Trainee
+TR_65 Sat Day Trainee
 TR_65 Sun Early Trainee
 TR_67 Tue Day Trainee
 TR_67 Wed Day Trainee
@@ -245,7 +247,6 @@ TR_70 Thu Day Trainee
 TR_71 Tue Early Trainee
 TR_71 Wed Early Trainee
 TR_71 Thu Early Trainee
-TR_71 Fri Early Trainee
 TR_72 Tue Early Trainee
 TR_72 Wed Early Trainee
 TR_72 Thu Early Trainee
@@ -257,15 +258,13 @@ TR_74 Mon Day Trainee
 TR_74 Tue Day Trainee
 TR_74 Wed Day Trainee
 TR_75 Mon Late Trainee
-TR_76 Mon Night Trainee
-TR_76 Tue Night Trainee
-TR_76 Fri Day Trainee
-TR_76 Sat Day Trainee
-TR_76 Sun Early Trainee
+TR_76 Wed Early Trainee
+TR_76 Thu Early Trainee
+TR_76 Fri Early Trainee
+TR_77 Tue Night Trainee
+TR_77 Wed Night Trainee
 TR_77 Thu Night Trainee
 TR_77 Fri Night Trainee
-TR_77 Sat Night Trainee
-TR_77 Sun Night Trainee
 TR_78 Mon Night Trainee
 TR_78 Tue Night Trainee
 TR_78 Wed Night Trainee
