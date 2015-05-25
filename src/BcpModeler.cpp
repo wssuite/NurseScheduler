@@ -665,9 +665,9 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
    BCP_vec<BCP_cut*>& added_cuts,
    BCP_user_data*& user_data){
 
-   added_vars.reserve(nbInitialColumnVars_);
-   for(int i=0; i<nbInitialColumnVars_; ++i){
-      BcpColumn* var = dynamic_cast<BcpColumn*>(pModel_->getColumns()[i]);
+   added_vars.reserve(pModel_->getNbColumns());
+   for(MyVar* col: pModel_->getColumns()){
+      BcpColumn* var = dynamic_cast<BcpColumn*>(col);
       if(!var)
          Tools::throwError("Bad variable casting.");
       //create a new BcpColumn which will be deleted by BCP
@@ -709,7 +709,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
 BcpModeler::BcpModeler(const char* name):
    CoinModeler(), currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(0), diveDepth_(0), diveLenght_(LARGE_SCORE),
    primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-   best_lb_in_root(LARGE_SCORE), best_lb(DBL_MAX), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
+   best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE), lastNbSubProblemsSolved_(0), lastMinDualCost_(0)
 {
    //create the root
    pushBackNewNode();
@@ -719,7 +719,42 @@ BcpModeler::BcpModeler(const char* name):
 int BcpModeler::solve(bool relaxatione){
    BcpInitialize bcp(this);
    char** argv;
-   return bcp_main(0, argv, &bcp);
+   int value = bcp_main(0, argv, &bcp);
+
+   /* clear tree */
+   for(BcpNode* node: tree_)
+      delete node;
+   tree_.clear();
+   treeMapping_.clear();
+   for(BcpBranchCons* cons: branchingCons_)
+      delete cons;
+   branchingCons_.clear();
+
+   return value;
+}
+
+//reinitialize all parameters and clear vectors
+void BcpModeler::reset() {
+   best_ub = LARGE_SCORE;
+   currentNode_=0;
+   tree_size_ = 1;
+   nb_nodes_last_incumbent_=0;
+   diveDepth_=0;
+   diveLenght_ = LARGE_SCORE;
+   best_lb_in_root = LARGE_SCORE;
+   best_lb = LARGE_SCORE;
+   lastNbSubProblemsSolved_=0;
+   lastMinDualCost_=0;
+   solHasChanged_ = false;
+
+   obj_history_.clear();
+   primalValues_.clear();
+   dualValues_.clear();
+   reducedCosts_.clear();
+   lhsValues_.clear();
+
+   //create the root
+   pushBackNewNode();
 }
 
 /*
@@ -830,7 +865,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
 
 bool BcpModeler::loadBestSol(){
    int i=0, index = -1;
-   double bestObj = DBL_MAX;
+   double bestObj = LARGE_SCORE;
    for(BCP_solution_generic& sol: bcpSolutions_){
       if(sol.objective_value() < bestObj){
          bestObj = sol.objective_value();

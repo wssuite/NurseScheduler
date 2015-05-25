@@ -45,13 +45,55 @@ void testFunction_Antoine(){
    vector<int> numberWeek = {3, 5, 0, 2}; // , 0, 4, 5, 2};
 
 
-//   SolverParam optParam;
+   SolverParam optParam;
 //   optParam.nbDiveIfMinGap_ = 0;
 //   optParam.nbDiveIfRelGap_ = 0;
 //   testMultipleWeeksDeterministic(data, inst, 0, numberWeek, GENCOL, "outfiles/MyTests/", optParam);
-   StochasticSolverOptions stochasticSolverOptions;
-   testMultipleWeeksStochastic(data, inst, 0, numberWeek, stochasticSolverOptions, "outfiles/MyTests/");
+//   StochasticSolverOptions stochasticSolverOptions;
+//   testMultipleWeeksStochastic(data, inst, 0, numberWeek, stochasticSolverOptions, "outfiles/MyTests/");
 
+   Scenario* pScen = initializeMultipleWeeks(data, inst, 0, {0});
+
+   Solver* pSolver = setSolverWithInputAlgorithm(pScen, GENCOL);
+   pSolver->evaluate(optParam);
+
+   for(int i=1; i<10; ++i){
+      printf("**********************************************\n"
+         "Demand %d"
+         "\n**********************************************\n", i);
+
+      Tools::Timer timer;
+      timer.init();
+
+      vector<int> demand = {i};
+      InputPaths inputPaths(data, inst,0,demand);
+
+      //read the new demand
+      Demand* newDemand(0);
+      Preferences* newPref(0);
+      ReadWrite::readWeek(inputPaths.week(0), pScen, &newDemand, &newPref);
+      delete newPref;
+      //resolve
+      timer.start();
+      pSolver->reevaluate(newDemand,optParam);
+      timer.stop();
+      cout << "Total time spent in the algorithm : " << timer.dSinceInit() << endl;
+
+      //solve
+      timer.init();
+      Scenario* pScen2 = initializeMultipleWeeks(data, inst, 0, demand);
+      Solver* pSolver2 = setSolverWithInputAlgorithm(pScen2, GENCOL);
+      timer.start();
+      pSolver2->evaluate(optParam);
+      timer.stop();
+      cout << "Total time spent in the algorithm : " << timer.dSinceInit() << endl;
+
+      delete pSolver2;
+      delete pScen2;
+   }
+
+   delete pSolver;
+   delete pScen;
    // Display the total time spent in the algorithm
    timertotal->stop();
    cout << "Total time spent in the algorithm : " << timertotal->dSinceInit() << endl;

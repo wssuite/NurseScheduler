@@ -366,6 +366,8 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation, bool rebui
    // build the model first
    if(rebuild)
       build();
+   else
+      pModel_->reset();
 
    // input an initial solution
    initialize(solution);
@@ -1162,8 +1164,8 @@ void MasterProblem::updateDemand(Demand* pDemand){
    for(int k=0; k<pDemand_->nbDays_; k++)
       for(int s=1; s<pScenario_->nbShifts_; s++)
          for(int sk=0; sk<pScenario_->nbSkills_; sk++){
-            minDemandCons_[k][s][sk]->setRhs(pDemand_->minDemand_[k][s][sk]);
-            optDemandCons_[k][s][sk]->setRhs(pDemand_->optDemand_[k][s][sk]);
+            minDemandCons_[k][s-1][sk]->setLhs(pDemand_->minDemand_[k][s][sk]);
+            optDemandCons_[k][s-1][sk]->setLhs(pDemand_->optDemand_[k][s][sk]);
          }
 }
 

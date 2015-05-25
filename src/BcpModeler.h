@@ -122,15 +122,15 @@ vector<double> coeffs_; //value of these coefficients
 
 struct BcpNode{
 
-   BcpNode(): index_(0), bestLB_(DBL_MAX), pParent_(0), highestGap_(0), pNurse_(0), day_(0), rest_(false), pNumberOfNurses_(0), nursesLhs_(-DBL_MAX), nursesRhs_(DBL_MAX) {}
+   BcpNode(): index_(0), bestLB_(LARGE_SCORE), pParent_(0), highestGap_(0), pNurse_(0), day_(0), rest_(false), pNumberOfNurses_(0), nursesLhs_(-LARGE_SCORE), nursesRhs_(LARGE_SCORE) {}
    BcpNode(int index, BcpNode* pParent, vector<MyVar*>& columns):
       index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
       columns_(columns), pNurse_(0), day_(0), rest_(false),
-      pNumberOfNurses_(0), nursesLhs_(-DBL_MAX), nursesRhs_(DBL_MAX) {}
+      pNumberOfNurses_(0), nursesLhs_(-LARGE_SCORE), nursesRhs_(LARGE_SCORE) {}
    BcpNode(int index, BcpNode* pParent, LiveNurse* pNurse, int day, bool rest, vector<MyVar*>& restArcs):
       index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
       pNurse_(pNurse), day_(day), rest_(rest), restArcs_(restArcs),
-      pNumberOfNurses_(0), nursesLhs_(-DBL_MAX), nursesRhs_(DBL_MAX) {}
+      pNumberOfNurses_(0), nursesLhs_(-LARGE_SCORE), nursesRhs_(LARGE_SCORE) {}
    BcpNode(int index, BcpNode* pParent, CoinVar* var, double lb, double ub):
       index_(index), bestLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0),
       pNurse_(0), day_(0), rest_(false),
@@ -158,7 +158,7 @@ struct BcpNode{
    inline double getHighestGap(){
       //if root, it is the best
       if(!pParent_)
-         return DBL_MAX;
+         return LARGE_SCORE;
 
       //otherwise compare the current gap
       return pParent_->highestGap_ ;
@@ -191,13 +191,13 @@ protected:
 class BcpModeler: public CoinModeler {
 public:
    BcpModeler(const char* name);
-   ~BcpModeler() {
-      for(BcpNode* node: tree_) delete node;
-      for(BcpBranchCons* cons: branchingCons_) delete cons;
-   }
+   ~BcpModeler() { }
 
    //solve the model
    int solve(bool relaxation = false);
+
+   //Reset and clear solving parameters
+   void reset();
 
    /*
     * Create variable:
@@ -375,7 +375,7 @@ public:
 		   for(BcpNode* node: p.second)
 			   if(best_lb > node->getBestLB())
 				   best_lb = node->getBestLB();
-	   if(best_lb == DBL_MAX)
+	   if(best_lb == LARGE_SCORE)
          return LARGE_SCORE;
       return best_lb;
    }

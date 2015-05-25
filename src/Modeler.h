@@ -192,6 +192,9 @@ public:
    //solve the model
    virtual int solve(bool relaxation = false)=0;
 
+   //Reset and clear solving parameters
+   virtual void reset() { best_ub = LARGE_SCORE; }
+
    //Add a pricer
    virtual int addObjPricer(MyPricer* pPricer){
       pPricer_ = pPricer;
