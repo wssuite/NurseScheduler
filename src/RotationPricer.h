@@ -65,7 +65,7 @@ private:
    void computeForbiddenShifts(set<pair<int,int> >& forbiddenShifts, vector<Rotation> rotations);
 };
 
-static bool compareObject(const pair<MyObject*,double>& p1, const pair<MyObject*,double>& p2);
+static bool compareObject(const pair<MyVar*,double>& p1, const pair<MyVar*,double>& p2);
 
 class DiveBranchingRule: public MyBranchingRule
 {
@@ -74,21 +74,21 @@ public:
    virtual ~DiveBranchingRule() { }
 
    /* compute branching decisions */
-   void branching_candidates(vector<MyObject*>& branchingCandidates);
+   void branching_candidates(vector<MyVar*>& branchingCandidates);
 
    /* branch on the number of nurses */
-   void branchOnNumberOfNurses(vector<MyObject*>& branchingCandidates);
+   void branchOnNumberOfNurses(vector<MyVar*>& branchingCandidates);
 
    /* branch on a set of resting arcs */
-   void branchOnRestingArcs(vector<MyObject*>& branchingCandidates);
+   void branchOnRestingArcs(vector<MyVar*>& branchingCandidates);
 
    /* compute fixing decisions */
-   void logical_fixing(vector<MyObject*>& fixingCandidates);
+   void logical_fixing(vector<MyVar*>& fixingCandidates);
 
    /* compare columns */
-   static bool compareColumnCloseToInt(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2);
+   static bool compareColumnCloseToInt(pair<MyVar*, double> obj1, pair<MyVar*, double> obj2);
 
-   static bool compareColumnCloseTo5(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2);
+   static bool compareColumnCloseTo5(pair<MyVar*, double> obj1, pair<MyVar*, double> obj2);
 
 protected:
    //Pointer to the master problem to link the master and the sub problems
@@ -105,7 +105,7 @@ protected:
 
    //vectors of the variables on which we can branch
    //
-   vector<MyObject*> bestCandidates_, mediumCandidates_;
+   vector<MyVar*> bestCandidates_, mediumCandidates_;
 };
 
 class CorePriorityBranchingRule: public MyBranchingRule
@@ -115,10 +115,10 @@ public:
    virtual ~CorePriorityBranchingRule() { }
 
    /* compute branching decisions */
-   void branching_candidates(vector<MyObject*>& branchingCandidates);
+   void branching_candidates(vector<MyVar*>& branchingCandidates);
 
    /* compute fixing decisions */
-   void logical_fixing(vector<MyObject*>& fixingCandidates);
+   void logical_fixing(vector<MyVar*>& fixingCandidates);
 
 protected:
    //pointers to the data

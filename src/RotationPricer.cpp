@@ -264,7 +264,7 @@ void RotationPricer::computeForbiddenShifts(set<pair<int,int>>& forbiddenShifts,
 //
 //////////////////////////////////////////////////////////////
 
-bool compareObject(const pair<MyObject*,double>& p1, const pair<MyObject*,double>& p2){
+bool compareObject(const pair<MyVar*,double>& p1, const pair<MyVar*,double>& p2){
    return (p1.second < p2.second);
 }
 
@@ -278,26 +278,26 @@ DiveBranchingRule::DiveBranchingRule(MasterProblem* master, const char* name):
 { }
 
 //add all good candidates
-void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
+void DiveBranchingRule::logical_fixing(vector<MyVar*>& fixingCandidates){
    //look for fractional columns
    //Fix all column above BRANCH_LB
    //search the good candidates
-   vector<pair<MyObject*,double> > candidates;
+   vector<pair<MyVar*,double> > candidates;
    for(int i=0; i<master_->getRotations().size(); ++i)
-      for(pair<MyObject*, Rotation> var: master_->getRotations()[i]){
+      for(pair<MyVar*, Rotation> var: master_->getRotations()[i]){
          double value = pModel_->getVarValue(var.first);
          //if the rotation is not a real rotation (length = 0), continue
          if( var.second.length_==0)
             continue;
          //if var fractional
          if(value > EPSILON && value < 1 - EPSILON)
-            candidates.push_back(pair<MyObject*, double>(var.first, 1 - value));
+            candidates.push_back(pair<MyVar*, double>(var.first, 1 - value));
       }
 
    stable_sort(candidates.begin(), candidates.end(), compareObject);
 
    double valueLeft = 0.99;
-   for(pair<MyObject*,double>& p: candidates){
+   for(pair<MyVar*,double>& p: candidates){
       if(valueLeft < p.second)
          break;
       fixingCandidates.push_back(p.first);
@@ -305,12 +305,12 @@ void DiveBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
    }
 }
 
-void DiveBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
+void DiveBranchingRule::branching_candidates(vector<MyVar*>& branchingCandidates){
    branchOnRestingArcs(branchingCandidates);
 }
 
 /* branch on a set of resting arcs */
-void DiveBranchingRule::branchOnRestingArcs(vector<MyObject*>& branchingCandidates){
+void DiveBranchingRule::branchOnRestingArcs(vector<MyVar*>& branchingCandidates){
    //set of rest variable closest to .5
    int bestDay = -1;
    LiveNurse* pBestNurse(0);
@@ -320,7 +320,7 @@ void DiveBranchingRule::branchOnRestingArcs(vector<MyObject*>& branchingCandidat
       for(int k=0; k<master_->pDemand_->nbDays_; ++k){
          double value = 0;
          //choose the set of arcs the closest to .5
-         for(MyObject* var: master_->getRestsPerDay(pNurse)[k])
+         for(MyVar* var: master_->getRestsPerDay(pNurse)[k])
             value += pModel_->getVarValue(var);
 
          //The value has to be not integer
@@ -340,17 +340,17 @@ void DiveBranchingRule::branchOnRestingArcs(vector<MyObject*>& branchingCandidat
       }
 
    if(pBestNurse>0)
-      for(MyObject* var: master_->getRestsPerDay(pBestNurse)[bestDay])
+      for(MyVar* var: master_->getRestsPerDay(pBestNurse)[bestDay])
          branchingCandidates.push_back(var);
 
    master_->pModel_->setLastBranchingRest(pair<LiveNurse*, int>(pBestNurse, bestDay));
 }
 
 /* branch on the number of nurses */
-void DiveBranchingRule::branchOnNumberOfNurses(vector<MyObject*>& branchingCandidates){
+void DiveBranchingRule::branchOnNumberOfNurses(vector<MyVar*>& branchingCandidates){
    //search all candidates
    if(mediumCandidates_.size() == 0)
-      for(MyObject* var: pModel_->getIntegerCoreVars()){
+      for(MyVar* var: pModel_->getIntegerCoreVars()){
          string str2 = "nursesNumber";
          string str0(var->name_);
          string str1 = str0.substr(0,str2.size());
@@ -360,14 +360,14 @@ void DiveBranchingRule::branchOnNumberOfNurses(vector<MyObject*>& branchingCandi
             mediumCandidates_.push_back(var);
       }
 
-   MyObject *bestVar(0);
+   MyVar *bestVar(0);
    double bestValue = DBL_MAX;
 
    //manage integrality on the skill allocation variables
    switch(searchStrategy_){
    case DepthFirstSearch:
       //variable closest to upper integer
-      for(MyObject* var: bestCandidates_){
+      for(MyVar* var: bestCandidates_){
          if(pModel_->isInteger(var))
             continue;
 
@@ -386,7 +386,7 @@ void DiveBranchingRule::branchOnNumberOfNurses(vector<MyObject*>& branchingCandi
       if(bestVar != 0)
          break;
 
-      for(MyObject* var: mediumCandidates_){
+      for(MyVar* var: mediumCandidates_){
          if(pModel_->isInteger(var))
             continue;
 
@@ -405,7 +405,7 @@ void DiveBranchingRule::branchOnNumberOfNurses(vector<MyObject*>& branchingCandi
       break;
    default:
       //variable closest to .5
-      for(MyObject* var: bestCandidates_){
+      for(MyVar* var: bestCandidates_){
          if(pModel_->isInteger(var))
             continue;
 
@@ -424,7 +424,7 @@ void DiveBranchingRule::branchOnNumberOfNurses(vector<MyObject*>& branchingCandi
       if(bestVar != 0)
          break;
 
-      for(MyObject* var: mediumCandidates_){
+      for(MyVar* var: mediumCandidates_){
          if(pModel_->isInteger(var))
             continue;
 
@@ -447,13 +447,13 @@ void DiveBranchingRule::branchOnNumberOfNurses(vector<MyObject*>& branchingCandi
       branchingCandidates.push_back(bestVar);
 }
 
-bool DiveBranchingRule::compareColumnCloseToInt(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2){
+bool DiveBranchingRule::compareColumnCloseToInt(pair<MyVar*, double> obj1, pair<MyVar*, double> obj2){
    double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
    double closeToInt1 = 1-frac1, closeToInt2 = 1-frac2;
    return (closeToInt1 < closeToInt2);
 }
 
-bool DiveBranchingRule::compareColumnCloseTo5(pair<MyObject*, double> obj1, pair<MyObject*, double> obj2){
+bool DiveBranchingRule::compareColumnCloseTo5(pair<MyVar*, double> obj1, pair<MyVar*, double> obj2){
    double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
    double closeTo5_1 = abs(0.5-frac1), closeTo5_2 = abs(0.5-frac2);
    return (closeTo5_1 < closeTo5_2);
@@ -469,9 +469,9 @@ CorePriorityBranchingRule::CorePriorityBranchingRule(Modeler* pModel, const char
 { }
 
 //remove all bad candidates from fixingCandidates while keeping the order
-void CorePriorityBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidates){
+void CorePriorityBranchingRule::logical_fixing(vector<MyVar*>& fixingCandidates){
    //choose the var nursesNumber
-   for(MyObject* var: pModel_->getIntegerCoreVars()){
+   for(MyVar* var: pModel_->getIntegerCoreVars()){
       string str2 = "nursesNumber";
       string str0(var->name_);
       string str1 = str0.substr(0,str2.size());
@@ -481,9 +481,9 @@ void CorePriorityBranchingRule::logical_fixing(vector<MyObject*>& fixingCandidat
 }
 
 //remove all worst/best candidates from fixingCandidates while keeping the order
-void CorePriorityBranchingRule::branching_candidates(vector<MyObject*>& branchingCandidates){
+void CorePriorityBranchingRule::branching_candidates(vector<MyVar*>& branchingCandidates){
    //choose the var nursesNumber
-   for(MyObject* var: pModel_->getIntegerCoreVars()){
+   for(MyVar* var: pModel_->getIntegerCoreVars()){
       string str2 = "skillsAlloc";
       string str0(var->name_);
       string str1 = str0.substr(0,str2.size());

@@ -383,6 +383,20 @@ public:
 	   return solve(parameters, solution);
    }
 
+   //Resolve the problem with another demand and keep the same preferences
+   //
+   virtual double resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {}){
+      pDemand_ = pDemand;
+      return solve(parameters, solution);
+   }
+
+   //Reevaluate the problem with another demand and keep the same preferences
+   //
+   virtual double reevaluate(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {}){
+      pDemand_ = pDemand;
+      return solve(parameters, solution);
+   }
+
    // Should be protected (and not private) because Solver will have subclasses
 protected:
 

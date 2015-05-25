@@ -17,14 +17,14 @@
  * My Constraints
  */
 //Coin cons, just a virtual class
-struct CoinCons: public MyObject{
+struct CoinCons: public MyCons{
 public:
    CoinCons(const char* name, int index, double lhs, double rhs):
-      MyObject(name), index_(index), lhs_(lhs), rhs_(rhs)
+      MyCons(name, lhs, rhs), index_(index)
 { }
 
    CoinCons(const CoinCons& cons) :
-      MyObject(cons.name_), index_(cons.index_), lhs_(cons.lhs_), rhs_(cons.rhs_)
+      MyCons(cons), index_(cons.index_)
    { }
 
    virtual ~CoinCons(){ }
@@ -35,28 +35,21 @@ public:
 
    int getIndex() { return index_; }
 
-   double getLhs() { return lhs_; }
-
-   double getRhs() { return rhs_; }
-
 protected:
    int index_; //index of the row of the matrix here
-   double lhs_; //left hand side == lower bound
-   double rhs_; //rihgt hand side == upper bound
 };
 
 /*
  * My Variables
  */
 //Coin var, just a virtual class
-struct CoinVar: public MyObject {
+struct CoinVar: public MyVar {
    CoinVar(const char* name, int index, double cost, VarType type, double lb, double ub, double dualCost = 99999):
-      MyObject(name), index_(index), type_(type), cost_(cost), lb_(lb), ub_(ub), dualCost_(dualCost)
+      MyVar(name, cost, type, lb, ub), index_(index), dualCost_(dualCost)
    { }
 
    CoinVar(const CoinVar& var) :
-      MyObject(var), index_(var.index_), type_(var.type_), cost_(var.cost_), dualCost_(var.dualCost_),
-      lb_(var.lb_), ub_(var.ub_), indexRows_(var.indexRows_), coeffs_(var.coeffs_)
+      MyVar(var), index_(var.index_), dualCost_(var.dualCost_), indexRows_(var.indexRows_), coeffs_(var.coeffs_)
    { }
 
    virtual ~CoinVar(){ }
@@ -79,8 +72,6 @@ struct CoinVar: public MyObject {
 
    int getIndex() { return index_; }
 
-   VarType getVarType() {return type_;}
-
    int getNbRows() { return indexRows_.size(); }
 
    vector<int>& getIndexRows() { return indexRows_; }
@@ -91,21 +82,9 @@ struct CoinVar: public MyObject {
 
    double getCoeffRow(int i) { return coeffs_[i]; }
 
-   double getCost() { return cost_; }
-
-   double getLB() { return lb_; }
-
-   double getUB() { return ub_; }
-
-   bool is_integer() { return type_ != VARTYPE_CONTINUOUS; }
-
 protected:
    int index_; //index of the column of the matrix here
-   VarType type_; //type of the variable
-   double cost_; //cost of the variable
    double dualCost_; //dualCost of the variable
-   double lb_; //lower bound
-   double ub_; //upper bound
    vector<int> indexRows_; //index of the rows of the matrix where the variable has non-zero coefficient
    vector<double> coeffs_; //value of these coefficients
 };
@@ -134,7 +113,7 @@ public:
 
    virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, double dualObj, VarType vartype, double lb, double ub)=0;
 
-   int createVar(MyObject** var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score){
+   int createVar(MyVar** var, const char* var_name, double objCoeff, double lb, double ub, VarType vartype, double score){
       if(lb==DBL_MIN)
          lb = -infinity;
       if(ub==DBL_MAX)
@@ -150,7 +129,7 @@ public:
       return 1;
    }
 
-   int createColumnVar(MyObject** var, const char* var_name, double objCoeff, double dualObj, double lb, double ub, VarType vartype, double score){
+   int createColumnVar(MyVar** var, const char* var_name, double objCoeff, double dualObj, double lb, double ub, VarType vartype, double score){
       if(lb==DBL_MIN)
          lb = -infinity;
       if(ub==DBL_MAX)
@@ -179,8 +158,8 @@ public:
    //has to be implement to create the good cons according to the coin modeler chosen (BCP, CBC ...)
    virtual int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs)=0;
 
-   int createConsLinear(MyObject** con, const char* con_name, double lhs, double rhs,
-      vector<MyObject*> vars, vector<double> coeffs){
+   int createConsLinear(MyCons** con, const char* con_name, double lhs, double rhs,
+      vector<MyVar*> vars, vector<double> coeffs){
       if(lhs==DBL_MIN)
          lhs = -infinity;
       if(rhs==DBL_MAX)
@@ -200,8 +179,8 @@ public:
    }
 
    //Add there is no final linear constraints for BCP
-   virtual int createFinalConsLinear(MyObject** con, const char* con_name, double lhs, double rhs,
-      vector<MyObject*> vars = {}, vector<double> coeffs = {}){
+   virtual int createFinalConsLinear(MyCons** con, const char* con_name, double lhs, double rhs,
+      vector<MyVar*> vars = {}, vector<double> coeffs = {}){
       return createConsLinear(con, con_name, lhs, rhs, vars, coeffs);
    }
 
@@ -209,7 +188,7 @@ public:
     * Add variables to constraints
     */
 
-   int addCoefLinear(MyObject* cons, MyObject* var, double coeff, bool transformed=false){
+   int addCoefLinear(MyCons* cons, MyVar* var, double coeff, bool transformed=false){
       CoinVar* var2 = (CoinVar*) var;
       CoinCons* cons2 = (CoinCons*) cons;
 
@@ -261,13 +240,13 @@ public:
     * Get the primal value
     */
 
-   virtual double getVarValue(MyObject* var) { return 0; }
+   virtual double getVarValue(MyVar* var) { return 0; }
 
    /*
     * Get the dual variables
     */
 
-   virtual double getDual(MyObject* cons, bool transformed = false) { return 0; }
+   virtual double getDual(MyCons* cons, bool transformed = false) { return 0; }
 
    /**************
     * Parameters *
@@ -279,7 +258,7 @@ public:
     *************/
 
    //compute the total cost of a var*
-   double getTotalCost(MyObject* var, bool print = false){
+   double getTotalCost(MyVar* var, bool print = false){
       CoinVar* var2 = (CoinVar*) var;
 
       double value = getVarValue(var);
