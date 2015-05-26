@@ -199,27 +199,15 @@ public:
    //solve the rostering problem
    double solve(vector<Roster> solution = {});
 
-   // Main method to evaluate an initial state for a given input and an initial solution
-   //same as solve if not redefine
-   double evaluate(vector<Roster> solution = {});
-
    //solve the rostering problem or just the relaxation(root node)
-   double solve(vector<Roster> solution, bool relaxation, bool rebuild=true);
+   double solve(vector<Roster> solution, bool rebuild);
 
    // Solve with parameters
    double solve(SolverParam parameters, vector<Roster> solution = {});
 
-   // Main method to evaluate an initial state for a given input and an initial solution and parameters
-   //same as solve if not redefine
-   double evaluate(SolverParam parameters, vector<Roster> solution = {});
-
    //Resolve the problem with another demand and keep the same preferences
    //
-  double resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {});
-
-   //Reevaluate the problem with another demand and keep the same preferences
-   //
-   double reevaluate(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {});
+   double resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {});
 
    //get the pointer to the model
    Modeler* getModel(){

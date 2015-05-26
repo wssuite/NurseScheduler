@@ -40,6 +40,10 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
 
    BCP_solution_generic* sol = NULL;
 
+   //if no integer solution is needed, don't run the heuristic
+   if(pModel_->getParameters().stopAfterXSolution_ == 0)
+      return sol;
+
    //if heuristic has already been run in these node or
    //it has not been long enough since the last run or
    //the objective of the sub-problem is too negative
@@ -834,6 +838,10 @@ void BcpModeler::setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  
 }
 
 void BcpModeler::addBcpSol(const BCP_solution* sol){
+   //if no integer solution is needed, don't store the solutions
+   if(parameters_.stopAfterXSolution_ == 0)
+      return;
+
    //create a solution which is not going to delete the vars at the end
    BCP_solution_generic mySol(false);
    BCP_solution_generic* sol2 = (BCP_solution_generic*) sol;
@@ -978,6 +986,13 @@ bool BcpModeler::doStop(){
    //continue if doesn't have a lb
    if(getBestLB() == LARGE_SCORE)
       return false;
+
+   //check the number of solution
+   if(nbSolutions() >= parameters_.stopAfterXSolution_){
+      char error[100];
+      sprintf(error, "Stopped: %d solutions have been founded", nbSolutions());
+      throw FeasibleStop(error);
+   }
 
    //check relative gap
    if(parameters_.solveToOptimality_) {

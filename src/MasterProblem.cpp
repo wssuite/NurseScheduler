@@ -353,15 +353,19 @@ void MasterProblem::build(){
 
 //solve the rostering problem
 double MasterProblem::solve(vector<Roster> solution){
-   return solve(solution, false);
+   return solve(solution, true);
 }
-// Main method to evaluate an initial state for a given input and an initial solution
-double MasterProblem::evaluate(vector<Roster> solution){
+
+// Solve the rostering problem with parameters
+
+double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
+   parameters.saveFunction_ = this;
+   pModel_->setParameters(parameters);
    return solve(solution, true);
 }
 
 //solve the rostering problem
-double MasterProblem::solve(vector<Roster> solution, bool relaxation, bool rebuild){
+double MasterProblem::solve(vector<Roster> solution, bool rebuild){
 
    // build the model first
    if(rebuild)
@@ -378,23 +382,17 @@ double MasterProblem::solve(vector<Roster> solution, bool relaxation, bool rebui
    // levels and create the matching in the Modeler subclasses
    if (solverType_ != S_CBC ) {
       pModel_->setVerbosity(1);
-      //cut the branching process at the end of the root node
-      if(relaxation)
-         pModel_->getParameters().absoluteGap_ = LARGE_SCORE;
-      else if (!minTotalShiftsAvg_.empty() || !maxTotalShiftsAvg_.empty() || !weightTotalShiftsAvg_.empty())
+      if (!minTotalShiftsAvg_.empty() || !maxTotalShiftsAvg_.empty() || !weightTotalShiftsAvg_.empty())
          pModel_->getParameters().absoluteGap_ = 0;
    }
    solveWithCatch();
    pModel_->printStats();
 
-   if(!pModel_->printBestSol() or relaxation){
-	   cout << "# " << min(pModel_->getRelaxedObjective(), pModel_->getObjective()) << endl;
-	   return min(pModel_->getRelaxedObjective(), pModel_->getObjective());
-   }
+   if(!pModel_->printBestSol())
+	   return pModel_->getRelaxedObjective();
 
    storeSolution();
    costsConstrainstsToString();
-   status_ = FEASIBLE;
    return pModel_->getObjective();
 }
 
@@ -411,38 +409,13 @@ void MasterProblem::solveWithCatch(){
    }
 }
 
-// Solve the rostering problem with parameters
-
-double MasterProblem::solve(SolverParam parameters, vector<Roster> solution){
-   parameters.saveFunction_ = this;
-	pModel_->setParameters(parameters);
-	return solve(solution);
-}
-
-// Main method to evaluate an initial state for a given input and an initial solution and parameters
-//same as solve if not redefine
-double MasterProblem::evaluate(SolverParam parameters, vector<Roster> solution){
-   parameters.saveFunction_ = this;
-   pModel_->setParameters(parameters);
-	return evaluate(solution);
-}
-
 //Resolve the problem with another demand and keep the same preferences
 //
 double MasterProblem::resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution){
    updateDemand(pDemand);
    parameters.saveFunction_ = this;
    pModel_->setParameters(parameters);
-   return solve(solution, false, false);
-}
-
-//Reevaluate the problem with another demand and keep the same preferences
-//
-double MasterProblem::reevaluate(Demand* pDemand, SolverParam parameters, vector<Roster> solution){
-   updateDemand(pDemand);
-   parameters.saveFunction_ = this;
-   pModel_->setParameters(parameters);
-   return solve(solution, true, false);
+   return solve(solution, false);
 }
 
 //initialize the rostering problem with one column to be feasible if there is no initial solution
