@@ -304,7 +304,7 @@ struct PrintSolution{
 //  the solve function of any solver
 //
 //-----------------------------------------------------------------------------
-enum WeightStrategy { MAX, MEAN, NO_STRAT };
+enum WeightStrategy { MAX, MEAN, RANDOMMEANMAX, BOUNDRATIO, NO_STRAT };
 
 class SolverParam{
 
@@ -543,9 +543,13 @@ public:
    // already treated and on the number of weeks left
    // The required data on the nurses is mostly computed in preprocessTheNurses
    //
+   void setBoundsAndWeights(WeightStrategy strategy);
+
    void computeWeightsTotalShiftsForStochastic();
 
    void computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy);
+
+   void computeBoundsAccordingToDemandSize();
 
    // preprocees the skills to get their rarity
    // the value depends on the demand for this skill, on the number of nurses
@@ -579,7 +583,9 @@ public:
 
    // get the total cost of the current solution
    // the solution is simply given by the roster of each nurse
-   double solutionCost();
+   double solutionCost(int nbDays);
+
+   double solutionCost(){return solutionCost(pDemand_->nbDays_);}
 
    //------------------------------------------------
    // Display functions

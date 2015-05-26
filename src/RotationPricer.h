@@ -35,7 +35,7 @@ private:
    //pointers to the data
    //
    Scenario* pScenario_;
-   Demand* pDemand_;
+   int nbDays_;
    Modeler* pModel_;
 
    //map of the contract and sub problems

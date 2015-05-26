@@ -332,33 +332,32 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
+	//if some variables have been generated, do not branch
+	if(local_var_pool.size() > 0)
+		return BCP_DoNotBranch;
+
 	//update node
-	if(local_var_pool.size() == 0)
-		pModel_->updateNodeLB(lpres.objval());
+	pModel_->updateNodeLB(lpres.objval());
 
-   //stop this process for BCP or the node
-   if(doStop())
-      return BCP_DoNotBranch_Fathomed;
+	//update true_lower_bound, as we reach the end of the column generation
+	getLpProblemPointer()->node->true_lower_bound = lpres.objval();
+	heuristicHasBeenRun_ = false;
 
-   //if some variables have been generated, do not branch
-   if(local_var_pool.size() > 0)
-      return BCP_DoNotBranch;
+	if(pModel_->is_solution_changed()) pModel_->setLPSol(lpres, vars);
 
-   //update true_lower_bound, as we reach the end of the column generation
-   getLpProblemPointer()->node->true_lower_bound = lpres.objval();
-   heuristicHasBeenRun_ = false;
+	//if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
+	if(current_index() == 0)
+		for(CoinVar* col: pModel_->getColumns())
+			if(col->getCost() == LARGE_SCORE && pModel_->getVarValue(col) > EPSILON)
+				throw InfeasibleStop("Feasibility columns are still present in the solution");
 
-   if(pModel_->is_solution_changed()) pModel_->setLPSol(lpres, vars);
+	//stop this process for BCP or the node
+	if(doStop())
+		return BCP_DoNotBranch_Fathomed;
 
-   //if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
-   if(current_index() == 0)
-      for(CoinVar* col: pModel_->getColumns())
-         if(col->getCost() == LARGE_SCORE && pModel_->getVarValue(col))
-            throw InfeasibleStop("Feasibility columns are still present in the solution");
-
-   //fathom if greater than current upper bound
-   if(pModel_->getBestUB() - lpres.objval() < pModel_->getParameters().absoluteGap_ - EPSILON)
-      return BCP_DoNotBranch_Fathomed;
+	//fathom if greater than current upper bound
+	if(pModel_->getBestUB() - lpres.objval() < pModel_->getParameters().absoluteGap_ - EPSILON)
+		return BCP_DoNotBranch_Fathomed;
 
    //branching candidates: numberOfNursesByPosition_, rest on a day, ...
    vector<MyVar*> branchingCandidates;
@@ -984,7 +983,7 @@ int BcpModeler::setVerbosity(int v){
 //Check if BCP must stop
 bool BcpModeler::doStop(){
    //continue if doesn't have a lb
-   if(getBestLB() == LARGE_SCORE)
+   if(getBestLB() >= LARGE_SCORE)
       return false;
 
    //check the number of solution

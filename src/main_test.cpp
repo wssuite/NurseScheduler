@@ -185,7 +185,7 @@ void testFunction_Jeremy(){
 // Function for testing parts of the code (Samuel)
 void testFunction_Samuel(){
 
-	std::cout << "test" << endl;
+	std::cout << "# Test Samuel" << endl;
 
 	// Time the complete execution of the algorithm
 	Tools::Timer* timertotal = new Tools::Timer();
@@ -193,33 +193,41 @@ void testFunction_Samuel(){
 	timertotal->start();
 
 	string data = "datasets/";// testdatasets datasets userdataset
-	const char* inst = "n060w4";// n100w4 n030w4 n012w8 n005w4 n005w1
+	string inst = "n030w4";// n100w4 n030w4 n012w8 n005w4 n005w1
+
+	int maxTimeAllowed = allowedTime(inst,"samuel");
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
 	//n012w8: {3, 5, 0, 2, 0, 4, 5, 2}
 	//n021w4:
 	//n120w8: {3, 2}
-	vector<int> numberWeek = {6,1,1,5};
+	vector<int> numberWeek = {6,2,9,1};
 	int historyId = 1;
 
+	string catWeek;
+	for(int w: numberWeek) catWeek += std::to_string(w);
+
 	StochasticSolverOptions stochasticSolverOptions;
-	stochasticSolverOptions.withIterativeDemandIncrease_ = true;
-	stochasticSolverOptions.withEvaluation_ = false;
+	stochasticSolverOptions.withIterativeDemandIncrease_ = false;
+	stochasticSolverOptions.withEvaluation_ = true;
 	stochasticSolverOptions.generationCostPerturbation_ = true;
-	stochasticSolverOptions.evaluationCostPerturbation_ = false;
+	stochasticSolverOptions.evaluationCostPerturbation_ = true;
+	stochasticSolverOptions.withResolveForGeneration_ = false;
 	stochasticSolverOptions.generationAlgorithm_ = GENCOL;
+	stochasticSolverOptions.withResolveForEvaluation_ = true;
 	stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
-	stochasticSolverOptions.totalTimeLimitSeconds_ = LARGE_TIME;
+	stochasticSolverOptions.totalTimeLimitSeconds_ = maxTimeAllowed;
 	stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
-	stochasticSolverOptions.nEvaluationDemands_ = 3;
-	stochasticSolverOptions.nDaysEvaluation_ = 21;
-	stochasticSolverOptions.nGenerationDemandsMax_ = 3;
+	stochasticSolverOptions.nEvaluationDemands_ = 4;
+	stochasticSolverOptions.nDaysEvaluation_ = 14;
+	stochasticSolverOptions.nGenerationDemandsMax_ = 100;
 
 	SolverParam generationParameters;
 	generationParameters.maxSolvingTimeSeconds_ = 3000;
 	generationParameters.printEverySolution_ = false;
-	generationParameters.outfile_ = "outfiles/";
+	string of = "outfiles/" + inst + "-" + catWeek + "-sol-week";
+	generationParameters.outfile_ = of;
 //	generationParameters.logfile_ = generationParameters.outfile_;
 	generationParameters.absoluteGap_ = 5;
 	generationParameters.minRelativeGap_ = .05;
@@ -227,13 +235,14 @@ void testFunction_Samuel(){
 	generationParameters.nbDiveIfMinGap_ = 1;
 	generationParameters.nbDiveIfRelGap_ = 2;
 	generationParameters.solveToOptimality_ = false;
+	generationParameters.weightStrategy_ = RANDOMMEANMAX;
 
 	stochasticSolverOptions.generationParameters_ = generationParameters;
 
 	SolverParam evaluationParameters;
-	evaluationParameters.maxSolvingTimeSeconds_ = 7;
+	evaluationParameters.maxSolvingTimeSeconds_ = 3000;
 	evaluationParameters.printEverySolution_ = false;
-	evaluationParameters.outfile_ = "outfiles/";
+//	evaluationParameters.outfile_ = "";
 //	evaluationParameters.logfile_ = evaluationParameters.outfile_;
 	evaluationParameters.absoluteGap_ = 5;
 	evaluationParameters.minRelativeGap_ = .05;
@@ -241,6 +250,8 @@ void testFunction_Samuel(){
 	evaluationParameters.nbDiveIfMinGap_ = 1;
 	evaluationParameters.nbDiveIfRelGap_ = 2;
 	evaluationParameters.solveToOptimality_ = false;
+	evaluationParameters.weightStrategy_ = BOUNDRATIO;
+	evaluationParameters.stopAfterXSolution_ = 0;
 
 	stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
 
@@ -360,8 +371,59 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 	evaluationParameters.nbDiveIfMinGap_ = 1;
 	evaluationParameters.nbDiveIfRelGap_ = 2;
 	evaluationParameters.solveToOptimality_ = false;
+	evaluationParameters.stopAfterXSolution_ = 0;
 
 	options.evaluationParameters_ = evaluationParameters;
+}
+
+
+/******************************************************************************
+* The instances of InputPaths contain the paths of the input files of the
+* problem
+*******************************************************************************/
+
+int allowedTime(string instance, string whoDat){
+
+	if(whoDat == "samuel"){
+		if(instance.at(2) == '3')
+			return 45;
+		if(instance.at(2) == '4')
+			return 79;
+		if(instance.at(2) == '5')
+			return 112;
+		if(instance.at(2) == '6')
+			return 146;
+		if(instance.at(2) == '8')
+			return 212;
+		if(instance.at(2) == '0')
+			return 279;
+		if(instance.at(2) == '2')
+			return 346;
+	}
+
+	if(whoDat == "bucarest"){
+		if(instance.at(2) == '3')
+			return 40;
+		if(instance.at(2) == '4')
+			return 70;
+		if(instance.at(2) == '5')
+			return 100;
+		if(instance.at(2) == '6')
+			return 130;
+		if(instance.at(2) == '8')
+			return 190;
+		if(instance.at(2) == '0')
+			return 250;
+		if(instance.at(2) == '2')
+			return 310;
+	}
+
+
+	std::cout << "# Input problem for the max time function..." << endl;
+	return -1;
+
+
+
 }
 
 
@@ -555,7 +617,7 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName, int histor
 	}
 
 	// Display the solution
-	displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
+	// displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
 	delete pScen;
 }

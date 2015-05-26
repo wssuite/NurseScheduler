@@ -23,7 +23,7 @@ static char* baseName = "rotation";
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name):
                         MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theNursesSorted_),
-                        master_(master), pScenario_(master->pScenario_), pDemand_(master->pDemand_), pModel_(master->getModel())
+                        master_(master), pScenario_(master->pScenario_), nbDays_(master->pDemand_->nbDays_), pModel_(master->getModel())
 {
    /* sort the nurses */
 //   random_shuffle( nursesToSolve_.begin(), nursesToSolve_.end());
@@ -63,7 +63,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 
       //if doesn't find => create new subproblem
       if( it == subProblems_.end() ){
-         subProblem = new SubProblem(pScenario_, pDemand_, pNurse->pContract_, master_->pInitState_);
+         subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, master_->pInitState_);
          subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
       }
 
@@ -104,7 +104,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
 		rotations = subProblem->getRotations();
 		/* sort rotations */
       for(Rotation& rot: rotations){
-         rot.computeCost(pScenario_, master_->pPreferences_, master_->pDemand_->nbDays_);
+         rot.computeCost(pScenario_, master_->pPreferences_, nbDays_);
 //         rot.computeDualCost(dualCosts);
       }
 		std::stable_sort(rotations.begin(), rotations.end(), Rotation::compareDualCost);
@@ -155,7 +155,7 @@ bool RotationPricer::pricing(double bound, bool before_fathom){
  * Get the duals values per day for a nurse
  ******************************************************/
 vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
-   vector< vector<double> > dualValues(pDemand_->nbDays_);
+   vector< vector<double> > dualValues(nbDays_);
    int i = pNurse->id_;
    int p = pNurse->pContract_->id_;
 
@@ -171,7 +171,7 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
    double maxWorkedDaysContractAvg = master_->isMaxWorkedDaysContractAvgCons_[p] ?
       pModel_->getDual(master_->maxWorkedDaysContractAvgCons_[p], true):0.0;
 
-   for(int k=0; k<pDemand_->nbDays_; ++k){
+   for(int k=0; k<nbDays_; ++k){
       //initialize vector
       vector<double> dualValues2(pScenario_->nbShifts_-1);
 
@@ -195,13 +195,13 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
 
 vector<double> RotationPricer::getStartWorkDualValues(LiveNurse* pNurse){
    int i = pNurse->id_;
-   vector<double> dualValues(pDemand_->nbDays_);
+   vector<double> dualValues(nbDays_);
 
    //get dual value associated to the source
    dualValues[0] =  pModel_->getDual(master_->restFlowCons_[i][0], true);
    //get dual values associated to the work flow constraints
    //don't take into account the last which is the sink
-   for(int k=1; k<pDemand_->nbDays_; ++k)
+   for(int k=1; k<nbDays_; ++k)
       dualValues[k] = pModel_->getDual(master_->workFlowCons_[i][k-1], true);
 
    return dualValues;
@@ -209,17 +209,17 @@ vector<double> RotationPricer::getStartWorkDualValues(LiveNurse* pNurse){
 
 vector<double> RotationPricer::getEndWorkDualValues(LiveNurse* pNurse){
    int i = pNurse->id_;
-   vector<double> dualValues(pDemand_->nbDays_);
+   vector<double> dualValues(nbDays_);
 
    //get dual values associated to the work flow constraints
    //don't take into account the first which is the source
    //take into account the cost, if the last day worked is k
-   for(int k=0; k<pDemand_->nbDays_-1; ++k)
+   for(int k=0; k<nbDays_-1; ++k)
       dualValues[k] = -pModel_->getDual(master_->restFlowCons_[i][k+1], true);
 
    //get dual value associated to the sink
-   dualValues[pDemand_->nbDays_-1] =  pModel_->getDual(
-      master_->workFlowCons_[i][pDemand_->nbDays_-1], true);
+   dualValues[nbDays_-1] =  pModel_->getDual(
+      master_->workFlowCons_[i][nbDays_-1], true);
 
    return dualValues;
 }

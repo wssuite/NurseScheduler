@@ -34,7 +34,9 @@ public:
 	bool generationCostPerturbation_ = true;
 	bool evaluationCostPerturbation_ = false;
 
+	bool withResolveForGeneration_ = true;
 	Algorithm generationAlgorithm_ = GENCOL;
+	bool withResolveForEvaluation_ = true;
 	Algorithm evaluationAlgorithm_ = NONE;
 
 	int totalTimeLimitSeconds_ = LARGE_TIME;
@@ -49,6 +51,7 @@ public:
 
 	SolverParam generationParameters_;
 	SolverParam evaluationParameters_;
+
 
 };
 
@@ -110,7 +113,8 @@ protected:
 	void solveOneWeekGenerationEvaluation();
 	// Does everything for one schedule (for one week): Includes generation,
 	// evaluation of the score, and update of the rankings and data.
-	void addAndSolveNewSchedule();
+	// Returns false if time has run out
+	bool addAndSolveNewSchedule();
 	// Iterative solution process in which the week is first solved by itsef,
 	// before adding one perturbebd week demand and solving the new extended
 	// demand demand until no time is left
@@ -164,6 +168,10 @@ protected:
 	// Schedules
 	int nSchedules_;
 	vector<Solver*> pGenerationSolvers_;
+	// For reusable solvers
+	Solver * pReusableGenerationSolver_;
+	vector<vector<Roster> > schedules_;
+	vector<vector<State> > finalStates_;
 
 	// Return a solver with the algorithm specified for schedule GENERATION
 	Solver * setGenerationSolverWithInputAlgorithm(Demand* pDemand);
@@ -182,6 +190,7 @@ protected:
 	Preferences * pEmptyPreferencesForEvaluation_;
 	// Evaluation
 	vector<vector<Solver*> > pEvaluationSolvers_;
+	vector<Solver*> pReusableEvaluationSolvers_;
 	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemand_;
 	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemandGreedy_;
 	// Scores
@@ -196,8 +205,8 @@ protected:
 	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule);
 	// Initialization
 	void initScheduleEvaluation(int sched);
-	// Evaluate 1 schedule and store the corresponding detailed results
-	void evaluateSchedule(int sched);
+	// Evaluate 1 schedule and store the corresponding detailed results (returns false if time has run out)
+	bool evaluateSchedule(int sched);
 	// Recompute all scores after one schedule evaluation
 	void updateRankingsAndScores();
 	// Getter

@@ -61,9 +61,9 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario * scenario, Demand * demand, const Contract * contract, vector<State>* pInitState):
-	pScenario_(scenario), pDemand_(demand), pContract_ (contract),
-	CDMin_(contract->minConsDaysWork_), maxRotationLength_(demand->nbDays_), nDays_(demand->nbDays_){
+SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState):
+	pScenario_(scenario), pContract_ (contract),
+	CDMin_(contract->minConsDaysWork_), maxRotationLength_(nbDays), nDays_(nbDays){
 
 	init(pInitState);
 

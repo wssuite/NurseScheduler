@@ -534,13 +534,11 @@ void MasterProblem::save(vector<int>& weekIndices, string outdir){
    // initialize the log stream
    // first, concatenate the week numbers
    int nbWeeks = weekIndices.size();
-   string catWeeks;
-   for (int w=0; w< nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
 
    // write separately the solutions of each week in the required output format
    int firstDay = pDemand_->firstDay_;
    for(int w=0; w<nbWeeks; ++w){
-      string solutionFile = outdir+catWeeks+"-"+std::to_string(weekIndices[w])+"-"+std::to_string(w)+".txt";
+      string solutionFile = outdir+std::to_string(weekIndices[w])+".txt";
       Tools::LogOutput solutionStream(solutionFile);
       solutionStream << solutionToString(firstDay, 7, pScenario_->thisWeek()+w);
       firstDay += 7;

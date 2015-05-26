@@ -368,7 +368,7 @@ public:
 
 	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
-	SubProblem(Scenario* scenario, Demand * demand, const Contract* contract, vector<State>* pInitState);
+	SubProblem(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState);
 
 	// Initialization function for all global variables (not those of the graph)
 	//
@@ -409,10 +409,6 @@ protected:
 	// Pointer to the scenario considered
 	//
 	Scenario * pScenario_;
-
-	// Pointer to the demand
-	//
-	Demand* pDemand_;
 
 	// Number of days of the scenario (usually a multiple of 7)
 	//

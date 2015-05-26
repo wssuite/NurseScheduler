@@ -69,7 +69,7 @@ vector<Demand*> DemandGenerator::generatePerturbedDemands() {
 
 
 // generate 1 demand through perturbations of the demand history
-Demand * DemandGenerator::generateSinglePerturbatedDemand(){
+Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility){
 
 	// number of demands in the history
 	int nbPastDemands = demandHistory_.size();
@@ -108,11 +108,15 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(){
 		pCompleteDemand->keepFirstNDays(nbDaysInGeneratedDemands_);
 
 		// keep the generated demand only if it is feasible
-		if (checkDemandFeasibility(pCompleteDemand)) {
+		if (checkFeasibility){
+			if(checkDemandFeasibility(pCompleteDemand)) {
+				return pCompleteDemand;
+			}
+			else {
+				delete pCompleteDemand;
+			}
+		} else {
 			return pCompleteDemand;
-		}
-		else {
-			delete pCompleteDemand;
 		}
 	}
 	return 0;

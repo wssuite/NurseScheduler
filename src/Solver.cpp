@@ -688,6 +688,37 @@ void Solver::preprocessData() {
 // The required data on the nurses is mostly computed in preprocessTheNurses
 //-----------------------------------------------------------------------------
 
+void Solver::setBoundsAndWeights(WeightStrategy strategy){
+	switch (strategy){
+
+	case MAX :
+	case MEAN:
+		computeWeightsTotalShiftsForPrimalDual(strategy);
+		break;
+
+	case RANDOMMEANMAX:
+		if(rand()%2 == 0)
+			computeWeightsTotalShiftsForPrimalDual(MEAN);
+		else
+			computeWeightsTotalShiftsForPrimalDual(MAX);
+		break;
+
+
+	case BOUNDRATIO:
+		computeBoundsAccordingToDemandSize();
+		break;
+
+	case NO_STRAT:
+		computeWeightsTotalShiftsForStochastic();
+		break;
+
+	default:
+		Tools::throwError("Weight/bound strategy not defined");
+		break;
+	}
+}
+
+
 void Solver::computeWeightsTotalShiftsForStochastic() {
 
   // clear the vectors that are about to be filled
@@ -878,7 +909,7 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
 
 
 
-         std::cout << weightTotalShiftsMin_[n] << " " << weightTotalShiftsMax_[n] << " " << weightTotalWeekendsMax_[n] << std::endl;
+         // std::cout << weightTotalShiftsMin_[n] << " " << weightTotalShiftsMax_[n] << " " << weightTotalWeekendsMax_[n] << std::endl;
 
          // Update average days/weekends in contract
          //
@@ -922,27 +953,69 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
         	 weightTotalWeekendsContractAvg_[p] -= meanPrimalDualCostForContractWE[p];
          }
 
-         std::cout << "# " << std::endl;
-         std::cout << "##################################################" << std::endl;
-         const string contractName = pScenario_->intToContract_[p];
-         std::cout << "# " << (*(pScenario_->contracts_.at( contractName ))) << std::endl;
-         std::cout << "# min/max : " << std::endl;
-         std::cout << "#    | min total shifts: " << minTotalShiftsContractAvg_[p] << std::endl;
-         std::cout << "#    | max total shifts: " << maxTotalShiftsContractAvg_[p] << std::endl;
-         std::cout << "#    | max total we    : " << maxTotalWeekendsContractAvg_[p] << std::endl;
-         std::cout << "# costs   : " << std::endl;
-         std::cout << "#    | cost shift: " << weightTotalShiftsContractAvg_[p] << std::endl;
-         std::cout << "#    | cost we   : " << weightTotalWeekendsContractAvg_[p] << std::endl;
-         std::cout << "##################################################" << std::endl;
-         std::cout << "# " << std::endl;
+         if(false){
+        	 std::cout << "# " << std::endl;
+        	 std::cout << "##################################################" << std::endl;
+        	 const string contractName = pScenario_->intToContract_[p];
+        	 std::cout << "# " << (*(pScenario_->contracts_.at( contractName ))) << std::endl;
+        	 std::cout << "# min/max : " << std::endl;
+        	 std::cout << "#    | min total shifts: " << minTotalShiftsContractAvg_[p] << std::endl;
+        	 std::cout << "#    | max total shifts: " << maxTotalShiftsContractAvg_[p] << std::endl;
+        	 std::cout << "#    | max total we    : " << maxTotalWeekendsContractAvg_[p] << std::endl;
+        	 std::cout << "# costs   : " << std::endl;
+        	 std::cout << "#    | cost shift: " << weightTotalShiftsContractAvg_[p] << std::endl;
+        	 std::cout << "#    | cost we   : " << weightTotalWeekendsContractAvg_[p] << std::endl;
+        	 std::cout << "##################################################" << std::endl;
+        	 std::cout << "# " << std::endl;
+         }
       }
-
-      // PRIMAL-DUAL COSTS FOR WORKING DAY & WEEKEND
-
-
-
-
 }
+
+
+// Compute min/max bounds as the ratio : number of days in demand / total number of remaining days
+//
+void Solver::computeBoundsAccordingToDemandSize(){
+
+	   // clear the vectors that are about to be filled
+	   minTotalShiftsAvg_.clear();
+	   maxTotalShiftsAvg_.clear();
+	   weightTotalShiftsAvg_.clear();
+	   maxTotalWeekendsAvg_.clear();
+	   weightTotalWeekendsAvg_.clear();
+
+	   minTotalShiftsContractAvg_.clear();
+	   maxTotalShiftsContractAvg_.clear();
+	   weightTotalShiftsContractAvg_.clear();
+	   maxTotalWeekendsContractAvg_.clear();
+	   weightTotalWeekendsContractAvg_.clear();
+
+
+	   // The nurses must be preprocessed to retrieve the information relative to the
+	   // past activity of the nurses and to their capacity to work more in the future
+	   if (!isPreprocessedNurses_) this->preprocessTheNurses();
+
+	   double ratio = pDemand_->nbDays_ / (7.0 * (pScenario_->nbWeeks_ - pScenario_->thisWeek()));
+//	   std::cout << "# Ratio: " << ratio << std::endl;
+
+	   // initialize the minimum and maximum number of total working days
+	   for (int i = 0; i < pScenario_->nbNurses(); i++) {
+		   //default min and max
+
+		   //	     minTotalShifts_[i] = Tools::roundWithProbability((theLiveNurses_[i]->minTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_) * ratio);
+		   //	     maxTotalShifts_[i] = Tools::roundWithProbability((theLiveNurses_[i]->maxTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_) * ratio);
+		   //	     maxTotalWeekends_[i] = Tools::roundWithProbability((theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_) * ratio);
+
+		   minTotalShifts_[i] = std::floor((theLiveNurses_[i]->minTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_) * ratio);
+		   maxTotalShifts_[i] = std::ceil((theLiveNurses_[i]->maxTotalShifts() - theLiveNurses_[i]->pStateIni_->totalDaysWorked_) * ratio);
+		   maxTotalWeekends_[i] = std::ceil((theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_) * ratio);
+
+//		   std::cout << "# " << theLiveNurses_[i]->pStateIni_->totalDaysWorked_ << " " << theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_ << "\t\t";
+//		   std::cout << minTotalShifts_[i] << " " << maxTotalShifts_[i] << " " << maxTotalWeekends_[i] << std::endl;
+
+
+	   }
+}
+
 
 
 //------------------------------------------------------------------------
@@ -997,9 +1070,9 @@ bool checkFeasibility() {
 
 // get the total cost of the current solution
 // the solution is simply given by the roster of each nurse
-double Solver::solutionCost() {
+double Solver::solutionCost(int nbDays) {
   double totalCost = 0.0;
-  int nbNurses = pScenario_->nbNurses_, nbDays = pDemand_->nbDays_;
+  int nbNurses = pScenario_->nbNurses_;
   int nbShifts = pScenario_->nbShifts_, nbSkills = pScenario_->nbSkills_;
 
   // reset the satisfied demand to compute it from scratch

@@ -121,7 +121,6 @@ Demand * Demand::append(Demand* pDemand){
       bigDemand->minDemand_.push_back(vector);
    }
 
-   std::cout << "End min demand\n";
    for(vector2D vector: pDemand->optDemand_) {
 	   bigDemand->optDemand_.push_back(vector);
    }

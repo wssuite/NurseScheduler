@@ -49,6 +49,9 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 // Solve one week inside the stochastic process
 void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, string logPath);
 
+// Returns the allowed time depending on the instance + who runs it
+int allowedTime(string instance, string whoDat);
+
 // Set the options of the stochastic solver
 // This is not automated, so the options need to be changed inside the code 
 // during the tests

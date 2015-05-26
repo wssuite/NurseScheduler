@@ -183,7 +183,7 @@ private:
   int precision_;
 
 public:
-	LogOutput(string logName):width_(0), precision_(2) {
+	LogOutput(string logName):width_(0), precision_(5) {
 		if (logName.empty()) {
 			pLogStream_ = &(std::cout);
 		}
@@ -192,7 +192,7 @@ public:
 		}
 		// logStream_.open(logName.c_str(), std::fstream::out);
 	}
-	LogOutput(string logName, int width):width_(width), precision_(2) {
+	LogOutput(string logName, int width):width_(width), precision_(5) {
 		pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
 		// logStream_.open(logName.c_str(), std::fstream::out);
 	}
@@ -236,7 +236,7 @@ public:
 		pLogStream_->width(width_);
     	pLogStream_->unsetf ( std::ios::floatfield );
     	pLogStream_->precision(precision_);
-		(*pLogStream_) << std::left << std::setprecision(2) << output;
+		(*pLogStream_) << std::left << std::setprecision(5) << output;
 
 		return *this;
 	}

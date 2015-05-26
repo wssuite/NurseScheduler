@@ -48,7 +48,7 @@ public:
 	vector<Demand*> generatePerturbedDemands();
 
 	// generate 1 demand through perturbations of the demand history
-	Demand * generateSinglePerturbatedDemand();
+	Demand * generateSinglePerturbatedDemand(bool checkFeasibility = true);
 
 protected:
 	// number of demand scenarios that should be generated

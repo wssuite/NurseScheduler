@@ -19,14 +19,14 @@
 
 void main_test()
 {
-   //testFunction_Antoine();
-   //testFunction_Jeremy();
+	//testFunction_Antoine();
+	//testFunction_Jeremy();
 	testFunction_Samuel();
 }
 
 int main(int argc, char** argv)
 {
-	srand(1);
+	srand(0);
 
    std::cout << "Number of arguments= " << argc << std::endl;
 
@@ -119,7 +119,6 @@ int main(int argc, char** argv)
       logFile = "";
 
       // Solve the week
-    srand(0);  
 		solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, logFile);
 
 
