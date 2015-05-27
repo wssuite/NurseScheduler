@@ -672,20 +672,21 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 	(*pLogStream_) << "# Evaluation of schedule no. " << sched << " done!" << std::endl;
 
-	updateRankingsAndScores();
+	updateRankingsAndScores(options_.rankingStrategy_);
 
 	return true;
 
 }
 
 // Recompute all scores after one schedule evaluation
-void StochasticSolver::updateRankingsAndScores(){
+void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
 
 	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting the update of the scores and ranking." << std::endl;
 
 	vector<double> theNewScores;
 	Tools::initDoubleVector(&theNewScores, nSchedules_, 0);
-
+switch(strategy){
+case RK_SCORE:
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
 		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
 		int localRank = 1;
@@ -702,6 +703,21 @@ void StochasticSolver::updateRankingsAndScores(){
 			localRank += it->second.size();
 		}
 	}
+	break;
+case RK_MEAN:
+   for(int j=0; j<options_.nEvaluationDemands_; j++){
+      (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
+      map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
+      for(pair<double, set<int> > p: localCosts)
+         for(int sched : p.second){
+            theNewScores[sched] += p.first;
+            (*pLogStream_) << "#     | sched " << sched << " -> " <<  p.first << endl;
+         }
+   }
+   break;
+default:
+   Tools::throwError("Ranking strategy not defined");
+}
 
 	#ifdef COMPARE_EVALUATIONS
 	vector<double> theNewScoresGreedy;

@@ -322,58 +322,58 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 * The solution time depends on the number of nurses and on the computed
 ******************************************************************************/
 
-void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni) {
-	#ifdef __MACH__
-	double cpuMaxFor30Nurses = 60.0;
-	double cpuMaxPer10Nurses = 45.0;
-	#else
-	double cpuMaxFor30Nurses = 45.0;
-	double cpuMaxPer10Nurses = 35.0;
-	#endif
-
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, string solPath, string logPathIni) {
 	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
 	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
-	options.withEvaluation_ = false;
-	options.generationCostPerturbation_ = true;
-	options.evaluationCostPerturbation_ = false;
-	options.generationAlgorithm_ = GENCOL;
-	options.evaluationAlgorithm_ = GENCOL;
-	options.totalTimeLimitSeconds_ = cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
-	options.nExtraDaysGenerationDemands_ = 7;
-	options.nEvaluationDemands_ = 10;
-	options.nDaysEvaluation_ = 7;
-	options.nGenerationDemandsMax_ = 5;
-	options.logfile_ = logStochastic;
+   int maxTimeAllowed = allowedTime(pScenario->name_,"samuel");
 
-	SolverParam generationParameters;
-	generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;
-	generationParameters.printEverySolution_ = false;
-	generationParameters.outfile_ = solPath;
-	generationParameters.logfile_ = logSolver;
-	generationParameters.absoluteGap_ = 5;
-	generationParameters.minRelativeGap_ = .05;
-	generationParameters.relativeGap_ = .1;
-	generationParameters.nbDiveIfMinGap_ = 1;
-	generationParameters.nbDiveIfRelGap_ = 2;
-	generationParameters.solveToOptimality_ = false;
+   stochasticSolverOptions.withIterativeDemandIncrease_ = false;
+   stochasticSolverOptions.withEvaluation_ = true;
+   stochasticSolverOptions.generationCostPerturbation_ = true;
+   stochasticSolverOptions.evaluationCostPerturbation_ = true;
+   stochasticSolverOptions.withResolveForGeneration_ = false;
+   stochasticSolverOptions.generationAlgorithm_ = GENCOL;
+   stochasticSolverOptions.withResolveForEvaluation_ = true;
+   stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
+   stochasticSolverOptions.rankingStrategy_ = RK_SCORE;
+   stochasticSolverOptions.totalTimeLimitSeconds_ = maxTimeAllowed;
+   stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
+   stochasticSolverOptions.nEvaluationDemands_ = 4;
+   stochasticSolverOptions.nDaysEvaluation_ = 14;
+   stochasticSolverOptions.nGenerationDemandsMax_ = 100;
+   stochasticSolverOptions.logfile_ = logStochastic;
 
-	options.generationParameters_ = generationParameters;
+   SolverParam generationParameters;
+   generationParameters.maxSolvingTimeSeconds_ = 3000;
+   generationParameters.printEverySolution_ = false;
+   generationParameters.outfile_ = solPath;
+// generationParameters.logfile_ = generationParameters.outfile_;
+   generationParameters.absoluteGap_ = 5;
+   generationParameters.minRelativeGap_ = .05;
+   generationParameters.relativeGap_ = .1;
+   generationParameters.nbDiveIfMinGap_ = 1;
+   generationParameters.nbDiveIfRelGap_ = 2;
+   generationParameters.solveToOptimality_ = false;
+   generationParameters.weightStrategy_ = RANDOMMEANMAX;
 
-	SolverParam evaluationParameters;
-	evaluationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/(2.0*options.nEvaluationDemands_);
-	evaluationParameters.printEverySolution_ = false;
-	evaluationParameters.outfile_ = "outdir/";
-	evaluationParameters.logfile_ = logSolver;
-	evaluationParameters.absoluteGap_ = 5;
-	evaluationParameters.minRelativeGap_ = .05;
-	evaluationParameters.relativeGap_ = .1;
-	evaluationParameters.nbDiveIfMinGap_ = 1;
-	evaluationParameters.nbDiveIfRelGap_ = 2;
-	evaluationParameters.solveToOptimality_ = false;
-	evaluationParameters.stopAfterXSolution_ = 0;
+   stochasticSolverOptions.generationParameters_ = generationParameters;
 
-	options.evaluationParameters_ = evaluationParameters;
+   SolverParam evaluationParameters;
+   evaluationParameters.maxSolvingTimeSeconds_ = 3000;
+   evaluationParameters.printEverySolution_ = false;
+// evaluationParameters.outfile_ = "";
+   evaluationParameters.logfile_ = logSolver;
+   evaluationParameters.absoluteGap_ = 5;
+   evaluationParameters.minRelativeGap_ = .05;
+   evaluationParameters.relativeGap_ = .1;
+   evaluationParameters.nbDiveIfMinGap_ = 1;
+   evaluationParameters.nbDiveIfRelGap_ = 2;
+   evaluationParameters.solveToOptimality_ = false;
+   evaluationParameters.weightStrategy_ = BOUNDRATIO;
+   evaluationParameters.stopAfterXSolution_ = 0;
+
+   stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
 }
 
 

@@ -23,6 +23,7 @@
 #include <exception>
 #include <algorithm>
 #include <cfloat>
+#include <random>
 
 #define _USE_MATH_DEFINES // needed for the constant M_PI
 #include <math.h>
@@ -49,7 +50,6 @@ typedef vector<vector<int> > vector2D;
 typedef std::vector<std::vector<std::vector<int> > > vector3D;
 
 namespace Tools{
-
 
 // class defining my own type of exceptions
 //
@@ -84,6 +84,11 @@ void debugMsg(const char* debugMsg, int debugLevel);
 // Read a file stream until the separating character is met
 //
 bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
+
+//Create a random generator
+//the objective is to be sure to have always the same sequence of number
+//
+std::minstd_rand getANewRandomGenerator();
 
 //round with probability
 int roundWithProbability(double number);

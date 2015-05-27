@@ -38,12 +38,14 @@ int main(int argc, char** argv)
 
    string data = "datasets/";
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
+   string outfile = "outfiles/Competition/"+outdir+"/"+prefix+"sol-week";
+   string logfile = "outfiles/Competition/"+outdir+"/"+prefix+"Log.txt";
 
    SolverParam optParam;
    optParam.printEverySolution_ = true;
    optParam.weekIndices_ = numberWeek;
-   optParam.outfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Sol-"+inst+"-";
-   optParam.logfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Log.txt";
+   optParam.outfile_ = outfile;
+   optParam.logfile_ = logfile;
    optParam.solveToOptimality_ = true;
    optParam.nbDiveIfMinGap_ = 2;
    optParam.nbDiveIfRelGap_ = 8;

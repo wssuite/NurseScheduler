@@ -72,11 +72,22 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 	return true;
 }
 
+//random generator of tools
+std::minstd_rand rdm0(0);
+
+//Create a random generator
+//the objective is to be sure to have always the same sequence of number
+//
+minstd_rand getANewRandomGenerator(){
+   minstd_rand rdm(rand());
+   return rdm;
+}
+
 //round with probability
 int roundWithProbability(double number){
    //round with a certain probability to the floor or the ceil
    double probFactor = number - floor(number);
-   if(rand() < probFactor) return (int)floor(number);
+   if(rdm0() < probFactor) return (int)floor(number);
    else return (int)ceil(number);
 }
 
@@ -148,7 +159,7 @@ void initDoubleVector2D(vector< vector< double > > * v2D, int m, int n, double v
 vector<double> randomDoubleVector(int m, double minVal, double maxVal){
 	vector<double> v1D;
 	for(int i=0; i<m; i++){
-		double a = (maxVal - minVal) * ( (double)rand() / (double)RAND_MAX ) + minVal;
+		double a = (maxVal - minVal) * ( (double)rdm0() / (double)RAND_MAX ) + minVal;
 		v1D.push_back(a);
 	}
 	return v1D;

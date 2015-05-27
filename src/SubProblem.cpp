@@ -59,11 +59,12 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 //---------------------------------------------------------------------------
 
 // Constructors and destructor
-SubProblem::SubProblem() {}
+SubProblem::SubProblem(): rdm_(Tools::getANewRandomGenerator()) {}
 
 SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState):
 	pScenario_(scenario), pContract_ (contract),
-	CDMin_(contract->minConsDaysWork_), maxRotationLength_(nbDays), nDays_(nbDays){
+	CDMin_(contract->minConsDaysWork_), maxRotationLength_(nbDays), nDays_(nbDays),
+   rdm_(Tools::getANewRandomGenerator()){
 
 	init(pInitState);
 
@@ -1193,7 +1194,7 @@ void SubProblem::generateRandomCosts(double minVal, double maxVal){
 	vector<vector<double> > randomWorkCosts = Tools::randomDoubleVector2D(nDays_, pScenario_->nbShifts_, minVal, maxVal);
 	vector<double> randomStartWorkCosts = Tools::randomDoubleVector(nDays_, minVal, maxVal);
 	vector<double> randomEndWorkCosts = Tools::randomDoubleVector(nDays_, minVal, maxVal);
-	double randomWorkedWeekendCost = (maxVal - minVal) * ( (double)rand() / (double)RAND_MAX ) + minVal;
+	double randomWorkedWeekendCost = (maxVal - minVal) * ( (double)rdm_() / (double)RAND_MAX ) + minVal;
 
 	bool doNotCopy = false;
 	pCosts_ = new DualCosts(randomWorkCosts, randomStartWorkCosts, randomEndWorkCosts, randomWorkedWeekendCost, doNotCopy);
@@ -1324,8 +1325,8 @@ void SubProblem::resetAuthorizations(){
 set< pair<int,int> > SubProblem::randomForbiddenShifts(int nbForbidden){
 	set< pair<int,int> > ans;
 	for(int f=0; f<nbForbidden; f++){
-		int k = nDays_ * ( (double)rand() / (double)RAND_MAX );
-		int s = (pScenario_->nbShifts_ - 1) * ( (double)rand() / (double)RAND_MAX ) + 1;
+		int k = nDays_ * ( (double)rdm_() / (double)RAND_MAX );
+		int s = (pScenario_->nbShifts_ - 1) * ( (double)rdm_() / (double)RAND_MAX ) + 1;
 		ans.insert(pair<int,int>(k,s));
 	}
 	return ans;

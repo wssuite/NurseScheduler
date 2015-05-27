@@ -12,6 +12,7 @@
 #include "Solver.h"
 #include "MasterProblem.h"
 
+enum RankingStrategy {RK_MEAN, RK_SCORE};
 
 class StochasticSolverOptions{
 
@@ -38,6 +39,7 @@ public:
 	Algorithm generationAlgorithm_ = GENCOL;
 	bool withResolveForEvaluation_ = true;
 	Algorithm evaluationAlgorithm_ = NONE;
+	RankingStrategy rankingStrategy_ = RK_SCORE;
 
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
@@ -208,7 +210,7 @@ protected:
 	// Evaluate 1 schedule and store the corresponding detailed results (returns false if time has run out)
 	bool evaluateSchedule(int sched);
 	// Recompute all scores after one schedule evaluation
-	void updateRankingsAndScores();
+	void updateRankingsAndScores(RankingStrategy strategy);
 	// Getter
 	double valueOfEvaluation(int sched, int evalDemand){return pEvaluationSolvers_[sched][evalDemand]->solutionCost();}
 
