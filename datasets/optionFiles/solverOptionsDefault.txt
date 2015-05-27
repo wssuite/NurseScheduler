@@ -1,0 +1,9 @@
+printEverySolution= false
+absoluteGap= 5
+minRelativeGap= .05
+relativeGap= .1
+nbDiveIfMinGap= 1
+nbDiveIfRelGap= 2
+solveToOptimality= false
+weightStrategy= NO_STRAT
+stopAfterXSolution= 0
