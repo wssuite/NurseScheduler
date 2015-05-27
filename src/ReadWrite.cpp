@@ -19,6 +19,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <boost/assign/list_of.hpp>
+
+
+std::map<std::string, Algorithm> stringToAlgorithm = 
+   boost::assign::map_list_of("GREEDY", GREEDY)("GENCOL", GENCOL)("STOCHASTIC_GREEDY",STOCHASTIC_GREEDY)("STOCHASTIC_GENCOL",STOCHASTIC_GENCOL)("NONE",NONE);
+std::map<std::string, WeightStrategy> stringToWeightStrategy = 
+   boost::assign::map_list_of("MAX", MAX)("MEAN", MEAN)("RANDOMMEANMAX",RANDOMMEANMAX)("BOUNDRATIO",BOUNDRATIO)("NO_STRAT",NO_STRAT);
+
 
 //--------------------------------------------------------------------------
 // Methods that read all the input files and store the content in the
@@ -521,9 +529,106 @@ void ReadWrite::writeCustom(string strCustomOutputFile, string strWeekFile, stri
 *************************************************************************/
 void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options) {
 
-}
-void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
+   // open the file
+   std::fstream file;
+   std::cout << "Reading " << strOptionFile << std::endl;
+   file.open(strOptionFile.c_str(), std::fstream::in);
+   if (!file.is_open()) {
+      std::cout << "While trying to read " << strOptionFile << std::endl;
+      Tools::throwError("The input file was not opened properly!");
+   }
 
+   string title;
+
+   // fill the attributes of the options structure
+   //
+	while(file.good()){
+		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+
+		if(!strcmp(title.c_str(), "withEvaluation")){
+			file >> options.withEvaluation_;  
+		}
+		if(!strcmp(title.c_str(), "withIterativeDemandIncrease")){
+			file >> options.withIterativeDemandIncrease_;  
+		}
+		if(!strcmp(title.c_str(), "generationCostPerturbation")){
+			file >> options.generationCostPerturbation_;  
+		}
+		if(!strcmp(title.c_str(), "evaluationCostPerturbation")){
+			file >> options.evaluationCostPerturbation_;  
+		}
+		if(!strcmp(title.c_str(), "generationAlgorithm")){
+			string strtmp;
+			file >> strtmp;
+			options.generationAlgorithm_ = stringToAlgorithm[strtmp];  
+		}
+		if(!strcmp(title.c_str(), "evaluationAlgorithm")){
+			string strtmp;
+			file >> strtmp;
+			options.evaluationAlgorithm_ = stringToAlgorithm[strtmp];  
+		}
+		if(!strcmp(title.c_str(), "nExtraDaysGenerationDemands")){
+			file >> options.nExtraDaysGenerationDemands_;  
+		}
+		if(!strcmp(title.c_str(), "nEvaluationDemands")){
+			file >> options.nEvaluationDemands_;  
+		}
+		if(!strcmp(title.c_str(), "nDaysEvaluation")){
+			file >> options.nDaysEvaluation_;  
+		}
+		if(!strcmp(title.c_str(), "nGenerationDemandsMax")){
+			file >> options.nGenerationDemandsMax_;  
+		}
+	}
+}
+
+void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
+   // open the file
+   std::fstream file;
+   std::cout << "Reading " << strOptionFile << std::endl;
+   file.open(strOptionFile.c_str(), std::fstream::in);
+   if (!file.is_open()) {
+      std::cout << "While trying to read " << strOptionFile << std::endl;
+      Tools::throwError("The input file was not opened properly!");
+   }
+
+   string title;
+
+   // fill the attributes of the options structure
+   //
+	while(file.good()){
+		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+
+		if(!strcmp(title.c_str(), "printEverySolution")){
+			file >> options.printEverySolution_;  
+		}
+		if(!strcmp(title.c_str(), "absoluteGap")){
+			file >> options.absoluteGap_;  
+		}
+		if(!strcmp(title.c_str(), "minRelativeGap")){
+			file >> options.minRelativeGap_;  
+		}
+		if(!strcmp(title.c_str(), "relativeGap")){
+			file >> options.relativeGap_;  
+		}
+		if(!strcmp(title.c_str(), "nbDiveIfMinGap")){
+			file >> options.nbDiveIfMinGap_;  
+		}
+		if(!strcmp(title.c_str(), "nbDiveIfRelGap")){
+			file >> options.nbDiveIfRelGap_;  
+		}
+		if(!strcmp(title.c_str(), "solveToOptimality")){
+			file >> options.solveToOptimality_;  
+		}
+		if(!strcmp(title.c_str(), "weightStrategy")){
+			string strtmp;
+			file >> strtmp;
+			options.weightStrategy_ = stringToWeightStrategy[strtmp];  
+		}
+		if(!strcmp(title.c_str(), "stopAfterXSolution")){
+			file >> options.stopAfterXSolution_;  
+		}
+	}
 }
 
 /************************************************************************
