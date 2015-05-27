@@ -59,24 +59,26 @@ int allowedTime(string instance, Computer computer);
 // This is not automated, so the options need to be changed inside the code 
 // during the tests
 // The solution time depends on the number of nurses and on the computed
-void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout=0.0);
+void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout = 10000);
 
-void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, Computer computer,
+void setStochasticSolverOptions(StochasticSolverOptions& options, Computer computer, string instanceName, string solPath, string logPathIni);
+
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Computer computer, string instanceName,
    string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile);
 
 // Solve a deterministic input demand with the input algorithm
 // In this method, we assume that all the demands are knwon in advance
 // (the method can also treat only one week)
-void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+double testMultipleWeeksDeterministic(string dataDir, string instanceName,
    int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath);
-void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+double testMultipleWeeksDeterministic(string dataDir, string instanceName,
 	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outPath, SolverParam param);
 
 // Test a solution on multiple weeks
 // In this method, the weeks are solved sequentially without knowledge of future
 // demand
-void testMultipleWeeksStochastic(string dataDir, string instanceName,
-		int historyIndex, vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outDir = "");
+pair<double, int>  testMultipleWeeksStochastic(string dataDir, string instanceName,
+		int historyIndex, vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, int seed=0);
 
 // Create a solver of the class specified by the input algorithm type
 Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm);

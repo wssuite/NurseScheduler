@@ -6,13 +6,17 @@
 #
 # optimal script: launch optimal solver and then the validator
 
-./bin/optimalRoster n030w4 1 6 2 9 1 n030w4_1_6-2-9-1 $1 > outfiles/Competition/n030w4_1_6-2-9-1/${1}Log.txt
+prefix="-1"
+if [ ! -z "$1" ]
+then	prefix=$1
+fi
+./bin/optimalRoster n030w4 1 4 6 2 9 1 n030w4_1_6-2-9-1 $prefix $2 $3 $4 $5 > outfiles/Competition/n030w4_1_6-2-9-1/${1}Log.txt
 
 instance=n030w4
 weeksValue=(6 2 9 1 )
 
 demand0="WD-${instance}-"
-solutionFile="outfiles/Competition/n030w4_1_6-2-9-1/${1}Sol-n030w4-6291-"
+solutionFile="outfiles/Competition/n030w4_1_6-2-9-1/${1}sol-week"
 weeks=""
 sols=""
 i=0
@@ -21,7 +25,7 @@ for var in ${weeksValue[*]}
 do
 demand[$i]="datasets/${instance}/${demand0}${var}.txt"
 weeks="${weeks} ${demand[$i]}"
-solution[$i]="${solutionFile}${var}-${i}.txt"
+solution[$i]="${solutionFile}${i}.txt"
 sols="${sols} ${solution[$i]}"
 ((i++))
 done

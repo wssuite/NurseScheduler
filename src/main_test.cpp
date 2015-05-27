@@ -195,7 +195,7 @@ void testFunction_Samuel(){
 	string data = "datasets/";// testdatasets datasets userdataset
 	string inst = "n030w4";// n100w4 n030w4 n012w8 n005w4 n005w1
 
-	int maxTimeAllowed = allowedTime(inst,"samuel");
+	int maxTimeAllowed = allowedTime(inst,SAM);
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
@@ -325,14 +325,68 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 * The solution time depends on the number of nurses and on the computed
 ******************************************************************************/
 
-void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, Computer computer,
+void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout) {
+   #ifdef __MACH__
+   double cpuMaxFor30Nurses = 60.0;
+   double cpuMaxPer10Nurses = 45.0;
+   #else
+   double cpuMaxFor30Nurses = 45.0;
+   double cpuMaxPer10Nurses = 35.0;
+   #endif
+
+   string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
+   string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
+
+   options.withEvaluation_ = false;
+   options.generationCostPerturbation_ = true;
+   options.evaluationCostPerturbation_ = false;
+   options.generationAlgorithm_ = GENCOL;
+   options.evaluationAlgorithm_ = GENCOL;
+   options.totalTimeLimitSeconds_ = cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
+   options.nExtraDaysGenerationDemands_ = 7;
+   options.nEvaluationDemands_ = 10;
+   options.nDaysEvaluation_ = 7;
+   options.nGenerationDemandsMax_ = 5;
+   options.logfile_ = logStochastic;
+
+   SolverParam generationParameters;
+   generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;
+   generationParameters.printEverySolution_ = false;
+   generationParameters.outfile_ = solPath;
+   generationParameters.logfile_ = logSolver;
+   generationParameters.absoluteGap_ = 5;
+   generationParameters.minRelativeGap_ = .05;
+   generationParameters.relativeGap_ = .1;
+   generationParameters.nbDiveIfMinGap_ = 1;
+   generationParameters.nbDiveIfRelGap_ = 2;
+   generationParameters.solveToOptimality_ = false;
+
+   options.generationParameters_ = generationParameters;
+
+   SolverParam evaluationParameters;
+   evaluationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/(2.0*options.nEvaluationDemands_);
+   evaluationParameters.printEverySolution_ = false;
+   evaluationParameters.outfile_ = "outdir/";
+   evaluationParameters.logfile_ = logSolver;
+   evaluationParameters.absoluteGap_ = 5;
+   evaluationParameters.minRelativeGap_ = .05;
+   evaluationParameters.relativeGap_ = .1;
+   evaluationParameters.nbDiveIfMinGap_ = 1;
+   evaluationParameters.nbDiveIfRelGap_ = 2;
+   evaluationParameters.solveToOptimality_ = false;
+   evaluationParameters.stopAfterXSolution_ = 0;
+
+   options.evaluationParameters_ = evaluationParameters;
+}
+
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Computer computer, string instanceName,
    string solPath, string logPathIni) {
 
 	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
 	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
 
-   int maxTimeAllowed = allowedTime(pScenario->name_,computer);
+   int maxTimeAllowed = allowedTime(instanceName,computer);
 
 
    stochasticSolverOptions.withIterativeDemandIncrease_ = false;
@@ -383,14 +437,14 @@ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions
    stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
 }
 
-void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, Computer computer,
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Computer computer, string instanceName,
    string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile) {
 
    string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
    string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
    ReadWrite::readStochasticSolverOptions(stochasticOptionsFile, stochasticSolverOptions);
-   int maxTimeAllowed = allowedTime(pScenario->name_,computer);
+   int maxTimeAllowed = allowedTime(instanceName,computer);
    stochasticSolverOptions.totalTimeLimitSeconds_ = maxTimeAllowed;
    stochasticSolverOptions.logfile_ = logStochastic;
 
@@ -465,7 +519,6 @@ InputPaths::InputPaths(string dataDir, string instanceName,int historyIndex, vec
 
 	int nbWeeks = weekIndices.size();
 	string instanceDir = dataDir + instanceName + "/";
-
 	// initialize the scenario and history file names
 	scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
 	history_ = instanceDir + "H0" + "-" + instanceName + "-" + std::to_string(historyIndex) + ".txt";
@@ -545,13 +598,13 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 * In this method, we assume that all the demands are knwon in advance
 * (the method can also treat only one week)
 ******************************************************************************/
-void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+double testMultipleWeeksDeterministic(string dataDir, string instanceName,
    int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir) {
    SolverParam param;
-   testMultipleWeeksDeterministic(dataDir, instanceName, historyIndex, weekIndices, algorithm, outDir, param);
+   return testMultipleWeeksDeterministic(dataDir, instanceName, historyIndex, weekIndices, algorithm, outDir, param);
 }
 
-void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+double testMultipleWeeksDeterministic(string dataDir, string instanceName,
 	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir, SolverParam current_param) {
 
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
@@ -567,6 +620,8 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 
 	delete pSolver;
 	delete pScen;
+
+	return pSolver->solutionCost();
 }
 
 
@@ -577,8 +632,8 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 ******************************************************************************/
 
 
-void testMultipleWeeksStochastic(string dataDir, string instanceName, int historyIndex,
-		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outDir) {
+pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceName, int historyIndex,
+		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, int seed) {
 
 	// build the paths of the input files
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
@@ -592,14 +647,25 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName, int histor
 	Status solutionStatus;
 
 	vector<Demand*> demandHistory;
+	double currentCost = 0;
+	int nbSched = 0;
+
+	vector<int> seeds;
 
 	for (int week = 0; week < nbWeeks; week++) {
+	   if(week==0)
+	      seeds.push_back(seed);
+	   else
+	      seeds.push_back(std::rand());
+	   std::srand(seeds[week]);
 
 		demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
 
-		Solver* pSolver = new StochasticSolver(pScen, stochasticSolverOptions, demandHistory);
+		StochasticSolver* pSolver = new StochasticSolver(pScen, stochasticSolverOptions, demandHistory, currentCost);
 
-		pSolver->solve();
+		currentCost += pSolver->solve();
+		nbSched += pSolver->getNbSchedules();
+		printf( "Current cost = %.2f \n", currentCost);
 		solutionStatus = pSolver->getStatus();
 		if (solutionStatus == INFEASIBLE) {
 			delete pSolver;
@@ -645,10 +711,22 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName, int histor
 		delete pSolver;
 	}
 
+	printf( "Total cost = %.2f \n", currentCost);
+
+   string seedOutfile = outdir+"seed.txt";
+   Tools::LogOutput seedStream(seedOutfile, true);
+   char str[50];
+   sprintf(str, "Cost %.2f; NbGene %d; Seeds", currentCost, nbSched);
+   for(int s: seeds)
+      seedStream << " " << s;
+   seedStream << std::endl;
+
 	// Display the solution
 	// displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
 	delete pScen;
+
+	return pair<double, int>(currentCost, nbSched);
 }
 
 

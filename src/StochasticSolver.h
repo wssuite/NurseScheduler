@@ -12,7 +12,7 @@
 #include "Solver.h"
 #include "MasterProblem.h"
 
-enum RankingStrategy {RK_MEAN, RK_SCORE};
+enum RankingStrategy {RK_MEAN, RK_SCORE, RK_NONE};
 
 class StochasticSolverOptions{
 
@@ -39,7 +39,7 @@ public:
 	Algorithm generationAlgorithm_ = GENCOL;
 	bool withResolveForEvaluation_ = true;
 	Algorithm evaluationAlgorithm_ = NONE;
-	RankingStrategy rankingStrategy_ = RK_SCORE;
+	RankingStrategy rankingStrategy_ = RK_NONE;
 
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
@@ -72,7 +72,7 @@ class StochasticSolver:public Solver {
 
 public:
 
-	StochasticSolver(Scenario* pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory);
+	StochasticSolver(Scenario* pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory, double costPreviousWeeks=0);
 
 	~StochasticSolver();
 
@@ -90,6 +90,10 @@ public:
 
 	// Main function
 	double solve(vector<Roster> initialSolution = {});
+
+	//get the number of generated schedules
+	//
+	int getNbSchedules() { return schedules_.size(); }
 
 protected:
 
@@ -202,6 +206,7 @@ protected:
 
 	int bestSchedule_;
 	double bestScore_;
+	double costPreviousWeeks_;
 
 	// Return a solver with the algorithm specified for schedule EVALUATION
 	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule);

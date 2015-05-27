@@ -21,9 +21,9 @@
 //
 //-----------------------------------------------------------------------------
 
-StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory):
+StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory, double costPreviousWeeks):
 Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
-options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0){
+options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0), costPreviousWeeks_(costPreviousWeeks){
 	std::cout << "# New stochastic solver created!" << endl;
 
 	int remainingDays = ( pScenario_->nbWeeks_ - pScenario_->thisWeek() -1 ) * 7;
@@ -626,7 +626,7 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 		// Only perform the evaluation if the schedule is feasible and 
 		// there is time for more than one schedule
-		double currentCost = baseCost, currentCostGreedy = baseCost;
+		double currentCost = costPreviousWeeks_ + baseCost, currentCostGreedy = costPreviousWeeks_ + baseCost;
 		if (pReusableGenerationSolver_->getStatus() == INFEASIBLE) {
 			currentCost = 1.0e6;
 			currentCostGreedy = 1.0e6;
@@ -717,8 +717,11 @@ case RK_MEAN:
          }
    }
    break;
+case RK_NONE:
+   Tools::throwError("Ranking strategy set to NONE.");
+   break;
 default:
-   Tools::throwError("Ranking strategy not defined");
+   Tools::throwError("Ranking strategy not defined.");
 }
 
 	#ifdef COMPARE_EVALUATIONS

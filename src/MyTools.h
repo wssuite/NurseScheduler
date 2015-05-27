@@ -188,18 +188,25 @@ private:
   int precision_;
 
 public:
-	LogOutput(string logName):width_(0), precision_(5) {
+	LogOutput(string logName, bool append = false):width_(0), precision_(5) {
 		if (logName.empty()) {
 			pLogStream_ = &(std::cout);
+		}
+		else if(append) {
+		   pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::app);
 		}
 		else {
 			pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
 		}
 		// logStream_.open(logName.c_str(), std::fstream::out);
 	}
-	LogOutput(string logName, int width):width_(width), precision_(5) {
-		pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
-		// logStream_.open(logName.c_str(), std::fstream::out);
+	LogOutput(string logName, int width, bool append = false):width_(width), precision_(5) {
+	   if(append) {
+	      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::app);
+	   }
+	   else
+	      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
+	   // logStream_.open(logName.c_str(), std::fstream::out);
 	}
 
 	~LogOutput() {
