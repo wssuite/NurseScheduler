@@ -54,6 +54,7 @@ int main(int argc, char** argv)
       int narg = 1;
       string scenarioFile="", initialHistoryFile="", weekDataFile="", solutionFile="";
       string customInputFile="", customOutputFile="", randSeed="";
+      double timeout =0.0;
 
       while (narg < argc) {
          std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
@@ -92,6 +93,10 @@ int main(int argc, char** argv)
             customOutputFile = str;
             narg += 2;
          }
+         else if (!strcmp(argv[narg],"--timeout")) {
+            timeout = std::stod(str);
+            narg += 2;
+         }
          else if (!strcmp(argv[narg],"--rand")) {
             randSeed = str;
             narg += 2;
@@ -106,27 +111,20 @@ int main(int argc, char** argv)
          throw Tools::myException("A necessary file name is missing!",__LINE__);
       }
 
-      // Read the input files
-      //
-      // if (!customInputFile.empty()) {
-      //    vector<Demand*> demandHistory;
-      //    demandHistory.push_back(pScen->pWeekDemand());
-      //    int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
-      // }
-
 		unsigned found = solutionFile.find_last_of(".");
 		string logFile = solutionFile.substr(0,found);
-      logFile = "";
+	    logFile = "";
 
-      // Solve the week
-		solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, solutionFile, logFile);
+	    // Solve the week
+		solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, customInputFile, solutionFile, logFile, timeout);
 
 
       // Write the solution in the required output format
       //
-      // if (!customOutputFile.empty()) {
-      //    ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
-      // }
+      if (!customOutputFile.empty()) {
+         ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
+      }
+      std::cout << "Custom output file : " << customOutputFile << std::endl;
       // Todo: the method that writes the history file corresponding to the
       // solution
       // string outputHistoryFile("history-week");

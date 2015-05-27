@@ -87,7 +87,7 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility)
 		// one reference history demand is randomly drawn for each week
 		vector<int> indexInHistory;
 		for (int i = 0; i < nbWeeksInGeneratedDemands; i++) {
-			indexInHistory.push_back(rand()%nbPastDemands);
+			indexInHistory.push_back(rdm_()%nbPastDemands);
 		}
 
 		// create the first week

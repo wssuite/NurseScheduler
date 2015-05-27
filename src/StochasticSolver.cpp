@@ -21,9 +21,9 @@
 //
 //-----------------------------------------------------------------------------
 
-StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory):
+StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory, double costPreviousWeeks):
 Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
-options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0){
+options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0), costPreviousWeeks_(costPreviousWeeks){
 	std::cout << "# New stochastic solver created!" << endl;
 
 	int remainingDays = ( pScenario_->nbWeeks_ - pScenario_->thisWeek() -1 ) * 7;
@@ -113,6 +113,8 @@ StochasticSolver::~StochasticSolver(){
 // Main function
 double StochasticSolver::solve(vector<Roster> initialSolution){
 
+	options_.nExtraDaysGenerationDemands_ = std::min(options_.nExtraDaysGenerationDemands_,7*(pScenario_->nbWeeks()-(pScenario_->thisWeek()+1)));
+	options_.nDaysEvaluation_ = std::min(options_.nDaysEvaluation_, 7*(pScenario_->nbWeeks()-(pScenario_->thisWeek()+1)));
 	// Special case of the last week -> always to optimality with no time limit
 	//
 	if(pScenario_->nbWeeks()-1 == pScenario_->thisWeek()){
@@ -624,7 +626,7 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 		// Only perform the evaluation if the schedule is feasible and 
 		// there is time for more than one schedule
-		double currentCost = baseCost, currentCostGreedy = baseCost;
+		double currentCost = costPreviousWeeks_ + baseCost, currentCostGreedy = costPreviousWeeks_ + baseCost;
 		if (pReusableGenerationSolver_->getStatus() == INFEASIBLE) {
 			currentCost = 1.0e6;
 			currentCostGreedy = 1.0e6;
@@ -672,20 +674,21 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 	(*pLogStream_) << "# Evaluation of schedule no. " << sched << " done!" << std::endl;
 
-	updateRankingsAndScores();
+	updateRankingsAndScores(options_.rankingStrategy_);
 
 	return true;
 
 }
 
 // Recompute all scores after one schedule evaluation
-void StochasticSolver::updateRankingsAndScores(){
+void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
 
 	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting the update of the scores and ranking." << std::endl;
 
 	vector<double> theNewScores;
 	Tools::initDoubleVector(&theNewScores, nSchedules_, 0);
-
+switch(strategy){
+case RK_SCORE:
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
 		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
 		int localRank = 1;
@@ -702,6 +705,24 @@ void StochasticSolver::updateRankingsAndScores(){
 			localRank += it->second.size();
 		}
 	}
+	break;
+case RK_MEAN:
+   for(int j=0; j<options_.nEvaluationDemands_; j++){
+      (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
+      map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
+      for(pair<double, set<int> > p: localCosts)
+         for(int sched : p.second){
+            theNewScores[sched] += p.first;
+            (*pLogStream_) << "#     | sched " << sched << " -> " <<  p.first << endl;
+         }
+   }
+   break;
+case RK_NONE:
+   Tools::throwError("Ranking strategy set to NONE.");
+   break;
+default:
+   Tools::throwError("Ranking strategy not defined.");
+}
 
 	#ifdef COMPARE_EVALUATIONS
 	vector<double> theNewScoresGreedy;

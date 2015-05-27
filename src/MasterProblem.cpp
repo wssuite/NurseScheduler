@@ -382,8 +382,6 @@ double MasterProblem::solve(vector<Roster> solution, bool rebuild){
    // levels and create the matching in the Modeler subclasses
    if (solverType_ != S_CBC ) {
       pModel_->setVerbosity(1);
-      if (!minTotalShiftsAvg_.empty() || !maxTotalShiftsAvg_.empty() || !weightTotalShiftsAvg_.empty())
-         pModel_->getParameters().absoluteGap_ = 0;
    }
    solveWithCatch();
    pModel_->printStats();

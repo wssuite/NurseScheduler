@@ -20,7 +20,8 @@ Demand::Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string
    vector3D minDemand, vector3D optDemand): name_(name),
    nbDays_(nbDays), firstDay_(firstDay), nbShifts_(nbShifts), nbSkills_(nbSkills),
    minDemand_(minDemand), optDemand_(optDemand),
-   minTotal_(0), optTotal_(0), isPreprocessed_(false)
+   minTotal_(0), optTotal_(0), isPreprocessed_(false),
+   rdm_(Tools::getANewRandomGenerator())
 {
    // run the preprocessing
    this->preprocessDemand();
@@ -136,8 +137,8 @@ Demand * Demand::append(Demand* pDemand){
 void Demand::swapDays(int nbSwaps) {
 
   for (int i=0; i < nbSwaps; i++) {
-    int day1 = rand()%nbDays_;
-    int day2 = rand()%nbDays_;
+    int day1 = rdm_()%nbDays_;
+    int day2 = rdm_()%nbDays_;
 
     // save the demand on day 1
     vector2D minDemandTmp, optDemandTmp;
@@ -169,11 +170,11 @@ void Demand::swapDays(int nbSwaps) {
 //
 void Demand::swapShifts(int nbSwaps) {
   for (int i=0; i < nbSwaps; i++) {
-    int sk = rand()%nbSkills_;
-    int day1 = rand()%nbDays_;
-    int sh1 = 1+rand()%(nbShifts_-1); // make sure shift 0 is not taken
-    int day2 = rand()%nbDays_;
-    int sh2 = 1+rand()%(nbShifts_-1); // make sure shift 0 is not taken
+    int sk = rdm_()%nbSkills_;
+    int day1 = rdm_()%nbDays_;
+    int sh1 = 1+rdm_()%(nbShifts_-1); // make sure shift 0 is not taken
+    int day2 = rdm_()%nbDays_;
+    int sh2 = 1+rdm_()%(nbShifts_-1); // make sure shift 0 is not taken
 
     // save the demand on day1/shift1
     int minDemandTmp, optDemandTmp;
@@ -200,7 +201,7 @@ void Demand::swapShifts(int nbSwaps) {
 //
 void Demand::perturbShifts(int minPerturb, int maxPerturb) {
   // generate the number of perturbations
-  int nbPerturb = rand()%(maxPerturb-minPerturb) + minPerturb;
+  int nbPerturb = rdm_()%(maxPerturb-minPerturb) + minPerturb;
   int valPerturb = (nbPerturb>=0)? 1:-1;
   nbPerturb = fabs(nbPerturb);
 
@@ -216,9 +217,9 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
     bool isAtUpperBound = true;
     int day, sh, sk;
     while (isAtUpperBound && coTrials < 10*nbPerturb) {
-      day = rand()%nbDays_;
-      sh = 1+rand()%(nbShifts_-1); // make sure shift 0 is not taken
-      sk = rand()%nbSkills_;
+      day = rdm_()%nbDays_;
+      sh = 1+rdm_()%(nbShifts_-1); // make sure shift 0 is not taken
+      sk = rdm_()%nbSkills_;
       isAtUpperBound = (valPerturb >= 0)? (minDemand_[day][sh][sk] >= minHighestPerSkill_[sk]):false;
       coTrials++;
     }

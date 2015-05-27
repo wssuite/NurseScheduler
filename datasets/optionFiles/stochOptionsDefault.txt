@@ -1,0 +1,11 @@
+withEvaluation= 0
+withIterativeDemandIncrease= 0
+generationCostPerturbation= 1
+evaluationCostPerturbation= 0
+generationAlgorithm= GENCOL
+evaluationAlgorithm= GENCOL
+rankingStrategy= NONE
+nExtraDaysGenerationDemands= 21
+nEvaluationDemands= 5
+nDaysEvaluation= 7
+nGenerationDemandsMax= 5

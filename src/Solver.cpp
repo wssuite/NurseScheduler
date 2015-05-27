@@ -7,6 +7,7 @@
 
 
 #include <math.h>
+#include <cmath>
 #include "Solver.h"
 
 
@@ -344,6 +345,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState):
   pScenario_(pScenario),  pDemand_(pDemand),
   pPreferences_(pPreferences), pInitState_(pInitState),
+  rdm_(Tools::getANewRandomGenerator()),
   totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
   isPreprocessedSkills_(false), isPreprocessedNurses_(false), status_(UNSOLVED) {
 
@@ -697,7 +699,7 @@ void Solver::setBoundsAndWeights(WeightStrategy strategy){
 		break;
 
 	case RANDOMMEANMAX:
-		if(rand()%2 == 0)
+		if(rdm_()%2 == 0)
 			computeWeightsTotalShiftsForPrimalDual(MEAN);
 		else
 			computeWeightsTotalShiftsForPrimalDual(MAX);
@@ -798,22 +800,22 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 
 
 	  // Affichage des valeurs
-	  std::cout << std::endl;
-	  std::cout << "###############################################" << std::endl;
-	  std::cout << "# Nurse " << pNurse->name_ << std::endl;
-	  std::cout << "#   | Contract: " << pNurse->pContract_->name_ << std::endl;
-	  std::cout << "#   |           " << (*(pNurse->pContract_)) << std::endl;
-	  std::cout << "#   | History : " << pNurse->pStateIni_->totalDaysWorked_ << " days and " << pNurse->pStateIni_->totalWeekendsWorked_ << " weekends" << std::endl;
-	  std::cout << "# " << std::endl;
-	  std::cout << "# Costs / Bounds:" << std::endl;
-	  std::cout << "#   | Min total shifts: " << pNurse->minWorkDaysNoPenaltyTotalDays_ << std::endl;
-	  std::cout << "#   | Max total shifts: " << pNurse->maxWorkDaysNoPenaltyTotalDays_ << std::endl;
-	  std::cout << "#   | Weight total we : " << weightTotalWeekendsMax_.back() << std::endl;
-	  std::cout << "#   | Min tot shifts av " << minTotalShiftsAvg_.back() << std::endl;
-	  std::cout << "#   | Max tot shifts av " << maxTotalShiftsAvg_.back() << std::endl;
-	  std::cout << "#   | Weight tot sh avg " << weightTotalShiftsAvg_.back() << std::endl;
-	  std::cout << "###############################################" << std::endl;
-	  std::cout << std::endl;
+	  // std::cout << std::endl;
+	  // std::cout << "###############################################" << std::endl;
+	  // std::cout << "# Nurse " << pNurse->name_ << std::endl;
+	  // std::cout << "#   | Contract: " << pNurse->pContract_->name_ << std::endl;
+	  // std::cout << "#   |           " << (*(pNurse->pContract_)) << std::endl;
+	  // std::cout << "#   | History : " << pNurse->pStateIni_->totalDaysWorked_ << " days and " << pNurse->pStateIni_->totalWeekendsWorked_ << " weekends" << std::endl;
+	  // std::cout << "# " << std::endl;
+	  // std::cout << "# Costs / Bounds:" << std::endl;
+	  // std::cout << "#   | Min total shifts: " << pNurse->minWorkDaysNoPenaltyTotalDays_ << std::endl;
+	  // std::cout << "#   | Max total shifts: " << pNurse->maxWorkDaysNoPenaltyTotalDays_ << std::endl;
+	  // std::cout << "#   | Weight total we : " << weightTotalWeekendsMax_.back() << std::endl;
+	  // std::cout << "#   | Min tot shifts av " << minTotalShiftsAvg_.back() << std::endl;
+	  // std::cout << "#   | Max tot shifts av " << maxTotalShiftsAvg_.back() << std::endl;
+	  // std::cout << "#   | Weight tot sh avg " << weightTotalShiftsAvg_.back() << std::endl;
+	  // std::cout << "###############################################" << std::endl;
+	  // std::cout << std::endl;
 
 
 

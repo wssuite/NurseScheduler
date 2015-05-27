@@ -2,6 +2,7 @@
 #include "MyTools.h"
 #include "Scenario.h"
 #include "Solver.h"
+#include "StochasticSolver.h"
 
 #include <iostream>
 #include <fstream>
@@ -17,6 +18,16 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#include <boost/assign/list_of.hpp>
+
+
+std::map<std::string, Algorithm> stringToAlgorithm = 
+   boost::assign::map_list_of("GREEDY", GREEDY)("GENCOL", GENCOL)("STOCHASTIC_GREEDY",STOCHASTIC_GREEDY)("STOCHASTIC_GENCOL",STOCHASTIC_GENCOL)("NONE",NONE);
+std::map<std::string, WeightStrategy> stringToWeightStrategy = 
+   boost::assign::map_list_of("MAX", MAX)("MEAN", MEAN)("RANDOMMEANMAX",RANDOMMEANMAX)("BOUNDRATIO",BOUNDRATIO)("NO_STRAT",NO_STRAT);
+std::map<std::string, RankingStrategy> stringToRankingStrategy =
+   boost::assign::map_list_of("SCORE", RK_SCORE)("MEAN", RK_MEAN);
 
 
 //--------------------------------------------------------------------------
@@ -457,25 +468,25 @@ int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector
          string strDemandFile;
          for (int i = 0; i < nbWeeks; i++) {
             file >> strDemandFile;
-            Demand* pDemand;
-            Preferences* pPref;
+            Demand* pDemand = NULL;
+            Preferences* pPref = NULL;
             readWeek(strDemandFile,pScenario,&pDemand,&pPref);
             demandHistory.push_back(pDemand);
-            delete pPref;
+            if (pPref) delete pPref;
          }
       }
    }
    return nbWeeks;
 }
 
-void ReadWrite::writeCustom(string stdCustomOutputFile, string strWeekFile, string strCustomInputFile) {
+void ReadWrite::writeCustom(string strCustomOutputFile, string strWeekFile, string strCustomInputFile) {
 
-   Tools::LogOutput outStream(strCustomInputFile);
+   Tools::LogOutput outStream(strCustomOutputFile);
 
    // if there is no custom input file, this is the first week
    if (strCustomInputFile.empty()) {
       outStream << "PAST_DEMAND_FILES= " << 1 << std::endl;
-      outStream << strWeekFile;
+      outStream << strWeekFile<< std::endl;
       return;
    }
 
@@ -514,6 +525,121 @@ void ReadWrite::writeCustom(string stdCustomOutputFile, string strWeekFile, stri
    }
 }
 
+
+/************************************************************************
+* Read the options of the stochastic and ot the other solvers
+*************************************************************************/
+void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options) {
+
+   // open the file
+   std::fstream file;
+   std::cout << "Reading " << strOptionFile << std::endl;
+   file.open(strOptionFile.c_str(), std::fstream::in);
+   if (!file.is_open()) {
+      std::cout << "While trying to read " << strOptionFile << std::endl;
+      Tools::throwError("The input file was not opened properly!");
+   }
+
+   string title;
+
+   // fill the attributes of the options structure
+   //
+	while(file.good()){
+		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+
+		if(!strcmp(title.c_str(), "withEvaluation")){
+			file >> options.withEvaluation_;  
+		}
+		if(!strcmp(title.c_str(), "withIterativeDemandIncrease")){
+			file >> options.withIterativeDemandIncrease_;  
+		}
+		if(!strcmp(title.c_str(), "generationCostPerturbation")){
+			file >> options.generationCostPerturbation_;  
+		}
+		if(!strcmp(title.c_str(), "evaluationCostPerturbation")){
+			file >> options.evaluationCostPerturbation_;  
+		}
+		if(!strcmp(title.c_str(), "generationAlgorithm")){
+			string strtmp;
+			file >> strtmp;
+			options.generationAlgorithm_ = stringToAlgorithm[strtmp];  
+		}
+		if(!strcmp(title.c_str(), "evaluationAlgorithm")){
+			string strtmp;
+			file >> strtmp;
+			options.evaluationAlgorithm_ = stringToAlgorithm[strtmp];  
+		}
+      if(!strcmp(title.c_str(), "rankingStrategy")){
+         string strtmp;
+         file >> strtmp;
+         options.rankingStrategy_ = stringToRankingStrategy[strtmp];
+      }
+		if(!strcmp(title.c_str(), "nExtraDaysGenerationDemands")){
+			file >> options.nExtraDaysGenerationDemands_;  
+		}
+		if(!strcmp(title.c_str(), "nEvaluationDemands")){
+			file >> options.nEvaluationDemands_;  
+		}
+		if(!strcmp(title.c_str(), "nDaysEvaluation")){
+			file >> options.nDaysEvaluation_;  
+		}
+		if(!strcmp(title.c_str(), "nGenerationDemandsMax")){
+			file >> options.nGenerationDemandsMax_;  
+		}
+	}
+}
+
+void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
+   // open the file
+   std::fstream file;
+   std::cout << "Reading " << strOptionFile << std::endl;
+   file.open(strOptionFile.c_str(), std::fstream::in);
+   if (!file.is_open()) {
+      std::cout << "While trying to read " << strOptionFile << std::endl;
+      Tools::throwError("The input file was not opened properly!");
+   }
+
+   string title;
+
+   // fill the attributes of the options structure
+   //
+	while(file.good()){
+		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+
+      if(!strcmp(title.c_str(), "maxSolvingTimeSeconds")){
+         file >> options.maxSolvingTimeSeconds_;
+      }
+		if(!strcmp(title.c_str(), "printEverySolution")){
+			file >> options.printEverySolution_;  
+		}
+		if(!strcmp(title.c_str(), "absoluteGap")){
+			file >> options.absoluteGap_;  
+		}
+		if(!strcmp(title.c_str(), "minRelativeGap")){
+			file >> options.minRelativeGap_;  
+		}
+		if(!strcmp(title.c_str(), "relativeGap")){
+			file >> options.relativeGap_;  
+		}
+		if(!strcmp(title.c_str(), "nbDiveIfMinGap")){
+			file >> options.nbDiveIfMinGap_;  
+		}
+		if(!strcmp(title.c_str(), "nbDiveIfRelGap")){
+			file >> options.nbDiveIfRelGap_;  
+		}
+		if(!strcmp(title.c_str(), "solveToOptimality")){
+			file >> options.solveToOptimality_;  
+		}
+		if(!strcmp(title.c_str(), "weightStrategy")){
+			string strtmp;
+			file >> strtmp;
+			options.weightStrategy_ = stringToWeightStrategy[strtmp];  
+		}
+		if(!strcmp(title.c_str(), "stopAfterXSolution")){
+			file >> options.stopAfterXSolution_;  
+		}
+	}
+}
 
 /************************************************************************
 * Print the main characteristics of all the demands of an input directory

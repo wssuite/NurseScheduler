@@ -85,6 +85,9 @@ public:
 
 protected:
 
+  //random generator
+  std::minstd_rand rdm_;
+
   // modify the demand by randomly swapping the demand of nnSwaps days
   //
   void swapDays(int nbSwaps);
