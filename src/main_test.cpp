@@ -272,7 +272,8 @@ void testFunction_Samuel(){
 /******************************************************************************
 * Solve one week inside the stochastic process
 ******************************************************************************/
-void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, string logPathIni) {
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile, 
+	string solPath, string logPathIni, double timeout) {
 
 	string logPath = logPathIni+"LogStochastic.txt";
 	Tools::LogOutput logStream(logPath);
@@ -286,20 +287,22 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	// (the corresponding method needs to be change manually for tests)
 	logStream << "# Set the options" << std::endl; 
 	StochasticSolverOptions options;
-	setStochasticSolverOptions(options, pScen, solPath, logPathIni); 
+	setStochasticSolverOptions(options, pScen, solPath, logPathIni, timeout); 
 
-	// get history demands
-	// TODO: should read additional history from the custom file
+	// get history demands by reading the custom file
+	// 
 	vector<Demand*> demandHistory;
 	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+	if (!customInputFile.empty()) {
+		int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
+	}
 
 	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);
 
 	logStream << "# Solve the week" << std::endl; 
-	logStream.close();
 	pSolver->solve();
 	int solutionStatus = pSolver->getStatus();
-	// logStream << "# Solution status = " << solutionStatus <<  std::endl; 
+	logStream << "# Solution status = " << solutionStatus <<  std::endl; 
 
 	Tools::LogOutput solStream(solPath);
 	solStream << pSolver->solutionToString() << std::endl;
@@ -322,7 +325,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 * The solution time depends on the number of nurses and on the computed
 ******************************************************************************/
 
-void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni) {
+void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout) {
 	#ifdef __MACH__
 	double cpuMaxFor30Nurses = 60.0;
 	double cpuMaxPer10Nurses = 45.0;
@@ -335,13 +338,14 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
 	options.withEvaluation_ = false;
+	options.withIterativeDemandIncrease_ = false;
 	options.generationCostPerturbation_ = true;
 	options.evaluationCostPerturbation_ = false;
 	options.generationAlgorithm_ = GENCOL;
 	options.evaluationAlgorithm_ = GENCOL;
-	options.totalTimeLimitSeconds_ = cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
-	options.nExtraDaysGenerationDemands_ = 7;
-	options.nEvaluationDemands_ = 10;
+	options.totalTimeLimitSeconds_ = timeout ? timeout : cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
+	options.nExtraDaysGenerationDemands_ = 21;
+	options.nEvaluationDemands_ = 5;
 	options.nDaysEvaluation_ = 7;
 	options.nGenerationDemandsMax_ = 5;
 	options.logfile_ = logStochastic;
@@ -357,6 +361,7 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 	generationParameters.nbDiveIfMinGap_ = 1;
 	generationParameters.nbDiveIfRelGap_ = 2;
 	generationParameters.solveToOptimality_ = false;
+	generationParameters.weightStrategy_ = NO_STRAT;
 
 	options.generationParameters_ = generationParameters;
 

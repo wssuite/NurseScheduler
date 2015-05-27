@@ -2,6 +2,7 @@
 #include "MyTools.h"
 #include "Scenario.h"
 #include "Solver.h"
+#include "StochasticSolver.h"
 
 #include <iostream>
 #include <fstream>
@@ -457,25 +458,25 @@ int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector
          string strDemandFile;
          for (int i = 0; i < nbWeeks; i++) {
             file >> strDemandFile;
-            Demand* pDemand;
-            Preferences* pPref;
+            Demand* pDemand = NULL;
+            Preferences* pPref = NULL;
             readWeek(strDemandFile,pScenario,&pDemand,&pPref);
             demandHistory.push_back(pDemand);
-            delete pPref;
+            if (pPref) delete pPref;
          }
       }
    }
    return nbWeeks;
 }
 
-void ReadWrite::writeCustom(string stdCustomOutputFile, string strWeekFile, string strCustomInputFile) {
+void ReadWrite::writeCustom(string strCustomOutputFile, string strWeekFile, string strCustomInputFile) {
 
-   Tools::LogOutput outStream(strCustomInputFile);
+   Tools::LogOutput outStream(strCustomOutputFile);
 
    // if there is no custom input file, this is the first week
    if (strCustomInputFile.empty()) {
       outStream << "PAST_DEMAND_FILES= " << 1 << std::endl;
-      outStream << strWeekFile;
+      outStream << strWeekFile<< std::endl;
       return;
    }
 
@@ -514,6 +515,16 @@ void ReadWrite::writeCustom(string stdCustomOutputFile, string strWeekFile, stri
    }
 }
 
+
+/************************************************************************
+* Read the options of the stochastic and ot the other solvers
+*************************************************************************/
+void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options) {
+
+}
+void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
+
+}
 
 /************************************************************************
 * Print the main characteristics of all the demands of an input directory

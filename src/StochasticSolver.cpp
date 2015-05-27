@@ -113,6 +113,8 @@ StochasticSolver::~StochasticSolver(){
 // Main function
 double StochasticSolver::solve(vector<Roster> initialSolution){
 
+	options_.nExtraDaysGenerationDemands_ = std::min(options_.nExtraDaysGenerationDemands_,7*(pScenario_->nbWeeks()-(pScenario_->thisWeek()+1)));
+	options_.nDaysEvaluation_ = std::min(options_.nDaysEvaluation_, 7*(pScenario_->nbWeeks()-(pScenario_->thisWeek()+1)));
 	// Special case of the last week -> always to optimality with no time limit
 	//
 	if(pScenario_->nbWeeks()-1 == pScenario_->thisWeek()){
