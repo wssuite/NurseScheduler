@@ -1,0 +1,11 @@
+withEvaluation=true
+withIterativeDemandIncrease=false
+generationCostPerturbation=true
+evaluationCostPerturbation=true
+generationAlgorithm=GENCOL
+evaluationAlgorithm=GENCOL
+rankingStrategy=SCORE
+nExtraDaysGenerationDemands=7
+nEvaluationDemands=4
+nDaysEvaluation=14
+nGenerationDemandsMax=100
