@@ -1,0 +1,10 @@
+withEvaluation= false
+withIterativeDemandIncrease= false
+generationCostPerturbation= true
+evaluationCostPerturbation= false
+generationAlgorithm= GENCOL
+evaluationAlgorithm= GENCOL
+nExtraDaysGenerationDemands= 21
+nEvaluationDemands= 5
+nDaysEvaluation= 7
+nGenerationDemandsMax= 5

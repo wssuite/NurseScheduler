@@ -14,6 +14,7 @@
 #include <limits.h>
 
 #include "Scenario.h"
+#include "StochasticSolver.h"
 
 using std::string;
 using std::cout;
@@ -66,6 +67,12 @@ public:
 	// Store the result in a vector of historical demands and return the number of treated weeks
 	//
 	static int readCustom(string strCustomInputFile, Scenario* pScenario, vector<Demand*>& demandHistory);
+
+	// Read the options of the stochastic and ot the other solvers
+	//
+	static void readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options);
+	static void readSolverOptions(string strOptionFile, SolverParam& options);
+
 
 	// Print the main characteristics of all the demands of an input directory
 	// This is done to find some invariant properties among demands

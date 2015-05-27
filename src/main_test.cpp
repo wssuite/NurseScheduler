@@ -272,7 +272,8 @@ void testFunction_Samuel(){
 /******************************************************************************
 * Solve one week inside the stochastic process
 ******************************************************************************/
-void solveOneWeek(string scenPath, string demandPath, string historyPath, string solPath, string logPathIni) {
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile, 
+	string solPath, string logPathIni, double timeout) {
 
 	string logPath = logPathIni+"LogStochastic.txt";
 	Tools::LogOutput logStream(logPath);
@@ -286,20 +287,22 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	// (the corresponding method needs to be change manually for tests)
 	logStream << "# Set the options" << std::endl; 
 	StochasticSolverOptions options;
-	setStochasticSolverOptions(options, pScen, solPath, logPathIni); 
+	setStochasticSolverOptions(options, pScen, solPath, logPathIni, timeout); 
 
-	// get history demands
-	// TODO: should read additional history from the custom file
+	// get history demands by reading the custom file
+	// 
 	vector<Demand*> demandHistory;
 	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+	if (!customInputFile.empty()) {
+		int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
+	}
 
 	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);
 
 	logStream << "# Solve the week" << std::endl; 
-	logStream.close();
 	pSolver->solve();
 	int solutionStatus = pSolver->getStatus();
-	// logStream << "# Solution status = " << solutionStatus <<  std::endl; 
+	logStream << "# Solution status = " << solutionStatus <<  std::endl; 
 
 	Tools::LogOutput solStream(solPath);
 	solStream << pSolver->solutionToString() << std::endl;
@@ -323,10 +326,13 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 ******************************************************************************/
 
 void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, string solPath, string logPathIni) {
+
 	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
 	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
+
    int maxTimeAllowed = allowedTime(pScenario->name_,"samuel");
+
 
    stochasticSolverOptions.withIterativeDemandIncrease_ = false;
    stochasticSolverOptions.withEvaluation_ = true;
