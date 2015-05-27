@@ -6,17 +6,17 @@
 #
 # optimal script: launch optimal solver and then the validator
 
-prefix="-1"
+prefix="e"
 if [ ! -z "$1" ]
 then	prefix=$1
 fi
-./bin/optimalRoster n030w4 1 4 6 7 5 3 n030w4_1_6-7-5-3 $prefix $2 $3 $4 $5 > outfiles/Competition/n030w4_1_6-7-5-3/${1}Log.txt
+./bin/optimalRoster n030w4 1 4 6 2 9 1 n030w4_1_6-2-9-1 $prefix $2 $3 $4 $5 > outfiles/Competition/n030w4_1_6-2-9-1/${1}Log.txt
 
 instance=n030w4
-weeksValue=(6 7 5 3 )
+weeksValue=(6 2 9 1 )
 
 demand0="WD-${instance}-"
-solutionFile="outfiles/Competition/n030w4_1_6-7-5-3/${1}sol-week"
+solutionFile="outfiles/Competition/n030w4_1_6-2-9-1/${1}sol-week"
 weeks=""
 sols=""
 i=0
@@ -30,6 +30,6 @@ sols="${sols} ${solution[$i]}"
 ((i++))
 done
 
-java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks $weeks --sols $sols > outfiles/Competition/n030w4_1_6-7-5-3/${1}ValidatorOutput.txt 
+java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks $weeks --sols $sols > outfiles/Competition/n030w4_1_6-2-9-1/${1}ValidatorOutput.txt 
 
 exit 0;

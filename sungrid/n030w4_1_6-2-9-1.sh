@@ -6,11 +6,7 @@
 #
 # optimal script: launch optimal solver and then the validator
 
-prefix="-1"
-if [ ! -z "$1" ]
-then	prefix=$1
-fi
-./bin/optimalRoster n030w4 1 4 6 2 9 1 n030w4_1_6-2-9-1 $prefix $2 $3 $4 $5 > outfiles/Competition/n030w4_1_6-2-9-1/${1}Log.txt
+./bin/optimalRoster n030w4 1 4 6 2 9 1 n030w4_1_6-2-9-1 ${1} ${2} ${3} ${4} ${5} > outfiles/Competition/n030w4_1_6-2-9-1/${1}Log.txt
 
 instance=n030w4
 weeksValue=(6 2 9 1 )

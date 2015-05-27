@@ -3,17 +3,17 @@
 
 #instance = n005w4: (1 2 3 3)
 #instance = n012w8: (3 5 0 2 0 4 5 2)
-dataFile="testdatasets/"
-instance="n005w4"
+dataFile="datasets/"
+instance="n030w4"
 #"${dataFile}${instance}/Solution_H_0-WD_1-2-3-3/"
-solutionFile="outfiles/"
-weeksValue=(1 2 3 3)
-weeksName="1233"
-history="${dataFile}${instance}/H0-${instance}-0.txt"
+weeksValue=(6 2 9 1)
+weeksName="6-2-9-1"
+history="${dataFile}${instance}/H0-${instance}-1.txt"
 scenario="${dataFile}${instance}/Sc-${instance}.txt"
+solutionFile="outfiles/Competition/${instance}_1_${weeksName}/"
 
 demand0="WD-${instance}-"
-solution0="Sol-${instance}-${weeksName}-"
+solution0="sol-week"
 weeks=""
 sols=""
 i=0
@@ -23,7 +23,7 @@ do
 demand[$i]="${dataFile}${instance}/${demand0}${var}.txt"
 weeks="${weeks} ${demand[$i]}"
 
-solution[$i]="${solutionFile}${solution0}${var}-${i}.txt"
+solution[$i]="${solutionFile}${solution0}${i}.txt"
 sols="${sols} ${solution[$i]}"
 
 ((i++))
