@@ -50,14 +50,19 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile,
   string solPath, string logPath, double timeout=0.0);
 
+enum Computer {SAM, BUCAREST, SUNGRID, JEREM};
+
 // Returns the allowed time depending on the instance + who runs it
-int allowedTime(string instance, string whoDat);
+int allowedTime(string instance, Computer computer);
 
 // Set the options of the stochastic solver
 // This is not automated, so the options need to be changed inside the code 
 // during the tests
 // The solution time depends on the number of nurses and on the computed
 void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout=0.0);
+
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, Computer computer,
+   string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile);
 
 // Solve a deterministic input demand with the input algorithm
 // In this method, we assume that all the demands are knwon in advance

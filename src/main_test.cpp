@@ -325,13 +325,14 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 * The solution time depends on the number of nurses and on the computed
 ******************************************************************************/
 
-void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, string solPath, string logPathIni) {
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, Computer computer,
+   string solPath, string logPathIni) {
 
 	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
 	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
 
-   int maxTimeAllowed = allowedTime(pScenario->name_,"samuel");
+   int maxTimeAllowed = allowedTime(pScenario->name_,computer);
 
 
    stochasticSolverOptions.withIterativeDemandIncrease_ = false;
@@ -382,54 +383,76 @@ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions
    stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
 }
 
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Scenario* pScenario, Computer computer,
+   string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile) {
+
+   string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
+   string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
+
+   ReadWrite::readStochasticSolverOptions(stochasticOptionsFile, stochasticSolverOptions);
+   int maxTimeAllowed = allowedTime(pScenario->name_,computer);
+   stochasticSolverOptions.totalTimeLimitSeconds_ = maxTimeAllowed;
+   stochasticSolverOptions.logfile_ = logStochastic;
+
+   SolverParam generationParameters;
+   ReadWrite::readSolverOptions(generationOptionsFile, generationParameters);
+   generationParameters.outfile_ = solPath;
+   stochasticSolverOptions.generationParameters_ = generationParameters;
+
+   SolverParam evaluationParameters;
+   ReadWrite::readSolverOptions(evaluationOptionsFile, evaluationParameters);
+   evaluationParameters.logfile_ = logSolver;
+   stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
+}
+
 
 /******************************************************************************
 * The instances of InputPaths contain the paths of the input files of the
 * problem
 *******************************************************************************/
 
-int allowedTime(string instance, string whoDat){
+int allowedTime(string instance, Computer computer){
 
-	if(whoDat == "samuel"){
-		if(instance.at(2) == '3')
-			return 45;
-		if(instance.at(2) == '4')
-			return 79;
-		if(instance.at(2) == '5')
-			return 112;
-		if(instance.at(2) == '6')
-			return 146;
-		if(instance.at(2) == '8')
-			return 212;
-		if(instance.at(2) == '0')
-			return 279;
-		if(instance.at(2) == '2')
-			return 346;
-	}
+   switch(computer){
+   case SAM:
+      if(instance.at(2) == '3')
+         return 45;
+      if(instance.at(2) == '4')
+         return 79;
+      if(instance.at(2) == '5')
+         return 112;
+      if(instance.at(2) == '6')
+         return 146;
+      if(instance.at(2) == '8')
+         return 212;
+      if(instance.at(2) == '0')
+         return 279;
+      if(instance.at(2) == '2')
+         return 346;
+      break;
+   case BUCAREST:
+   case SUNGRID:
+      if(instance.at(2) == '3')
+         return 40;
+      if(instance.at(2) == '4')
+         return 70;
+      if(instance.at(2) == '5')
+         return 100;
+      if(instance.at(2) == '6')
+         return 130;
+      if(instance.at(2) == '8')
+         return 190;
+      if(instance.at(2) == '0')
+         return 250;
+      if(instance.at(2) == '2')
+         return 310;
+      break;
+   default:
+      Tools::throwError("Computer not known.");
+   }
 
-	if(whoDat == "bucarest"){
-		if(instance.at(2) == '3')
-			return 40;
-		if(instance.at(2) == '4')
-			return 70;
-		if(instance.at(2) == '5')
-			return 100;
-		if(instance.at(2) == '6')
-			return 130;
-		if(instance.at(2) == '8')
-			return 190;
-		if(instance.at(2) == '0')
-			return 250;
-		if(instance.at(2) == '2')
-			return 310;
-	}
-
-
-	std::cout << "# Input problem for the max time function..." << endl;
-	return -1;
-
-
-
+   std::cout << "# Input problem for the max time function..." << endl;
+   return -1;
 }
 
 
