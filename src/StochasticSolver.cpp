@@ -221,10 +221,16 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 			//
 			int newBestSchedule = -1;
 			double newBestScore = LARGE_SCORE;
+			double bestBaseCost = 0;
 			for(int i=0; i<nSchedules_; i++){
 				if(theScores_[i] < newBestScore){
 					newBestScore = theScores_[i];
 					newBestSchedule = i;
+					bestBaseCost = theBaseCosts_[i];
+				} else if (theScores_[i] == newBestScore and theBaseCosts_[i] < bestBaseCost){
+					newBestScore = theScores_[i];
+					newBestSchedule = i;
+					bestBaseCost = theBaseCosts_[i];
 				}
 			}
 
@@ -578,6 +584,7 @@ bool StochasticSolver::evaluateSchedule(int sched){
 	}
 
 	int baseCost = pReusableGenerationSolver_->solutionCost(7);
+	theBaseCosts_.push_back(baseCost);
 
 	// set the time per evaluation to the ratio of the time left over the number of evaluations
 	// double timeLeft = options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
@@ -585,7 +592,6 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
-
 
 		double timeLeft = options_.totalTimeLimitSeconds_ - timerTotal_->dSinceInit();
 		if (nSchedules_ > 0)

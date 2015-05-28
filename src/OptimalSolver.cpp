@@ -85,6 +85,9 @@ int main(int argc, char** argv)
       StochasticSolverOptions stochasticSolverOptions;
       setStochasticSolverOptions(stochasticSolverOptions, SUNGRID, inst, outfile, outpath,
          stoOptionsFile, geneOptionsFile, evaOptionsFile);
+      stochasticSolverOptions.withIterativeDemandIncrease_ = true;
+      stochasticSolverOptions.withEvaluation_ = false;
+      stochasticSolverOptions.generationParameters_.weightStrategy_ = NO_STRAT;
 
       if(nbEval >= 0)
          stochasticSolverOptions.nEvaluationDemands_ = nbEval;
