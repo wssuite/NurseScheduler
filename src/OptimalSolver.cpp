@@ -34,16 +34,23 @@ int main(int argc, char** argv)
 
    string outdir = argv[4+nbWeeks];
 
-   string prefix = "";
-   if(5+nbWeeks < argc)
-      if(!strcmp(argv[5+nbWeeks], "-1"))
-         string prefix = argv[5+nbWeeks];
+   int seed = 0;
+   if(5+nbWeeks < argc){
+      std::istringstream(argv[5+nbWeeks]) >> locINT;
+      seed = locINT;
+   }
 
-   int nbTests = 1;
+   int nbEval = -1;
    if(6+nbWeeks < argc){
       std::istringstream(argv[6+nbWeeks]) >> locINT;
-      nbTests = locINT;
+      nbEval = locINT;
    }
+
+   string prefix = "";
+   if(7+nbWeeks < argc)
+        prefix = argv[7+nbWeeks];
+
+   std::cout << seed << " " << nbEval << " " << prefix << std::endl;
 
    string data = "datasets/";
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
@@ -53,16 +60,8 @@ int main(int argc, char** argv)
    string optionspath = data+"optionFiles/";
 
    string stoOptionsFile = optionspath+"stochastic_solver.txt";
-   if(7+nbWeeks < argc)
-      stoOptionsFile = optionspath+argv[7+nbWeeks];
-
    string geneOptionsFile = optionspath+"generation_solver.txt";
-   if(8+nbWeeks < argc)
-      geneOptionsFile = optionspath+argv[8+nbWeeks];
-
    string evaOptionsFile = optionspath+"evaluation_solver.txt";
-   if(9+nbWeeks < argc)
-      evaOptionsFile = optionspath+argv[9+nbWeeks];
 
    string sensibilityOutfile = outpath+"sensibility.txt";
    Tools::LogOutput sensibilityStream(sensibilityOutfile, true);
@@ -82,20 +81,22 @@ int main(int argc, char** argv)
 //   optParam.nbDiveIfRelGap_ = 8;
 //   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/"+prefix, optParam);
 
-   for(int i=0; i<nbTests; ++i){
+
       StochasticSolverOptions stochasticSolverOptions;
       setStochasticSolverOptions(stochasticSolverOptions, VALGRIND, inst, outfile, outpath,
          stoOptionsFile, geneOptionsFile, evaOptionsFile);
 
-      pair<double, int> p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptions, outpath, i);
+      if(nbEval >= 0)
+         stochasticSolverOptions.nEvaluationDemands_ = nbEval;
+
+      pair<double, int> p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptions, outpath, seed);
 
       char results[250];
-      sprintf(results, "Test %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
-         i, p.first, p.second, stochasticSolverOptions.nEvaluationDemands_,
+      sprintf(results, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
+         seed, p.first, p.second, stochasticSolverOptions.nEvaluationDemands_,
          stochasticSolverOptions.generationParameters_.weightStrategy_, stochasticSolverOptions.rankingStrategy_,
          7+stochasticSolverOptions.nExtraDaysGenerationDemands_, stochasticSolverOptions.nDaysEvaluation_);
       sensibilityStream << results << std::endl;
-   }
 
    // Display the total time spent in the algorithm
    timertotal->stop();
