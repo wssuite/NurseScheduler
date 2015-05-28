@@ -483,6 +483,7 @@ public:
 
    inline void setParameters(SolverParam parameters){ 
     parameters_ = parameters;
+    setVerbosity(parameters_.verbose_);
     logfile_ = parameters.logfile_;
    }
    inline string logfile() {return logfile_;}

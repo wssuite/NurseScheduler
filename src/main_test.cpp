@@ -452,11 +452,13 @@ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions
    ReadWrite::readSolverOptions(generationOptionsFile, generationParameters);
    generationParameters.outfile_ = solPath;
    stochasticSolverOptions.generationParameters_ = generationParameters;
+   stochasticSolverOptions.generationParameters_.verbose_ = stochasticSolverOptions.verbose_;
 
    SolverParam evaluationParameters;
    ReadWrite::readSolverOptions(evaluationOptionsFile, evaluationParameters);
    evaluationParameters.logfile_ = logSolver;
    stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
+   stochasticSolverOptions.evaluationParameters_.verbose_ = stochasticSolverOptions.verbose_;
 }
 
 

@@ -57,8 +57,8 @@ public:
 	SolverParam generationParameters_;
 	SolverParam evaluationParameters_;
 
+	int verbose_ = 0;
 
-	int verbose = 1;
 
 };
 

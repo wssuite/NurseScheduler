@@ -340,6 +340,8 @@ public:
 
 	//primal-dual strategy
 	WeightStrategy weightStrategy_ =  NO_STRAT;
+
+	int verbose_ = 1;
 };
 
 
