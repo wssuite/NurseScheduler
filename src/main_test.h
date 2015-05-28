@@ -50,7 +50,7 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile,
   string solPath, string logPath, double timeout=0.0);
 
-enum Computer {SAM, BUCAREST, SUNGRID, JEREM};
+enum Computer {SAM, BUCAREST, SUNGRID, JEREM, VALGRIND};
 
 // Returns the allowed time depending on the instance + who runs it
 int allowedTime(string instance, Computer computer);

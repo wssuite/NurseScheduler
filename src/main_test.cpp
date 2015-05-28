@@ -467,46 +467,49 @@ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions
 
 int allowedTime(string instance, Computer computer){
 
-   switch(computer){
-   case SAM:
-      if(instance.at(2) == '3')
-         return 45;
-      if(instance.at(2) == '4')
-         return 79;
-      if(instance.at(2) == '5')
-         return 112;
-      if(instance.at(2) == '6')
-         return 146;
-      if(instance.at(2) == '8')
-         return 212;
-      if(instance.at(2) == '0')
-         return 279;
-      if(instance.at(2) == '2')
-         return 346;
-      break;
-   case BUCAREST:
-   case SUNGRID:
-      if(instance.at(2) == '3')
-         return 40;
-      if(instance.at(2) == '4')
-         return 70;
-      if(instance.at(2) == '5')
-         return 100;
-      if(instance.at(2) == '6')
-         return 130;
-      if(instance.at(2) == '8')
-         return 190;
-      if(instance.at(2) == '0')
-         return 250;
-      if(instance.at(2) == '2')
-         return 310;
-      break;
-   default:
-      Tools::throwError("Computer not known.");
-   }
+	switch(computer){
+	case SAM:
+		if(instance.at(2) == '3')
+			return 45;
+		if(instance.at(2) == '4')
+			return 79;
+		if(instance.at(2) == '5')
+			return 112;
+		if(instance.at(2) == '6')
+			return 146;
+		if(instance.at(2) == '8')
+			return 212;
+		if(instance.at(2) == '0')
+			return 279;
+		if(instance.at(2) == '2')
+			return 346;
+		break;
+	case BUCAREST:
+	case SUNGRID:
+		if(instance.at(2) == '3')
+			return 40;
+		if(instance.at(2) == '4')
+			return 70;
+		if(instance.at(2) == '5')
+			return 100;
+		if(instance.at(2) == '6')
+			return 130;
+		if(instance.at(2) == '8')
+			return 190;
+		if(instance.at(2) == '0')
+			return 250;
+		if(instance.at(2) == '2')
+			return 310;
+		break;
+	case VALGRIND:
+		return 20 * allowedTime(instance, SAM);
+		break;
+	default:
+		Tools::throwError("Computer not known.");
+	}
 
-   std::cout << "# Input problem for the max time function..." << endl;
-   return -1;
+	std::cout << "# Input problem for the max time function..." << endl;
+	return -1;
 }
 
 
@@ -714,7 +717,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 	printf( "Total cost = %.2f \n", currentCost);
 
    string seedOutfile = outdir+"seed.txt";
-   Tools::LogOutput seedStream(seedOutfile, true);
+   Tools::LogOutput seedStream(seedOutfile, true);  // true -> mode append
    char str[50];
    sprintf(str, "Cost %.2f; NbGene %d; Seeds", currentCost, nbSched);
    for(int s: seeds)

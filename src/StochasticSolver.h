@@ -55,6 +55,8 @@ public:
 	SolverParam evaluationParameters_;
 
 
+	int verbose = 1;
+
 };
 
 

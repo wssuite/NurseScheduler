@@ -39,7 +39,7 @@ int main(int argc, char** argv)
       if(!strcmp(argv[5+nbWeeks], "-1"))
          string prefix = argv[5+nbWeeks];
 
-   int nbTests = 5;
+   int nbTests = 1;
    if(6+nbWeeks < argc){
       std::istringstream(argv[6+nbWeeks]) >> locINT;
       nbTests = locINT;
@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 
    for(int i=0; i<nbTests; ++i){
       StochasticSolverOptions stochasticSolverOptions;
-      setStochasticSolverOptions(stochasticSolverOptions, SUNGRID, inst, outfile, outpath,
+      setStochasticSolverOptions(stochasticSolverOptions, VALGRIND, inst, outfile, outpath,
          stoOptionsFile, geneOptionsFile, evaOptionsFile);
 
       pair<double, int> p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptions, outpath, i);
