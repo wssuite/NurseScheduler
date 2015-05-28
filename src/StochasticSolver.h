@@ -22,32 +22,35 @@ public:
 
 		SolverParam gp;
 		generationParameters_ = gp;
+		generationParameters_.weightStrategy_ =  RANDOMMEANMAX;
+
 
 		SolverParam ep;
 		evaluationParameters_ = ep;
+		evaluationParameters_.stopAfterXSolution_ = 0;
+		evaluationParameters_.weightStrategy_ =  BOUNDRATIO;
 
 	};
 	~StochasticSolverOptions(){};
 
-	bool withEvaluation_ = false;
+	bool withEvaluation_ = true;
 	bool withIterativeDemandIncrease_ = false;
 
 	bool generationCostPerturbation_ = true;
-	bool evaluationCostPerturbation_ = false;
+	bool evaluationCostPerturbation_ = true;
 
-	bool withResolveForGeneration_ = true;
+	bool withResolveForGeneration_ = false;
 	Algorithm generationAlgorithm_ = GENCOL;
 	bool withResolveForEvaluation_ = true;
-	Algorithm evaluationAlgorithm_ = NONE;
-	RankingStrategy rankingStrategy_ = RK_NONE;
+	Algorithm evaluationAlgorithm_ = GENCOL;
+	RankingStrategy rankingStrategy_ = RK_SCORE;
 
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
 	int nExtraDaysGenerationDemands_ = 7;
-
-	int nEvaluationDemands_ = 0;
-	int nDaysEvaluation_ = 0;
-	int nGenerationDemandsMax_ = 1;
+	int nEvaluationDemands_ = 1;
+	int nDaysEvaluation_ = 14;
+	int nGenerationDemandsMax_ = 100;
 
 	string logfile_ = "";
 
