@@ -713,7 +713,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 
 	printf( "Total cost = %.2f \n", currentCost);
 
-   string seedOutfile = outdir+"seed.txt";
+   string seedOutfile = outdir+"seeds.txt";
    Tools::LogOutput seedStream(seedOutfile, true);
    char str[50];
    sprintf(str, "Cost %.2f; NbGene %d; Seeds", currentCost, nbSched);
