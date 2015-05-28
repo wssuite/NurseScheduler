@@ -656,7 +656,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 	vector<int> seeds;
 
 	for (int week = 0; week < nbWeeks; week++) {
-	   if(week==0)
+	   if(week==0 and seed != -1)
 	      seeds.push_back(seed);
 	   else
 	      seeds.push_back(std::rand());

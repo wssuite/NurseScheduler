@@ -78,7 +78,7 @@ double testMultipleWeeksDeterministic(string dataDir, string instanceName,
 // In this method, the weeks are solved sequentially without knowledge of future
 // demand
 pair<double, int>  testMultipleWeeksStochastic(string dataDir, string instanceName,
-		int historyIndex, vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, int seed=0);
+		int historyIndex, vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, int seed=-1);
 
 // Create a solver of the class specified by the input algorithm type
 Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm);
