@@ -1,7 +1,8 @@
 #!/bin/bash
 
-for entry in "sungrid"/*
-do
+entry="sungrid/n120w8_1_7-2-6-4-5-2-0-2.sh"
+#for entry in "sungrid"/*
+#do
 #seeds
 	for i in {1..30}
 	do
@@ -11,4 +12,4 @@ do
 			qsub ${entry} $i $n $1
 		done
 	done
-done
+#done

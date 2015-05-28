@@ -83,7 +83,7 @@ int main(int argc, char** argv)
 
 
       StochasticSolverOptions stochasticSolverOptions;
-      setStochasticSolverOptions(stochasticSolverOptions, SAM, inst, outfile, outpath,
+      setStochasticSolverOptions(stochasticSolverOptions, SUNGRID, inst, outfile, outpath,
          stoOptionsFile, geneOptionsFile, evaOptionsFile);
 
       if(nbEval >= 0)
