@@ -212,6 +212,7 @@ protected:
 	int bestSchedule_;
 	double bestScore_;
 	double costPreviousWeeks_;
+	vector<double> theBaseCosts_;
 
 	// Return a solver with the algorithm specified for schedule EVALUATION
 	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule);
