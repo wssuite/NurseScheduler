@@ -780,7 +780,8 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 		  //round with a certain probability to the floor or the ceil
 		  int remainingWeekendsToWork = pNurse->maxTotalWeekends() - pNurse->pStateIni_->totalWeekendsWorked_;
 		  double numberOfAuthorizedWeekend = remainingWeekendsToWork * factorRemainingWeekends;
-		  maxTotalWeekendsAvg_.push_back( Tools::roundWithProbability(numberOfAuthorizedWeekend) );
+		  // maxTotalWeekendsAvg_.push_back( Tools::roundWithProbability(numberOfAuthorizedWeekend) );
+      maxTotalWeekendsAvg_.push_back(numberOfAuthorizedWeekend);
 		  weightTotalWeekendsAvg_.push_back(WEIGHT_TOTAL_WEEKENDS);
 	  }
 
@@ -792,9 +793,10 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
 	  // maxTotalShiftsAvg_.push_back((1.0+0.25*factorRemainingDays)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
 	  // weightTotalShiftsAvg_.push_back((1.0-factorRemainingDays)*(double)WEIGHT_TOTAL_SHIFTS);
     double factorMarginOnAvg = 0.25*factorRemainingDays*7.0/(double)pDemand_->nbDays_;
+    factorMarginOnAvg = (pDemand_->nbDays_%14==0) ? 0.0:factorMarginOnAvg;
     minTotalShiftsAvg_.push_back((1.0-factorMarginOnAvg)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
     maxTotalShiftsAvg_.push_back((1.0+factorMarginOnAvg)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
-     weightTotalShiftsAvg_.push_back((double)WEIGHT_TOTAL_SHIFTS);
+    weightTotalShiftsAvg_.push_back((double)WEIGHT_TOTAL_SHIFTS);
 
 
 

@@ -337,16 +337,16 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
 	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
-	options.withEvaluation_ = false;
+	options.withEvaluation_ = true;
 	options.withIterativeDemandIncrease_ = false;
 	options.generationCostPerturbation_ = true;
 	options.evaluationCostPerturbation_ = false;
 	options.generationAlgorithm_ = GENCOL;
 	options.evaluationAlgorithm_ = GENCOL;
 	options.totalTimeLimitSeconds_ = timeout ? timeout : cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
-	options.nExtraDaysGenerationDemands_ = 21;
+	options.nExtraDaysGenerationDemands_ = 7;
 	options.nEvaluationDemands_ = 5;
-	options.nDaysEvaluation_ = 7;
+	options.nDaysEvaluation_ = 14;
 	options.nGenerationDemandsMax_ = 5;
 	options.logfile_ = logStochastic;
 
