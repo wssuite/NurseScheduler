@@ -92,6 +92,7 @@ int main(int argc, char** argv)
 //   setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
 //		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
 //
+//   stochasticSolverOptionsScore.nEvaluationDemands_ = nbEval;
 //   p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);
 //
 //   char results[250];
@@ -112,6 +113,7 @@ int main(int argc, char** argv)
    setStochasticSolverOptions(stochasticSolverOptionsMean, SUNGRID, inst, outfile, outpath,
 		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
 
+   stochasticSolverOptionsMean.nEvaluationDemands_ = nbEval;
    stochasticSolverOptionsMean.rankingStrategy_ = RK_MEAN;
 
    p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsMean, outpath+"mean_", seed);
