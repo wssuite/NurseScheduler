@@ -26,8 +26,6 @@ void main_test()
 
 int main(int argc, char** argv)
 {
-	srand(0);
-
    std::cout << "Number of arguments= " << argc << std::endl;
 
    // Detect errors in the number of arguments
@@ -53,7 +51,8 @@ int main(int argc, char** argv)
       //
       int narg = 1;
       string scenarioFile="", initialHistoryFile="", weekDataFile="", solutionFile="";
-      string customInputFile="", customOutputFile="", randSeed="";
+      string customInputFile="", customOutputFile="";
+      int randSeed=0;
       double timeout =0.0;
 
       while (narg < argc) {
@@ -98,7 +97,7 @@ int main(int argc, char** argv)
             narg += 2;
          }
          else if (!strcmp(argv[narg],"--rand")) {
-            randSeed = str;
+            randSeed = std::stoi(str);
             narg += 2;
          }
          else {
@@ -113,7 +112,9 @@ int main(int argc, char** argv)
 
 		unsigned found = solutionFile.find_last_of(".");
 		string logFile = solutionFile.substr(0,found);
-	    logFile = "";
+	   logFile = "";
+
+      srand(randSeed);
 
 	    // Solve the week
 		solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, customInputFile, solutionFile, logFile, timeout);

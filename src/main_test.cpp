@@ -339,14 +339,14 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 
    options.withEvaluation_ = false;
    options.generationCostPerturbation_ = true;
-   options.evaluationCostPerturbation_ = false;
+   options.evaluationCostPerturbation_ = true;
    options.generationAlgorithm_ = GENCOL;
    options.evaluationAlgorithm_ = GENCOL;
-   options.totalTimeLimitSeconds_ = cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
+   options.totalTimeLimitSeconds_ = timeout;
    options.nExtraDaysGenerationDemands_ = 7;
-   options.nEvaluationDemands_ = 10;
-   options.nDaysEvaluation_ = 7;
-   options.nGenerationDemandsMax_ = 5;
+   options.nEvaluationDemands_ = 4;
+   options.nDaysEvaluation_ = 14;
+   options.nGenerationDemandsMax_ = 100;
    options.logfile_ = logStochastic;
 
    SolverParam generationParameters;
