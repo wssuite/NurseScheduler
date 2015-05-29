@@ -345,6 +345,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
   Preferences* pPreferences, vector<State>* pInitState):
   pScenario_(pScenario),  pDemand_(pDemand),
   pPreferences_(pPreferences), pInitState_(pInitState),
+  rdm_(Tools::getANewRandomGenerator()),
   totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
   isPreprocessedSkills_(false), isPreprocessedNurses_(false), status_(UNSOLVED) {
 
@@ -698,7 +699,7 @@ void Solver::setBoundsAndWeights(WeightStrategy strategy){
 		break;
 
 	case RANDOMMEANMAX:
-		if(rand()%2 == 0)
+		if(rdm_()%2 == 0)
 			computeWeightsTotalShiftsForPrimalDual(MEAN);
 		else
 			computeWeightsTotalShiftsForPrimalDual(MAX);

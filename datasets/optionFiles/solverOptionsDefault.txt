@@ -1,9 +1,10 @@
-printEverySolution= false
+maxSolvingTimeSeconds=100000000
+printEverySolution=0
 absoluteGap= 5
 minRelativeGap= .05
 relativeGap= .1
 nbDiveIfMinGap= 1
 nbDiveIfRelGap= 2
-solveToOptimality= false
+solveToOptimality= 0
 weightStrategy= NO_STRAT
-stopAfterXSolution= 0
+stopAfterXSolution= 1000

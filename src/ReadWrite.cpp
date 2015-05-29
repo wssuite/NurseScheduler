@@ -26,6 +26,8 @@ std::map<std::string, Algorithm> stringToAlgorithm =
    boost::assign::map_list_of("GREEDY", GREEDY)("GENCOL", GENCOL)("STOCHASTIC_GREEDY",STOCHASTIC_GREEDY)("STOCHASTIC_GENCOL",STOCHASTIC_GENCOL)("NONE",NONE);
 std::map<std::string, WeightStrategy> stringToWeightStrategy = 
    boost::assign::map_list_of("MAX", MAX)("MEAN", MEAN)("RANDOMMEANMAX",RANDOMMEANMAX)("BOUNDRATIO",BOUNDRATIO)("NO_STRAT",NO_STRAT);
+std::map<std::string, RankingStrategy> stringToRankingStrategy =
+   boost::assign::map_list_of("SCORE", RK_SCORE)("MEAN", RK_MEAN);
 
 
 //--------------------------------------------------------------------------
@@ -567,6 +569,11 @@ void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolv
 			file >> strtmp;
 			options.evaluationAlgorithm_ = stringToAlgorithm[strtmp];  
 		}
+      if(!strcmp(title.c_str(), "rankingStrategy")){
+         string strtmp;
+         file >> strtmp;
+         options.rankingStrategy_ = stringToRankingStrategy[strtmp];
+      }
 		if(!strcmp(title.c_str(), "nExtraDaysGenerationDemands")){
 			file >> options.nExtraDaysGenerationDemands_;  
 		}
@@ -599,6 +606,9 @@ void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
 	while(file.good()){
 		readUntilOneOfTwoChar(&file, '\n', '=', &title);
 
+      if(!strcmp(title.c_str(), "maxSolvingTimeSeconds")){
+         file >> options.maxSolvingTimeSeconds_;
+      }
 		if(!strcmp(title.c_str(), "printEverySolution")){
 			file >> options.printEverySolution_;  
 		}

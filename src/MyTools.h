@@ -23,6 +23,7 @@
 #include <exception>
 #include <algorithm>
 #include <cfloat>
+#include <random>
 
 #define _USE_MATH_DEFINES // needed for the constant M_PI
 #include <math.h>
@@ -49,7 +50,6 @@ typedef vector<vector<int> > vector2D;
 typedef std::vector<std::vector<std::vector<int> > > vector3D;
 
 namespace Tools{
-
 
 // class defining my own type of exceptions
 //
@@ -84,6 +84,11 @@ void debugMsg(const char* debugMsg, int debugLevel);
 // Read a file stream until the separating character is met
 //
 bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
+
+//Create a random generator
+//the objective is to be sure to have always the same sequence of number
+//
+std::minstd_rand getANewRandomGenerator();
 
 //round with probability
 int roundWithProbability(double number);
@@ -183,18 +188,25 @@ private:
   int precision_;
 
 public:
-	LogOutput(string logName):width_(0), precision_(5) {
+	LogOutput(string logName, bool append = false):width_(0), precision_(5) {
 		if (logName.empty()) {
 			pLogStream_ = &(std::cout);
+		}
+		else if(append) {
+		   pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::app);
 		}
 		else {
 			pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
 		}
 		// logStream_.open(logName.c_str(), std::fstream::out);
 	}
-	LogOutput(string logName, int width):width_(width), precision_(5) {
-		pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
-		// logStream_.open(logName.c_str(), std::fstream::out);
+	LogOutput(string logName, int width, bool append = false):width_(width), precision_(5) {
+	   if(append) {
+	      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::app);
+	   }
+	   else
+	      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
+	   // logStream_.open(logName.c_str(), std::fstream::out);
 	}
 
 	~LogOutput() {

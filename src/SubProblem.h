@@ -446,6 +446,10 @@ protected:
 	//
 	int maxOngoingDaysWorked_;
 
+	//random generator
+	//
+	minstd_rand rdm_;
+
 
 	//----------------------------------------------------------------
 	//

@@ -12,6 +12,7 @@
 #include "Solver.h"
 #include "MasterProblem.h"
 
+enum RankingStrategy {RK_MEAN, RK_SCORE, RK_NONE};
 
 class StochasticSolverOptions{
 
@@ -21,36 +22,42 @@ public:
 
 		SolverParam gp;
 		generationParameters_ = gp;
+		generationParameters_.weightStrategy_ =  RANDOMMEANMAX;
+
 
 		SolverParam ep;
 		evaluationParameters_ = ep;
+		evaluationParameters_.stopAfterXSolution_ = 0;
+		evaluationParameters_.weightStrategy_ =  BOUNDRATIO;
 
 	};
 	~StochasticSolverOptions(){};
 
-	bool withEvaluation_ = false;
+	bool withEvaluation_ = true;
 	bool withIterativeDemandIncrease_ = false;
 
 	bool generationCostPerturbation_ = true;
-	bool evaluationCostPerturbation_ = false;
+	bool evaluationCostPerturbation_ = true;
 
-	bool withResolveForGeneration_ = true;
+	bool withResolveForGeneration_ = false;
 	Algorithm generationAlgorithm_ = GENCOL;
 	bool withResolveForEvaluation_ = true;
-	Algorithm evaluationAlgorithm_ = NONE;
+	Algorithm evaluationAlgorithm_ = GENCOL;
+	RankingStrategy rankingStrategy_ = RK_SCORE;
 
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
 	int nExtraDaysGenerationDemands_ = 7;
-
-	int nEvaluationDemands_ = 0;
-	int nDaysEvaluation_ = 0;
-	int nGenerationDemandsMax_ = 1;
+	int nEvaluationDemands_ = 1;
+	int nDaysEvaluation_ = 14;
+	int nGenerationDemandsMax_ = 100;
 
 	string logfile_ = "";
 
 	SolverParam generationParameters_;
 	SolverParam evaluationParameters_;
+
+	int verbose_ = 0;
 
 
 };
@@ -70,7 +77,7 @@ class StochasticSolver:public Solver {
 
 public:
 
-	StochasticSolver(Scenario* pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory);
+	StochasticSolver(Scenario* pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory, double costPreviousWeeks=0);
 
 	~StochasticSolver();
 
@@ -88,6 +95,10 @@ public:
 
 	// Main function
 	double solve(vector<Roster> initialSolution = {});
+
+	//get the number of generated schedules
+	//
+	int getNbSchedules() { return schedules_.size(); }
 
 protected:
 
@@ -200,6 +211,8 @@ protected:
 
 	int bestSchedule_;
 	double bestScore_;
+	double costPreviousWeeks_;
+	vector<double> theBaseCosts_;
 
 	// Return a solver with the algorithm specified for schedule EVALUATION
 	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule);
@@ -208,7 +221,7 @@ protected:
 	// Evaluate 1 schedule and store the corresponding detailed results (returns false if time has run out)
 	bool evaluateSchedule(int sched);
 	// Recompute all scores after one schedule evaluation
-	void updateRankingsAndScores();
+	void updateRankingsAndScores(RankingStrategy strategy);
 	// Getter
 	double valueOfEvaluation(int sched, int evalDemand){return pEvaluationSolvers_[sched][evalDemand]->solutionCost();}
 

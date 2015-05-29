@@ -340,6 +340,8 @@ public:
 
 	//primal-dual strategy
 	WeightStrategy weightStrategy_ =  NO_STRAT;
+
+	int verbose_ = 1;
 };
 
 
@@ -406,6 +408,10 @@ protected:
    // pointer to the state of each nurse at the beginning of the time horizon
    //
    vector<State>* pInitState_;
+
+   //random generator
+   //
+   std::minstd_rand rdm_;
 
    //-----------------------------------------------------------------------------
    // Manipulated data

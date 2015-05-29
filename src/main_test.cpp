@@ -195,7 +195,7 @@ void testFunction_Samuel(){
 	string data = "datasets/";// testdatasets datasets userdataset
 	string inst = "n030w4";// n100w4 n030w4 n012w8 n005w4 n005w1
 
-	int maxTimeAllowed = allowedTime(inst,"samuel");
+	int maxTimeAllowed = allowedTime(inst,SAM);
 
 	string scenarPath = data + inst + "/Sc-" + inst + ".txt";
 	//n005w4: {1, 2, 3, 3}
@@ -326,59 +326,139 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 ******************************************************************************/
 
 void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout) {
-	#ifdef __MACH__
-	double cpuMaxFor30Nurses = 60.0;
-	double cpuMaxPer10Nurses = 45.0;
-	#else
-	double cpuMaxFor30Nurses = 45.0;
-	double cpuMaxPer10Nurses = 35.0;
-	#endif
+   #ifdef __MACH__
+   double cpuMaxFor30Nurses = 60.0;
+   double cpuMaxPer10Nurses = 45.0;
+   #else
+   double cpuMaxFor30Nurses = 45.0;
+   double cpuMaxPer10Nurses = 35.0;
+   #endif
+
+   string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
+   string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
+
+   options.withEvaluation_ = false;
+   options.generationCostPerturbation_ = true;
+   options.evaluationCostPerturbation_ = false;
+   options.generationAlgorithm_ = GENCOL;
+   options.evaluationAlgorithm_ = GENCOL;
+   options.totalTimeLimitSeconds_ = cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
+   options.nExtraDaysGenerationDemands_ = 7;
+   options.nEvaluationDemands_ = 10;
+   options.nDaysEvaluation_ = 7;
+   options.nGenerationDemandsMax_ = 5;
+   options.logfile_ = logStochastic;
+
+   SolverParam generationParameters;
+   generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;
+   generationParameters.printEverySolution_ = false;
+   generationParameters.outfile_ = solPath;
+   generationParameters.logfile_ = logSolver;
+   generationParameters.absoluteGap_ = 5;
+   generationParameters.minRelativeGap_ = .05;
+   generationParameters.relativeGap_ = .1;
+   generationParameters.nbDiveIfMinGap_ = 1;
+   generationParameters.nbDiveIfRelGap_ = 2;
+   generationParameters.solveToOptimality_ = false;
+
+   options.generationParameters_ = generationParameters;
+
+   SolverParam evaluationParameters;
+   evaluationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/(2.0*options.nEvaluationDemands_);
+   evaluationParameters.printEverySolution_ = false;
+   evaluationParameters.outfile_ = "outdir/";
+   evaluationParameters.logfile_ = logSolver;
+   evaluationParameters.absoluteGap_ = 5;
+   evaluationParameters.minRelativeGap_ = .05;
+   evaluationParameters.relativeGap_ = .1;
+   evaluationParameters.nbDiveIfMinGap_ = 1;
+   evaluationParameters.nbDiveIfRelGap_ = 2;
+   evaluationParameters.solveToOptimality_ = false;
+   evaluationParameters.stopAfterXSolution_ = 0;
+
+   options.evaluationParameters_ = evaluationParameters;
+}
+
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Computer computer, string instanceName,
+   string solPath, string logPathIni) {
 
 	string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
 	string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
-	options.withEvaluation_ = true;
-	options.withIterativeDemandIncrease_ = false;
-	options.generationCostPerturbation_ = true;
-	options.evaluationCostPerturbation_ = false;
-	options.generationAlgorithm_ = GENCOL;
-	options.evaluationAlgorithm_ = GENCOL;
-	options.totalTimeLimitSeconds_ = timeout ? timeout : cpuMaxFor30Nurses+(double)(pScenario->nbNurses()-30.0)/10.0*cpuMaxPer10Nurses;
-	options.nExtraDaysGenerationDemands_ = 7;
-	options.nEvaluationDemands_ = 5;
-	options.nDaysEvaluation_ = 14;
-	options.nGenerationDemandsMax_ = 5;
-	options.logfile_ = logStochastic;
 
-	SolverParam generationParameters;
-	generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;
-	generationParameters.printEverySolution_ = false;
-	generationParameters.outfile_ = solPath;
-	generationParameters.logfile_ = logSolver;
-	generationParameters.absoluteGap_ = 5;
-	generationParameters.minRelativeGap_ = .05;
-	generationParameters.relativeGap_ = .1;
-	generationParameters.nbDiveIfMinGap_ = 1;
-	generationParameters.nbDiveIfRelGap_ = 2;
-	generationParameters.solveToOptimality_ = false;
-	generationParameters.weightStrategy_ = NO_STRAT;
+   int maxTimeAllowed = allowedTime(instanceName,computer);
 
-	options.generationParameters_ = generationParameters;
 
-	SolverParam evaluationParameters;
-	evaluationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/(2.0*options.nEvaluationDemands_);
-	evaluationParameters.printEverySolution_ = false;
-	evaluationParameters.outfile_ = "outdir/";
-	evaluationParameters.logfile_ = logSolver;
-	evaluationParameters.absoluteGap_ = 5;
-	evaluationParameters.minRelativeGap_ = .05;
-	evaluationParameters.relativeGap_ = .1;
-	evaluationParameters.nbDiveIfMinGap_ = 1;
-	evaluationParameters.nbDiveIfRelGap_ = 2;
-	evaluationParameters.solveToOptimality_ = false;
-	evaluationParameters.stopAfterXSolution_ = 0;
+   stochasticSolverOptions.withIterativeDemandIncrease_ = false;
+   stochasticSolverOptions.withEvaluation_ = true;
+   stochasticSolverOptions.generationCostPerturbation_ = true;
+   stochasticSolverOptions.evaluationCostPerturbation_ = true;
+   stochasticSolverOptions.withResolveForGeneration_ = false;
+   stochasticSolverOptions.generationAlgorithm_ = GENCOL;
+   stochasticSolverOptions.withResolveForEvaluation_ = true;
+   stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
+   stochasticSolverOptions.rankingStrategy_ = RK_SCORE;
+   stochasticSolverOptions.totalTimeLimitSeconds_ = maxTimeAllowed;
+   stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
+   stochasticSolverOptions.nEvaluationDemands_ = 4;
+   stochasticSolverOptions.nDaysEvaluation_ = 14;
+   stochasticSolverOptions.nGenerationDemandsMax_ = 100;
+   stochasticSolverOptions.logfile_ = logStochastic;
 
-	options.evaluationParameters_ = evaluationParameters;
+   SolverParam generationParameters;
+   generationParameters.maxSolvingTimeSeconds_ = 3000;
+   generationParameters.printEverySolution_ = false;
+   generationParameters.outfile_ = solPath;
+// generationParameters.logfile_ = generationParameters.outfile_;
+   generationParameters.absoluteGap_ = 5;
+   generationParameters.minRelativeGap_ = .05;
+   generationParameters.relativeGap_ = .1;
+   generationParameters.nbDiveIfMinGap_ = 1;
+   generationParameters.nbDiveIfRelGap_ = 2;
+   generationParameters.solveToOptimality_ = false;
+   generationParameters.weightStrategy_ = RANDOMMEANMAX;
+
+   stochasticSolverOptions.generationParameters_ = generationParameters;
+
+   SolverParam evaluationParameters;
+   evaluationParameters.maxSolvingTimeSeconds_ = 3000;
+   evaluationParameters.printEverySolution_ = false;
+// evaluationParameters.outfile_ = "";
+   evaluationParameters.logfile_ = logSolver;
+   evaluationParameters.absoluteGap_ = 5;
+   evaluationParameters.minRelativeGap_ = .05;
+   evaluationParameters.relativeGap_ = .1;
+   evaluationParameters.nbDiveIfMinGap_ = 1;
+   evaluationParameters.nbDiveIfRelGap_ = 2;
+   evaluationParameters.solveToOptimality_ = false;
+   evaluationParameters.weightStrategy_ = BOUNDRATIO;
+   evaluationParameters.stopAfterXSolution_ = 0;
+
+   stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
+}
+
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, Computer computer, string instanceName,
+   string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile) {
+
+   string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
+   string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
+
+   ReadWrite::readStochasticSolverOptions(stochasticOptionsFile, stochasticSolverOptions);
+   int maxTimeAllowed = allowedTime(instanceName,computer);
+   stochasticSolverOptions.totalTimeLimitSeconds_ = maxTimeAllowed;
+   stochasticSolverOptions.logfile_ = logStochastic;
+
+   SolverParam generationParameters;
+   ReadWrite::readSolverOptions(generationOptionsFile, generationParameters);
+   generationParameters.outfile_ = solPath;
+   stochasticSolverOptions.generationParameters_ = generationParameters;
+   stochasticSolverOptions.generationParameters_.verbose_ = stochasticSolverOptions.verbose_;
+
+   SolverParam evaluationParameters;
+   ReadWrite::readSolverOptions(evaluationOptionsFile, evaluationParameters);
+   evaluationParameters.logfile_ = logSolver;
+   stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
+   stochasticSolverOptions.evaluationParameters_.verbose_ = stochasticSolverOptions.verbose_;
 }
 
 
@@ -387,9 +467,10 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
 * problem
 *******************************************************************************/
 
-int allowedTime(string instance, string whoDat){
+int allowedTime(string instance, Computer computer){
 
-	if(whoDat == "samuel"){
+	switch(computer){
+	case SAM:
 		if(instance.at(2) == '3')
 			return 45;
 		if(instance.at(2) == '4')
@@ -404,9 +485,9 @@ int allowedTime(string instance, string whoDat){
 			return 279;
 		if(instance.at(2) == '2')
 			return 346;
-	}
-
-	if(whoDat == "bucarest"){
+		break;
+	case BUCAREST:
+	case SUNGRID:
 		if(instance.at(2) == '3')
 			return 40;
 		if(instance.at(2) == '4')
@@ -421,14 +502,16 @@ int allowedTime(string instance, string whoDat){
 			return 250;
 		if(instance.at(2) == '2')
 			return 310;
+		break;
+	case VALGRIND:
+		return 20 * allowedTime(instance, SAM);
+		break;
+	default:
+		Tools::throwError("Computer not known.");
 	}
-
 
 	std::cout << "# Input problem for the max time function..." << endl;
 	return -1;
-
-
-
 }
 
 
@@ -441,7 +524,6 @@ InputPaths::InputPaths(string dataDir, string instanceName,int historyIndex, vec
 
 	int nbWeeks = weekIndices.size();
 	string instanceDir = dataDir + instanceName + "/";
-
 	// initialize the scenario and history file names
 	scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
 	history_ = instanceDir + "H0" + "-" + instanceName + "-" + std::to_string(historyIndex) + ".txt";
@@ -521,13 +603,13 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 * In this method, we assume that all the demands are knwon in advance
 * (the method can also treat only one week)
 ******************************************************************************/
-void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+double testMultipleWeeksDeterministic(string dataDir, string instanceName,
    int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir) {
    SolverParam param;
-   testMultipleWeeksDeterministic(dataDir, instanceName, historyIndex, weekIndices, algorithm, outDir, param);
+   return testMultipleWeeksDeterministic(dataDir, instanceName, historyIndex, weekIndices, algorithm, outDir, param);
 }
 
-void testMultipleWeeksDeterministic(string dataDir, string instanceName,
+double testMultipleWeeksDeterministic(string dataDir, string instanceName,
 	int historyIndex, vector<int> weekIndices, Algorithm algorithm, string outDir, SolverParam current_param) {
 
 	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
@@ -543,6 +625,8 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 
 	delete pSolver;
 	delete pScen;
+
+	return pSolver->solutionCost();
 }
 
 
@@ -553,8 +637,8 @@ void testMultipleWeeksDeterministic(string dataDir, string instanceName,
 ******************************************************************************/
 
 
-void testMultipleWeeksStochastic(string dataDir, string instanceName, int historyIndex,
-		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outDir) {
+pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceName, int historyIndex,
+		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, int seed) {
 
 	// build the paths of the input files
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
@@ -568,14 +652,25 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName, int histor
 	Status solutionStatus;
 
 	vector<Demand*> demandHistory;
+	double currentCost = 0;
+	int nbSched = 0;
+
+	vector<int> seeds;
 
 	for (int week = 0; week < nbWeeks; week++) {
+	   if(week==0 and seed != -1)
+	      seeds.push_back(seed);
+	   else
+	      seeds.push_back(std::rand());
+	   std::srand(seeds[week]);
 
 		demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
 
-		Solver* pSolver = new StochasticSolver(pScen, stochasticSolverOptions, demandHistory);
+		StochasticSolver* pSolver = new StochasticSolver(pScen, stochasticSolverOptions, demandHistory, currentCost);
 
-		pSolver->solve();
+		currentCost += pSolver->solve();
+		nbSched += pSolver->getNbSchedules();
+		printf( "Current cost = %.2f \n", currentCost);
 		solutionStatus = pSolver->getStatus();
 		if (solutionStatus == INFEASIBLE) {
 			delete pSolver;
@@ -621,10 +716,23 @@ void testMultipleWeeksStochastic(string dataDir, string instanceName, int histor
 		delete pSolver;
 	}
 
+	printf( "Total cost = %.2f \n", currentCost);
+
+   string seedOutfile = outdir+"seeds.txt";
+   Tools::LogOutput seedStream(seedOutfile, true);
+   char str[50];
+   sprintf(str, "Cost %.2f; NbGene %d; Seeds", currentCost, nbSched);
+   seedStream << str;
+   for(int s: seeds)
+      seedStream << " " << s;
+   seedStream << std::endl;
+
 	// Display the solution
 	// displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
 	delete pScen;
+
+	return pair<double, int>(currentCost, nbSched);
 }
 
 

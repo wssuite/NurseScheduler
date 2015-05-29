@@ -8,7 +8,7 @@
 #include "main_test.h"
 #include "MyTools.h"
 
-// n030w4 1 6 2 9 1 n030w4_1_6-2-9-1
+// n030w4 1 4 6 2 9 1 n030w4_1_6-2-9-1
 // Function for solving the optimal solution
 int main(int argc, char** argv)
 {
@@ -20,84 +20,84 @@ int main(int argc, char** argv)
 
    std::istringstream(argv[2]) >> locINT;
    int historyID = locINT;
+
+   std::istringstream(argv[3]) >> locINT;
+   int nbWeeks = locINT;
+   if(5+nbWeeks > argc)
+      Tools::throwError("Bad input format. Should be: instance_name historyID numberWeeks vector<int>weekIndices outdir prefix numberTest solver_options generation_options evaluations_options. After outdir, the arguments are optional.");
+
    vector<int> numberWeek;
-   for(int i=3; i<argc-2; ++i){
+   for(int i=4; i<4+nbWeeks; ++i){
       std::istringstream(argv[i]) >> locINT;
       numberWeek.push_back(locINT);
    }
-//   if( (numberWeek.size()%4) != 0 )
-//      Tools::throwError("Bad instance.");
-   string outdir = argv[argc-2];
 
-   string prefix = argv[argc-1];
+   string outdir = argv[4+nbWeeks];
+
+   string prefix = "";
+   if(5+nbWeeks < argc)
+        prefix = argv[5+nbWeeks];
+
+   string data = "datasets/";
+   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
+   string outpath = "outfiles/Competition/"+outdir+"/"+prefix;
+   string outfile = outpath+"sol-week";
+   string logfile = outpath+"Log.txt";
+   string optionspath = data+"optionFiles/";
+
+   string stoOptionsFile = optionspath+"stochastic_solver.txt";
+   string geneOptionsFile = optionspath+"generation_solver.txt";
+   string evaOptionsFile = optionspath+"evaluation_solver.txt";
 
    // Time the complete execution of the algorithm
    Tools::Timer* timertotal = new Tools::Timer();
    timertotal->init();
    timertotal->start();
 
-   string data = "datasets/";
-   string scenarPath = data + inst + "/Sc-" + inst + ".txt";
-
-   SolverParam optParam;
-   optParam.printEverySolution_ = true;
-   optParam.weekIndices_ = numberWeek;
-   optParam.outfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Sol-"+inst+"-";
-   optParam.logfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Log.txt";
-   optParam.solveToOptimality_ = true;
-   optParam.nbDiveIfMinGap_ = 2;
-   optParam.nbDiveIfRelGap_ = 8;
-   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/"+prefix, optParam);
+//   SolverParam optParam;
+//   optParam.printEverySolution_ = true;
+//   optParam.weekIndices_ = numberWeek;
+//   optParam.outfile_ = outfile;
+//   optParam.logfile_ = logfile;
+//   optParam.solveToOptimality_ = true;
+//   optParam.nbDiveIfMinGap_ = 2;
+//   optParam.nbDiveIfRelGap_ = 8;
+//   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/"+prefix, optParam);
 
 
-//	StochasticSolverOptions stochasticSolverOptions;
-//	stochasticSolverOptions.withEvaluation_ = false;
-//	stochasticSolverOptions.generationCostPerturbation_ = true;
-//	stochasticSolverOptions.evaluationCostPerturbation_ = false;
-//	stochasticSolverOptions.generationAlgorithm_ = GENCOL;
-//	stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
-//	stochasticSolverOptions.totalTimeLimitSeconds_ = LARGE_TIME;
-//	stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
-//	stochasticSolverOptions.nEvaluationDemands_ = 3;
-//	stochasticSolverOptions.nDaysEvaluation_ = 21;
-//	stochasticSolverOptions.nGenerationDemandsMax_ = 3;
-//
-//	SolverParam generationParameters;
-//	generationParameters.maxSolvingTimeSeconds_ = 3000;
-//	generationParameters.printEverySolution_ = false;
-//	generationParameters.outfile_ = "outfiles/Competition/"+outdir+"/"+prefix+"Sol-"+inst+"-";
-////	generationParameters.logfile_ = "";
-//	generationParameters.absoluteGap_ = 5;
-//	generationParameters.minRelativeGap_ = .05;
-//	generationParameters.relativeGap_ = .1;
-//	generationParameters.nbDiveIfMinGap_ = 1;
-//	generationParameters.nbDiveIfRelGap_ = 2;
-//	generationParameters.solveToOptimality_ = false;
-//	if(prefix == "mean"){
-//		generationParameters.weightStrategy = MEAN;
-//	} else if(prefix == "max"){
-//		generationParameters.weightStrategy = MAX;
-//	}
-//
-//
-//	stochasticSolverOptions.generationParameters_ = generationParameters;
-//
-//	SolverParam evaluationParameters;
-//	evaluationParameters.maxSolvingTimeSeconds_ = 7;
-//	evaluationParameters.printEverySolution_ = false;
-////	evaluationParameters.outfile_ = "outfiles/";
-////	evaluationParameters.logfile_ = evaluationParameters.outfile_;
-//	evaluationParameters.absoluteGap_ = 5;
-//	evaluationParameters.minRelativeGap_ = .05;
-//	evaluationParameters.relativeGap_ = .1;
-//	evaluationParameters.nbDiveIfMinGap_ = 1;
-//	evaluationParameters.nbDiveIfRelGap_ = 2;
-//	evaluationParameters.solveToOptimality_ = false;
-//
-//	stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
-//
-//	testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptions, "outfiles/Competition/"+outdir+"/"+prefix);
-////   testMultipleWeeksStochastic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/Test");
+   StochasticSolverOptions stochasticSolverOptionsScore;
+   setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
+		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
+
+   int seed = rand();
+
+   pair<double, int> p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);
+
+   char results[250];
+   sprintf(results, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
+		   seed, p.first, p.second, stochasticSolverOptionsScore.nEvaluationDemands_,
+		   stochasticSolverOptionsScore.generationParameters_.weightStrategy_, stochasticSolverOptionsScore.rankingStrategy_,
+		   7+stochasticSolverOptionsScore.nExtraDaysGenerationDemands_, stochasticSolverOptionsScore.nDaysEvaluation_);
+   string sensibilityOutfile = outpath+"score_sensibility.txt";
+   Tools::LogOutput sensibilityStream(sensibilityOutfile, true);
+   sensibilityStream << results << std::endl;
+
+   StochasticSolverOptions stochasticSolverOptionsMean;
+   setStochasticSolverOptions(stochasticSolverOptionsMean, SUNGRID, inst, outfile, outpath,
+		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
+
+   stochasticSolverOptionsMean.rankingStrategy_ = RK_MEAN;
+
+   p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsMean, outpath+"mean_", seed);
+
+   char results2[250];
+   sprintf(results2, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
+		   seed, p.first, p.second, stochasticSolverOptionsMean.nEvaluationDemands_,
+		   stochasticSolverOptionsMean.generationParameters_.weightStrategy_, stochasticSolverOptionsMean.rankingStrategy_,
+		   7+stochasticSolverOptionsMean.nExtraDaysGenerationDemands_, stochasticSolverOptionsMean.nDaysEvaluation_);
+   string sensibilityOutfile2 = outpath+"mean_sensibility.txt";
+   Tools::LogOutput sensibilityStream2(sensibilityOutfile2, true);
+   sensibilityStream2 << results2 << std::endl;
 
    // Display the total time spent in the algorithm
    timertotal->stop();

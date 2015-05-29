@@ -35,7 +35,8 @@ class DemandGenerator{
 public:
 	// default constructor and destructor
 	DemandGenerator(int nbDemands, int nbDays, vector<Demand*> demands, Scenario* pScenario):
-		nbDemandsToGenerate_(nbDemands), nbDaysInGeneratedDemands_(nbDays),demandHistory_(demands), pScenario_(pScenario) {
+		nbDemandsToGenerate_(nbDemands), nbDaysInGeneratedDemands_(nbDays),demandHistory_(demands), pScenario_(pScenario),
+	   rdm_(Tools::getANewRandomGenerator()) {
 	}
 	~DemandGenerator();
 
@@ -63,6 +64,9 @@ protected:
 	// nurse rostering scenario under study
 	// this attribute is necessary to check the feasibility of the generated demands
 	Scenario* pScenario_;
+
+	  //random generator
+	  std::minstd_rand rdm_;
 };
 
  #endif
