@@ -18,7 +18,7 @@ nbWeeks=$((nbArgs - 2))
 seeds=(`echo $2 | tr '-' ' ' `)
 
 # create the output directory if it does not exist
-outputDir="outfiles/${1}/"
+outputDir="outfiles/Competition/${1}/"
 if test ! -d "outfiles" ; then
 	echo "Create output directory"
 	mkdir "outfiles"
@@ -27,7 +27,7 @@ if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"
 fi
-outputDir="outfiles/${1}/WithNoEvaluation/"
+outputDir="outfiles/Competition/${1}/FinalRun/"
 if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"

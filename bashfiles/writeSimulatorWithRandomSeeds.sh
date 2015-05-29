@@ -1,9 +1,5 @@
 # !/bin/sh
 
-########################
-# the first input is the instance name and the second one is the sequence of seeds
-########################
-
 # parse the input competition instance name
 echo "Competition instance: $1"
 parse=(`echo $1 | tr '_' ' ' `)
@@ -14,10 +10,15 @@ numHist=${arrayArgs[1]}
 nbArgs=${#arrayArgs[@]}
 nbWeeks=$((nbArgs - 2))
 
-# get the seeds form the second input
-seeds=(`echo $2 | tr '-' ' ' `)
+# create the files that are going to be used in the execution
+scenarioFile="datasets/${instance}/Sc-${instance}.txt"
+historyFile="datasets/${instance}/H0-${instance}-${numHist}.txt"
 
-# create the output directory if it does not exist
+for ((i=2; i<$nbArgs; i++)); do
+	demandFiles[$i-2]="datasets/${instance}/WD-${instance}-${arrayArgs[$i]}.txt"
+done
+
+# create the root of output directory if it does not exist
 outputDir="outfiles/${1}/"
 if test ! -d "outfiles" ; then
 	echo "Create output directory"
@@ -27,24 +28,28 @@ if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"
 fi
-outputDir="outfiles/${1}/WithNoEvaluation/"
+
+# create the random seeds
+for ((i=0; i<$nbWeeks; i++)); do
+	# seeds[$i]=$RANDOM
+	seeds[$i]=$(($RANDOM%100))
+done
+
+# create the specific output directory for these seeds
+catseeds=${seeds[0]}
+for ((i=1; i<$nbWeeks; i++)); do
+	catseeds+="-${seeds[$i]}"
+done
+outputDir+="$catseeds"
 if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"
 fi
 
-# create the files that are going to be used in the execution
-scenarioFile="datasets/${instance}/Sc-${instance}.txt"
-historyFile="datasets/${instance}/H0-${instance}-${numHist}.txt"
-
-for ((i=2; i<$nbArgs; i++)); do
-	demandFiles[$i-2]="datasets/${instance}/WD-${instance}-${arrayArgs[$i]}.txt"
-done
-
 # set the timeout depending on the operating system and number of nurses
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
 	cpuMaxFor30Nurses=45
-	cpuMaxPer10Nurses=35
+	cpuMaxPer10Nurses=34
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	cpuMaxFor30Nurses=60
 	cpuMaxPer10Nurses=45
@@ -63,11 +68,12 @@ echo "Output directory: ${outputDir}"
 echo "timeout = $timeout"
 echo "seeds = ${seeds[*]}"
 
-if test ! -d "bashfiles/finalRuns" ; then
+sungridfile="bashfiles/sungridSimulator/${1}_${catseeds}.sh"
+echo "sungridfile=$sungridfile"
+if test ! -d "bashfiles/sungridSimulator" ; then
 	echo "Create run directory"
-	mkdir "bashfiles/finalRuns"
+	mkdir "bashfiles/sungridSimulator"
 fi
-bashfile="bashfiles/finalRuns/${1}.sh"
 
 echo "#!/bin/bash -l
 #$ -cwd
@@ -75,9 +81,8 @@ echo "#!/bin/bash -l
 #$ -o /dev/null
 #$ -q idra
 #
-# optimal script: launch the simulator" > ${bashfile}
+# optimal script: launch the simulator" > ${sungridfile}
 
-echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${bashfile}
+echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${sungridfile}
 
-chmod 755 "${bashfile}"
-#echo "java -jar validator.jar --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${solutionFiles[*]} > ${validatorLog}" >> ${sungridfile}
+chmod 755 "${sungridfile}"

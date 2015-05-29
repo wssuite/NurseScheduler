@@ -6,5 +6,5 @@ cd outfiles/Competition
 for DIR in * 
 do 
 	cd ${CURDIR}
-	bashfiles/writeSimulator.sh ${DIR}
+	bashfiles/writeSimulatorWithRandomSeeds.sh ${DIR}
 done

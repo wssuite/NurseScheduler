@@ -33,7 +33,7 @@ int main(int argc, char** argv)
    if (argc%2 != 1) {
       Tools::throwError("main: There should be an even number of arguments!");
    }
-   else if (argc > 1 && (argc < 9 || argc > 15)) {
+   else if (argc > 1 && (argc < 9 || argc > 17)) {
       Tools::throwError("main: There is either too many or not enough arguments!");
    }
 
