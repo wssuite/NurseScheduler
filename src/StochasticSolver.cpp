@@ -700,7 +700,6 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
 		for(int sched = 0; sched < nSchedules_; sched++){
 			theNewScores[sched] = theBaseCosts_[sched];
 		}
-		return;
 	}
 
 
