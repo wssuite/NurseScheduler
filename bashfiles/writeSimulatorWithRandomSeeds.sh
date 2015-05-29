@@ -49,7 +49,7 @@ fi
 # set the timeout depending on the operating system and number of nurses
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
 	cpuMaxFor30Nurses=45
-	cpuMaxPer10Nurses=35
+	cpuMaxPer10Nurses=34
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	cpuMaxFor30Nurses=60
 	cpuMaxPer10Nurses=45
@@ -70,6 +70,10 @@ echo "seeds = ${seeds[*]}"
 
 sungridfile="bashfiles/sungridSimulator/${1}_${catseeds}.sh"
 echo "sungridfile=$sungridfile"
+if test ! -d "bashfiles/sungridSimulator" ; then
+	echo "Create run directory"
+	mkdir "bashfiles/sungridSimulator"
+fi
 
 echo "#!/bin/bash -l
 #$ -cwd

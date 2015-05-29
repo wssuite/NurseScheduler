@@ -75,9 +75,9 @@ echo "#!/bin/bash -l
 #$ -o /dev/null
 #$ -q idra
 #
-# optimal script: launch the simulator" > ${sungridfile}
+# optimal script: launch the simulator" > ${bashfile}
 
-echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${sungridfile}
+echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${bashfile}
 
-# chmod 755 "${sungridfile}"
+chmod 755 "${bashfile}"
 #echo "java -jar validator.jar --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${solutionFiles[*]} > ${validatorLog}" >> ${sungridfile}

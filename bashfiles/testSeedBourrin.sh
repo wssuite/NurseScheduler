@@ -2,7 +2,7 @@
 
 # parse the input competition instance name
 CURDIR=`pwd`
-NB_TESTS_PER_INSTANCE=1
+NB_TESTS_PER_INSTANCE=10
 
 rm bashfiles/sungridSimulator/*
 cd outfiles/Competition

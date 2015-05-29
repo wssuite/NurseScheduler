@@ -326,19 +326,19 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 ******************************************************************************/
 
 void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout) {
-   #ifdef __MACH__
-   double cpuMaxFor30Nurses = 60.0;
-   double cpuMaxPer10Nurses = 45.0;
-   #else
-   double cpuMaxFor30Nurses = 45.0;
-   double cpuMaxPer10Nurses = 35.0;
-   #endif
+   // #ifdef __MACH__
+   // double cpuMaxFor30Nurses = 60.0;
+   // double cpuMaxPer10Nurses = 45.0;
+   // #else
+   // double cpuMaxFor30Nurses = 45.0;
+   // double cpuMaxPer10Nurses = 35.0;
+   // #endif
 
    string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
    string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
    options.withIterativeDemandIncrease_ = false;
-   options.withEvaluation_ = false;
+   options.withEvaluation_ = true;
    options.generationCostPerturbation_ = true;
    options.evaluationCostPerturbation_ = true;
    options.withResolveForGeneration_ = false;
