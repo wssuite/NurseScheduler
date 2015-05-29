@@ -90,6 +90,9 @@ bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
 //
 std::minstd_rand getANewRandomGenerator();
 
+// Initialize the random generator with a given seed
+void initializeRandomGenerator();
+
 //round with probability
 int roundWithProbability(double number);
 

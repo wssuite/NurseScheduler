@@ -75,6 +75,11 @@ bool readUntilChar(fstream *file, char separateur, string *pTitle) {
 //random generator of tools
 std::minstd_rand rdm0(0);
 
+// Initialize the random generator with a given seed
+void initializeRandomGenerator(){
+	rdm0 = getANewRandomGenerator();
+}
+
 //Create a random generator
 //the objective is to be sure to have always the same sequence of number
 //

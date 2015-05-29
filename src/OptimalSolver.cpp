@@ -16,33 +16,41 @@ int main(int argc, char** argv)
 
    int locINT;
 
-   string inst = argv[1];
+   int k = 0;
 
-   std::istringstream(argv[2]) >> locINT;
+   string inst = argv[++k];
+
+   std::istringstream(argv[++k]) >> locINT;
    int historyID = locINT;
 
-   std::istringstream(argv[3]) >> locINT;
+   std::istringstream(argv[++k]) >> locINT;
    int nbWeeks = locINT;
    if(5+nbWeeks > argc)
       Tools::throwError("Bad input format. Should be: instance_name historyID numberWeeks vector<int>weekIndices outdir prefix numberTest solver_options generation_options evaluations_options. After outdir, the arguments are optional.");
 
    vector<int> numberWeek;
-   for(int i=4; i<4+nbWeeks; ++i){
-      std::istringstream(argv[i]) >> locINT;
+   for(int i=0; i<nbWeeks; ++i){
+      std::istringstream(argv[++k]) >> locINT;
       numberWeek.push_back(locINT);
    }
 
-   string outdir = argv[4+nbWeeks];
-
-   string prefix = "";
-   if(5+nbWeeks < argc)
-        prefix = argv[5+nbWeeks];
+   string outdir = argv[++k];
 
    int givenSeed;
-   if(6+nbWeeks < argc){
-	      std::istringstream(argv[6+nbWeeks]) >> locINT;
+   if(k+1 < argc){
+	      std::istringstream(argv[++k]) >> locINT;
 	      givenSeed = locINT;
    }
+
+   int nbEval;
+   if(k+1 < argc){
+	      std::istringstream(argv[++k]) >> locINT;
+	      nbEval = locINT;
+   }
+
+   string prefix = "";
+   if(k+1 < argc)
+        prefix = argv[++k];
 
    string data = "datasets/";
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
@@ -71,23 +79,34 @@ int main(int argc, char** argv)
 //   testMultipleWeeksDeterministic(data, inst, historyID, numberWeek, GENCOL, "outfiles/Competition/"+outdir+"/"+prefix, optParam);
 
 
-   StochasticSolverOptions stochasticSolverOptionsScore;
-   setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
-		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
-
    srand(givenSeed);
    int seed = rand();
 
-   pair<double, int> p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);
+   pair<double, int> p;
 
-   char results[250];
-   sprintf(results, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
-		   seed, p.first, p.second, stochasticSolverOptionsScore.nEvaluationDemands_,
-		   stochasticSolverOptionsScore.generationParameters_.weightStrategy_, stochasticSolverOptionsScore.rankingStrategy_,
-		   7+stochasticSolverOptionsScore.nExtraDaysGenerationDemands_, stochasticSolverOptionsScore.nDaysEvaluation_);
-   string sensibilityOutfile = outpath+"score_sensibility.txt";
-   Tools::LogOutput sensibilityStream(sensibilityOutfile, true);
-   sensibilityStream << results << std::endl;
+   /*
+    * Block for RK_SCORE
+    */
+
+//   StochasticSolverOptions stochasticSolverOptionsScore;
+//   setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
+//		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
+//
+//   p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);
+//
+//   char results[250];
+//   sprintf(results, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
+//		   seed, p.first, p.second, stochasticSolverOptionsScore.nEvaluationDemands_,
+//		   stochasticSolverOptionsScore.generationParameters_.weightStrategy_, stochasticSolverOptionsScore.rankingStrategy_,
+//		   7+stochasticSolverOptionsScore.nExtraDaysGenerationDemands_, stochasticSolverOptionsScore.nDaysEvaluation_);
+//   string sensibilityOutfile = outpath+"score_sensibility.txt";
+//   Tools::LogOutput sensibilityStream(sensibilityOutfile, true);
+//   sensibilityStream << results << std::endl;
+//
+
+   /*
+    * Block for RK_MEAN
+    */
 
    StochasticSolverOptions stochasticSolverOptionsMean;
    setStochasticSolverOptions(stochasticSolverOptionsMean, SUNGRID, inst, outfile, outpath,

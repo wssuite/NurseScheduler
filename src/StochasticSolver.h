@@ -33,22 +33,39 @@ public:
 	};
 	~StochasticSolverOptions(){};
 
+	// True -> generate several schedules and chose the "best" one (according to ranking strategy)
+	// False -> generate only one schedule
 	bool withEvaluation_ = true;
+
+	// True -> generate schedules from random demands of increasing size (1 week more each time). Keep the last one.
+	// WARNING: Does not work if withEvaluation_=true
 	bool withIterativeDemandIncrease_ = false;
 
+	// True -> Perturb the costs when generating the schedules
+	//         The type of perturbation is set in generationParameters_ (weightStrategy_)
 	bool generationCostPerturbation_ = true;
-	bool evaluationCostPerturbation_ = true;
-
+	// True -> When generating a second, third, etc. schedule, warm-start with previously generated columns
+	// WARNING: should remain false (if true, no diversity in the generated schedules)
 	bool withResolveForGeneration_ = false;
 	Algorithm generationAlgorithm_ = GENCOL;
+
+	// cf. generation
+	// withResolve is useful here, particularly when evaluating with LP lowest bound
+	bool evaluationCostPerturbation_ = true;
 	bool withResolveForEvaluation_ = true;
 	Algorithm evaluationAlgorithm_ = GENCOL;
+
+	// Choice of ranking strategy:
+	// RK_SCORE: same ranking as for the competition
+	// RK_MEAN: keep the schedule with minimum expected cost over the generated evaluation demands
 	RankingStrategy rankingStrategy_ = RK_SCORE;
 
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
-	int nExtraDaysGenerationDemands_ = 7;
+	// Number of evaluation demands generated
+	// WARNING: if =0 and withEvaluation_=true, ranks the schedules according to their baseCost (i.e. the "real" cost of the 1-week schedule [without min/max costs])
 	int nEvaluationDemands_ = 1;
+	int nExtraDaysGenerationDemands_ = 7;
 	int nDaysEvaluation_ = 14;
 	int nGenerationDemandsMax_ = 100;
 

@@ -48,7 +48,7 @@ options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0),
     pLogStream_ = new Tools::LogOutput(options_.logfile_);
 
     //initialize random of tools
-    Tools::rdm0 = Tools::getANewRandomGenerator();
+    Tools::initializeRandomGenerator();
 
     if (!options_.generationParameters_.logfile_.empty()) {
 		FILE * pFile;
@@ -691,11 +691,19 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 // Recompute all scores after one schedule evaluation
 void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
-
 	(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting the update of the scores and ranking." << std::endl;
 
 	vector<double> theNewScores;
 	Tools::initDoubleVector(&theNewScores, nSchedules_, 0);
+
+	if(options_.nEvaluationDemands_ == 0){
+		for(int sched = 0; sched < nSchedules_; sched++){
+			theNewScores[sched] = theBaseCosts_[sched];
+		}
+		return;
+	}
+
+
 switch(strategy){
 case RK_SCORE:
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
@@ -705,10 +713,6 @@ case RK_SCORE:
 		for(map<double, set<int> >::iterator it = localCosts.begin(); it != localCosts.end(); ++it){
 			for(int sched : it->second){
 				theNewScores[sched] += (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size());
-				// If is infeasible -> double that amount to get more robust
-//				if((pEvaluationSolvers_[sched][j])->getStatus() == INFEASIBLE){
-//					theNewScores[sched] += (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size());
-//				}
 				(*pLogStream_) << "#     | sched " << sched << " -> " << it->first << " (score += " << (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size()) << ")" << endl;
 			}
 			localRank += it->second.size();
