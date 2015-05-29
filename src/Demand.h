@@ -41,6 +41,9 @@ public:
   //
 public:
 
+  // Initialize the random generator
+  void initializeRdmGenerator(){ rdm_ = Tools::getANewRandomGenerator(); }
+
   // name of the demand
   //
   std::string name_;

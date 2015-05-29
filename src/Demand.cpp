@@ -235,6 +235,7 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
 //
 Demand* Demand::randomPerturbation() {
   Demand* pDemand = new Demand(*this);
+  pDemand->initializeRdmGenerator();
 
   // three different types of perturbations are made
   // the order does not seem to be important

@@ -38,6 +38,12 @@ int main(int argc, char** argv)
    if(5+nbWeeks < argc)
         prefix = argv[5+nbWeeks];
 
+   int givenSeed;
+   if(6+nbWeeks < argc){
+	      std::istringstream(argv[6+nbWeeks]) >> locINT;
+	      givenSeed = locINT;
+   }
+
    string data = "datasets/";
    string scenarPath = data + inst + "/Sc-" + inst + ".txt";
    string outpath = "outfiles/Competition/"+outdir+"/"+prefix;
@@ -69,6 +75,7 @@ int main(int argc, char** argv)
    setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
 		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
 
+   srand(givenSeed);
    int seed = rand();
 
    pair<double, int> p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);

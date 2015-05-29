@@ -47,6 +47,9 @@ options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0),
     // initialize the log output
     pLogStream_ = new Tools::LogOutput(options_.logfile_);
 
+    //initialize random of tools
+    Tools::rdm0 = Tools::getANewRandomGenerator();
+
     if (!options_.generationParameters_.logfile_.empty()) {
 		FILE * pFile;
 		pFile = fopen (options_.generationParameters_.logfile_.c_str(),"w");
