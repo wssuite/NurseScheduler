@@ -4,7 +4,7 @@
 CURDIR=`pwd`
 NB_TESTS_PER_INSTANCE=10
 
-rm bashfiles/sungridSimulator/*
+rm -f bashfiles/sungridSimulator/*
 cd outfiles/Competition
 for DIR in * 
 do 

@@ -348,7 +348,7 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
    options.rankingStrategy_ = RK_SCORE;
    options.totalTimeLimitSeconds_ = timeout;
    options.nExtraDaysGenerationDemands_ = 7;
-   options.nEvaluationDemands_ = 10;
+   options.nEvaluationDemands_ = 4;
    options.nDaysEvaluation_ = 14;
    options.nGenerationDemandsMax_ = 100;
    options.logfile_ = logStochastic;
