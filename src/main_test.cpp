@@ -337,14 +337,18 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
    string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
    string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
 
+   options.withIterativeDemandIncrease_ = false;
    options.withEvaluation_ = false;
    options.generationCostPerturbation_ = true;
    options.evaluationCostPerturbation_ = true;
+   options.withResolveForGeneration_ = false;
    options.generationAlgorithm_ = GENCOL;
+   options.withResolveForEvaluation_ = true;
    options.evaluationAlgorithm_ = GENCOL;
+   options.rankingStrategy_ = RK_SCORE;
    options.totalTimeLimitSeconds_ = timeout;
    options.nExtraDaysGenerationDemands_ = 7;
-   options.nEvaluationDemands_ = 4;
+   options.nEvaluationDemands_ = 10;
    options.nDaysEvaluation_ = 14;
    options.nGenerationDemandsMax_ = 100;
    options.logfile_ = logStochastic;
@@ -360,13 +364,14 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
    generationParameters.nbDiveIfMinGap_ = 1;
    generationParameters.nbDiveIfRelGap_ = 2;
    generationParameters.solveToOptimality_ = false;
+   generationParameters.weightStrategy_ = RANDOMMEANMAX;
 
    options.generationParameters_ = generationParameters;
 
    SolverParam evaluationParameters;
-   evaluationParameters.maxSolvingTimeSeconds_ = (options.totalTimeLimitSeconds_-1.0)/(2.0*options.nEvaluationDemands_);
+   evaluationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;
    evaluationParameters.printEverySolution_ = false;
-   evaluationParameters.outfile_ = "outdir/";
+// evaluationParameters.outfile_ = "";
    evaluationParameters.logfile_ = logSolver;
    evaluationParameters.absoluteGap_ = 5;
    evaluationParameters.minRelativeGap_ = .05;
@@ -374,6 +379,7 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
    evaluationParameters.nbDiveIfMinGap_ = 1;
    evaluationParameters.nbDiveIfRelGap_ = 2;
    evaluationParameters.solveToOptimality_ = false;
+   evaluationParameters.weightStrategy_ = BOUNDRATIO;
    evaluationParameters.stopAfterXSolution_ = 0;
 
    options.evaluationParameters_ = evaluationParameters;
@@ -724,7 +730,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
    sprintf(str, "Cost %.2f; NbGene %d; Seeds", currentCost, nbSched);
    seedStream << str;
    for(int s: seeds)
-      seedStream << " " << s;
+   seedStream << " " << s;
    seedStream << std::endl;
 
 	// Display the solution
