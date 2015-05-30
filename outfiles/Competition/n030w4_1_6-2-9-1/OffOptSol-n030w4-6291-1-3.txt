@@ -1,13 +1,13 @@
 SOLUTION
 3 n030w4
 
-ASSIGNMENTS = 129
+ASSIGNMENTS = 126
 HN_0 Mon Night Caretaker
 HN_0 Tue Night Caretaker
-HN_0 Wed Night Caretaker
+HN_0 Wed Night Nurse
 HN_0 Thu Night HeadNurse
 HN_0 Fri Night Nurse
-HN_1 Mon Early Nurse
+HN_1 Mon Early Caretaker
 HN_1 Tue Early HeadNurse
 HN_1 Fri Day Caretaker
 HN_1 Sat Day HeadNurse
@@ -26,7 +26,7 @@ NU_4 Thu Day Nurse
 NU_5 Tue Day Nurse
 NU_5 Wed Day Caretaker
 NU_5 Thu Day Caretaker
-NU_6 Mon Early Caretaker
+NU_6 Mon Early Nurse
 NU_6 Tue Early Nurse
 NU_6 Wed Early Nurse
 NU_6 Thu Early Nurse
@@ -37,27 +37,26 @@ NU_7 Wed Night Nurse
 NU_7 Thu Night Nurse
 NU_8 Mon Day Nurse
 NU_8 Tue Day Caretaker
-NU_8 Wed Day Caretaker
 NU_8 Fri Early Nurse
 NU_8 Sat Early Nurse
 NU_8 Sun Early Nurse
 NU_9 Tue Night Nurse
-NU_9 Wed Night Nurse
+NU_9 Wed Night Caretaker
 NU_9 Thu Night Caretaker
 NU_10 Mon Early Caretaker
 NU_10 Tue Early Caretaker
 NU_10 Wed Early Caretaker
 NU_10 Thu Late Caretaker
 NU_10 Fri Late Caretaker
-NU_11 Wed Early Caretaker
-NU_11 Thu Early Caretaker
-NU_11 Fri Early Caretaker
-NU_11 Sat Late Nurse
-NU_11 Sun Late Nurse
+NU_11 Mon Late Nurse
+NU_11 Thu Night Caretaker
+NU_11 Fri Night Caretaker
+NU_11 Sat Night Nurse
+NU_11 Sun Night Caretaker
 NU_12 Mon Day Caretaker
 NU_12 Tue Day Caretaker
 NU_12 Sat Early Nurse
-NU_12 Sun Early Caretaker
+NU_12 Sun Early Nurse
 NU_13 Mon Day Caretaker
 NU_13 Tue Day Caretaker
 NU_14 Mon Night Nurse
@@ -65,11 +64,11 @@ NU_14 Tue Night Caretaker
 NU_14 Fri Day Nurse
 NU_14 Sat Day Nurse
 NU_14 Sun Late Nurse
-NU_15 Mon Late Nurse
-NU_15 Thu Night Caretaker
-NU_15 Fri Night Caretaker
-NU_15 Sat Night Nurse
-NU_15 Sun Night Caretaker
+NU_15 Wed Early Caretaker
+NU_15 Thu Early Caretaker
+NU_15 Fri Early Caretaker
+NU_15 Sat Late Nurse
+NU_15 Sun Late Nurse
 NU_16 Mon Night Caretaker
 NU_16 Tue Night Caretaker
 NU_16 Wed Night Caretaker
@@ -119,8 +118,6 @@ TR_26 Thu Day Trainee
 TR_26 Fri Day Trainee
 TR_27 Mon Late Trainee
 TR_27 Tue Late Trainee
-TR_27 Sat Day Trainee
-TR_27 Sun Night Trainee
 TR_28 Mon Day Trainee
 TR_28 Thu Early Trainee
 TR_28 Fri Early Trainee

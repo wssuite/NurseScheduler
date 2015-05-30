@@ -40,11 +40,17 @@ catseeds=${seeds[0]}
 for ((i=1; i<$nbWeeks; i++)); do
 	catseeds+="-${seeds[$i]}"
 done
+
 outputDir+="$catseeds"
 if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"
 fi
+
+sols="${outputDir}/sol-week0.txt"
+for ((i=1; i<$nbWeeks; i++)); do
+	sols+=" ${outputDir}/sol-week${i}.txt"
+done
 
 # set the timeout depending on the operating system and number of nurses
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
@@ -67,6 +73,8 @@ echo "Week files: ${demandFiles[*]}"
 echo "Output directory: ${outputDir}"
 echo "timeout = $timeout"
 echo "seeds = ${seeds[*]}"
+echo "solutions = ${sols}"
+echo "log validator = ${outputDir}/validator.txt"
 
 sungridfile="bashfiles/sungridSimulator/${1}_${catseeds}.sh"
 echo "sungridfile=$sungridfile"
@@ -84,5 +92,7 @@ echo "#!/bin/bash -l
 # optimal script: launch the simulator" > ${sungridfile}
 
 echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${sungridfile}
+
+echo "java -jar validator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${sols} > ${outputDir}/validator.txt"  >> ${sungridfile}
 
 chmod 755 "${sungridfile}"

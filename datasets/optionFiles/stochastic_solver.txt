@@ -6,6 +6,6 @@ generationAlgorithm=GENCOL
 evaluationAlgorithm=GENCOL
 rankingStrategy=SCORE
 nExtraDaysGenerationDemands=7
-nEvaluationDemands=4
+nEvaluationDemands=3
 nDaysEvaluation=14
 nGenerationDemandsMax=100

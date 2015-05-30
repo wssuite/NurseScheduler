@@ -1,11 +1,9 @@
 #!/bin/bash
 
-nbTests=30
-stoOptions="stochastic_solver.txt"
-geneOptios="generation_solver.txt"
-evaOptions="evaluation_solver.txt"
-
 for entry in "sungrid"/*
 do
-	qsub ${entry} $1 $nbTests $stoOptions $geneOptios $evaOptions
+	for n in {1..30}
+	do
+		qsub ${entry} $1
+	done
 done
