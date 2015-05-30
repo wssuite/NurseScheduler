@@ -6,6 +6,6 @@
 #
 # optimal script: launch optimal solver and then the validator
 
-./bin/optimalRoster n060w8 0 8 6 2 9 9 0 8 1 3 n060w8_0_6-2-9-9-0-8-1-3 $1 $2 $3 > outfiles/Competition/n060w8_0_6-2-9-9-0-8-1-3/${3}Log.txt
+./bin/rankingRoster n060w8 0 8 6 2 9 9 0 8 1 3 n060w8_0_6-2-9-9-0-8-1-3 $1 > outfiles/Competition/n060w8_0_6-2-9-9-0-8-1-3/${1}Log.txt
 
 exit 0;
