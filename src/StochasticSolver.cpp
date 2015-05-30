@@ -32,6 +32,9 @@ options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0),
 	options_.generationParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
 	options_.generationParameters_.weekIndices_ = { pScenario_->thisWeek() };
 
+	options.generationParameters_ = options.verbose_;
+	options.evaluationParameters_ = options.verbose_;
+
 	bestScore_ = LARGE_SCORE;
 	bestSchedule_ = -1;
 	nGenerationDemands_ = 0;
