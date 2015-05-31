@@ -254,7 +254,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 
 
 				(*pLogStream_) << "# New best is schedule n°" << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
-				(*pLogStream_) << "# The new best solution was written in " << outFileName << std::endl;
+				(*pLogStream_) << "# The new best solution was written in " << options_.generationParameters_.outfile_ << std::endl;
 
 			}
 			else {
