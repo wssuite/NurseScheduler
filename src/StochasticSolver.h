@@ -59,12 +59,12 @@ public:
 	// RK_SCORE: same ranking as for the competition
 	// RK_MEAN: keep the schedule with minimum expected cost over the generated evaluation demands
 	RankingStrategy rankingStrategy_ = RK_SCORE;
-	bool demandingEvaluation_ = false;
+	bool demandingEvaluation_ = true;
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
 	// Number of evaluation demands generated
 	// WARNING: if =0 and withEvaluation_=true, ranks the schedules according to their baseCost (i.e. the "real" cost of the 1-week schedule [without min/max costs])
-	int nEvaluationDemands_ = 1;
+	int nEvaluationDemands_ = 2;
 	int nExtraDaysGenerationDemands_ = 7;
 	int nDaysEvaluation_ = 14;
 	int nGenerationDemandsMax_ = 100;

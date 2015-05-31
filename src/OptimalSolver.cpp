@@ -9,6 +9,7 @@
 #include "MyTools.h"
 
 // n030w4 1 4 6 2 9 1 n030w4_1_6-2-9-1
+// n100w4 0 4 1 1 0 8 n100w4_0_1-1-0-8
 // Function for solving the optimal solution
 int main(int argc, char** argv)
 {
@@ -36,7 +37,7 @@ int main(int argc, char** argv)
 
    string outdir = argv[++k];
 
-   int givenSeed;
+   int givenSeed = 0;
    if(k+1 < argc){
 	      std::istringstream(argv[++k]) >> locINT;
 	      givenSeed = locINT;
@@ -85,8 +86,8 @@ int main(int argc, char** argv)
    StochasticSolverOptions stochasticSolverOptionsScore;
    setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
 		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
+   stochasticSolverOptionsScore.withEvaluation_ = false;
 
-   stochasticSolverOptionsScore.nEvaluationDemands_ = 2;
    p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);
 
    char results[250];
