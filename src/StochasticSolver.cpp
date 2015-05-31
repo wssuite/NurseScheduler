@@ -246,7 +246,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 				//			solution_ = pGenerationSolvers_[bestSchedule_]->getSolutionAtDay(6);
 				solution_ = schedules_[bestSchedule_];
 				loadSolution(solution_);
-				string outFileName = options_.generationParameters_.outfile_ + std::to_string(pScenario_->thisWeek()) + ".txt";
+				string outFileName = options_.generationParameters_.outfile_;
 				Tools::LogOutput outStream(outFileName);
 				outStream << solutionToString();
 
