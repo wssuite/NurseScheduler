@@ -249,8 +249,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 				//			solution_ = pGenerationSolvers_[bestSchedule_]->getSolutionAtDay(6);
 				solution_ = schedules_[bestSchedule_];
 				loadSolution(solution_);
-				string outFileName = options_.generationParameters_.outfile_;
-				Tools::LogOutput outStream(outFileName);
+				Tools::LogOutput outStream(options_.generationParameters_.outfile_);
 				outStream << solutionToString();
 
 
