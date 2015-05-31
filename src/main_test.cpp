@@ -355,7 +355,8 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
    options.nGenerationDemandsMax_ = 100;
    options.logfile_ = logStochastic;
    options.rankingStrategy_ = RK_MEAN;
-   options.verbose_ = 0;
+   options.demandingEvaluation_ = false;
+	 options.verbose_ = 0;
 
    SolverParam generationParameters;
    generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;

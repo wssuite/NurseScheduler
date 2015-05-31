@@ -229,7 +229,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 			double newBestScore = LARGE_SCORE;
 			double bestBaseCost = 0;
 			for(int i=0; i<nSchedules_; i++){
-				if(theScores_[i] < newBestScore){
+				if( (options_.demandingEvaluation_ && theScores_[i]+30 < newBestScore)||(!options_.demandingEvaluation_ && theScores_[i] < newBestScore) ){
 					newBestScore = theScores_[i];
 					newBestSchedule = i;
 					bestBaseCost = theBaseCosts_[i];
@@ -249,13 +249,12 @@ void StochasticSolver::solveOneWeekGenerationEvaluation(){
 				//			solution_ = pGenerationSolvers_[bestSchedule_]->getSolutionAtDay(6);
 				solution_ = schedules_[bestSchedule_];
 				loadSolution(solution_);
-				string outFileName = options_.generationParameters_.outfile_ + std::to_string(pScenario_->thisWeek()) + ".txt";
-				Tools::LogOutput outStream(outFileName);
+				Tools::LogOutput outStream(options_.generationParameters_.outfile_);
 				outStream << solutionToString();
 
 
 				(*pLogStream_) << "# New best is schedule n°" << bestSchedule_ << " (score: " << bestScore_ << ")" << std::endl;
-				(*pLogStream_) << "# The new best solution was written in " << outFileName << std::endl;
+				(*pLogStream_) << "# The new best solution was written in " << options_.generationParameters_.outfile_ << std::endl;
 
 			}
 			else {
@@ -727,7 +726,7 @@ case RK_MEAN:
       map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
       for(pair<double, set<int> > p: localCosts)
          for(int sched : p.second){
-            theNewScores[sched] += p.first;
+            theNewScores[sched] +=(int) (p.first/(double)options_.nEvaluationDemands_);
             (*pLogStream_) << "#     | sched " << sched << " -> " <<  p.first << endl;
          }
    }

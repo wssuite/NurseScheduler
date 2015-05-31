@@ -796,8 +796,8 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
     double factorMarginOnAvg = 0.25*factorRemainingDays*7.0/(double)pDemand_->nbDays_;
     factorMarginOnAvg = (pDemand_->nbDays_%14==0) ? 0.0:factorMarginOnAvg;
     minTotalShiftsAvg_.push_back((1.0-factorMarginOnAvg)*pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
-    double maxAvg = (double)pDemand_->nbDays_/7.0*pNurse->maxTotalShifts()/(double)pScenario_->nbWeeks();
-		maxTotalShiftsAvg_.push_back(Tools::roundWithProbability((1.0+factorMarginOnAvg)*maxAvg));//pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
+    //double maxAvg = (double)pDemand_->nbDays_/7.0*pNurse->maxTotalShifts()/(double)pScenario_->nbWeeks();
+		maxTotalShiftsAvg_.push_back((1.0+factorMarginOnAvg)*pNurse->maxAvgWorkDaysNoPenaltyTotalDays_);
     weightTotalShiftsAvg_.push_back((double)WEIGHT_TOTAL_SHIFTS);
 
 
