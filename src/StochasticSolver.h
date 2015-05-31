@@ -59,7 +59,7 @@ public:
 	// RK_SCORE: same ranking as for the competition
 	// RK_MEAN: keep the schedule with minimum expected cost over the generated evaluation demands
 	RankingStrategy rankingStrategy_ = RK_SCORE;
-
+	bool demandingEvaluation_ = false;
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
 	// Number of evaluation demands generated
