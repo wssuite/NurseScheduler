@@ -219,9 +219,11 @@ void testFunction_Samuel(){
 	stochasticSolverOptions.evaluationAlgorithm_ = GENCOL;
 	stochasticSolverOptions.totalTimeLimitSeconds_ = maxTimeAllowed;
 	stochasticSolverOptions.nExtraDaysGenerationDemands_ = 7;
-	stochasticSolverOptions.nEvaluationDemands_ = 4;
+	stochasticSolverOptions.nEvaluationDemands_ = 2;
 	stochasticSolverOptions.nDaysEvaluation_ = 14;
 	stochasticSolverOptions.nGenerationDemandsMax_ = 100;
+        stochasticSolverOptions.verbose_=0;
+        stochasticSolverOptions.rankingStrategy_=RK_MEAN;
 
 	SolverParam generationParameters;
 	generationParameters.maxSolvingTimeSeconds_ = 3000;
@@ -348,10 +350,12 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
    options.rankingStrategy_ = RK_SCORE;
    options.totalTimeLimitSeconds_ = timeout;
    options.nExtraDaysGenerationDemands_ = 7;
-   options.nEvaluationDemands_ = 10;
+   options.nEvaluationDemands_ = 2;
    options.nDaysEvaluation_ = 14;
    options.nGenerationDemandsMax_ = 100;
    options.logfile_ = logStochastic;
+   options.rankingStrategy_ = RK_MEAN;
+   options.verbose_ = 0;
 
    SolverParam generationParameters;
    generationParameters.maxSolvingTimeSeconds_ = options.totalTimeLimitSeconds_-1.0;

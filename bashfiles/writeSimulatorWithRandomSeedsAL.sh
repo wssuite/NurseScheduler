@@ -53,16 +53,9 @@ for ((i=1; i<$nbWeeks; i++)); do
 done
 
 # set the timeout depending on the operating system and number of nurses
-if [[ "$OSTYPE" == "linux-gnu" ]]; then
-	cpuMaxFor30Nurses=45
-	cpuMaxPer10Nurses=34
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-	cpuMaxFor30Nurses=60
-	cpuMaxPer10Nurses=45
-fi
-nbTenNurses=${instance:1:2}
-nbTenNurses=${nbTenNurses#0}
-timeout=$((($nbTenNurses-3)*$cpuMaxPer10Nurses+$cpuMaxFor30Nurses))
+nbNurses=${instance:1:3}
+nbNurses=${nbNurses#0}
+timeout=$((($nbNurses-20)*3+10))
 
 # print the files that are going to be used during the execution
 echo "Instance: ${instance}"
@@ -76,11 +69,11 @@ echo "seeds = ${seeds[*]}"
 echo "solutions = ${sols}"
 echo "log validator = ${outputDir}/validator.txt"
 
-sungridfile="bashfiles/sungridSimulator/${1}_${catseeds}.sh"
+sungridfile="${2}/${1}_${catseeds}.sh"
 echo "sungridfile=$sungridfile"
-if test ! -d "bashfiles/sungridSimulator" ; then
+if test ! -d "${2}" ; then
 	echo "Create run directory"
-	mkdir "bashfiles/sungridSimulator"
+	mkdir "${2}"
 fi
 
 echo "#!/bin/bash -l

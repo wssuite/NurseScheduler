@@ -42,12 +42,6 @@ int main(int argc, char** argv)
 	      givenSeed = locINT;
    }
 
-   int nbEval;
-   if(k+1 < argc){
-	      std::istringstream(argv[++k]) >> locINT;
-	      nbEval = locINT;
-   }
-
    string prefix = "";
    if(k+1 < argc)
         prefix = argv[++k];
@@ -88,42 +82,44 @@ int main(int argc, char** argv)
     * Block for RK_SCORE
     */
 
-//   StochasticSolverOptions stochasticSolverOptionsScore;
-//   setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
-//		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
-//
-//   p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);
-//
-//   char results[250];
-//   sprintf(results, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
-//		   seed, p.first, p.second, stochasticSolverOptionsScore.nEvaluationDemands_,
-//		   stochasticSolverOptionsScore.generationParameters_.weightStrategy_, stochasticSolverOptionsScore.rankingStrategy_,
-//		   7+stochasticSolverOptionsScore.nExtraDaysGenerationDemands_, stochasticSolverOptionsScore.nDaysEvaluation_);
-//   string sensibilityOutfile = outpath+"score_sensibility.txt";
-//   Tools::LogOutput sensibilityStream(sensibilityOutfile, true);
-//   sensibilityStream << results << std::endl;
-//
+   StochasticSolverOptions stochasticSolverOptionsScore;
+   setStochasticSolverOptions(stochasticSolverOptionsScore, SUNGRID, inst, outfile, outpath,
+		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
+
+   stochasticSolverOptionsScore.nEvaluationDemands_ = 2;
+   p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsScore, outpath+"score_", seed);
+
+   char results[250];
+   sprintf(results, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
+		   seed, p.first, p.second, stochasticSolverOptionsScore.nEvaluationDemands_,
+		   stochasticSolverOptionsScore.generationParameters_.weightStrategy_, stochasticSolverOptionsScore.rankingStrategy_,
+		   7+stochasticSolverOptionsScore.nExtraDaysGenerationDemands_, stochasticSolverOptionsScore.nDaysEvaluation_);
+   string sensibilityOutfile = outpath+"score_sensibility.txt";
+   Tools::LogOutput sensibilityStream(sensibilityOutfile, true);
+   sensibilityStream << results << std::endl;
+
 
    /*
     * Block for RK_MEAN
     */
-
-   StochasticSolverOptions stochasticSolverOptionsMean;
-   setStochasticSolverOptions(stochasticSolverOptionsMean, SUNGRID, inst, outfile, outpath,
-		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
-
-   stochasticSolverOptionsMean.rankingStrategy_ = RK_MEAN;
-
-   p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsMean, outpath+"mean_", seed);
-
-   char results2[250];
-   sprintf(results2, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
-		   seed, p.first, p.second, stochasticSolverOptionsMean.nEvaluationDemands_,
-		   stochasticSolverOptionsMean.generationParameters_.weightStrategy_, stochasticSolverOptionsMean.rankingStrategy_,
-		   7+stochasticSolverOptionsMean.nExtraDaysGenerationDemands_, stochasticSolverOptionsMean.nDaysEvaluation_);
-   string sensibilityOutfile2 = outpath+"mean_sensibility.txt";
-   Tools::LogOutput sensibilityStream2(sensibilityOutfile2, true);
-   sensibilityStream2 << results2 << std::endl;
+//
+//   StochasticSolverOptions stochasticSolverOptionsMean;
+//   setStochasticSolverOptions(stochasticSolverOptionsMean, SUNGRID, inst, outfile, outpath,
+//		   stoOptionsFile, geneOptionsFile, evaOptionsFile);
+//
+//   stochasticSolverOptionsMean.nEvaluationDemands_ = 2;
+//   stochasticSolverOptionsMean.rankingStrategy_ = RK_MEAN;
+//
+//   p = testMultipleWeeksStochastic(data, inst, historyID, numberWeek, stochasticSolverOptionsMean, outpath+"mean_", seed);
+//
+//   char results2[250];
+//   sprintf(results2, "Seed %d; Cost %.2f; NbGene %d; NbEval %d; WeightStrat %d; RankStrat %d;  nbDaysGeneration %d; nbDaysEvaluation %d;",
+//		   seed, p.first, p.second, stochasticSolverOptionsMean.nEvaluationDemands_,
+//		   stochasticSolverOptionsMean.generationParameters_.weightStrategy_, stochasticSolverOptionsMean.rankingStrategy_,
+//		   7+stochasticSolverOptionsMean.nExtraDaysGenerationDemands_, stochasticSolverOptionsMean.nDaysEvaluation_);
+//   string sensibilityOutfile2 = outpath+"mean_sensibility.txt";
+//   Tools::LogOutput sensibilityStream2(sensibilityOutfile2, true);
+//   sensibilityStream2 << results2 << std::endl;
 
    // Display the total time spent in the algorithm
    timertotal->stop();
