@@ -2,8 +2,9 @@
 
 # parse the input competition instance name
 CURDIR=`pwd`
-NB_TESTS_PER_INSTANCE=1
+NB_TESTS_PER_INSTANCE=10
 
+for ((j=0; j<30; j++)); do
 BASHDIR="bashfiles/sungridSimulator/${RANDOM}"
 if test ! -d "bashfiles/sungridSimulator" ; then
 	echo "Create output directory bashfiles/sungridSimulator"
@@ -28,3 +29,4 @@ do
   qsub ${BASHFILE}
 done
 
+done
