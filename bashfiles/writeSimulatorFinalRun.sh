@@ -27,7 +27,18 @@ if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"
 fi
-outputDir="outfiles/Competition/${1}/FinalRun/"
+outputDir="outfiles/Competition/${1}/FinalRunAL/"
+if test ! -d "${outputDir}" ; then
+	echo "Create output directory"
+	mkdir "${outputDir}"
+fi
+
+# create the specific output directory for these seeds
+catseeds=${seeds[0]}
+for ((i=1; i<$nbWeeks; i++)); do
+		catseeds+="-${seeds[$i]}"
+done
+outputDir+="$catseeds/"
 if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"
@@ -43,8 +54,8 @@ done
 
 # set the timeout depending on the operating system and number of nurses
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
-	cpuMaxFor30Nurses=45
-	cpuMaxPer10Nurses=35
+	cpuMaxFor30Nurses=41
+	cpuMaxPer10Nurses=31
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	cpuMaxFor30Nurses=60
 	cpuMaxPer10Nurses=45
@@ -67,7 +78,7 @@ if test ! -d "bashfiles/finalRuns" ; then
 	echo "Create run directory"
 	mkdir "bashfiles/finalRuns"
 fi
-bashfile="bashfiles/finalRuns/${1}.sh"
+bashfile="bashfiles/finalRuns/${1}_${catseeds}.sh"
 
 echo "#!/bin/bash -l
 #$ -cwd
@@ -77,7 +88,7 @@ echo "#!/bin/bash -l
 #
 # optimal script: launch the simulator" > ${bashfile}
 
-echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${bashfile}
+echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./rosterDemandingEvaluation --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${bashfile}
 
 chmod 755 "${bashfile}"
 #echo "java -jar validator.jar --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${solutionFiles[*]} > ${validatorLog}" >> ${sungridfile}

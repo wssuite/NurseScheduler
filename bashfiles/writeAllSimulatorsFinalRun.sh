@@ -1,0 +1,30 @@
+#!/bin/bash
+
+./bashfiles/writeSimulatorFinalRun.sh n030w4_1_6-2-9-1 50-47-23-79
+./bashfiles/writeSimulatorFinalRun.sh n030w4_1_6-7-5-3 45-21-85-20
+./bashfiles/writeSimulatorFinalRun.sh n030w8_1_2-7-0-9-3-6-0-6 93-83-65-82-44-56-49-11
+./bashfiles/writeSimulatorFinalRun.sh n030w8_1_6-7-5-3-5-6-2-9 30-66-31-94-82-25-23-92
+./bashfiles/writeSimulatorFinalRun.sh n040w4_0_2-0-6-1 55-90-98-84
+./bashfiles/writeSimulatorFinalRun.sh n040w4_2_6-1-0-6	61-98-63-59
+./bashfiles/writeSimulatorFinalRun.sh n040w8_0_0-6-8-9-2-6-6-4	0-27-8-24-7-56-95-97
+./bashfiles/writeSimulatorFinalRun.sh n040w8_2_5-0-4-8-7-1-7-2	61-80-18-41-14-82-51-29
+./bashfiles/writeSimulatorFinalRun.sh n050w4_0_0-4-8-7	19-87-81-14
+./bashfiles/writeSimulatorFinalRun.sh n050w4_0_7-2-7-2	18-32-98-77
+./bashfiles/writeSimulatorFinalRun.sh n050w8_1_1-7-8-5-7-4-1-8	17-46-99-81-21-31-4-41
+./bashfiles/writeSimulatorFinalRun.sh n050w8_1_9-7-5-3-8-8-3-1	0-62-13-18-88-11-88-77
+./bashfiles/writeSimulatorFinalRun.sh n060w4_1_6-1-1-5	6-45-56-39
+./bashfiles/writeSimulatorFinalRun.sh n060w4_1_9-6-3-8	71-65-12-77
+./bashfiles/writeSimulatorFinalRun.sh n060w8_0_6-2-9-9-0-8-1-3	3-33-64-9-80-21-13-20
+./bashfiles/writeSimulatorFinalRun.sh n060w8_2_1-0-3-4-0-3-9-1	9-97-23-82-1-0-30-11
+./bashfiles/writeSimulatorFinalRun.sh n080w4_2_4-3-3-3	60-60-0-45
+./bashfiles/writeSimulatorFinalRun.sh n080w4_2_6-0-4-8	75-13-64-97
+./bashfiles/writeSimulatorFinalRun.sh n080w8_1_4-4-9-9-3-6-0-5	84-58-15-63-73-42-42-52
+./bashfiles/writeSimulatorFinalRun.sh n080w8_2_0-4-0-9-1-9-6-2	95-77-3-21-28-46-14-5
+./bashfiles/writeSimulatorFinalRun.sh n100w4_0_1-1-0-8	75-31-0-19
+./bashfiles/writeSimulatorFinalRun.sh n100w4_2_0-6-4-6	15-92-58-74
+./bashfiles/writeSimulatorFinalRun.sh n100w8_0_0-1-7-8-9-1-5-4	55-77-89-78-9-17-25-36
+./bashfiles/writeSimulatorFinalRun.sh n100w8_1_2-4-7-9-3-9-2-8	9-39-10-97-59-65-61-45
+./bashfiles/writeSimulatorFinalRun.sh n120w4_1_4-6-2-6	30-88-98-33
+./bashfiles/writeSimulatorFinalRun.sh n120w4_1_5-6-9-8	73-94-6-13
+./bashfiles/writeSimulatorFinalRun.sh n120w8_0_0-9-9-4-5-1-0-3	82-62-46-57-17-29-30-52
+./bashfiles/writeSimulatorFinalRun.sh n120w8_1_7-2-6-4-5-2-0-2	60-62-46-81-78-61-19-53
