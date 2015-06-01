@@ -41,6 +41,11 @@ for ((i=1; i<$nbWeeks; i++)); do
 	catseeds+="-${seeds[$i]}"
 done
 
+outputDir+=seedTestsDemandingEvaluation/
+if test ! -d "${outputDir}" ; then
+	echo "Create output directory"
+	mkdir "${outputDir}"
+fi
 outputDir+="$catseeds"
 if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
@@ -91,8 +96,8 @@ echo "#!/bin/bash -l
 #
 # optimal script: launch the simulator" > ${sungridfile}
 
-echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${sungridfile}
+echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./rosterDemandingEvaluation --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${sungridfile}
 
-echo "java -jar validator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${sols} > ${outputDir}/validator.txt"  >> ${sungridfile}
+#echo "java -jar validator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${sols} > ${outputDir}/validator.txt"  >> ${sungridfile}
 
 chmod 755 "${sungridfile}"
