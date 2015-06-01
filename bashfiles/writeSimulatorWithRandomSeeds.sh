@@ -1,10 +1,10 @@
 # !/bin/sh
 
 # parse the input competition instance name
-echo "Competition instance: $1"
+#echo "Competition instance: $1"
 parse=(`echo $1 | tr '_' ' ' `)
 arrayArgs=(`echo ${parse[*]} | tr '-' ' ' `)
-echo "${arrayArgs[*]}"
+#echo "${arrayArgs[*]}"
 instance=${arrayArgs[0]}
 numHist=${arrayArgs[1]}
 nbArgs=${#arrayArgs[@]}
@@ -21,11 +21,11 @@ done
 # create the root of output directory if it does not exist
 outputDir="outfiles/${1}/"
 if test ! -d "outfiles" ; then
-	echo "Create output directory"
+#	echo "Create output directory"
 	mkdir "outfiles"
 fi
 if test ! -d "${outputDir}" ; then
-	echo "Create output directory"
+#	echo "Create output directory"
 	mkdir "${outputDir}"
 fi
 
@@ -48,7 +48,7 @@ if test ! -d "${outputDir}" ; then
 fi
 outputDir+="$catseeds"
 if test ! -d "${outputDir}" ; then
-	echo "Create output directory"
+#	echo "Create output directory"
 	mkdir "${outputDir}"
 fi
 
@@ -70,19 +70,19 @@ nbTenNurses=${nbTenNurses#0}
 timeout=$((($nbTenNurses-3)*$cpuMaxPer10Nurses+$cpuMaxFor30Nurses))
 
 # print the files that are going to be used during the execution
-echo "Instance: ${instance}"
-echo "Number of weeks: ${nbWeeks}"
-echo "Scenario file: ${scenarioFile}"
-echo "History file: ${historyFile}"
-echo "Week files: ${demandFiles[*]}"
-echo "Output directory: ${outputDir}"
-echo "timeout = $timeout"
-echo "seeds = ${seeds[*]}"
-echo "solutions = ${sols}"
-echo "log validator = ${outputDir}/validator.txt"
+#echo "Instance: ${instance}"
+#echo "Number of weeks: ${nbWeeks}"
+#echo "Scenario file: ${scenarioFile}"
+#echo "History file: ${historyFile}"
+#echo "Week files: ${demandFiles[*]}"
+#echo "Output directory: ${outputDir}"
+#echo "timeout = $timeout"
+#echo "seeds = ${seeds[*]}"
+#echo "solutions = ${sols}"
+#echo "log validator = ${outputDir}/validator.txt"
 
 sungridfile="bashfiles/sungridSimulator/${1}_${catseeds}.sh"
-echo "sungridfile=$sungridfile"
+#echo "sungridfile=$sungridfile"
 if test ! -d "bashfiles/sungridSimulator" ; then
 	echo "Create run directory"
 	mkdir "bashfiles/sungridSimulator"

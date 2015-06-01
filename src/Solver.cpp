@@ -949,6 +949,18 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
          meanPrimalDualCostForContractDays[p] /= ((double)nbNursesPerContract[p]);
          meanPrimalDualCostForContractWE[p] /= ((double)nbNursesPerContract[p]);
 
+         //to penalize some contracts vs the others
+         const string contractName = pScenario_->intToContract_[p];
+         Contract* pContract = (pScenario_->contracts_.at( contractName ));
+         int lengthStintMin = pContract->minConsDaysWork_ + pContract->maxConsDaysOff_;
+         //compute the number of days worked, if the nurse works the minimum days without penalties
+         int minWorkDaysNoPenalty = pContract->minConsDaysWork_ * (7*pScenario_->nbWeeks_) / lengthStintMin;
+         //compute the ratio between the min work days without penalties and the maximum number of shifts
+         double ratioMinMax = minWorkDaysNoPenalty * 1.0 / pContract->maxTotalShifts_;
+         double weightContract = 1 + (ratioMinMax - 1)/10.0;
+         weightTotalShiftsContractAvg_[p] *= weightContract;
+         weightTotalWeekendsContractAvg_[p] *= weightContract;
+
          if(strategy == MAX){
         	 weightTotalShiftsContractAvg_[p] -= maxPrimalDualCostForContractDays[p];
         	 weightTotalWeekendsContractAvg_[p] -= maxPrimalDualCostForContractWE[p];
@@ -958,11 +970,12 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
         	 weightTotalWeekendsContractAvg_[p] -= meanPrimalDualCostForContractWE[p];
          }
 
-         if(false){
+         if(true){
         	 std::cout << "# " << std::endl;
         	 std::cout << "##################################################" << std::endl;
         	 const string contractName = pScenario_->intToContract_[p];
         	 std::cout << "# " << (*(pScenario_->contracts_.at( contractName ))) << std::endl;
+          std::cout << "# " << minWorkDaysNoPenalty << " " << ratioMinMax << ": " << weightContract << std::endl;
         	 std::cout << "# min/max : " << std::endl;
         	 std::cout << "#    | min total shifts: " << minTotalShiftsContractAvg_[p] << std::endl;
         	 std::cout << "#    | max total shifts: " << maxTotalShiftsContractAvg_[p] << std::endl;
