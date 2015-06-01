@@ -957,9 +957,9 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
          int minWorkDaysNoPenalty = pContract->minConsDaysWork_ * (7*pScenario_->nbWeeks_) / lengthStintMin;
          //compute the ratio between the min work days without penalties and the maximum number of shifts
          double ratioMinMax = minWorkDaysNoPenalty * 1.0 / pContract->maxTotalShifts_;
-         double weightContract = 1 + (ratioMinMax - 1)/10.0;
+         double weightContract = 1 + (ratioMinMax)/10.0;
          weightTotalShiftsContractAvg_[p] *= weightContract;
-         weightTotalWeekendsContractAvg_[p] *= weightContract;
+        // weightTotalWeekendsContractAvg_[p] *= weightContract;
 
          if(strategy == MAX){
         	 weightTotalShiftsContractAvg_[p] -= maxPrimalDualCostForContractDays[p];
@@ -970,7 +970,7 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
         	 weightTotalWeekendsContractAvg_[p] -= meanPrimalDualCostForContractWE[p];
          }
 
-         if(true){
+         if(false){
         	 std::cout << "# " << std::endl;
         	 std::cout << "##################################################" << std::endl;
         	 const string contractName = pScenario_->intToContract_[p];

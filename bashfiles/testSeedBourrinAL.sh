@@ -5,7 +5,7 @@ CURDIR=`pwd`
 NB_TESTS_PER_INSTANCE=10
 
 for ((j=0; j<30; j++)); do
-BASHDIR="bashfiles/sungridSimulator/${RANDOM}"
+BASHDIR="bashfiles/sungridSimulator/Flexible${RANDOM}"
 if test ! -d "bashfiles/sungridSimulator" ; then
 	echo "Create output directory bashfiles/sungridSimulator"
 	mkdir "bashfiles/sungridSimulator"

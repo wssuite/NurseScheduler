@@ -45,7 +45,7 @@ for ((i=1; i<$nbWeeks; i++)); do
 	catseeds+="-${seeds[$i]}"
 done
 
-outputDir+="$catseeds"
+outputDir+="Flex$catseeds"
 if test ! -d "${outputDir}" ; then
 	echo "Create output directory"
 	mkdir "${outputDir}"
