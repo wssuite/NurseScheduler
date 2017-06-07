@@ -1,0 +1,99 @@
+SCENARIO = n070w4
+
+WEEKS = 4
+
+SKILLS = 4
+HeadNurse
+Nurse
+Caretaker
+Trainee
+
+SHIFT_TYPES = 4
+Early (2,5)
+Day (2,28)
+Late (2,5)
+Night (4,5)
+
+FORBIDDEN_SHIFT_TYPES_SUCCESSIONS
+Early 0
+Day 0
+Late 2 Early Day
+Night 3 Early Day Late
+
+CONTRACTS = 3
+FullTime (15,22) (3,5) (2,3) 2 1
+PartTime (7,15) (3,5) (2,5) 2 1
+HalfTime (7,11) (4,6) (5,6) 1 0
+
+NURSES = 70
+HN_0 HalfTime 2 HeadNurse Nurse
+HN_1 PartTime 2 HeadNurse Nurse
+HN_2 PartTime 2 HeadNurse Nurse
+HN_3 HalfTime 2 HeadNurse Nurse
+HN_4 PartTime 2 HeadNurse Nurse
+HN_5 HalfTime 2 HeadNurse Nurse
+HN_6 PartTime 2 HeadNurse Nurse
+HN_7 PartTime 2 HeadNurse Nurse
+NU_8 PartTime 2 Nurse Caretaker
+NU_9 PartTime 2 Nurse Caretaker
+NU_10 PartTime 2 Nurse Caretaker
+NU_11 FullTime 2 Nurse Caretaker
+NU_12 PartTime 2 Nurse Caretaker
+NU_13 HalfTime 2 Nurse Caretaker
+NU_14 PartTime 2 Nurse Caretaker
+NU_15 PartTime 2 Nurse Caretaker
+NU_16 PartTime 2 Nurse Caretaker
+NU_17 HalfTime 2 Nurse Caretaker
+NU_18 PartTime 2 Nurse Caretaker
+NU_19 PartTime 2 Nurse Caretaker
+NU_20 FullTime 2 Nurse Caretaker
+NU_21 HalfTime 2 Nurse Caretaker
+NU_22 FullTime 2 Nurse Caretaker
+NU_23 PartTime 2 Nurse Caretaker
+NU_24 HalfTime 2 Nurse Caretaker
+NU_25 FullTime 2 Nurse Caretaker
+NU_26 FullTime 2 Nurse Caretaker
+NU_27 FullTime 2 Nurse Caretaker
+NU_28 PartTime 2 Nurse Caretaker
+NU_29 PartTime 2 Nurse Caretaker
+NU_30 PartTime 2 Nurse Caretaker
+NU_31 FullTime 2 Nurse Caretaker
+NU_32 HalfTime 2 Nurse Caretaker
+NU_33 FullTime 2 Nurse Caretaker
+NU_34 HalfTime 2 Nurse Caretaker
+NU_35 PartTime 2 Nurse Caretaker
+NU_36 HalfTime 2 Nurse Caretaker
+NU_37 PartTime 2 Nurse Caretaker
+NU_38 HalfTime 2 Nurse Caretaker
+NU_39 PartTime 2 Nurse Caretaker
+CT_40 PartTime 1 Caretaker
+CT_41 HalfTime 1 Caretaker
+CT_42 FullTime 1 Caretaker
+CT_43 HalfTime 1 Caretaker
+CT_44 FullTime 1 Caretaker
+CT_45 FullTime 1 Caretaker
+CT_46 FullTime 1 Caretaker
+CT_47 PartTime 1 Caretaker
+CT_48 PartTime 1 Caretaker
+CT_49 FullTime 1 Caretaker
+CT_50 HalfTime 1 Caretaker
+CT_51 HalfTime 1 Caretaker
+CT_52 PartTime 1 Caretaker
+CT_53 FullTime 1 Caretaker
+CT_54 FullTime 1 Caretaker
+CT_55 FullTime 1 Caretaker
+CT_56 FullTime 1 Caretaker
+CT_57 PartTime 1 Caretaker
+CT_58 PartTime 1 Caretaker
+CT_59 PartTime 1 Caretaker
+TR_60 FullTime 1 Trainee
+TR_61 HalfTime 1 Trainee
+TR_62 FullTime 1 Trainee
+TR_63 HalfTime 1 Trainee
+TR_64 PartTime 1 Trainee
+TR_65 FullTime 1 Trainee
+TR_66 HalfTime 1 Trainee
+TR_67 HalfTime 1 Trainee
+TR_68 PartTime 1 Trainee
+TR_69 FullTime 1 Trainee
+

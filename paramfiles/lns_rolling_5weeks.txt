@@ -1,0 +1,43 @@
+# global options of the deterministic procedure
+solutionAlgorithm=GENCOL
+solverType=CLP
+divideIntoConnexPositions=1
+withRollingHorizon=1
+withPrimalDual=0
+withLNS=1
+
+# complete solution options
+completeOptimalityLevel=UNTIL_FEASIBILITY
+
+# rolling horizon options
+rollingSamplePeriod=7
+rollingControlHorizon=35
+rollingPredictionHorizon=56
+rollingOptimalityLevel=TWO_DIVES
+
+# lns options
+lnsMaxItWithoutImprovement=100
+lnsNursesRandomDestroy=1
+lnsNursesPositionDestroy=1
+lnsNursesContractDestroy=1
+lnsNbNursesDestroyOverTwoWeeks=24
+lnsNbNursesDestroyOverFourWeeks=12
+lnsNbNursesDestroyOverAllWeeks=6
+lnsOptimalityLevel=TWO_DIVES
+
+# default branch and price solver parameters
+isStabilization=0
+isStabUpdateCost=1
+isStabUpdateBounds=1
+branchColumnDisjoint=1
+branchColumnUntilValue=0
+stopAfterXDegenerateIt=5
+performHeuristicAfterXNode=-1
+heuristicMinIntegerPercent=50
+spDefaultStrategy=0
+spWithSecondChance=1
+spSecondChanceStrategy=1
+spNbRotationsPerNurse=20
+spNbNursesToPrice=15
+spMaxReducedCostBound=0
+verbose=1

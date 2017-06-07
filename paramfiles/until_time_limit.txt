@@ -1,0 +1,26 @@
+# global options of the deterministic procedure
+solutionAlgorithm=GENCOL
+solverType=CLP
+divideIntoConnexPositions=1
+withRollingHorizon=0
+withPrimalDual=0
+withLNS=0
+
+# complete solution options
+completeOptimalityLevel=OPTIMALITY
+
+# default branch and price solver parameters
+isStabilization=0
+isStabUpdateCost=1
+isStabUpdateBounds=1
+branchColumnDisjoint=1
+branchColumnUntilValue=0
+stopAfterXDegenerateIt=10
+performHeuristicAfterXNode=10
+heuristicMinIntegerPercent=50
+spDefaultStrategy=0
+spWithSecondChance=1
+spSecondChanceStrategy=1
+spNbRotationsPerNurse=20
+spNbNursesToPrice=15
+verbose=1
