@@ -1,10 +1,10 @@
 # Static nurse scheduler
 # ======================
 
-The code and the instances shared on this repository allow to solve a static variant of the nurse scheduling  problem as described in the INRC2 competition. The difference with the original formulation is that the competition deals with a dynamic revealing of the data, where the demand and the nurses' preferences on a given week are only revealed once the schedules of the previous weeks are computed. Here, the demands and the preferences of the complete horizon are known beforehand. 
-Every information about INRC2 can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem is given in:
-[1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition ( INRC-II ): Problem Description and Rules." p. 1–18, 2015.
-The method implemented in this code are all described in the following manuscript (still under revision). Please cite this reference in any use of our code.
+The C++ code and the instances shared on this repository allow to solve a static variant of the nurse scheduling  problem as described in the second internation nurse rostering competition (INRC-II). The difference with the original formulation is that the competition deals with a dynamic revealing of the data, where the demand and the nurses' preferences on a given week are only revealed once the schedules of the previous weeks are computed. Here, the demands and the preferences of the complete horizon are known beforehand. 
+Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem is given in:
+[1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules." p. 1–18, 2015.
+The methods implemented in this code are all described in the following manuscript (still under revision). Please cite this reference in any use of our code.
 [2] A. Legrain, J. Omer and S. Rosat, "A rotation-based branch-and-price approach for the nurse scheduling problem", p. 1-28, 2017, submitted manuscript.
 These two references can also be found in the directory ./references.
 
