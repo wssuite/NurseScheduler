@@ -1,0 +1,16 @@
+version: '2'
+services:
+  inrc:
+    container_name: inrc
+    build: ./
+    volumes:
+      - ./datasets/:/usr/src/inrc/datasets
+      - ./paramfiles/:/usr/src/inrc/paramfiles
+      - ./outfiles/:/usr/src/inrc/outfiles
+    environment:
+      INST: "n030w4"
+      WEEKS: "6-2-9-1"
+      HIS: "1"
+      PARAM: "default.txt"
+      SOL: "default/n030w4_1_6-2-9-1"
+      TIMEOUT: "30"

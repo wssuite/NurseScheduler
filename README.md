@@ -32,18 +32,33 @@ The following decribes how to handle our code.
 	--timeout is the total execution time
 
 	The validator can then be run by:
+	````bash
 	java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks datasets/n030w4/WD-n030w4-6.txt datasets/n030w4/WD-n030w4-2.txt datasets/n030w4/WD-n030w4-9.txt datasets/n030w4/WD-n030w4-1.txt --sols outfiles/default/n030w4_1_6-2-9-1/sol-week0.txt outfiles/default/n030w4_1_6-2-9-1/sol-week1.txt outfiles/default/n030w4_1_6-2-9-1/sol-week2.txt outfiles/default/n030w4_1_6-2-9-1/sol-week3.txt > outfiles/default/n030w4_1_6-2-9-1/validator.txt
+	````
+
+	or:
+	````bash
+	./validator.sh n030w4 6-2-9-1 1 default/n030w4_1_6-2-9-1
+	````
 
 3) Other options for a quicker run of the code are
 
-	a) run the solver with default options on the instance n005w4_1_1-6-2-9-1
+	a) run the solver with default options on the instance n005w4_1_1-6-2-9-1:
+	````bash
 	./bin/staticscheduler
-	b) run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt
+	````
+	b) run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
+	````bash
 	./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/parameters.txt
-	c) run the solver on the instance n005w4_0_2-0-2-1 with default options
+	````
+	c) run the solver on the instance n005w4_0_2-0-2-1 with default options:
+	````bash
 	./bin/deterministicroster --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
-	d) run a test with name testname
+	````
+	d) run a test with name testname:
+	````bash
 	./bin/staticscheduler --test testname
+	````
 
 4) Description of some notations that appear in the code/comment
 	- rotation: sequence of working days for a nurse. The shifts that are covered and the skills that are used can be different on each day. A rotation starts at the beginning of a week or after a resting day, and it ends at the end of a week or before a resting day.
