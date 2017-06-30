@@ -109,7 +109,7 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 	std::cout << "Reading " << fileName << std::endl;
 	file.open(fileName.c_str(), std::fstream::in);
 	if (!file.is_open()) {
-		std::cout << "While trying to read fucking " << fileName << std::endl;
+		std::cout << "While trying to read the file " << fileName << std::endl;
 		throw Tools::myException("readOptionsFromFile: The input file was not opened properly!",__LINE__);
 	}
 
@@ -340,7 +340,7 @@ double DeterministicSolver::solve(vector<Roster> initialSolution){
 	//
 	Tools::initializeRandomGenerator(this->options_.randomSeed_);
 	srand(this->options_.randomSeed_);
-	
+
 	// DBG
 	std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
 	std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;

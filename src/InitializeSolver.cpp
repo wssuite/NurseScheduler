@@ -39,7 +39,7 @@ InputPaths* readNonCompactArguments(int argc, char** argv) {
 	while (narg < argc) {
 		std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
 		// Attention usine a gaz: problem with the java simulator that add quote
-		// marks in the arguments, which fucks up the open file methods
+		// marks in the arguments, which messes with the open file methods
 		// the code below is here to remove these quote marks
 		//
 		string str(argv[narg+1]);
@@ -112,7 +112,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	while (narg < argc) {
 		std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
 		// Attention usine a gaz: problem with the java simulator that add quote
-		// marks in the arguments, which fucks up the open file methods
+		// marks in the arguments, which messes with the open file methods
 		// the code below is here to remove these quote marks
 		//
 		string str(argv[narg+1]);

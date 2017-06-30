@@ -43,7 +43,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	std::cout << "Reading " << fileName << std::endl;
 	file.open(fileName.c_str(), std::fstream::in);
 	if (!file.is_open()) {
-		std::cout << "While trying to read fucking " << fileName << std::endl;
+		std::cout << "While trying to read the file " << fileName << std::endl;
 		std::cout << "The input file was not opened properly!" << std::endl;
 
 		throw Tools::myException("The input file was not opened properly!",__LINE__);
@@ -273,7 +273,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 	std::cout << "Reading " << strWeekFile << std::endl;
 	file.open(strWeekFile.c_str(), std::fstream::in);
 	if (!file.is_open()) {
-		std::cout << "While trying to read fucking " << strWeekFile << std::endl;
+		std::cout << "While trying to read the file " << strWeekFile << std::endl;
 		std::cout << "The input file was not opened properly!" << std::endl;
 		throw Tools::myException("The input file was not opened properly!",__LINE__);
 	}
