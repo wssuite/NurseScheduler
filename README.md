@@ -41,6 +41,8 @@ The following decribes how to handle our code.
 	./validator.sh n030w4 6-2-9-1 1 default/n030w4_1_6-2-9-1
 	````
 
+	All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used) 
+
 3) Other options for a quicker run of the code are
 
 	a) run the solver with default options on the instance n005w4_1_1-6-2-9-1:
@@ -49,7 +51,7 @@ The following decribes how to handle our code.
 	````
 	b) run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
 	````bash
-	./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/parameters.txt
+	./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
 	````
 	c) run the solver on the instance n005w4_0_2-0-2-1 with default options:
 	````bash
