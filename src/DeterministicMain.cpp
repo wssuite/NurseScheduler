@@ -10,7 +10,7 @@
 #include "MyTools.h"
 #include "ReadWrite.h"
 #include "Solver.h"
-#include "Greedy.h"
+//#include "Greedy.h"
 #include <exception>
 #include "Modeler.h"
 #include "MasterProblem.h"

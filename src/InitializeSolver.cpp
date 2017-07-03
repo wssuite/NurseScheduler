@@ -9,7 +9,7 @@
 #include "InitializeSolver.h"
 //#include "main_test.h"
 #include "ReadWrite.h"
-#include "Greedy.h"
+//#include "Greedy.h"
 #include "MasterProblem.h"
 #include "SubProblem.h"
 #include "MyTools.h"
@@ -402,9 +402,9 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 
 	Solver* pSolver;
 	switch(algorithm){
-	case GREEDY:
-		pSolver = new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
-		break;
+	// case GREEDY:
+	// 	pSolver = new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
+	// 	break;
 	case GENCOL:
 		// DBG: ICI, ON CHOISIT SI ON UTILISE CLP OU GUROBI, A TERME IL CHOISIR EN FONCTION D'UNE OPTION...
 //	   		pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_Gurobi);

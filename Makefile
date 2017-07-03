@@ -87,7 +87,8 @@ OBJDIR      =  obj
 
 EXEC_DET = staticscheduler
 OBJ_DET = DeterministicMain.o DeterministicMain_test.o
-COMMONOBJ  = InputPaths.o GlobalStats.o InitializeSolver.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o RotationPricer.o TreeManager.o 
+COMMONOBJ  = InputPaths.o GlobalStats.o InitializeSolver.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o  RotationPricer.o TreeManager.o 
+#Greedy.o
 
 ifeq ($(USE_SCIP), TRUE)
 	CXXFLAGS += -DUSE_SCIP

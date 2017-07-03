@@ -6,7 +6,7 @@
 */
 
 #include "DeterministicSolver.h"
-#include "Greedy.h"
+//#include "Greedy.h"
 #include "MasterProblem.h"
 #include "InitializeSolver.h"
 
@@ -975,9 +975,9 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand) {
 	Solver* pSolver=NULL;
 	switch(options_.solutionAlgorithm_){
-		case GREEDY:
-		pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-		break;
+		//case GREEDY:
+		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
+		//break;
 		case GENCOL:
 		pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
 		break;
@@ -993,9 +993,9 @@ Solver* DeterministicSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Alg
 
 	Solver* pSolver=NULL;
 	switch(algorithm){
-		case GREEDY:
-		pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-		break;
+		//case GREEDY:
+		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
+		//break;
 		case GENCOL:
 		pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
 		break;

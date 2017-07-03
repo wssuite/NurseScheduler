@@ -1,2 +1,4 @@
 bin/*
 obj/*
+bashfiles/*
+outfiles/default/*
