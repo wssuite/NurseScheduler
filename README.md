@@ -1,7 +1,7 @@
 # Static nurse scheduler
 # ======================
 
-The C++ code and the instances shared on this repository allow to solve a static variant of the nurse scheduling  problem as described in the second internation nurse rostering competition (INRC-II). The difference with the original formulation is that the competition deals with a dynamic revealing of the data, where the demand and the nurses' preferences on a given week are only revealed once the schedules of the previous weeks are computed. Here, the demands and the preferences of the complete horizon are known beforehand. 
+The C++ code and the instances shared on this repository allow to solve a static variant of the nurse scheduling  problem described in the second internation nurse rostering competition (INRC-II). The difference with the original formulation is that the competition deals with a dynamic revealing of the data, where the demand and the nurses' preferences on a given week are only revealed once the schedules of the previous weeks are computed. Here, the demands and the preferences of the complete horizon are known beforehand. 
 Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem is given in:
 [1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules." p. 1–18, 2015.
 The methods implemented in this code are all described in the following manuscript (still under revision). Please cite this reference in any use of our code.
@@ -14,7 +14,7 @@ The following decribes how to handle our code.
 
 2) Content of the project.
 	a. ./src : source code (executables are stored in ./bin after building and object files are stored in ./obj)
-	b. ./datasets: We provide the benchmark used by the organizers of the INRC2 [1] in the ./datasets directory with the format nXXXwY, where XXX refers to the nnumber of nurses and Y is the number of weeks in the planning horizon. For each number of nurses and planning horizon, several history and demand files are provided thus allowing to test a very large number of different instances.
+	b. ./datasets: We provide the benchmark used by the organizers of the INRC2 [1] in the ./datasets directory with the format nXXXwY, where XXX refers to the number of nurses and Y is the number of weeks in the planning horizon. For each number of nurses and planning horizon, several history and demand files are provided thus allowing to test a very large number of different instances.
 	c. ./paramfiles : Directory where all the parameters of the solution methods are stored. This is where the particular method executed when running the executable is chosen. The parameters files initially present in the directory are those used for the tests in [2].
 	d. validator.jar is the java executable provided by the organizers of INRC2 to check the validity of a solution and compute its cost independently.
 	e. ./scripts : Directory including several scripts for the execution of multiple runs at once
@@ -25,7 +25,7 @@ The following decribes how to handle our code.
 	a. The main is in "DeterministicMain.cpp" and "DeterministicMain_test.cpp" is for the definition of some unitary tests. 
 	b. Input data and basic preprocessing methods are in "Nurse.h/.cpp", "Roster.h", "Scenario.h/.cpp" and stored in an instance of the class defined in "SolverInput.h"
 	c. "Solver.h" stores an abstract solver class and the definitions of several other classes of objects manipulated by the algorithm. In particular a LiveNurse has the constant attributes of a Nurse and other attributes that will be modified during the execution of the solution algorithm. The files "InitializeSolver.h/.cpp" runs some preprocessing actions before actually solving the problem.
-	d. "DeterministicSolver.h/.cpp" contains the declaration ans the structure of every algorithm described in [2] as well as all the methods involved in the large neighborhood search. Every method that BCP needs redfined for the branch-and-price are in "BcpModeler.h/.cpp", "CoinModeler.h" and in "TreeManager.h/.cpp". The global structure of the column generation subproblem, including the construction of the constrained shortest path network, is in "Subproblem.h/.cpp", and the dynamic programming algorithm is implemented in "RotationPricer.h/.cpp".
+	d. "DeterministicSolver.h/.cpp" contains the declaration and the structure of every algorithm described in [2] as well as all the methods involved in the large neighborhood search. Every method that BCP needs redefined for the branch-and-price algorithm are in "BcpModeler.h/.cpp", "CoinModeler.h" and in "TreeManager.h/.cpp". The global structure of the column generation subproblem, including the construction of the constrained shortest path network, is in "Subproblem.h/.cpp", and the dynamic programming algorithm that solves the subproblems is implemented in "RotationPricer.h/.cpp" (it is adapted from an algorithm found in the Boost library).
 	e. The postprocessing/display/parsing methods are in "ReadWrite.h/.cpp", "GlobalStats.h/.cpp", and "InputPaths.h/.cpp".
 	f. The files "MyTools.h/.cpp" contain intermediary methods frequently used in the code. 
 
