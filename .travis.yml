@@ -16,3 +16,7 @@ before_install:
   
 install:
   - docker-compose up -d
+  
+script:
+  - docker-compose ps
+  - docker-compose logs
