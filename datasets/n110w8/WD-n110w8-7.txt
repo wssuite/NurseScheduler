@@ -1,0 +1,95 @@
+WEEK_DATA
+n110w8
+
+REQUIREMENTS
+Early HeadNurse (1,1) (1,1) (2,2) (1,2) (1,1) (0,1) (0,0)
+Early Nurse (1,2) (2,2) (1,1) (2,3) (3,4) (1,1) (2,2)
+Early Caretaker (5,7) (4,8) (4,6) (7,8) (6,8) (4,4) (4,4)
+Early Trainee (4,4) (1,2) (3,3) (2,3) (2,3) (1,2) (1,1)
+Day HeadNurse (0,0) (2,2) (2,2) (0,0) (2,2) (1,1) (1,1)
+Day Nurse (2,3) (3,3) (1,2) (2,3) (2,3) (1,1) (2,2)
+Day Caretaker (7,8) (6,8) (5,6) (6,7) (5,7) (2,3) (2,3)
+Day Trainee (2,4) (3,4) (3,3) (3,4) (4,4) (1,1) (2,2)
+Late HeadNurse (2,2) (1,1) (2,2) (1,1) (0,0) (1,1) (1,1)
+Late Nurse (1,3) (1,1) (2,2) (1,1) (2,2) (1,2) (1,2)
+Late Caretaker (6,8) (5,7) (5,8) (5,7) (6,9) (2,4) (3,3)
+Late Trainee (3,5) (3,4) (4,4) (2,2) (4,5) (1,1) (2,2)
+Night HeadNurse (1,2) (1,2) (1,1) (1,2) (2,2) (1,1) (0,1)
+Night Nurse (2,3) (2,2) (2,3) (2,3) (2,2) (2,2) (2,2)
+Night Caretaker (4,7) (4,7) (4,7) (6,8) (5,8) (3,4) (3,4)
+Night Trainee (3,3) (4,4) (2,3) (1,2) (4,4) (1,1) (1,1)
+
+SHIFT_OFF_REQUESTS = 73
+CT_45 Night Mon 
+CT_79 Any Mon 
+HN_18 Late Mon 
+HN_19 Any Mon 
+HN_4 Any Mon 
+NU_24 Any Mon 
+TR_105 Any Mon 
+CT_45 Day Tue 
+CT_46 Day Tue 
+CT_53 Any Tue 
+CT_62 Any Tue 
+CT_70 Any Tue 
+CT_71 Night Tue 
+HN_16 Any Tue 
+HN_5 Any Tue 
+HN_8 Any Tue 
+NU_22 Any Tue 
+NU_24 Day Tue 
+NU_33 Late Tue 
+NU_34 Any Tue 
+TR_109 Any Tue 
+TR_88 Day Tue 
+TR_99 Day Tue 
+CT_43 Late Wed 
+CT_72 Night Wed 
+CT_79 Night Wed 
+HN_14 Night Wed 
+HN_3 Day Wed 
+NU_28 Any Wed 
+NU_30 Any Wed 
+NU_36 Day Wed 
+NU_37 Any Wed 
+CT_42 Any Thu 
+CT_54 Any Thu 
+CT_79 Any Thu 
+NU_24 Any Thu 
+NU_26 Any Thu 
+NU_30 Night Thu 
+NU_37 Day Thu 
+TR_100 Any Thu 
+CT_57 Late Fri 
+CT_59 Any Fri 
+CT_60 Any Fri 
+CT_68 Any Fri 
+HN_6 Day Fri 
+NU_22 Night Fri 
+NU_26 Any Fri 
+NU_33 Any Fri 
+TR_108 Late Fri 
+TR_95 Any Fri 
+CT_56 Day Sat 
+CT_66 Any Sat 
+CT_67 Any Sat 
+CT_74 Night Sat 
+HN_11 Any Sat 
+HN_15 Any Sat 
+NU_23 Late Sat 
+NU_32 Any Sat 
+TR_101 Any Sat 
+TR_88 Late Sat 
+TR_92 Any Sat 
+TR_94 Day Sat 
+CT_47 Any Sun 
+CT_48 Any Sun 
+CT_62 Any Sun 
+HN_1 Any Sun 
+HN_18 Any Sun 
+NU_28 Day Sun 
+NU_32 Day Sun 
+TR_102 Any Sun 
+TR_107 Any Sun 
+TR_82 Any Sun 
+TR_96 Any Sun 

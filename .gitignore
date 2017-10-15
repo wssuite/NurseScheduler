@@ -30,3 +30,27 @@
 *.exe
 *.out
 *.app
+
+
+# source files whose changes must remain local
+src/main.cpp
+src/MyMain.cpp
+
+# binaries and compilation files
+bin/*
+obj/*
+
+# ouput and log files
+logfiles/*
+outfiles/
+*.log
+
+#For eclipse
+.cproject*
+.project*
+formatter*
+.metadata/*
+.settings/*
+
+# for mac
+.fuse*

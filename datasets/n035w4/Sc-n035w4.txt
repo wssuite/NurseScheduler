@@ -1,0 +1,63 @@
+SCENARIO = n035w4
+
+WEEKS = 4
+
+SKILLS = 4
+HeadNurse
+Nurse
+Caretaker
+Trainee
+
+SHIFT_TYPES = 4
+Early (2,5)
+Day (2,28)
+Late (2,5)
+Night (4,5)
+
+FORBIDDEN_SHIFT_TYPES_SUCCESSIONS
+Early 0
+Day 0
+Late 2 Early Day
+Night 3 Early Day Late
+
+CONTRACTS = 3
+FullTime (15,22) (3,5) (2,3) 2 1
+PartTime (7,15) (3,5) (2,5) 2 1
+HalfTime (5,11) (3,5) (3,5) 1 1
+
+NURSES = 35
+HN_0 HalfTime 3 HeadNurse Nurse Caretaker
+HN_1 PartTime 3 HeadNurse Nurse Caretaker
+HN_2 PartTime 3 HeadNurse Nurse Caretaker
+HN_3 PartTime 3 HeadNurse Nurse Caretaker
+HN_4 HalfTime 3 HeadNurse Nurse Caretaker
+HN_5 HalfTime 3 HeadNurse Nurse Caretaker
+NU_6 PartTime 2 Nurse Caretaker
+NU_7 PartTime 2 Nurse Caretaker
+NU_8 FullTime 2 Nurse Caretaker
+NU_9 FullTime 2 Nurse Caretaker
+NU_10 PartTime 2 Nurse Caretaker
+NU_11 HalfTime 2 Nurse Caretaker
+NU_12 HalfTime 2 Nurse Caretaker
+NU_13 HalfTime 2 Nurse Caretaker
+NU_14 HalfTime 2 Nurse Caretaker
+NU_15 PartTime 2 Nurse Caretaker
+NU_16 PartTime 2 Nurse Caretaker
+CT_17 FullTime 1 Caretaker
+CT_18 FullTime 1 Caretaker
+CT_19 HalfTime 1 Caretaker
+CT_20 FullTime 1 Caretaker
+CT_21 PartTime 1 Caretaker
+CT_22 HalfTime 1 Caretaker
+CT_23 HalfTime 1 Caretaker
+CT_24 PartTime 1 Caretaker
+CT_25 FullTime 1 Caretaker
+CT_26 HalfTime 1 Caretaker
+CT_27 HalfTime 1 Caretaker
+CT_28 HalfTime 1 Caretaker
+TR_29 HalfTime 1 Trainee
+TR_30 FullTime 1 Trainee
+TR_31 PartTime 1 Trainee
+TR_32 FullTime 1 Trainee
+TR_33 PartTime 1 Trainee
+TR_34 PartTime 1 Trainee
