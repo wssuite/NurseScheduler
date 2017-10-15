@@ -19,4 +19,4 @@ install:
   
 script:
   - docker-compose ps
-  - docker-compose logs
+  - docker-compose logs -f
