@@ -43,15 +43,13 @@ The following describes how to handle our code.
 
 4) Execution of the code:
 
-	a. Generate a script for a given instance and seeds (not compulsory):
-  ````bash
+	a. Generate a script for a given instance and seeds (not compulsory): ```bash
   ./generateScript.sh n005w4_1-2-3-3_0 22-36-96-5
-  ````
+  ```
   
-	b. Then, run it: 
-  ````bash
+	b. Then, run it: ```bash
   ./n005w4_1-2-3-3_0_22-36-96-5.sh
-  ````
+  ```
 
 
 5) There are some random aspects in our solver (in the sampling of the demand) and in the third party libraries that are called by our solver. For instance, the perturbations added by CLP to avoid degeneracy will not impact the objective value, but they can impact the specific optimal solution, and hence the dual solution, which can lead to differences in the subproblem. As a consequence, the solution values can be slightly different from those reported in [2]. In our tests on several different machines, this has not impacted the interpretations and comparisons discussed in [2] though.
