@@ -1,4 +1,5 @@
 # Dynamic Nurse Scheduler
+https://travis-ci.org/legraina/DynamicNurseScheduler.svg?branch=master
 The C++ code shared on this repository has been submitted by the Polytechnique team to the International Nurse Rostering Competition II. Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem is given in:
 
 [1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules." p. 1–18, 2015.
