@@ -1,3 +1,5 @@
+# Guide for running the code within a docker container
+
 1- Install docker for you platform: https://docs.docker.com/engine/installation/#supported-platforms
 
 2- Then, just run:
