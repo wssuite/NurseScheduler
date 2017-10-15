@@ -1,4 +1,4 @@
-#INSTALL GUIDE FOR THE STATIC NURSE SCHEDULER
+# INSTALL GUIDE FOR THE STATIC NURSE SCHEDULER
 
 The nurse rotation scheduler requires two external libraries. Before compiling the code, BOOST and COIN BCP  must be installed and the corresponding environment variables must be set.
 This document provides a manual to install the libraries and compile the code.
