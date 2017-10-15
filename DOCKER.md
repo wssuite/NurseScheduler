@@ -8,7 +8,7 @@ docker-compose up -d
 ````
 It will take a long time the first time to build the container.
 
-4- Run the following command to see the containers that running:
+4- Run the following command to see the status of the running container:
 ````bash
 docker-compose ps
 ````
