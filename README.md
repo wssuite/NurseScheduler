@@ -9,6 +9,9 @@ The C++ code shared on this repository has been submitted by the Polytechnique t
 
 These three references can also be found in the directory ./references.
 
+Guide
+------------------
+
 The following describes how to handle our code.
 
 1) To install the required libraries and build the code, please follow the instructions detailed in the INSTALL.md file. You can also read DOCKER.md if you want to run the code within a container.
