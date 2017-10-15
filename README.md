@@ -2,8 +2,8 @@
 The C++ code shared on this repository has been submitted by the Polytechnique team to the International Nurse Rostering Competition II. Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem is given in:
 
 [1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules." p. 1–18, 2015.
-The methods implemented in this code are all described in the following manuscript (still under revision). Please cite this reference in any use of our code.
 
+The methods implemented in this code are all described in the following manuscript (still under revision). Please cite this reference in any use of our code.
 [2] A. Legrain, J. Omer and S. Rosat, "An Online Stochastic Algorithm for a Dynamic Nurse Scheduling Problem", p. 1-26, 2017, submitted manuscript.
 
 [3] A. Legrain, J. Omer and S. Rosat, "A rotation-based branch-and-price approach for the nurse scheduling problem", p. 1-28, 2017, submitted manuscript. This reference describes the offline solver used for solving the nurse scheduling problem.
