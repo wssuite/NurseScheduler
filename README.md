@@ -48,7 +48,7 @@ The following describes how to handle our code.
   ./generateScript.sh n005w4_1-2-3-3_0 22-36-96-5
   ````
   
-  	b. Then, run it:
+  b. Then, run it:
   ````
   ./n005w4_1-2-3-3_0_22-36-96-5.sh
   ````
