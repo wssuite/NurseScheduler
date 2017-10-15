@@ -44,12 +44,12 @@ The following describes how to handle our code.
 4) Execution of the code:
 
 	a. Generate a script for a given instance and seeds (not compulsory):
-  ````
+  ````bash
   ./generateScript.sh n005w4_1-2-3-3_0 22-36-96-5
   ````
   
-     b. Then, run it:
-  ````
+	b. Then, run it: 
+  ````bash
   ./n005w4_1-2-3-3_0_22-36-96-5.sh
   ````
 
