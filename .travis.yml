@@ -9,4 +9,4 @@ before_install:
   - docker image build -t dns .
 
 script:
-  - docker run -t dns n005w4_0_1-2-3-3 22-36-96-5 1680
+  - docker run -t dns n005w4_0_1-2-3-3 22-36-96-5 1685
