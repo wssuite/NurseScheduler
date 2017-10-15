@@ -1,3 +1,5 @@
+# Guide for running the code within a docker container
+
 1- Install docker for you platform: https://docs.docker.com/engine/installation/#supported-platforms
 
 2- Then, just run:
@@ -6,7 +8,7 @@ docker-compose up -d
 ````
 It will take a long time the first time to build the container.
 
-4- Run the following command to see the containers that running:
+4- Run the following command to see the status of the running container:
 ````bash
 docker-compose ps
 ````
