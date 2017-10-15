@@ -7,7 +7,7 @@ then
   DIR=$CURRENT_DIR
 fi
 
-# Install Boost
+# Install Boost (no need to install the library as we are using only the headers)
 wget -O boost_1_64_0.tar.gz http://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.gz/download
 tar xzvf boost_1_64_0.tar.gz
 cd boost_1_64_0/
