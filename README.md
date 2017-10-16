@@ -48,64 +48,74 @@ The following describes how to handle our code.
 
 4) Execution of the code:
 
-	a. A typical execution of our code is done from the root directory of the project with the following list of arguments
+	a. A typical execution of our code is done from the root directory of the project with the following list of arguments:
+	
+	````bash
+	./bin/staticscheduler --dir datasets/ --instance n030w4 --weeks 6-2-9-1 --his 1 --param paramfiles/default.txt --sol outfiles/default/n030w4_1_6-2-9-1 --timeout 780
+	
+	--dir is followed by the directory where the instance is stored
+	--instance is the name of the subdirectory of where the specific instance is stored
+	--weeks is the sequence of week files numbers that form the complete horizon
+	--his is the number of the history file among those published
+	--param is followed by the name of the parameter file used in this run
+	--sol is the directory where the solution will be stored
+	--timeout is the total execution time
+	````
+	
+	The validator can then be run by:
+	````bash
+	java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks datasets/n030w4/WD-n030w4-6.txt datasets/n030w4/WD-n030w4-2.txt datasets/n030w4/WD-n030w4-9.txt datasets/n030w4/WD-n030w4-1.txt --sols outfiles/default/n030w4_1_6-2-9-1/sol-week0.txt outfiles/default/n030w4_1_6-2-9-1/sol-week1.txt outfiles/default/n030w4_1_6-2-9-1/sol-week2.txt outfiles/default/n030w4_1_6-2-9-1/sol-week3.txt > outfiles/default/n030w4_1_6-2-9-1/validator.txt
+	````
+	
+	or:
+	````bash
+	./validator.sh n030w4 6-2-9-1 1 outfiles/default/n030w4_1_6-2-9-1
+	````
+	
+	All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used)
 
-		./bin/staticscheduler --dir datasets/ --instance n030w4 --weeks 6-2-9-1 --his 1 --param paramfiles/default.txt --sol outfiles/default/n030w4_1_6-2-9-1 --timeout 780
+	b. Other options for a quicker run of the code are:
+	
+	- run the solver with default options on the instance n005w4_1_1-6-2-9-1:
+	````bash
+	./bin/staticscheduler
+	````
 
-		--dir is followed by the directory where the instance is stored
-		--instance is the name of the subdirectory of where the specific instance is stored
-		--weeks is the sequence of week files numbers that form the complete horizon
-		--his is the number of the history file among those published
-		--param is followed by the name of the parameter file used in this run
-		--sol is the directory where the solution will be stored
-		--timeout is the total execution time
+	- run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
+	````bash
+	./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
+	````
 
-		The validator can then be run by:
-		````bash
-		java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks datasets/n030w4/WD-n030w4-6.txt datasets/n030w4/WD-n030w4-2.txt datasets/n030w4/WD-n030w4-9.txt datasets/n030w4/WD-n030w4-1.txt --sols outfiles/default/n030w4_1_6-2-9-1/sol-week0.txt outfiles/default/n030w4_1_6-2-9-1/sol-week1.txt outfiles/default/n030w4_1_6-2-9-1/sol-week2.txt outfiles/default/n030w4_1_6-2-9-1/sol-week3.txt > outfiles/default/n030w4_1_6-2-9-1/validator.txt
-		````
+	- run the solver on the instance n005w4_0_2-0-2-1 with default options:
+	````bash
+	./bin/deterministicroster --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
+	````
 
-		or:
-		````bash
-		./validator.sh n030w4 6-2-9-1 1 outfiles/default/n030w4_1_6-2-9-1
-		````
-
-		All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used)
-
-	b. Other options for a quicker run of the code are
-
-		- run the solver with default options on the instance n005w4_1_1-6-2-9-1:
-		````bash
-		./bin/staticscheduler
-		````
-		- run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
-		````bash
-		./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
-		````
-		- run the solver on the instance n005w4_0_2-0-2-1 with default options:
-		````bash
-		./bin/deterministicroster --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
-		````
-		- run a test with name testname:
-		````bash
-		./bin/staticscheduler --test testname
+	- run a test with name testname:
+	````bash
+	./bin/staticscheduler --test testname
 		````
 
 	c. Scritps for running several instances at once :
-		- to write the bash files that run the solver on all the instances with a specific set of parameters defined in the file "paramfiles/param.txt" :
-		````bash
-		./scripts/writeAllRuns.sh param
-		````
-		- to run all these bashfiles one after the other :
-		````bash
-		./scripts/runDir.sh param
-		````
-		The outputs will then be written in "outfiles/param/"
+	
+	- to write the bash files that run the solver on all the instances with a specific set of parameters defined in the file "paramfiles/param.txt" :
+	````bash
+	./scripts/writeAllRuns.sh param
+	````
+
+	- to run all these bashfiles one after the other :
+	````bash
+	./scripts/runDir.sh param
+	````
+	The outputs will then be written in "outfiles/param/"
 
 
 5) There are some random aspects in our solver (in the large neighborhood search for instance) and in the third party libraries that are called by our solver. For instance, the perturbations added by CLP to avoid degeneracy will not impact the objective value, but they can impact the specific optimal solution, and hence the dual solution, which can lead to differences in the subproblem. As a consequence, the solution values can be slightly different from those reported in [2]. In our tests on several different machines, this has not impacted the interpretations and comparisons discussed in [2] though.
 
-6) Description of some notations that appear in the code/comment
+6) Description of some notations that appear in the code/comment:
+
 	- rotation: sequence of working days for a nurse. The shifts that are covered and the skills that are used can be different on each day. A rotation starts at the beginning of a week or after a resting day, and it ends at the end of a week or before a resting day.
+	
 	- break/pause/holiday/rest period: sequence of resting days. This period starts at the beginning of a week or after a working day, and it ends at the end of a week or before a working day.
+	
 	- stint: one rotation followed by a break

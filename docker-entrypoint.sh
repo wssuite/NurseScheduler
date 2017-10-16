@@ -14,18 +14,28 @@ outputDir="outfiles/$1/$currenttime"
 echo "Create output directory: ${outputDir}"
 mkdir -p "${outputDir}"
 
-# set default param file
-param=$PARAM
-if [ -z $PARAM ]
-then
-  param="default.txt"
-fi
-
 # set default timeout
 timeout=$TIMEOUT
-if [ -z $TIMEOUT ]
+if [ -z $3 ]
 then
-  timeout=30
+	if [ -z "$TIMEOUT" ]
+	then
+	  timeout=30
+	fi
+else
+	timeout=$3
+fi
+
+# set default param file
+param=$PARAM
+if [ -z $4 ]
+then
+	if [ -z "$PARAM" ]
+	then
+	  param="default.txt"
+	fi
+else
+	param=$4
 fi
 
 # run the scheduler
