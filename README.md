@@ -1,5 +1,7 @@
 # Static nurse scheduler
 
+[![Build Status](https://travis-ci.org/legraina/StaticNurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/StaticNurseScheduler)
+
 The C++ code and the instances shared on this repository allow to solve a static variant of the nurse scheduling  problem described in the second international nurse rostering competition (INRC-II). The difference with the original formulation is that the competition deals with a dynamic revealing of the data, where the demand and the nurses' preferences on a given week are only revealed once the schedules of the previous weeks are computed. Here, the demands and the preferences of the complete horizon are known beforehand.
 Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem is given in:
 [1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules." p. 1–18, 2015.
