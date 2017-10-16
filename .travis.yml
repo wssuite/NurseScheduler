@@ -2,9 +2,6 @@ sudo: required
 
 language: ruby
 
-env:
-  -TIMEOUT="60"
-
 services:
   - docker
 
@@ -13,4 +10,4 @@ before_install:
 
 script:
   - docker run -t sns n005w4_0_1-2-3-3 1470
-  - docker run -t sns n030w4_1_6-7-5-3 1885
+  - docker run -t sns n030w4_1_6-7-5-3 1885 60
