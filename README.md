@@ -48,32 +48,33 @@ The following describes how to handle our code.
 
 4) Execution of the code:
 
-	a. A typical execution of our code is done from the root directory of the project with the following list of arguments
+	a. A typical execution of our code is done from the root directory of the project with the following list of arguments:
+	
+	````bash
+	./bin/staticscheduler --dir datasets/ --instance n030w4 --weeks 6-2-9-1 --his 1 --param paramfiles/default.txt --sol outfiles/default/n030w4_1_6-2-9-1 --timeout 780
+	
+	--dir is followed by the directory where the instance is stored
+	--instance is the name of the subdirectory of where the specific instance is stored
+	--weeks is the sequence of week files numbers that form the complete horizon
+	--his is the number of the history file among those published
+	--param is followed by the name of the parameter file used in this run
+	--sol is the directory where the solution will be stored
+	--timeout is the total execution time
+	````
+	
+	The validator can then be run by:
+	````bash
+	java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks datasets/n030w4/WD-n030w4-6.txt datasets/n030w4/WD-n030w4-2.txt datasets/n030w4/WD-n030w4-9.txt datasets/n030w4/WD-n030w4-1.txt --sols outfiles/default/n030w4_1_6-2-9-1/sol-week0.txt outfiles/default/n030w4_1_6-2-9-1/sol-week1.txt outfiles/default/n030w4_1_6-2-9-1/sol-week2.txt outfiles/default/n030w4_1_6-2-9-1/sol-week3.txt > outfiles/default/n030w4_1_6-2-9-1/validator.txt
+	````
+	
+	or:
+	````bash
+	./validator.sh n030w4 6-2-9-1 1 outfiles/default/n030w4_1_6-2-9-1
+	````
+	
+	All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used)
 
-		./bin/staticscheduler --dir datasets/ --instance n030w4 --weeks 6-2-9-1 --his 1 --param paramfiles/default.txt --sol outfiles/default/n030w4_1_6-2-9-1 --timeout 780
-
-		--dir is followed by the directory where the instance is stored
-		--instance is the name of the subdirectory of where the specific instance is stored
-		--weeks is the sequence of week files numbers that form the complete horizon
-		--his is the number of the history file among those published
-		--param is followed by the name of the parameter file used in this run
-		--sol is the directory where the solution will be stored
-		--timeout is the total execution time
-
-		The validator can then be run by:
-		````bash
-		java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks datasets/n030w4/WD-n030w4-6.txt datasets/n030w4/WD-n030w4-2.txt datasets/n030w4/WD-n030w4-9.txt datasets/n030w4/WD-n030w4-1.txt --sols outfiles/default/n030w4_1_6-2-9-1/sol-week0.txt outfiles/default/n030w4_1_6-2-9-1/sol-week1.txt outfiles/default/n030w4_1_6-2-9-1/sol-week2.txt outfiles/default/n030w4_1_6-2-9-1/sol-week3.txt > outfiles/default/n030w4_1_6-2-9-1/validator.txt
-		````
-
-		or:
-		````bash
-		./validator.sh n030w4 6-2-9-1 1 outfiles/default/n030w4_1_6-2-9-1
-		````
-
-		All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used)
-
-	b. Other options for a quicker run of the code are
-
+	b. Other options for a quicker run of the code are:
 		- run the solver with default options on the instance n005w4_1_1-6-2-9-1:
 		````bash
 		./bin/staticscheduler
