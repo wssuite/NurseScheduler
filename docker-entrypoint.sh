@@ -10,7 +10,7 @@ cp validator.jar ./bin
 ./${scriptfile}
 
 # if $3 defined, test the total cost
-if [ -z $3 ]
+if [ -z "$3" ]
 then
 	exit 0
 fi
