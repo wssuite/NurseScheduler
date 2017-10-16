@@ -16,14 +16,14 @@ mkdir -p "${outputDir}"
 
 # set default param file
 param=$PARAM
-if [ -z $PARAM ]
+if [ -z "$PARAM" ]
 then
   param="default.txt"
 fi
 
 # set default timeout
 timeout=$TIMEOUT
-if [ -z $TIMEOUT ]
+if [ -z "$TIMEOUT" ]
 then
   timeout=30
 fi
