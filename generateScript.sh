@@ -77,20 +77,10 @@ echo "#!/bin/bash -l
 #$ -q idra
 #
 # optimal script: launch the simulator
-" > ${scriptfile}
+" >> ${scriptfile}
 
 echo "java -jar Simulator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --solver ./roster --runDir ./bin --outDir ${outputDir} --rand ${seeds[*]} --timeout ${timeout} --cus"  >> ${scriptfile}
 
 echo "java -jar validator.jar  --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${sols} > ${outputDir}/validator.txt"  >> ${scriptfile}
 
-
-chmod 755 "${scriptfile}"
-
-# if $3 defined, test the total cost
-if [ -z $3 ]
-then
-	exit 0
-fi
-
-# fetch the total cost and check if is the right one
-echo "if [ -z \"\$(cat ${outputDir}/validator.txt | grep 'Total cost: $3')\" ]; then echo \"error\"; exit 1; fi" >> ${scriptfile}
+chmod +x "${scriptfile}"
