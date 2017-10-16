@@ -10,4 +10,4 @@ before_install:
 
 script:
   - docker run -t sns n005w4_0_1-2-3-3 1470
-  - docker run -t sns n030w4_1_6-2-9-1 1860
+  - docker run -t sns n030w4_1_6-2-9-1 1850
