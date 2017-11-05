@@ -1,3 +1,15 @@
 references/
 outfiles/
+BCPDocker/
+
 .git/
+.gitignore
+.travis.yml
+
+README.md
+INSTALL.md
+INSTALL.sh
+DOCKER.md
+
+docker-compose.yml
+Dockerfile

@@ -21,3 +21,4 @@ COPY . /ns/
 
 # Entrypoint for dynamic ns
 ENTRYPOINT [ "./docker-entrypoint.sh" ]
+CMD [ "n005w4_0_1-2-3-3 22-36-96-5" ]
