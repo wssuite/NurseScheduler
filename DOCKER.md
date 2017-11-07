@@ -19,3 +19,9 @@ docker-compose logs
 ````
 
 6- The software reads the data from the datafiles folder and write the output in the outfiles folder. You can change the command in the docker-compose file to run the right instance: n005w4_0_1-2-3-3 22-36-96-5 where n005w4_0_1-2-3-3 describes the instance (instance_history_weeks) and 22-36-96-5 describes the seed (if not given, will be randomly generated).
+
+# Docker hub
+The latest image can also be directly downloaded from docker hub and used by simply running:
+````bash
+docker run legraina/dns n005w4_0_1-2-3-3
+````
