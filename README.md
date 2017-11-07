@@ -1,6 +1,7 @@
 # Dynamic Nurse Scheduler
 
 [![Build Status](https://travis-ci.org/legraina/DynamicNurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/DynamicNurseScheduler)
+[![Docker Build Status](https://img.shields.io/docker/build/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/legraina/dns/)
 
 The C++ code shared on this repository has been submitted by the Polytechnique team to the International Nurse Rostering Competition II. Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem is given in:
 
