@@ -94,7 +94,7 @@ The following describes how to handle our code.
 	- run a test with name testname:
 	````bash
 	./bin/staticscheduler --test testname
-		````
+	````
 
 	c. Scritps for running several instances at once :
 	
