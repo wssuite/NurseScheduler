@@ -313,7 +313,7 @@ void DiveBranchingRule::branching_candidates(vector<MyVar*>& branchingCandidates
 void DiveBranchingRule::branchOnRestingArcs(vector<MyVar*>& branchingCandidates){
    //set of rest variable closest to .5
    int bestDay = -1;
-   LiveNurse* pBestNurse(0);
+   LiveNurse* pBestNurse(nullptr);
    double bestValue = DBL_MAX;
 
    for(LiveNurse* pNurse: master_->theLiveNurses_)
@@ -339,7 +339,7 @@ void DiveBranchingRule::branchOnRestingArcs(vector<MyVar*>& branchingCandidates)
          }
       }
 
-   if(pBestNurse>0)
+   if(pBestNurse != nullptr)
       for(MyVar* var: master_->getRestsPerDay(pBestNurse)[bestDay])
          branchingCandidates.push_back(var);
 

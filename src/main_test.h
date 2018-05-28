@@ -48,7 +48,7 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 
 // Solve one week inside the stochastic process
 void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile,
-  string solPath, string logPath, double timeout=0.0);
+  string solPath, double timeout=0.0);
 
 enum Computer {SAM, BUCAREST, SUNGRID, JEREM, VALGRIND};
 
@@ -56,7 +56,7 @@ enum Computer {SAM, BUCAREST, SUNGRID, JEREM, VALGRIND};
 int allowedTime(string instance, Computer computer);
 
 // Set the options of the stochastic solver
-// This is not automated, so the options need to be changed inside the code 
+// This is not automated, so the options need to be changed inside the code
 // during the tests
 // The solution time depends on the number of nurses and on the computed
 void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout = 10000);

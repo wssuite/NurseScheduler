@@ -22,9 +22,9 @@
 #include <boost/assign/list_of.hpp>
 
 
-std::map<std::string, Algorithm> stringToAlgorithm = 
+std::map<std::string, Algorithm> stringToAlgorithm =
    boost::assign::map_list_of("GREEDY", GREEDY)("GENCOL", GENCOL)("STOCHASTIC_GREEDY",STOCHASTIC_GREEDY)("STOCHASTIC_GENCOL",STOCHASTIC_GENCOL)("NONE",NONE);
-std::map<std::string, WeightStrategy> stringToWeightStrategy = 
+std::map<std::string, WeightStrategy> stringToWeightStrategy =
    boost::assign::map_list_of("MAX", MAX)("MEAN", MEAN)("RANDOMMEANMAX",RANDOMMEANMAX)("BOUNDRATIO",BOUNDRATIO)("NO_STRAT",NO_STRAT);
 std::map<std::string, RankingStrategy> stringToRankingStrategy =
    boost::assign::map_list_of("SCORE", RK_SCORE)("MEAN", RK_MEAN);
@@ -529,7 +529,7 @@ void ReadWrite::writeCustom(string strCustomOutputFile, string strWeekFile, stri
 /************************************************************************
 * Read the options of the stochastic and ot the other solvers
 *************************************************************************/
-void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options) {
+string ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options) {
 
    // open the file
    std::fstream file;
@@ -548,26 +548,26 @@ void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolv
 		readUntilOneOfTwoChar(&file, '\n', '=', &title);
 
 		if(!strcmp(title.c_str(), "withEvaluation")){
-			file >> options.withEvaluation_;  
+			file >> options.withEvaluation_;
 		}
 		if(!strcmp(title.c_str(), "withIterativeDemandIncrease")){
-			file >> options.withIterativeDemandIncrease_;  
+			file >> options.withIterativeDemandIncrease_;
 		}
 		if(!strcmp(title.c_str(), "generationCostPerturbation")){
-			file >> options.generationCostPerturbation_;  
+			file >> options.generationCostPerturbation_;
 		}
 		if(!strcmp(title.c_str(), "evaluationCostPerturbation")){
-			file >> options.evaluationCostPerturbation_;  
+			file >> options.evaluationCostPerturbation_;
 		}
 		if(!strcmp(title.c_str(), "generationAlgorithm")){
 			string strtmp;
 			file >> strtmp;
-			options.generationAlgorithm_ = stringToAlgorithm[strtmp];  
+			options.generationAlgorithm_ = stringToAlgorithm[strtmp];
 		}
 		if(!strcmp(title.c_str(), "evaluationAlgorithm")){
 			string strtmp;
 			file >> strtmp;
-			options.evaluationAlgorithm_ = stringToAlgorithm[strtmp];  
+			options.evaluationAlgorithm_ = stringToAlgorithm[strtmp];
 		}
       if(!strcmp(title.c_str(), "rankingStrategy")){
          string strtmp;
@@ -575,21 +575,27 @@ void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolv
          options.rankingStrategy_ = stringToRankingStrategy[strtmp];
       }
 		if(!strcmp(title.c_str(), "nExtraDaysGenerationDemands")){
-			file >> options.nExtraDaysGenerationDemands_;  
+			file >> options.nExtraDaysGenerationDemands_;
 		}
 		if(!strcmp(title.c_str(), "nEvaluationDemands")){
-			file >> options.nEvaluationDemands_;  
+			file >> options.nEvaluationDemands_;
 		}
 		if(!strcmp(title.c_str(), "nDaysEvaluation")){
-			file >> options.nDaysEvaluation_;  
+			file >> options.nDaysEvaluation_;
 		}
 		if(!strcmp(title.c_str(), "nGenerationDemandsMax")){
-			file >> options.nGenerationDemandsMax_;  
+			file >> options.nGenerationDemandsMax_;
 		}
 	}
+
+   std::fstream file2;
+   file2.open(strOptionFile.c_str(), std::fstream::in);
+   string file2_str;
+   while(file2.good()) file2 >> file2_str;
+   return file2_str;
 }
 
-void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
+string ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
    // open the file
    std::fstream file;
    std::cout << "Reading " << strOptionFile << std::endl;
@@ -610,35 +616,41 @@ void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
          file >> options.maxSolvingTimeSeconds_;
       }
 		if(!strcmp(title.c_str(), "printEverySolution")){
-			file >> options.printEverySolution_;  
+			file >> options.printEverySolution_;
 		}
 		if(!strcmp(title.c_str(), "absoluteGap")){
-			file >> options.absoluteGap_;  
+			file >> options.absoluteGap_;
 		}
 		if(!strcmp(title.c_str(), "minRelativeGap")){
-			file >> options.minRelativeGap_;  
+			file >> options.minRelativeGap_;
 		}
 		if(!strcmp(title.c_str(), "relativeGap")){
-			file >> options.relativeGap_;  
+			file >> options.relativeGap_;
 		}
 		if(!strcmp(title.c_str(), "nbDiveIfMinGap")){
-			file >> options.nbDiveIfMinGap_;  
+			file >> options.nbDiveIfMinGap_;
 		}
 		if(!strcmp(title.c_str(), "nbDiveIfRelGap")){
-			file >> options.nbDiveIfRelGap_;  
+			file >> options.nbDiveIfRelGap_;
 		}
 		if(!strcmp(title.c_str(), "solveToOptimality")){
-			file >> options.solveToOptimality_;  
+			file >> options.solveToOptimality_;
 		}
 		if(!strcmp(title.c_str(), "weightStrategy")){
 			string strtmp;
 			file >> strtmp;
-			options.weightStrategy_ = stringToWeightStrategy[strtmp];  
+			options.weightStrategy_ = stringToWeightStrategy[strtmp];
 		}
 		if(!strcmp(title.c_str(), "stopAfterXSolution")){
-			file >> options.stopAfterXSolution_;  
+			file >> options.stopAfterXSolution_;
 		}
 	}
+
+  std::fstream file2;
+  file2.open(strOptionFile.c_str(), std::fstream::in);
+  string file2_str;
+  while(file2.good()) file2 >> file2_str;
+  return file2_str;
 }
 
 /************************************************************************

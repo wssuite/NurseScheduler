@@ -274,25 +274,48 @@ void testFunction_Samuel(){
 /******************************************************************************
 * Solve one week inside the stochastic process
 ******************************************************************************/
-void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile, 
-	string solPath, string logPathIni, double timeout) {
+void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile,
+	string solPath, double timeout) {
 
-	string logPath = logPathIni+"LogStochastic.txt";
+  unsigned found = solPath.find_last_of(".");
+	string logPathIni = solPath.substr(0,found),
+    logPath = logPathIni+"Log.txt";
 	Tools::LogOutput logStream(logPath);
 
 
 	// set the scenario
-	logStream << "# Initialize the scenario" << std::endl; 
+	logStream << "# Initialize the scenario" << std::endl;
 	Scenario* pScen = initializeScenario(scenPath,demandPath,historyPath);
 
-	// set the options of the stochastic solver 
+	// set the options of the stochastic solver
 	// (the corresponding method needs to be change manually for tests)
-	logStream << "# Set the options" << std::endl; 
+	logStream << "# Set the options" << std::endl;
 	StochasticSolverOptions options;
-	setStochasticSolverOptions(options, pScen, solPath, logPathIni, timeout); 
+	setStochasticSolverOptions(options, pScen, solPath, logPathIni, timeout);
+
+	// check if a parameter file in the the in the log path ini
+  string pathIni = "";
+  found = solPath.find_last_of("/");
+  if(found != string::npos)
+    pathIni = solPath.substr(0,found+1);
+	string stochasticOptions = pathIni+"stochasticOptions.txt",
+					generationOptions = pathIni+"generationOptions.txt",
+					evaluationOptions = pathIni+"evaluationOptions.txt";
+	try {
+		logStream << "Stochastic options:" << endl <<
+      ReadWrite::readStochasticSolverOptions(stochasticOptions, options) << endl;
+	} catch(const std::string& ex) {}
+	try {
+    logStream << "Generation options:" << endl <<
+      ReadWrite::readSolverOptions(generationOptions, options.generationParameters_) << endl;
+	} catch(const std::string& ex) {}
+	try {
+    logStream << "Evaluation options:" << endl <<
+      ReadWrite::readSolverOptions(evaluationOptions, options.evaluationParameters_) << endl;
+	} catch(const std::string& ex) {}
 
 	// get history demands by reading the custom file
-	// 
+	//
 	vector<Demand*> demandHistory;
 	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
 	if (!customInputFile.empty()) {
@@ -301,10 +324,10 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 
 	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);
 
-	logStream << "# Solve the week" << std::endl; 
+	logStream << "# Solve the week" << std::endl;
 	pSolver->solve();
 	int solutionStatus = pSolver->getStatus();
-	logStream << "# Solution status = " << solutionStatus <<  std::endl; 
+	logStream << "# Solution status = " << solutionStatus <<  std::endl;
 
 	Tools::LogOutput solStream(solPath);
 	solStream << pSolver->solutionToString() << std::endl;
@@ -322,7 +345,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 
 /******************************************************************************
 * Set the options of the stochastic solver
-* This is not automated, so the options need to be changed inside the code 
+* This is not automated, so the options need to be changed inside the code
 * during the tests
 * The solution time depends on the number of nurses and on the computed
 ******************************************************************************/
@@ -885,4 +908,3 @@ void testCbc(Scenario* pScen) {
   Tools::LogOutput outStream(outFile);
   outStream << pMPCbc->solutionToString();
 }
-

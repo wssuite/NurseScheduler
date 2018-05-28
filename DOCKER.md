@@ -23,5 +23,5 @@ docker-compose logs
 # Docker hub
 The latest image can also be directly downloaded from docker hub and used by simply running:
 ````bash
-docker run legraina/dns n005w4_0_1-2-3-3
+docker run legraina/dns -i n005w4_0_1-2-3-3
 ````

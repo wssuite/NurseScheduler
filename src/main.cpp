@@ -110,14 +110,10 @@ int main(int argc, char** argv)
          throw Tools::myException("A necessary file name is missing!",__LINE__);
       }
 
-		unsigned found = solutionFile.find_last_of(".");
-		string logFile = solutionFile.substr(0,found);
-	   logFile = "";
-
-      srand(randSeed);
+		srand(randSeed);
 
 	    // Solve the week
-		solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, customInputFile, solutionFile, logFile, timeout);
+		solveOneWeek(scenarioFile, weekDataFile, initialHistoryFile, customInputFile, solutionFile, timeout);
 
 
       // Write the solution in the required output format
@@ -125,7 +121,7 @@ int main(int argc, char** argv)
       if (!customOutputFile.empty()) {
          ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
       }
-      std::cout << "Custom output file : " << customOutputFile << std::endl;
+      cout << "Custom output file : " << customOutputFile << endl;
       // Todo: the method that writes the history file corresponding to the
       // solution
       // string outputHistoryFile("history-week");

@@ -6,4 +6,5 @@ services:
     volumes:
       - ./datasets/:/ns/datasets
       - ./outfiles/:/ns/outfiles
-    command: n005w4_0_1-2-3-3 22-36-96-5
+    command: -i n005w4_0_1-2-3-3 -s 22-36-96-5
+    #entrypoint: ./scripts/testSolvingTime.sh

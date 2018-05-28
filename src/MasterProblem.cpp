@@ -8,7 +8,7 @@
 #include "MasterProblem.h"
 #include "BcpModeler.h"
 //#include "CbcModeler.h"
-#include "ScipModeler.h"
+//#include "ScipModeler.h"
 #include "RotationPricer.h"
 
 /* namespace usage */

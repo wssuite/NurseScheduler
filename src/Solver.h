@@ -311,7 +311,7 @@ class SolverParam{
 public:
 	SolverParam(){}
    //maximal solving time in s
-   int maxSolvingTimeSeconds_ = LARGE_TIME;
+   double maxSolvingTimeSeconds_ = LARGE_TIME;
 
    //print parameters
    bool printEverySolution_ = false;

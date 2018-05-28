@@ -70,8 +70,8 @@ public:
 
 	// Read the options of the stochastic and ot the other solvers
 	//
-	static void readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options);
-	static void readSolverOptions(string strOptionFile, SolverParam& options);
+	static string readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options);
+	static string readSolverOptions(string strOptionFile, SolverParam& options);
 
 
 	// Print the main characteristics of all the demands of an input directory

@@ -1,6 +1,8 @@
 references/
 outfiles/
 BCPDocker/
+bin/
+obj/
 
 .git/
 .gitignore
