@@ -21,7 +21,7 @@ while [ ! -z $1 ]; do
     -s | --seeds) seeds=$2; shift 2;;
     -t | --timeout) timeout=$2; shift 2;;
     -o | --output) outputDir=$2; shift 2;;
-    -*|--*) echo "Option unknown: $1";;
+    -*|--*) echo "Option unknown: $1"; shift 2;;
     *) echo "Cannot parse this argument: $1"
       printBashUsage
       exit 2;;
