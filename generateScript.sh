@@ -6,7 +6,7 @@ function printBashUsage {
   echo "Usage:"
   echo "-h | --help: display this message"
   echo "-i | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: n005w4_1-2-3-3_0"
-  echo "-s | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: random."
+  echo "-s | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: \$RANDOM."
   echo "-t | --timeout: timeout for each stage. Default: based on the number of nurses in the instance."
   echo "-o | --output: directory for the output. Default. outfiles/{instance}/{seeds}_{timestamp}"
 }
@@ -46,12 +46,10 @@ for ((i=2; i<$nbArgs; i++)); do
 	demandFiles[$i-2]="datasets/${instance}/WD-${instance}-${arrayArgs[$i]}.txt"
 done
 
-if [ -z ${seeds} ]
-then
+if [ -z ${seeds} ]; then
 	# create the random seeds
 	seeds=$(($RANDOM%100))
-	for ((i=1; i<$nbWeeks; i++))
-	do
+	for ((i=1; i<$nbWeeks; i++)); do
 		seeds+="-$(($RANDOM%100))"
 	done
 fi

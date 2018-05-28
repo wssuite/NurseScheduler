@@ -237,6 +237,8 @@ protected:
 	void initScheduleEvaluation(int sched);
 	// Evaluate 1 schedule and store the corresponding detailed results (returns false if time has run out)
 	bool evaluateSchedule(int sched);
+	// insert the schedule, for the e valuation demand j and its evaluated costs
+	void insertSolution(int sched, int j, double currentCost=1.0e6, double currentCostGreedy=1.0e6);
 	// Recompute all scores after one schedule evaluation
 	void updateRankingsAndScores(RankingStrategy strategy);
 	// Getter

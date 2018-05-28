@@ -1,14 +1,11 @@
 #!/bin/bash
 
 REPLICATION=30
-FACTORS=10
+FACTORS=( 1 2 4 6 8 10 )
 
 INSTANCE="n100w4_0_1-1-0-8" # "n100w4_0_1-1-0-8" "n100w8_0_0-1-7-8-9-1-5-4"
-nbNurses=100
-BASE_TIME=$((($nbNurses-20)*3+10))
-
-N_REL_DIVE=1
-N_MIN_DIVE=2
+TIME=2500
+BASE_TIME=23 # 90% / 10 of TIME
 
 BASE_OUTPUT="outfiles/${INSTANCE}/eval"
 RESULTS="$BASE_OUTPUT/results.txt"
@@ -18,22 +15,25 @@ BASH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $BASH_DIR && cd ..
 
 mkdir -p $BASE_OUTPUT
-echo "nEvaluationDemands time output validator_cost" >> $RESULTS
+echo "nEvaluationDemands generationSolvingTime time output validator_cost" >> $RESULTS
 
-for i1 in $(eval echo {1..$FACTORS}); do
+for i1 in "${FACTORS[@]}"; do
   echo "i1: $i1"
-  for i2 in $(eval echo {1..$FACTORS}); do
-    TIME=$(($i2 * ${BASE_TIME}))
-    echo "Time: $TIME, i2: $i2"
+  for i2 in "${FACTORS[@]}"; do
+    GENERATION_TIME=$(( ${BASE_TIME} * $i2 ))
+    echo "Generation time: $GENERATION_TIME, i2: $i2"
     for i3 in $(eval echo {1..$REPLICATION}); do
-      OUTPUT="${BASE_OUTPUT}/${i1}_${TIME}_${i3}"
+      OUTPUT="${BASE_OUTPUT}/${i1}_${GENERATION_TIME}_${i3}"
       echo "Create $OUTPUT"
       mkdir -p $OUTPUT
 
       echo "nEvaluationDemands=$i1" >> "$OUTPUT/stochasticOptions.txt"
-      # echo "nbDiveIfRelGap=$(($i * $N_REL_DIVE))" >> "$OUTPUT/generationOptions.txt"
-      # echo "nbDiveIfMinGap=$(($i * $N_ABS_DIVE))" >> "$OUTPUT/generationOptions.txt"
+      echo "nbDiveIfRelGap=100" >> "$OUTPUT/generationOptions.txt"
+      echo "nbDiveIfMinGap=100" >> "$OUTPUT/generationOptions.txt"
+      echo "maxSolvingTimeSeconds=$GENERATION_TIME" >> "$OUTPUT/generationOptions.txt"
 
+      # unset seeds from previous loop
+      seeds=""
       source generateScript.sh -i $INSTANCE -t $TIME -o $OUTPUT
 
       echo "Run: ./${scriptfile}:"
@@ -42,7 +42,7 @@ for i1 in $(eval echo {1..$FACTORS}); do
       ./${scriptfile}
 
       COST=$(cat ${OUTPUT}/validator.txt | grep "Total cost:")
-      echo "$i1 $TIME $OUTPUT $COST" >> $RESULTS
+      echo "$i1 $GENERATION_TIME $TIME $OUTPUT $COST" >> $RESULTS
     done
   done
 done

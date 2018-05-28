@@ -29,7 +29,8 @@ options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0),
 	int remainingDays = ( pScenario_->nbWeeks_ - pScenario_->thisWeek() -1 ) * 7;
 	options_.nDaysEvaluation_ = std::min(options_.nDaysEvaluation_, remainingDays);
 
-	options_.generationParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
+	if(options_.generationParameters_.maxSolvingTimeSeconds_ > options_.totalTimeLimitSeconds_)
+		options_.generationParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
 	options_.generationParameters_.weekIndices_ = { pScenario_->thisWeek() };
 
 	options.generationParameters_.verbose_ = options.verbose_;
@@ -311,7 +312,8 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
 		(*pLogStream_) << "# Time left: " << timeLeft << std::endl;
 
 		// Update the properties of the solver
-		options_.generationParameters_.maxSolvingTimeSeconds_  = timeLeft-1.0;
+		if(options_.generationParameters_.maxSolvingTimeSeconds_ >= timeLeft)
+			options_.generationParameters_.maxSolvingTimeSeconds_ = timeLeft-1.0;
 		options_.nExtraDaysGenerationDemands_ = 7*nbAddedWeeks;
 
 		// Solve the week with no evaluation and nbAddedWeek extra weeks in the demand
@@ -336,7 +338,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
 				previousSolution = solution_;
 				Tools::LogOutput outStream(options_.generationParameters_.outfile_);
 				outStream << solutionToString();
-			} 
+			}
 
 			// Delete and popback the last generation demand to be consistent with the implementation of solveOneWeekNoGenerationEvaluation
 			delete pGenerationDemands_.back();
@@ -376,7 +378,6 @@ bool StochasticSolver::addAndSolveNewSchedule(){
 //	cout << pReusableGenerationSolver_->solutionToLogString() << endl;
 
 	if(nSchedules_ == 1)
-
 		generateAllEvaluationDemands();
 	return evaluateSchedule(nSchedules_-1) ;
 }
@@ -599,11 +600,11 @@ bool StochasticSolver::evaluateSchedule(int sched){
 	for(int j=0; j<options_.nEvaluationDemands_; j++){
 
 		double timeLeft = options_.totalTimeLimitSeconds_ - timerTotal_->dSinceInit();
-		if (nSchedules_ > 0)
-			if (timeLeft < 1.0){
-				cout << "# Time has run out when evaluating schedule no." << (nSchedules_-1) << endl;
-				return false;
-			}
+		if (nSchedules_ > 0 && timeLeft < 1.0){
+			// insert solution with a high cost and continue
+			insertSolution(sched, j);
+			continue;
+		}
 
 		(*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting evaluation of schedule no. " << sched << " over evaluation demand no. " << j << std::endl;
 
@@ -628,14 +629,14 @@ bool StochasticSolver::evaluateSchedule(int sched){
 		}
 
 		// If the first schedule took more than half the available time to be solved, there is
-		// no need to go through evaluation since there will not be any time left for 
+		// no need to go through evaluation since there will not be any time left for
 		// a second schedule -> not ok with that (Sam)
 //		bool isTimeForMoreThanOneSchedule = true;
 //		if ( (nSchedules_==0) && (timerTotal_->dSinceInit() > options_.totalTimeLimitSeconds_/2.0) ) {
 //			isTimeForMoreThanOneSchedule = false;
 //		}
 
-		// Only perform the evaluation if the schedule is feasible and 
+		// Only perform the evaluation if the schedule is feasible and
 		// there is time for more than one schedule
 		double currentCost = costPreviousWeeks_ + baseCost, currentCostGreedy = costPreviousWeeks_ + baseCost;
 		if (pReusableGenerationSolver_->getStatus() == INFEASIBLE) {
@@ -663,24 +664,7 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 		// Insert the solution cost and solution
 		//
-		// If already in the costs -> add it to the set of schedules that found that cost
-		if(schedulesFromObjectiveByEvaluationDemand_[j].find(currentCost) != schedulesFromObjectiveByEvaluationDemand_[j].end()){
-			schedulesFromObjectiveByEvaluationDemand_[j].at(currentCost).insert(sched);
-		}
-		// Otherwise, add a new pair
-		else{
-			set<int> s; s.insert(sched);
-			schedulesFromObjectiveByEvaluationDemand_[j].insert(pair<double, set<int> >( currentCost, s));
-		}
-		#ifdef COMPARE_EVALUATIONS
-		if(schedulesFromObjectiveByEvaluationDemandGreedy_[j].find(currentCostGreedy) != schedulesFromObjectiveByEvaluationDemandGreedy_[j].end()){
-			schedulesFromObjectiveByEvaluationDemandGreedy_[j].at(currentCostGreedy).insert(sched);
-		}
-		else {
-			set<int> s; s.insert(sched);
-			schedulesFromObjectiveByEvaluationDemandGreedy_[j].insert(pair<double, set<int> >( currentCostGreedy, s));
-		}
-		#endif
+		insertSolution(sched, j, currentCost, currentCostGreedy);
 	}
 
 	(*pLogStream_) << "# Evaluation of schedule no. " << sched << " done!" << std::endl;
@@ -689,6 +673,28 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
 	return true;
 
+}
+
+void StochasticSolver::insertSolution(int sched, int j,
+							double currentCost, double currentCostGreedy){
+	// If already in the costs -> add it to the set of schedules that found that cost
+	if(schedulesFromObjectiveByEvaluationDemand_[j].find(currentCost) != schedulesFromObjectiveByEvaluationDemand_[j].end()){
+		schedulesFromObjectiveByEvaluationDemand_[j].at(currentCost).insert(sched);
+	}
+	// Otherwise, add a new pair
+	else{
+		set<int> s; s.insert(sched);
+		schedulesFromObjectiveByEvaluationDemand_[j].insert(pair<double, set<int> >( currentCost, s));
+	}
+	#ifdef COMPARE_EVALUATIONS
+	if(schedulesFromObjectiveByEvaluationDemandGreedy_[j].find(currentCostGreedy) != schedulesFromObjectiveByEvaluationDemandGreedy_[j].end()){
+		schedulesFromObjectiveByEvaluationDemandGreedy_[j].at(currentCostGreedy).insert(sched);
+	}
+	else {
+		set<int> s; s.insert(sched);
+		schedulesFromObjectiveByEvaluationDemandGreedy_[j].insert(pair<double, set<int> >( currentCostGreedy, s));
+	}
+	#endif
 }
 
 // Recompute all scores after one schedule evaluation
