@@ -30,8 +30,7 @@ for i1 in "${FACTORS[@]}"; do
       mkdir -p $OUTPUT
 
       echo "nEvaluationDemands=$i1" >> "$OUTPUT/stochasticOptions.txt"
-      echo "nbDiveIfRelGap=100" >> "$OUTPUT/generationOptions.txt"
-      echo "nbDiveIfMinGap=100" >> "$OUTPUT/generationOptions.txt"
+      echo "solveToOptimality=1" >> "$OUTPUT/generationOptions.txt"
       echo "maxSolvingTimeSeconds=$GENERATION_TIME" >> "$OUTPUT/generationOptions.txt"
 
       # unset seeds from previous loop
