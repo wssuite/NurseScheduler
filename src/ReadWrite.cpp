@@ -590,9 +590,9 @@ string ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSo
 
    std::fstream file2;
    file2.open(strOptionFile.c_str(), std::fstream::in);
-   string file2_str;
-   while(file2.good()) file2 >> file2_str;
-   return file2_str;
+   std::stringbuf buffer;
+   while(file2.good()) file2 >> buffer;
+   return buffer.str();
 }
 
 string ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
@@ -646,11 +646,11 @@ string ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) 
 		}
 	}
 
-  std::fstream file2;
-  file2.open(strOptionFile.c_str(), std::fstream::in);
-  string file2_str;
-  while(file2.good()) file2 >> file2_str;
-  return file2_str;
+   std::fstream file2;
+   file2.open(strOptionFile.c_str(), std::fstream::in);
+   std::stringbuf buffer;
+   while(file2.good()) file2 >> buffer;
+   return buffer.str();
 }
 
 /************************************************************************
