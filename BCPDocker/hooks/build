@@ -8,4 +8,5 @@ fi
 
 # $IMAGE_NAME var is injected into the build so the tag is correct.
 # $DOCKERFILE_PATH var is injected into the build so the path to the Dockerfile is correct.
+echo "docker build -f $DOCKERFILE_PATH --build-arg BUILD_TYPE=$BUILD_TYPE -t $IMAGE_NAME ."
 docker build -f $DOCKERFILE_PATH --build-arg BUILD_TYPE=$BUILD_TYPE -t $IMAGE_NAME .
