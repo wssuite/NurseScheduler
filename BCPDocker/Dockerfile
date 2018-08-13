@@ -16,5 +16,6 @@ RUN apt-get install -t jessie-backports -y openjdk-8-jre-headless
 COPY ./INSTALL.sh /
 
 # Install Boost and BCP
+ARG BUILD_TYPE=Release
 RUN mkdir -p /usr/local
-RUN ./INSTALL.sh /usr/local
+RUN ./INSTALL.sh /usr/local $BUILD_TYPE
