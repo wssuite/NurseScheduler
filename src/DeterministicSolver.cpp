@@ -686,7 +686,6 @@ double DeterministicSolver::solveWithLNS() {
 		int repairIndex = Tools::drawRandomWithWeights(repairWeights);
 		NursesSelectionOperator nurseOperator = nursesSelectionOperators_[nurseIndex];
 		DaysSelectionOperator dayOperator = daysSelectionOperators_[dayIndex];
-		RepairOperator repairOperator = repairOperators_[repairIndex];
 
 		// apply the destroy operator
 		this->adaptiveDestroy(nurseOperator, dayOperator);

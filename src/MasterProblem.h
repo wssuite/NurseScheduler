@@ -86,7 +86,7 @@ struct Rotation {
 	};
 
 	Rotation(int firstDay, vector<int> shiftSuccession, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
-	nurseId_(nurseId), cost_(cost),id_(s_count),
+					id_(s_count),nurseId_(nurseId), cost_(cost),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
 	dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size())
 	{
@@ -95,7 +95,7 @@ struct Rotation {
 	}
 
 	Rotation(vector<double> compactPattern) :
-	nurseId_((int)compactPattern[0]), cost_(DBL_MAX),id_(s_count),
+					id_(s_count),nurseId_((int)compactPattern[0]), cost_(DBL_MAX),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
 	dualCost_(DBL_MAX), firstDay_((int)compactPattern[1]), length_(compactPattern.size()-2)
 	{
@@ -104,7 +104,7 @@ struct Rotation {
 	}
 
 	Rotation(Rotation& rotation, int nurseId) :
-	nurseId_(nurseId), cost_(rotation.cost_),id_(rotation.id_),
+					id_(rotation.id_), nurseId_(nurseId), cost_(rotation.cost_),
 	consShiftsCost_(rotation.consShiftsCost_), consDaysWorkedCost_(rotation.consDaysWorkedCost_),
 	completeWeekendCost_(rotation.completeWeekendCost_), preferenceCost_(rotation.preferenceCost_), initRestCost_(rotation.initRestCost_),
 	dualCost_(rotation.dualCost_), firstDay_(rotation.firstDay_), length_(rotation.length_), shifts_(rotation.shifts_)

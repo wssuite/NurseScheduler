@@ -18,7 +18,7 @@ using namespace std;
 //////////////////////////////////////////////////////////////
 
 
-static char* baseName = "rotation";
+static char const * baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name, SolverParam param):
@@ -301,7 +301,6 @@ void RotationPricer::addRotationsToMaster(){
 
 	// SECOND, ADD THE ROTATIONS TO THE MASTER PROBLEM (in the previously computed order)
 	int nbRotationsAdded = 0;
-	double best;
 	for(Rotation& rot: newRotationsForNurse_){
 		allNewColumns_.push_back(pMaster_->addRotation(rot, baseName));
 		++nbRotationsAdded;
@@ -370,15 +369,15 @@ void RotationPricer::printStatSPSolutions(){
 	double tMeanN = timeForN_ / ((double)nbN_);
 	string sepLine = "+-----------------+------------------------+-----------+\n";
 	printf("\n");
-	printf(sepLine.c_str());
+	printf("%s", sepLine.c_str());
 	printf("| %-15s |%10s %12s |%10s |\n", "type", "time", "number", "mean time");
-	printf(sepLine.c_str());
+	printf("%s", sepLine.c_str());
 	printf("| %-15s |%10.2f %12d |%10.4f |\n",	"Ex. Subproblems", timeInExSubproblems_, nbExSubproblems_, tMeanSubproblems);
 	printf("| %-15s |%10.2f %12d |%10.4f |\n",	"Short rotations", timeForS_, nbS_, tMeanS);
 	printf("| %-15s |%10.2f %12d |%10.4f |\n",	"NL rotations", timeForNL_, nbNL_, tMeanNL);
-	printf(sepLine.c_str());
+	printf("%s", sepLine.c_str());
 	printf("| %-15s |%10.2f %12d |%10.4f |\n", "N rotations", timeForN_, nbN_, tMeanN);
-	printf(sepLine.c_str());
+	printf("%s", sepLine.c_str());
 	printf("\n");
 }
 

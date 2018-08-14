@@ -1,2 +1,2 @@
-# set(BCPDIROPT ~/local/Bcp-1.4/build)
-# set(BCPDIRDBG ~/local/Bcp-1.4/build-dbg)
+set(BCPDIROPT /Users/legraina/local/Bcp-1.4/build)
+set(BCPDIRDBG /Users/legraina/local/Bcp-1.4/build-dbg)

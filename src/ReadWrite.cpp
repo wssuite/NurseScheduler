@@ -50,7 +50,6 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	}
 
 	string title;
-	char charTmp[256];
 	string strTmp;
 	int intTmp;
 	// declare the attributes that will intialize the Scenario instance
@@ -387,7 +386,6 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 
 	string title;
 	string strTmp;
-	int intTmp;
 
 	// declare the attributes to be updated in the Scenario*
 	//
@@ -713,7 +711,6 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(vector<std::string> strWeekS
 void ReadWrite::compareDemands(string inputDir, string logFile) {
 
 	struct dirent *dirp;
-	struct stat filestat;
 	Tools::LogOutput logStream(logFile,8);
 
 	vector2D minPerShift, optPerShift, minPerSkill,optPerSkill;

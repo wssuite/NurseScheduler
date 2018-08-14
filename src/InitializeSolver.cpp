@@ -31,7 +31,7 @@ unsigned int Rotation::s_count = 0;
 ******************************************************************************/
 
 InputPaths* readNonCompactArguments(int argc, char** argv) {
-	InputPaths* pInputPaths;
+	InputPaths* pInputPaths = nullptr;
 
 	// Read the arguments and store them in inputPaths
 	//
@@ -110,7 +110,8 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	//
 	int narg = 1;
 	while (narg < argc) {
-		std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
+		const char* arg = argv[narg];
+		std::cout << "arg = " << arg << " " << argv[narg+1] << std::endl;
 		// Attention usine a gaz: problem with the java simulator that add quote
 		// marks in the arguments, which messes with the open file methods
 		// the code below is here to remove these quote marks
@@ -122,44 +123,46 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 			found = str.find("\"");
 		}
 
-		if (!strcmp(argv[narg],"--dir")) {
+		if (!strcmp(arg,"--dir")) {
 			dataDir = str;
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--instance")) {
+		else if (!strcmp(arg,"--instance")) {
 			instanceName = str;
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--his")) {
+		else if (!strcmp(arg,"--his")) {
 			historyIndex = std::stoi(str);
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--weeks")) {
+		else if (!strcmp(arg,"--weeks")) {
 			weekIndices = Tools::parseList(str,'-');
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--sol")) {
+		else if (!strcmp(arg,"--sol")) {
 			solutionPath = str;
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--log")) {
+		else if (!strcmp(arg,"--log")) {
 			logPath = str;
 			narg+= 2;
 		}
-		else if (!strcmp(argv[narg],"--param")) {
+		else if (!strcmp(arg,"--param")) {
 			paramFile = str;
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--timeout")) {
+		else if (!strcmp(arg,"--timeout")) {
 			timeOut = std::stod(str);
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--rand")) {
+		else if (!strcmp(arg,"--rand")) {
 			randSeed = std::stoi(str);
 			narg += 2;
 		}
 		else {
-			Tools::throwError("main: the argument does not match the expected list!");
+			std::stringstream err_buff;
+			err_buff << "main: the argument (" << arg << ") does not match the expected list!";
+			Tools::throwError(err_buff.str());
 		}
 	}
 
@@ -400,7 +403,7 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 
 Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 
-	Solver* pSolver;
+	Solver* pSolver = nullptr;
 	switch(algorithm){
 	// case GREEDY:
 	// 	pSolver = new Greedy(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
@@ -505,7 +508,6 @@ void displaySolutionMultipleWeeks(InputPaths inputPaths, vector<Roster> &solutio
 
 void computeStatsOnTheDemandsOfAllInstances(string inputDir) {
 	struct dirent *dirp;
-	struct stat filestat;
 
 	// Open the input directory
 	DIR* dp = opendir( inputDir.c_str() );

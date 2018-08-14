@@ -34,12 +34,14 @@ bool compareDecreasing (int i,int j) { return (i>j);}
 void throwError(const char* exceptionMsg)  {
 	try {
 		throw std::string(exceptionMsg);
-	} catch (const std::string str) {
-		printf("Exception caught: %s\n", str.c_str());
-		throw;
-
+	} catch (const std::string& str) {
+		throwError(str);
 	}
 }
+	void throwError(const std::string& str) {
+		printf("Exception caught: %s\n", str.c_str());
+		throw;
+	}
 
 // Display a debug message
 //

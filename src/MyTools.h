@@ -73,6 +73,7 @@ private:
 // Throw an exception with the input message
 //
 void throwError(const char* exceptionMsg);
+	void throwError(const std::string& str);
 
 // Display a debug message
 //

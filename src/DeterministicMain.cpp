@@ -101,7 +101,6 @@ int main(int argc, char** argv)
 	int narg = 1;
 	InputPaths* pInputPaths=0;
 	string solutionFile="";
-	int randSeed=0;
 	double timeout = 100.0;
 
 	// On se limite à trois arguments pour les tests

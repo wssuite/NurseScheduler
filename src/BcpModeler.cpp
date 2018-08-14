@@ -46,7 +46,7 @@ OsiSolverInterface* BcpLpModel::initialize_solver_interface(){
 	set_param(entry.first, entry.second);
 	set_param(pModel_->strong_branching.first, pModel_->strong_branching.second);
 
-	OsiSolverInterface* solver;
+	OsiSolverInterface* solver = nullptr;
 	switch(pModel_->getLPSolverType()){
 		case CLP:
 		solver = new OsiClpSolverInterface();

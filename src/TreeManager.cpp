@@ -510,11 +510,10 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	int bestDay = -1;
 	double advantage = .1;
 	LiveNurse* pBestNurse(0);
-	double lowestScore = DBL_MAX, value = 0;
+	double lowestScore = DBL_MAX;
 	vector<int> forbiddenShifts;
 
 	//compute the solution for each nurse, day, shift
-	vector<MyVar*>& rotations = pModel_->getActiveColumns();
 	vector<vector<vector<double>>> fractionalRoster = pMaster_->getFractionalRoster();
 
 	//search for the best branching decision (set of shifts the closest to .5)

@@ -455,7 +455,7 @@ public:
 	// LNS
 	// Record the current solution of the relaxation
 	//
-	BcpLpSol& recordLpSol() {
+	BcpLpSol recordLpSol() {
 		BcpLpSol currentSol(activeColumnVars_, columnsToIndex_, primalValues_, dualValues_, reducedCosts_, lhsValues_);
 		return currentSol;
 	}
@@ -984,7 +984,7 @@ protected:
  */
 class BcpInitialize : public USER_initialize {
 public:
-	BcpInitialize(BcpModeler* pModel): pModel_(pModel), pTree_(0), pLpModel_(0), pPacker_(0) { }
+	BcpInitialize(BcpModeler* pModel): pModel_(pModel), pLpModel_(0), pTree_(0), pPacker_(0) { }
 	~BcpInitialize() {
 		if (pLpModel_->getLpProblemPointer()) delete pLpModel_->getLpProblemPointer();
 		// if (pLpModel_->getOsiBabSolver()) delete pLpModel_->getOsiBabSolver();

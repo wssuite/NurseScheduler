@@ -1737,7 +1737,7 @@ string MasterProblem::coverageToString(bool printInteger){
 			for (int day = firstDay; day < firstDay+nbDays; day++){
 				double shiftValue = pModel_->getVarValue(skillsAllocVars_[day][s-1][sk]);
 				char buffer[100];
-				if(abs(shiftValue - round(shiftValue) < EPSILON))
+				if(abs(shiftValue - round(shiftValue)) < EPSILON)
 					sprintf(buffer, "|%4d", (int) round(shiftValue));
 				else sprintf(buffer, "|%2.2f", shiftValue);
 				rep << buffer;

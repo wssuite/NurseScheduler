@@ -2482,7 +2482,6 @@ void SubProblem::printPath(vector< boost::graph_traits<Graph>::edge_descriptor >
 				std::cout << " |";
 				k++;
 			}
-			int succId = shortSuccCDMinIdFromArc_.at(a);
 			for(int s: allowedShortSuccBySize_[CDMin_][ shortSuccCDMinIdFromArc_.at(a) ]){
 				std::cout << pScenario_->intToShift_[s].at(0) << "|";
 				k++;
@@ -2594,7 +2593,6 @@ void SubProblem::printContractAndPrefenrences(){
 /*************************************************************************
  * A GARDER AU CAS OU COMME EXEMPLE POUR CERTAINES FONCTIONS / SYNTAXES. *
  *************************************************************************/
-const int num_nodes = 7;
 enum nodes { A, B, C, D, E, F, G };
 char name[] = "ABCDEFG";
 
