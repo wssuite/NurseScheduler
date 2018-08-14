@@ -52,7 +52,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	string title;
 	string strTmp;
 	int intTmp;
-	// declare the attributes that will intialize the Scenario instance
+	// declare the attributes that will initialize the Scenario instance
 	//
 	string name;
 	int nbWeeks=-1, nbSkills=-1, nbShifts=-1, nbContracts=-1, nbNurses=-1;
