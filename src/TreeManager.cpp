@@ -369,7 +369,7 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 		}
 	}
 
-	if(pBestNurse>0){
+	if(pBestNurse != nullptr){
 		//creating the branching cut
 		char name[50];
 		sprintf(name, "RestBranchingCons_N%d_%d", pBestNurse->id_, bestDay);
@@ -582,7 +582,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 		}
 	}
 
-	if(pBestNurse>0){
+	if(pBestNurse != nullptr){
 		//creating the branching cut
 		char name[50];
 		sprintf(name, "ShiftBranchingCons_N%d_%d", pBestNurse->id_, bestDay);

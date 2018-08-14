@@ -1,0 +1,2 @@
+# set(BCPDIROPT ~/local/Bcp-1.4/build)
+# set(BCPDIRDBG ~/local/Bcp-1.4/build-dbg)

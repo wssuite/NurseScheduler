@@ -101,8 +101,8 @@ private:
 class ShiftSorter {
 public:
 	// take the field to sort by in the constructor
-	ShiftSorter (const vector<int> nbForbiddenSuccessors) : nbForbiddenSuccessors_(nbForbiddenSuccessors), reverse_(false) {}
-	ShiftSorter (const vector<int> nbForbiddenSuccessors, bool reverse) : nbForbiddenSuccessors_(nbForbiddenSuccessors), reverse_(reverse) {}
+	ShiftSorter (const vector<int> nbForbiddenSuccessors) : reverse_(false), nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
+	ShiftSorter (const vector<int> nbForbiddenSuccessors, bool reverse) : reverse_(reverse), nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
 	bool operator() (const int sh1, const int sh2) {
 		return (reverse_?-1:1)*nbForbiddenSuccessors_[sh1] < (reverse_?-1:1)*nbForbiddenSuccessors_[sh2];
 	}

@@ -1,4 +1,4 @@
-FROM legraina/bcp
+FROM legraina/bcp:dbg
 
 # Export path
 ENV BCPDIROPT /usr/local/Bcp-1.4/build

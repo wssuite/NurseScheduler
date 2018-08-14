@@ -18,7 +18,7 @@ USE_BCP = TRUE
 USE_BCP_GUROBI = FALSE
 USE_BCP_CPLEX = FALSE
 USE_CBC = FALSE
-DEBUG  = FALSE
+DEBUG  = TRUE
 MEMORY_PROFILE = FALSE
 
 #-----------------------------------------------------------------------------

@@ -45,6 +45,10 @@ echo "Run: ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $w
 # run the validator
 ./validator.sh $instance $weeks $hist $outputDir
 
+# out put total cost
+result=$(cat ${outputDir}/validator.txt | grep "Total cost:")
+echo "$result"
+
 # if $2 defined, test the total cost
 if [ -z $2 ]
 then
@@ -52,11 +56,10 @@ then
 fi
 
 # fetch the total cost and check if is the right one
-cat ${outputDir}/validator.txt
-result=$(cat ${outputDir}/validator.txt | grep "Total cost: $2")
-if [ -z "$result" ]
+result_searched=$(cat ${outputDir}/validator.txt | grep "Total cost: $2")
+if [ -z "$result_searched" ]
 then
-  echo "error"
+  echo "error, $result which is different of $2."
   exit 1
 fi
 exit 0

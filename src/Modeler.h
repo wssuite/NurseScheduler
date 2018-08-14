@@ -148,11 +148,11 @@ static const vector<MyVar*> EMPTY_VARS;
 
 struct MyCons: public MyObject{
 	MyCons(const char* name, int index, double lhs, double rhs):
-		MyObject(name), lhs_(lhs), rhs_(rhs), index_(index)
+		MyObject(name), lhs_(lhs), index_(index), rhs_(rhs)
 	{ }
 
 	MyCons(const MyCons& cons) :
-		MyObject(cons.name_), lhs_(cons.lhs_), rhs_(cons.rhs_), index_(cons.index_)
+		MyObject(cons.name_), lhs_(cons.lhs_), index_(cons.index_), rhs_(cons.rhs_)
 	{ }
 
 	virtual ~MyCons(){ }
@@ -392,9 +392,9 @@ protected:
 /* Represents the nodes of the branching tree */
 struct MyNode{
 
-	MyNode(): index_(0), bestLB_(LARGE_SCORE), bestLagLB_(-LARGE_SCORE), lastLagLB_(-LARGE_SCORE), pParent_(0), highestGap_(0) {}
+	MyNode(): index_(0), bestLB_(LARGE_SCORE), bestLagLB_(-LARGE_SCORE), pParent_(0), lastLagLB_(-LARGE_SCORE), highestGap_(0) {}
 	MyNode(int index, MyNode* pParent):
-		index_(index), bestLB_(pParent->bestLB_), bestLagLB_(pParent->bestLagLB_), lastLagLB_(pParent->bestLB_), pParent_(pParent), highestGap_(0) {}
+		index_(index), bestLB_(pParent->bestLB_), bestLagLB_(pParent->bestLagLB_), pParent_(pParent), lastLagLB_(pParent->bestLB_), highestGap_(0) {}
 	virtual ~MyNode() {}
 
 	const int index_;
@@ -472,8 +472,9 @@ protected:
 };
 
 struct MyTree {
-	MyTree(): best_ub(LARGE_SCORE), best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE),
-			currentNode_(0), tree_size_(1), nb_nodes_last_incumbent_(-2), nb_nodes_since_dive_(-2), diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0) {}
+	MyTree(): best_lb_in_root(LARGE_SCORE), best_ub(LARGE_SCORE), tree_size_(1),
+						currentNode_(0), best_lb(LARGE_SCORE), nb_nodes_last_incumbent_(-2), diveDepth_(0), nb_nodes_since_dive_(-2),
+						diveLength_(LARGE_SCORE), min_depth_(0) {}
 	virtual ~MyTree() {}
 
 	inline void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }

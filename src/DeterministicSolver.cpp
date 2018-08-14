@@ -751,6 +751,11 @@ double DeterministicSolver::solveWithLNS() {
 			}
 		}
 
+		std::cout << "**********************************************" << std::endl
+		          << "LNS iteration: " << stats_.lnsNbIterations_
+		          << "\t" << "Best solution: " << bestObjVal << std::endl
+							<< "**********************************************" << std::endl;
+
 		// unfix every nurse and/or days for next iteration
 		//
 		std::vector<bool> isUnfixNurse(pScenario_->nbNurses_,true);
