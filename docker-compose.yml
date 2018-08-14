@@ -9,5 +9,5 @@ services:
       - ./outfiles/:/ns/outfiles
     environment:
       PARAM: "default.txt"
-      TIMEOUT: 2940
-    command: n060w8_0_6-2-9-9-0-8-1-3 #  n005w4_0_1-2-3-3
+      TIMEOUT: 30
+    command: n005w4_0_1-2-3-3

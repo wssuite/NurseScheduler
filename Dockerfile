@@ -1,7 +1,8 @@
-FROM legraina/bcp:dbg
+FROM legraina/bcp
 
 # Export path
 ENV BCPDIROPT /usr/local/Bcp-1.4/build
+ENV BCPDIRDBG /usr/local/Bcp-1.4/build
 ENV BOOST_DIR /usr/local/include
 
 # Create src directory
