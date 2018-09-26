@@ -168,7 +168,7 @@ public:
 	void addAbove(Position* pPosition);
 
 	// reset the list of positions below and above
-	// 
+	//
 	void resetAbove();
 	void resetBelow();
 
@@ -383,7 +383,7 @@ public:
 	bool wantsTheDayOff(int nurse, int day);
 
 	// Total number of shifts off that the nurse wants
-	int howManyShiftsOff(int nurse); 
+	int howManyShiftsOff(int nurse);
 
 	// Number of whole days off that the nurse wants
 	int howManyDaysOff(int nurse, int dayMin, int dayMax);

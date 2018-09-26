@@ -70,11 +70,11 @@ public:
 
 	// Read the options of the stochastic and ot the other solvers
 	//
-	static void readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options);
-	static void readSolverOptions(string strOptionFile, SolverParam& options);
+	static string readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options);
+	static string readSolverOptions(string strOptionFile, SolverParam& options);
 
 	// Read the solution from multiple week solution files
-	// 
+	//
 	static vector<Roster> readSolutionMultipleWeeks(vector<std::string> strWeekSolFiles, Scenario* pScenario);
 
 	// Print the main characteristics of all the demands of an input directory

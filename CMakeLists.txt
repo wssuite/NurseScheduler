@@ -41,5 +41,10 @@ SET(LIBS Bcp Osi OsiClp ClpSolver Clp CoinUtils bz2 z lapack blas m)
 # build main library
 INCLUDE_DIRECTORIES(src)
 add_subdirectory(src)
+
+# exec
 add_executable(staticscheduler src/DeterministicMain.cpp)
 target_link_libraries(staticscheduler ${NURSE_SCHEDULER_LIB} ${LIBS})
+
+add_executable(dynamicscheduler src/DynamicMain.cpp)
+target_link_libraries(dynamicscheduler ${NURSE_SCHEDULER_LIB} ${LIBS})

@@ -87,7 +87,10 @@ OBJDIR      =  obj
 
 EXEC_DET = staticscheduler
 OBJ_DET = DeterministicMain.o DeterministicMain_test.o
-COMMONOBJ  = InputPaths.o GlobalStats.o InitializeSolver.o MyTools.o Demand.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o  RotationPricer.o TreeManager.o 
+EXEC_DYN = dynamicscheduler
+OBJ_DYN = DynamicMain.o
+COMMONOBJ  = InputPaths.o GlobalStats.o InitializeSolver.o MyTools.o Demand.o DemandGenerator.o Nurse.o Scenario.o ReadWrite.o Roster.o MasterProblem.o SubProblem.o Solver.o Greedy.o RotationPricer.o TreeManager.o
+
 #Greedy.o
 
 ifeq ($(USE_SCIP), TRUE)
@@ -108,6 +111,8 @@ endif
 
 OBJ_DET += $(COMMONOBJ) DeterministicSolver.o
 OBJFILES_DET = $(addprefix $(OBJDIR)/,$(OBJ_DET))
+OBJ_DYN += $(COMMONOBJ) StochasticSolver.o
+OBJFILES_DYN = $(addprefix $(OBJDIR)/,$(OBJ_DYN))
 
 #-----------------------------------------------------------------------------
 # Default compiler parameters
@@ -131,7 +136,7 @@ endif
 # Rules
 #-----------------------------------------------------------------------------
 .PHONY: all
-all: $(SCIPDIR) $(EXEC_STO) $(EXEC_DET) # $(MAINSHORTLINK)
+all: $(SCIPDIR) $(EXEC_STO) $(EXEC_DET) $(EXEC_DYN)# $(MAINSHORTLINK)
 
 #$(MAINSHORTLINK):	$(MAINFILE)
 #		@rm -f $@
@@ -157,6 +162,12 @@ $(EXEC_DET):	$(BINDIR) $(OBJDIR) $(SCIPLIBFILE) $(LPILIBFILE) $(NLPILIBFILE) $(O
 		@echo 		$(LINKCXX) $(OBJFILES_DET) $(LIBS) $(OFLAGS) $(LPSLDFLAGS) $(LDFLAGS) $(LINKCXX_o)$@
 		$(LINKCXX) $(OBJFILES_DET) $(LIBS) $(OFLAGS) $(LPSLDFLAGS) $(LDFLAGS) $(LINKCXX_o)$@
 		-mv $(EXEC_DET) $(BINDIR)
+
+$(EXEC_DYN):	$(BINDIR) $(OBJDIR) $(SCIPLIBFILE) $(LPILIBFILE) $(NLPILIBFILE) $(OBJFILES_DYN)
+		@echo "-> linking $@"
+		@echo 		$(LINKCXX) $(OBJFILES_DYN) $(LIBS) $(OFLAGS) $(LPSLDFLAGS) $(LDFLAGS) $(LINKCXX_o)$@
+		$(LINKCXX) $(OBJFILES_DYN) $(LIBS) $(OFLAGS) $(LPSLDFLAGS) $(LDFLAGS) $(LINKCXX_o)$@
+		-mv $(EXEC_DYN) $(BINDIR)
 
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c
 		@echo "-> compiling $@"

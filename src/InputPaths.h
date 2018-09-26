@@ -23,7 +23,7 @@
 class InputPaths{
 public:
 	InputPaths();
-	InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices, 
+	InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices,
 		std::string solutionPath="",std::string logPath="", std::string paramFile="" , double timeOut=3600.0, int randSeed=0);
 
 protected:

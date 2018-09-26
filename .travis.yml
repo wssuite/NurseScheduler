@@ -6,9 +6,10 @@ services:
   - docker
 
 before_install:
-  - docker image build -t sns .
+  - docker image build -t ns .
 
 script:
-  - docker run -t sns n005w4_0_1-2-3-3 1470
-  - docker run -t sns n030w4_1_6-2-9-1 1745 120
-  - docker run -t sns n030w4_1_6-7-5-3 1885 120
+  - docker run -t ns -i n005w4_0_1-2-3-3 -g 1470
+  - docker run -t ns -i n030w4_1_6-2-9-1 -g 1745 -t 120
+  - docker run -t ns -i n030w4_1_6-7-5-3 -g 1885 -t 120
+  - docker run -t ns -d -i n005w4_0_1-2-3-3 -s 22-36-96-5 -g 1685

@@ -622,8 +622,6 @@ public:
 	// of the graph of positions
 	virtual double solveByConnexPositions() {return 0.0;}
 
-public:
-
 	//------------------------------------------------
 	// Preprocess the data
 	//------------------------------------------------
@@ -646,8 +644,6 @@ public:
 	//
 	bool isPreprocessedSkills_;
 	bool isPreprocessedNurses_;
-
-public:
 
 	// Load a solution in the solver and build the states of the live nurses
 	//

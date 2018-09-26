@@ -531,7 +531,7 @@ void ReadWrite::writeCustom(string strCustomOutputFile, string strWeekFile, stri
 /************************************************************************
 * Read the options of the stochastic and ot the other solvers
 *************************************************************************/
-void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options) {
+std::string ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options) {
 
 	// open the file
 	std::fstream file;
@@ -589,9 +589,16 @@ void ReadWrite::readStochasticSolverOptions(string strOptionFile, StochasticSolv
 			file >> options.nGenerationDemandsMax_;
 		}
 	}
+
+  std::ifstream fin(strOptionFile.c_str());
+  std::ostringstream sout;
+  while(fin.good()) copy(std::istreambuf_iterator<char>(fin),
+       std::istreambuf_iterator<char>(),
+       std::ostreambuf_iterator<char>(sout));
+   return sout.str();
 }
 
-void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
+std::string ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << strOptionFile << std::endl;
@@ -641,6 +648,13 @@ void ReadWrite::readSolverOptions(string strOptionFile, SolverParam& options) {
 			file >> options.stopAfterXSolution_;
 		}
 	}
+
+  std::ifstream fin(strOptionFile.c_str());
+  std::ostringstream sout;
+  while(fin.good()) copy(std::istreambuf_iterator<char>(fin),
+       std::istreambuf_iterator<char>(),
+       std::ostreambuf_iterator<char>(sout));
+   return sout.str();
 }
 
 // Read the solution from multiple week solution files

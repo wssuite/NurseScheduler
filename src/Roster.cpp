@@ -122,6 +122,3 @@ void Roster::copy(Roster& roster) {
     skills_.push_back(roster.skill(day));
   }
 }
-
-
-

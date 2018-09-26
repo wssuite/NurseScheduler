@@ -61,7 +61,7 @@ public:
 	myException( const char * Msg, int Line )
 	{
 		std::ostringstream oss;
-		oss << "Erreur ligne " << Line << " : "<< Msg;
+		oss << "Error line " << Line << " : "<< Msg;
 		this->msg = oss.str();
 	}
 	virtual ~myException() throw() {}

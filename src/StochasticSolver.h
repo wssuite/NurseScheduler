@@ -90,7 +90,8 @@ public:
 void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario,
  string solPath, string logPathIni, double timeout = 10000);
 
-
+ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, string instanceName,
+    string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile);
 
 //-----------------------------------------------------------------------------
 //

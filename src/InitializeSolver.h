@@ -30,10 +30,6 @@ Scenario* initializeMultipleWeeks(const InputPaths & inputPaths, string logPath=
 // whose positions are in the same connex component of positions
 vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario);
 
-// Solve one week inside the stochastic process
-void solveOneWeek(string scenPath, string demandPath, string historyPath, string customInputFile,
-  string solPath, string logPath, double timeout=0.0);
-
 // Solve the complete planning horizon with the deterministic solver
 //void solveDeterministic(InputPaths inputPaths, string solPath, string logPathIni, double timeout);
 

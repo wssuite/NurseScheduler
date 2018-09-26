@@ -799,9 +799,6 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			origin = principalNetworkNodes_[sh][nDays_-1][nCons];
 			destin = principalNetworkNodes_[sh][nDays_-1][maxvalConsByShift_[sh]];
 			arcsShiftToEndsequence_[sh][nDays_-1][nCons] = nArcs_;
-			/*
-			 * Antoine modif: on paie juste les jours en plus
-			 */
 			addSingleArc(origin, destin, 0, 0, SHIFT_TO_ENDSEQUENCE);
 		}
 	}

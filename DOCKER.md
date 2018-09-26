@@ -18,4 +18,15 @@ docker-compose ps
 docker-compose logs
 ````
 
-6- The software reads the data from the datafiles folder, the parameters from the paramfiles folder, and write the output in the outfiles folder. You can change the command in the docker-compose file to run the right instance: n005w4_0_1-2-3-3 where n005w4_0_1-2-3-3 describes the instance (instance_history_weeks). You can change the parameters file and the timeout with environment variables (PARAM and TIMEOUT). The results are written in outfiles/n005w4_0_1-2-3-3/unixtimestamps (unixtimestamps is computed at every run).
+6- The software reads the data from the datafiles folder and write the output in the outfiles folder. You can change the command in the docker-compose file to run the right instance: -i n005w4_0_1-2-3-3 22-36-96-5 where n005w4_0_1-2-3-3 describes the instance (instance_history_weeks). The results are written in outfiles/n005w4_0_1-2-3-3/unixtimestamps (unixtimestamps is computed at every run).
+Look at the docker-entrypoint.sh file for more details.
+
+# Docker hub
+The latest image can also be directly downloaded from docker hub and used by simply running:
+````bash
+docker run legraina/ns -i n005w4_0_1-2-3-3
+````
+or
+````bash
+docker run legraina/ns -h
+````

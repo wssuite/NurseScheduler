@@ -9,6 +9,7 @@
 #include "DemandGenerator.h"
 #include "Greedy.h"
 #include "MasterProblem.h"
+#include "ReadWrite.h"
 
 // #define COMPARE_EVALUATIONS
 
@@ -80,6 +81,29 @@ void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pSce
    evaluationParameters.stopAfterXSolution_ = 0;
 
    options.evaluationParameters_ = evaluationParameters;
+}
+
+
+void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, string instanceName,
+   string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile) {
+
+   string logStochastic = logPathIni.empty() ? "":logPathIni+"LogStochastic.txt";
+   string logSolver = logPathIni.empty() ? "":logPathIni+"LogSolver.txt";
+
+   ReadWrite::readStochasticSolverOptions(stochasticOptionsFile, stochasticSolverOptions);
+   stochasticSolverOptions.logfile_ = logStochastic;
+
+   SolverParam generationParameters;
+   ReadWrite::readSolverOptions(generationOptionsFile, generationParameters);
+   generationParameters.outfile_ = solPath;
+   stochasticSolverOptions.generationParameters_ = generationParameters;
+   stochasticSolverOptions.generationParameters_.verbose_ = stochasticSolverOptions.verbose_;
+
+   SolverParam evaluationParameters;
+   ReadWrite::readSolverOptions(evaluationOptionsFile, evaluationParameters);
+   evaluationParameters.logfile_ = logSolver;
+   stochasticSolverOptions.evaluationParameters_ = evaluationParameters;
+   stochasticSolverOptions.evaluationParameters_.verbose_ = stochasticSolverOptions.verbose_;
 }
 
 //-----------------------------------------------------------------------------

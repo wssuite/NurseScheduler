@@ -1,13 +1,10 @@
 version: '2'
 services:
   ns:
-    container_name: sns
+    container_name: ns
     build: ./
     volumes:
       - ./datasets/:/ns/datasets
       - ./paramfiles/:/ns/paramfiles
       - ./outfiles/:/ns/outfiles
-    environment:
-      PARAM: "default.txt"
-      TIMEOUT: 30
-    command: n005w4_0_1-2-3-3
+    command: -i n005w4_0_1-2-3-3  #  -d -s 22-36-96-5

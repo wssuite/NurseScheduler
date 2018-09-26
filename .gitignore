@@ -1,6 +1,59 @@
-bin/*
-obj/*
-bashfiles/*
-outfiles/default/*
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMakeDefinitionsList.txt
 CMakeDefinitionsLists.txt
 
+# source files whose changes must remain local
+src/main.cpp
+src/MyMain.cpp
+
+# binaries and compilation files
+bin/*
+obj/*
+
+# ouput and log files
+bashfiles/*
+logfiles/*
+outfiles/
+*.log
+
+#For eclipse
+.cproject*
+.project*
+formatter*
+.metadata/*
+.settings/*
+
+# for mac
+.fuse*

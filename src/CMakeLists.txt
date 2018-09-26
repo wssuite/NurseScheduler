@@ -2,10 +2,12 @@ project(nursescheduler)
 
 set(SOURCE_FILES
         BcpModeler.cpp
+        CbcModeler.cpp
         Demand.cpp
-        DeterministicMain_test.cpp
+        DemandGenerator.cpp
         DeterministicSolver.cpp
         GlobalStats.cpp
+        Greedy.cpp
         InitializeSolver.cpp
         InputPaths.cpp
         MasterProblem.cpp
@@ -16,7 +18,7 @@ set(SOURCE_FILES
         RotationPricer.cpp
         Scenario.cpp
         Solver.cpp
-#        StochasticSolver.cpp
+        StochasticSolver.cpp
         SubProblem.cpp
         TreeManager.cpp)
 

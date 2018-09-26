@@ -369,7 +369,7 @@ public:
 	vector<MyVar*> getMinWorkedDaysVars() {return minWorkedDaysVars_;}
 	vector<MyVar*> getMaxWorkedDaysVars() {return maxWorkedDaysVars_;}
 	vector<MyVar*> getMaxWorkedWeekendVars() {return maxWorkedWeekendVars_;}
-	vector< vector< vector<MyVar*> > > getOptDemandVars() {return optDemandVars_;} 
+	vector< vector< vector<MyVar*> > > getOptDemandVars() {return optDemandVars_;}
 
 private:
 	Modeler* pModel_;
