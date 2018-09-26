@@ -39,9 +39,10 @@ struct BcpLpSol {
 	// constructor/destructor
 	BcpLpSol() {}
 
-	BcpLpSol(std::vector<MyVar*> activeColumnVars, std::map<int,int> columnsToIndex,
-		std::vector<double> primalValues, std::vector<double> dualValues,
-		std::vector<double> reducedCosts, std::vector<double> lhsValues):
+	BcpLpSol(const std::vector<MyVar*>& activeColumnVars,
+					 const std::map<int,int>& columnsToIndex,
+					 const std::vector<double>& primalValues, const std::vector<double>& dualValues,
+					 const std::vector<double>& reducedCosts, const std::vector<double>& lhsValues):
 	activeColumnVars_(activeColumnVars),columnsToIndex_(columnsToIndex),
 	primalValues_(primalValues),dualValues_(dualValues),reducedCosts_(reducedCosts),lhsValues_(lhsValues){}
 
@@ -249,6 +250,12 @@ public:
 
 	//Reset and clear solving parameters
 	void reset(bool rollingHorizon=false);
+
+	void addActiveColumn(MyVar* var){
+		if(!dynamic_cast<BcpColumn*>(var))
+			std::cout << "error";
+		Modeler::addActiveColumn(var);
+	}
 
 protected:
 	/*

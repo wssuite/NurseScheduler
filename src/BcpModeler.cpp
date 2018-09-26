@@ -929,10 +929,9 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
    added_vars.reserve(pModel_->getActiveColumns().size());
    for(MyVar* col: pModel_->getActiveColumns()){
       BcpColumn* var = dynamic_cast<BcpColumn*>(col);
-      if(!var)
-         Tools::throwError("Bad variable casting.");
       //create a new BcpColumn which will be deleted by BCP
-      added_vars.unchecked_push_back(new BcpColumn(*var));
+		 if(var)
+			 added_vars.unchecked_push_back(new BcpColumn(*var));
    }
 }
 
@@ -1138,7 +1137,7 @@ void BcpModeler::createCutLinear(MyCons** cons, const char* con_name, double lhs
 		 BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
 		 if(primalValues_[i] > EPSILON)
 		 var->addActiveIteration(lpIteration); //update the different counters
-		 activeColumnVars_.push_back(var);
+		 addActiveColumn(var);
 		 columnsToIndex_.insert(pair<int,int>(var->getIndex(),i));
 	 }
 	 //	//debug
@@ -1263,7 +1262,7 @@ void BcpModeler::loadInputSol(BCP_solution_generic& sol){
 		 // type of sol._vars[i] is either BcpColumn or BcpCoreVar, dynamic_cast will get the proper one
 		 BcpColumn* col = dynamic_cast<BcpColumn*>(sol._vars[i]);
 		 if(col){
-				activeColumnVars_.push_back(col);
+			  addActiveColumn(col);
 				columnsToIndex_.insert(pair<int,int>(col->getIndex(), ind));
 				primal.push_back(sol._values[i]);
 				++ind;

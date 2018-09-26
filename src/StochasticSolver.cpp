@@ -466,7 +466,6 @@ bool StochasticSolver::addAndSolveNewSchedule(){
    //	cout << pReusableGenerationSolver_->solutionToLogString() << endl;
 
    if(nSchedules_ == 1)
-
       generateAllEvaluationDemands();
    return evaluateSchedule(nSchedules_-1) ;
 }

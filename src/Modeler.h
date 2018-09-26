@@ -1070,7 +1070,9 @@ public:
 	//get the variables that are generating during the resolution (columns)
 	vector<MyVar*>& getActiveColumns(){ return activeColumnVars_; }
 
-	void addActiveColumn(MyVar* var){ activeColumnVars_.push_back(var); }
+	void addActiveColumn(MyVar* var){
+		activeColumnVars_.push_back(var);
+	}
 
 	// Fix every rotation to one : this is useful only when the active columns
 	// are only the rotations included in a provided initial solution

@@ -2,7 +2,7 @@ project(nursescheduler)
 
 set(SOURCE_FILES
         BcpModeler.cpp
-        CbcModeler.cpp
+#        CbcModeler.cpp
         Demand.cpp
         DemandGenerator.cpp
         DeterministicSolver.cpp
@@ -21,6 +21,10 @@ set(SOURCE_FILES
         StochasticSolver.cpp
         SubProblem.cpp
         TreeManager.cpp)
+
+#ifdef USE_CBC
+#include "CbcModeler.h"
+#endif
 
 # build the dynamic library
 add_library(${NURSE_SCHEDULER_LIB} SHARED ${SOURCE_FILES})
