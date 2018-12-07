@@ -522,7 +522,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 		BcpColumn* col = dynamic_cast<BcpColumn*>(var);
 		//create a new BcpColumn which will be deleted by BCP
 		new_vars.unchecked_push_back(col);
-		col->addActiveIteration(lpIteration_); //initialize the couter of active iteration for this new variable
+		col->addActiveIteration(lpIteration_); //initialize the counter of active iteration for this new variable
 	}
 
 	// STAB: this is where we have an opportunity to update the costs and bounds
@@ -928,11 +928,13 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
 
    added_vars.reserve(pModel_->getActiveColumns().size());
    for(MyVar* col: pModel_->getActiveColumns()){
-      BcpColumn* var = dynamic_cast<BcpColumn*>(col);
-      //create a new BcpColumn which will be deleted by BCP
-		 if(var)
-			 added_vars.unchecked_push_back(new BcpColumn(*var));
+		 BcpColumn* var = dynamic_cast<BcpColumn*>(col);
+		 if(!var)
+			 Tools::throwError("Bad variable casting.");
+		 // add BcpColumn which will be deleted by BCP - the variables in activeColumns need to be owned by no other model
+		 added_vars.unchecked_push_back(var);
    }
+	pModel_->clearActiveColumns();
 }
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
@@ -976,11 +978,13 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
 
 
 BcpModeler::BcpModeler(MasterProblem* pMaster, const char* name, LPSolverType type):
-CoinModeler(), pMaster_(pMaster), primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-lastNbSubProblemsSolved_(0), lastMinDualCost_(0), LPSolverType_(type), nbNodes_(0) { }
+CoinModeler(), pMaster_(pMaster), pBcp_(0), primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
+lastNbSubProblemsSolved_(0), lastMinDualCost_(0), LPSolverType_(type), nbNodes_(0) {
+  pBcp_ = new BcpInitialize(this);
+}
 
 //destroy all the column in the solutions
-BcpModeler::~BcpModeler(){
+BcpModeler::~BcpModeler() {
    for(BCP_solution_generic& sol: bcpSolutions_){
       int size = sol._vars.size();
       for(int i=coreVars_.size(); i<size; ++i) delete sol._vars[i];
@@ -996,12 +1000,11 @@ BcpModeler::~BcpModeler(){
          delete var;
          var = 0;
       }
+  delete  pBcp_;
 }
 
 //solve the model
 int BcpModeler::solve(bool relaxation){
-   BcpInitialize bcp(this);
-
    //create the root
    pTree_->pushBackNewNode();
 
@@ -1010,7 +1013,7 @@ int BcpModeler::solve(bool relaxation){
 
    int value=-1;
 	try{
-		value = bcp_main(0, argv, &bcp);
+		value = bcp_main(0, argv, pBcp_);
 		getMaster()->setStatus(OPTIMAL);
 	}catch(OptimalStop& e) {
 		getMaster()->setStatus(OPTIMAL);
@@ -1023,8 +1026,8 @@ int BcpModeler::solve(bool relaxation){
 	}
 
 	// retrieve the statistics of the solution
-	timeStats_.add(bcp.getBcpLpModel()->getLpProblemPointer()->stat);
-	nbLpIterations_ = bcp.getBcpLpModel()->getNbLpIterations();
+	timeStats_.add(pBcp_->getBcpLpModel()->getLpProblemPointer()->stat);
+	nbLpIterations_ = pBcp_->getBcpLpModel()->getNbLpIterations();
 
    // clear tree
    pTree_->clear();
@@ -1131,14 +1134,12 @@ void BcpModeler::createCutLinear(MyCons** cons, const char* con_name, double lhs
 	 reducedCosts_.assign(lpres.dj(), lpres.dj()+nbVar);
 	 lhsValues_.assign(lpres.lhs(), lpres.lhs()+nbCons);
 
-	 activeColumnVars_.clear();
-	 columnsToIndex_.clear();
+	clearActiveColumns();
 	 for(int i=nbCoreVar; i<nbVar; ++i){
 		 BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
 		 if(primalValues_[i] > EPSILON)
 		 var->addActiveIteration(lpIteration); //update the different counters
-		 addActiveColumn(var);
-		 columnsToIndex_.insert(pair<int,int>(var->getIndex(),i));
+		 addActiveColumn(var, i);
 	 }
 	 //	//debug
 	 //	checkActiveColumns(vars);
@@ -1255,17 +1256,14 @@ void BcpModeler::loadInputSol(BCP_solution_generic& sol){
 	vector<double> primal(core_size);
 
 	int ind = core_size;
-	activeColumnVars_.clear();
-	columnsToIndex_.clear();
+	clearActiveColumns();
 
 	for(int i=0; i<size; ++i){
 		 // type of sol._vars[i] is either BcpColumn or BcpCoreVar, dynamic_cast will get the proper one
 		 BcpColumn* col = dynamic_cast<BcpColumn*>(sol._vars[i]);
 		 if(col){
-			  addActiveColumn(col);
-				columnsToIndex_.insert(pair<int,int>(col->getIndex(), ind));
+			  addActiveColumn(col, ind++);
 				primal.push_back(sol._values[i]);
-				++ind;
 		 }
 		 else{
 				BcpCoreVar* var = dynamic_cast<BcpCoreVar*>(sol._vars[i]);

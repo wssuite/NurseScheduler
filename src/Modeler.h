@@ -690,6 +690,7 @@ public:
 	virtual ~Modeler(){
 		for(MyObject* object: objects_)
 			delete object;
+		objects_.clear();
 	}
 
 	//solve the model
@@ -1068,10 +1069,16 @@ public:
 	inline void setInfinity(double inf) {infinity_=inf;}
 
 	//get the variables that are generating during the resolution (columns)
-	vector<MyVar*>& getActiveColumns(){ return activeColumnVars_; }
+	const vector<MyVar*>& getActiveColumns() const {
+    return activeColumnVars_;
+  }
 
-	void addActiveColumn(MyVar* var){
+	void addActiveColumn(MyVar* var, int index=-1) {
 		activeColumnVars_.push_back(var);
+	}
+
+	virtual void clearActiveColumns() {
+		activeColumnVars_.clear();
 	}
 
 	// Fix every rotation to one : this is useful only when the active columns

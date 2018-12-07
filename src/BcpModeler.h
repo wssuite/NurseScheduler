@@ -238,7 +238,7 @@ static std::map<std::string,LPSolverType> LPSolverTypesByName =
 // here
 //
 //-----------------------------------------------------------------------------
-
+class BcpInitialize; // class forward declaration
 
 class BcpModeler: public CoinModeler {
 public:
@@ -251,10 +251,17 @@ public:
 	//Reset and clear solving parameters
 	void reset(bool rollingHorizon=false);
 
-	void addActiveColumn(MyVar* var){
-		if(!dynamic_cast<BcpColumn*>(var))
+	void addActiveColumn(MyVar* var, int index=-1){
+		BcpColumn* col = dynamic_cast<BcpColumn*>(var);
+		if(!col)
 			std::cout << "error";
-		Modeler::addActiveColumn(var);
+		Modeler::addActiveColumn(var, index);
+		if(index>=0) columnsToIndex_.insert(pair<int,int>(col->getIndex(), index));
+	}
+
+	void clearActiveColumns() {
+    Modeler::clearActiveColumns();
+    columnsToIndex_.clear();
 	}
 
 protected:
@@ -278,6 +285,8 @@ protected:
 	 */
 
 	int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs);
+
+	MyVar* copyColumn(MyVar* var) const;
 
 public:
 	/*
@@ -484,8 +493,9 @@ protected:
 
 	// solver that called the model
 	MasterProblem* pMaster_;
+  BcpInitialize* pBcp_;
 
-	//mapping between the CoinTreeSiblings* and my BcpNode*
+  //mapping between the CoinTreeSiblings* and my BcpNode*
 	//a sibblings contains a list of all its leaves CoinTreeNode
 	map<const CoinTreeSiblings*, vector<MyNode*>> treeMapping_;
 	//results
@@ -999,18 +1009,18 @@ public:
 	}
 
 	BCP_tm_user* tm_init(BCP_tm_prob& p, const int argnum, const char * const * arglist) {
-		pTree_ = new BcpBranchingTree(pModel_);
+		if(!pTree_) pTree_ = new BcpBranchingTree(pModel_);
 		return pTree_;
 	}
 
 	BCP_lp_user* lp_init(BCP_lp_prob& p) {
-		pLpModel_ = new BcpLpModel(pModel_);
+		if(!pLpModel_) pLpModel_ = new BcpLpModel(pModel_);
 		return pLpModel_;
 	}
 
 	BCP_user_pack* packer_init(BCP_user_class* p)
 	{
-		pPacker_ = new BcpPacker(pModel_);
+		if(!pPacker_) pPacker_ = new BcpPacker(pModel_);
 		return pPacker_;
 	}
 

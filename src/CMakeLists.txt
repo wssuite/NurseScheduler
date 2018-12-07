@@ -20,7 +20,8 @@ set(SOURCE_FILES
         Solver.cpp
         StochasticSolver.cpp
         SubProblem.cpp
-        TreeManager.cpp)
+        TreeManager.cpp
+        DeterministicMain_test.cpp)
 
 #ifdef USE_CBC
 #include "CbcModeler.h"

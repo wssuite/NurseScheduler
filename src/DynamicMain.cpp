@@ -221,6 +221,7 @@ int main(int argc, char** argv)
      int historyIndex = 0;
      vector<int> weekIndices = {3, 5, 0, 2};
      StochasticSolverOptions stochasticSolverOptions;
+     stochasticSolverOptions.totalTimeLimitSeconds_ = 40;
      string outdir = "outfiles/" + instanceName + "/";
      int seed = 1;
      testMultipleWeeksStochastic(dataDir, instanceName, historyIndex,

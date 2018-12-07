@@ -803,7 +803,6 @@ void MasterProblem::save(vector<int>& weekIndices, string outfile){
 // currently stored in the model
 //------------------------------------------------------------------------------
 vector<vector<vector<double>>> MasterProblem::getFractionalRoster() {
-	vector<MyVar*>& rotations = pModel_->getActiveColumns();
 	vector<vector<vector<double>>> fractionalRoster(getNbNurses());
 	for(vector<vector<double>>& fractionalRoster2: fractionalRoster) {
 		Tools::initDoubleVector2D(&fractionalRoster2,getNbDays(),pDemand_->nbShifts_-1,0);
@@ -813,7 +812,7 @@ vector<vector<vector<double>>> MasterProblem::getFractionalRoster() {
 	// Warning, the working shifts are numbered from 0 to nbShifts_-1 instead of
 	// 1 to nbShifts_ in this vector
 	double value = 0.0;
-	for(MyVar* var : rotations){
+	for(MyVar* var : pModel_->getActiveColumns()){
 		if (var->getPattern().empty()) continue;
 		Rotation rot(var->getPattern());
 		vector<vector<double>>& fractionalRoster2 = fractionalRoster[rot.nurseId_];
@@ -1667,11 +1666,10 @@ string MasterProblem::allocationToString(bool printInteger){
 	rep << "|" << std::endl;
 	rep << "-------------------------------------"<< std::endl;
 
-	vector<MyVar*>& rotations = pModel_->getActiveColumns();
 	for (int n = 0; n < nbNurses; n ++) {
 		LiveNurse* pNurse = theLiveNurses_[n];
 		vector<vector<double>> fractionalRoster; Tools::initDoubleVector2D(&fractionalRoster,nbDays,nbShifts-1,0);
-		for(MyVar* var : rotations){
+		for(MyVar* var : pModel_->getActiveColumns()){
 			if(var->getPattern()[0] != pNurse->id_)
 				continue;
 			Rotation rot(var->getPattern());
