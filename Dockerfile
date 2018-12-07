@@ -11,11 +11,15 @@ WORKDIR /ns/
 
 # Copy src
 COPY ./src /ns/src/
-COPY ./Makefile /ns/
-COPY ./make.* /ns/
+COPY ./CMakeLists.txt /ns/
+
+ENTRYPOINT [ "sleep", "10000000000" ]
+
 
 # Compile nurse schedule
-RUN make
+RUN mkdir build && \\
+    cd build && \\
+    cmake ..
 
 # Copy everything
 COPY . /ns/

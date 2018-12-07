@@ -13,5 +13,7 @@ INSTALL.md
 INSTALL.sh
 DOCKER.md
 
+CMakeDefinitionsLists.txt
+
 docker-compose.yml
 Dockerfile

@@ -4,7 +4,7 @@ function printBashUsage {
   echo "This script will run the simulator and then the validator."
   echo "Usage:"
   echo "-h | --help: display this message"
-	echo "-d | --dynamic: Add this flag if you'd like to run the dynamic version."
+  echo "-d | --dynamic: Add this flag if you'd like to run the dynamic version."
   echo "-i | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: n005w4_1-2-3-3_0"
   echo "-sc | --solver-config: config file for the solver parameters. Default: default or none if dynamic"
   echo "-gc | --generation-config: config file for the generation parameters. Default: none"
@@ -29,7 +29,7 @@ while [ ! -z $1 ]; do
    -gc | --generation-config) genParam=$2; shift 2;;
    -ec | --evaluation-config) evalParam=$2; shift 2;;
    -g | --goal) goal=$2; shift 2;;
-	 -d | --dynamic) dynamic="1"; shift 1;;
+   -d | --dynamic) dynamic="1"; shift 1;;
    -*|--*) echo "Option unknown: $1"
       echo
       printBashUsage
@@ -73,9 +73,9 @@ if [ -z $dynamic ]; then
 	./validator.sh $instance $weeks $hist $outputDir
 else
 	# generate script
-	source generateScript.sh "$@"
+	source ./scripts/writeDynamicRun.sh "$@"
 
-  # copy config files
+    # copy config files
 	if [ ! -z $param ]; then
 		cp "$param" "${outputDir}/solverOptions.txt"
 	fi
