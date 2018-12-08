@@ -1,32 +1,34 @@
 # Guide for running the code within a docker container
 
-1- Install docker for you platform: https://docs.docker.com/engine/installation/#supported-platforms
+1. Install docker for you platform: https://docs.docker.com/engine/installation/#supported-platforms
 
-2- Then, just run:
+2. Then, just run:
 ````bash
-docker-compose up -d
+docker run --rm legraina/ns
 ````
-It will take a long time the first time to build the container.
-
-4- Run the following command to see the status of the running container:
-````bash
-docker-compose ps
-````
-
-5- Run the following command to look at the log:
-````bash
-docker-compose logs
-````
-
-6- The software reads the data from the datafiles folder and write the output in the outfiles folder. You can change the command in the docker-compose file to run the right instance: -i n005w4_0_1-2-3-3 22-36-96-5 where n005w4_0_1-2-3-3 describes the instance (instance_history_weeks). The results are written in outfiles/n005w4_0_1-2-3-3/unixtimestamps (unixtimestamps is computed at every run).
+It will take a long time the first time to download the container. Then, you will see all the command available. For example, to run the static solver (by default, use -d to run the dynamic solver) with a given instance:
+```bash
+docker run --rm legraina/ns -i n005w4_0_1-2-3-3
+```
 Look at the docker-entrypoint.sh file for more details.
 
-# Docker hub
-The latest image can also be directly downloaded from docker hub and used by simply running:
-````bash
-docker run legraina/ns -i n005w4_0_1-2-3-3
-````
-or
-````bash
-docker run legraina/ns -h
-````
+3. The results are written in outfiles/n005w4_0_1-2-3-3/unixtimestamps (unixtimestamps is computed at every run). You should also link the container to different volumes to be able to:
+  1. Access the results:
+  ```bash
+  docker run --rm -v "$(pwd)/outfiles:~/ns/outfiles" legraina/ns -i n005w4_0_1-2-3-3
+  ```
+  2. Add some instances:
+  ```bash
+  docker run --rm -v "$(pwd)/datasets:~/ns/datasets" legraina/ns -i n005w4_0_1-2-3-3
+  ```
+  3. Add a configuration file:
+  ```bash
+  docker run --rm -v "$(pwd)/paramfiles:~/ns/paramfiles" legraina/ns -i n005w4_0_1-2-3-3
+  ```
+
+
+4. You may also use the docker-compose.yml file and simply run:
+```bash
+docker-compose up -d
+```
+This command will build locally the container if the field "build" is not commented, otherwise it can use the field "image". Also, all the volumes are defined in this file, you may change it according to your paths if needed.

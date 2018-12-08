@@ -1,4 +1,4 @@
-# Static nurse scheduler
+# Nurse scheduler
 
 [![Build Status](https://travis-ci.org/legraina/StaticNurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/StaticNurseScheduler)
 [![Build Status](https://travis-ci.org/legraina/DynamicNurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/DynamicNurseScheduler)
@@ -98,7 +98,7 @@ The following describes how to handle our code.
 
 	- run the solver on the instance n005w4_0_2-0-2-1 with default options:
 	````bash
-	./bin/deterministicroster --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
+	./bin/staticscheduler --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
 	````
 
 	- run a test with name testname:

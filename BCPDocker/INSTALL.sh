@@ -7,16 +7,16 @@ then
   DIR=$CURRENT_DIR
 fi
 
-# Install Boost (no need to install the library as we are using only the headers)
-# wget -O boost_1_64_0.tar.gz http://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.gz/download
-# tar xzvf boost_1_64_0.tar.gz
-# cd boost_1_64_0/
-# ./bootstrap.sh --exec-prefix=$DIR
-# ./b2 threading=multi
-# ./b2 install threading=multi
-# cd ..
-# rm -r boost_1_64_0
-# rm boost_1_64_0.tar.gz
+# Install Boost
+wget -O boost_1_64_0.tar.gz http://sourceforge.net/projects/boost/files/boost/1.64.0/boost_1_64_0.tar.gz/download
+tar xzvf boost_1_64_0.tar.gz
+cd boost_1_64_0/
+./bootstrap.sh --exec-prefix=$DIR
+./b2 threading=multi
+./b2 install threading=multi
+cd ..
+rm -r boost_1_64_0
+rm boost_1_64_0.tar.gz
 
 # Install BCP
 cd $DIR

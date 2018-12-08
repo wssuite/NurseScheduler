@@ -1,6 +1,7 @@
 references/
 outfiles/
 BCPDocker/
+CMakeDocker/
 bin/
 obj/
 
@@ -14,6 +15,9 @@ INSTALL.sh
 DOCKER.md
 
 CMakeDefinitionsLists.txt
+build/
+cmake-build-debug/
+cmake-build-release/
 
 docker-compose.yml
 Dockerfile

@@ -1,29 +1,24 @@
 FROM legraina/bcp
 
-# Export path
-ENV BCPDIROPT /usr/local/Bcp-1.4/build
-ENV BCPDIRDBG /usr/local/Bcp-1.4/build
-ENV BOOST_DIR /usr/local/include
+# create a user
+RUN useradd -ms /bin/bash poly
 
-# Create src directory
-RUN mkdir -p /ns/
-WORKDIR /ns/
-
-# Copy src
-COPY ./src /ns/src/
-COPY ./CMakeLists.txt /ns/
-
-ENTRYPOINT [ "sleep", "10000000000" ]
-
-
-# Compile nurse schedule
-RUN mkdir build && \\
-    cd build && \\
-    cmake ..
+# Change user
+USER poly
 
 # Copy everything
-COPY . /ns/
+COPY --chown=poly . /home/poly/ns/
+
+# Set the working directory
+WORKDIR /home/poly/ns/
+
+# Compile the nurse scheduler
+RUN echo -e "set(BCPDIROPT /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make
 
 # Entrypoint for the nurse scheduler
 ENTRYPOINT [ "./docker-entrypoint.sh" ]
-CMD [ "-i" , "n005w4_0_1-2-3-3" ]
+CMD [ "-h" ]
