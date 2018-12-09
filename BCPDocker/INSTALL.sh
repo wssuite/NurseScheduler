@@ -22,7 +22,7 @@ rm boost_1_64_0.tar.gz
 cd $DIR
 svn co https://projects.coin-or.org/svn/Bcp/stable/1.4 Bcp-1.4
 mkdir -p Bcp-1.4/build
-BCP_ARGS="--enable-shared=no --enable-static=yes --with-cpx=no"
+BCP_ARGS="--enable-shared=yes --enable-static=yes --with-cpx=no"
 BUILD_TYPE=$2
 if [ -z $BUILD_TYPE ]; then
   BUILD_TYPE="Release"

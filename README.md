@@ -1,8 +1,7 @@
 # Nurse scheduler
 
-[![Build Status](https://travis-ci.org/legraina/StaticNurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/StaticNurseScheduler)
-[![Build Status](https://travis-ci.org/legraina/DynamicNurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/DynamicNurseScheduler)
-[![Docker Build Status](https://img.shields.io/docker/build/legraina/dns.svg)](https://hub.docker.com/r/legraina/dns/)
+[![Build Status](https://travis-ci.org/legraina/NurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/NurseScheduler)
+[![Docker Build Status](https://img.shields.io/docker/build/legraina/nurse-scheduler.svg)](https://hub.docker.com/r/legraina/nurse-scheduler/)
 
 
 The C++ code and the instances shared on this repository allow to solve a static variant of the nurse scheduling problem described in the second international nurse rostering competition (INRC-II) as well as the original dynamic problem.

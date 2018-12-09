@@ -22,5 +22,5 @@ rm boost_1_64_0.tar.gz
 cd $DIR
 svn co https://projects.coin-or.org/svn/Bcp/stable/1.4 Bcp-1.4
 mkdir -p Bcp-1.4/build
-cd Bcp-1.4/build && ../configure --enable-shared=no --enable-static=yes --with-cpx=no && make && make test && make install
+cd Bcp-1.4/build && ../configure --enable-shared=yes --enable-static=yes --with-cpx=no && make && make test && make install
 cd $CURRENT_DIR

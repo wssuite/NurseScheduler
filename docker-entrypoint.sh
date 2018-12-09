@@ -17,13 +17,15 @@ function printBashUsage {
 
 # load config arguments
 echo "$@"
+instance_description="n005w4_1-2-3-3_0"
+dynamic_args=""
 while [ ! -z $1 ]; do
   case $1 in
     -h|--help) printBashUsage
       exit 0;;
    -i | --instance) instance_description=$2; shift 2;;
-   -s | --seeds) seeds=$2; shift 2;;
-   -t | --timeout) timeout=$2; shift 2;;
+   -s | --seeds) seeds=$2; dynamic_args="$dynamic_args -s $2"; shift 2;;
+   -t | --timeout) timeout=$2; dynamic_args="$dynamic_args -t $2"; shift 2;;
     # add config files
    -sc | --solver-config) param=$2; shift 2;;
    -gc | --generation-config) genParam=$2; shift 2;;
@@ -39,6 +41,7 @@ while [ ! -z $1 ]; do
       exit 2;;
   esac
 done
+dynamic_args="$dynamic_args -i $instance_description"
 
 if [ -z $dynamic ]; then
 	# parse inputs
@@ -73,9 +76,9 @@ if [ -z $dynamic ]; then
 	./validator.sh $instance $weeks $hist $outputDir
 else
 	# generate script
-	source ./scripts/writeDynamicRun.sh "$@"
+	source ./scripts/writeDynamicRun.sh $dynamic_args
 
-    # copy config files
+  # copy config files
 	if [ ! -z $param ]; then
 		cp "$param" "${outputDir}/solverOptions.txt"
 	fi
@@ -94,6 +97,9 @@ else
 	./${scriptfile}
 fi
 
+# display the solution
+cat ${outputDir}/validator.txt
+
 # if a goal is defined, test the total cost
 if [ -z "$goal" ]
 then
@@ -101,7 +107,6 @@ then
 fi
 
 # fetch the total cost and check if is the right one
-cat ${outputDir}/validator.txt
 result=$(cat ${outputDir}/validator.txt | grep "Total cost: $goal")
 if [ -z "$result" ]
 then

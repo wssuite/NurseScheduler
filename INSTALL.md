@@ -1,9 +1,9 @@
-# INSTALLATION GUIDE FOR THE NURSE SCHEDULER
+# INSTALLATION GUIDE
 
 The nurse rotation scheduler requires two external libraries. Before compiling the code, BOOST and COIN BCP  must be installed and the corresponding environment variables must be set.
 This document provides a manual to install the libraries and compile the code.
 
-You can run the INSTALL.sh script for performing the following steps (give as first argument the directory where you wish to install the software, otherwise the current directory will be used).
+You can run the INSTALL.sh script for performing the first two steps (give as first argument the directory where you wish to install the software, otherwise the current directory will be used).
 
 #### 1. Boost Graph library
 
@@ -28,7 +28,7 @@ You can run the INSTALL.sh script for performing the following steps (give as fi
   cd /path/to/coinor/directory/Bcp-1.4
   mkdir build
   cd build
-  ../configure --enable-shared=no --enable-static=yes --with-cpx=no
+  ../configure --enable-shared=yes --enable-static=yes --with-cpx=no
   make
   make test
   make install
@@ -41,7 +41,7 @@ You can run the INSTALL.sh script for performing the following steps (give as fi
   cd /path/to/coinor/directory/Bcp-1.4
   mkdir debug
   cd debug
-  ../configure --enable-debug --enable-shared=no --enable-static=yes --with-cpx=no
+  ../configure --enable-debug --enable-shared=yes --enable-static=yes --with-cpx=no
   make
   make test
   make install

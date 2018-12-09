@@ -3,9 +3,9 @@ services:
   ns:
     container_name: ns
     build: ./
-    # image: legraina/ns
+    # image: legraina/nurse-scheduler
     volumes:
       - ./datasets/:/ns/datasets
       - ./paramfiles/:/ns/paramfiles
       - ./outfiles/:/ns/outfiles
-    # command: -i n005w4_0_1-2-3-3  #  -d -s 22-36-96-5
+    command: -i n030w4_0_1-2-3-3

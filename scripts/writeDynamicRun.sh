@@ -5,7 +5,7 @@ function printBashUsage {
   echo "This script will run the simulator and then the validator."
   echo "Usage:"
   echo "-h | --help: display this message"
-  echo "-i | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: n005w4_1-2-3-3_0"
+  echo "-i | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: n030w4_1-2-3-3_0"
   echo "-s | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: \$RANDOM."
   echo "-t | --timeout: timeout for each stage. Default: based on the number of nurses in the instance."
   echo "-o | --output: directory for the output. Default. outfiles/{instance}/{seeds}_{timestamp}"
@@ -13,6 +13,7 @@ function printBashUsage {
 
 
 # load arguments
+instance_description="n030w4_1-2-3-3_0"
 while [ ! -z $1 ]; do
   case $1 in
     -h|--help) printBashUsage
