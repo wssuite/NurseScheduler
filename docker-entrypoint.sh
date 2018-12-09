@@ -95,6 +95,7 @@ else
 	chmod +x *.jar
 	cp validator.jar ./bin
 	./${scriptfile}
+  rm -f ${scriptfile}
 fi
 
 # display the solution

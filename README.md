@@ -6,11 +6,11 @@
 
 The C++ code and the instances shared on this repository allow to solve a static variant of the nurse scheduling problem described in the second international nurse rostering competition (INRC-II) as well as the original dynamic problem.
 Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem as well as the methodology corresponding to this code are given in:
-[1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules." p. 1–18, 2015.
+[1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules.", CoRR, p. 1–18, 2015.
 
-[2] A. Legrain, J. Omer and S. Rosat, "An Online Stochastic Algorithm for a Dynamic Nurse Scheduling Problem", p. 1-26, 2017, submitted manuscript. The methods implemented in this code are all described in this manuscript (still under revision). Please cite it in any use of our code.
+[2] A. Legrain, J. Omer and S. Rosat, "An Online Stochastic Algorithm for a Dynamic Nurse Scheduling Problem", European Journal of Operational Research, 2018. The methods implemented in this code are all described in this manuscript. Please cite it in any use of our dynamic code.
 
-[3] A. Legrain, J. Omer and S. Rosat, "A rotation-based branch-and-price approach for the nurse scheduling problem", p. 1-28, 2017, submitted manuscript. This reference describes the offline solver used for solving the nurse scheduling problem.
+[3] A. Legrain, J. Omer and S. Rosat, "A rotation-based branch-and-price approach for the nurse scheduling problem", p. 1-28, 2017, submitted manuscript. This reference describes the offline solver used for solving the nurse scheduling problem. Please cite it in any use of our static code.
 
 These two references can also be found in the directory ./references.
 
@@ -122,7 +122,7 @@ The following describes how to handle our code.
 
 	a. Generate a script for a given instance and seeds (not compulsory):
 	````bash
-	./scripts/generateScript.sh n005w4_1-2-3-3_0 22-36-96-5
+	./scripts/writeDynamicRun.sh -i n005w4_1-2-3-3_0 -s 22-36-96-5
 	````
 
 

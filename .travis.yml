@@ -9,7 +9,11 @@ before_install:
   - docker image build -t ns .
 
 script:
-  - docker run -t ns -i n005w4_0_1-2-3-3 -g 1470
-  - docker run -t ns -i n030w4_1_6-2-9-1 -g 1745 -t 120
-  - docker run -t ns -i n030w4_1_6-7-5-3 -g 1885 -t 120
-  - docker run -t ns -d -i n005w4_0_1-2-3-3 -s 22-36-96-5 -g 1685
+  - docker run -t ns -i n005w4_0_1-2-3-3 -g 1550
+  - docker run -t ns -i n030w4_1_6-2-9-1 -g 1910 -t 120
+  - docker run -t ns -i n030w4_1_6-7-5-3 -g 2030 -t 120
+  - docker run -t ns -i n035w4_1_1-7-1-8 -g 1435 -t 120
+  - docker run -t ns -d -i n005w4_0_1-2-3-3 -s 22-36-96-5 -g 1620
+  - docker run -t ns -d -i n030w4_1_6-2-9-1 -s 68-54-78-98 -g 1960
+  - docker run -t ns -d -i n030w4_1_6-7-5-3 -s 50-35-70-80 -g 2095
+  - docker run -t ns -d -i n035w4_1_1-7-1-8 -s 85-76-52-66 -g 1525
