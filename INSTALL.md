@@ -7,7 +7,7 @@ You can run the INSTALL.sh script for performing the first two steps (give as fi
 
 #### 1. Boost Graph library
 
-  1.Download Boost Graph Library (BGL) at http://sourceforge.net/projects/boost/files/latest/download?source=files.
+  1. Download Boost Graph Library (BGL) at http://sourceforge.net/projects/boost/files/latest/download?source=files.
   At least, boost 1.58 is needed.
 
   2. The part of the BGL we use is in the header only library, so there is no need to build anything. Uncompress the archive and move the folder to any directory /path/to/boost/directory/boost_X_XX (where X_XX stands for the version of boost you downloaded).
