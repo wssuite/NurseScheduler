@@ -27,5 +27,5 @@ sols="${sols} ${solution[$i]}"
 done
 
 echo "java -jar validator.jar --his $history --sce $scenario --weeks $weeks --sols $sols"
-java -jar validator.jar --his $history --sce $scenario --weeks $weeks --sols $sols >> "$4/validator.txt"
+java -jar validator.jar --his $history --sce $scenario --weeks $weeks --sols $sols > "$4/validator.txt"
 exit 0;

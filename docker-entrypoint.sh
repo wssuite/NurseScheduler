@@ -107,11 +107,29 @@ then
 	exit 0
 fi
 
-# fetch the total cost and check if is the right one
-result=$(cat ${outputDir}/validator.txt | grep "Total cost: $goal")
-if [ -z "$result" ]
+# fetch the total cost and check if is the right one (in the bounds)
+bounds=(`echo $goal | tr '-' ' ' `)
+lb=${bounds[0]}
+ub=${bounds[${#bounds[@]}-1]}
+echo "lb=$lb; ub=$ub"
+if [ $lb -gt $ub ]
 then
-  echo "error"
+  echo "error: lb > ub"
   exit 1
 fi
+
+result=$(cat ${outputDir}/validator.txt | grep "Total cost:")
+if [ -z "$result" ]
+then
+  echo "error: total cost not found"
+  exit 1
+fi
+
+rcost=$(echo $result | tr -dc '0-9')
+if [ $rcost -lt $lb ] || [ $rcost -gt $ub ]
+then
+  echo "error: bounds not respected"
+  exit 1
+fi
+
 exit 0
