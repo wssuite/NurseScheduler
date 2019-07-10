@@ -83,45 +83,45 @@ The following describes how to handle our code.
 	All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used)
 
   b. Other options for a quicker run of the code are:
-
-	- run the solver with default options on the instance n005w4_1_1-6-2-9-1:
-	```bash
-	./bin/staticscheduler
-	```
-
-	- run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
-	```bash
-	./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
-	```
-
-	- run the solver on the instance n005w4_0_2-0-2-1 with default options:
-	```bash
-	./bin/staticscheduler --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
-	```
-
-	- run a test with name testname:
-	```bash
-	./bin/staticscheduler --test testname
-	```
+  
+   - run the solver with default options on the instance n005w4_1_1-6-2-9-1:
+   ````bash
+   ./bin/staticscheduler
+   ````
+	
+   - run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
+   ```bash
+   ./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
+   ```
+	
+   - run the solver on the instance n005w4_0_2-0-2-1 with default options:
+   ```bash
+   ./bin/staticscheduler --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
+   ```
+	
+   - run a test with name testname:
+   ```bash
+   ./bin/staticscheduler --test testname
+   ```
 
   c. Scripts located in folder "scripts/" to generate new scripts that run the determistic solver. Note that the outputs will then be written in "outfiles/param/".
 
-	- writeRun.sh writes a bash file that runs the solver on a specific instance with a specific set of parameters defined in the folder "paramfiles/". For example:
-	````bash
-	./scripts/writeRun.sh --instance n005w4_0_2-0-2-1 --param default.txt
-	````
-	You can use the option "-h" to see all the available flags.
-
-	- writeAllRuns.sh writes bash files that run the solver on all the instances with a specific set of parameters defined in the folder "paramfiles/". The instances to run are hard-written in the script. Example of use:
-	````bash
-	./scripts/writeAllRuns.sh --param lns_feas.txt
-	````
-	You can use the option "-h" to see all the available flags (the same than writeRun.sh except --instance which is useless).
-
-	- runDir.sh runs all the bashfiles one after the other within the folder associated to a param folder name. Example for the bashfiles within "bashfiles/lns_repeat/":
-	````bash
-	./scripts/runDir.sh lns_repeat
-	````
+   - writeRun.sh writes a bash file that runs the solver on a specific instance with a specific set of parameters defined in the folder "paramfiles/". For example:
+   ````bash
+   ./scripts/writeRun.sh --instance n005w4_0_2-0-2-1 --param default.txt
+   ````
+   You can use the option "-h" to see all the available flags.
+   
+   - writeAllRuns.sh writes bash files that run the solver on all the instances with a specific set of parameters defined in the folder "paramfiles/". The instances to run are hard-written in the script. Example of use:
+   ````bash
+   ./scripts/writeAllRuns.sh --param lns_feas.txt
+   ````
+   You can use the option "-h" to see all the available flags (the same than writeRun.sh except --instance which is useless).
+   
+   - runDir.sh runs all the bashfiles one after the other within the folder associated to a param folder name. Example for the bashfiles within "bashfiles/lns_repeat/":
+   ````bash
+   ./scripts/runDir.sh lns_repeat
+   ````
 
 5. Execution of the stochastic solver:
 
