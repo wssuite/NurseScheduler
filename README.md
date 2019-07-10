@@ -19,9 +19,9 @@ Guide
 
 The following describes how to handle our code.
 
-1) To install the required libraries and build the code, please follow the instructions detailed in the INSTALL.md file. You can also read DOCKER.md if you want to run the code within a container.
+1. To install the required libraries and build the code, please follow the instructions detailed in the INSTALL.md file. You can also read DOCKER.md if you want to run the code within a container.
 
-2) Content of the project.
+2. Content of the project.
 
 	a. ./src : source code (executables are stored in ./bin after building and object files are stored in ./obj)
 
@@ -37,7 +37,7 @@ The following describes how to handle our code.
 
 	g. ./bashfiles : Directory containing bash files that execute the solver on an instance (the files are created by the scripts)
 
-3) Global structure of the code:
+3. Global structure of the code:
 
 	Every source file is in the ./src directory, where header files are used to declare the classes, and methods.
 
@@ -55,11 +55,11 @@ The following describes how to handle our code.
 
 	g. The files "MyTools.h/.cpp" contain intermediary methods frequently used in the code.
 
-4) Execution of the deterministic solver:
+4. Execution of the deterministic solver:
 
 	a. A typical execution of our code is done from the root directory of the project with the following list of arguments:
 
-	````bash
+	```bash
 	./bin/staticscheduler --dir datasets/ --instance n030w4 --weeks 6-2-9-1 --his 1 --param paramfiles/default.txt --sol outfiles/default/n030w4_1_6-2-9-1 --timeout 780
 
 	--dir is followed by the directory where the instance is stored
@@ -69,71 +69,76 @@ The following describes how to handle our code.
 	--param is followed by the name of the parameter file used in this run
 	--sol is the directory where the solution will be stored
 	--timeout is the total execution time
-	````
+	```
 
 	The validator can then be run by:
-	````bash
+	```bash
 	java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks datasets/n030w4/WD-n030w4-6.txt datasets/n030w4/WD-n030w4-2.txt datasets/n030w4/WD-n030w4-9.txt datasets/n030w4/WD-n030w4-1.txt --sols outfiles/default/n030w4_1_6-2-9-1/sol-week0.txt outfiles/default/n030w4_1_6-2-9-1/sol-week1.txt outfiles/default/n030w4_1_6-2-9-1/sol-week2.txt outfiles/default/n030w4_1_6-2-9-1/sol-week3.txt > outfiles/default/n030w4_1_6-2-9-1/validator.txt
-	````
-
+	```
 	or:
-	````bash
+	```bash
 	./validator.sh n030w4 6-2-9-1 1 outfiles/default/n030w4_1_6-2-9-1
-	````
+	```
 
 	All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used)
 
-	b. Other options for a quicker run of the code are:
+  b. Other options for a quicker run of the code are:
 
 	- run the solver with default options on the instance n005w4_1_1-6-2-9-1:
-	````bash
+	```bash
 	./bin/staticscheduler
-	````
+	```
 
 	- run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
-	````bash
+	```bash
 	./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
-	````
+	```
 
 	- run the solver on the instance n005w4_0_2-0-2-1 with default options:
-	````bash
+	```bash
 	./bin/staticscheduler --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
-	````
+	```
 
 	- run a test with name testname:
-	````bash
+	```bash
 	./bin/staticscheduler --test testname
-	````
+	```
 
-	c. Scritps for running several instances at once :
+  c. Scripts located in folder "scripts/" to generate new scripts that run the determistic solver. Note that the outputs will then be written in "outfiles/param/".
 
-	- to write the bash files that run the solver on all the instances with a specific set of parameters defined in the file "paramfiles/param.txt" :
+	- writeRun.sh writes a bash file that runs the solver on a specific instance with a specific set of parameters defined in the folder "paramfiles/". For example:
 	````bash
-	./scripts/writeAllRuns.sh param
+	./scripts/writeRun.sh --instance n005w4_0_2-0-2-1 --param default.txt
 	````
+	You can use the option "-h" to see all the available flags.
 
-	- to run all these bashfiles one after the other :
+	- writeAllRuns.sh writes bash files that run the solver on all the instances with a specific set of parameters defined in the folder "paramfiles/". The instances to run are hard-written in the script. Example of use:
 	````bash
-	./scripts/runDir.sh param
+	./scripts/writeAllRuns.sh --param lns_feas.txt
 	````
-	The outputs will then be written in "outfiles/param/"
+	You can use the option "-h" to see all the available flags (the same than writeRun.sh except --instance which is useless).
 
-5) Execution of the stochastic solver:
+	- runDir.sh runs all the bashfiles one after the other within the folder associated to a param folder name. Example for the bashfiles within "bashfiles/lns_repeat/":
+	````bash
+	./scripts/runDir.sh lns_repeat
+	````
 
-	a. Generate a script for a given instance and seeds (not compulsory):
+5. Execution of the stochastic solver:
+
+	a. Generate a script for a given instance and seeds for example:
 	````bash
 	./scripts/writeDynamicRun.sh -i n005w4_1-2-3-3_0 -s 22-36-96-5
 	````
-
+	You can use the option "-h" to see all the available flags.
 
 	b. Then, run it:
 	````bash
 	./scripts/n005w4_1-2-3-3_0_22-36-96-5.sh
 	````
 
-6) There are some random aspects in our solver (in the large neighborhood search for instance) and in the third party libraries that are called by our solver. For instance, the perturbations added by CLP to avoid degeneracy will not impact the objective value, but they can impact the specific optimal solution, and hence the dual solution, which can lead to differences in the subproblem. As a consequence, the solution values can be slightly different from those reported in [2] and [3]. In our tests on several different machines, this has not impacted the interpretations and comparisons discussed in [2] and [3] though.
+6. There are some random aspects in our solver (in the large neighborhood search for instance) and in the third party libraries that are called by our solver. For instance, the perturbations added by CLP to avoid degeneracy will not impact the objective value, but they can impact the specific optimal solution, and hence the dual solution, which can lead to differences in the subproblem. As a consequence, the solution values can be slightly different from those reported in [2] and [3]. In our tests on several different machines, this has not impacted the interpretations and comparisons discussed in [2] and [3] though.
 
-7) Description of some notations that appear in the code/comment:
+7. Description of some notations that appear in the code/comment:
 
 	- rotation: sequence of working days for a nurse. The shifts that are covered and the skills that are used can be different on each day. A rotation starts at the beginning of a week or after a resting day, and it ends at the end of a week or before a resting day.
 

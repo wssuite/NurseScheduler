@@ -4,42 +4,74 @@
 # the first input is the instance name and the second one is the sequence of seeds
 ########################
 
+function printBashUsage {
+  echo "This script will run the simulator and then the validator."
+  echo "Usage:"
+  echo "-h | --help: display this message"
+  echo "-i | --instance: instance to test (must follow the pattern (data_weeks_history)). Default: n030w4_1-2-3-3_0"
+	echo "-p | --param: parameter file within the folder \"paramfiles/\". Default: default.txt"
+	echo "-s | --seeds: seeds to run the simulator for each stage (e.g., 22). Default: 0."
+  echo "-t | --timeout: timeout for each stage. Default: based on the number of nurses in the instance (60 + 6 * number of nurses * number of weeks)."
+  echo "-o | --output: directory for the output. Default: outfiles/{param}/{instance}/{timestamp}."
+	echo "-q | --queue: queue for sungrid. Default: empty."
+}
+
+# load arguments
+instance_description="n030w4_1-2-3-3_0"
+param="default.txt"
+seeds=0
+while [ ! -z $1 ]; do
+  case $1 in
+    -h|--help) printBashUsage
+      exit 1;;
+    -i | --instance) instance_description=$2; shift 2;;
+		-p | --param) param=$2; shift 2;;
+    -s | --seeds) seeds=$2; shift 2;;
+    -t | --timeout) timeout=$2; shift 2;;
+    -o | --output) outputDir=$2; shift 2;;
+		-q | --queue) queue=$2; shift 2;;
+    -*|--*) echo "Option unknown: $1"; shift 2;;
+    *) echo "Cannot parse this argument: $1"
+      printBashUsage
+      exit 2;;
+  esac
+done
+
 # parse the input competition instance name
-parse=(`echo $1 | tr '_' ' ' `)
+parse=(`echo $instance_description | tr '_' ' ' `)
 arrayArgs=(`echo ${parse[*]} | tr '-' ' ' `)
 instance=${arrayArgs[0]}
 numHist=${arrayArgs[1]}
 nbArgs=${#arrayArgs[@]}
 weekList=${parse[2]}
 nbWeeks=$((nbArgs - 2))
+if test ! -d "datasets/$instance" ; then
+	echo "Directory \"datasets/$instance\" doest nos exist."
+	exit 2;
+fi
 
 # get the parameters file from the second input
-paramFile="paramfiles/${2}"
-parseParam=(`echo $2 | tr '.' ' ' `)
+paramFile="paramfiles/$param"
+if test ! -f $paramFile ; then
+	echo "File \"$paramFile\" doest nos exist."
+	exit 2;
+fi
+parseParam=(`echo $param | tr '.' ' ' `)
 paramName=${parseParam[0]}
-seed=0
 
 # display the inputs
-echo "Instance: $1"
+echo "Instance: $instance_description"
 echo "History number: ${parse[1]}"
 echo "Week list: ${parse[2]}"
 echo "Parsed instance: ${arrayArgs[*]}"
 echo "Parameter file: ${paramFile}"
 
 # create the output directory if it does not exist
-outputDir="outfiles/${paramName}/${1}"
-if test ! -d "outfiles" ; then
-	echo "Create output directory"
-	mkdir "outfiles"
+if [ -z $outputDir ]; then
+	timestamp=$(date +%s)
+	outputDir="outfiles/${paramName}/$instance/$timestamp"
 fi
-if test ! -d "outfiles/${paramName}" ; then
-	echo "Create deterministic output directory for parameters ${2}"
-	mkdir "outfiles/${paramName}"
-fi
-if test ! -d "${outputDir}" ; then
-	echo "Create this specific output directory"
-	mkdir "${outputDir}"
-fi
+mkdir -p $outputDir
 
 # create the files that are going to be used in the execution
 scenarioFile="datasets/${instance}/Sc-${instance}.txt"
@@ -55,18 +87,21 @@ done
 validatorLog="${outputDir}/validator.txt"
 
 # set the timeout depending on the operating system and number of nurses
-if [[ "$OSTYPE" == "linux-gnu" ]]; then
-	cpuMaxFor5Nurses=60
-	cpuMaxPer10Nurses=60
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-	cpuMaxFor5Nurses=60
-	cpuMaxPer10Nurses=60
+if [ -z $timeout ]; then
+	if [[ "$OSTYPE" == "linux-gnu" ]]; then
+		cpuMaxFor5Nurses=60
+		cpuMaxPer10Nurses=60
+	elif [[ "$OSTYPE" == "darwin"* ]]; then
+		cpuMaxFor5Nurses=60
+		cpuMaxPer10Nurses=60
+	fi
+	nbTenNurses=${instance:1:2}
+	nbTenNurses=${nbTenNurses#0}
+	timeout=$((($nbWeeks)*($nbTenNurses)*$cpuMaxPer10Nurses+$cpuMaxFor5Nurses)) #43200
 fi
-nbTenNurses=${instance:1:2}
-nbTenNurses=${nbTenNurses#0}
-timeout=$((($nbWeeks)*($nbTenNurses)*$cpuMaxPer10Nurses+$cpuMaxFor5Nurses)) #43200 
-if  [ "$2" == "optimality.txt" ] ; then
+if  [ "$paramName" == "optimality" ] ; then
 	timeout=86400
+	echo "WARNING: Timeout changed to 86400 as parameters optimality used."
 fi
 
 # print the files that are going to be used during the execution
@@ -80,22 +115,15 @@ echo "timeout = $timeout"
 echo "seed = $seed"
 
 # create the bashfile directory if it does not exist
-if test ! -d "bashfiles" ; then
-	echo "Create run directory"
-	mkdir "bashfiles"
-fi
-if test ! -d "bashfiles/${paramName}" ; then
-	echo "Create run directory for parameters ${paramName}"
-	mkdir "bashfiles/${paramName}"
-fi
-bashfile="bashfiles/${paramName}/${1}.sh"
+mkdir -p "bashfiles/${paramName}"
+bashfile="bashfiles/${paramName}/$instance_description.sh"
 
 # write the instructions in the bashfile
 echo "#!/bin/bash -l
 #$ -cwd
 #$ -j y
 #$ -o /dev/null
-#$ -q ${3}
+#$ -q $queue
 #
 # optimal script: run static scheduler" > ${bashfile}
 

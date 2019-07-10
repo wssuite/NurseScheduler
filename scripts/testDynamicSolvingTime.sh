@@ -35,7 +35,7 @@ for i1 in "${FACTORS[@]}"; do
 
       # unset seeds from previous loop
       seeds=""
-      source ./generateScript.sh -i $INSTANCE -t $TIME -o $OUTPUT
+      source ./writeDynamicRun.sh -i $INSTANCE -t $TIME -o $OUTPUT
 
       echo "Run: ./${scriptfile}:"
       chmod +x *.jar

@@ -7,8 +7,9 @@ function printBashUsage {
   echo "-h | --help: display this message"
   echo "-i | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: n030w4_1-2-3-3_0"
   echo "-s | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: \$RANDOM."
-  echo "-t | --timeout: timeout for each stage. Default: based on the number of nurses in the instance."
-  echo "-o | --output: directory for the output. Default. outfiles/{instance}/{seeds}_{timestamp}"
+  echo "-t | --timeout: timeout for each stage. Default: based on the number of nurses in the instance; precisely max(5, 10 + 3 * (number of nurses - 20))."
+  echo "-o | --output: directory for the output. Default. outfiles/{instance}/{seeds}_{timestamp}."
+  echo "-q | --queue: queue for sungrid. Default: empty."
 }
 
 
@@ -17,11 +18,12 @@ instance_description="n030w4_1-2-3-3_0"
 while [ ! -z $1 ]; do
   case $1 in
     -h|--help) printBashUsage
-      exit 0;;
+      exit 1;;
     -i | --instance) instance_description=$2; shift 2;;
     -s | --seeds) seeds=$2; shift 2;;
     -t | --timeout) timeout=$2; shift 2;;
     -o | --output) outputDir=$2; shift 2;;
+    -q | --queue) queue=$2; shift 2;;
     -*|--*) echo "Option unknown: $1"; shift 2;;
     *) echo "Cannot parse this argument: $1"
       printBashUsage
@@ -38,6 +40,11 @@ instance=${arrayArgs[0]}
 numHist=${arrayArgs[1]}
 nbArgs=${#arrayArgs[@]}
 nbWeeks=$((nbArgs - 2))
+
+if test ! -d "datasets/$instance" ; then
+	echo "Directory \"datasets/$instance\" doest nos exist."
+	exit 2;
+fi
 
 # create the files that are going to be used in the execution
 scenarioFile="datasets/${instance}/Sc-${instance}.txt"
@@ -103,7 +110,7 @@ echo "#!/bin/bash -l
 #$ -cwd
 #$ -j y
 #$ -o /dev/null
-#$ -q idra
+#$ -q $queue
 #
 # optimal script: launch the simulator
 " >> ${scriptfile}

@@ -21,8 +21,8 @@ INSTANCES+=(n110w8_0_2-1-1-7-2-6-4-7 n110w8_0_3-2-4-9-4-1-3-7) # n110w8_0_5-5-2-
 INSTANCES+=(n120w4_1_4-6-2-6 n120w4_1_5-6-9-8 n120w8_0_0-9-9-4-5-1-0-3 n120w8_1_7-2-6-4-5-2-0-2)
 echo "List of instances: ${INSTANCES[*]}"
 
-for DIR in ${INSTANCES[*]}
+for INST in ${INSTANCES[*]}
 do
 	cd ${CURDIR}
-	scripts/writeRun.sh ${DIR} ${1}.txt ${2}
+	scripts/writeRun.sh $@ -i ${INST}; if [ "$?" != "0" ]; then exit $?; fi;
 done
