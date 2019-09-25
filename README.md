@@ -2,15 +2,16 @@
 
 [![Build Status](https://travis-ci.org/legraina/NurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/NurseScheduler)
 [![Docker Build Status](https://img.shields.io/docker/build/legraina/nurse-scheduler.svg)](https://hub.docker.com/r/legraina/nurse-scheduler/)
+[![DOI](https://zenodo.org/badge/150300357.svg)](https://zenodo.org/badge/latestdoi/150300357)
 
 
 The C++ code and the instances shared on this repository allow to solve a static variant of the nurse scheduling problem described in the second international nurse rostering competition (INRC-II) as well as the original dynamic problem.
 Every information about INRC-II can be found on their website http://mobiz.vives.be/inrc2/, and the initial description of the problem as well as the methodology corresponding to this code are given in:
 [1] S. Ceschia, N. Thi, T. Dang, and P. De Causmaecker, "Second International Nurse Rostering Competition (INRC-II): Problem Description and Rules.", CoRR, p. 1–18, 2015.
 
-[2] A. Legrain, J. Omer and S. Rosat, "An Online Stochastic Algorithm for a Dynamic Nurse Scheduling Problem", European Journal of Operational Research, 2018. The methods implemented in this code are all described in this manuscript. Please cite it in any use of our dynamic code.
+[2] A. Legrain, J. Omer and S. Rosat, "An Online Stochastic Algorithm for a Dynamic Nurse Scheduling Problem", European Journal of Operational Research, 2018. The methods implemented in this code are all described in this manuscript. Please cite it in any use of our dynamic code. You can also use this doi: 10.5281/zenodo.3460633 to make a direct reference to the dynamic code.
 
-[3] A. Legrain, J. Omer and S. Rosat, "A rotation-based branch-and-price approach for the nurse scheduling problem", p. 1-28, 2017, submitted manuscript. This reference describes the offline solver used for solving the nurse scheduling problem. Please cite it in any use of our static code.
+[3] A. Legrain, J. Omer and S. Rosat, "A rotation-based branch-and-price approach for the nurse scheduling problem", p. 1-28, 2017, submitted manuscript. This reference describes the offline solver used for solving the nurse scheduling problem. Please cite it in any use of our static code. You can also use this doi: 10.5281/zenodo.3460634 to make a direct reference to the static code.
 
 These two references can also be found in the directory ./references.
 
