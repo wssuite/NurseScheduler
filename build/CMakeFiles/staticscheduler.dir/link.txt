@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/staticscheduler.dir/src/DeterministicMain.cpp.o  -o ../bin/staticscheduler -Wl,-rpath,/home/sergeb/PROJET/PROJETS/MERINIO/merinio/MerinioScheduler/lib ../lib/libnursescheduler.so -lBcp -lOsi -lOsiClp -lClpSolver -lClp -lCoinUtils -lbz2 -lz -llapack -lblas -lm 
