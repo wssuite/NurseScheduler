@@ -50,12 +50,14 @@ public:
 	// Constructor and destructor
 	//
 	Scenario(string name, int nbWeeks,
-			int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
-			int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
-			vector<int> minConsShifts, vector<int> maxConsShifts,
-			vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
-			int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
-			int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt);
+		 int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
+		 int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
+		 vector<int> hoursToWork, vector<int> shiftIDToShiftTypeID,
+		 int nbShiftsType, vector<string> intToShiftType, map<string,int> shiftTypeToInt,
+		 vector<int> minConsShiftsType, vector<int> maxConsShiftsType,
+		 vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
+		 int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
+		 int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt);
 
 	// Hybrid copy constructor : this is only called when constructing a new scenario that copies most parameters
 	// from the input scenario but for only a subgroup of nurses
@@ -89,13 +91,21 @@ public:
 
 	// number of shifts, a map and a vector matching the name of each shift to an
 	// index and reversely
-	// minimum and maximum number consecutive assignments for each shift,
-	// and penalty for violations of these bounds
-	//
+
 	const int nbShifts_;
 	const vector<string> intToShift_;
 	const map<string,int> shiftToInt_;
-	const vector<int> minConsShifts_, maxConsShifts_;
+        const vector<int> hoursToWork_, shiftIDToShiftTypeID_;
+
+	// number of typeshifts, a map and a vector matching the name of each type shift to an
+	// index and reversely
+	// minimum and maximum number consecutive assignments for each shift,
+	// and penalty for violations of these bounds
+	//
+	const int nbShiftsType_;
+	const vector<string> intToShiftType_;
+	const map<string,int> shiftTypeToInt_;
+	// const vector<int> minConsShifts_, maxConsShifts_;
 
 	// for each shift, the number of forbidden successors and a table containing
 	// the indices of these forbidden successors
@@ -117,6 +127,12 @@ public:
 
 
 private:
+
+        // pour forcer l'usage des fonctions (en passant par le type du shift)
+  
+        const vector<int> minConsShiftType_, maxConsShiftType_;
+
+  
 	//------------------------------------------------
 	// From the Week data file
 	//------------------------------------------------
@@ -230,6 +246,11 @@ public:
 		return theNurses_[whichNurse].needCompleteWeekends();
 	}
 
+  // getters for consecutive type of shifts
+  
+  int minConsShiftsOfTypeOf(int whichShift);
+  int maxConsShiftsOfTypeOf(int whichShift);
+
 	// getters for the attribute of the demand
 	//
 	int firstDay() {return pWeekDemand_->firstDay_;}
@@ -271,7 +292,7 @@ public:
 			nbShiftOffRequests_ += preferences.howManyShiftsOff(nurse.id_);
 		}
 		weekPreferences_ = preferences;
-   }
+	}
 
 public:
 

@@ -133,7 +133,7 @@ bool LiveNurse::needRest(int day) {
 	State state = states_[day];
 
 	if (state.shift_>0 && state.consDaysWorked_ >= maxConsDaysWork()) {
-		if (state.consShifts_ < pScenario_->minConsShifts_[state.shift_]) {
+	  if (state.consShifts_ < pScenario_->minConsShiftsOfTypeOf(state.shift_)) {
 			return WEIGHT_CONS_SHIFTS > WEIGHT_CONS_DAYS_WORK ? false:true;
 		}
 		return true;
@@ -156,7 +156,7 @@ bool LiveNurse::needWork(int day) {
 		if (state.consDaysWorked_ < minConsDaysWork()) {
 			return true;
 		}
-		else if (state.consShifts_ < pScenario_->minConsShifts_[state.shift_]) {
+		else if (state.consShifts_ < pScenario_->minConsShiftsOfTypeOf(state.shift_)) {
 			if (state.consDaysWorked_ >= maxConsDaysWork()) {
 				return WEIGHT_CONS_SHIFTS > WEIGHT_CONS_DAYS_WORK ? true:false;
 			}
@@ -237,21 +237,21 @@ void LiveNurse::checkConstraints(const Roster& roster,
 
 		// check the consecutive same shifts
 		//
-		stat.costConsShifts_[day-1] = 0;
+		stat.costConsShifts_[day-1]= 0;
 		int missingShifts = 0;
 
 		// count the penalty for minimum consecutive shifts only for the previous day
 		// when the new shift is different
 		if (shift != prevShift && prevShift > 0)  {
-			missingShifts = pScenario_->minConsShifts_[prevShift]-states[day-1].consShifts_;
-			stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
+		  missingShifts = pScenario_->minConsShiftsOfTypeOf(prevShift)-states[day-1].consShifts_;
+		  stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
 		}
 
 		// count the penalty for maximum consecutive shifts when the shift is worked
 		// the last day will then be counted
 		if (shift > 0) {
-			stat.costConsShifts_[day-1] +=
-				(states[day].consShifts_>pScenario_->maxConsShifts_[shift]) ? WEIGHT_CONS_SHIFTS:0;
+		  stat.costConsShifts_[day-1] +=
+		    (states[day].consShifts_>pScenario_->maxConsShiftsOfTypeOf(shift)) ? WEIGHT_CONS_SHIFTS:0;
 		}
 
 		// check the preferences
@@ -1321,7 +1321,7 @@ double Solver::computeSolutionCost(int nbDays) {
 
 		for (int day = 0; day < nbDays ; day++) {
 			totalCost += stat.costConsDays_[day]+stat.costConsDaysOff_[day]+
-				stat.costConsShifts_[day]+stat.costPref_[day]+stat.costWeekEnd_[day];
+			  stat.costConsShifts_[day]+stat.costPref_[day]+stat.costWeekEnd_[day];
 
 			if (pNurse->roster_.shift(day) > 0) {
 				satisfiedDemand_[day][pNurse->roster_.shift(day)][pNurse->roster_.skill(day)]++;

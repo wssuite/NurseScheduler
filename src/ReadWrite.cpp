@@ -55,14 +55,15 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	// declare the attributes that will initialize the Scenario instance
 	//
 	string name;
-	int nbWeeks=-1, nbSkills=-1, nbShifts=-1, nbContracts=-1, nbNurses=-1;
-	vector<string> intToSkill, intToShift, intToContract;
-	map<string,int> skillToInt, shiftToInt, nurseNameToInt;
-	vector<int> minConsShifts, maxConsShifts, nbForbiddenSuccessors;
+	int nbWeeks=-1, nbSkills=-1, nbShifts=-1, nbShiftsType=-1, nbContracts=-1, nbNurses=-1;
+	vector<string> intToSkill, intToShift, intToShiftType, intToContract;
+	map<string,int> skillToInt, shiftToInt, shiftTypeToInt, nurseNameToInt;
+	vector<int> minConsShiftType, maxConsShiftType, nbForbiddenSuccessors, hoursInShift, shiftIDToShiftTypeID;
 	vector2D forbiddenSuccessors;
 	map<string,Contract*> contracts;
 	vector<Nurse> theNurses;
 
+	bool  foundShift = false;
 
 	// fill the attributes of the scenario structure
 	//
@@ -98,38 +99,38 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 			// Number of shifts : Given number + REST_SHIFT
 			file >> intTmp;
-			nbShifts = intTmp+1;
+			nbShiftsType = intTmp+1;
 
 			// IMPORTANT : INSERT REST SHIFT !!!!!!
 			// It is given 0 and 99 as bounds so that they never perturbate the cost
 			//
-			intToShift.push_back(REST_SHIFT);
-			shiftToInt.insert(pair<string,int>(REST_SHIFT,0));
-			minConsShifts.push_back(0);
-			maxConsShifts.push_back(99);
+			intToShiftType.push_back(REST_SHIFT);
+			shiftTypeToInt.insert(pair<string,int>(REST_SHIFT,0));
+			minConsShiftType.push_back(0);
+			maxConsShiftType.push_back(99);
 
 			// Other shift types
 			//
-			for(int i=1; i<nbShifts; i++){
+			for(int i=1; i<nbShiftsType; i++){
 				// Name
 				file >> strTmp;
-				intToShift.push_back(strTmp);
-				shiftToInt.insert(pair<string,int>(strTmp,i));
+				intToShiftType.push_back(strTmp);
+				shiftTypeToInt.insert(pair<string,int>(strTmp,i));
 				readUntilChar(&file,'(',&strTmp);
 				// Min consecutive
 				file >> intTmp;
-				minConsShifts.push_back(intTmp);
+				minConsShiftType.push_back(intTmp);
 				readUntilChar(&file, ',', &strTmp);
 				// Max consecutive
 				file >> intTmp;
-				maxConsShifts.push_back(intTmp);
+				maxConsShiftType.push_back(intTmp);
 				readUntilChar(&file,'\n',&strTmp);
 			}
 
 
 			// Forbidden successions
 			//
-			for(int i=0; i<nbShifts; i++){
+			for(int i=0; i<nbShiftsType; i++){
 				vector<int> v;
 				forbiddenSuccessors.push_back(v);
 				nbForbiddenSuccessors.push_back(0);
@@ -137,21 +138,49 @@ Scenario* ReadWrite::readScenario(string fileName) {
 			while(!strEndsWith(title,"FORBIDDEN_SHIFT_TYPES_SUCCESSIONS"))
 				file >> title;
 			// Reading all lines
-			for(int i=1; i<nbShifts; i++){
-				// Which current shift ?
-				string currentShift;
-				file >> currentShift;
-				int currentShiftId = shiftToInt.at(currentShift);
+			for(int i=1; i<nbShiftsType; i++){
+				// Which current shift type ?
+				string currentShiftType;
+				file >> currentShiftType;
+				int currentShiftTypeId = shiftTypeToInt.at(currentShiftType);
 				// How many forbidden after it ?
 				file >> intTmp;
-				nbForbiddenSuccessors[currentShiftId] = intTmp;
+				nbForbiddenSuccessors[currentShiftTypeId] = intTmp;
 				// Which ones are forbidden ?
-				for(int j=0; j<nbForbiddenSuccessors[currentShiftId]; j++){
+				for(int j=0; j<nbForbiddenSuccessors[currentShiftTypeId]; j++){
 					file >> strTmp;
-					forbiddenSuccessors[currentShiftId].push_back(shiftToInt.at(strTmp));
+					forbiddenSuccessors[currentShiftTypeId].push_back(shiftTypeToInt.at(strTmp));
 				}
 				readUntilChar(&file,'\n',&strTmp);
 
+			}
+		}
+
+		// Read the different shifts
+		//
+		else if (strEndsWith(title, "SHIFTS ")) {
+		  foundShift = true;
+			// Number of shifts 
+			file >> intTmp;
+			nbShifts = intTmp;
+
+			// Shifts
+			//
+			for(int i=0; i<nbShifts; i++){
+				// Name
+				file >> strTmp;
+				intToShift.push_back(strTmp);
+				shiftToInt.insert(pair<string,int>(strTmp,i));
+
+				int hours;
+				file >> hours;
+				hoursInShift.push_back(hours);
+
+				string  currentShiftType;
+				file >> currentShiftType;
+
+				int currentShiftTypeId = shiftTypeToInt.at(currentShiftType);
+				shiftIDToShiftTypeID.push_back(currentShiftTypeId);
 			}
 		}
 
@@ -216,6 +245,19 @@ Scenario* ReadWrite::readScenario(string fileName) {
 		}
 	}
 
+	//  to be backward compatible with old style of input file (without the SHIFTS section)
+	//  set default shifts
+	
+	if (!foundShift) {
+	  nbShifts=nbShiftsType;
+	  for(int i=0; i<nbShiftsType; i++){
+	    intToShift.push_back(intToShiftType[i]);
+	    shiftToInt.insert(pair<string,int>(intToShiftType[i],i-1));
+	    hoursInShift.push_back(1);
+	    shiftIDToShiftTypeID.push_back(i);
+	  }
+	}
+
 	// Check that all fields were initialized before initializing the scenario
 	//
 	if ( nbWeeks==-1 || nbSkills==-1 || nbShifts==-1 || nbContracts==-1 || nbNurses==-1 ) {
@@ -223,9 +265,10 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	}
 
 	return new Scenario(name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts,
-		intToShift, shiftToInt, minConsShifts, maxConsShifts,
-		nbForbiddenSuccessors,forbiddenSuccessors,
-		nbContracts, intToContract, contracts, nbNurses, theNurses, nurseNameToInt) ;
+			    intToShift, shiftToInt, hoursInShift, shiftIDToShiftTypeID,
+			    nbShiftsType, intToShiftType, shiftTypeToInt,
+			    minConsShiftType, maxConsShiftType, nbForbiddenSuccessors,forbiddenSuccessors,
+			    nbContracts, intToContract, contracts, nbNurses, theNurses, nurseNameToInt) ;
 }
 
 Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario)
@@ -317,7 +360,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 					// Read shift and skill
 					file >> shiftName;
 					file >> skillName;
-					shiftId = pScenario->shiftToInt_.at(shiftName);
+					shiftId = pScenario->shiftTypeToInt_.at(shiftName);
 					skillId = pScenario->skillToInt_.at(skillName);
 					// For every day in the week, read min and opt values
 					for (int day = 0; day<7; day++){
@@ -351,7 +394,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 				if(shift == "Any")
 					(*pPref)->addDayOff(nurseId, dayId);
 				else {
-					shiftId = pScenario->shiftToInt_.at(shift);
+					shiftId = pScenario->shiftTypeToInt_.at(shift);
 					(*pPref)->addShiftOff(nurseId, dayId, shiftId);
 				}
 			}
@@ -423,7 +466,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 				file >> totalDaysWorked;
 				file >> totalWeekendsWorked;
 				file >> shiftName;
-				shiftId = pScenario->shiftToInt_.at(shiftName);
+				shiftId = pScenario->shiftTypeToInt_.at(shiftName);
 				file >> consShiftWorked;
 				file >> consDaysWorked;
 				file >> consRest;

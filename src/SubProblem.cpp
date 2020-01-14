@@ -113,10 +113,10 @@ void SubProblem::init(vector<State>* pInitState){
 
 	for(int sh=1; sh<pScenario_->nbShifts_; sh++){
 		isUnlimited_.push_back(
-				pScenario_->maxConsShifts_[sh] >= nDays_ + maxOngoingDaysWorked_
-				or pScenario_->maxConsShifts_[sh] >= NB_SHIFT_UNLIMITED
+				       pScenario_->maxConsShiftsOfTypeOf(sh) >= nDays_ + maxOngoingDaysWorked_
+				       or pScenario_->maxConsShiftsOfTypeOf(sh) >= NB_SHIFT_UNLIMITED
 		);
-		int nl = isUnlimited_[sh] ? pScenario_->minConsShifts_[sh] : pScenario_->maxConsShifts_[sh];
+		int nl = isUnlimited_[sh] ? pScenario_->minConsShiftsOfTypeOf(sh) : pScenario_->maxConsShiftsOfTypeOf(sh);
 		maxvalConsByShift_.push_back( nl );
 	}
 
@@ -244,7 +244,7 @@ void SubProblem::initShortSuccessions(){
 						double newCost = cost;
 						if(newSh == lastSh){	// BUT : add the cost if longer than the maximum allowed
 							newNLast += nLast;
-							if(newNLast >= pScenario_->maxConsShifts_[newSh]){
+							if(newNLast >= pScenario_->maxConsShiftsOfTypeOf(newSh)){
 								newCost += consShiftCost(lastSh, nLast) ;
 							}
 						} else {
@@ -277,8 +277,8 @@ void SubProblem::initShortSuccessions(){
 // Cost function for consecutive identical shifts
 //
 double SubProblem::consShiftCost(int sh, int n){
-	if(pScenario_->minConsShifts_[sh] - n > 0) return (WEIGHT_CONS_SHIFTS * ( pScenario_->minConsShifts_[sh] - n ) );
-	if(n - pScenario_->maxConsShifts_[sh] > 0) return (WEIGHT_CONS_SHIFTS * ( n - pScenario_->maxConsShifts_[sh] ) );
+  if(pScenario_->minConsShiftsOfTypeOf(sh) - n > 0) return (WEIGHT_CONS_SHIFTS * ( pScenario_->minConsShiftsOfTypeOf(sh) - n ) );
+  if(n - pScenario_->maxConsShiftsOfTypeOf(sh) > 0) return (WEIGHT_CONS_SHIFTS * ( n - pScenario_->maxConsShiftsOfTypeOf(sh) ) );
 	return 0;
 }
 
@@ -1023,7 +1023,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 
 			// b. (i)   The nurse was working on a different shift: if too short, add the corresponding cost
 			if(shiftIni != firstShift){
-				int diff = pScenario_->minConsShifts_[shiftIni] - nConsShiftIni;
+			  int diff = pScenario_->minConsShiftsOfTypeOf(shiftIni) - nConsShiftIni;
 				ANS += max(0, diff*(WEIGHT_CONS_SHIFTS));
 			}
 
@@ -1032,7 +1032,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 			//            - Subtract the cost due to the consecutive end of the initial state
 			//            - Add the consecutive cost for all shifts
 			else if(nConsFirstShift < CDMin_) {
-				int diffShift = nConsShiftIni - pScenario_->maxConsShifts_[shiftIni];
+			  int diffShift = nConsShiftIni - pScenario_->maxConsShiftsOfTypeOf(shiftIni);
 				ANS -= max(0, diffShift*WEIGHT_CONS_SHIFTS);
 				ANS -= consShiftCost(firstShift, nConsFirstShift);
 				ANS += consShiftCost(firstShift, (nConsFirstShift + nConsShiftIni));
@@ -1513,7 +1513,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 			consDays += pLiveNurse_->pStateIni_->consDaysWorked_;
 			// If worked too much, subtract the already counted surplus
 			consDaysRegCost -= max(0, pLiveNurse_->pStateIni_->consDaysWorked_ - pContract_->maxConsDaysWork_) * WEIGHT_CONS_DAYS_WORK;
-			consShiftsRegCost -= max(0, pLiveNurse_->pStateIni_->consShifts_ - pScenario_->maxConsShifts_[shift]) * WEIGHT_CONS_SHIFTS;
+			consShiftsRegCost -= max(0, pLiveNurse_->pStateIni_->consShifts_ - pScenario_->maxConsShiftsOfTypeOf(shift)) * WEIGHT_CONS_SHIFTS;
 		}
 		// The nurse was resting
 		else {
@@ -1539,7 +1539,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 			consShifts = 1;
 			shift = newShift;
 		}
-		if(k==endDate and (k<nDays_-1 or consShifts > pScenario_->maxConsShifts_[shift])) consShiftsRegCost += consShiftCost(shift, consShifts);
+		if(k==endDate and (k<nDays_-1 or consShifts > pScenario_->maxConsShiftsOfTypeOf(shift))) consShiftsRegCost += consShiftCost(shift, consShifts);
 	}
 
 	// D. REGULAR COST: COMPLETE WEEKENDS
@@ -2030,7 +2030,7 @@ void SubProblem::r_c_shortest_paths_dispatch_several_sinks( const Graph& g,
         }
       }
 	 */
-	// ------------------------------------------------------------------------- END SAMUEL
+	// ------------------------------------------------------------------------- END SAMUEL 
 
 	BGL_FORALL_VERTICES_T(i, g, Graph) {
 		const std::list<Splabel>& list_labels_cur_vertex = vec_vertex_labels[i];
@@ -2157,7 +2157,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 						else {
 							if(newSh == lastSh){
 								potentialCost -= consShiftCost(lastSh,nConsShift);
-								if(newSh == lastSh and nConsShift+1 > pScenario_->maxConsShifts_[newSh])
+								if(newSh == lastSh and nConsShift+1 > pScenario_->maxConsShiftsOfTypeOf(newSh))
 									potentialCost += consShiftCost(lastSh,nConsShift+1);
 							}
 						}
@@ -2572,7 +2572,7 @@ void SubProblem::printContractAndPrefenrences(){
 	std::cout << "# Contract :   ";
 	std::cout << "Days [" << pContract_->minConsDaysOff_ << "<" << pContract_->maxConsDaysOff_ << "]   ";
 	for(int s=1; s<pScenario_->nbShifts_; s++){
-		std::cout << pScenario_->intToShift_[s] << " [" << pScenario_->minConsShifts_[s] << "<" << pScenario_->maxConsShifts_[s] << "]   ";
+	  std::cout << pScenario_->intToShift_[s] << " [" << pScenario_->minConsShiftsOfTypeOf(s) << "<" << pScenario_->maxConsShiftsOfTypeOf(s) << "]   ";
 	}
 	std::cout << std::endl;
 	std::cout << "# " << std::endl;

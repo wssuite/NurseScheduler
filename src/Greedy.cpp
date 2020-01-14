@@ -159,19 +159,19 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   // penalize violation of maximum and minimum numbers of shifts
   int lastShift = state.shift_;
   int ecartShift, ecartOff, ecartDay;
-  if (lastShift > 0 && shift == lastShift  && state.consShifts_ >= pScenario_->maxConsShifts_[lastShift]) {
+  if (lastShift > 0 && shift == lastShift  && state.consShifts_ >= pScenario_->maxConsShiftsOfTypeOf(lastShift)) {
     cost += WEIGHT_CONS_SHIFTS;
   }
-  else if (lastShift > 0 && shift != lastShift && state.consShifts_ < pScenario_->minConsShifts_[lastShift]) {
-    ecartShift = pScenario_->minConsShifts_[lastShift]-state.consShifts_;
+  else if (lastShift > 0 && shift != lastShift && state.consShifts_ < pScenario_->minConsShiftsOfTypeOf(lastShift)) {
+    ecartShift = pScenario_->minConsShiftsOfTypeOf(lastShift)-state.consShifts_;
     cost += WEIGHT_CONS_SHIFTS*ecartShift;
   }
   // penalize the action of taking a new shift whose number of minimum succesive
   // shifts will not be reached before the maximum number of worked days
   if (lastShift > 0 && shift != lastShift) {
     int maxDays = nurse.maxConsDaysWork()-state.consDaysWorked_;
-    if (maxDays < pScenario_->minConsShifts_[shift]) {
-      cost += WEIGHT_CONS_SHIFTS*(pScenario_->minConsShifts_[shift] - maxDays);
+    if (maxDays < pScenario_->minConsShiftsOfTypeOf(shift)) {
+      cost += WEIGHT_CONS_SHIFTS*(pScenario_->minConsShiftsOfTypeOf(shift) - maxDays);
     }
   }
   // penalize the action to go from a shift with a lot of possible successors to
@@ -427,7 +427,7 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
         if ( (day+nbUnassigned < nurse.firstDay_+nurse.nbDays_)
           && (sh != nurse.roster_.shift(day+nbUnassigned)) ) {
           stateTmp.addDayToState(states.back(), sh);
-          int missingShifts = pScenario_->minConsShifts_[sh]-(nbUnassigned-1 + stateTmp.consShifts_);
+          int missingShifts = pScenario_->minConsShiftsOfTypeOf(sh)-(nbUnassigned-1 + stateTmp.consShifts_);
           if (missingShifts > 0) {
             costTmp += missingShifts * WEIGHT_CONS_SHIFTS;
           }

@@ -24,22 +24,26 @@
 // Constructor and destructor
 //
 Scenario::Scenario(string name, int nbWeeks,
-		int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
-		int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
-		vector<int> minConsShifts, vector<int> maxConsShifts,
-		vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
-		int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
-		int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt) :
-		name_(name), nbWeeks_(nbWeeks),
-		nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
-		nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
-		minConsShifts_(minConsShifts), maxConsShifts_(maxConsShifts),
-		nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
-		nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
-		nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
-		nbPositions_(0), nbShiftOffRequests_(0),
-		pWeekDemand_(0){
-
+		   int nbSkills, vector<string> intToSkill, map<string,int> skillToInt,
+		   int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
+		   vector<int> hoursToWork, vector<int> shiftIDToShiftTypeID,
+		   int nbShiftsType, vector<string> intToShiftType, map<string,int> shiftTypeToInt,
+		   vector<int> minConsShiftType, vector<int> maxConsShiftType,
+		   vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
+		   int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
+		   int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt) :
+  name_(name), nbWeeks_(nbWeeks),
+  nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
+  nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
+  hoursToWork_(hoursToWork), shiftIDToShiftTypeID_(shiftIDToShiftTypeID),
+  nbShiftsType_(nbShiftsType), intToShiftType_(intToShiftType), shiftTypeToInt_(shiftTypeToInt),
+  minConsShiftType_(minConsShiftType), maxConsShiftType_(maxConsShiftType),
+  nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
+  nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
+  nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
+  nbPositions_(0), nbShiftOffRequests_(0),
+  pWeekDemand_(0){
+  
 	// To make sure that it is modified later when reading the history data file
 	//
 	thisWeek_ = -1;
@@ -55,16 +59,18 @@ Scenario::Scenario(string name, int nbWeeks,
 // from the input scenario but for only a subgroup of nurses
 //
 Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDemand, Preferences* pWeekPreferences):
-		name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
-		nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
-		nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
-		minConsShifts_(pScenario->minConsShifts_), maxConsShifts_(pScenario->maxConsShifts_),
-		nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
-		nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
-		nbNurses_(theNurses.size()), theNurses_(theNurses), nurseNameToInt_(pScenario->nurseNameToInt_),
-		thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
-		nbPositions_(0), nursesPerPosition_(0), nbShiftOffRequests_(0), pWeekDemand_(0){
-
+  name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
+  nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
+  nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
+  hoursToWork_(pScenario->hoursToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
+  nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
+  minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
+  nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
+  nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
+  nbNurses_(theNurses.size()), theNurses_(theNurses), nurseNameToInt_(pScenario->nurseNameToInt_),
+  thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+  nbPositions_(0), nursesPerPosition_(0), nbShiftOffRequests_(0), pWeekDemand_(0){
+  
 	// Preprocess the vector of nurses
 	// This creates the positions
 	//
@@ -81,7 +87,9 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
 Scenario::Scenario(Scenario* pScenario):name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
 nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
 nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
-minConsShifts_(pScenario->minConsShifts_), maxConsShifts_(pScenario->maxConsShifts_),
+hoursToWork_(pScenario->hoursToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
+nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
+minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
 nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
 nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
 nbNurses_(pScenario->nbNurses()), theNurses_(pScenario->theNurses_), nurseNameToInt_(pScenario->nurseNameToInt_),
@@ -110,16 +118,45 @@ Scenario::~Scenario(){
 
 // return true if the shift shNext is a forbidden successor of sh
 //
+// bool Scenario::isForbiddenSuccessor(int shNext, int shLast) {
+// 	if (shLast <= 0) return false;
+
+// 	for (int i = 0; i < nbForbiddenSuccessors_[shLast]; i++) {
+// 		if (shNext == forbiddenSuccessors_[shLast][i])  {
+// 			return true;
+// 		}
+// 	}
+// 	return false;
+// }
+
+// return true if the shift shNext is a forbidden successor of sh (via types)
+
 bool Scenario::isForbiddenSuccessor(int shNext, int shLast) {
 	if (shLast <= 0) return false;
 
-	for (int i = 0; i < nbForbiddenSuccessors_[shLast]; i++) {
-		if (shNext == forbiddenSuccessors_[shLast][i])  {
+	int  shTypeNext = shiftIDToShiftTypeID_[shNext];
+	int  shTypeLast = shiftIDToShiftTypeID_[shLast];
+
+	for (int i = 0; i < nbForbiddenSuccessors_[shTypeLast]; i++) {
+		if (shTypeNext == forbiddenSuccessors_[shTypeLast][i])  {
 			return true;
 		}
 	}
 	return false;
 }
+
+// return the min/max consecutive shifts of the same type as the argument
+
+int Scenario::minConsShiftsOfTypeOf(int whichShift) {
+  int  shiftType = shiftIDToShiftTypeID_[whichShift];
+  return minConsShiftType_[shiftType];
+}
+
+int Scenario::maxConsShiftsOfTypeOf(int whichShift) {
+  int  shiftType = shiftIDToShiftTypeID_[whichShift];
+  return maxConsShiftType_[shiftType];
+}
+
 
 // update the scenario to treat a new week
 //
@@ -161,7 +198,7 @@ string Scenario::toString(){
 	rep << "# SHIFTS           \t= " << nbShifts_ << std::endl;
 	for(int i=0; i<nbShifts_; i++){
 		rep << "#                  \t= ";
-		rep << i << ":" << intToShift_[i] << " \t(" << minConsShifts_[i] << "," << maxConsShifts_[i] << ")" << std::endl;
+		rep << i << ":" << intToShift_[i] << " \t(" << minConsShiftsOfTypeOf(i) << "," << maxConsShiftsOfTypeOf(i) << ")" << std::endl;
 	}
 	rep << "# " << std::endl;
 	rep << "# FORBIDDEN        " << std::endl;

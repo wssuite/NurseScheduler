@@ -83,8 +83,8 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 
 	// if the initial shift has already exceeded the max, substract now the cost that will be readd later
 	if( (firstDay_==0) && (lastShift>0) &&
-			(nbConsShifts > pScenario->maxConsShifts_[lastShift])){
-		consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShifts_[lastShift])*WEIGHT_CONS_SHIFTS;
+	    (nbConsShifts > pScenario->maxConsShiftsOfTypeOf(lastShift))){
+	  consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShift))*WEIGHT_CONS_SHIFTS;
 	}
 
 	for(int k=firstDay_; k<firstDay_+length_; ++k){
@@ -93,8 +93,8 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 			continue;
 		}
 		if(lastShift > 0){
-			int diff = max(pScenario->minConsShifts_[lastShift] - nbConsShifts,
-					nbConsShifts-pScenario->maxConsShifts_[lastShift]);
+		  int diff = max(pScenario->minConsShiftsOfTypeOf(lastShift) - nbConsShifts,
+				 nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShift));
 			if(diff>0) {
 				consShiftsCost_ += diff * WEIGHT_CONS_SHIFTS;
 			}
@@ -105,8 +105,8 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 	}
 
 	//compute consShiftsCost for the last shift
-	int diff = max((firstDay_+length_ == horizon) ? 0 : pScenario->minConsShifts_[lastShift] - nbConsShifts,
-			nbConsShifts-pScenario->maxConsShifts_[lastShift]);
+	int diff = max((firstDay_+length_ == horizon) ? 0 : pScenario->minConsShiftsOfTypeOf(lastShift) - nbConsShifts,
+		       nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShift));
 	if(diff>0) {
 		consShiftsCost_ += diff * WEIGHT_CONS_SHIFTS;
 	}
@@ -405,7 +405,7 @@ void MasterProblem::build(SolverParam param){
 		double artificialCost = WEIGHT_TOTAL_SHIFTS*pScenario_->nbShifts_*(pScenario_->nbDays()-pScenario_->maxTotalShiftsOf(i));
 		artificialCost += WEIGHT_CONS_DAYS_WORK*pScenario_->nbShifts_*(pScenario_->nbDays()-pScenario_->maxConsDaysWorkOf(i));
 		for (int i = 1; i < pScenario_->nbShifts_; i++) {
-			artificialCost += WEIGHT_CONS_SHIFTS*(pScenario_->nbDays()-pScenario_->maxConsShifts_[i]);
+		  artificialCost += WEIGHT_CONS_SHIFTS*(pScenario_->nbDays()-pScenario_->maxConsShiftsOfTypeOf(i));
 		}
 		Rotation rotation(shifts, i, LARGE_SCORE);// artificialCost);//
 		addRotation(rotation, baseName.c_str(), true);
@@ -1640,7 +1640,7 @@ Rotation MasterProblem::computeInitStateRotation(LiveNurse* pNurse){
 		rot.consDaysWorkedCost_ += (diff>0) ? diff*WEIGHT_CONS_DAYS_WORK : 0;
 
 		int nbConsShifts = pNurse->pStateIni_->consShifts_;
-		int diff2 = pScenario_->minConsShifts_[lastShift] - nbConsShifts;
+		int diff2 = pScenario_->minConsShiftsOfTypeOf(lastShift) - nbConsShifts;
 		rot.consShiftsCost_ += (diff2>0) ? diff2*WEIGHT_CONS_SHIFTS : 0;
 	}
 	rot.cost_ = rot.consDaysWorkedCost_ + rot.consShiftsCost_;
