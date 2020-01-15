@@ -160,13 +160,23 @@ Scenario* ReadWrite::readScenario(string fileName) {
 		//
 		else if (strEndsWith(title, "SHIFTS ")) {
 		  foundShift = true;
+
+			// IMPORTANT : INSERT REST SHIFT !!!!!!
+			// It is given 0 and 99 as bounds so that they never perturbate the cost
+			//
+			intToShift.push_back(REST_SHIFT);
+			shiftToInt.insert(pair<string,int>(REST_SHIFT,0));
+			hoursInShift.push_back(0);
+			int currentShiftTypeId = shiftTypeToInt.at(REST_SHIFT);
+			shiftIDToShiftTypeID.push_back(currentShiftTypeId);
+			
 			// Number of shifts 
 			file >> intTmp;
-			nbShifts = intTmp;
+			nbShifts = intTmp+1;
 
 			// Shifts
 			//
-			for(int i=0; i<nbShifts; i++){
+			for(int i=1; i<nbShifts; i++){
 				// Name
 				file >> strTmp;
 				intToShift.push_back(strTmp);

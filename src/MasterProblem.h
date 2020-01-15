@@ -77,7 +77,7 @@ struct Rotation {
 	Rotation(map<int,int> shifts, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
 	shifts_(shifts), nurseId_(nurseId), cost_(cost),id_(s_count),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-	dualCost_(dualCost), length_(shifts.size())
+	dualCost_(dualCost), length_(shifts.size()), timeDuration_(shifts.size())
 	{
 		++s_count;
 		firstDay_ = 999;
@@ -88,7 +88,7 @@ struct Rotation {
 	Rotation(int firstDay, vector<int> shiftSuccession, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
 					id_(s_count),nurseId_(nurseId), cost_(cost),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-	dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size())
+	dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size()), timeDuration_(shiftSuccession.size())
 	{
 		++s_count;
 		for(int k=0; k<length_; k++) shifts_.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
@@ -97,7 +97,7 @@ struct Rotation {
 	Rotation(vector<double> compactPattern) :
 					id_(s_count),nurseId_((int)compactPattern[0]), cost_(DBL_MAX),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-	dualCost_(DBL_MAX), firstDay_((int)compactPattern[1]), length_(compactPattern.size()-2)
+	dualCost_(DBL_MAX), firstDay_((int)compactPattern[1]), length_(compactPattern.size()-2), timeDuration_(compactPattern.size()-2)
 	{
 		++s_count;
 		for(int k=0; k<length_; k++) shifts_.insert(pair<int,int>( (firstDay_+k) , (int)compactPattern[k+2] ));
@@ -107,7 +107,8 @@ struct Rotation {
 					id_(rotation.id_), nurseId_(nurseId), cost_(rotation.cost_),
 	consShiftsCost_(rotation.consShiftsCost_), consDaysWorkedCost_(rotation.consDaysWorkedCost_),
 	completeWeekendCost_(rotation.completeWeekendCost_), preferenceCost_(rotation.preferenceCost_), initRestCost_(rotation.initRestCost_),
-	dualCost_(rotation.dualCost_), firstDay_(rotation.firstDay_), length_(rotation.length_), shifts_(rotation.shifts_)
+					dualCost_(rotation.dualCost_), firstDay_(rotation.firstDay_), length_(rotation.length_),
+					timeDuration_(rotation.timeDuration_), shifts_(rotation.shifts_)
 	{
 		if(rotation.nurseId_ != nurseId_){
 			cost_ = DBL_MAX;
@@ -154,6 +155,10 @@ struct Rotation {
 	//
 	int treeLevel_=0;
 
+        // Time duration (in hours)
+
+        int timeDuration_;
+
 	//compact the rotation in a vector
 	const vector<double> getCompactPattern(){
 		vector<double> compact;
@@ -171,6 +176,14 @@ struct Rotation {
 	//
 	void checkDualCost(DualCosts& costs);
 
+
+        // calcule le nombre d'heures d'une rotation
+        void computeTimeDuration(Scenario* pScenario){
+	  timeDuration_=0;
+	  for(pair<int,int> p: shifts_) {
+	    timeDuration_ += 1;  //pScenario->hoursToWork_[p.second];
+	  }
+	}
 
 	string toString(int nbDays = -1){
 		if(nbDays == -1) nbDays = firstDay_+length_;
@@ -383,6 +396,11 @@ private:
 	vector<MyVar*> initialStateVars_; //stores all the initial rotations finishing on the first day
 	vector< vector< vector<MyVar*> > > restsPerDay_; //stores all the arcs that are resting on a day for each nurse
 
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //
+  // IMPORTANT:  DANS LA VERSION MERINIO, LES 'NURSES' SONT REMPLACEES PAR DES EMPLOYES ET LES 'WORKEDDAYS' PAR DES HEURES TRAVAILLEES
+  //
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	/*
 	* Variables
 	*/

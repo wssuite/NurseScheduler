@@ -538,6 +538,7 @@ void MasterProblem::initializeSolution(vector<Roster> solution){
 				else if(workedLastDay){
 					Rotation rotation(shifts, i);
 					rotation.computeCost(pScenario_, pPreferences_, theLiveNurses_, pDemand_->nbDays_);
+					rotation.computeTimeDuration(pScenario_);
 					pModel_->addActiveColumn(addRotation(rotation, baseName.c_str()));
 					shifts.clear();
 					lastShift = shift;
@@ -548,6 +549,7 @@ void MasterProblem::initializeSolution(vector<Roster> solution){
 			if(workedLastDay){
 				Rotation rotation(shifts, i);
 				rotation.computeCost(pScenario_, pPreferences_, theLiveNurses_,pDemand_->nbDays_);
+				rotation.computeTimeDuration(pScenario_);
 				pModel_->addActiveColumn(addRotation(rotation, baseName.c_str()));
 				shifts.clear();
 			}
@@ -846,7 +848,10 @@ MyVar* MasterProblem::addRotation(Rotation& rotation, const char* baseName, bool
 
 	/* Min/Max constraints */
 	int nbWeekends = Tools::containsWeekend(rotation.firstDay_, rotation.firstDay_+rotation.length_-1);
-	addMinMaxConsToCol(cons, coeffs, nurseId, rotation.length_, nbWeekends);
+	//addMinMaxConsToCol(cons, coeffs, nurseId, rotation.length_, nbWeekends);
+	if (rotation.length_ != rotation.timeDuration_ )
+	  cout << rotation.length_ << "    " << rotation.timeDuration_ << endl;
+	addMinMaxConsToCol(cons, coeffs, nurseId, rotation.timeDuration_, nbWeekends);   // pour prendre en compte les heures plutôt que les jours
 
 	/* Skills coverage constraints */
 	for(int k=rotation.firstDay_; k<rotation.firstDay_+rotation.length_; ++k)

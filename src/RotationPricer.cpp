@@ -293,6 +293,7 @@ void RotationPricer::addRotationsToMaster(){
     // COMPUTE THE COST OF THE ROTATIONS
 	for(Rotation& rot: newRotationsForNurse_){
 		rot.computeCost(pScenario_, pMaster_->pPreferences_, pMaster_->theLiveNurses_,nbDays_);
+		rot.computeTimeDuration(pScenario_);
 		rot.treeLevel_ = pModel_->getCurrentTreeLevel();
 	}
 

@@ -101,9 +101,9 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 
 	// Default arguments are set to enable simple call to the function without argument
 	//
-	std::string dataDir = "datasets/",instanceName = "n005w4",solutionPath="",logPath="",paramFile="";
-	int historyIndex = 1, randSeed=0;
-	std::vector<int> weekIndices = {6, 2, 9, 1};
+	std::string dataDir = "datasetsNew/",instanceName = "new1",solutionPath="",logPath="",paramFile="";
+	int historyIndex = 0, randSeed=0;
+	std::vector<int> weekIndices = {0};
 	double timeOut = LARGE_TIME;
 
 	// Read the arguments and store them in inputPaths
