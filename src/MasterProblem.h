@@ -181,7 +181,7 @@ struct Rotation {
         void computeTimeDuration(Scenario* pScenario){
 	  timeDuration_=0;
 	  for(pair<int,int> p: shifts_) {
-	    timeDuration_ += 1;  //pScenario->hoursToWork_[p.second];
+	    timeDuration_ += pScenario->hoursToWork_[p.second];
 	  }
 	}
 

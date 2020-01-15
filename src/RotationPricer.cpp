@@ -197,6 +197,10 @@ vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
 			dualValues2[s-1] = minWorkedDays + minWorkedDaysAvg + minWorkedDaysContractAvg;
 			dualValues2[s-1] += maxWorkedDays + maxWorkedDaysAvg + maxWorkedDaysContractAvg;
 
+			// pour ajuster les valeurs duales en fonction des heures travaillees
+			
+			dualValues2[s-1] *= pScenario_->hoursToWork_[s];
+			
 			/* Skills coverage */
 			dualValues2[s-1] += pModel_->getDual(
 					pMaster_->numberOfNursesByPositionCons_[k][s-1][pNurse->pPosition_->id_], true);

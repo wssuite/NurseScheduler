@@ -849,8 +849,6 @@ MyVar* MasterProblem::addRotation(Rotation& rotation, const char* baseName, bool
 	/* Min/Max constraints */
 	int nbWeekends = Tools::containsWeekend(rotation.firstDay_, rotation.firstDay_+rotation.length_-1);
 	//addMinMaxConsToCol(cons, coeffs, nurseId, rotation.length_, nbWeekends);
-	if (rotation.length_ != rotation.timeDuration_ )
-	  cout << rotation.length_ << "    " << rotation.timeDuration_ << endl;
 	addMinMaxConsToCol(cons, coeffs, nurseId, rotation.timeDuration_, nbWeekends);   // pour prendre en compte les heures plutôt que les jours
 
 	/* Skills coverage constraints */
