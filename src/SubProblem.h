@@ -421,10 +421,6 @@ public:
 	//
 	inline vector< Rotation > getRotations(){return theRotations_;}
 
-	// Returns true if the corresponding shift has no maximum limit of consecutive worked days
-	//
-	inline bool isUnlimited(int sh){return isUnlimited_[sh];}
-
 
 protected:
 
@@ -538,6 +534,9 @@ protected:
 	// Costs due to preferences of the nurse: for each day k (<= nDays_ - CDMin), shift s, contains WEIGHT_PREFERENCES if (k,s) is a preference of the nurse; 0 otherwise.
 	vector<vector <double> > preferencesCosts_;
 
+    // Returns true if the corresponding shift has no maximum limit of consecutive worked days
+    //
+    inline bool isUnlimited(int sh){return isUnlimited_[sh];}
 	// Cost function for consecutive identical shifts
 	double consShiftCost(int sh, int n);
 	// Cost function for consecutive days
