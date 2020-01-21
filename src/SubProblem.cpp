@@ -20,6 +20,9 @@ using std::stringstream;
 using std::vector;
 
 
+static int MAX_COST = 99999;
+static int MAX_TIME = 99999;
+
 
 /////////////////////////////////////////////////
 //
@@ -61,8 +64,8 @@ bool operator<( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& 
 SubProblem::SubProblem() {}
 
 SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState):
-					pScenario_(scenario), pContract_ (contract),
-					CDMin_(contract->minConsDaysWork_), maxRotationLength_(nbDays), nDays_(nbDays) {
+					pScenario_(scenario), nDays_(nbDays), pContract_ (contract),
+					CDMin_(contract->minConsDaysWork_), maxRotationLength_(nbDays) {
 
 	init(pInitState);
 
@@ -102,7 +105,7 @@ void SubProblem::init(vector<State>* pInitState){
 	// Maximum number of consecutive days worked by a nurse ending at day -1
 	//
 	maxOngoingDaysWorked_ = 0;
-	for(int i=0; i<pInitState->size(); i++){
+	for(unsigned int i=0; i<pInitState->size(); i++){
 		maxOngoingDaysWorked_ = max( (pInitState->at(i)).consDaysWorked_, maxOngoingDaysWorked_ );
 	}
 
@@ -199,14 +202,14 @@ void SubProblem::initShortSuccessions(){
 		//
 		else if(c<CDMin_){
 			// For each short rotation of size c-1
-			for(int i=0; i<allowedShortSuccBySize_[c-1].size(); i++){
+			for(unsigned int i=0; i<allowedShortSuccBySize_[c-1].size(); i++){
 				vector<int> succ (allowedShortSuccBySize_[c-1][i]);
 				int lastSh = succ[succ.size()-1];
 				int nLast = nLastShiftOfShortSucc_[c-1][i];
 				double cost = baseArcCostOfShortSucc_[c-1][i];
 				// For each possible new shift s.t. the succession is allowed
 				for(int newSh=1; newSh<nShifts; newSh++){
-					if(! pScenario_->isForbiddenSuccessor(newSh,lastSh)){
+					if(! pScenario_->isForbiddenSuccessorShift_Shift(newSh,lastSh)){
 
 						vector<int> newSucc (succ); newSucc.push_back(newSh);		// Create Succession
 						allSuccSizeC.push_back(newSucc);							// Add it to the possibilities
@@ -228,14 +231,14 @@ void SubProblem::initShortSuccessions(){
 		//
 		else {
 			// For each short rotation of size c-1
-			for(int i=0; i<allowedShortSuccBySize_[c-1].size(); i++){
+			for(unsigned int i=0; i<allowedShortSuccBySize_[c-1].size(); i++){
 				vector<int> succ (allowedShortSuccBySize_[c-1][i]);
 				int lastSh = succ[succ.size()-1];
 				int nLast = nLastShiftOfShortSucc_[c-1][i];
 				double cost = baseArcCostOfShortSucc_[c-1][i];
 				// For each possible new shift s.t. the succession is allowed
 				for(int newSh=1; newSh<nShifts; newSh++){
-					if(! pScenario_->isForbiddenSuccessor(newSh,lastSh)){
+					if(! pScenario_->isForbiddenSuccessorShift_Shift(newSh,lastSh)){
 
 						vector<int> newSucc (succ); newSucc.push_back(newSh);		// Create Succession
 						allSuccSizeC.push_back(newSucc);							// Add it to the possibilities
@@ -446,7 +449,7 @@ bool SubProblem::solveLongRotationsOptimal(){
 bool SubProblem::addRotationsFromPaths(vector< vector< boost::graph_traits<Graph>::edge_descriptor> > paths, vector<spp_spptw_res_cont> resources){
 	int nFound = 0;
 	// For each path of the list, record the corresponding rotation (if negativeOnly=true, do it only if the dualCost < 0)
-	for(int p=0; p < paths.size(); ++p){
+	for(unsigned int p=0; p < paths.size(); ++p){
 
 		// 1. Check if it is valid
 		bool b_is_a_path_at_all = false;
@@ -776,7 +779,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			//
 			origin = principalNetworkNodes_[sh][k][maxvalConsByShift_[sh]];
 			for(int newSh=1; newSh<nShifts; newSh++){
-				if(newSh != sh and ! pScenario_->isForbiddenSuccessor(newSh,sh)){
+				if(newSh != sh and ! pScenario_->isForbiddenSuccessorShift_Shift(newSh,sh)){
 					int destin = principalNetworkNodes_[newSh][k+1][1];
 					arcsShiftToNewShift_[sh][newSh][k] = nArcs_;
 					addSingleArc(origin, destin, 0, 1, SHIFT_TO_NEWSHIFT);
@@ -921,7 +924,7 @@ void SubProblem::priceShortSucc(){
 				// CHECK THE ROTATIONS ONLY IF THE FIRST DAY IS ALLOWED
 				if(startingDayStatus_[k-CDMin_+1]){
 
-					for(int i=0; i<(allShortSuccCDMinByLastShiftCons_[s][n]).size(); i++){
+					for(unsigned int i=0; i<(allShortSuccCDMinByLastShiftCons_[s][n]).size(); i++){
 						int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
 						vector<int> succ = allowedShortSuccBySize_[CDMin_][curSuccId];
 
@@ -1001,7 +1004,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 
 		int firstShift = succ[0];
 		int nConsFirstShift = 0;
-		int ii=0;
+		unsigned int ii=0;
 		while(ii<succ.size() and succ[ii]==firstShift){
 			nConsFirstShift ++;
 			ii++;
@@ -1216,10 +1219,10 @@ bool SubProblem::canSuccStartHere(vector<int> succ, int firstDay){
 	if(!(startingDayStatus_[firstDay]))
 		return false;
 	// If the succession with the previous shift (day -1) is not allowed
-	if(firstDay==0 and pScenario_->isForbiddenSuccessor(succ[0],pLiveNurse_->pStateIni_->shift_))
+	if(firstDay==0 and pScenario_->isForbiddenSuccessorShift_Shift(succ[0],pLiveNurse_->pStateIni_->shift_))
 		return false;
 	// If some day-shift is forbidden...
-	for(int i=0; i<succ.size(); i++){
+	for(unsigned int i=0; i<succ.size(); i++){
 		if( ! dayShiftStatus_[firstDay+i][succ[i]]){
 			return false;
 		}
@@ -1409,7 +1412,7 @@ bool SubProblem::priceVeryShortRotationsFirstDay(){
 	if(startingDayStatus_[0]){
 		for(int c=1; c<CDMin_; c++){
 			vector2D succs = allowedShortSuccBySize_[c];
-			for(int i=0; i<succs.size(); i++){
+			for(unsigned int i=0; i<succs.size(); i++){
 				vector<int> succ = allowedShortSuccBySize_[c][i];
 				double redCost = costOfVeryShortRotation(0,succ);
 				int rotationLength = succ.size() + (pLiveNurse_->pStateIni_->shift_ > 0 ? pLiveNurse_->pStateIni_->consDaysWorked_ : 0);
@@ -1433,7 +1436,7 @@ bool SubProblem::priceVeryShortRotationsLastDay(){
 	for(int c=1; c<CDMin_; c++){
 		if(startingDayStatus_[nDays_-c]){
 			vector2D succs = allowedShortSuccBySize_[c];
-			for(int i=0; i<succs.size(); i++){
+			for(unsigned int i=0; i<succs.size(); i++){
 				vector<int> succ = allowedShortSuccBySize_[c][i];
 				double redCost = costOfVeryShortRotation( nDays_-c ,succ);
 				if(redCost < maxReducedCostBound_){
@@ -1455,7 +1458,7 @@ bool SubProblem::priceVeryShortRotations(){
 	int nFound = 0;
 	for(int c=1; c<CDMin_; c++){
 		vector2D succs = allowedShortSuccBySize_[c];
-		for(int i = 0; i<succs.size(); i++){
+		for(unsigned int i = 0; i<succs.size(); i++){
 			vector<int> succ = allowedShortSuccBySize_[c][i];
 			for(int k=0; k <= nDays_ - c; k++){
 				if(startingDayStatus_[k]){
@@ -1503,7 +1506,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 		// The nurse was working
 		if(pLiveNurse_->pStateIni_->shift_ > 0){
 
-			if(pScenario_->isForbiddenSuccessor( succ[0], pLiveNurse_->pStateIni_->shift_)){
+			if(pScenario_->isForbiddenSuccessorShift_Shift( succ[0], pLiveNurse_->pStateIni_->shift_)){
 				return MAX_COST;
 			}
 
@@ -1524,7 +1527,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 
 	// B. REGULAR COST: CONSECUTIVE NUMBER OF DAYS (only if it does not end on last day)
 	//
-	if(startDate+succ.size() < nDays_ and consDays){
+	if((int) (startDate+succ.size()) < nDays_ and consDays){
 		consDaysRegCost += consDaysCost(consDays);
 	}
 
@@ -1579,7 +1582,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 		cout << "# " << endl;
 		cout << "#+---------------------------------------------+ (" << pLiveNurse_->name_ << ")" << endl;
 		cout << "# " << startDate << "-";
-		for(int i=0; i<succ.size(); i++) cout << pScenario_->intToShift_[succ[i]].at(0);
+		for(unsigned int i=0; i<succ.size(); i++) cout << pScenario_->intToShift_[succ[i]].at(0);
 		cout << endl;
 		cout << "# length " << consDays;
 		if(startDate == 0 and pLiveNurse_->pStateIni_->shift_ > 0){
@@ -2091,7 +2094,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 				double bestCostCDMinDays = 0;
 				vector<int> bestSuccCDMinDays;
 				for(int newSh=1; newSh<pScenario_->nbShifts_; newSh++){
-					for(int i=0; i<allowedShortSuccBySize_[CDMin_].size(); i++){
+					for(unsigned int i=0; i<allowedShortSuccBySize_[CDMin_].size(); i++){
 						vector<int> succ = allowedShortSuccBySize_[CDMin_][i];
 						double potentialCost = costOfVeryShortRotation(startDate,succ);
 						// Store the rotation if it is good
@@ -2139,7 +2142,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 					double potentialCost = bestCost;
 
 					// If the succession is allowed -> try to extend the rotation
-					if(!pScenario_->isForbiddenSuccessor(newSh,lastSh) and !isDayShiftForbidden(currentDate+1,newSh)){
+					if(!pScenario_->isForbiddenSuccessorShift_Shift(newSh,lastSh) and !isDayShiftForbidden(currentDate+1,newSh)){
 
 						// REGULAR COSTS
 						//
@@ -2199,7 +2202,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 
 						if(false){
 							cout << "# COST COMPUTATION for extension to " << startDate << "-";
-							for(int i=0; i<bestSucc.size(); i++) cout << (pScenario_->intToShift_[bestSucc[i]])[0];
+							for(unsigned int i=0; i<bestSucc.size(); i++) cout << (pScenario_->intToShift_[bestSucc[i]])[0];
 							cout << (pScenario_->intToShift_[newSh])[0] << endl;
 							cout << "#    Previous: " << bestCost << endl;
 							cout << "#          -=: " << consShiftCost(lastSh,nConsShift) << " + " << consShiftCost(lastSh,nConsShift+1) << endl;
@@ -2426,7 +2429,7 @@ void SubProblem::printShortSucc(){
 	std::cout << "#   +------------+" << std::endl;
 	int nShortSucc = 0;
 	int nShortRot = 0;
-	for(int i=0; i<allowedShortSuccBySize_.size(); i++){
+	for(unsigned int i=0; i<allowedShortSuccBySize_.size(); i++){
 		vector2D v2 = allowedShortSuccBySize_[i];
 		std::cout << "#   | " << v2.size()  << " short successions of size " << i << std::endl;
 		nShortSucc += v2.size();
@@ -2504,7 +2507,7 @@ void SubProblem::printRotation(Rotation rot){
 	vector<int> allTasks (nDays_);
 	for(map<int,int>::iterator itTask = rot.shifts_.begin(); itTask != rot.shifts_.end(); ++itTask)
 		allTasks[itTask->first] = itTask->second;
-	for(int i=0; i<allTasks.size(); i++){
+	for(unsigned int i=0; i<allTasks.size(); i++){
 		if(allTasks[i] < 1) std::cout << " |";
 		else std::cout << pScenario_->intToShift_[allTasks[i]].at(0) << "|";
 	}
@@ -2551,7 +2554,7 @@ void SubProblem::printShortArcs(){
 					int succId = idBestShortSuccCDMin_[s][k][n];
 					vector<int> succ = allowedShortSuccBySize_[CDMin_][succId];
 					std::cout << "# " << shortNameNode(v) << " <- (id=" << succId << ") ";
-					for(int i=0; i<succ.size(); i++){
+					for(unsigned int i=0; i<succ.size(); i++){
 						std::cout << pScenario_->intToShift_[succ[i]].at(0);
 					}
 					std::cout << std::endl;

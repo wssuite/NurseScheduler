@@ -18,9 +18,6 @@
 #include <boost/graph/r_c_shortest_paths.hpp>
 
 
-static int MAX_COST = 99999;
-static int MAX_TIME = 99999;
-
 // Different node types and their names
 //
 enum NodeType {

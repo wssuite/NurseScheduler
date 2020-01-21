@@ -22,8 +22,7 @@ static char const * baseName = "rotation";
 
 /* Constructs the pricer object. */
 RotationPricer::RotationPricer(MasterProblem* master, const char* name, SolverParam param):
-		MyPricer(name), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nursesToSolve_(master->theNursesSorted_),
-		pMaster_(master), pScenario_(master->pScenario_), nbDays_(master->pDemand_->nbDays_), pModel_(master->getModel()), nb_int_solutions_(0)
+  MyPricer(name), pMaster_(master), pScenario_(master->pScenario_), nbDays_(master->pDemand_->nbDays_), pModel_(master->getModel()), nursesToSolve_(master->theNursesSorted_), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nb_int_solutions_(0)
 {
 	// Initialize the parameters
 	initPricerParameters(param);

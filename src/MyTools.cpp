@@ -155,7 +155,7 @@ void initVector(std::vector<int>* v1D, int m, int val){
 // Initializes a vector2D of the given size (filled only with zeroes)
 //
 void initVector2D(vector2D* v2D, int m, int n, int val){
-	for (int i =0; i < v2D->size(); i++) {
+	for (unsigned int i =0; i < v2D->size(); i++) {
 		(*v2D)[i].clear();
 	}
 	v2D->clear();
@@ -169,8 +169,8 @@ void initVector2D(vector2D* v2D, int m, int n, int val){
 // Initializes a vector3D of the given size (filled only with zeroes)
 //
 void initVector3D(vector3D* v3D, int m, int n, int p, int val){
-	for (int i =0; i < v3D->size(); i++) {
-		for (int j=0; j < v3D->at(i).size(); j++) {
+	for (unsigned int i =0; i < v3D->size(); i++) {
+		for (unsigned int j=0; j < v3D->at(i).size(); j++) {
 			(*v3D)[i][j].clear();
 		}
 		(*v3D)[i].clear();
@@ -195,7 +195,7 @@ void initDoubleVector(std::vector<double>* v1D, int m, double val){
 // Initializes  a vector< vector< double > > of the given size (filled only with zeroes), for double vectors
 //
 void initDoubleVector2D(std::vector< std::vector< double > > * v2D, int m, int n, double val){
-	for (int i =0; i < v2D->size(); i++) {
+	for (unsigned int i =0; i < v2D->size(); i++) {
 		(*v2D)[i].clear();
 	}
 	v2D->clear();
@@ -261,7 +261,7 @@ int drawRandomWithWeights(std::vector<double> weights) {
 	double randNumber = randomDouble(0,sumWeights);
 	int index = 0;
 	double partialSum=weights[0];
-	for (int i=0; i < weights.size()-1; i++) {
+	for (unsigned int i=0; i < weights.size()-1; i++) {
 		if (randNumber <= partialSum) {
 			return index;
 		}

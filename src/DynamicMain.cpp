@@ -67,7 +67,8 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	vector<Demand*> demandHistory;
 	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
 	if (!customInputFile.empty()) {
-		int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
+		// int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
+	 ReadWrite::readCustom(customInputFile, pScen, demandHistory);
 	}
 
 	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);

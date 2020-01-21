@@ -58,14 +58,15 @@ public:
   vector3D minDemand_;
   vector3D optDemand_;
 
-  // preprocessed attributes aggregating the information of the demand
-  //
 public:
-  bool isPreprocessed_;
 
   // total demand in the minimal and optimal demands
   //
   int minTotal_, optTotal_;
+
+  // preprocessed attributes aggregating the information of the demand
+  //
+  bool isPreprocessed_;
 
   // total demand per skill in the minimal and optimal demands
   //

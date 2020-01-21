@@ -75,7 +75,7 @@ struct Rotation {
 	// Specific constructors and destructors
 	//
 	Rotation(map<int,int> shifts, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
-	shifts_(shifts), nurseId_(nurseId), cost_(cost),id_(s_count),
+	shifts_(shifts), id_(s_count),nurseId_(nurseId), cost_(cost),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
 	dualCost_(dualCost), length_(shifts.size()), timeDuration_(shifts.size())
 	{
@@ -104,11 +104,11 @@ struct Rotation {
 	}
 
 	Rotation(Rotation& rotation, int nurseId) :
-					id_(rotation.id_), nurseId_(nurseId), cost_(rotation.cost_),
+	  shifts_(rotation.shifts_), id_(rotation.id_), nurseId_(nurseId), cost_(rotation.cost_),
 	consShiftsCost_(rotation.consShiftsCost_), consDaysWorkedCost_(rotation.consDaysWorkedCost_),
 	completeWeekendCost_(rotation.completeWeekendCost_), preferenceCost_(rotation.preferenceCost_), initRestCost_(rotation.initRestCost_),
 					dualCost_(rotation.dualCost_), firstDay_(rotation.firstDay_), length_(rotation.length_),
-					timeDuration_(rotation.timeDuration_), shifts_(rotation.shifts_)
+					timeDuration_(rotation.timeDuration_)
 	{
 		if(rotation.nurseId_ != nurseId_){
 			cost_ = DBL_MAX;
@@ -121,6 +121,10 @@ struct Rotation {
 	//count rotations
 	//
 	static unsigned int s_count;
+
+	// Shifts to be performed
+	//
+	map<int,int> shifts_;
 
 	//Id of the rotation
 	//
@@ -138,10 +142,6 @@ struct Rotation {
 	// Dual cost as found in the subproblem
 	//
 	double dualCost_;
-
-	// Shifts to be performed
-	//
-	map<int,int> shifts_;
 
 	// First worked day
 	//
@@ -193,7 +193,7 @@ struct Rotation {
 		vector<int> allTasks (nbDays);
 		for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
 		allTasks[itTask->first] = itTask->second;
-		for(int i=0; i<allTasks.size(); i++){
+		for(unsigned int i=0; i<allTasks.size(); i++){
 			if(allTasks[i] < 1) rep << " |";
 			else rep << allTasks[i] << "|";
 		}

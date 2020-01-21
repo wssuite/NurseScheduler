@@ -21,9 +21,11 @@ InputPaths::InputPaths() {
 InputPaths::InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices,
 	std::string solutionPath,std::string logPath, std::string paramFile, double timeOut, int randSeed):
 	instance_(instanceName), historyIndex_(historyIndex), weekIndices_(weekIndices),
-	solutionPath_(solutionPath), logPath_(logPath), paramFile_(paramFile), timeOut_(timeOut), randSeed_(randSeed) {
+	solutionPath_(solutionPath), logPath_(logPath), paramFile_(paramFile), randSeed_(randSeed), timeOut_(timeOut) {
 
-	int nbWeeks = weekIndices.size();
+	// int nbWeeks = weekIndices.size();
+
+  
 	std::string instanceDir = dataDir + instanceName + "/";
 	// initialize the scenario and history file names
 	scenario_ = instanceDir + "Sc-" + instanceName + ".txt";

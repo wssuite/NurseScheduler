@@ -27,7 +27,7 @@ string Contract::toString(){
 	if(!needCompleteWeekends_) rep << "NOT";
 	rep << "complete";
 	return rep.str();
-};
+}
 
 
 //-----------------------------------------------------------------------------
@@ -152,6 +152,8 @@ int Position::compare(const Position &p)  {
 		}
 		return 1;
 	}
+
+	return 0;
 }
 
 // returns true if the position shares at least one skill with the input position
@@ -179,117 +181,6 @@ void Position::resetBelow() {
 	positionsBelow_.clear();
 	nbBelow_ = 0;
 }
-
-
-//-----------------------------------------------------------------------------
-//
-//  S t r u c t u r e   S t a t e
-//
-//-----------------------------------------------------------------------------
-
-// Destructor
-State::~State(){}
-
-// Updates the state if a new day is worked on shift newShift
-void State::addNewDay(int newShift){
-
-	// Total shifts worked if it is a worked day
-	totalDaysWorked_ += (newShift ? 1 : 0);
-
-	// Total weekends worked :
-	// +1 IF : new day is a Sunday and the nurse works on shift_ or newShift
-	if( Tools::isSunday(dayId_-1) and (newShift or shift_) )
-		totalWeekendsWorked_ ++;
-
-	// Consecutives : +1 iff it is the same as the previous one
-	consShifts_ = (shift_==newShift) ? (consShifts_ + 1) : 1;
-
-	// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
-	consDaysWorked_ = shift_ ? (consDaysWorked_ + 1) : 0;
-
-	// Current shift worked : updated with the new one
-	shift_ = newShift;
-
-	// increment the day index
-	dayId_++;
-}
-
-// Function that appends a new day worked on a given shift to an input state
-// to update this state
-// RqJO: I slghtly modified the method to take into account the possibility to
-// add in the state that no task has been assigned on this day
-//
-void State::addDayToState(const State& prevState, int newShift)   {
-
-	// Total shifts worked if it is a worked day
-	totalDaysWorked_ = prevState.totalDaysWorked_+(newShift > 0 ? 1 : 0);
-
-	// index of the previous shift
-	int prevShift = prevState.shift_;
-
-	// Treat the case in which no shift is assigned to the nurse on this day
-	if (newShift < 0) {
-		totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
-		consShifts_ = prevState.consShifts_;
-		consDaysWorked_ = prevState.consDaysWorked_;
-		consDaysOff_ = prevState.consDaysOff_;
-
-		shift_ = prevShift < 0 ? prevShift-1:-1;
-	}
-	else if (prevShift >= 0) {
-		// Total weekends worked:
-		// +1 IF : new day is a Sunday and the nurse works on prevState.shift_ or newShift
-		if( Tools::isSunday(dayId_-1) and (newShift or prevState.shift_) )
-			totalWeekendsWorked_ = prevState.totalWeekendsWorked_+1;
-		else {
-			 totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
-		}
-
-		// Consecutives : +1 iff it is the same as the previous one
-		consShifts_ = (newShift && newShift==prevState.shift_) ? prevState.consShifts_+1 : (newShift? 1:0);
-
-		// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
-		consDaysWorked_ = newShift ? (prevState.consDaysWorked_ + 1) : 0;
-
-		// Consecutive Days off : +1 if the new one is off (==0), 0 if it is worked (!=0)
-		consDaysOff_ = newShift ? 0 : (prevState.consDaysOff_ + 1);
-
-		shift_ = newShift;
-	}
-	else { // the previous shift was not assigned but this one is
-	  if (newShift >0) {
-		 totalDaysWorked_ = prevState.totalDaysWorked_+1+(prevState.consDaysWorked_ > 0 ? (-prevShift):0);
-		 totalWeekendsWorked_ = Tools::isSunday(dayId_) ? prevState.totalWeekendsWorked_+1:prevState.totalWeekendsWorked_;
-		 consDaysWorked_ = (prevState.consDaysWorked_ > 0)  ? (prevState.consDaysWorked_ + 1 - prevShift) : 1;
-		 consShifts_ = 1;
-		 consDaysOff_ = 0;
-		 shift_ = newShift;
-	  }
-	  else {
-		 totalDaysWorked_ = prevState.totalDaysWorked_;
-		 totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
-		 consDaysWorked_ = 0;
-		 consShifts_ = 0;
-		 consDaysOff_ =  (prevState.consDaysOff_ > 0)  ? (prevState.consDaysOff_ + 1 - prevShift) : 1;
-		 shift_ = newShift;
-	  }
-	}
-
-	// increment the day index
-	dayId_ = prevState.dayId_+1;
-}
-
-// Display method: toString
-//
-string State::toString(){
-	std::stringstream rep;
-	rep << totalDaysWorked_ << " " << totalWeekendsWorked_ << " " << shift_ << " ";
-	if(shift_) rep << consShifts_ << " " << consDaysWorked_; else rep << "0 0";
-	if(shift_) rep << " 0"; else rep << " " << consShifts_;
-	rep << std::endl;
-	return rep.str();
-}
-
 
 
 //-----------------------------------------------------------------------------
@@ -366,7 +257,7 @@ bool Preferences::wantsTheDayOff(int nurseId, int day){
 	map<int,set<int> >::iterator itM = wishesOff_[nurseId].find(day);
 	if(itM == wishesOff_[nurseId].end())
 		return false;
-	else if(itM->second.size() < nbShifts_-1)    // Set does not repeat its elements. Wants the day off if and only if she wants all shifts off (-1 because REST does not appear)
+	else if((int) itM->second.size() < nbShifts_-1)    // Set does not repeat its elements. Wants the day off if and only if she wants all shifts off (-1 because REST does not appear)
 		return false;
 	else
 		return true;

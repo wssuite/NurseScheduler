@@ -58,7 +58,7 @@ struct CoinVar: public MyVar {
 
 	void toString(vector<CoinCons*>& cons) {
 		cout << name_ << ":";
-		for(int i=0; i<indexRows_.size(); ++i)
+		for(unsigned int i=0; i<indexRows_.size(); ++i)
 		cout << " " << cons[indexRows_[i]]->name_ << ":" << coeffs_[i];
 		cout << endl;
 	}
@@ -142,7 +142,7 @@ protected:
 		CoinCons* con2;
 		createCoinConsLinear(&con2, con_name, index, lhs, rhs);
 
-		for(int i=0; i<vars.size(); ++i)
+		for(unsigned int i=0; i<vars.size(); ++i)
 		addCoefLinear(con2, vars[i], coeffs[i]);
 
 		cons_.push_back(con2);

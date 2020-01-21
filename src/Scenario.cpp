@@ -13,6 +13,132 @@
 #include "MyTools.h"
 #include "Nurse.h"
 
+
+//-----------------------------------------------------------------------------
+//
+//  S t r u c t u r e   S t a t e
+//
+//-----------------------------------------------------------------------------
+
+// Destructor
+State::~State(){}
+
+// // Updates the state if a new day is worked on shiftType of newShiftType
+// void State::addNewDay(int newShiftType){
+
+// 	// Total shifts worked if it is a worked day
+// 	totalDaysWorked_ += (newShiftType ? 1 : 0);
+
+// 	// Total weekends worked :
+// 	// +1 IF : new day is a Sunday and the nurse works on shift_ or newShift
+// 	if( Tools::isSunday(dayId_-1) and (newShiftType or shiftType_) )
+// 		totalWeekendsWorked_ ++;
+
+// 	// Consecutives : +1 iff it is the same as the previous one
+// 	consShifts_ = (shiftType_==newShiftType) ? (consShifts_ + 1) : 1;
+
+// 	// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
+// 	consDaysWorked_ = shiftType_ ? (consDaysWorked_ + 1) : 0;
+
+// 	// Current shiftType worked : updated with the new one
+// 	shiftType_ = newShiftType;
+
+// 	// increment the day index
+// 	dayId_++;
+// }
+
+
+//    // Function that appends a new day worked on a given shift to an input state
+//    //
+
+// void State::addDayToState(const State& prevState, int newShift, const Scenario* pScenario)   {
+//   int newShiftType = pScenario->shiftIDToShiftTypeID_[newShift];
+
+//   addDayToState(prevState, newShiftType);
+// }
+
+// Function that appends a new day worked on a given shiftType to an input state
+// to update this state
+// RqJO: I slghtly modified the method to take into account the possibility to
+// add in the state that no task has been assigned on this day
+//
+void State::addDayToState(const State& prevState, int newShiftType, int newShift)   {
+
+	// Total shifts worked if it is a worked day
+	totalDaysWorked_ = prevState.totalDaysWorked_+(newShiftType > 0 ? 1 : 0);
+
+	// index of the previous shift
+	int prevShiftType = prevState.shiftType_;
+
+	// Treat the case in which no shift is assigned to the nurse on this day
+	if (newShiftType < 0) {
+		totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+		consShifts_ = prevState.consShifts_;
+		consDaysWorked_ = prevState.consDaysWorked_;
+		consDaysOff_ = prevState.consDaysOff_;
+
+		shiftType_ = prevShiftType < 0 ? prevShiftType-1:-1;
+		shift_ = 0;
+	}
+	else if (prevShiftType >= 0) {
+		// Total weekends worked:
+		// +1 IF : new day is a Sunday and the nurse works on prevState.shift_ or newShift
+		if( Tools::isSunday(dayId_-1) and (newShiftType or prevState.shiftType_) )
+			totalWeekendsWorked_ = prevState.totalWeekendsWorked_+1;
+		else {
+			 totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+		}
+
+		// Consecutives : +1 iff it is the same as the previous one
+		consShifts_ = (newShiftType && newShiftType==prevState.shiftType_) ? prevState.consShifts_+1 : (newShiftType? 1:0);
+
+		// Consecutive Days Worked : +1 if the new one is worked (!=0), 0 if it is a rest (==0)
+		consDaysWorked_ = newShiftType ? (prevState.consDaysWorked_ + 1) : 0;
+
+		// Consecutive Days off : +1 if the new one is off (==0), 0 if it is worked (!=0)
+		consDaysOff_ = newShiftType ? 0 : (prevState.consDaysOff_ + 1);
+
+		shiftType_ = newShiftType;
+		shift_ = newShift;
+	}
+	else { // the previous shift was not assigned but this one is
+	  if (newShiftType >0) {
+		 totalDaysWorked_ = prevState.totalDaysWorked_+1+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);
+		 totalWeekendsWorked_ = Tools::isSunday(dayId_) ? prevState.totalWeekendsWorked_+1:prevState.totalWeekendsWorked_;
+		 consDaysWorked_ = (prevState.consDaysWorked_ > 0)  ? (prevState.consDaysWorked_ + 1 - prevShiftType) : 1;
+		 consShifts_ = 1;
+		 consDaysOff_ = 0;
+		 shiftType_ = newShiftType;
+		 shift_ = newShift;
+	  }
+	  else {
+		 totalDaysWorked_ = prevState.totalDaysWorked_;
+		 totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+		 consDaysWorked_ = 0;
+		 consShifts_ = 0;
+		 consDaysOff_ =  (prevState.consDaysOff_ > 0)  ? (prevState.consDaysOff_ + 1 - prevShiftType) : 1;
+		 shiftType_ = newShiftType;
+		 shift_ = newShift;
+	  }
+	}
+
+	// increment the day index
+	dayId_ = prevState.dayId_+1;
+}
+
+// Display method: toString
+//
+string State::toString(){
+	std::stringstream rep;
+	rep << totalDaysWorked_ << " " << totalWeekendsWorked_ << " " << shiftType_ << " ";
+	if(shiftType_) rep << consShifts_ << " " << consDaysWorked_; else rep << "0 0";
+	if(shiftType_) rep << " 0"; else rep << " " << consShifts_;
+	rep << std::endl;
+	return rep.str();
+}
+
+
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S c e n a r i o
@@ -28,7 +154,7 @@ Scenario::Scenario(string name, int nbWeeks,
 		   int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
 		   vector<int> hoursToWork, vector<int> shiftIDToShiftTypeID,
 		   int nbShiftsType, vector<string> intToShiftType, map<string,int> shiftTypeToInt,
-		   vector<int> minConsShiftType, vector<int> maxConsShiftType,
+		   vector<vector<int> > shiftTypeIDToShiftID, vector<int> minConsShiftType, vector<int> maxConsShiftType,
 		   vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
 		   int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
 		   int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt) :
@@ -37,12 +163,12 @@ Scenario::Scenario(string name, int nbWeeks,
   nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
   hoursToWork_(hoursToWork), shiftIDToShiftTypeID_(shiftIDToShiftTypeID),
   nbShiftsType_(nbShiftsType), intToShiftType_(intToShiftType), shiftTypeToInt_(shiftTypeToInt),
-  minConsShiftType_(minConsShiftType), maxConsShiftType_(maxConsShiftType),
-  nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
+  shiftTypeIDToShiftID_(shiftTypeIDToShiftID), 
   nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
   nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
-  nbPositions_(0), nbShiftOffRequests_(0),
-  pWeekDemand_(0){
+  minConsShiftType_(minConsShiftType), maxConsShiftType_(maxConsShiftType),
+  nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
+  pWeekDemand_(0), nbShiftOffRequests_(0), nbPositions_(0) {
   
 	// To make sure that it is modified later when reading the history data file
 	//
@@ -64,12 +190,13 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
   nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
   hoursToWork_(pScenario->hoursToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
   nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
-  minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
-  nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
+  shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
   nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
   nbNurses_(theNurses.size()), theNurses_(theNurses), nurseNameToInt_(pScenario->nurseNameToInt_),
-  thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
-  nbPositions_(0), nursesPerPosition_(0), nbShiftOffRequests_(0), pWeekDemand_(0){
+  minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
+  nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
+  pWeekDemand_(0), nbShiftOffRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+  nbPositions_(0), nursesPerPosition_(0){
   
 	// Preprocess the vector of nurses
 	// This creates the positions
@@ -89,13 +216,15 @@ nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt
 nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
 hoursToWork_(pScenario->hoursToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
 nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
-minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
-nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
+shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
 nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
 nbNurses_(pScenario->nbNurses()), theNurses_(pScenario->theNurses_), nurseNameToInt_(pScenario->nurseNameToInt_),
-thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
-nbPositions_(0), nursesPerPosition_(0), nbShiftOffRequests_(0), pWeekDemand_(0) {
-	// Preprocess the vector of nurses
+minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
+nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
+pWeekDemand_(0), nbShiftOffRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+nbPositions_(0), nursesPerPosition_(0){
+
+        // Preprocess the vector of nurses
 	// This creates the positions
 	//
 	this->preprocessTheNurses();
@@ -129,13 +258,41 @@ Scenario::~Scenario(){
 // 	return false;
 // }
 
-// return true if the shift shNext is a forbidden successor of sh (via types)
+// return true if the shift shNext is a forbidden successor of shift shLast (via types)
 
-bool Scenario::isForbiddenSuccessor(int shNext, int shLast) {
+bool Scenario::isForbiddenSuccessorShift_Shift(int shNext, int shLast) {
 	if (shLast <= 0) return false;
 
 	int  shTypeNext = shiftIDToShiftTypeID_[shNext];
 	int  shTypeLast = shiftIDToShiftTypeID_[shLast];
+
+	return isForbiddenSuccessorShiftType_ShiftType(shTypeNext, shTypeLast);
+}
+
+// return true if the shift shNext is a forbidden successor of shiftType shTypeLast
+
+bool Scenario::isForbiddenSuccessorShift_ShiftType(int shNext, int shTypeLast) {
+	if (shTypeLast <= 0) return false;
+
+	int  shTypeNext = shiftIDToShiftTypeID_[shNext];
+
+	return isForbiddenSuccessorShiftType_ShiftType(shTypeNext, shTypeLast);
+}
+
+// return true if the shiftType shTypeNext is a forbidden successor of shiftType shTypeLast
+
+bool Scenario::isForbiddenSuccessorShiftType_Shift(int shTypeNext, int shLast) {
+	if (shLast <= 0) return false;
+
+	int  shTypeLast = shiftIDToShiftTypeID_[shLast];
+
+	return isForbiddenSuccessorShiftType_ShiftType(shTypeNext, shTypeLast);
+}
+
+// return true if the shiftType shTypeNext is a forbidden successor of shiftType shTypeLast
+
+bool Scenario::isForbiddenSuccessorShiftType_ShiftType(int shTypeNext, int shTypeLast) {
+	if (shTypeLast <= 0) return false;
 
 	for (int i = 0; i < nbForbiddenSuccessors_[shTypeLast]; i++) {
 		if (shTypeNext == forbiddenSuccessors_[shTypeLast][i])  {
@@ -155,6 +312,15 @@ int Scenario::minConsShiftsOfTypeOf(int whichShift) {
 int Scenario::maxConsShiftsOfTypeOf(int whichShift) {
   int  shiftType = shiftIDToShiftTypeID_[whichShift];
   return maxConsShiftType_[shiftType];
+}
+
+
+int Scenario::minConsShiftsOf(int whichShiftType) {
+  return minConsShiftType_[whichShiftType];
+}
+
+int Scenario::maxConsShiftsOf(int whichShiftType) {
+  return maxConsShiftType_[whichShiftType];
 }
 
 
@@ -258,9 +424,9 @@ string Scenario::toString(){
 		for(int n=0; n<nbNurses_; n++){
 			rep << "#\t\t\t" << theNurses_[n].name_ << " ";
 			State s = initialState_[n];
-			rep << s.totalDaysWorked_ << " " << s.totalWeekendsWorked_ << " " << intToShift_[s.shift_] << " ";
-			if(s.shift_) rep << s.consShifts_ << " " << s.consDaysWorked_; else	rep << "0 0";
-			if(s.shift_) rep << " 0"; else rep << " " << s.consShifts_;
+			rep << s.totalDaysWorked_ << " " << s.totalWeekendsWorked_ << " " << intToShiftType_[s.shiftType_] << " ";
+			if(s.shiftType_) rep << s.consShifts_ << " " << s.consDaysWorked_; else	rep << "0 0";
+			if(s.shiftType_) rep << " 0"; else rep << " " << s.consShifts_;
 			rep << std::endl;
 		}
 	}
@@ -463,13 +629,13 @@ void Scenario::computeConnexPositions() {
 	}
 
 	// Get the nurses that belong to each component
-	for (int c = 0; c < componentsOfConnexPositions_.size(); c++) {
+	for (unsigned int c = 0; c < componentsOfConnexPositions_.size(); c++) {
 		vector<Nurse> nursesInThisComponent;
 		vector<Nurse*> pNursesInThisComponent;
 
 
 		for (Position* p:componentsOfConnexPositions_[c]) {
-			for (int i=0; i<nursesPerPosition_[p->id()].size(); i++) {
+			for (unsigned int i=0; i<nursesPerPosition_[p->id()].size(); i++) {
 				// nursesInThisComponent.push_back(nursesPerPosition_[p->id()][i]);
 				pNursesInThisComponent.push_back(&(nursesPerPosition_[p->id()][i]));
 			}

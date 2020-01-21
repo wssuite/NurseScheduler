@@ -55,7 +55,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 	//   double consShiftsCost_ , consDaysWorkedCost_, completeWeekendCost_, preferenceCost_ ;
 
 	//if first day of the planning, check on the past, otherwise 0 (rest)
-	int lastShift = (firstDay_==0) ? pNurse->pStateIni_->shift_ : 0;
+	int lastShiftType = (firstDay_==0) ? pNurse->pStateIni_->shiftType_ : 0;
 	//nbConsShift = number of consecutive shift
 	//if first day of the planning, check on the past, otherwise 0
 	int nbConsShifts = (firstDay_==0) ? pNurse->pStateIni_->consShifts_ : 0;
@@ -82,31 +82,32 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 	 */
 
 	// if the initial shift has already exceeded the max, substract now the cost that will be readd later
-	if( (firstDay_==0) && (lastShift>0) &&
-	    (nbConsShifts > pScenario->maxConsShiftsOfTypeOf(lastShift))){
-	  consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShift))*WEIGHT_CONS_SHIFTS;
+	if( (firstDay_==0) && (lastShiftType>0) &&
+	    (nbConsShifts > pScenario->maxConsShiftsOf(lastShiftType))){
+	  consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShiftsOf(lastShiftType))*WEIGHT_CONS_SHIFTS;
 	}
 
 	for(int k=firstDay_; k<firstDay_+length_; ++k){
-		if(lastShift == shifts_[k]){
+	  int  shiftType = pScenario->shiftIDToShiftTypeID_[shifts_[k]];
+		if(lastShiftType == shiftType){
 			nbConsShifts ++;
 			continue;
 		}
-		if(lastShift > 0){
-		  int diff = max(pScenario->minConsShiftsOfTypeOf(lastShift) - nbConsShifts,
-				 nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShift));
+		if(lastShiftType > 0){
+		  int diff = max(pScenario->minConsShiftsOfTypeOf(lastShiftType) - nbConsShifts,
+				 nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShiftType));
 			if(diff>0) {
 				consShiftsCost_ += diff * WEIGHT_CONS_SHIFTS;
 			}
 		}
 		//initialize nbConsShifts and lastShift
 		nbConsShifts = 1;
-		lastShift = shifts_[k];
+		lastShiftType = shiftType;
 	}
 
 	//compute consShiftsCost for the last shift
-	int diff = max((firstDay_+length_ == horizon) ? 0 : pScenario->minConsShiftsOfTypeOf(lastShift) - nbConsShifts,
-		       nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShift));
+	int diff = max((firstDay_+length_ == horizon) ? 0 : pScenario->minConsShiftsOfTypeOf(lastShiftType) - nbConsShifts,
+		       nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShiftType));
 	if(diff>0) {
 		consShiftsCost_ += diff * WEIGHT_CONS_SHIFTS;
 	}
@@ -152,7 +153,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 	 * Compute initial resting cost
 	 */
 
-	if(firstDay_==0 && pNurse->pStateIni_->shift_==0){
+	if(firstDay_==0 && pNurse->pStateIni_->shiftType_==0){
 		int diff = pNurse->minConsDaysOff() - pNurse->pStateIni_->consDaysOff_;
 		initRestCost_ = (diff > 0) ? diff*WEIGHT_CONS_DAYS_OFF : 0;
 	}
@@ -268,9 +269,9 @@ MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
 		Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType):
 
 								   Solver(pScenario, pDemand, pPreferences, pInitState), PrintSolution(),
-								   solverType_(solverType), pModel_(0), pPricer_(0), pRule_(0), pTree_(0),
-								   positionsPerSkill_(pScenario->nbSkills_), skillsPerPosition_(pScenario->nbPositions()), restsPerDay_(pScenario->nbNurses_),
-
+								   pModel_(0), positionsPerSkill_(pScenario->nbSkills_),
+								   skillsPerPosition_(pScenario->nbPositions()), pPricer_(0), pTree_(0), pRule_(0),
+								   solverType_(solverType), restsPerDay_(pScenario->nbNurses_),
 								   columnVars_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
 								   minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
 								   minWorkedDaysAvgVars_(pScenario->nbNurses_), maxWorkedDaysAvgVars_(pScenario->nbNurses_), maxWorkedWeekendAvgVars_(pScenario_->nbNurses_),
@@ -348,16 +349,16 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
 	/*
 	 * Build the two vectors linking positions and skills
 	 */
-	for(int p=0; p<skillsPerPosition_.size(); p++){
+	for(unsigned int p=0; p<skillsPerPosition_.size(); p++){
 		vector<int> skills(pScenario_->pPositions()[p]->skills_.size());
-		for(int sk=0; sk<pScenario_->pPositions()[p]->skills_.size(); ++sk)
+		for(unsigned int sk=0; sk<pScenario_->pPositions()[p]->skills_.size(); ++sk)
 			skills[sk]=pScenario_->pPositions()[p]->skills_[sk];
 		skillsPerPosition_[p] = skills;
 	}
-	for(int sk=0; sk<positionsPerSkill_.size(); sk++){
+	for(unsigned int sk=0; sk<positionsPerSkill_.size(); sk++){
 		vector<int> positions(pScenario_->nbPositions());
 		int i(0);
-		for(int p=0; p<positions.size(); p++)
+		for(unsigned int p=0; p<positions.size(); p++)
 			if(find(skillsPerPosition_[p].begin(), skillsPerPosition_[p].end(), sk) != skillsPerPosition_[p].end()){
 				positions[i]=p;
 				++i;
@@ -866,7 +867,7 @@ MyVar* MasterProblem::addRotation(Rotation& rotation, const char* baseName, bool
 		// addRotationConsToCol(cons, coeffs, nurseId, rotation.firstDay_+rotation.length_-1, false, true);
 
 		pModel_->createPositiveVar(&var, name, rotation.cost_, rotation.getCompactPattern());
-		for(int i=0; i<cons.size(); i++)
+		for(unsigned int i=0; i<cons.size(); i++)
 			pModel_->addCoefLinear(cons[i], var, coeffs[i]);
 	}
 	else {
@@ -1038,7 +1039,7 @@ void MasterProblem::buildRotationCons(SolverParam param){
 		 *****************************************/
 		for(int k=0; k<pDemand_->nbDays_; ++k){
 			vector<double> coeffs(longRestingVars2[k].size());
-			for(int l=0; l<longRestingVars2[k].size(); ++l)
+			for(unsigned int l=0; l<longRestingVars2[k].size(); ++l)
 				coeffs[l] = 1;
 			sprintf(name, "restingNodes_N%d_%d", i, k);
 			//Create flow constraints. out flow = 1 if source node (k=0)
@@ -1071,7 +1072,7 @@ void MasterProblem::buildRotationCons(SolverParam param){
 			for(int l=0; l<nbLongRestingArcs2; ++l){
 				//if the long resting arc starts on the source node,
 				//check if there exists such an arc
-				if( (l > k-1) || (l >= longRestingVars2[k-1-l].size()) )
+			  if( (l > k-1) || (l >= (int) longRestingVars2[k-1-l].size()) )
 					break;
 				vars.push_back(longRestingVars2[k-1-l][l]);
 				//compute in-flow for the sink
@@ -1432,7 +1433,7 @@ void MasterProblem::buildSkillsCoverageCons(SolverParam param){
 				//adding variables and building minimum demand constraints
 				vector<MyVar*> vars1(positionsPerSkill_[sk].size());
 				vector<double> coeffs1(positionsPerSkill_[sk].size());
-				for(int p=0; p<positionsPerSkill_[sk].size(); ++p){
+				for(unsigned int p=0; p<positionsPerSkill_[sk].size(); ++p){
 					vars1[p] = skillsAllocVars3[positionsPerSkill_[sk][p]];
 					coeffs1[p] = 1;
 				}
@@ -1636,14 +1637,14 @@ Rotation MasterProblem::computeInitStateRotation(LiveNurse* pNurse){
 	Rotation rot(map<int,int>(), pNurse->id_);
 
 	//compute cost for previous cons worked shifts and days
-	int lastShift = pNurse->pStateIni_->shift_;
-	if(lastShift>0){
+	int lastShiftType = pNurse->pStateIni_->shiftType_;
+	if(lastShiftType>0){
 		int nbConsWorkedDays = pNurse->pStateIni_->consDaysWorked_;
 		int diff = pNurse->minConsDaysWork() - nbConsWorkedDays;
 		rot.consDaysWorkedCost_ += (diff>0) ? diff*WEIGHT_CONS_DAYS_WORK : 0;
 
 		int nbConsShifts = pNurse->pStateIni_->consShifts_;
-		int diff2 = pScenario_->minConsShiftsOfTypeOf(lastShift) - nbConsShifts;
+		int diff2 = pScenario_->minConsShiftsOf(lastShiftType) - nbConsShifts;
 		rot.consShiftsCost_ += (diff2>0) ? diff2*WEIGHT_CONS_SHIFTS : 0;
 	}
 	rot.cost_ = rot.consDaysWorkedCost_ + rot.consShiftsCost_;

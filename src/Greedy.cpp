@@ -117,8 +117,8 @@ bool Greedy::isFeasibleTask(const LiveNurse &nurse, int day, int shift, int skil
 
   // Check the forbidden successor constraint
   //
-  int lastShift = nurse.states_[day].shift_;   // last shift assigned to the nurse
-  if (pScenario_->isForbiddenSuccessor(shift, lastShift)) return false;
+  int lastShiftType = nurse.states_[day].shiftType_;   // last shift assigned to the nurse
+  if (pScenario_->isForbiddenSuccessorShift_ShiftType(shift, lastShiftType)) return false;
 
   return true;
 }
@@ -128,11 +128,13 @@ bool Greedy::isFeasibleTask(const LiveNurse &nurse, int day, int shift, int skil
 // The cost depends on the state of the nurse, but the method will not check
 // the feasibility of the task
 //
-double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
+double Greedy::costTask(LiveNurse &nurse, int day, int _shift, int skill,
   vector<State>* states) {
 
   double cost = 0.0;
+  int  shiftType = pScenario_->shiftIDToShiftTypeID_[_shift];
 
+  
   // Get the current state
   //
   State state;
@@ -141,7 +143,7 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   }
   else {
     int iTmp = -1;
-    for (int i = 0; i < (*states).size(); i++) {
+    for (unsigned int i = 0; i < (*states).size(); i++) {
       if ( (*states)[i].dayId_ == day) {
         state = (*states)[i];
         iTmp = i;
@@ -157,50 +159,50 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   // Consecutive shifts
   //
   // penalize violation of maximum and minimum numbers of shifts
-  int lastShift = state.shift_;
+  int lastShiftType = state.shiftType_;
   int ecartShift, ecartOff, ecartDay;
-  if (lastShift > 0 && shift == lastShift  && state.consShifts_ >= pScenario_->maxConsShiftsOfTypeOf(lastShift)) {
+  if (lastShiftType > 0 && shiftType == lastShiftType  && state.consShifts_ >= pScenario_->maxConsShiftsOf(lastShiftType)) {
     cost += WEIGHT_CONS_SHIFTS;
   }
-  else if (lastShift > 0 && shift != lastShift && state.consShifts_ < pScenario_->minConsShiftsOfTypeOf(lastShift)) {
-    ecartShift = pScenario_->minConsShiftsOfTypeOf(lastShift)-state.consShifts_;
+  else if (lastShiftType > 0 && shiftType != lastShiftType && state.consShifts_ < pScenario_->minConsShiftsOf(lastShiftType)) {
+    ecartShift = pScenario_->minConsShiftsOf(lastShiftType)-state.consShifts_;
     cost += WEIGHT_CONS_SHIFTS*ecartShift;
   }
   // penalize the action of taking a new shift whose number of minimum succesive
   // shifts will not be reached before the maximum number of worked days
-  if (lastShift > 0 && shift != lastShift) {
+  if (lastShiftType > 0 && shiftType != lastShiftType) {
     int maxDays = nurse.maxConsDaysWork()-state.consDaysWorked_;
-    if (maxDays < pScenario_->minConsShiftsOfTypeOf(shift)) {
-      cost += WEIGHT_CONS_SHIFTS*(pScenario_->minConsShiftsOfTypeOf(shift) - maxDays);
+    if (maxDays < pScenario_->minConsShiftsOf(shiftType)) {
+      cost += WEIGHT_CONS_SHIFTS*(pScenario_->minConsShiftsOf(shiftType) - maxDays);
     }
   }
   // penalize the action to go from a shift with a lot of possible successors to
   // a shift with more forbidden successors
-  if (lastShift > 0 && shift > 0) {
+  if (lastShiftType > 0 && shiftType > 0) {
     cost += weightNbForbidden_*
-      (pScenario_->nbForbiddenSuccessors_[shift] - pScenario_->nbForbiddenSuccessors_[lastShift]);
+      (pScenario_->nbForbiddenSuccessorsShiftType(shiftType) - pScenario_->nbForbiddenSuccessorsShiftType(lastShiftType));
   }
-  else if (lastShift == 0 && shift > 0) {
-    cost += weightNbForbidden_*(pScenario_->nbForbiddenSuccessors_[shift]);
+  else if (lastShiftType == 0 && shiftType > 0) {
+    cost += weightNbForbidden_*(pScenario_->nbForbiddenSuccessorsShiftType(shiftType));
 
   }
 
   // Maximum and minimum working and resting days resting days
   //
-  if (shift > 0) {
-    if ( lastShift == 0 && state.consDaysOff_ < nurse.minConsDaysOff()) {
+  if (shiftType > 0) {
+    if ( lastShiftType == 0 && state.consDaysOff_ < nurse.minConsDaysOff()) {
       ecartOff = nurse.minConsDaysOff()-state.consDaysOff_;
       cost += ecartOff * WEIGHT_CONS_DAYS_OFF;
     }
-    else if (lastShift > 0 &&  state.consDaysWorked_ >= nurse.maxConsDaysWork()) {
+    else if (lastShiftType > 0 &&  state.consDaysWorked_ >= nurse.maxConsDaysWork()) {
       cost += WEIGHT_CONS_DAYS_WORK;
     }
   }
-  else if (shift == 0) {
-    if (lastShift == 0 && state.consDaysOff_ >= nurse.maxConsDaysOff() ) {
+  else if (shiftType == 0) {
+    if (lastShiftType == 0 && state.consDaysOff_ >= nurse.maxConsDaysOff() ) {
       cost += WEIGHT_CONS_DAYS_OFF;
     }
-    else if (lastShift > 0 && state.consDaysWorked_ < nurse.minConsDaysWork()) {
+    else if (lastShiftType > 0 && state.consDaysWorked_ < nurse.minConsDaysWork()) {
       ecartShift = nurse.minConsDaysWork()-state.consDaysWorked_;
       cost += ecartShift * WEIGHT_CONS_DAYS_WORK;
     }
@@ -210,13 +212,13 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   // this mentions that a new assignment before the minimum duration of a rest
   // and after the maximum duration of work will generate costs
   //
-  if (lastShift < 0) {
+  if (lastShiftType < 0) {
     ecartOff = nurse.minConsDaysOff()-state.consDaysOff_;
     ecartDay = nurse.maxConsDaysWork()-state.consDaysWorked_;
-    if (shift > 0) {
-      if (-lastShift >= ecartDay && -lastShift < ecartOff) {
-        cost += std::min((-lastShift-ecartDay+1)*WEIGHT_CONS_DAYS_WORK,
-          (ecartOff+lastShift) * WEIGHT_CONS_DAYS_OFF);
+    if (shiftType > 0) {
+      if (-lastShiftType >= ecartDay && -lastShiftType < ecartOff) {
+        cost += std::min((-lastShiftType-ecartDay+1)*WEIGHT_CONS_DAYS_WORK,
+          (ecartOff+lastShiftType) * WEIGHT_CONS_DAYS_OFF);
       }
     }
   }
@@ -224,7 +226,7 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
 
   // Preferences
   //
-  if (nurse.wishesOff(day,shift)) {
+  if (nurse.wishesOff(day,_shift)) {
     cost += WEIGHT_PREFERENCES;
   }
 
@@ -232,12 +234,12 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   //
   // penalize uncomplete week-ends when needed
   if (day%7 == 6 && nurse.needCompleteWeekends() ) {
-    if ( (lastShift == 0 && shift > 0) || (lastShift > 0 && shift == 0) ) {
+    if ( (lastShiftType == 0 && shiftType > 0) || (lastShiftType > 0 && shiftType == 0) ) {
       cost += WEIGHT_COMPLETE_WEEKEND;
     }
-    else if (lastShift < 0 && shift > 0) {
-      int missingShifts = std::max(0, nurse.minConsDaysOff() - (-lastShift-1));
-      int extraShifts = std::max(0, -lastShift+state.consDaysWorked_+1-nurse.maxConsDaysWork());
+    else if (lastShiftType < 0 && shiftType > 0) {
+      int missingShifts = std::max(0, nurse.minConsDaysOff() - (-lastShiftType-1));
+      int extraShifts = std::max(0, -lastShiftType+state.consDaysWorked_+1-nurse.maxConsDaysWork());
       if (missingShifts > 0 && extraShifts > 0) {
         cost += WEIGHT_COMPLETE_WEEKEND;
       }
@@ -247,10 +249,10 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   // working on sunday will create a violation in the maximum number of working
   // or resting days
   if ( day%7 == 5 && nurse.needCompleteWeekends() ) {
-    if ( shift > 0 && state.consDaysWorked_+1 >= nurse.maxConsDaysWork() ) {
+    if ( shiftType > 0 && state.consDaysWorked_+1 >= nurse.maxConsDaysWork() ) {
       cost += std::min(WEIGHT_COMPLETE_WEEKEND,WEIGHT_CONS_DAYS_WORK);
     }
-    else if (shift == 0 && state.consDaysOff_+1 >= nurse.maxConsDaysOff()) {
+    else if (shiftType == 0 && state.consDaysOff_+1 >= nurse.maxConsDaysOff()) {
       cost += std::min(WEIGHT_COMPLETE_WEEKEND,WEIGHT_CONS_DAYS_OFF);
     }
   }
@@ -276,14 +278,14 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
   // the consecutive number of working days until the end of the demand period
   int minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay;
   State nextState;
-  nextState.addDayToState(state, shift);
+  nextState.addDayToState(state, shiftType, _shift);
   nurse.computeMinMaxDaysNoPenaltyConsDay(&nextState, nurse.nbDays_-(day+1-nurse.firstDay_),
     minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay);
 
   int id = nurse.id_;
   // penalyse with respect to the max total number of working days only if the
   // shift is worked
-  if (shift > 0 ) {
+  if (shiftType > 0 ) {
     if (state.totalDaysWorked_+minDaysNoPenaltyConsDay >= maxTotalShifts_[id]) {
       cost += WEIGHT_TOTAL_SHIFTS;
     }
@@ -304,7 +306,7 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
 
   // penalyse with respect to the max total number of working weekends only if
   // the week-end is worked
-  if ( (shift > 0) && (Tools::isSaturday(day) || (Tools::isSunday(day)&&lastShift==0) )) {
+  if ( (shiftType > 0) && (Tools::isSaturday(day) || (Tools::isSunday(day)&&lastShiftType==0) )) {
     if (state.totalWeekendsWorked_ >= nurse.maxTotalWeekends() ) {
       cost += WEIGHT_TOTAL_WEEKENDS;
     }
@@ -331,22 +333,24 @@ double Greedy::costTask(LiveNurse &nurse, int day, int shift, int skill,
 
 // Necessary actions when assigning a task to a nurse
 //
-void Greedy::assignTaskToNurse(LiveNurse &nurse, int day, int shift, int skill) {
+void Greedy::assignTaskToNurse(LiveNurse &nurse, int day, int _shift, int skill) {
 
-    nurse.roster_.assignTask(day, shift, skill);
+    int  shiftType = pScenario_->shiftIDToShiftTypeID_[_shift];
+   
+    nurse.roster_.assignTask(day, _shift, skill);
     State nextState;
-    nextState.addDayToState(nurse.states_[day], shift);
+    nextState.addDayToState(nurse.states_[day], shiftType, _shift);
     nurse.states_[day+1] = nextState;
 
     // increment the vector of satisfied demand
-    if (shift > 0) {
-      satisfiedDemand_[day][shift][skill]++;
+    if (shiftType > 0) {
+      satisfiedDemand_[day][_shift][skill]++;
     }
 
     // fill the gaps in the roster if the last day has no assignment
-    if (nurse.states_[day].shift_ < 0) {
+    if (nurse.states_[day].shiftType_ < 0) {
       fillTheGaps(nurse, day);
-      nextState.addDayToState(nurse.states_[day], shift);
+      nextState.addDayToState(nurse.states_[day], shiftType, _shift);
       nurse.states_[day+1] = nextState;
     }
 }
@@ -381,7 +385,7 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
     // Compute the cost of the rest, create and append the associated state
     //
     double costRest = costTask(nurse, day, 0, 0, &states);
-    stateRest.addDayToState(states1.back(), 0);
+    stateRest.addDayToState(states1.back(), 0, 0);
     states1.push_back(stateRest);
     shifts1.push_back(0);
     skills1.push_back(-1);
@@ -395,7 +399,7 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
     for (int sh = 1; sh < pScenario_->nbShifts_; sh++) {
       // do not consider the shift if it creates a forbidden sequence with the
       // shift
-      if (pScenario_->isForbiddenSuccessor(sh,states.back().shift_)) continue;
+      if (pScenario_->isForbiddenSuccessorShift_ShiftType(sh,states.back().shiftType_)) continue;
 
       // also reject shifts that will create forbidden sequence with the shift at
       // the end of the block of unassigned day if the end of the block is not
@@ -403,7 +407,7 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
       if (std::max(0,nurse.minConsDaysWork()-states.back().consDaysWorked_)
           + nurse.minConsDaysOff() > nbUnassigned) {
         if (day+nbUnassigned < nurse.firstDay_+nurse.nbDays_) {
-          if (pScenario_->isForbiddenSuccessor(nurse.roster_.shift(day+nbUnassigned),sh)) continue;
+          if (pScenario_->isForbiddenSuccessorShift_Shift(nurse.roster_.shift(day+nbUnassigned),sh)) continue;
         }
       }
       for (int i = 0; i < nurse.nbSkills_; i++) {
@@ -426,7 +430,8 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
         double costTmp= cost;
         if ( (day+nbUnassigned < nurse.firstDay_+nurse.nbDays_)
           && (sh != nurse.roster_.shift(day+nbUnassigned)) ) {
-          stateTmp.addDayToState(states.back(), sh);
+	  int shiftType = pScenario_->shiftIDToShiftTypeID_[sh];
+	  stateTmp.addDayToState(states.back(), shiftType, sh);
           int missingShifts = pScenario_->minConsShiftsOfTypeOf(sh)-(nbUnassigned-1 + stateTmp.consShifts_);
           if (missingShifts > 0) {
             costTmp += missingShifts * WEIGHT_CONS_SHIFTS;
@@ -445,7 +450,8 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
     // otherwise
     if (shMin) {
       State stateWork;
-      stateWork.addDayToState(states.back(), shMin);
+      int shiftType = pScenario_->shiftIDToShiftTypeID_[shMin];
+      stateWork.addDayToState(states.back(), shiftType, shMin);
       states2.push_back(stateWork);
       shifts2.push_back(shMin);
       skills2.push_back(skMin);
@@ -503,7 +509,7 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
 //
 void Greedy::fillTheGaps(LiveNurse &nurse, int day) {
 
-  int nbUnassigned = -nurse.states_[day].shift_;
+  int nbUnassigned = -nurse.states_[day].shiftType_;
   int dayFirst = day -nbUnassigned;// fist day of the block of unassigned
 
   // every possible sequence of assignments is tested and the best is kept
@@ -512,7 +518,8 @@ void Greedy::fillTheGaps(LiveNurse &nurse, int day) {
   vector<State> statesBlock;
   vector<int> shifts, skills;
   statesBlock.push_back(nurse.states_[dayFirst]);
-  double costMin = bestStatesBlock_rec(nurse,statesBlock,shifts,skills,dayFirst,nbUnassigned, 0);
+  
+  // double costMin = bestStatesBlock_rec(nurse,statesBlock,shifts,skills,dayFirst,nbUnassigned, 0);
 
   // assign the best sequence of shifts and update the satisfied demand
   for (int i = 0; i < nbUnassigned; i++) {
@@ -703,7 +710,7 @@ bool Greedy::constructiveGreedy() {
 
         for (int sh:shiftsSorted_) {
           // do not consider the shift if it creates a forbidden sequence
-          if (pScenario_->isForbiddenSuccessor(sh,pState->shift_)) continue;
+          if (pScenario_->isForbiddenSuccessorShift_ShiftType(sh,pState->shiftType_)) continue;
           for (int sk:skillsSorted_) {
 
             if( !isFeasibleTask(*pNurse, day, sh, sk) ) continue;
@@ -727,7 +734,7 @@ bool Greedy::constructiveGreedy() {
       else {
         pNurse->roster_.assignTask(day, -1);
         State nextState;
-        nextState.addDayToState(*pState, -1);
+        nextState.addDayToState(*pState, -1, -1);
         pNurse->states_[day+1] = nextState;
       }
     }
@@ -751,7 +758,7 @@ bool Greedy::constructiveGreedy() {
     int nbUnassigned = 0;
     for (LiveNurse* pNurse:theNursesSorted_) {
       State state = pNurse->states_[day+1];
-      if (state.shift_ < 0) {
+      if (state.shiftType_ < 0) {
         pNursesUnassigned.push_back(pNurse);
         nbUnassigned++;
       }
@@ -790,7 +797,7 @@ bool Greedy::constructiveGreedy() {
         int shMin = 0, skMin = 0;
         for (int sh: shiftsSorted_) {
           // do not consider the shift if it creates a forbidden sequence
-          if (pScenario_->isForbiddenSuccessor(sh,pState->shift_)) continue;
+          if (pScenario_->isForbiddenSuccessorShift_ShiftType(sh,pState->shiftType_)) continue;
           for (int sk:skillsSorted_) {
             if( !isFeasibleTask(*pNurse, day, sh, sk) ) continue;
             double cost = costTask(*pNurse, day, sh, sk);
@@ -813,7 +820,7 @@ bool Greedy::constructiveGreedy() {
       else {
         pNurse->roster_.assignTask(day, -1);
         State nextState;
-        nextState.addDayToState(*pState, -1);
+        nextState.addDayToState(*pState, -1, -1);
         pNurse->states_[day+1] = nextState;
       }
     }
@@ -824,7 +831,7 @@ bool Greedy::constructiveGreedy() {
     //
     if (day == firstDay+nbDays-1) {
       for (LiveNurse* pNurse: theNursesSorted_) {
-        if (pNurse->states_[day+1].shift_ < 0) {
+        if (pNurse->states_[day+1].shiftType_ < 0) {
           fillTheGaps(*pNurse, day+1);
         }
       }
@@ -874,7 +881,7 @@ void Greedy::computeImplicitDemand() {
   vector<vector<int>> allowedPredecessors(pScenario_->nbShifts());
   for (int shNext = 0; shNext < nbShifts; shNext++) {
     for (int shPrev = 1; shPrev < nbShifts; shPrev++) {
-      if (!pScenario_->isForbiddenSuccessor(shNext, shPrev)) {
+      if (!pScenario_->isForbiddenSuccessorShift_Shift(shNext, shPrev)) {
         nbAllowedPredecessors[shNext]++;
         allowedPredecessors[shNext].push_back(shPrev);
       }

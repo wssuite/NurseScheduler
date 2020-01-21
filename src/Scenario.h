@@ -35,6 +35,76 @@ static const int WEIGHT_TOTAL_SHIFTS      = 20;
 static const int WEIGHT_TOTAL_WEEKENDS    = 30;
 
 
+class Scenario;
+
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   S t a t e
+//
+//  Describes the current (or initial) state of a nurse at D-day
+//
+//-----------------------------------------------------------------------------
+class State{
+
+public:
+   // Constructor and Destructor
+   State():dayId_(0), totalDaysWorked_(0), totalWeekendsWorked_(0),
+    consDaysWorked_(0), consShifts_(0), consDaysOff_(0), shiftType_(0) {}
+   ~State();
+
+   // Constructor with attributes
+   State(int dayId, int totalDaysWorked, int totalWeekendsWorked,
+	 int consDaysWorked, int consShifts, int consDaysOff, int shiftType, int shift) :
+         dayId_(dayId), totalDaysWorked_(totalDaysWorked), totalWeekendsWorked_(totalWeekendsWorked),
+         consDaysWorked_(consDaysWorked), consShifts_(consShifts),
+         consDaysOff_(consDaysOff), shiftType_(shiftType), shift_(shift){};
+
+   // Function that appends a new day worked on a given shiftType to the previous ones
+   //
+   // void addNewDay(int newShiftType);
+
+   // Function that appends a new day worked on a given shiftType to an input state
+   // to update this state
+   //
+   void addDayToState(const State& prevState, int newShiftType, int newShift);
+
+
+   // // Function that appends a new day worked on a given shift to an input state
+   // // to update this state
+   // //
+   // void addDayToState(const State& prevState, int newShift, const Scenario* pScenario);
+
+
+   // Display methods: toString + override operator<< (easier)
+   //
+   string toString();
+   friend std::ostream& operator<< (std::ostream& outs, State obj) {return outs << obj.toString();}
+
+public:
+   // Index of the day in the planning horizon
+   // WARNING : THE FIRST DAY IS ALWAYS SUPPOSED TO BE A MONDAY !!!!!!!!!!!!!
+   //           If it may not be the case, the code should be modified, namely when counting the weekends worked
+   //
+   int dayId_;
+
+   // Total nummber of days and weekends worked
+   //
+   int totalDaysWorked_, totalWeekendsWorked_;
+
+   // number of consecutive days worked ending at D, and of consecutive days worked on the same shiftType ending at D (including RESTSHIFT = 0)
+   // and shiftType worked on D-Day.
+   //
+   int consDaysWorked_, consShifts_, consDaysOff_;
+
+   // Type of shift worked on D-Day. It can be a rest shift (=0).
+   // A negative value -d means that the nurse has not been assigned a task for
+   // the last d days
+   //
+   int shiftType_;
+
+   int shift_;
+};
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S c e n a r i o
@@ -54,7 +124,7 @@ public:
 		 int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
 		 vector<int> hoursToWork, vector<int> shiftIDToShiftTypeID,
 		 int nbShiftsType, vector<string> intToShiftType, map<string,int> shiftTypeToInt,
-		 vector<int> minConsShiftsType, vector<int> maxConsShiftsType,
+		 vector<vector<int> > shiftTypeIDToShiftID, vector<int> minConsShiftsType, vector<int> maxConsShiftsType,
 		 vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
 		 int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
 		 int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt);
@@ -105,13 +175,8 @@ public:
 	const int nbShiftsType_;
 	const vector<string> intToShiftType_;
 	const map<string,int> shiftTypeToInt_;
+        const vector<vector<int> > shiftTypeIDToShiftID_;
 	// const vector<int> minConsShifts_, maxConsShifts_;
-
-	// for each shift, the number of forbidden successors and a table containing
-	// the indices of these forbidden successors
-	//
-	const vector<int> nbForbiddenSuccessors_;
-	const vector2D forbiddenSuccessors_;
 
 	// Vector of possible contract types
 	//
@@ -132,6 +197,12 @@ private:
   
         const vector<int> minConsShiftType_, maxConsShiftType_;
 
+
+	// for each shift, the number of forbidden successors and a table containing
+	// the indices of these forbidden successors
+	//
+	const vector<int> nbForbiddenSuccessors_;
+	const vector2D forbiddenSuccessors_;
   
 	//------------------------------------------------
 	// From the Week data file
@@ -207,13 +278,25 @@ public:
 	vector<Position*> componentOfConnexPositions(int c) {return componentsOfConnexPositions_[c];}
 	vector<Nurse>& nursesInConnexComponentOfPositions(int c) {return nursesPerConnexComponentOfPositions_[c];}
 
+  int nbForbiddenSuccessorsShift(int shift) {
+    int  shiftType = shiftIDToShiftTypeID_[shift];
+    return nbForbiddenSuccessors_[shiftType];
+  }
+  
+  int nbForbiddenSuccessorsShiftType(int shiftType) {
+    return nbForbiddenSuccessors_[shiftType];
+  }
 
+  vector<int> nbForbiddenSuccessors() {
+    return nbForbiddenSuccessors_;
+  }
+  
 	// getter for the maximum number of consecutive worked days before the planning horizon
 	//
 	inline int maxConDaysWorkedInHistory(){
 		int ANS = 0;
 		for(auto p : initialState_){
-			if((p.consDaysWorked_ > ANS) && (p.shift_ > 0))
+			if((p.consDaysWorked_ > ANS) && (p.shiftType_ > 0))
 				ANS = p.consDaysWorked_;
 		}
 		return ANS;
@@ -250,6 +333,9 @@ public:
   
   int minConsShiftsOfTypeOf(int whichShift);
   int maxConsShiftsOfTypeOf(int whichShift);
+  
+  int minConsShiftsOf(int whichShiftType);
+  int maxConsShiftsOf(int whichShiftType);
 
 	// getters for the attribute of the demand
 	//
@@ -271,9 +357,12 @@ public:
    inline void addAWeek(){ ++nbWeeksLoaded_; }
 	inline void setInitialState(vector<State> initialState){ initialState_ = initialState;}
 
-	// return true if the shift shNext is a forbidden successor of sh
+	// return true if the shift shNext is a forbidden successor of shLast
 	//
-	bool isForbiddenSuccessor(int shNext, int sh);
+	bool isForbiddenSuccessorShift_Shift(int shNext, int shLast);
+	bool isForbiddenSuccessorShift_ShiftType(int shNext, int shTypeLast);
+	bool isForbiddenSuccessorShiftType_Shift(int shTypeNext, int shLast);
+	bool isForbiddenSuccessorShiftType_ShiftType(int shTypeNext, int shTypeLast);
 
 	// update the scenario to treat a new week
 	//
@@ -316,12 +405,6 @@ public:
 	// (one edge between two positions indicate that they share a skill)
 	//
 	void computeConnexPositions() ;
-
-
-
-
-
 };
-
 
 #endif /* defined(__ATCSolver__CftSolver__) */

@@ -158,7 +158,7 @@ string RestTree::writeOneStat(string name, vector<pair<int,double>>& stats){
 	stringstream rep;
 
 	rep << name << "\t\t  ";
-	for (int n = 0; n < stats.size(); n++) {
+	for (unsigned int n = 0; n < stats.size(); n++) {
 		pair<int,double>& p = stats[n];
 		if(p.first){
 			char buffer[100];

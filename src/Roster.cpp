@@ -20,7 +20,8 @@ nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
   // states_.push_back(initialState);
   // for (int day = 0; day < nbDays_; day++) {
   //   State nextState;
-  //   nextState.addDayToState(states_[day], shifts_[day]);
+  //   int newShiftType = pScenario->shiftIDToShiftTypeID_[shifts_[day]];
+  //   nextState.addDayToState(states_[day], newShiftType, shifts_[day]);
   //   states_.push_back(nextState);
   // }
 
@@ -64,7 +65,7 @@ void Roster::reset(){
 // get a vector of consecutive states that will result from applying the
 // the roster from a given initial state
 //
-vector<State> Roster::getStates(const State& stateIni) {
+vector<State> Roster::getStates(const State& stateIni, Scenario* pScenario) {
 
   vector<State> states;
 
@@ -72,7 +73,8 @@ vector<State> Roster::getStates(const State& stateIni) {
   states.push_back(stateIni);
   for (int day = 0; day < nbDays_; day++) {
     State nextState;
-    nextState.addDayToState(states[day], shifts_[day]);
+    int shiftType = pScenario->shiftIDToShiftTypeID_[shifts_[day]];
+    nextState.addDayToState(states[day], shiftType, shifts_[day]);
     states.push_back(nextState);
   }
 

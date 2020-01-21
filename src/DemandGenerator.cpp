@@ -74,8 +74,8 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility)
 	// number of demands in the history
 	int nbPastDemands = demandHistory_.size();
 
-	// number of demands generated until now
-	Demand * pGeneratedDemand;
+	// // number of demands generated until now
+	// Demand * pGeneratedDemand;
 
 	// the generation of demands will depend on the number of weeks treated by the
 	// demand
@@ -93,8 +93,8 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility)
 		// create the first week
 		Demand* pCompleteDemand = demandHistory_[indexInHistory[0]]->randomPerturbation();
 
-		int t = demandHistory_.size();
-		int i = indexInHistory[0];
+		// int t = demandHistory_.size();
+		// int i = indexInHistory[0];
 
 
 		// create the following weeks append them to the complete demand

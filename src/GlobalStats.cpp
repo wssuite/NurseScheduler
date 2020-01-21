@@ -68,13 +68,13 @@ void GlobalStats::add(const GlobalStats& stats) {
 		if (nbImprovementsWithRepair_.empty()) {
 			nbImprovementsWithRepair_.insert(nbImprovementsWithRepair_.begin(),stats.nbImprovementsWithRepair_.size(),0);
 		}
-		for (int i=0; i < stats.nbImprovementsWithNursesSelection_.size(); i++) {
+		for (unsigned int i=0; i < stats.nbImprovementsWithNursesSelection_.size(); i++) {
 			nbImprovementsWithNursesSelection_[i] += stats.nbImprovementsWithNursesSelection_[i];
 		}
-		for (int i=0; i < stats.nbImprovementsWithDaysSelection_.size(); i++) {
+		for (unsigned int i=0; i < stats.nbImprovementsWithDaysSelection_.size(); i++) {
 			nbImprovementsWithDaysSelection_[i] += stats.nbImprovementsWithDaysSelection_[i];
 		}
-		for (int i=0; i < stats.nbImprovementsWithRepair_.size(); i++) {
+		for (unsigned int i=0; i < stats.nbImprovementsWithRepair_.size(); i++) {
 			nbImprovementsWithRepair_[i] += stats.nbImprovementsWithRepair_[i];
 		}
 	}

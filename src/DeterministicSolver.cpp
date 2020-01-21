@@ -885,12 +885,12 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp, DaysS
 
 	// DBG
 	std::cout << "REPAIR NURSES: ";
-	for (int i=0; i < isFixNurse.size(); i++) {
+	for (unsigned int i=0; i < isFixNurse.size(); i++) {
 		if (!isFixNurse[i]) std::cout << i << "\t";
 	}
 	std::cout << std::endl;
 	std::cout << "REPAIR DAYS: ";
-	for (int i=0; i < isFixDay.size(); i++) {
+	for (unsigned int i=0; i < isFixDay.size(); i++) {
 		if (!isFixDay[i]) std::cout << i << "\t";
 	}
 	std::cout << std::endl;

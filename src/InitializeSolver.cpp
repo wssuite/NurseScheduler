@@ -360,7 +360,7 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 		Preferences* pPreferences = pScenario->pWeekPreferences();
 
 		// only keep the demand of the nurses in the component
-		for (int i = 0; i < nursesInTheComponent.size(); i++) {
+		for (unsigned int i = 0; i < nursesInTheComponent.size(); i++) {
 			Nurse nurse = nursesInTheComponent[i];
 			map<int,std::set<int> >::iterator itDay;
 			for (itDay = pPreferences->nurseWishesOff(nurse.id_)->begin(); itDay != pPreferences->nurseWishesOff(nurse.id_)->end(); itDay++) {

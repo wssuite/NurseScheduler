@@ -20,7 +20,7 @@ Demand::Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string
    vector3D minDemand, vector3D optDemand): name_(name),
    nbDays_(nbDays), firstDay_(firstDay), nbShifts_(nbShifts), nbSkills_(nbSkills),
    minDemand_(minDemand), optDemand_(optDemand),
-   minTotal_(0), isPreprocessed_(false), optTotal_(0)
+   minTotal_(0), optTotal_(0), isPreprocessed_(false)
 {
    // run the preprocessing
    this->preprocessDemand();

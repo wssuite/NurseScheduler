@@ -837,7 +837,7 @@ void BcpLpModel::select_vars_to_delete(const BCP_lp_result& lpres,
 		pModel_->printStats();
 	}
 	// DBG
-			for (int i = pModel_->getCoreVars().size(); i < vars.size(); ++i) {
+			for (unsigned int i = pModel_->getCoreVars().size(); i < vars.size(); ++i) {
 				BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
 
 				if (var->lb() == 0 && var->ub() == 0) {
@@ -979,7 +979,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
 
 BcpModeler::BcpModeler(MasterProblem* pMaster, const char* name, LPSolverType type):
 CoinModeler(), pMaster_(pMaster), pBcp_(0), primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-lastNbSubProblemsSolved_(0), lastMinDualCost_(0), LPSolverType_(type), nbNodes_(0) {
+lastNbSubProblemsSolved_(0), lastMinDualCost_(0), nbNodes_(0), LPSolverType_(type) {
   pBcp_ = new BcpInitialize(this);
 }
 
@@ -1050,8 +1050,8 @@ void BcpModeler::reset(bool rollingHorizon) {
 
 	// delete the best solutions that were if solving with rolling horizon
    if (rollingHorizon) {
-		int index = getBestSolIndex();
-		for(int ind = 0; ind < bcpSolutions_.size(); ind++){
+		unsigned int index = getBestSolIndex();
+		for(unsigned int ind = 0; ind < bcpSolutions_.size(); ind++){
 			if (ind == index) continue;
 			BCP_solution_generic sol = bcpSolutions_[ind];
 			int size = sol._vars.size();
@@ -1149,7 +1149,7 @@ void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var*>&  vars){
    ShiftNode* shiftNode = dynamic_cast<ShiftNode*>(pTree_->getCurrentNode());
    if(shiftNode == 0) return;
 
-   for(int i=coreVars_.size(); i<vars.size(); ++i){
+   for(unsigned int i=coreVars_.size(); i<vars.size(); ++i){
       BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
       Rotation rot(var->getPattern());
       if(var->getUB() == 0 || var->ub() == 0 || shiftNode->pNurse_->id_ != rot.nurseId_) continue;
@@ -1173,7 +1173,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    BCP_solution_generic* sol2 = (BCP_solution_generic*) sol;
 
 	bool isArtificialSol=false;
-   for(int i=0; i<sol2->_vars.size(); ++i){
+   for(unsigned int i=0; i<sol2->_vars.size(); ++i){
       BcpColumn* col = dynamic_cast<BcpColumn*>(sol2->_vars[i]);
       if(col){
 			// if ( (col->is_integer() && sol2->_values[i] < 1-EPSILON) || (sol2->_values[i] < EPSILON) )  {
@@ -1280,11 +1280,11 @@ void BcpModeler::setActiveColumnsValuesWithBestSol() {
    int index = getBestSolIndex();
 
    BCP_solution_generic& sol = bcpSolutions_[index];
-   for(int i = 0; i < primalValues_.size(); i++){
+   for(unsigned int i = 0; i < primalValues_.size(); i++){
       primalValues_[i] = 0.0;
    }
 
-   for (int i=0; i < sol._vars.size(); i++) {
+   for (unsigned int i=0; i < sol._vars.size(); i++) {
       // type of sol._vars[i] is either BcpColumn or BcpCoreVar, dynamic_cast will get the proper one
       BcpColumn* col = dynamic_cast<BcpColumn*>(sol._vars[i]);
       if (col) {
@@ -1428,7 +1428,7 @@ double BcpModeler::getVarValue(MyVar* var){
    if(primalValues_.size() ==0 )
       Tools::throwError("Primal solution has not been initialized.");
 
-   int index = ((CoinVar*) var)->getIndex();
+   unsigned int index = ((CoinVar*) var)->getIndex();
    //if a column, fetch index
    if(index>=coreVars_.size()){
       //if the column is not active, return 0
@@ -1442,7 +1442,7 @@ void BcpModeler::setVarValue(MyVar* var, double value){
    if(primalValues_.size() ==0 )
       Tools::throwError("Primal solution has not been initialized.");
 
-   int index = ((CoinVar*) var)->getIndex();
+   unsigned int index = ((CoinVar*) var)->getIndex();
    //if a column, fetch index
    if(index>=coreVars_.size()){
       //if the column is not active, return 0
@@ -1471,7 +1471,7 @@ double BcpModeler::getReducedCost(MyVar* var){
    if(reducedCosts_.size() == 0)
       Tools::throwError("Reduced cost solution has been initialized.");
 
-   int index = ((CoinVar*) var)->getIndex();
+   unsigned int index = ((CoinVar*) var)->getIndex();
    //if a column, fetch index
    if(index>=coreVars_.size()){
       //if the column is not active, return 0

@@ -78,7 +78,8 @@ minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
 	states_.push_back(*pStateIni);
 	for (int day = 0; day < nbDays_; day++) {
 		State nextState;
-		nextState.addDayToState(states_[day], 0);
+		int newShiftType = pScenario->shiftIDToShiftTypeID_[0];
+		nextState.addDayToState(states_[day], newShiftType, 0);
 		states_.push_back(nextState);
 	}
 }
@@ -99,7 +100,8 @@ minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
 	states_.push_back(*pStateIni);
 	for (int day = 0; day < nbDays_; day++) {
 		State nextState;
-		nextState.addDayToState(states_[day], 0);
+		int newShiftType = pScenario->shiftIDToShiftTypeID_[0];
+		nextState.addDayToState(states_[day], newShiftType, 0);
 		states_.push_back(nextState);
 	}
 }
@@ -132,13 +134,13 @@ bool LiveNurse::wishesOff(int day, int shift) const {
 bool LiveNurse::needRest(int day) {
 	State state = states_[day];
 
-	if (state.shift_>0 && state.consDaysWorked_ >= maxConsDaysWork()) {
-	  if (state.consShifts_ < pScenario_->minConsShiftsOfTypeOf(state.shift_)) {
+	if (state.shiftType_>0 && state.consDaysWorked_ >= maxConsDaysWork()) {
+	  if (state.consShifts_ < pScenario_->minConsShiftsOf(state.shiftType_)) {
 			return WEIGHT_CONS_SHIFTS > WEIGHT_CONS_DAYS_WORK ? false:true;
 		}
 		return true;
 	}
-	if (state.shift_==0 && state.consDaysOff_ <= minConsDaysOff()) {
+	if (state.shiftType_==0 && state.consDaysOff_ <= minConsDaysOff()) {
 		return true;
 	}
 	return false;
@@ -152,11 +154,11 @@ bool LiveNurse::needRest(int day) {
 bool LiveNurse::needWork(int day) {
 	State state = states_[day];
 
-	if (state.shift_>0) {
+	if (state.shiftType_>0) {
 		if (state.consDaysWorked_ < minConsDaysWork()) {
 			return true;
 		}
-		else if (state.consShifts_ < pScenario_->minConsShiftsOfTypeOf(state.shift_)) {
+		else if (state.consShifts_ < pScenario_->minConsShiftsOf(state.shiftType_)) {
 			if (state.consDaysWorked_ >= maxConsDaysWork()) {
 				return WEIGHT_CONS_SHIFTS > WEIGHT_CONS_DAYS_WORK ? true:false;
 			}
@@ -195,10 +197,10 @@ void LiveNurse::checkConstraints(const Roster& roster,
 
 		// Check the forbidden successor constraint
 		//
-		int lastShift = states[day].shift_;   // last shift assigned to the nurse
+		int lastShiftType = states[day].shiftType_;   // last shift assigned to the nurse
 		int thisShift = roster.shift(day);    // shift assigned on this day
 
-		stat.violSuccShifts_[day] = pScenario_->isForbiddenSuccessor(thisShift,lastShift);
+		stat.violSuccShifts_[day] = pScenario_->isForbiddenSuccessorShift_ShiftType(thisShift,lastShiftType);
 	}
 
 	// check the soft constraints and record the costs of the violations and the
@@ -208,7 +210,8 @@ void LiveNurse::checkConstraints(const Roster& roster,
 
 		// shift assigned on the previous day
 		int shift = states[day].shift_;
-		int prevShift = states[day-1].shift_;
+		int shiftType = states[day].shiftType_;
+		int prevShiftType = states[day-1].shiftType_;
 
 		// first look at consecutive working days or days off
 		//
@@ -217,8 +220,8 @@ void LiveNurse::checkConstraints(const Roster& roster,
 		stat.costConsDaysOff_[day-1] = 0;
 
 		// compute the violations of consecutive working days an
-		if (shift) {
-			if (prevShift == 0) {
+		if (shiftType) {
+			if (prevShiftType == 0) {
 				missingDays = minConsDaysOff()-states[day-1].consDaysOff_;
 			}
 
@@ -226,7 +229,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
 			stat.costConsDays_[day-1] += (states[day].consDaysWorked_>maxConsDaysWork()) ? WEIGHT_CONS_DAYS_WORK:0;
 		}
 		else {
-			if (prevShift > 0) {
+			if (prevShiftType > 0) {
 				missingDays =minConsDaysWork()-states[day-1].consDaysWorked_;
 			}
 			extraDays = states[day].consDaysOff_-maxConsDaysOff();
@@ -242,16 +245,16 @@ void LiveNurse::checkConstraints(const Roster& roster,
 
 		// count the penalty for minimum consecutive shifts only for the previous day
 		// when the new shift is different
-		if (shift != prevShift && prevShift > 0)  {
-		  missingShifts = pScenario_->minConsShiftsOfTypeOf(prevShift)-states[day-1].consShifts_;
+		if (shiftType != prevShiftType && prevShiftType > 0)  {
+		  missingShifts = pScenario_->minConsShiftsOf(prevShiftType)-states[day-1].consShifts_;
 		  stat.costConsShifts_[day-1] += (missingShifts>0) ? WEIGHT_CONS_SHIFTS*missingShifts:0;
 		}
 
 		// count the penalty for maximum consecutive shifts when the shift is worked
 		// the last day will then be counted
-		if (shift > 0) {
+		if (shiftType > 0) {
 		  stat.costConsShifts_[day-1] +=
-		    (states[day].consShifts_>pScenario_->maxConsShiftsOfTypeOf(shift)) ? WEIGHT_CONS_SHIFTS:0;
+		    (states[day].consShifts_>pScenario_->maxConsShiftsOf(shiftType)) ? WEIGHT_CONS_SHIFTS:0;
 		}
 
 		// check the preferences
@@ -262,7 +265,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
 			stat.costPref_[day-1] = 0;
 		}
 		// no preference either in the wish-list for that day
-		else if(itM->second.find(shift) == itM->second.end()) {
+		else if(itM->second.find(shift) == itM->second.end()) { 
 			stat.costPref_[day-1] = 0;
 		}
 		else {
@@ -274,7 +277,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
 		//
 		stat.costWeekEnd_[day-1] = 0;
 		if ( Tools::isSunday(day-1) && needCompleteWeekends()) {
-			if ( (shift > 0 && prevShift == 0) || ( shift == 0 && prevShift > 0 )) {
+			if ( (shiftType > 0 && prevShiftType == 0) || ( shiftType == 0 && prevShiftType > 0 )) {
 				stat.costWeekEnd_[day-1] = WEIGHT_COMPLETE_WEEKEND;
 			}
 		}
@@ -302,8 +305,10 @@ void LiveNurse::checkConstraints(const Roster& roster,
 // Build States from the roster
 //
 void LiveNurse::buildStates(){
-	 for(int k=1; k<states_.size(); ++k)
-			states_[k].addDayToState(states_[k-1], roster_.shift(k-1));
+  for(unsigned int k=1; k<states_.size(); ++k) {
+    int newShiftType = pScenario_->shiftIDToShiftTypeID_[roster_.shift(k-1)];
+    states_[k].addDayToState(states_[k-1], newShiftType, roster_.shift(k-1));
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -322,7 +327,7 @@ void LiveNurse::computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int nbDa
 	// remaining number of days when building a maximum and minimum working days
 	// periods
 	int nbDaysMin = nbDays, nbDaysMax = nbDays;
-	if (pCurrentState->shift_ > 0) {
+	if (pCurrentState->shiftType_ > 0) {
 		// if the last shift was not a rest
 		// keep working until maximum consecutive number of shifts for maximum
 		// working days or until minimum consecutive number of shifts for minimum
@@ -335,7 +340,7 @@ void LiveNurse::computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int nbDa
 		nbDaysMax = nbDays - std::min(nbDays,maxWorkDaysNoPenaltyConsDays+minConsDaysOff());
 		nbDaysMin = nbDays - std::min(nbDays,minWorkDaysNoPenaltyConsDays+maxConsDaysOff());
 	}
-	else if (pCurrentState->shift_ == 0) {
+	else if (pCurrentState->shiftType_ == 0) {
 		// if the last shift was a rest
 		// keep resting until minimum consecutive number of rests for maximum
 		// working days or until maximum consecutive number of rests for minimum
@@ -499,9 +504,9 @@ void SolverParam::setOptimalityLevel(OptimalityLevel level) {
 Solver::Solver(Scenario* pScenario, Demand* pDemand,
 	Preferences* pPreferences, vector<State>* pInitState):
 	pScenario_(pScenario),  pDemand_(pDemand),
-	pPreferences_(pPreferences), pInitState_(pInitState), pTimerTotal_(0),
+	pPreferences_(pPreferences), pInitState_(pInitState), pTimerTotal_(0), status_(UNSOLVED),
 	totalCostUnderStaffing_(-1), maxTotalStaffNoPenalty_(-1),
-	isPreprocessedSkills_(false), isPreprocessedNurses_(false), status_(UNSOLVED) {
+	isPreprocessedSkills_(false), isPreprocessedNurses_(false) {
 
 	//create the timer that records the life time of the solver and start it
 	pTimerTotal_ = new Tools::Timer();
@@ -551,7 +556,7 @@ Solver::~Solver(){
 //
 void Solver::loadSolution(vector<Roster> &solution) {
 
-	if (solution.size() != pScenario_->nbNurses_) {
+  if ((int) solution.size() != pScenario_->nbNurses_) {
 		Tools::throwError("Solver::loadSolution: there is not one roster per nurse in the input solution!");
 	}
 
@@ -806,7 +811,7 @@ void Solver::sortShuffleTheNurses() {
 	theNursesSorted_.clear();
 	for (int p=0; p < pScenario_->nbPositions(); p++) {
 		int id = positionsSorted[p]->id();
-		for (int n=0; n < nursePerPosition[id].size(); n++) {
+		for (unsigned int n=0; n < nursePerPosition[id].size(); n++) {
 			theNursesSorted_.push_back(nursePerPosition[id][n]);
 		}
 	}
@@ -835,7 +840,7 @@ void Solver::preprocessData() {
 	std::stable_sort(skillsSorted_.begin(),skillsSorted_.end(),compareSkills);
 
 	// sort the shifts (except the shift 0 which must always be rest)
-	ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors_);
+	ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors());
 	std::stable_sort(shiftsSorted_.begin(),shiftsSorted_.end(),compareShifts);
 
 	// sort the nurses
@@ -1403,7 +1408,7 @@ string Solver::solutionStatisticsToString() {
 //
 vector<Roster> Solver::getSolutionAtDay(int k){
 	vector<Roster> ans;
-	for(int i=0; i<solution_.size(); i++){
+	for(unsigned int i=0; i<solution_.size(); i++){
 		Roster r = solution_[i];
 		int nbDays = k+1;
 		int firstDay = r.firstDay();
@@ -1427,7 +1432,7 @@ void Solver::extendSolution(vector<Roster> solutionExtension) {
 	}
 
 	// Extend each roster in the solution
-	for (int i=0; i < solution_.size(); i++) {
+	for (unsigned int i=0; i < solution_.size(); i++) {
 		solution_[i].push_back(solutionExtension[i]);
 	}
 }
@@ -1599,7 +1604,7 @@ string Solver::solutionToLogString() {
 			int shift = pNurse->roster_.shift(day);
 			int prevShift = pNurse->states_[day].shift_;
 			violReqSkill += shift == 0 ? 0 : (pNurse->hasSkill(skill)? 0:1);
-			violForbiddenSucc += pScenario_->isForbiddenSuccessor(shift, prevShift)? 1: 0;
+			violForbiddenSucc += pScenario_->isForbiddenSuccessorShift_Shift(shift, prevShift)? 1: 0;
 
 			// the other costs per soft constraint can be read from the stat structure
 			costConsDays += pNurse->statCt_.costConsDays_[day];

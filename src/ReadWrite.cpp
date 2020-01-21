@@ -59,6 +59,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	vector<string> intToSkill, intToShift, intToShiftType, intToContract;
 	map<string,int> skillToInt, shiftToInt, shiftTypeToInt, nurseNameToInt;
 	vector<int> minConsShiftType, maxConsShiftType, nbForbiddenSuccessors, hoursInShift, shiftIDToShiftTypeID;
+        vector<vector<int> > shiftTypeIDToShiftID;
 	vector2D forbiddenSuccessors;
 	map<string,Contract*> contracts;
 	vector<Nurse> theNurses;
@@ -169,7 +170,10 @@ Scenario* ReadWrite::readScenario(string fileName) {
 			hoursInShift.push_back(0);
 			int currentShiftTypeId = shiftTypeToInt.at(REST_SHIFT);
 			shiftIDToShiftTypeID.push_back(currentShiftTypeId);
-			
+
+			shiftTypeIDToShiftID.resize(nbShiftsType);
+			shiftTypeIDToShiftID[0].push_back(0);
+	
 			// Number of shifts 
 			file >> intTmp;
 			nbShifts = intTmp+1;
@@ -191,6 +195,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 				int currentShiftTypeId = shiftTypeToInt.at(currentShiftType);
 				shiftIDToShiftTypeID.push_back(currentShiftTypeId);
+				shiftTypeIDToShiftID[currentShiftTypeId].push_back(i);
 			}
 		}
 
@@ -276,7 +281,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 
 	return new Scenario(name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts,
 			    intToShift, shiftToInt, hoursInShift, shiftIDToShiftTypeID,
-			    nbShiftsType, intToShiftType, shiftTypeToInt,
+			    nbShiftsType, intToShiftType, shiftTypeToInt, shiftTypeIDToShiftID, 
 			    minConsShiftType, maxConsShiftType, nbForbiddenSuccessors,forbiddenSuccessors,
 			    nbContracts, intToContract, contracts, nbNurses, theNurses, nurseNameToInt) ;
 }
@@ -404,7 +409,8 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 				if(shift == "Any")
 					(*pPref)->addDayOff(nurseId, dayId);
 				else {
-					shiftId = pScenario->shiftTypeToInt_.at(shift);
+					// shiftId = pScenario->shiftTypeToInt_.at(shift);
+					shiftId = pScenario->shiftToInt_.at(shift);
 					(*pPref)->addShiftOff(nurseId, dayId, shiftId);
 				}
 			}
@@ -469,21 +475,22 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 		//
 		else if (strEndsWith(title, "NURSE_HISTORY")) {
 			for(int n=0; n<pScenario->nbNurses_; n++){
-				string nurseName, shiftName;
-				int nurseId, shiftId, totalDaysWorked, totalWeekendsWorked, consDaysWorked, consShiftWorked, consRest, consShifts;
+				string nurseName, shiftTypeName;
+				// int nurseId;
+				int shiftTypeId, totalDaysWorked, totalWeekendsWorked, consDaysWorked, consShiftWorked, consRest, consShifts;
 				file >> nurseName;
-				nurseId = pScenario->nurseNameToInt_.at(nurseName);
+				// nurseId = pScenario->nurseNameToInt_.at(nurseName);
 				file >> totalDaysWorked;
 				file >> totalWeekendsWorked;
-				file >> shiftName;
-				shiftId = pScenario->shiftTypeToInt_.at(shiftName);
+				file >> shiftTypeName;
+				shiftTypeId = pScenario->shiftTypeToInt_.at(shiftTypeName);
 				file >> consShiftWorked;
 				file >> consDaysWorked;
 				file >> consRest;
 
-				consShifts = (shiftId == 0) ? consRest : consShiftWorked;
+				consShifts = (shiftTypeId == 0) ? consRest : consShiftWorked;
 				State nurseState (0, totalDaysWorked, totalWeekendsWorked,
-					consDaysWorked, consShifts, consRest, shiftId);
+						  consDaysWorked, consShifts, consRest, shiftTypeId, -1);
 				initialState.push_back(nurseState);
 			}
 		}
@@ -873,12 +880,12 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 
   logStream  << "# Total demand (min/opt): \n" ;
   logStream << "#";
-  for (int d = 0; d < minPerShift.size(); d++) {
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
 	 logStream << "WD"+Tools::itoa(d);
   }
   logStream.endl();
   logStream << "#";
-  for (int d = 0; d < minPerShift.size(); d++) {
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
 	 logStream << Tools::itoa(minTotal[d])+"/"+Tools::itoa(optTotal[d]);
   }
   logStream.endl();
@@ -887,13 +894,13 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 
 	logStream  << "# Demand per shift\n";
 	logStream << "#";
-	for (int d = 0; d < minPerShift.size(); d++) {
+	for (unsigned int d = 0; d < minPerShift.size(); d++) {
 	 logStream << "WD"+Tools::itoa(d);
 	}
 	logStream.endl();
 	for (int i = 1; i < pScen->nbShifts_; i++)	{
 		logStream << "# SH"+Tools::itoa(i)+":";
-		for (int d = 0; d < minPerShift.size(); d++) {
+		for (unsigned int d = 0; d < minPerShift.size(); d++) {
 			logStream << Tools::itoa(minPerShift[d][i])+"/"+Tools::itoa(optPerShift[d][i]);
 		}
 		logStream.endl();
@@ -903,14 +910,15 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 
 	logStream  << "# Demand per skill\n";
   logStream << "#";
-	for (int d = 0; d < minPerSkill.size(); d++) {
+	for (unsigned int d = 0; d < minPerSkill.size(); d++) {
 	 logStream << "WD"+Tools::itoa(d);
 	}
 	logStream.endl();
 	for (int i = 0; i < pScen->nbSkills_; i++)	{
 	 logStream.setWidth(12);
 	 logStream << "# " + pScen->intToSkill_[i] +":";
-	 logStream.setWidth(10);		for (int d = 0; d < minPerShift.size(); d++) {
+	 logStream.setWidth(10);
+	 for (unsigned int d = 0; d < minPerShift.size(); d++) {
 			logStream << Tools::itoa(minPerSkill[d][i])+"/"+Tools::itoa(optPerSkill[d][i]);
 		}
 		logStream.endl();
@@ -920,13 +928,13 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 
 	logStream <<  "# Highest demand per skill for one shift" << std::endl;
   logStream << "#";
-	for (int d = 0; d < minPerSkill.size(); d++) {
+	for (unsigned int d = 0; d < minPerSkill.size(); d++) {
 	 logStream << "WD"+Tools::itoa(d);
 	}
 	logStream.endl();
 	for (int i = 0; i < pScen->nbSkills_; i++)	{
 	 logStream << "# SK"+Tools::itoa(i)+":";
-		for (int d = 0; d < minPerShift.size(); d++) {
+		for (unsigned int d = 0; d < minPerShift.size(); d++) {
 			logStream << Tools::itoa(minHighestPerSkill[d][i])+"/"+Tools::itoa(optHighestPerSkill[d][i]);
 		}
 		logStream.endl();
@@ -937,13 +945,13 @@ logStream.setWidth(12);
 logStream <<  "# Agregate indicators" << std::endl;
 logStream <<  "# Total understaffing without unavoidable penalty" << std::endl;
 logStream << "#";
-for (int d = 0; d < minPerShift.size(); d++) {
+for (unsigned int d = 0; d < minPerShift.size(); d++) {
   logStream << "WD"+Tools::itoa(d);
 }
 logStream << "Average" << "Std dev" << std::endl;
 logStream << "#";
 double averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-for (int d = 0; d < minPerShift.size(); d++) {
+for (unsigned int d = 0; d < minPerShift.size(); d++) {
   logStream << Tools::itoa(minTotal[d]-pSolver->maxTotalStaffNoPenalty_)+"/"+Tools::itoa(optTotal[d]-pSolver->maxTotalStaffNoPenalty_);
   averageMin += (minTotal[d]-pSolver->maxTotalStaffNoPenalty_)/(double)minPerShift.size();
   averageOpt += (optTotal[d]-pSolver->maxTotalStaffNoPenalty_)/(double)minPerShift.size();
@@ -959,13 +967,13 @@ logStream.endl();
 
 logStream <<  "# Total understaffing with average work" << std::endl;
 logStream << "#";
-for (int d = 0; d < minPerShift.size(); d++) {
+for (unsigned int d = 0; d < minPerShift.size(); d++) {
   logStream << "WD"+Tools::itoa(d);
 }
 logStream << "Average" << "Std dev" << std::endl;
 logStream << "#";
 averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-for (int d = 0; d < minPerShift.size(); d++) {
+for (unsigned int d = 0; d < minPerShift.size(); d++) {
   logStream << Tools::itoa(minTotal[d]-pSolver->maxTotalStaffAvgWork_)+"/"+Tools::itoa(optTotal[d]-pSolver->maxTotalStaffAvgWork_);
   averageMin += (minTotal[d]-pSolver->maxTotalStaffAvgWork_)/(double)minPerShift.size();
   averageOpt += (optTotal[d]-pSolver->maxTotalStaffAvgWork_)/(double)minPerShift.size();
@@ -982,14 +990,14 @@ logStream.endl();
 logStream.setPrecision(1);
 logStream <<  "# Understaffing per skill without unavoidable penalty" << std::endl;
 logStream << "#";
-for (int d = 0; d < minPerSkill.size(); d++) {
+for (unsigned int d = 0; d < minPerSkill.size(); d++) {
   logStream << "WD"+Tools::itoa(d);
 }
 logStream << "Average" << "Std dev" << std::endl;
 for (int i = 0; i < pScen->nbSkills_; i++)	{
   logStream << "# " + pScen->intToSkill_[i] +":";
   averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-  for (int d = 0; d < minPerShift.size(); d++) {
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
 	 logStream << Tools::itoa(minPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i])+"/"
 		+Tools::itoa(optPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i]);
 	 averageMin += (minPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i])/(double)minPerShift.size();
@@ -1007,14 +1015,14 @@ logStream.endl();
 
 logStream <<  "# Understaffing per skill with average work" << std::endl;
 logStream << "#";
-for (int d = 0; d < minPerSkill.size(); d++) {
+for (unsigned int d = 0; d < minPerSkill.size(); d++) {
   logStream << "WD"+Tools::itoa(d);
 }
 logStream << "Average" << "Std dev" << std::endl;
 for (int i = 0; i < pScen->nbSkills_; i++)	{
   logStream << "# " + pScen->intToSkill_[i] +":";
   averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-  for (int d = 0; d < minPerShift.size(); d++) {
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
 	 logStream << Tools::itoa(minPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i])+"/"
 		+Tools::itoa(optPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i]);
 	 averageMin += (minPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i])/(double)minPerShift.size();

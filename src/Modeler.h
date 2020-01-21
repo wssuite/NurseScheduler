@@ -148,11 +148,11 @@ static const vector<MyVar*> EMPTY_VARS;
 
 struct MyCons: public MyObject{
 	MyCons(const char* name, int index, double lhs, double rhs):
-		MyObject(name), lhs_(lhs), index_(index), rhs_(rhs)
+		MyObject(name), index_(index), lhs_(lhs), rhs_(rhs)
 	{ }
 
 	MyCons(const MyCons& cons) :
-		MyObject(cons.name_), lhs_(cons.lhs_), index_(cons.index_), rhs_(cons.rhs_)
+		MyObject(cons.name_), index_(cons.index_), lhs_(cons.lhs_), rhs_(cons.rhs_)
 	{ }
 
 	virtual ~MyCons(){ }
@@ -392,9 +392,9 @@ protected:
 /* Represents the nodes of the branching tree */
 struct MyNode{
 
-	MyNode(): index_(0), bestLB_(LARGE_SCORE), bestLagLB_(-LARGE_SCORE), pParent_(0), lastLagLB_(-LARGE_SCORE), highestGap_(0) {}
+	MyNode(): index_(0), pParent_(0), bestLB_(LARGE_SCORE), highestGap_(0), bestLagLB_(-LARGE_SCORE), lastLagLB_(-LARGE_SCORE) {}
 	MyNode(int index, MyNode* pParent):
-		index_(index), bestLB_(pParent->bestLB_), bestLagLB_(pParent->bestLagLB_), pParent_(pParent), lastLagLB_(pParent->bestLB_), highestGap_(0) {}
+		index_(index), pParent_(pParent), bestLB_(pParent->bestLB_), highestGap_(0), bestLagLB_(pParent->bestLagLB_), lastLagLB_(pParent->bestLB_) {}
 	virtual ~MyNode() {}
 
 	const int index_;
@@ -472,9 +472,9 @@ protected:
 };
 
 struct MyTree {
-	MyTree(): best_lb_in_root(LARGE_SCORE), best_ub(LARGE_SCORE), tree_size_(1),
-						currentNode_(0), best_lb(LARGE_SCORE), nb_nodes_last_incumbent_(-2), diveDepth_(0), nb_nodes_since_dive_(-2),
-						diveLength_(LARGE_SCORE), min_depth_(0) {}
+	MyTree(): tree_size_(1), nb_nodes_last_incumbent_(-2), diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0),
+		  nb_nodes_since_dive_(-2),currentNode_(0),
+		  best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE), best_ub(LARGE_SCORE) {}
 	virtual ~MyTree() {}
 
 	inline void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
@@ -882,7 +882,7 @@ public:
 			break;
 		}
 
-		for(int i=0; i<cons.size(); i++)
+		for(unsigned int i=0; i<cons.size(); i++)
 			addCoefLinear(cons[i], *var, coeffs[i], transformed);
 	}
 
@@ -925,7 +925,7 @@ public:
 
 	inline vector<double> getVarValues(vector<MyVar*>& vars){
 		vector<double> values(vars.size());
-		for(int i=0; i<vars.size(); ++i)
+		for(unsigned int i=0; i<vars.size(); ++i)
 			values[i] = getVarValue(vars[i]);
 		return values;
 	}
@@ -938,7 +938,7 @@ public:
 
 	inline vector<double> getDuals(vector<MyCons*>& cons, bool transformed = false){
 		vector<double> dualValues(cons.size());
-		for(int i=0; i<cons.size(); ++i)
+		for(unsigned int i=0; i<cons.size(); ++i)
 			dualValues[i] = getDual(cons[i], transformed);
 		return dualValues;
 	}

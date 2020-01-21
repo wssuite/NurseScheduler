@@ -330,13 +330,13 @@ public:
 	int maxSolvingTimeSeconds_ = LARGE_TIME;
 
 	//print parameters
+	int verbose_ = 0;
 	bool printEverySolution_ = false;
 	string outfile_ = "outfiles/";
 	string logfile_ = "";
 	vector<int> weekIndices_ = {};
 	PrintSolution* saveFunction_ = 0;
 
-	int verbose_ = 0;
 	bool printRelaxationSol_ = false;
 	bool printIntermediarySol_ = false;
 	bool printFractionOfInteger_ = false;

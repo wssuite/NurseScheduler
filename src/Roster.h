@@ -102,7 +102,7 @@ public:
   // get a vector of consecutive states that will result from applying the
   // the roster from a given initial state
   //
-  vector<State> getStates(const State& pStateIni);
+  vector<State> getStates(const State& pStateIni, Scenario* pScenario);
 
   // assign a task at on a given day
   //

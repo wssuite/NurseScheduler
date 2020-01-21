@@ -174,7 +174,7 @@ StochasticSolver::~StochasticSolver(){
    }
 
    // delete the solvers used for evaluation
-   for(int n=0; n<pEvaluationSolvers_.size(); n++){
+   for(unsigned int n=0; n<pEvaluationSolvers_.size(); n++){
       while (!pEvaluationSolvers_[n].empty()) {
          if (pEvaluationSolvers_[n].back()) delete pEvaluationSolvers_[n].back();
          pEvaluationSolvers_[n].pop_back();
@@ -183,7 +183,7 @@ StochasticSolver::~StochasticSolver(){
 
    // delete also the reusable solvers
    if(pReusableGenerationSolver_) delete pReusableGenerationSolver_;
-   for(int n=0; n<pReusableEvaluationSolvers_.size(); n++){
+   for(unsigned int n=0; n<pReusableEvaluationSolvers_.size(); n++){
       if(pReusableEvaluationSolvers_.back()) delete pReusableEvaluationSolvers_.back();
       pReusableEvaluationSolvers_.pop_back();
    }
@@ -736,10 +736,17 @@ bool StochasticSolver::evaluateSchedule(int sched){
 
       // Only perform the evaluation if the schedule is feasible and
       // there is time for more than one schedule
-      double currentCost = costPreviousWeeks_ + baseCost, currentCostGreedy = costPreviousWeeks_ + baseCost;
+      double currentCost = costPreviousWeeks_ + baseCost;
+
+#ifdef COMPARE_EVALUATIONS
+      double currentCostGreedy = costPreviousWeeks_ + baseCost;
+#endif
+
       if (pReusableGenerationSolver_->getStatus() == INFEASIBLE) {
          currentCost = 1.0e6;
+#ifdef COMPARE_EVALUATIONS
          currentCostGreedy = 1.0e6;
+#endif
       }
       else {
          // Perform the actual evaluation on demand j by running the chosen algorithm
