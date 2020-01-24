@@ -619,12 +619,15 @@ protected:
 	vector<ArcType> allArcsTypes_;						// Vector of their types
 	vector< boost::graph_traits< Graph>::edge_descriptor > arcsDescriptors_;
 	// Data structures to get the arcs id from other data
-	vector3D arcsFromSource_;							// Index: (shift, day, nCons) of destination
-	vector3D arcsShiftToNewShift_;						// Index: (shift1, shift2, day1)
-	vector3D arcsShiftToSameShift_;						// Index: (shift, day, nCons) of origin
-	vector3D arcsShiftToEndsequence_;					// Index: (shift, day, nCons) of origin
-	vector2D arcsRepeatShift_;							// Index: (shift, day) of origin
-	vector2D arcsPrincipalToRotsizein_;					// Index: (shift, day) of origin
+	vector3D arcsFromSource_;							// Index: (shiftType, day, nCons) of destination
+	// vector3D arcsShiftToNewShift_;						// Index: (shift1, shift2, day1)
+	// vector3D arcsShiftToSameShift_;						// Index: (shift, day, nCons) of origin
+	vector4D arcsShiftToNewShift_;						// Index: (shiftType1, shiftType2, day1, shift)
+	vector4D arcsShiftToSameShift_;						// Index: (shiftType, day, nCons, shift) of origin
+	vector3D arcsShiftToEndsequence_;					// Index: (shiftType, day, nCons) of origin
+	// vector2D arcsRepeatShift_;							// Index: (shift, day) of origin
+	vector3D arcsRepeatShift_;							// Index: (shiftType, day, shift) of origin
+	vector2D arcsPrincipalToRotsizein_;					// Index: (shiftType, day) of origin
 	vector<map<int,int> > arcsRotsizeinToRotsizeDay_;	// Index: (day,size) of the rotation [destination]
 	vector<map<int,int> > arcsRotsizeToRotsizeoutDay_;	// Index: (day,size) of the rotation [origin]
 	vector<int> arcsSinkDayToSink_;						// Index: (day) of the end of rotation

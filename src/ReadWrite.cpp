@@ -370,7 +370,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 			Tools::initVector3D(&optWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_);
 
 			// Do not take the rest shift into account here (by initialization, requirements already at 0
-			for(int i=1; i<pScenario->nbShifts_; i++){
+			for(int i=1; i<pScenario->nbShiftsType_; i++){
 				for(int j=0; j<pScenario->nbSkills_; j++){
 					// Read shift and skill
 					file >> shiftName;
@@ -488,9 +488,10 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 				file >> consDaysWorked;
 				file >> consRest;
 
+				int  shiftID = pScenario->shiftTypeIDToShiftID_[shiftTypeId][0];
 				consShifts = (shiftTypeId == 0) ? consRest : consShiftWorked;
 				State nurseState (0, totalDaysWorked, totalWeekendsWorked,
-						  consDaysWorked, consShifts, consRest, shiftTypeId, -1);
+						  consDaysWorked, consShifts, consRest, shiftTypeId, shiftID);
 				initialState.push_back(nurseState);
 			}
 		}

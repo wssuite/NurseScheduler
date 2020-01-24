@@ -46,6 +46,7 @@ static const int LARGE_TIME = 9999999;
 //
 typedef std::vector<std::vector<int> > vector2D;
 typedef std::vector<std::vector<std::vector<int> > > vector3D;
+typedef std::vector<std::vector<std::vector<std::vector<int> > > > vector4D;
 
 namespace Tools{
 
