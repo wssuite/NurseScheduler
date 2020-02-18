@@ -94,8 +94,8 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 			continue;
 		}
 		if(lastShiftType > 0){
-		  int diff = max(pScenario->minConsShiftsOfTypeOf(lastShiftType) - nbConsShifts,
-				 nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShiftType));
+		  int diff = max(pScenario->minConsShiftsOf(lastShiftType) - nbConsShifts,
+				 nbConsShifts-pScenario->maxConsShiftsOf(lastShiftType));
 			if(diff>0) {
 				consShiftsCost_ += diff * WEIGHT_CONS_SHIFTS;
 			}
@@ -106,8 +106,8 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 	}
 
 	//compute consShiftsCost for the last shift
-	int diff = max((firstDay_+length_ == horizon) ? 0 : pScenario->minConsShiftsOfTypeOf(lastShiftType) - nbConsShifts,
-		       nbConsShifts-pScenario->maxConsShiftsOfTypeOf(lastShiftType));
+	int diff = max((firstDay_+length_ == horizon) ? 0 : pScenario->minConsShiftsOf(lastShiftType) - nbConsShifts,
+		       nbConsShifts-pScenario->maxConsShiftsOf(lastShiftType));
 	if(diff>0) {
 		consShiftsCost_ += diff * WEIGHT_CONS_SHIFTS;
 	}
@@ -405,8 +405,8 @@ void MasterProblem::build(SolverParam param){
 		// constraints
 		double artificialCost = WEIGHT_TOTAL_SHIFTS*pScenario_->nbShifts_*(pScenario_->nbDays()-pScenario_->maxTotalShiftsOf(i));
 		artificialCost += WEIGHT_CONS_DAYS_WORK*pScenario_->nbShifts_*(pScenario_->nbDays()-pScenario_->maxConsDaysWorkOf(i));
-		for (int i = 1; i < pScenario_->nbShifts_; i++) {
-		  artificialCost += WEIGHT_CONS_SHIFTS*(pScenario_->nbDays()-pScenario_->maxConsShiftsOfTypeOf(i));
+		for (int s = 1; s < pScenario_->nbShifts_; s++) {
+		  artificialCost += WEIGHT_CONS_SHIFTS*(pScenario_->nbDays()-pScenario_->maxConsShiftsOfTypeOf(s));
 		}
 		Rotation rotation(shifts, i, LARGE_SCORE);// artificialCost);//
 		addRotation(rotation, baseName.c_str(), true);
@@ -457,7 +457,7 @@ double MasterProblem::solve(vector<Roster> solution, bool rebuild){
 	this->initializeSolution(solution);
 
 	// DBG
-	// pModel_->writeProblem("outfiles/model.lp");
+	pModel_->writeProblem("model.lp");
 
 	// RqJO: warning, it would be better to define an enumerate type of verbosity
 	// levels and create the matching in the Modeler subclasses
@@ -1683,7 +1683,7 @@ string MasterProblem::allocationToString(bool printInteger){
 		rep << pNurse->name_ << "\t";
 		for(int s=1; s<nbShifts; ++s){
 			if (s>1) rep << "\t";
-			rep << pScenario_->intToShift_[s].at(0) << "\t";
+			rep << pScenario_->intToShift_[s] << "\t";
 			for (int day = firstDay; day < firstDay+nbDays; day++){
 				double shiftValue = fractionalRoster[day][s-1];
 				if(shiftValue > 1-EPSILON){
@@ -1727,7 +1727,7 @@ string MasterProblem::coverageToString(bool printInteger){
 	string tab = "\t";
 
 	for(int s=1; s<nbShifts; ++s){
-		rep << pScenario_->intToShift_[s].at(0) << "\t";
+		rep << pScenario_->intToShift_[s] << "\t";
 		for(int sk=0; sk<nbSkills; sk++){
 			if(sk!=0) rep << "\t";
 

@@ -414,7 +414,8 @@ double DeterministicSolver::solveCompleteHorizon() {
 	//
 	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_);
 	pCompleteSolver_->solve(completeParameters_);
-
+	pCompleteSolver_->printCurrentSol();
+	cout << pCompleteSolver_->solutionToString() << endl;
 	return this->treatResults(pCompleteSolver_);
 }
 

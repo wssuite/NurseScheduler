@@ -489,11 +489,13 @@ public:
 	void incrementNbNodes() {nbNodes_++;}
 	int getNbNodes() {return nbNodes_-1;}
 
-protected:
+// protected:
 
 	// solver that called the model
 	MasterProblem* pMaster_;
   BcpInitialize* pBcp_;
+
+protected:
 
   //mapping between the CoinTreeSiblings* and my BcpNode*
 	//a sibblings contains a list of all its leaves CoinTreeNode
@@ -1026,7 +1028,7 @@ public:
 
 	BcpLpModel* getBcpLpModel() {return pLpModel_;}
 
-protected:
+// protected:
 	BcpModeler* pModel_;
 	BcpLpModel* pLpModel_;
 	BcpBranchingTree* pTree_;

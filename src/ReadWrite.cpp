@@ -370,12 +370,12 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 			Tools::initVector3D(&optWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_);
 
 			// Do not take the rest shift into account here (by initialization, requirements already at 0
-			for(int i=1; i<pScenario->nbShiftsType_; i++){
+			for(int i=1; i<pScenario->nbShifts_; i++){
 				for(int j=0; j<pScenario->nbSkills_; j++){
 					// Read shift and skill
 					file >> shiftName;
 					file >> skillName;
-					shiftId = pScenario->shiftTypeToInt_.at(shiftName);
+					shiftId = pScenario->shiftToInt_.at(shiftName);
 					skillId = pScenario->skillToInt_.at(skillName);
 					// For every day in the week, read min and opt values
 					for (int day = 0; day<7; day++){

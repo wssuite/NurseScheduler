@@ -422,6 +422,14 @@ void BcpLpModel::TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col
       cols.unchecked_push_back(
          new BCP_col(size, indexRows, coeffRows, var->getCost(), var->getLB(), var->getUB()) );
    }
+
+
+// 	static int  cpt = 0;
+// 	char  nom[1024];
+// 	sprintf(nom, "/tmp/kkk%03d", cpt++);
+// pModel_->pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(nom);
+//  cout << "LP WRITE: " << nom << endl;
+
 }
 
 //Generate variables within the LP process.
@@ -431,6 +439,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 {
 	if(doStop())
 	return;
+
 
 	// STAB
 	// Detect when the coluln generation is stalling
@@ -513,7 +522,6 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 			return;
 		}
 	}
-
 	//check if new columns add been added since the last time
 	//if there are some, add all of them in new_vars
 	//
@@ -531,6 +539,12 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 		this->stabUpdateBoundAndCost(isStall,isImproveQuality);
 	}
 
+
+// 	static int  cpt = 0;
+// 	char  nom[1024];
+// 	sprintf(nom, "/tmp/fff%03d", cpt++);
+// pModel_->pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(nom);
+//  cout << "LP WRITE: " << nom << endl;
 
 	//	//debug
 	//	pModel_->checkActiveColumns(new_vars);
@@ -1007,7 +1021,7 @@ BcpModeler::~BcpModeler() {
 int BcpModeler::solve(bool relaxation){
    //create the root
    pTree_->pushBackNewNode();
-
+   
    //solve
    char** argv=NULL;
 
@@ -1028,6 +1042,11 @@ int BcpModeler::solve(bool relaxation){
 	// retrieve the statistics of the solution
 	timeStats_.add(pBcp_->getBcpLpModel()->getLpProblemPointer()->stat);
 	nbLpIterations_ = pBcp_->getBcpLpModel()->getNbLpIterations();
+
+	static int  cpt = 0;
+	char  nom[1024];
+	sprintf(nom, "ccc%03d", cpt++);
+pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(nom);
 
    // clear tree
    pTree_->clear();
@@ -1096,7 +1115,6 @@ int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int ind
 int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs){
    *con = new BcpCoreCons(con_name, index, lhs, rhs);
    objects_.push_back(*con);
-   return 1;
 }
 
 void BcpModeler::createCutLinear(MyCons** cons, const char* con_name, double lhs, double rhs,
@@ -1604,7 +1622,8 @@ bool BcpModeler::doStop(){
  *************/
 
 int BcpModeler::writeProblem(string fileName){
-   return 0;
+  // pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
+  return 0;
 }
 
 int BcpModeler::writeLP(string fileName){

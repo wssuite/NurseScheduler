@@ -48,13 +48,16 @@ struct MyObject {
 		char* name2 = new char[255];
 		strncpy(name2, name, 255);
 		name_ = name2;
+		// cout << "LP : " << name2 << endl;
 	}
 	MyObject(const MyObject& myObject):id_(myObject.id_) {
 		char* name2 = new char[255];
 		strncpy(name2, myObject.name_, 255);
 		name_ = name2;
+		// cout << "LP : " << name2 << endl;
 	}
-	virtual ~MyObject(){ delete[] name_; }
+  virtual ~MyObject(){//cout << "LP DEL : " << name_ << endl;
+	  delete[] name_;}
 	//count object
 	static unsigned int s_count;
 	//for the map rotations_
@@ -71,7 +74,8 @@ struct MyVar: public MyObject{
 	MyVar(const char* name, int index, double cost, VarType type, double lb, double ub, const vector<double>& pattern = DEFAULT_PATTERN):
 		MyObject(name), index_(index), type_(type), cost_(cost), lb_(lb), ub_(ub), pattern_(pattern),
 		iteration_creation_(0), active_count_(0), last_active_(0)
-	{ }
+  {//		cout << "LP VAR: " << name << "    " << index << endl;
+ }
 
 	MyVar(const MyVar& var) :
 		MyObject(var), index_(var.index_), type_(var.type_), cost_(var.cost_), lb_(var.lb_), ub_(var.ub_), pattern_(var.pattern_),
@@ -149,7 +153,8 @@ static const vector<MyVar*> EMPTY_VARS;
 struct MyCons: public MyObject{
 	MyCons(const char* name, int index, double lhs, double rhs):
 		MyObject(name), index_(index), lhs_(lhs), rhs_(rhs)
-	{ }
+  { //	cout << "LP CONS: " << name << endl;
+	}
 
 	MyCons(const MyCons& cons) :
 		MyObject(cons.name_), index_(cons.index_), lhs_(cons.lhs_), rhs_(cons.rhs_)

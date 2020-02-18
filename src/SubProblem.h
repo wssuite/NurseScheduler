@@ -166,7 +166,7 @@ struct Arc_Properties{
 
 	// Constructor
 	//
-	Arc_Properties( int n = 0, ArcType ty = NONE_ARC, double c = 0, int t = 0 ) : num( n ), type(ty), cost( c ), time( t ) {}
+  Arc_Properties( int n = 0, ArcType ty = NONE_ARC, double c = 0, int t = 0, int sh = 0 ) : num( n ), type(ty), cost( c ), time( t ), shiftID( sh ) {}
 
 	// id
 	//
@@ -183,6 +183,9 @@ struct Arc_Properties{
 	// traversal time
 	//
 	int time;
+
+  // shift id
+  int  shiftID;
 };
 
 // Graph with RC generic structure
@@ -537,6 +540,7 @@ protected:
 
 	// Cost function for consecutive identical shifts
 	double consShiftCost(int sh, int n);
+	double consShiftTypeCost(int shType, int n);
 	// Cost function for consecutive days
 	double consDaysCost(int n);
 	// Initializes the startWeekendCost vector
@@ -637,7 +641,7 @@ protected:
 	// Creates all arcs of the graph
 	void createArcs();
 	// Basic function for adding an arc
-	void addSingleArc(int origin, int destination, double baseCost, int travelTime, ArcType type);
+  void addSingleArc(int origin, int destination, double baseCost, int travelTime, ArcType type, int shiftID);
 	// Initiate variables for the arcs structures (integers, vectors, etc.)
 	void initArcsStructures();
 	// Create the specific types of arcs
@@ -656,7 +660,7 @@ protected:
 	inline int arcDestination(int a) {return target(arcsDescriptors_[a], g_);}
 	inline int arcLength(int a) {return get( &Arc_Properties::time, g_, arcsDescriptors_[a]);}
 	inline double arcCost(int a) {return get( &Arc_Properties::cost, g_, arcsDescriptors_[a]);}
-
+  inline int arcShiftID(int a) {return get( &Arc_Properties::shiftID, g_, arcsDescriptors_[a]);}
 
 
 

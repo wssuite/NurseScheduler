@@ -79,7 +79,7 @@ SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contrac
 	for(int a=0; a<nArcs_; a++) arcStatus_.push_back(true);
 	for(int k=0; k<nDays_; k++){
 		vector<bool> v;
-		for(int s=0; s<pScenario_->nbShiftsType_; s++)
+		for(int s=0; s<pScenario_->nbShifts_; s++)
 			v.push_back(true);
 		dayShiftStatus_.push_back(v);
 	}
@@ -116,10 +116,10 @@ void SubProblem::init(vector<State>* pInitState){
 
 	for(int sh=1; sh<pScenario_->nbShiftsType_; sh++){
 		isUnlimited_.push_back(
-				       pScenario_->maxConsShiftsOfTypeOf(sh) >= nDays_ + maxOngoingDaysWorked_
-				       or pScenario_->maxConsShiftsOfTypeOf(sh) >= NB_SHIFT_UNLIMITED
+				       pScenario_->maxConsShiftsOf(sh) >= nDays_ + maxOngoingDaysWorked_
+				       or pScenario_->maxConsShiftsOf(sh) >= NB_SHIFT_UNLIMITED
 		);
-		int nl = isUnlimited_[sh] ? pScenario_->minConsShiftsOfTypeOf(sh) : pScenario_->maxConsShiftsOfTypeOf(sh);
+		int nl = isUnlimited_[sh] ? pScenario_->minConsShiftsOf(sh) : pScenario_->maxConsShiftsOf(sh);
 		maxvalConsByShift_.push_back( nl );
 	}
 
@@ -154,7 +154,8 @@ void SubProblem::initShortSuccessions(){
 
 	// Primary information needed
 	//
-	int nShiftsType= pScenario_->nbShiftsType_;
+        int nShiftsType = pScenario_->nbShiftsType_;
+	int nShifts     = pScenario_->nbShifts_;
 
 	// Put an empty list of size 0 for all data because there exists no succession of length 0/
 	//
@@ -190,7 +191,7 @@ void SubProblem::initShortSuccessions(){
 		// Size 1 -> special case, initialization -> add all single shift rotations
 		//
 		if(c==1){
-			for(int s=1; s<nShiftsType; s++){
+			for(int s=1; s<nShifts; s++){
 				vector<int> shiftSuccession; shiftSuccession.push_back(s);		// Create Succession
 				allSuccSizeC.push_back(shiftSuccession);						// Add it to the possibilities
 				lastShiftSucc.push_back(s);										// Record its last shift
@@ -209,13 +210,17 @@ void SubProblem::initShortSuccessions(){
 				int nLast = nLastShiftOfShortSucc_[c-1][i];
 				double cost = baseArcCostOfShortSucc_[c-1][i];
 				// For each possible new shift s.t. the succession is allowed
-				for(int newSh=1; newSh<nShiftsType; newSh++){
+				for(int newSh=1; newSh<nShifts; newSh++){
 					if(! pScenario_->isForbiddenSuccessorShift_Shift(newSh,lastSh)){
 
 						vector<int> newSucc (succ); newSucc.push_back(newSh);		// Create Succession
 						allSuccSizeC.push_back(newSucc);							// Add it to the possibilities
 						lastShiftSucc.push_back(newSh);								// Record its last shift
-						if (newSh == lastSh){										// Depending on the previous one, update number of consecutive and cost
+						
+						int newShTypeID = pScenario_->shiftIDToShiftTypeID_[newSh];
+						int lastShTypeID = pScenario_->shiftIDToShiftTypeID_[lastSh];
+
+						if (newShTypeID == lastShTypeID){										// Depending on the previous one, update number of consecutive and cost
 							nLastShiftSucc.push_back(nLast+1);
 							arcCostSucc.push_back(cost);
 						} else {
@@ -238,7 +243,7 @@ void SubProblem::initShortSuccessions(){
 				int nLast = nLastShiftOfShortSucc_[c-1][i];
 				double cost = baseArcCostOfShortSucc_[c-1][i];
 				// For each possible new shift s.t. the succession is allowed
-				for(int newSh=1; newSh<nShiftsType; newSh++){
+				for(int newSh=1; newSh<nShifts; newSh++){
 					if(! pScenario_->isForbiddenSuccessorShift_Shift(newSh,lastSh)){
 
 						vector<int> newSucc (succ); newSucc.push_back(newSh);		// Create Succession
@@ -246,7 +251,13 @@ void SubProblem::initShortSuccessions(){
 						lastShiftSucc.push_back(newSh);								// Record its last shift
 						int newNLast = 1;
 						double newCost = cost;
-						if(newSh == lastSh){	// BUT : add the cost if longer than the maximum allowed
+
+						
+						int newShTypeID = pScenario_->shiftIDToShiftTypeID_[newSh];
+						int lastShTypeID = pScenario_->shiftIDToShiftTypeID_[lastSh];
+
+						
+						if(newShTypeID == lastShTypeID){	// BUT : add the cost if longer than the maximum allowed
 							newNLast += nLast;
 							if(newNLast >= pScenario_->maxConsShiftsOfTypeOf(newSh)){
 								newCost += consShiftCost(lastSh, nLast) ;
@@ -259,8 +270,8 @@ void SubProblem::initShortSuccessions(){
 
 						// Since it is the longest one, record the tables the other way round
 						//
-						int n = min(newNLast, maxvalConsByShift_[newSh]);
-						allShortSuccCDMinByLastShiftCons_[newSh][n].push_back(allSuccSizeC.size()-1);
+						int n = min(newNLast, maxvalConsByShift_[newShTypeID]);
+						allShortSuccCDMinByLastShiftCons_[newShTypeID][n].push_back(allSuccSizeC.size()-1);
 
 					}
 				}
@@ -283,6 +294,12 @@ void SubProblem::initShortSuccessions(){
 double SubProblem::consShiftCost(int sh, int n){
   if(pScenario_->minConsShiftsOfTypeOf(sh) - n > 0) return (WEIGHT_CONS_SHIFTS * ( pScenario_->minConsShiftsOfTypeOf(sh) - n ) );
   if(n - pScenario_->maxConsShiftsOfTypeOf(sh) > 0) return (WEIGHT_CONS_SHIFTS * ( n - pScenario_->maxConsShiftsOfTypeOf(sh) ) );
+	return 0;
+}
+
+double SubProblem::consShiftTypeCost(int sh, int n){
+  if(pScenario_->minConsShiftsOf(sh) - n > 0) return (WEIGHT_CONS_SHIFTS * ( pScenario_->minConsShiftsOf(sh) - n ) );
+  if(n - pScenario_->maxConsShiftsOf(sh) > 0) return (WEIGHT_CONS_SHIFTS * ( n - pScenario_->maxConsShiftsOf(sh) ) );
 	return 0;
 }
 
@@ -332,12 +349,24 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 
 	if(false) printContractAndPrefenrences();				// Set to true if you want to display contract + preferences (for debug)
 
+	// cout << " 1   ----------------------------------------------" << endl;
+	// printGraph();
+
 	timeInS_->start();
 	bool ANS_short = solveShortRotations();
 	timeInS_->stop();
+
+	// cout << " 2   ----------------------------------------------" << endl;
+	// printGraph();
+	
 	timeInNL_->start();
 	bool ANS_long = solveLongRotations(optimality);
 	timeInNL_->stop();
+
+	// cout << " 3   ----------------------------------------------" << endl;
+	// printGraph();
+
+	// printAllRotations();
 
 	// Reset authorizations
 	authorize(forbiddenDayShifts);
@@ -525,7 +554,8 @@ Rotation SubProblem::rotationFromPath(vector< boost::graph_traits<Graph>::edge_d
 
 		// B. Arc to a new day
 		else if(aType == SHIFT_TO_NEWSHIFT or aType == SHIFT_TO_SAMESHIFT or aType == REPEATSHIFT){
-			shiftSuccession.push_back( principalToShift_[destin] );
+			// shiftSuccession.push_back( principalToShift_[destin] );
+		  shiftSuccession.push_back( arcShiftID(a) );
 		}
 	}
 
@@ -683,8 +713,8 @@ void SubProblem::createArcs(){
 }
 
 // Adds a single arc (origin, destination, cost, travel time, type)
-void SubProblem::addSingleArc(int o, int d, double baseCost, int t, ArcType type){
-	boost::graph_traits< Graph>::edge_descriptor e = (add_edge( o, d, Arc_Properties( nArcs_, type, baseCost, t ), g_ )).first;
+void SubProblem::addSingleArc(int o, int d, double baseCost, int t, ArcType type, int shiftID){
+  boost::graph_traits< Graph>::edge_descriptor e = (add_edge( o, d, Arc_Properties( nArcs_, type, baseCost, t, shiftID ), g_ )).first;
 	arcsDescriptors_.push_back(e);
 	allArcsTypes_.push_back(type);
 	arcBaseCost_.push_back(baseCost);
@@ -735,6 +765,10 @@ void SubProblem::initArcsStructures(){
 	  Tools::initVector2D(&w2, nDays_, maxvalConsByShift_[sh]+1);           arcsShiftToEndsequence_.push_back(w2);
 	  Tools::initVector2D(&x2, nDays_, nShifts);                            arcsRepeatShift_.push_back(x2);
 	  Tools::initVector3D(&y2, nDays_, maxvalConsByShift_[sh]+1, nShifts);  arcsShiftToSameShift_.push_back(y2);
+
+	  ////////////////////// SERGEB   A CORRIGER!!!!!!!!!!!!!  ---> derniere dimension variable selon 2e dimension !!!!!!!!!!!!!!!!!!
+	  // int nNewShifts = pScenario_->shiftTypeIDToShiftID_[sh].size();
+	  // Tools::initVector3D(&z2, pScenario_->nbShiftsType_, nDays_, nNewShifts); arcsShiftToNewShift_.push_back(z2);
 	  Tools::initVector3D(&z2, pScenario_->nbShiftsType_, nDays_, nShifts); arcsShiftToNewShift_.push_back(z2);
 	}
 	// VECTORS 2 D
@@ -754,7 +788,7 @@ void SubProblem::createArcsSourceToPrincipal(){
 				origin = sourceNode_;
 				destin = principalNetworkNodes_[sh][k][nCons];
 				arcsFromSource_[sh][k][nCons] = nArcs_;
-				addSingleArc(origin, destin, 0, CDMin_, SOURCE_TO_PRINCIPAL);
+				addSingleArc(origin, destin, 0, CDMin_, SOURCE_TO_PRINCIPAL, origin);
 			}
 		}
 	}
@@ -784,7 +818,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 				  int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 				  arcsShiftToSameShift_[sh][k][nCons][s] = nArcs_;
 				  // addSingleArc(origin, destin, 0, 1, SHIFT_TO_SAMESHIFT);
-				  addSingleArc(origin, destin, 0, pScenario_->hoursToWork_[shiftID], SHIFT_TO_SAMESHIFT);
+				  addSingleArc(origin, destin, 0, pScenario_->hoursToWork_[shiftID], SHIFT_TO_SAMESHIFT, shiftID);
 				}
 			}
 
@@ -798,7 +832,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			  int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 			  arcsRepeatShift_[sh][k][s] = nArcs_;
 			// addSingleArc(origin, destin, cost, 1, REPEATSHIFT);
-			  addSingleArc(origin, destin, cost, pScenario_->hoursToWork_[shiftID], REPEATSHIFT);
+			  addSingleArc(origin, destin, cost, pScenario_->hoursToWork_[shiftID], REPEATSHIFT, shiftID);
 			}
 			
 			// 3. WORK ONE MORE DAY ON A DIFFERENT SHIFT (CHANGE SUBNETWORK)
@@ -813,7 +847,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			      int  newShiftID = pScenario_-> shiftTypeIDToShiftID_[newSh][s];
 			      arcsShiftToNewShift_[sh][newSh][k][s] = nArcs_;
 			      // addSingleArc(origin, destin, 0, 1, SHIFT_TO_NEWSHIFT);
-			      addSingleArc(origin, destin, 0, pScenario_->hoursToWork_[newShiftID], SHIFT_TO_NEWSHIFT);
+			      addSingleArc(origin, destin, 0, pScenario_->hoursToWork_[newShiftID], SHIFT_TO_NEWSHIFT, newShiftID);
 			    }
 			  }
 			}
@@ -824,7 +858,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 				origin = principalNetworkNodes_[sh][k][nCons];
 				destin = principalNetworkNodes_[sh][k][maxvalConsByShift_[sh]];
 				arcsShiftToEndsequence_[sh][k][nCons] = nArcs_;
-				addSingleArc(origin, destin, consShiftCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE);
+				addSingleArc(origin, destin, consShiftTypeCost(sh, nCons), 0, SHIFT_TO_ENDSEQUENCE, destin);
 			}
 		}
 
@@ -834,7 +868,7 @@ void SubProblem::createArcsPrincipalToPrincipal(){
 			origin = principalNetworkNodes_[sh][nDays_-1][nCons];
 			destin = principalNetworkNodes_[sh][nDays_-1][maxvalConsByShift_[sh]];
 			arcsShiftToEndsequence_[sh][nDays_-1][nCons] = nArcs_;
-			addSingleArc(origin, destin, 0, 0, SHIFT_TO_ENDSEQUENCE);
+			addSingleArc(origin, destin, 0, 0, SHIFT_TO_ENDSEQUENCE, destin);
 		}
 	}
 }
@@ -852,7 +886,7 @@ void SubProblem::createArcsAllRotationSize(){
 			origin = principalNetworkNodes_[sh][k][maxvalConsByShift_[sh]];
 			destin = rotationLengthEntrance_[k];
 			arcsPrincipalToRotsizein_[sh][k] = nArcs_;
-			addSingleArc(origin, destin, 0, 0, PRINCIPAL_TO_ROTSIZE);			// Allow to stop rotation that day
+			addSingleArc(origin, destin, 0, 0, PRINCIPAL_TO_ROTSIZE, destin);			// Allow to stop rotation that day
 		}
 	}
 
@@ -868,12 +902,12 @@ void SubProblem::createArcsAllRotationSize(){
 			origin = rotationLengthEntrance_[k];
 			destin = itRLN->second;
 			arcsRotsizeinToRotsize.insert(pair<int,int>(itRLN->first, nArcs_));
-			addSingleArc(origin, destin, consDaysCost(itRLN->first), 0, ROTSIZEIN_TO_ROTSIZE);
+			addSingleArc(origin, destin, consDaysCost(itRLN->first), 0, ROTSIZEIN_TO_ROTSIZE, destin);
 			// From checknode to exit of that day
 			origin = itRLN->second;
 			destin = sinkNodesByDay_[k];
 			arcsRotsizeToRotsizeout.insert(pair<int,int>( itRLN->first, nArcs_));
-			addSingleArc(origin, destin, 0, 0, ROTSIZE_TO_SINK);
+			addSingleArc(origin, destin, 0, 0, ROTSIZE_TO_SINK, destin);
 		}
 
 		arcsRotsizeinToRotsizeDay_.push_back(arcsRotsizeinToRotsize);
@@ -882,7 +916,7 @@ void SubProblem::createArcsAllRotationSize(){
 		// link all sink nodes to the main sink node
 		origin = sinkNodesByDay_[k];
 		destin = sinkNode_;
-		addSingleArc(origin, destin, 0,0, SINKDAY_TO_SINK);
+		addSingleArc(origin, destin, 0,0, SINKDAY_TO_SINK, destin);
 
 	}
 
@@ -970,7 +1004,7 @@ void SubProblem::priceShortSucc(){
 							// 2. Size of short succession is < than the number of levels maxValByShift[s]
 							// 3. Number of last shifts cons in succession is CDMin_
 							// 4. The shift is the same as the last one worked by the nurse at initial state
-							if(k==CDMin_-1 and CDMin_<maxvalConsByShift_[s] and n==CDMin_ and s==pLiveNurse_->pStateIni_->shift_){
+							if(k==CDMin_-1 and CDMin_<maxvalConsByShift_[s] and n==CDMin_ and s==pLiveNurse_->pStateIni_->shiftType_){
 								// a. Determine the destination of that arc
 								int nConsWithPrev = CDMin_ + pLiveNurse_->pStateIni_->consShifts_;
 								int nDestination = min( nConsWithPrev , maxvalConsByShift_[s] );
@@ -1043,9 +1077,11 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 			ii++;
 		}
 
+		int shiftTypeIni = pScenario_->shiftIDToShiftTypeID_[shiftIni];
+		int firstShiftType = pScenario_->shiftIDToShiftTypeID_[firstShift];
 
 		// 1. The nurse was resting: pay more only if the rest is too short
-		if(shiftIni == 0){
+		if(shiftTypeIni == 0){
 			int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
 			ANS += max(0, diffRest*WEIGHT_CONS_DAYS_OFF);
 		}
@@ -1058,7 +1094,7 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 			ANS -= max(0, diffWork*WEIGHT_CONS_DAYS_WORK);
 
 			// b. (i)   The nurse was working on a different shift: if too short, add the corresponding cost
-			if(shiftIni != firstShift){
+			if(shiftTypeIni != firstShiftType){
 			  int diff = pScenario_->minConsShiftsOfTypeOf(shiftIni) - nConsShiftIni;
 				ANS += max(0, diff*(WEIGHT_CONS_SHIFTS));
 			}
@@ -1077,7 +1113,6 @@ double SubProblem::costArcShortSucc(int size, int succId, int startDate){
 			// b. (iii) The nurse was working on the same shift AND the short rotation only contains that shift (recompute the cost -> easier)
 			else {
 				ANS -= baseArcCostOfShortSucc_[size][succId];
-				int shiftTypeIni = pScenario_->shiftIDToShiftTypeID_[shiftIni];
 				if( (nConsFirstShift + nConsShiftIni) >= maxvalConsByShift_[shiftTypeIni] )
 					ANS += consShiftCost(shiftIni, (nConsFirstShift + nConsShiftIni));
 			}
@@ -1162,7 +1197,7 @@ void SubProblem::updateArcCosts(){
 					int  shiftID = pScenario_-> shiftTypeIDToShiftID_[s2][s];
 					// c += preferencesCosts_[k+1][s2] ;
 				        c += preferencesCosts_[k+1][shiftID] ;
-					c -= pCosts_->dayShiftWorkCost(k+1,s2-1);
+					c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
 					c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
 					updateCost( a , c );
 				}
@@ -1181,7 +1216,7 @@ void SubProblem::updateArcCosts(){
 				int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 				// c += preferencesCosts_[k+1][sh] ;
 				c += preferencesCosts_[k+1][shiftID] ;
-				c -= pCosts_->dayShiftWorkCost(k+1,sh-1);
+				c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
 				if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
 				updateCost( a , c );
 			    }
@@ -1199,7 +1234,7 @@ void SubProblem::updateArcCosts(){
 			int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 			// c += preferencesCosts_[k+1][sh];
 			c += preferencesCosts_[k+1][shiftID];
-			c -= pCosts_->dayShiftWorkCost(k+1,sh-1);
+			c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
 			if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
 			updateCost( a , c );
 		  }
@@ -1372,7 +1407,7 @@ void SubProblem::authorizeDayShift(int k, int s){
 	if(s==0) return;
 	// Mark the day-shift as forbidden
 	dayShiftStatus_[k][s] = true;
-	int shiftType = pScenario_->shiftIDToShiftTypeID_[s];
+        int shiftType = pScenario_->shiftIDToShiftTypeID_[s];
 	// Authorize arcs from principal network corresponding to that day-shift
 	if(k >= CDMin_-1){
 		for(int n=1; n<=maxvalConsByShift_[shiftType]; n++)
@@ -1414,7 +1449,7 @@ void SubProblem::authorizeStartingDay(int k){
 // Reset all authorizations to true
 //
 void SubProblem::resetAuthorizations(){
-	for(int s=1; s<pScenario_->nbShiftsType_; s++)
+	for(int s=1; s<pScenario_->nbShifts_; s++)
 		for(int k=0; k<nDays_; k++)
 			authorizeDayShift(k,s);
 
@@ -1427,7 +1462,7 @@ set< pair<int,int> > SubProblem::randomForbiddenShifts(int nbForbidden){
 	set< pair<int,int> > ans;
 	for(int f=0; f<nbForbidden; f++){
 		int k = Tools::randomInt(0, nDays_ - 1);
-		int s = Tools::randomInt(1, pScenario_->nbShiftsType_ - 1);
+		int s = Tools::randomInt(1, pScenario_->nbShifts_ - 1);
 		ans.insert(pair<int,int>(k,s));
 	}
 	return ans;
@@ -1586,7 +1621,10 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 	//
 	for(int k=startDate; k<=endDate; k++){
 		int newShift = succ[k-startDate];
-		if(newShift == shift){
+		int shiftType = pScenario_->shiftIDToShiftTypeID_[shift];
+		int newShiftType = pScenario_->shiftIDToShiftTypeID_[newShift];
+		
+		if(newShiftType == shiftType){
 			consShifts ++;
 		} else {
 			consShiftsRegCost += consShiftCost(shift,consShifts);
@@ -2144,7 +2182,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 			if(length == 0){
 				double bestCostCDMinDays = 0;
 				vector<int> bestSuccCDMinDays;
-				for(int newSh=1; newSh<pScenario_->nbShiftsType_; newSh++){
+				// for(int newSh=1; newSh<pScenario_->nbShiftsType_; newSh++){
 					for(unsigned int i=0; i<allowedShortSuccBySize_[CDMin_].size(); i++){
 						vector<int> succ = allowedShortSuccBySize_[CDMin_][i];
 						double potentialCost = costOfVeryShortRotation(startDate,succ);
@@ -2166,7 +2204,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 						}
 
 					}
-				}
+				// }
 
 				// If a good one has been found -> make it the basis for the next extension
 				if(hasFoundBetter){
@@ -2176,7 +2214,11 @@ bool SubProblem::solveLongRotationsHeuristic(){
 					length = CDMin_;
 					currentDate = currentDate + CDMin_;
 					nConsShift = 0;
-					while(bestSucc[bestSucc.size()-nConsShift-1] == lastSh) nConsShift ++;
+					
+					int lastShType = pScenario_->shiftIDToShiftTypeID_[lastSh];
+					int bestSuccShType = pScenario_->shiftIDToShiftTypeID_[bestSucc[bestSucc.size()-nConsShift-1]];
+					
+					while(bestSuccShType == lastShType) nConsShift ++;
 				}
 				continue;
 			}
@@ -2188,9 +2230,13 @@ bool SubProblem::solveLongRotationsHeuristic(){
 				int bestNewShift;
 				double bestNewCost = bestCost;
 				hasFoundBetter = false;
+				
+				int lastShType = pScenario_->shiftIDToShiftTypeID_[lastSh];
 
-				for(int newSh=1; newSh<pScenario_->nbShiftsType_; newSh++){
+				for(int newSh=1; newSh<pScenario_->nbShifts_; newSh++){
 					double potentialCost = bestCost;
+					
+					int newShType = pScenario_->shiftIDToShiftTypeID_[newSh];
 
 					// If the succession is allowed -> try to extend the rotation
 					if(!pScenario_->isForbiddenSuccessorShift_Shift(newSh,lastSh) and !isDayShiftForbidden(currentDate+1,newSh)){
@@ -2200,7 +2246,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 
 						// REG COST: CONSECUTIVE SHIFTS -> if last day + too short, totally cancel that cost !!
 						if(currentDate < nDays_-2){
-							if(newSh==lastSh){
+							if(newShType==lastShType){
 								potentialCost -= consShiftCost(lastSh,nConsShift);
 								potentialCost += consShiftCost(lastSh,nConsShift+1);
 							} else{
@@ -2209,9 +2255,9 @@ bool SubProblem::solveLongRotationsHeuristic(){
 						}
 						// Last day:
 						else {
-							if(newSh == lastSh){
+							if(newShType == lastShType){
 								potentialCost -= consShiftCost(lastSh,nConsShift);
-								if(newSh == lastSh and nConsShift+1 > pScenario_->maxConsShiftsOfTypeOf(newSh))
+								if(newShType == lastShType and nConsShift+1 > pScenario_->maxConsShiftsOfTypeOf(newSh))
 									potentialCost += consShiftCost(lastSh,nConsShift+1);
 							}
 						}
@@ -2305,7 +2351,10 @@ bool SubProblem::solveLongRotationsHeuristic(){
 					bestCost = bestNewCost;
 					currentDate ++;
 					length ++;
-					nConsShift = (lastSh == bestNewShift) ? (nConsShift+1) : 1;
+
+					int bestNewShiftType = pScenario_->shiftIDToShiftTypeID_[bestNewShift];
+					
+					nConsShift = (lastShType == bestNewShiftType) ? (nConsShift+1) : 1;
 					lastSh = bestNewShift;
 				}
 			}
@@ -2395,7 +2444,7 @@ string SubProblem::shortNameNode(int v){
 	else if (type_v == PRINCIPAL_NETWORK){
 		int k = principalToDay_.at(v);
 		int cons = principalToCons_.at(v);
-		rep << (pScenario_->intToShift_[principalToShift_.at(v)])[0] << "-" << k << "-" << cons;
+		rep << (pScenario_->intToShiftType_[principalToShift_.at(v)])[0] << "-" << k << "-" << cons;
 	}
 
 	else if (type_v == ROTATION_LENGTH_ENTRANCE){
@@ -2580,7 +2629,7 @@ void SubProblem::printForbiddenDayShift(){
 	bool anyForbidden = false;
 	for(int k=0; k<nDays_; k++){
 		bool alreadyStarted=false;
-		for(int s=1; s<pScenario_->nbShiftsType_; s++){
+		for(int s=1; s<pScenario_->nbShifts_; s++){
 			if(isDayShiftForbidden(k,s)){
 				anyForbidden = true;
 				if(!alreadyStarted){
@@ -2626,7 +2675,7 @@ void SubProblem::printContractAndPrefenrences(){
 	std::cout << "# Contract :   ";
 	std::cout << "Days [" << pContract_->minConsDaysOff_ << "<" << pContract_->maxConsDaysOff_ << "]   ";
 	for(int s=1; s<pScenario_->nbShiftsType_; s++){
-	  std::cout << pScenario_->intToShift_[s] << " [" << pScenario_->minConsShiftsOfTypeOf(s) << "<" << pScenario_->maxConsShiftsOfTypeOf(s) << "]   ";
+	  std::cout << pScenario_->intToShiftType_[s] << " [" << pScenario_->minConsShiftsOf(s) << "<" << pScenario_->maxConsShiftsOf(s) << "]   ";
 	}
 	std::cout << std::endl;
 	std::cout << "# " << std::endl;

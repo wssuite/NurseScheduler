@@ -68,6 +68,8 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 		LiveNurse* pNurse = *it0;
 		bool nurseForbidden = isNurseForbidden(pNurse->id_);
 
+		// cout << "NURSE # " << pNurse->id_ << "    " << pNurse->name_ << endl;
+
 		// IF THE NURSE IS NOT FORBIDDEN, SOLVE THE SUBPROBLEM
 		if(!nurseForbidden){
 
