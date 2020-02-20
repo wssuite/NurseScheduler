@@ -733,7 +733,7 @@ void SubProblem::addSingleArc(int o, int d, double baseCost, int t, ArcType type
 void SubProblem::initArcsStructures(){
 	nArcs_ = 0;
 	vector< boost::graph_traits< Graph>::edge_descriptor > ve; arcsDescriptors_ = ve;
-
+	
 	// Initialization of info -> arcId data structures
 	arcsFromSource_.clear();
 	arcsShiftToNewShift_.clear();
@@ -757,10 +757,10 @@ void SubProblem::initArcsStructures(){
 
 	// VECTORS 3 D
 	for(int sh=0; sh<pScenario_->nbShiftsType_; sh++){
-	  vector2D v2, w2, x2;
+	  vector2D v2, w2, x2, zz2;
 	  vector3D y2, z2;
 	  unsigned int nShifts = pScenario_->shiftTypeIDToShiftID_[sh].size();
-	  
+
 	  Tools::initVector2D(&v2, nDays_, maxvalConsByShift_[sh]+1);           arcsFromSource_.push_back(v2);
 	  Tools::initVector2D(&w2, nDays_, maxvalConsByShift_[sh]+1);           arcsShiftToEndsequence_.push_back(w2);
 	  Tools::initVector2D(&x2, nDays_, nShifts);                            arcsRepeatShift_.push_back(x2);
@@ -769,7 +769,13 @@ void SubProblem::initArcsStructures(){
 	  ////////////////////// SERGEB   A CORRIGER!!!!!!!!!!!!!  ---> derniere dimension variable selon 2e dimension !!!!!!!!!!!!!!!!!!
 	  // int nNewShifts = pScenario_->shiftTypeIDToShiftID_[sh].size();
 	  // Tools::initVector3D(&z2, pScenario_->nbShiftsType_, nDays_, nNewShifts); arcsShiftToNewShift_.push_back(z2);
-	  Tools::initVector3D(&z2, pScenario_->nbShiftsType_, nDays_, nShifts); arcsShiftToNewShift_.push_back(z2);
+	  // // Tools::initVector3D(&z2, pScenario_->nbShiftsType_, nDays_, nShifts); arcsShiftToNewShift_.push_back(z2);
+	  
+	  for(int sh2=0; sh2<pScenario_->nbShiftsType_; sh2++){
+	    int nNewShifts = pScenario_->shiftTypeIDToShiftID_[sh2].size();
+	    Tools::initVector2D(&zz2, nDays_, nNewShifts);     z2.push_back(zz2);
+	  }
+	  arcsShiftToNewShift_.push_back(z2);
 	}
 	// VECTORS 2 D
 	Tools::initVector2D(&arcsPrincipalToRotsizein_, pScenario_->nbShiftsType_, nDays_, -1);

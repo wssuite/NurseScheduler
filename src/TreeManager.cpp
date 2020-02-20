@@ -261,7 +261,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 	}
 
 	if (pModel_->getParameters().branchColumnDisjoint_) {
-		double valueMax = pMaster_->pScenario_->nbWeeks_ / 2.0;
+	  double valueMax = max (1.0, pMaster_->pScenario_->nbWeeks_ / 2.0);
 		DayDisjointComparator comp1 = DayDisjointComparator();
 		fixingCandidates = chooseColumns(candidates, rotations, valueMax, comp1); // (pMaster_->pScenario_->nbWeeks_ + 1) / 2.0
 
