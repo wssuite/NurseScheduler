@@ -21,7 +21,7 @@ nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
   // for (int day = 0; day < nbDays_; day++) {
   //   State nextState;
   //   int newShiftType = pScenario->shiftIDToShiftTypeID_[shifts_[day]];
-  //   nextState.addDayToState(states_[day], newShiftType, shifts_[day]);
+  //   nextState.addDayToState(states_[day], newShiftType, shifts_[day], pScenario_->hoursToWork_[shifts_[day]);
   //   states_.push_back(nextState);
   // }
 
@@ -74,7 +74,7 @@ vector<State> Roster::getStates(const State& stateIni, Scenario* pScenario) {
   for (int day = 0; day < nbDays_; day++) {
     State nextState;
     int shiftType = pScenario->shiftIDToShiftTypeID_[shifts_[day]];
-    nextState.addDayToState(states[day], shiftType, shifts_[day]);
+    nextState.addDayToState(states[day], shiftType, shifts_[day], pScenario_->hoursToWork_[shifts_[day]]);
     states.push_back(nextState);
   }
 

@@ -27,7 +27,7 @@ State::~State(){}
 // void State::addNewDay(int newShiftType){
 
 // 	// Total shifts worked if it is a worked day
-// 	totalDaysWorked_ += (newShiftType ? 1 : 0);
+// 	totalTimeWorked_ += (newShiftType ? 1 : 0);
 
 // 	// Total weekends worked :
 // 	// +1 IF : new day is a Sunday and the nurse works on shift_ or newShift
@@ -62,10 +62,14 @@ State::~State(){}
 // RqJO: I slghtly modified the method to take into account the possibility to
 // add in the state that no task has been assigned on this day
 //
-void State::addDayToState(const State& prevState, int newShiftType, int newShift)   {
+void State::addDayToState(const State& prevState, int newShiftType, int newShift, int timeWorked)   {
 
+  //  int  timeWorked = 1;               // days worked
+  //  int  timeWorked = hoursToWork_[newShift];      // hours worked
+  
 	// Total shifts worked if it is a worked day
-	totalDaysWorked_ = prevState.totalDaysWorked_+(newShiftType > 0 ? 1 : 0);
+	// totalTimeWorked_ = prevState.totalTimeWorked_+(newShiftType > 0 ? 1 : 0);
+	totalTimeWorked_ = prevState.totalTimeWorked_+(newShiftType > 0 ? timeWorked : 0);
 
 	// index of the previous shift
 	int prevShiftType = prevState.shiftType_;
@@ -103,7 +107,8 @@ void State::addDayToState(const State& prevState, int newShiftType, int newShift
 	}
 	else { // the previous shift was not assigned but this one is
 	  if (newShiftType >0) {
-		 totalDaysWorked_ = prevState.totalDaysWorked_+1+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);
+		 // totalTimeWorked_ = prevState.totalTimeWorked_+1+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);
+	    totalTimeWorked_ = prevState.totalTimeWorked_+timeWorked+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);  // SERGEB ??????
 		 totalWeekendsWorked_ = Tools::isSunday(dayId_) ? prevState.totalWeekendsWorked_+1:prevState.totalWeekendsWorked_;
 		 consDaysWorked_ = (prevState.consDaysWorked_ > 0)  ? (prevState.consDaysWorked_ + 1 - prevShiftType) : 1;
 		 consShifts_ = 1;
@@ -112,7 +117,7 @@ void State::addDayToState(const State& prevState, int newShiftType, int newShift
 		 shift_ = newShift;
 	  }
 	  else {
-		 totalDaysWorked_ = prevState.totalDaysWorked_;
+		 totalTimeWorked_ = prevState.totalTimeWorked_;
 		 totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
 		 consDaysWorked_ = 0;
 		 consShifts_ = 0;
@@ -130,7 +135,7 @@ void State::addDayToState(const State& prevState, int newShiftType, int newShift
 //
 string State::toString(){
 	std::stringstream rep;
-	rep << totalDaysWorked_ << " " << totalWeekendsWorked_ << " " << shiftType_ << " ";
+	rep << totalTimeWorked_ << " " << totalWeekendsWorked_ << " " << shiftType_ << " ";
 	if(shiftType_) rep << consShifts_ << " " << consDaysWorked_; else rep << "0 0";
 	if(shiftType_) rep << " 0"; else rep << " " << consShifts_;
 	rep << std::endl;
@@ -424,7 +429,7 @@ string Scenario::toString(){
 		for(int n=0; n<nbNurses_; n++){
 			rep << "#\t\t\t" << theNurses_[n].name_ << " ";
 			State s = initialState_[n];
-			rep << s.totalDaysWorked_ << " " << s.totalWeekendsWorked_ << " " << intToShiftType_[s.shiftType_] << " ";
+			rep << s.totalTimeWorked_ << " " << s.totalWeekendsWorked_ << " " << intToShiftType_[s.shiftType_] << " ";
 			if(s.shiftType_) rep << s.consShifts_ << " " << s.consDaysWorked_; else	rep << "0 0";
 			if(s.shiftType_) rep << " 0"; else rep << " " << s.consShifts_;
 			rep << std::endl;

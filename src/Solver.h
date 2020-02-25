@@ -211,7 +211,7 @@ public:
 
 	// advanced getters
 	//
-	int totalDaysWorked() {return pStateIni_->totalDaysWorked_;}
+	int totalTimeWorked() {return pStateIni_->totalTimeWorked_;}
 	int totalWeekendsWorked() {return pStateIni_->totalWeekendsWorked_;}
 
 	// basic setters

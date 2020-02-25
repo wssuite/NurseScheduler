@@ -48,14 +48,14 @@ class State{
 
 public:
    // Constructor and Destructor
-   State():dayId_(0), totalDaysWorked_(0), totalWeekendsWorked_(0),
+   State():dayId_(0), totalTimeWorked_(0), totalWeekendsWorked_(0),
     consDaysWorked_(0), consShifts_(0), consDaysOff_(0), shiftType_(0) {}
    ~State();
 
    // Constructor with attributes
-   State(int dayId, int totalDaysWorked, int totalWeekendsWorked,
+   State(int dayId, int totalTimeWorked, int totalWeekendsWorked,
 	 int consDaysWorked, int consShifts, int consDaysOff, int shiftType, int shift) :
-         dayId_(dayId), totalDaysWorked_(totalDaysWorked), totalWeekendsWorked_(totalWeekendsWorked),
+         dayId_(dayId), totalTimeWorked_(totalTimeWorked), totalWeekendsWorked_(totalWeekendsWorked),
          consDaysWorked_(consDaysWorked), consShifts_(consShifts),
          consDaysOff_(consDaysOff), shiftType_(shiftType), shift_(shift){};
 
@@ -66,7 +66,7 @@ public:
    // Function that appends a new day worked on a given shiftType to an input state
    // to update this state
    //
-   void addDayToState(const State& prevState, int newShiftType, int newShift);
+   void addDayToState(const State& prevState, int newShiftType, int newShift, int timeWorked);
 
 
    // // Function that appends a new day worked on a given shift to an input state
@@ -89,7 +89,7 @@ public:
 
    // Total nummber of days and weekends worked
    //
-   int totalDaysWorked_, totalWeekendsWorked_;
+   int totalTimeWorked_, totalWeekendsWorked_;
 
    // number of consecutive days worked ending at D, and of consecutive days worked on the same shiftType ending at D (including RESTSHIFT = 0)
    // and shiftType worked on D-Day.

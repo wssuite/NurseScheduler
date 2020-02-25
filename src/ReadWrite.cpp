@@ -477,10 +477,10 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 			for(int n=0; n<pScenario->nbNurses_; n++){
 				string nurseName, shiftTypeName;
 				// int nurseId;
-				int shiftTypeId, totalDaysWorked, totalWeekendsWorked, consDaysWorked, consShiftWorked, consRest, consShifts;
+				int shiftTypeId, totalTimeWorked, totalWeekendsWorked, consDaysWorked, consShiftWorked, consRest, consShifts;
 				file >> nurseName;
 				// nurseId = pScenario->nurseNameToInt_.at(nurseName);
-				file >> totalDaysWorked;
+				file >> totalTimeWorked;
 				file >> totalWeekendsWorked;
 				file >> shiftTypeName;
 				shiftTypeId = pScenario->shiftTypeToInt_.at(shiftTypeName);
@@ -490,7 +490,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 
 				int  shiftID = pScenario->shiftTypeIDToShiftID_[shiftTypeId][0];
 				consShifts = (shiftTypeId == 0) ? consRest : consShiftWorked;
-				State nurseState (0, totalDaysWorked, totalWeekendsWorked,
+				State nurseState (0, totalTimeWorked, totalWeekendsWorked,
 						  consDaysWorked, consShifts, consRest, shiftTypeId, shiftID);
 				initialState.push_back(nurseState);
 			}
