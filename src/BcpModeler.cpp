@@ -1115,6 +1115,7 @@ int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int ind
 int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs){
    *con = new BcpCoreCons(con_name, index, lhs, rhs);
    objects_.push_back(*con);
+   return 0;
 }
 
 void BcpModeler::createCutLinear(MyCons** cons, const char* con_name, double lhs, double rhs,

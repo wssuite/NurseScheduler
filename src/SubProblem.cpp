@@ -959,9 +959,16 @@ void SubProblem::initStructuresForSolve(){
 		// for(int s=0; s<pScenario_->nbShiftsType_; s++)
 		for(int s=0; s<pScenario_->nbShifts_; s++)
 			preferencesCosts_[k][s] = 0;
-	for(map<int,set<int> >::iterator it = pLiveNurse_->pWishesOff_->begin(); it != pLiveNurse_->pWishesOff_->end(); ++it){
-		for(int s : it->second){
-			preferencesCosts_[it->first][s] = WEIGHT_PREFERENCES;
+	for(map<int,vector<Wish> >::iterator it = pLiveNurse_->pWishesOff_->begin(); it != pLiveNurse_->pWishesOff_->end(); ++it){
+		for(Wish s : it->second){
+			preferencesCosts_[it->first][s.shift] = WEIGHT_PREFERENCES_OFF[s.level];
+
+		}
+	}
+
+	for(map<int,vector<Wish> >::iterator it = pLiveNurse_->pWishesOn_->begin(); it != pLiveNurse_->pWishesOn_->end(); ++it){
+		for(Wish s : it->second){
+			preferencesCosts_[it->first][s.shift] = WEIGHT_PREFERENCES_ON[s.level];
 
 		}
 	}
@@ -2284,7 +2291,15 @@ bool SubProblem::solveLongRotationsHeuristic(){
 						}
 
 						// REG COST: PREFERENCES
-						if(pLiveNurse_->wishesOff(currentDate+1,newSh)) potentialCost += WEIGHT_PREFERENCES;
+						int level = pLiveNurse_->wishesOffLevel(currentDate+1,newSh);
+
+						if (level != -1)
+						  potentialCost += WEIGHT_PREFERENCES_OFF[level];
+
+						level = pLiveNurse_->wishesOnLevel(currentDate+1,newSh);
+
+						if (level != -1)
+						  potentialCost += WEIGHT_PREFERENCES_ON[level];
 
 
 						// DUAL COSTS
@@ -2318,7 +2333,8 @@ bool SubProblem::solveLongRotationsHeuristic(){
 							}
 							cout << endl;
 							cout << "#          +=: ";
-							if(pLiveNurse_->wishesOff(currentDate+1,newSh)) cout << WEIGHT_PREFERENCES;
+							if(pLiveNurse_->wishesOff(currentDate+1,newSh)) cout << WEIGHT_PREFERENCES_OFF;
+							if(pLiveNurse_->wishesOn(currentDate+1,newSh)) cout << WEIGHT_PREFERENCES_ON;
 							cout << endl;
 							cout << "#          -=: ";
 							if(Tools::isSaturday(currentDate+1)) cout << pCosts_->workedWeekendCost();
@@ -2673,9 +2689,14 @@ void SubProblem::printShortArcs(){
 // Print the contract type + preferences
 void SubProblem::printContractAndPrefenrences(){
 	std::cout << "# Preferences:" << endl;
-	for(map<int,set<int> >::iterator it = pLiveNurse_->pWishesOff_->begin(); it != pLiveNurse_->pWishesOff_->end(); ++it){
+	for(map<int,vector<Wish> >::iterator it = pLiveNurse_->pWishesOff_->begin(); it != pLiveNurse_->pWishesOff_->end(); ++it){
 		cout <<  "      | " << it->first << "  ->  ";
-		for(int s : it->second) cout << pScenario_->intToShift_[s];
+		for(Wish s : it->second) cout << pScenario_->intToShift_[s.shift];
+		cout << endl;
+	}
+	for(map<int,vector<Wish> >::iterator it = pLiveNurse_->pWishesOn_->begin(); it != pLiveNurse_->pWishesOn_->end(); ++it){
+		cout <<  "      | " << it->first << "  ->  ";
+		for(Wish s : it->second) cout << pScenario_->intToShift_[s.shift];
 		cout << endl;
 	}
 	std::cout << "# Contract :   ";

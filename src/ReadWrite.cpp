@@ -303,7 +303,7 @@ Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pS
 			ReadWrite::readWeek(strWeekFile, pScenario, &nextDemand, &nextPref);
 			//update the current weeks
 			pDemand->push_back(nextDemand);
-			pPref->push_back(nextPref);
+			pPref->push_backOff(nextPref);
 			pScenario->addAWeek();
 			//delete the demand and the preferences which we have created
 			if (nextDemand) delete nextDemand;
@@ -345,6 +345,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 	vector3D minWeekDemand;
 	vector3D optWeekDemand;
 	int nbShiftOffRequests;
+	int nbShiftOnRequests;
 	if (*pPref) delete *pPref;
 	if (*pDemand) delete *pDemand;
 
@@ -397,21 +398,48 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 			*pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
 			string nurseName, shift, day;
-			int nurseId, shiftId, dayId;
+			int nurseId, shiftId, dayId, level;
 			file >> nbShiftOffRequests;
 			for (int i=0; i<nbShiftOffRequests; i++){
 				file >> nurseName;
 				file >> shift;
 				file >> day;
+				file >> level;
 				nurseId = pScenario->nurseNameToInt_.at(nurseName);
 				dayId = Tools::dayToInt(day);
 
 				if(shift == "Any")
-					(*pPref)->addDayOff(nurseId, dayId);
+				  (*pPref)->addDayOff(nurseId, dayId, level);
 				else {
 					// shiftId = pScenario->shiftTypeToInt_.at(shift);
 					shiftId = pScenario->shiftToInt_.at(shift);
-					(*pPref)->addShiftOff(nurseId, dayId, shiftId);
+					(*pPref)->addShiftOff(nurseId, dayId, shiftId, level);
+				}
+			}
+		}
+
+		// Read the shift on requests
+		//
+		else if(strEndsWith(title,"SHIFT_ON_REQUESTS ")){
+			*pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
+			// Temporary vars
+			string nurseName, shift, day;
+			int nurseId, shiftId, dayId, level;
+			file >> nbShiftOnRequests;
+			for (int i=0; i<nbShiftOnRequests; i++){
+				file >> nurseName;
+				file >> shift;
+				file >> day;
+				file >> level;
+				nurseId = pScenario->nurseNameToInt_.at(nurseName);
+				dayId = Tools::dayToInt(day);
+
+				if(shift == "Any")
+				  (*pPref)->addDayOn(nurseId, dayId, level);
+				else {
+					// shiftId = pScenario->shiftTypeToInt_.at(shift);
+					shiftId = pScenario->shiftToInt_.at(shift);
+					(*pPref)->addShiftOn(nurseId, dayId, shiftId, level);
 				}
 			}
 		}

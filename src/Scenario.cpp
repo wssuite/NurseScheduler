@@ -173,7 +173,7 @@ Scenario::Scenario(string name, int nbWeeks,
   nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
   minConsShiftType_(minConsShiftType), maxConsShiftType_(maxConsShiftType),
   nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
-  pWeekDemand_(0), nbShiftOffRequests_(0), nbPositions_(0) {
+  pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), nbPositions_(0) {
   
 	// To make sure that it is modified later when reading the history data file
 	//
@@ -200,7 +200,7 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
   nbNurses_(theNurses.size()), theNurses_(theNurses), nurseNameToInt_(pScenario->nurseNameToInt_),
   minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
   nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
-  pWeekDemand_(0), nbShiftOffRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+  pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
   nbPositions_(0), nursesPerPosition_(0){
   
 	// Preprocess the vector of nurses
@@ -226,7 +226,7 @@ nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_)
 nbNurses_(pScenario->nbNurses()), theNurses_(pScenario->theNurses_), nurseNameToInt_(pScenario->nurseNameToInt_),
 minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
 nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
-pWeekDemand_(0), nbShiftOffRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
 nbPositions_(0), nursesPerPosition_(0){
 
         // Preprocess the vector of nurses
@@ -406,16 +406,34 @@ string Scenario::toString(){
 		rep << "# WISHED SHIFTS OFF" << std::endl;
 		for(Nurse nurse:theNurses_){
 			// Display only if the nurse has preferences
-			map<int,set<int> >* prefNurse = weekPreferences_.nurseWishesOff(nurse.id_);
+			map<int,vector<Wish> >* prefNurse = weekPreferences_.nurseWishesOff(nurse.id_);
 			if(!prefNurse->empty()){
 				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
-				for(map<int,set<int> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
+				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
 					rep << Tools::intToDay(itWishlist->first) << ": ";
-					set<int> dayList = itWishlist->second;
+					vector<Wish> dayList = itWishlist->second;
 					bool first = true;
-					for(set<int>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
+					for(vector<Wish>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
 						if(first) first = false; else rep << ",";
-						rep << intToShift_[*itShift];
+						rep << intToShift_[itShift->shift];
+					}
+					rep << "    ";
+				}
+				rep << std::endl;
+			}
+		}
+		for(Nurse nurse:theNurses_){
+			// Display only if the nurse has preferences
+			map<int,vector<Wish> >* prefNurse = weekPreferences_.nurseWishesOn(nurse.id_);
+			if(!prefNurse->empty()){
+				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
+				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
+					rep << Tools::intToDay(itWishlist->first) << ": ";
+					vector<Wish> dayList = itWishlist->second;
+					bool first = true;
+					for(vector<Wish>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
+						if(first) first = false; else rep << ",";
+						rep << intToShift_[itShift->shift];
 					}
 					rep << "    ";
 				}

@@ -132,9 +132,9 @@ public:
 	// Constructor and destructor
 	//
 	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni,	map<int,set<int> >* pWishesOff);
+			State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn);
 	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni, map<int,set<int> >* pWishesOff, int nurseId);
+			State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn, int nurseId);
 	~LiveNurse();
 
 public:
@@ -155,7 +155,8 @@ public:
 	State* pStateIni_;
 
 	// Wishes of days off
-	map<int,set<int> >* pWishesOff_;
+	map<int,vector<Wish> >* pWishesOff_;
+	map<int,vector<Wish> >* pWishesOn_;
 
 	//----------------------------------------------------------------------------
 	// Planning data
@@ -241,6 +242,12 @@ public:
 	// returns true if the nurse wishes the day-shift off
 	//
 	bool wishesOff(int day, int shift) const;
+	bool wishesOn(int day, int shift) const;
+
+	// returns level if the nurse wishes the day-shift off : -1 otherwise
+	//
+	int  wishesOffLevel(int day, int shift) const;
+	int  wishesOnLevel(int day, int shift) const;
 
 	// returns true if the nurses reached the maximum number of consecutive worked
 	// days or is resting and did not reach the minimum number of resting days yet

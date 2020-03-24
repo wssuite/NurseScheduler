@@ -14,6 +14,10 @@ S5 HeadNurse (0,0) (0,1) (0,0) (0,0) (0,1) (0,1) (0,0)
 S5 Nurse (0,1) (0,1) (0,1) (0,0) (0,0) (0,1) (1,1)
 
 SHIFT_OFF_REQUESTS = 3
-Sara Any Thu 
-Sara S2 Sat 
-Stefaan S1 Sat 
+Sara Any Thu 0
+Sara S2 Sat 0
+Stefaan S1 Sat 0
+
+SHIFT_ON_REQUESTS = 2
+Andrea S0 Thu 0
+Nguyen S2 Mon 0

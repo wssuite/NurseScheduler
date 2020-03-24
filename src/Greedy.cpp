@@ -226,8 +226,16 @@ double Greedy::costTask(LiveNurse &nurse, int day, int _shift, int skill,
 
   // Preferences
   //
-  if (nurse.wishesOff(day,_shift)) {
-    cost += WEIGHT_PREFERENCES;
+  int  level = nurse.wishesOffLevel(day,_shift);
+
+  if (level != -1) {
+    cost += WEIGHT_PREFERENCES_OFF[level];
+  }
+
+  level = nurse.wishesOnLevel(day,_shift);
+
+  if (level != -1) {
+    cost += WEIGHT_PREFERENCES_ON[level];
   }
 
   // Complete week-ends

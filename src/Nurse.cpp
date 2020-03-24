@@ -198,63 +198,106 @@ Preferences::~Preferences(){}
 Preferences::Preferences(int nbNurses, int nbDays, int nbShifts) :
 				nbNurses_(nbNurses), nbDays_(nbDays), nbShifts_(nbShifts){
 	// Wish lists are initialized to empty
-	map<int, map<int,set<int> > > wishesOff;
+	map<int, map<int,vector<Wish> > > wishesOff;
 	for(int i=0; i<nbNurses_; i++){
-		map<int,set<int> > m;
+		map<int,vector<Wish> > m;
 		wishesOff[i] = m;
 	}
 	wishesOff_ = wishesOff;
+	
+	map<int, map<int,vector<Wish> > > wishesOn;
+	for(int i=0; i<nbNurses_; i++){
+		map<int,vector<Wish> > m;
+		wishesOn[i] = m;
+	}
+	wishesOn_ = wishesOn;
 }
 
 // Initialization with a map corresponding to the input nurses and no wished Shift-Off.
 Preferences::Preferences(vector<Nurse>& nurses, int nbDays, int nbShifts) :
 				nbNurses_(nurses.size()), nbDays_(nbDays), nbShifts_(nbShifts){
 	// Wish lists are initialized to empty
-	map<int, map<int,set<int> > > wishesOff;
+	map<int, map<int,vector<Wish> > > wishesOff;
 	for(Nurse nurse: nurses){
-		map<int,set<int> > m;
+		map<int,vector<Wish> > m;
 		wishesOff[nurse.id_] = m;
 	}
 	wishesOff_ = wishesOff;
 }
 
 // Add a wished day-shift off for a nurse
-void Preferences::addShiftOff(int nurseId, int day, int shift){
+void Preferences::addShiftOff(int nurseId, int day, int shift, int level){
 	// If the nurse does not already have a wish for that day -> insert a new emptyset on that day
 	if(wishesOff_[nurseId].find(day) == wishesOff_[nurseId].end()){
-		set<int> emptyset;
-		wishesOff_[nurseId].insert(pair<int,set<int> >(day,emptyset));
+		vector<Wish> emptyset;
+		wishesOff_[nurseId].insert(pair<int,vector<Wish> >(day,emptyset));
 	}
+
+	Wish  wish{shift, level};
 	// Insert the wished shift in the set
-	wishesOff_[nurseId][day].insert(shift);
+	wishesOff_[nurseId][day].push_back(wish);
+	
+	// If the nurse does not already have a wish for that day -> insert a new emptyset on that day
+	if(wishesOn_[nurseId].find(day) == wishesOn_[nurseId].end()){
+		vector<Wish> emptyset;
+		wishesOn_[nurseId].insert(pair<int,vector<Wish> >(day,emptyset));
+	}
+
+	Wish  wish2{shift, level};
+	// Insert the wished shift in the set
+	wishesOn_[nurseId][day].push_back(wish2);
 }
 
 // Adds the whole day to the wish-list
-void Preferences::addDayOff(int nurseId, int day){
-	set<int> wishList;
+void Preferences::addDayOff(int nurseId, int day, int level){
+	vector<Wish> wishList;
 	for(int s=1; s<nbShifts_; s++){           // Starts from 1 because no nurse wished "not to rest"
-		wishList.insert(s);
+	  Wish  wish{s, level};
+	  wishList.push_back(wish);
 	}
-	wishesOff_[nurseId].insert(pair<int,set<int> >(day,wishList));
+	wishesOff_[nurseId].insert(pair<int,vector<Wish> >(day,wishList));
 }
 
 // Returns true if the nurse wants that shift off
 bool Preferences::wantsTheShiftOff(int nurseId, int day, int shift){
 	// If the day is not in the wish-list, return false
-	map<int,set<int> >::iterator itM = wishesOff_[nurseId].find(day);
+	map<int,vector<Wish> >::iterator itM = wishesOff_[nurseId].find(day);
 	if(itM == wishesOff_[nurseId].end())
 		return false;
 	// If the shift is not in the wish-list for that day, return false
-	else if(itM->second.find(shift) == itM->second.end())
-		return false;
-	else
-		return true;
+	else {
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	    if(itShift->shift == shift)
+	      return true;
+	  }
+	}
+
+	return false;
+}
+
+// Returns level if the nurse wants that shift off : -1 otherwise
+int Preferences::wantsTheShiftOffLevel(int nurseId, int day, int shift){
+	// If the day is not in the wish-list, return false
+	map<int,vector<Wish> >::iterator itM = wishesOff_[nurseId].find(day);
+	if(itM == wishesOff_[nurseId].end())
+	  return -1;
+	// If the shift is not in the wish-list for that day, return false
+	else {
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	    if(itShift->shift == shift)
+	      return itShift->level;
+	  }
+	}
+
+	return -1;
 }
 
 // True if the nurse wants the whole day off
 bool Preferences::wantsTheDayOff(int nurseId, int day){
 	// If the day is not in the wish-list, return false
-	map<int,set<int> >::iterator itM = wishesOff_[nurseId].find(day);
+	map<int,vector<Wish> >::iterator itM = wishesOff_[nurseId].find(day);
 	if(itM == wishesOff_[nurseId].end())
 		return false;
 	else if((int) itM->second.size() < nbShifts_-1)    // Set does not repeat its elements. Wants the day off if and only if she wants all shifts off (-1 because REST does not appear)
@@ -268,7 +311,7 @@ int Preferences::howManyShiftsOff(int nurseId) {
 	int nbShiftsOff = 0;
 
 	// look at every wishes of the nurse
-	for( pair<int,set<int> > itDayOff: wishesOff_[nurseId]){
+	for( pair<int,vector<Wish> > itDayOff: wishesOff_[nurseId]){
 		nbShiftsOff += itDayOff.second.size();
 	}
 	return nbShiftsOff;
@@ -278,7 +321,7 @@ int Preferences::howManyShiftsOff(int nurseId) {
 int Preferences::howManyDaysOff(int nurseId, int dayMin, int dayMax){
 	int nbDayOff = 0;
 	// look at every wishes of the nurse
-	for( pair<int,set<int> > itDayOff: wishesOff_[nurseId]){
+	for( pair<int,vector<Wish> > itDayOff: wishesOff_[nurseId]){
 		nbDayOff += ( (itDayOff.first >= dayMin) && (itDayOff.first <= dayMax) );
 	}
 	return nbDayOff;
@@ -286,7 +329,7 @@ int Preferences::howManyDaysOff(int nurseId, int dayMin, int dayMax){
 
 // add another week preferences at the end of the current one
 //
-void Preferences::push_back(Preferences* pPreferences){
+void Preferences::push_backOff(Preferences* pPreferences){
 	// check if same scenario
 	if( (nbShifts_ != pPreferences->nbShifts_) || (nbNurses_ != pPreferences->nbNurses_) ){
 		string error = "Preferences are not compatible";
@@ -294,11 +337,11 @@ void Preferences::push_back(Preferences* pPreferences){
 	}
 
 	//update the preferences
-	map<int, map<int,std::set<int> > >::iterator it = wishesOff_.begin();
+	map<int, map<int,std::vector<Wish> > >::iterator it = wishesOff_.begin();
 	for(it = wishesOff_.begin(); it!=wishesOff_.end(); it++){
 		int nurseId = (*it).first;
-		for(pair<int,std::set<int> > pair1: pPreferences->wishesOff_[nurseId]){
-			pair<int,std::set<int> > pair2(pair1.first+nbDays_, pair1.second);
+		for(pair<int,std::vector<Wish> > pair1: pPreferences->wishesOff_[nurseId]){
+			pair<int,std::vector<Wish> > pair2(pair1.first+nbDays_, pair1.second);
 			(*it).second.insert(pair2);
 		}
 	}
@@ -308,14 +351,14 @@ void Preferences::push_back(Preferences* pPreferences){
 }
 
 // K the preferences relative to the nbDays first days
-Preferences* Preferences::keep(int begin, int end) {
+Preferences* Preferences::keepOff(int begin, int end) {
 
    Preferences* pPref = new Preferences();
 
    for (int i=0; i < nbNurses_; i++) {
-      for(pair<int,std::set<int> > pair1: wishesOff_[i]){
+      for(pair<int,std::vector<Wish> > pair1: wishesOff_[i]){
          if (pair1.first >= begin && pair1.first < end) {
-            pair<int,std::set<int> > pair2(pair1.first-begin, pair1.second);
+            pair<int,std::vector<Wish> > pair2(pair1.first-begin, pair1.second);
             pPref->wishesOff_[i].insert(pair2);
          }
       }
@@ -325,15 +368,166 @@ Preferences* Preferences::keep(int begin, int end) {
 }
 
 // Remove the preferences relative to the nbDays first days
-Preferences* Preferences::removeNFirstDay(int nbDays) {
+Preferences* Preferences::removeNFirstDayOff(int nbDays) {
 
 	Preferences* pPref = new Preferences();
 
 	for (int i=0; i < nbNurses_; i++) {
-		for(pair<int,std::set<int> > pair1: wishesOff_[i]){
+		for(pair<int,std::vector<Wish> > pair1: wishesOff_[i]){
 			if (pair1.first >= nbDays) {
-				pair<int,std::set<int> > pair2(pair1.first-nbDays_, pair1.second);
+				pair<int,std::vector<Wish> > pair2(pair1.first-nbDays_, pair1.second);
 				pPref->wishesOff_[i].insert(pair2);
+			}
+		}
+	}
+
+	return pPref;
+}
+
+//////////////////////////////////////////////////////////////////
+
+// Add a wished day-shift off for a nurse
+void Preferences::addShiftOn(int nurseId, int day, int shift, int level){
+	// If the nurse does not already have a wish for that day -> insert a new emptyset on that day
+	if(wishesOn_[nurseId].find(day) == wishesOn_[nurseId].end()){
+		vector<Wish> emptyset;
+		wishesOn_[nurseId].insert(pair<int,vector<Wish> >(day,emptyset));
+	}
+
+	Wish  wish{shift, level};
+	// Insert the wished shift in the set
+	wishesOn_[nurseId][day].push_back(wish);
+}
+
+// Adds the whole day to the wish-list
+void Preferences::addDayOn(int nurseId, int day, int level){
+	vector<Wish> wishList;
+	for(int s=1; s<nbShifts_; s++){           // Starts from 1 because no nurse wished "not to rest"
+	  Wish  wish{s, level};
+	  wishList.push_back(wish);
+	}
+	wishesOn_[nurseId].insert(pair<int,vector<Wish> >(day,wishList));
+}
+
+// Returns true if the nurse wants that shift off
+bool Preferences::wantsTheShiftOn(int nurseId, int day, int shift){
+	// If the day is not in the wish-list, return false
+	map<int,vector<Wish> >::iterator itM = wishesOn_[nurseId].find(day);
+	if(itM == wishesOn_[nurseId].end())
+		return false;
+	// If the shift is not in the wish-list for that day, return false
+	else {
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	    if(itShift->shift == shift)
+	      return true;
+	  }
+	}
+
+	return false;
+}
+
+// Returns level if the nurse wants that shift off : -1 otherwise
+int Preferences::wantsTheShiftOnLevel(int nurseId, int day, int shift){
+	// If the day is not in the wish-list, return false
+	map<int,vector<Wish> >::iterator itM = wishesOn_[nurseId].find(day);
+	if(itM == wishesOn_[nurseId].end())
+	  return -1;
+	// If the shift is not in the wish-list for that day, return false
+	else {
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	    if(itShift->shift == shift)
+	      return itShift->level;
+	  }
+	}
+
+	return -1;
+}
+
+// True if the nurse wants the whole day off
+bool Preferences::wantsTheDayOn(int nurseId, int day){
+	// If the day is not in the wish-list, return false
+	map<int,vector<Wish> >::iterator itM = wishesOn_[nurseId].find(day);
+	if(itM == wishesOn_[nurseId].end())
+		return false;
+	else if((int) itM->second.size() < nbShifts_-1)    // Set does not repeat its elements. Wants the day off if and only if she wants all shifts off (-1 because REST does not appear)
+		return false;
+	else
+		return true;
+}
+
+// Total number of shifts off that the nurse wants
+int Preferences::howManyShiftsOn(int nurseId) {
+	int nbShiftsOn = 0;
+
+	// look at every wishes of the nurse
+	for( pair<int,vector<Wish> > itDayOn: wishesOn_[nurseId]){
+		nbShiftsOn += itDayOn.second.size();
+	}
+	return nbShiftsOn;
+}
+
+// Number of whole days off that the nurse wants
+int Preferences::howManyDaysOn(int nurseId, int dayMin, int dayMax){
+	int nbDayOn = 0;
+	// look at every wishes of the nurse
+	for( pair<int,vector<Wish> > itDayOn: wishesOn_[nurseId]){
+		nbDayOn += ( (itDayOn.first >= dayMin) && (itDayOn.first <= dayMax) );
+	}
+	return nbDayOn;
+}
+
+// add another week preferences at the end of the current one
+//
+void Preferences::push_backOn(Preferences* pPreferences){
+	// check if same scenario
+	if( (nbShifts_ != pPreferences->nbShifts_) || (nbNurses_ != pPreferences->nbNurses_) ){
+		string error = "Preferences are not compatible";
+		Tools::throwError(error.c_str());
+	}
+
+	//update the preferences
+	map<int, map<int,std::vector<Wish> > >::iterator it = wishesOn_.begin();
+	for(it = wishesOn_.begin(); it!=wishesOn_.end(); it++){
+		int nurseId = (*it).first;
+		for(pair<int,std::vector<Wish> > pair1: pPreferences->wishesOn_[nurseId]){
+			pair<int,std::vector<Wish> > pair2(pair1.first+nbDays_, pair1.second);
+			(*it).second.insert(pair2);
+		}
+	}
+
+	// update the number of days
+	nbDays_  += pPreferences->nbDays_;
+}
+
+// K the preferences relative to the nbDays first days
+Preferences* Preferences::keepOn(int begin, int end) {
+
+   Preferences* pPref = new Preferences();
+
+   for (int i=0; i < nbNurses_; i++) {
+      for(pair<int,std::vector<Wish> > pair1: wishesOn_[i]){
+         if (pair1.first >= begin && pair1.first < end) {
+            pair<int,std::vector<Wish> > pair2(pair1.first-begin, pair1.second);
+            pPref->wishesOn_[i].insert(pair2);
+         }
+      }
+   }
+
+   return pPref;
+}
+
+// Remove the preferences relative to the nbDays first days
+Preferences* Preferences::removeNFirstDayOn(int nbDays) {
+
+	Preferences* pPref = new Preferences();
+
+	for (int i=0; i < nbNurses_; i++) {
+		for(pair<int,std::vector<Wish> > pair1: wishesOn_[i]){
+			if (pair1.first >= nbDays) {
+				pair<int,std::vector<Wish> > pair2(pair1.first-nbDays_, pair1.second);
+				pPref->wishesOn_[i].insert(pair2);
 			}
 		}
 	}

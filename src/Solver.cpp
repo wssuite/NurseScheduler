@@ -63,10 +63,10 @@ void StatCtNurse::init(int nbDays) {
 // Constructor
 //
 LiveNurse::LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-State* pStateIni,	map<int,set<int> >* pWishesOff):
+State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn):
 Nurse(nurse.id_, nurse.name_, nurse.nbSkills_, nurse.skills_, nurse.pContract_),
 pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay),
-pStateIni_(pStateIni), pWishesOff_(pWishesOff), pPosition_(0),
+pStateIni_(pStateIni), pWishesOff_(pWishesOff), pWishesOn_(pWishesOn), pPosition_(0),
 minWorkDaysNoPenaltyConsDays_(-1), maxWorkDaysNoPenaltyConsDays_(-1),
 minWorkDaysNoPenaltyTotalDays_(-1), maxWorkDaysNoPenaltyTotalDays_(-1),
 minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
@@ -85,10 +85,10 @@ minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
 }
 
 LiveNurse::LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-State* pStateIni, map<int,set<int> >* pWishesOff, int nurseId):
+State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn, int nurseId):
 Nurse(nurseId, nurse.name_, nurse.nbSkills_, nurse.skills_, nurse.pContract_),
 pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay),
-pStateIni_(pStateIni), pWishesOff_(pWishesOff), pPosition_(0),
+pStateIni_(pStateIni), pWishesOff_(pWishesOff), pWishesOn_(pWishesOn), pPosition_(0),
 minWorkDaysNoPenaltyConsDays_(-1), maxWorkDaysNoPenaltyConsDays_(-1),
 minWorkDaysNoPenaltyTotalDays_(-1), maxWorkDaysNoPenaltyTotalDays_(-1),
 minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
@@ -111,18 +111,81 @@ LiveNurse::~LiveNurse() { }
 // returns true if the nurse wishes the day-shift off
 //
 bool LiveNurse::wishesOff(int day, int shift) const {
-	map<int,set<int> >::iterator itM = pWishesOff_->find(day);
+	map<int,vector<Wish> >::iterator itM = pWishesOff_->find(day);
 	// If the day is not in the wish-list, no possible violation
 	if(itM == pWishesOff_->end())  {
 		return false;
 	}
 	// no preference either in the wish-list for that day
-	else if(itM->second.find(shift) == itM->second.end()) {
+	else {
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	  if(itShift->shift == shift)
+	    return true;
+	  }
+	}
+	
+	return false;
+}
+
+// returns true if the nurse wishes the day-shift off
+//
+int LiveNurse::wishesOffLevel(int day, int shift) const {
+	map<int,vector<Wish> >::iterator itM = pWishesOff_->find(day);
+	// If the day is not in the wish-list, no possible violation
+	if(itM == pWishesOff_->end())  {
+		return -1;
+	}
+	// no preference either in the wish-list for that day
+	else {
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	  if(itShift->shift == shift)
+	    return itShift->level;
+	  }
+	}
+	
+	return -1;
+}
+
+// returns true if the nurse wishes the day-shift off
+//
+bool LiveNurse::wishesOn(int day, int shift) const {
+	map<int,vector<Wish> >::iterator itM = pWishesOn_->find(day);
+	// If the day is not in the wish-list, no possible violation
+	if(itM == pWishesOn_->end())  {
 		return false;
 	}
+	// no preference either in the wish-list for that day
 	else {
-		return true;
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	  if(itShift->shift == shift)
+	    return true;
+	  }
 	}
+	
+	return false;
+}
+
+// returns true if the nurse wishes the day-shift off
+//
+int LiveNurse::wishesOnLevel(int day, int shift) const {
+	map<int,vector<Wish> >::iterator itM = pWishesOn_->find(day);
+	// If the day is not in the wish-list, no possible violation
+	if(itM == pWishesOn_->end())  {
+		return -1;
+	}
+	// no preference either in the wish-list for that day
+	else {
+	  vector<Wish>::iterator itShift;
+	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+	  if(itShift->shift == shift)
+	    return itShift->level;
+	  }
+	}
+	
+	return -1;
 }
 
 // returns true if the nurses reached the maximum number of consecutive worked
@@ -259,17 +322,30 @@ void LiveNurse::checkConstraints(const Roster& roster,
 
 		// check the preferences
 		//
-		map<int,set<int> >::iterator itM = pWishesOff_->find(day-1);
+		stat.costPref_[day-1] = 0;
+
+		map<int,vector<Wish> >::iterator itM = pWishesOff_->find(day-1);
 		// If the day is not in the wish-list, no possible violation
-		if(itM == pWishesOff_->end())  {
-			stat.costPref_[day-1] = 0;
+		if(itM != pWishesOff_->end())  {
+		  vector<Wish>::iterator itShift;
+		  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+		    if(itShift->shift == shift) {
+		      stat.costPref_[day-1] = WEIGHT_PREFERENCES_OFF[itShift->level];
+		      break;
+		    }
+		  }
 		}
-		// no preference either in the wish-list for that day
-		else if(itM->second.find(shift) == itM->second.end()) { 
-			stat.costPref_[day-1] = 0;
-		}
-		else {
-			stat.costPref_[day-1] = WEIGHT_PREFERENCES;
+
+		itM = pWishesOn_->find(day-1);
+		// If the day is not in the wish-list, no possible violation
+		if(itM != pWishesOn_->end())  {
+		  vector<Wish>::iterator itShift;
+		  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
+		    if(itShift->shift == shift) {
+		      stat.costPref_[day-1] = WEIGHT_PREFERENCES_ON[itShift->level];
+		      break;
+		    }
+		  }
 		}
 
 		// check the complete week-end (only if the nurse requires them)
@@ -524,7 +600,8 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
 	for (int i=0; i < pScenario->nbNurses_; i++) {
 		theLiveNurses_.push_back(
 			new LiveNurse( pScenario->theNurses_[i], pScenario_, pDemand_->nbDays_,
-			pDemand_->firstDay_, &(*pInitState_)[i], pPreferences_->nurseWishesOff(i) , i) );
+				       pDemand_->firstDay_, &(*pInitState_)[i], pPreferences_->nurseWishesOff(i),
+				       pPreferences_->nurseWishesOn(i) , i) );
 	}
 
 	// initialize the minimum and maximum number of total working days

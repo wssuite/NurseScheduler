@@ -70,6 +70,7 @@ private:
   const Scenario* pScenario_;
   Nurse* pNurse_;
   std::map< int,std::set<int> >* pWishesOff_;
+  std::map< int,std::set<int> >* pWishesOn_;
 
   // vector containing for each day the shift assigned to the nurse
   // the vector contains exactly one element per day

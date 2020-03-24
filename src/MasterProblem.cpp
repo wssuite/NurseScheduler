@@ -145,9 +145,19 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 	 * Compute preferencesCost
 	 */
 
-	for(int k=firstDay_; k<firstDay_+length_; ++k)
-		if(pPreferences->wantsTheShiftOff(nurseId_, k, shifts_[k]))
-			preferenceCost_ += WEIGHT_PREFERENCES;
+	for(int k=firstDay_; k<firstDay_+length_; ++k) {
+	  int  level = pPreferences->wantsTheShiftOffLevel(nurseId_, k, shifts_[k]);
+
+	  if (level != -1)
+	    preferenceCost_ += WEIGHT_PREFERENCES_OFF[level];
+	}
+
+	for(int k=firstDay_; k<firstDay_+length_; ++k) {
+	  int  level = pPreferences->wantsTheShiftOnLevel(nurseId_, k, shifts_[k]);
+
+	  if (level != -1)
+	    preferenceCost_ += WEIGHT_PREFERENCES_ON[level];
+	}
 
 	/*
 	 * Compute initial resting cost

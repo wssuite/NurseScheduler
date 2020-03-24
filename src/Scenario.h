@@ -25,11 +25,14 @@ using std::vector;
 // they are set as static constant values in case they need to be shared with
 // other classes (e.g. solvers)
 //
+
+static const int NB_LEVEL = 3;         //  0: strong; 1: moderate; 2: weak
 static const int WEIGHT_OPTIMAL_DEMAND    = 30;
 static const int WEIGHT_CONS_SHIFTS       = 15;
 static const int WEIGHT_CONS_DAYS_WORK    = 30;
 static const int WEIGHT_CONS_DAYS_OFF     = 30;
-static const int WEIGHT_PREFERENCES       = 10;
+static const int WEIGHT_PREFERENCES_OFF[NB_LEVEL]       = {10, 10, 10};
+static const int WEIGHT_PREFERENCES_ON [NB_LEVEL]       = {-50, -40, -30};
 static const int WEIGHT_COMPLETE_WEEKEND  = 30;
 static const int WEIGHT_TOTAL_SHIFTS      = 20;
 static const int WEIGHT_TOTAL_WEEKENDS    = 30;
@@ -216,6 +219,7 @@ private:
 	// Shift off requests : Preferences for each nurse : which (day,shift) do they want off ?
 	//
 	int nbShiftOffRequests_;
+	int nbShiftOnRequests_;
 	Preferences weekPreferences_;
 	//------------------------------------------------
 
@@ -267,6 +271,7 @@ public:
 	Demand* pWeekDemand() {return pWeekDemand_;}
 	int nbShifts() {return nbShifts_;}
 	int nbShiftOffRequests() {return nbShiftOffRequests_;}
+	int nbShiftOnRequests() {return nbShiftOnRequests_;}
 	Preferences* pWeekPreferences() {return &weekPreferences_;}
 	vector<State>* pInitialState() {return &initialState_;}
 	int nbSkills() {return nbSkills_;}
@@ -349,6 +354,7 @@ public:
 	inline void setWeekName(string weekName){ weekName_ = weekName;}
 	inline void setWeekDemand(Demand* pDemand) {pWeekDemand_ = pDemand;}
 	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
+	inline void setTNbShiftOnRequests(int nbShiftOnRequests){ nbShiftOnRequests_ = nbShiftOnRequests; }
 	inline void setWeekPreferences(Preferences weekPreferences){ weekPreferences_ = weekPreferences; }
 
 	// when reading the history file
@@ -379,6 +385,10 @@ public:
 		int nbShiftOffRequests_ = 0;
 		for (Nurse nurse:theNurses_) {
 			nbShiftOffRequests_ += preferences.howManyShiftsOff(nurse.id_);
+		}
+		int nbShiftOnRequests_ = 0;
+		for (Nurse nurse:theNurses_) {
+			nbShiftOnRequests_ += preferences.howManyShiftsOn(nurse.id_);
 		}
 		weekPreferences_ = preferences;
 	}

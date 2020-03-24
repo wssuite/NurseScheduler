@@ -273,6 +273,13 @@ public:
 //  Each element is a map<int,set<int>> whose keys are the days, and values are the sets of wished shift(s) OFF on that day.
 //
 //-----------------------------------------------------------------------------
+
+struct Wish {
+  int  shift;
+  int  level;   // 0: fort, 1: moyen, 2: faible
+};
+
+
 class Preferences{
 
 public:
@@ -301,39 +308,58 @@ protected:
 
 	// For each nurse, maps the day to the set of shifts that he/she wants to have off
 	//
-	map<int, map<int,std::set<int> > > wishesOff_;
+  //	map<int, map<int,std::set<int> > > wishesOff_;
+	map<int, map<int,std::vector<Wish> > > wishesOff_;
+	map<int, map<int,std::vector<Wish> > > wishesOn_;
 
 public:
 
 	// For a given day, and a given shift, adds it to the wish-list for OFF-SHIFT
-	void addShiftOff(int nurse, int day, int shift);
+  //	void addShiftOff(int nurse, int day, int shift);
+        void addShiftOff(int nurse, int day, int shift, int level);
+        void addShiftOn(int nurse, int day, int shift, int level);
 
 	// Adds the whole day to the wish-list
-	void addDayOff(int nurse, int day);
+  //	void addDayOff(int nurse, int day);
+        void addDayOff(int nurse, int day, int level);
+        void addDayOn(int nurse, int day, int level);
 
-	map<int,std::set<int> >* nurseWishesOff(int id) {return &wishesOff_[id];}
+  //	map<int,std::set<int> >* nurseWishesOff(int id) {return &wishesOff_[id];}
+	map<int,std::vector<Wish> >* nurseWishesOff(int id) {return &wishesOff_[id];}
+	map<int,std::vector<Wish> >* nurseWishesOn(int id) {return &wishesOn_[id];}
 
 	// True if the nurses wants that shift off
-	bool wantsTheShiftOff(int nurse, int day, int shift);
+        bool wantsTheShiftOff(int nurse, int day, int shift);
+        bool wantsTheShiftOn(int nurse, int day, int shift);
 
+  // Returns level if the nurse wants that shift off : -1 otherwise
+  int wantsTheShiftOffLevel(int nurseId, int day, int shift);
+  int wantsTheShiftOnLevel(int nurseId, int day, int shift);
+  
 	// True if the nurses wants the whole day off
 	bool wantsTheDayOff(int nurse, int day);
+	bool wantsTheDayOn(int nurse, int day);
 
 	// Total number of shifts off that the nurse wants
 	int howManyShiftsOff(int nurse);
+	int howManyShiftsOn(int nurse);
 
 	// Number of whole days off that the nurse wants
 	int howManyDaysOff(int nurse, int dayMin, int dayMax);
+	int howManyDaysOn(int nurse, int dayMin, int dayMax);
 
 	// add another week preferences at the end of the current one
 	//
-	void push_back(Preferences* pDemand);
+	void push_backOff(Preferences* pDemand);
+	void push_backOn(Preferences* pDemand);
 
 	// Keep the preferences relative to the days in [begin,end)
-	Preferences* keep(int begin, int end);
+	Preferences* keepOff(int begin, int end);
+	Preferences* keepOn(int begin, int end);
 
 	// Remove the preferences relative to the nbDays first days
-	Preferences* removeNFirstDay(int nbDays);
+	Preferences* removeNFirstDayOff(int nbDays);
+	Preferences* removeNFirstDayOn(int nbDays);
 
 
 	// Display methods: toString + override operator<< (easier)

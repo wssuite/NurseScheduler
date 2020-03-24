@@ -362,11 +362,23 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 		// only keep the demand of the nurses in the component
 		for (unsigned int i = 0; i < nursesInTheComponent.size(); i++) {
 			Nurse nurse = nursesInTheComponent[i];
-			map<int,std::set<int> >::iterator itDay;
+			map<int,std::vector<Wish> >::iterator itDay;
 			for (itDay = pPreferences->nurseWishesOff(nurse.id_)->begin(); itDay != pPreferences->nurseWishesOff(nurse.id_)->end(); itDay++) {
-				set<int>::iterator itShift;
+				vector<Wish>::iterator itShift;
 				for (itShift = (*itDay).second.begin(); itShift != (*itDay).second.end(); itShift++) {
-					pPreferencesInTheComponent->addShiftOff(i,(*itDay).first, *itShift);
+				  pPreferencesInTheComponent->addShiftOff(i,(*itDay).first, itShift->shift, itShift->level);
+				}
+			}
+		}
+
+		// only keep the demand of the nurses in the component
+		for (unsigned int i = 0; i < nursesInTheComponent.size(); i++) {
+			Nurse nurse = nursesInTheComponent[i];
+			map<int,std::vector<Wish> >::iterator itDay;
+			for (itDay = pPreferences->nurseWishesOn(nurse.id_)->begin(); itDay != pPreferences->nurseWishesOn(nurse.id_)->end(); itDay++) {
+				vector<Wish>::iterator itShift;
+				for (itShift = (*itDay).second.begin(); itShift != (*itDay).second.end(); itShift++) {
+				  pPreferencesInTheComponent->addShiftOn(i,(*itDay).first, itShift->shift, itShift->level);
 				}
 			}
 		}
