@@ -42,6 +42,12 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 	}
 	std::cout << std::endl;
 
+	if (inputPaths.noShort()) {
+	  completeParameters_.sp_default_strategy_ = 4;
+	  rollingParameters_.sp_default_strategy_ = 4;
+	  lnsParameters_.sp_default_strategy_ = 4;
+	}
+
 	if (!options_.logfile_.empty()) {
 		FILE * pFile;
 		pFile = fopen (options_.logfile_.c_str(),"w");

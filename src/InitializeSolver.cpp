@@ -77,6 +77,10 @@ InputPaths* readNonCompactArguments(int argc, char** argv) {
 			pInputPaths->randSeed(std::stoi(str));
 			narg += 2;
 		}
+		else if (!strcmp(argv[narg],"--noShort")) {
+		  pInputPaths->noShort(std::stoi(str));
+			narg += 2;
+		}
 		else {
 			Tools::throwError("main: the argument does not match the expected list!");
 		}
@@ -103,6 +107,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	//
 	std::string dataDir = "datasetsNew/",instanceName = "new1",solutionPath="",logPath="",paramFile="";
 	int historyIndex = 0, randSeed=0;
+	bool noShort = false;
 	std::vector<int> weekIndices = {0};
 	double timeOut = LARGE_TIME;
 
@@ -159,6 +164,10 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 			randSeed = std::stoi(str);
 			narg += 2;
 		}
+		else if (!strcmp(arg,"--noshort")) {
+			noShort = std::stoi(str);
+			narg += 2;
+		}
 		else {
 			std::stringstream err_buff;
 			err_buff << "main: the argument (" << arg << ") does not match the expected list!";
@@ -169,7 +178,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	// Initialize the input paths
 	//
 	InputPaths* pInputPaths =
-	new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,timeOut,randSeed);
+	  new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,timeOut,randSeed,noShort);
 
 	return pInputPaths;
 }

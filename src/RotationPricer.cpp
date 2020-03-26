@@ -284,7 +284,8 @@ SubProblem* RotationPricer::retriveSubproblem(LiveNurse* pNurse){
 	map<const Contract*, SubProblem*>::iterator it =  subProblems_.find(pNurse->pContract_);
 	// Each contract has one subproblem. If it has not already been created, create it.
 	if( it == subProblems_.end() ){
-		subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_);
+	  bool noShort = (defaultSubprobemStrategy_ == 4) ? true : false;
+	  subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
 		subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
 	} else {
 		subProblem = it->second;

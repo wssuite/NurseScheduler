@@ -120,7 +120,7 @@ int main(int argc, char** argv)
 	// If in non compact format, each week is input, so there are at least 19 arguments
 	// In compact format, the number of arguments is smaller than that
 	//
-	if (argc >= 19) {
+	if (argc >= 21) {
 		pInputPaths = readNonCompactArguments(argc,argv);
 	}
 	else {

@@ -86,6 +86,14 @@ struct SubproblemParam{
 		//
 		case 3: shortRotationsStrategy_=2; maxRotationLength_+=1; oneSinkNodePerLastDay_ = true; break;
 
+
+		// 4 -> [No short]
+		//		short = false,
+		//		max   = CD_max+1
+		//		sink  = one / last day
+		//
+		case 4: shortRotationsStrategy_=0; maxRotationLength_+=0; oneSinkNodePerLastDay_ = true; break;
+
 		// UNKNOWN STRATEGY
 		default:
 			std::cout << "# Unknown strategy for the subproblem (" << strategy << ")" << std::endl;
@@ -400,7 +408,7 @@ public:
 
 	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
-	SubProblem(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState);
+  SubProblem(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState, bool noShort);
 
 	// Initialization function for all global variables (not those of the graph)
 	//
@@ -546,7 +554,8 @@ protected:
 	// Initializes the startWeekendCost vector
 	void initStartWeekendCosts();
 
-
+        int firstIndex_;        // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
+        
 	//-----------------------
 	// THE SHORT SUCCESSIONS
 	//-----------------------
@@ -559,6 +568,7 @@ protected:
 	vector2D nLastShiftOfShortSucc_;														// For each size c \in [0,CDMin], for each short rotation of size c, contains the number of consecutive days the last shift has been performed
 	// Objects for short successions of maximal size CDMin
 	int CDMin_;																				// Minimum number of consecutive days worked for free
+
 	vector3D allShortSuccCDMinByLastShiftCons_;												// For each shift s, for each number of days n, contains the list of short successions of size CDMin ending with n consecutive days of shift s
 	inline vector<int> shortSuccCDMin(int id){return allowedShortSuccBySize_[CDMin_][id];}	// Returns the short succession of size CDMin from its ID
 

@@ -24,7 +24,8 @@ class InputPaths{
 public:
 	InputPaths();
 	InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices,
-		std::string solutionPath="",std::string logPath="", std::string paramFile="" , double timeOut=3600.0, int randSeed=0);
+		std::string solutionPath="",std::string logPath="", std::string paramFile="" , double timeOut=3600.0,
+		   int randSeed=0, bool noShort = false);
 
 protected:
 	std::string instance_;
@@ -38,6 +39,7 @@ protected:
 	std::string paramFile_="";
 	int randSeed_=0;
 	double timeOut_=3600;
+  bool  noShort_ = false;
 
 public:
 	// get/set attributes
@@ -66,6 +68,9 @@ public:
 	inline void randSeed(int seed) {randSeed_ =  seed;}
   double timeOut() {return timeOut_;}
   inline void timeOut(double t) {timeOut_= t;}
+
+  bool noShort() {return noShort_;}
+  inline void noShort(bool b) {noShort_ = b;}
 };
 
 #endif
