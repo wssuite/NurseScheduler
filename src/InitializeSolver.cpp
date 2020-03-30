@@ -164,7 +164,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 			randSeed = std::stoi(str);
 			narg += 2;
 		}
-		else if (!strcmp(arg,"--noshort")) {
+		else if (!strcmp(arg,"--noShort")) {
 			noShort = std::stoi(str);
 			narg += 2;
 		}

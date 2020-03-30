@@ -43,9 +43,9 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 	std::cout << std::endl;
 
 	if (inputPaths.noShort()) {
-	  completeParameters_.sp_default_strategy_ = 4;
-	  rollingParameters_.sp_default_strategy_ = 4;
-	  lnsParameters_.sp_default_strategy_ = 4;
+	  completeParameters_.sp_default_strategy_ = -1;
+	  rollingParameters_.sp_default_strategy_ = -1;
+	  lnsParameters_.sp_default_strategy_ = -1;
 	}
 
 	if (!options_.logfile_.empty()) {

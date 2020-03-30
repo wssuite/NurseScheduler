@@ -93,7 +93,7 @@ struct SubproblemParam{
 		//		max   = CD_max+1
 		//		sink  = one / last day
 		//
-		case 4: shortRotationsStrategy_=0; maxRotationLength_+=0; oneSinkNodePerLastDay_ = true; break;
+		case -1: shortRotationsStrategy_=0; maxRotationLength_+=0; oneSinkNodePerLastDay_ = true; break;
 
 		// UNKNOWN STRATEGY
 		default:
@@ -319,10 +319,11 @@ public:
 		const Arc_Properties& arc_prop = get( boost::edge_bundle, g )[ed];
 		const Vertex_Properties& vert_prop = get( boost::vertex_bundle, g )[target( ed, g )];
 		new_cont.cost = old_cont.cost + arc_prop.cost;
-		int& i_time = new_cont.time[MAX_HOURS];
-		new_cont.time[MAX_HOURS] = old_cont.time[MAX_HOURS] + arc_prop.time;
-		new_cont.time[MAX_HOURS] < vert_prop.eat ? i_time = vert_prop.eat : 0;
-		return new_cont.time[MAX_HOURS] <= vert_prop.lat ? true : false;
+
+		new_cont.time[MAX_HOURS] = max(vert_prop.eat, old_cont.time[MAX_HOURS] + arc_prop.time);
+		new_cont.time[MIN_DAYS] = max(0, old_cont.time[MIN_DAYS] - 1);
+
+		return new_cont.time[MAX_HOURS] <= vert_prop.lat;
 	}
 };
 
@@ -384,10 +385,14 @@ public:
 		const Arc_Properties& arc_prop = get( boost::edge_bundle, g )[ed];
 		const Vertex_Properties& vert_prop = get( boost::vertex_bundle, g )[target( ed, g )];
 		new_cont.cost = old_cont.cost + arc_prop.cost;
-		int& i_time = new_cont.time;
-		i_time = old_cont.time + arc_prop.time;
-		i_time < vert_prop.eat ? i_time = vert_prop.eat : 0;
-		return i_time <= vert_prop.lat ? true : false;
+		// int& i_time = new_cont.time;
+		// i_time = old_cont.time + arc_prop.time;
+		// i_time < vert_prop.eat ? i_time = vert_prop.eat : 0;
+		// return i_time <= vert_prop.lat ? true : false;
+
+		new_cont.time = max(vert_prop.eat, old_cont.time + arc_prop.time);
+
+		return new_cont.time <= vert_prop.lat;
 	}
 };
 
