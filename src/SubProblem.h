@@ -627,10 +627,9 @@ protected:
 	// Initializes the startWeekendCost vector
 	void initStartWeekendCosts();
 
-        int firstIndex_;        // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
+        int daysMin_;        // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
         
 	int CDMin_;																				// Minimum number of consecutive days worked for free
-
 
 	//-----------------------
 	// THE NODES
@@ -1074,7 +1073,7 @@ protected:
     // 	// Initializes the startWeekendCost vector
     // 	void initStartWeekendCosts();
 
-    //     int firstIndex_;        // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
+    //     int daysMin_;        // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
         
 	//-----------------------
 	// THE SHORT SUCCESSIONS
