@@ -175,7 +175,7 @@ struct Arc_Properties{
 
 	// Constructor
 	//
-  Arc_Properties( int n = 0, ArcType ty = NONE_ARC, double c = 0, int t = 0, int sh = 0 ) : num( n ), type(ty), cost( c ), time( t ), shiftID( sh ) {}
+  Arc_Properties( int n = 0, ArcType ty = NONE_ARC, double c = 0, int t = 0, int sh = 0 ) : num( n ), type(ty), cost( c ), time( t ), initialTime( t ), shiftID( sh ) {}
 
 	// id
 	//
@@ -195,6 +195,10 @@ struct Arc_Properties{
 
   // shift id
   int  shiftID;
+
+  // initial time;
+  //
+  int  initialTime;
 };
 
 // Graph with RC generic structure
@@ -812,6 +816,11 @@ protected:
 	// Test for random forbidden day-shift
 	set< pair<int,int> > randomForbiddenShifts(int nbForbidden);
 
+	inline void updateInitialTime(int a, int time){     boost::put( &Arc_Properties::initialTime, g_, arcsDescriptors_[a], time );}
+
+	inline int  getInitialTime(int a){    get( &Arc_Properties::initialTime, g_, arcsDescriptors_[a]);}
+
+  inline void reinitTime(int a){     boost::put( &Arc_Properties::time, g_, arcsDescriptors_[a], getInitialTime(a));}
 
 
 
@@ -1097,7 +1106,8 @@ protected:
 	void initShortSuccessions();
 
 
-
+  int   computeHoursInRotation(int sh, int k, int n);
+  int   computeHoursInRotation(int id);
 
   // 	//-----------------------
   // 	// THE NODES
@@ -1307,8 +1317,11 @@ protected:
 	// // Updates the travel time of an arc / node
 	// inline void updateTime(int a, int time){     boost::put( &Arc_Properties::time, g_, arcsDescriptors_[a], time );}
 	// inline void updateLat(int v, int time){boost::put( &Vertex_Properties::lat, g_, v, time);}
+  
 	// // Given an arc, returns the normal travel time (i.e. travel time when authorized)
-	// int normalTravelTime(int a);
+  
+  //	 int normalTravelTime(int a);
+  
 	// // Test for random forbidden day-shift
 	// set< pair<int,int> > randomForbiddenShifts(int nbForbidden);
 

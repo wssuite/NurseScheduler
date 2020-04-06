@@ -837,6 +837,7 @@ void SubProblem::createArcsSourceToPrincipal(){
 				origin = sourceNode_;
 				destin = principalNetworkNodes_[sh][k][nCons];
 				arcsFromSource_[sh][k][nCons] = nArcs_;
+
 				addSingleArc(origin, destin, 0, daysMin_, SOURCE_TO_PRINCIPAL, origin);
 				///////  SERGEB:  daysMin_ ----> "timeWorked"
 				///////           plusieurs arcs Orig-Dest (1 par shift)
@@ -1233,15 +1234,15 @@ void SubProblem::updateArcCosts(){
 
 		// For all those that start on the first day, must update the travel time
 		//
-  for(int s=1; s<pScenario_->nbShiftsType_; s++){
-    for(int n=1; n<=maxvalConsByShift_[s]; n++){
-      //		  if(idBestShortSuccCDMin_[s][CDMin_-1][n] > -1){
-      int a = arcsFromSource_[s][0][n];
-      updateTime(a, daysMin_ + pLiveNurse_->pStateIni_->consDaysWorked_ );      ///////  SERGEB :  1 arc par shift
-                                                                                ///////            + hoursWorked
-      //			}
-    }
-  }
+  // for(int s=1; s<pScenario_->nbShiftsType_; s++){
+  //   for(int n=1; n<=maxvalConsByShift_[s]; n++){
+  //     		  if(idBestShortSuccCDMin_[s][CDMin_-1][n] > -1){
+  //     int a = arcsFromSource_[s][0][n];
+  //     updateTime(a, daysMin_ + pLiveNurse_->pStateIni_->consDaysWorked_ );       SERGEB :  1 arc par shift
+  //                                                                                          + hoursWorked
+  //     			}
+  //   }
+  // }
 		// for(int n=1; n<=maxvalConsByShift_[s]; n++){
 		// 	if(idBestShortSuccCDMin_[s][CDMin_-1][n] > -1){
 		// 		int a = arcsFromSource_[s][CDMin_-1][n];
@@ -1437,6 +1438,8 @@ void SubProblem::authorizeNode(int v){
 // Given the arc type, returns the normal travel time (when authorized)
 //
 int SubProblem::normalTravelTime(int a){     // ??????  SERGEB
+
+  //  return (getInitialTime(a));
 	ArcType atype = arcType(a);
 	if(atype == SOURCE_TO_PRINCIPAL){
 		if(principalToDay_[arcDestination(a)] == daysMin_-1){
@@ -3632,8 +3635,14 @@ void SubProblemShort::updateArcCosts(){
 		//
 		for(int n=1; n<=maxvalConsByShift_[s]; n++){
 			if(idBestShortSuccCDMin_[s][CDMin_-1][n] > -1){
-				int a = arcsFromSource_[s][CDMin_-1][n];
-				updateTime(a, (CDMin_+ pLiveNurse_->pStateIni_->consDaysWorked_ ));
+			  int a = arcsFromSource_[s][CDMin_-1][n];
+				
+				// int  id = shortSuccCDMinIdFromArc_[a];
+				// int  timeWorked = computeHoursInRotation(id);
+				
+				// updateInitialTime(a, (timeWorked + pLiveNurse_->pStateIni_->totalTimeWorked_ ));
+				// updateTime(a, (timeWorked + pLiveNurse_->pStateIni_->totalTimeWorked_ ));
+			  updateTime(a, (CDMin_+ pLiveNurse_->pStateIni_->consDaysWorked_ ));
 				//////  SERGEB ==> consDaysWorked_ --> totalTimeWorked_
 			        //////         ==> CDMin_          --> "timeWorked"
 			}
@@ -3723,6 +3732,52 @@ bool SubProblemShort::succContainsDayShift(int size, int succId, int startDate, 
 }
 
 
+int SubProblemShort::computeHoursInRotation(int id){
+  int  timeWorked = 0;
+			
+  for (int i = 0; i < allowedShortSuccBySize_[daysMin_][id].size(); i++) {
+    int  shift = allowedShortSuccBySize_[daysMin_][id][i];
+    timeWorked += pScenario_->hoursToWork_[shift];
+  }
+
+  return timeWorked;
+}
+
+
+int SubProblemShort::computeHoursInRotation(int sh, int k, int n){
+  int  timeWorked = 0;
+  int  id = idBestShortSuccCDMin_[sh][k][n];
+			
+  return computeHoursInRotation(id);
+}
+
+
+// // Given the arc type, returns the normal travel time (when authorized)
+// //
+// int SubProblemShort::normalTravelTime(int a){     // ??????  SERGEB
+
+//   return (getInitialTime(a));
+  
+// 	// ArcType atype = arcType(a);
+	
+// 	// if(atype == SOURCE_TO_PRINCIPAL){
+// 	//   int  id = shortSuccCDMinIdFromArc_[a];
+// 	//   int  timeWorked = computeHoursInRotation(id);
+	  
+// 	// 	if(principalToDay_[arcDestination(a)] == daysMin_-1){
+// 	// 	  return (timeWorked + pLiveNurse_->pStateIni_->totalTimeWorked_);
+// 	// 	} else {
+// 	// 	  return timeWorked;
+// 	// 	}
+// 	// 	// if(principalToDay_[arcDestination(a)] == CDMin_-1){
+// 	// 	// 	return (CDMin_ + pLiveNurse_->pStateIni_->consDaysWorked_);    /////  SERGEB : hoursWorked
+// 	// 	// } else {
+// 	// 	// 	return CDMin_;
+// 	// 	// }
+// 	// }   ///////////////////////////////////////////////  SERGEB : hoursWorked   !!!!!!!!!!!!!!!!!!!!!!!!!!
+// 	// else if(atype == SHIFT_TO_NEWSHIFT or atype == SHIFT_TO_SAMESHIFT or atype == REPEATSHIFT) return 1; 
+// 	// else return 0;
+// }
 
 
 //----------------------------------------------------------------
