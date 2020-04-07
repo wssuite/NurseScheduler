@@ -17,7 +17,7 @@
 #include "boost/config.hpp"
 #include <boost/graph/r_c_shortest_paths.hpp>
 
-enum TIME {MAX_HOURS = 0, MIN_DAYS = 1}; 
+enum TIME {MAX_DAYS = 0, MIN_DAYS = 1}; 
 
 // Different node types and their names
 //
@@ -193,12 +193,12 @@ struct Arc_Properties{
 	//
 	int time;
 
-  // shift id
-  int  shiftID;
-
   // initial time;
   //
   int  initialTime;
+
+  // shift id
+  int  shiftID;
 };
 
 // Graph with RC generic structure
@@ -292,7 +292,7 @@ struct spp_spptw_res_cont{
 	// Constructor
 	//
 	spp_spptw_res_cont( double c = 0, int t = 0 ) : cost( c ) {
-	  time[MAX_HOURS] = t;
+	  time[MAX_DAYS] = t;
 	  time[MIN_DAYS] = initMinDays;
 	}
 
@@ -324,10 +324,10 @@ public:
 		const Vertex_Properties& vert_prop = get( boost::vertex_bundle, g )[target( ed, g )];
 		new_cont.cost = old_cont.cost + arc_prop.cost;
 
-		new_cont.time[MAX_HOURS] = max(vert_prop.eat, old_cont.time[MAX_HOURS] + arc_prop.time);
-		new_cont.time[MIN_DAYS] = max(0, old_cont.time[MIN_DAYS] - 1);
+		new_cont.time[MAX_DAYS] = max(vert_prop.eat, old_cont.time[MAX_DAYS] + arc_prop.time);
+		new_cont.time[MIN_DAYS] = max(0, old_cont.time[MIN_DAYS] - arc_prop.time);
 
-		return new_cont.time[MAX_HOURS] <= vert_prop.lat;
+		return new_cont.time[MAX_DAYS] <= vert_prop.lat;
 	}
 };
 
@@ -337,7 +337,7 @@ public:
 	inline bool operator()( const spp_spptw_res_cont& res_cont_1, const spp_spptw_res_cont& res_cont_2 ) const	{
 		// must be "<=" here!!!
 		// must NOT be "<"!!!
-		return res_cont_1.cost <= res_cont_2.cost and res_cont_1.time[MAX_HOURS] <= res_cont_2.time[MAX_HOURS];
+		return res_cont_1.cost <= res_cont_2.cost and res_cont_1.time[MAX_DAYS] <= res_cont_2.time[MAX_DAYS];
 		// this is not a contradiction to the documentation
 		// the documentation says:
 		// "A label $l_1$ dominates a label $l_2$ if and only if both are resident
@@ -688,15 +688,16 @@ protected:
 	vector<ArcType> allArcsTypes_;						// Vector of their types
 	vector< boost::graph_traits< Graph>::edge_descriptor > arcsDescriptors_;
 	// Data structures to get the arcs id from other data
-	vector3D arcsFromSource_;							// Index: (shiftType, day, nCons) of destination
-	// vector3D arcsShiftToNewShift_;						// Index: (shift1, shift2, day1)
-	// vector3D arcsShiftToSameShift_;						// Index: (shift, day, nCons) of origin
-	vector4D arcsShiftToNewShift_;						// Index: (shiftType1, shiftType2, day1, shift)
-	vector4D arcsShiftToSameShift_;						// Index: (shiftType, day, nCons, shift) of origin
-	vector3D arcsShiftToEndsequence_;					// Index: (shiftType, day, nCons) of origin
-	// vector2D arcsRepeatShift_;							// Index: (shift, day) of origin
-	vector3D arcsRepeatShift_;							// Index: (shiftType, day, shift) of origin
-	vector2D arcsPrincipalToRotsizein_;					// Index: (shiftType, day) of origin
+  //	vector3D arcsFromSource_;		// Index: (shiftType, day, nCons) of destination
+	vector4D arcsFromSource_;		// Index: (shiftType, day, nCons, shift) of destination
+	// vector3D arcsShiftToNewShift_;	// Index: (shift1, shift2, day1)
+	// vector3D arcsShiftToSameShift_;	// Index: (shift, day, nCons) of origin
+	vector4D arcsShiftToNewShift_;		// Index: (shiftType1, shiftType2, day1, shift)
+	vector4D arcsShiftToSameShift_;		// Index: (shiftType, day, nCons, shift) of origin
+	vector3D arcsShiftToEndsequence_;	// Index: (shiftType, day, nCons) of origin
+	// vector2D arcsRepeatShift_;		// Index: (shift, day) of origin
+	vector3D arcsRepeatShift_;		// Index: (shiftType, day, shift) of origin
+	vector2D arcsPrincipalToRotsizein_;	// Index: (shiftType, day) of origin
 	vector<map<int,int> > arcsRotsizeinToRotsizeDay_;	// Index: (day,size) of the rotation [destination]
 	vector<map<int,int> > arcsRotsizeToRotsizeoutDay_;	// Index: (day,size) of the rotation [origin]
 	vector<int> arcsSinkDayToSink_;						// Index: (day) of the end of rotation
@@ -718,6 +719,8 @@ protected:
 	// Some arcs always have the same cost (0). Hence, their cost may not be changed
 	void initBaseCostArcs();
 	void updateCostArcs();
+  double costArcPrincipal(int a, int k, int shiftID);
+  double costArcSource(int a, int k, int shiftID);
 
 	// Get info with the arc ID
 	inline ArcType arcType(int a) {return allArcsTypes_[a];}
@@ -733,6 +736,8 @@ protected:
 	// Update of the costs / network for solve function
 	//
 	//----------------------------------------------------------------
+
+  double costOfVeryShortRotation(int firstDay, vector<int> succ);
 
 	// FUNCTIONS -- SOLVE
 	//
@@ -816,9 +821,12 @@ protected:
 	// Test for random forbidden day-shift
 	set< pair<int,int> > randomForbiddenShifts(int nbForbidden);
 
-	inline void updateInitialTime(int a, int time){     boost::put( &Arc_Properties::initialTime, g_, arcsDescriptors_[a], time );}
+	inline void updateInitialTime(int a, int time){
+	  boost::put( &Arc_Properties::initialTime, g_, arcsDescriptors_[a], time );
+	  updateTime(a, time);
+	}
 
-	inline int  getInitialTime(int a){    get( &Arc_Properties::initialTime, g_, arcsDescriptors_[a]);}
+	inline int  getInitialTime(int a){  return  get( &Arc_Properties::initialTime, g_, arcsDescriptors_[a]);}
 
   inline void reinitTime(int a){     boost::put( &Arc_Properties::time, g_, arcsDescriptors_[a], getInitialTime(a));}
 
@@ -925,6 +933,8 @@ public:
 	Tools::Timer* timeInS_;
 	Tools::Timer* timeInNL_;
 };
+
+
 
 
 class SubProblemShort : public SubProblem {
@@ -1214,7 +1224,7 @@ protected:
 	bool priceVeryShortRotationsFirstDay();
 	bool priceVeryShortRotationsLastDay();
 	bool priceVeryShortRotations();
-	double costOfVeryShortRotation(int firstDay, vector<int> succ);
+  //	double costOfVeryShortRotation(int firstDay, vector<int> succ);
 
 
 
