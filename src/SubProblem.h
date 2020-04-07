@@ -631,10 +631,12 @@ protected:
 	// Initializes the startWeekendCost vector
 	void initStartWeekendCosts();
 
-        int daysMin_;        // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
+        int daysMin_;      // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
         
-	int CDMin_;																				// Minimum number of consecutive days worked for free
-
+	int CDMin_;	// Minimum number of consecutive days worked for free
+  
+        bool  noShort_;        //   false if short rotations enabled;  true otherwise
+  
 	//-----------------------
 	// THE NODES
 	//-----------------------

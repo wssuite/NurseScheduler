@@ -89,9 +89,9 @@ SubProblem::SubProblem() {}
 
 SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState, bool noShort):
 					pScenario_(scenario), nDays_(nbDays), pContract_ (contract),
-					CDMin_(contract->minConsDaysWork_), maxRotationLength_(nbDays) {
+					CDMin_(contract->minConsDaysWork_), noShort_(noShort), maxRotationLength_(nbDays) {
 
-  daysMin_ = (noShort) ? 1 : CDMin_;
+  daysMin_ = (noShort_) ? 1 : CDMin_;
 
   // CDMin_ = daysMin_ = 1;
 
@@ -839,7 +839,12 @@ void SubProblem::createArcsSourceToPrincipal(){
 	origin = sourceNode_;
 	destin = principalNetworkNodes_[sh][k][nCons];
 
-	for (int s=0; s < pScenario_->shiftTypeIDToShiftID_[sh].size(); s++) {
+	int nb =  pScenario_->shiftTypeIDToShiftID_[sh].size();
+
+	if (!noShort_)
+	  nb = 1;
+
+	for (int s=0; s < nb; s++) {
 	  int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 	  arcsFromSource_[sh][k][nCons][s] = nArcs_;
 	  //	  addSingleArc(origin, destin, 0, pScenario_->hoursToWork_[shiftID] + pLiveNurse_->pStateIni_->totalTimeWorked_, SOURCE_TO_PRINCIPAL, shiftID);
