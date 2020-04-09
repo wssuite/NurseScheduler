@@ -286,9 +286,9 @@ SubProblem* RotationPricer::retriveSubproblem(LiveNurse* pNurse){
 	if( it == subProblems_.end() ){
 	  bool noShort = (defaultSubprobemStrategy_ == -1) ? true : false;
 	  if (!noShort)
-	    subProblem = new SubProblemShort(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
+	    subProblem = new SubProblemShort(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_);
 	  else
-	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
+	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_);
 	    
 	  //	  subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
 		subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
@@ -314,6 +314,7 @@ void RotationPricer::addRotationsToMaster(){
 	// SECOND, ADD THE ROTATIONS TO THE MASTER PROBLEM (in the previously computed order)
 	int nbRotationsAdded = 0;
 	for(Rotation& rot: newRotationsForNurse_){
+//	    std::cout << rot.toString(-1, pScenario_->shiftIDToShiftTypeID_);
 		allNewColumns_.push_back(pMaster_->addRotation(rot, baseName));
 		++nbRotationsAdded;
 		// DBG

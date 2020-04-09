@@ -39,7 +39,7 @@ protected:
 	std::string paramFile_="";
 	int randSeed_=0;
 	double timeOut_=3600;
-  bool  noShort_ = false;
+    bool  noShort_ = true;
 
 public:
 	// get/set attributes

@@ -185,17 +185,22 @@ struct Rotation {
 	  }
 	}
 
-	string toString(int nbDays = -1){
+	string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}){
 		if(nbDays == -1) nbDays = firstDay_+length_;
 		stringstream rep;
 		rep << "#   | ROTATION: N=" << nurseId_ << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
 		rep << "#               |";
 		vector<int> allTasks (nbDays);
 		for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
-		allTasks[itTask->first] = itTask->second;
+		    allTasks[itTask->first] = itTask->second;
 		for(unsigned int i=0; i<allTasks.size(); i++){
-			if(allTasks[i] < 1) rep << " |";
-			else rep << allTasks[i] << "|";
+			if(allTasks[i] < 1) rep << "\t|";
+			else {
+			    int t = allTasks[i];
+			    if(t < shiftIDToShiftTypeID.size())
+			        rep << shiftIDToShiftTypeID[t] << ":";
+			    rep << allTasks[i]<< "|";
+			}
 		}
 		rep << std::endl;
 		return rep.str();

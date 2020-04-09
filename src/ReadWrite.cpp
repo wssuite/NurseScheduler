@@ -516,6 +516,9 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 				file >> consDaysWorked;
 				file >> consRest;
 
+				if(consRest == 0 && consDaysWorked == 0)
+                    Tools::throwError("History of nurse " + nurseName + " is invalid as one must either work or rest.");
+
 				int  shiftID = pScenario->shiftTypeIDToShiftID_[shiftTypeId][0];
 				consShifts = (shiftTypeId == 0) ? consRest : consShiftWorked;
 				State nurseState (0, totalTimeWorked, totalWeekendsWorked,

@@ -78,7 +78,7 @@ InputPaths* readNonCompactArguments(int argc, char** argv) {
 			narg += 2;
 		}
 		else if (!strcmp(argv[narg],"--noShort")) {
-		  pInputPaths->noShort(std::stoi(str));
+		    pInputPaths->noShort(std::stoi(str));
 			narg += 2;
 		}
 		else {
@@ -105,10 +105,10 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 
 	// Default arguments are set to enable simple call to the function without argument
 	//
-	std::string dataDir = "datasetsNew/",instanceName = "new1",solutionPath="",logPath="",paramFile="";
+	std::string dataDir = "",instanceName = "",solutionPath="",logPath="",paramFile="";
 	int historyIndex = 0, randSeed=0;
-	bool noShort = false;
-	std::vector<int> weekIndices = {0};
+	bool noShort = true;
+	std::vector<int> weekIndices;
 	double timeOut = LARGE_TIME;
 
 	// Read the arguments and store them in inputPaths

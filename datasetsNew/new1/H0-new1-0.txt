@@ -7,5 +7,5 @@ Andrea 0 0 Early 3 3 0
 Stefaan 0 0 None 0 0 3
 Sara 0 0 Late 1 4 0
 Nguyen 0 0 None 0 0 1
-Philip 0 0 None 0 0 0
-Alex 0 0 None 0 0 0
+Philip 0 0 None 0 0 1
+Alex 0 0 None 0 0 1
