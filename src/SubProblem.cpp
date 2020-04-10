@@ -63,12 +63,10 @@ bool operator<( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 )
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState, bool noShort):
+SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState):
 					pScenario_(scenario), nDays_(nbDays), pContract_ (contract),
-					CDMin_(contract->minConsDaysWork_), nLabels_(noShort ? 2 : 1), noShort_(noShort),
+					CDMin_(contract->minConsDaysWork_), daysMin_(1), nLabels_(2),
 					maxRotationLength_(nbDays) {
-
-  daysMin_ = (noShort_) ? 1 : CDMin_;
 
   // CDMin_ = daysMin_ = 1;
 
@@ -441,7 +439,6 @@ void SubProblem::createNodes(){
 		// Sink day
 		sinkNodesByDay_.push_back(nNodes_);											// Daily sink node
 		addSingleNode(SINK_DAY, {0,0}, {maxRotationLength_, CDMin_});
-
 	}
 
 	// 4. SINK NODE
@@ -627,15 +624,10 @@ void SubProblem::createArcsSourceToPrincipal(){
 	origin = sourceNode_;
 	destin = principalNetworkNodes_[sh][k][nCons];
 
-	int nb =  pScenario_->shiftTypeIDToShiftID_[sh].size();
-
-	if (!noShort_)
-	  nb = 1;
-
-	for (int s=0; s < nb; s++) {
+	for (int s=0; s < pScenario_->shiftTypeIDToShiftID_[sh].size(); s++) {
 	  int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 	  arcsFromSource_[sh][k][nCons][s] = nArcs_;
-	  addSingleArc(origin, destin, 0, {daysMin_, -daysMin_}, SOURCE_TO_PRINCIPAL, shiftID);
+	  addSingleArc(origin, destin, 0, {daysMin_, CDMin_-daysMin_}, SOURCE_TO_PRINCIPAL, shiftID);
 	}
       }
     }
@@ -746,7 +738,8 @@ void SubProblem::createArcsAllRotationSize(){
 			origin = rotationLengthEntrance_[k];
 			destin = itRLN->second;
 			arcsRotsizeinToRotsize.insert(pair<int,int>(itRLN->first, nArcs_));
-			addSingleArc(origin, destin, consDaysCost(itRLN->first), {0,0}, ROTSIZEIN_TO_ROTSIZE, destin);
+			int c = consDaysCost(itRLN->first);
+			addSingleArc(origin, destin, c, {0,0}, ROTSIZEIN_TO_ROTSIZE, destin);
 			// From checknode to exit of that day
 			origin = itRLN->second;
 			destin = sinkNodesByDay_[k];
@@ -822,39 +815,43 @@ void SubProblem::initStructuresForSolve(){
 	// }
 }
 
+bool SubProblem::feasibleArcSource(int k, int n, int shiftID) {
+    // check if the nurse can perform this shift on this day
+    if(!canSuccStartHere({shiftID}, k))
+        return false;
+
+    // check if the level n can be reached
+    if(k==0) {
+        int firstShiftType = pScenario_->shiftIDToShiftTypeID_[shiftID];
+        int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_,
+            maxConsShift = pScenario_->maxConsShiftsOf(firstShiftType);
+        // if the number of consecutive shift of same type is lower than the max
+        if(nConsShiftIni < maxConsShift)
+            return (nConsShiftIni+1 == n);
+        // otherwise n should be equal to maxCons
+        return (n == maxConsShift);
+    }
+    // else, can just go to the first level n=1
+    return (n == 1);
+}
 
 double SubProblem::costArcSource(int a, int k, int shiftID){
-  
   double  cost = arcBaseCost_[a];
   
-  cost += preferencesCosts_[k+1][shiftID] ;
-  cost -= pCosts_->dayShiftWorkCost(k+1,shiftID);
-  if(Tools::isSaturday(k+1)) cost -= pCosts_->workedWeekendCost();
-  
-  cost -= pCosts_->startWorkCost(k+1);
-  cost += startWeekendCosts_[k+1];
-  
-	  ///////////////////////////////////////
+  cost += preferencesCosts_[k][shiftID] ;
+  cost -= pCosts_->dayShiftWorkCost(k, shiftID);
+  if(Tools::isWeekend(k)) cost -= pCosts_->workedWeekendCost();
+  cost -= pCosts_->startWorkCost(k);
+  cost += startWeekendCosts_[k];
 
-	  ////  SERGEB --   IL FAUT MODIFIER cost  (cf. costArcShortSucc)
-
-	  ///////////////////////////////////////
-
+  // if first day, take into account historical state
   if (k == 0) {
     int shiftIni = pLiveNurse_->pStateIni_->shift_;
     int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
     int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
 
-    // int firstShift = succ[0];
-    // int nConsFirstShift = 0;
-    // unsigned int ii=0;
-    // while(ii<succ.size() and succ[ii]==firstShift){
-    //   nConsFirstShift ++;
-    //   ii++;
-    // }
-
+    // check if the nurse is changing of shift type
     int shiftTypeIni = pScenario_->shiftIDToShiftTypeID_[shiftIni];
-    //    int firstShiftType = pScenario_->shiftIDToShiftTypeID_[firstShift];
     int firstShiftType = pScenario_->shiftIDToShiftTypeID_[shiftID];
 
     // 1. The nurse was resting: pay more only if the rest is too short
@@ -862,43 +859,41 @@ double SubProblem::costArcSource(int a, int k, int shiftID){
       int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
       cost += max(0, diffRest*WEIGHT_CONS_DAYS_OFF);
     }
-
     // 2. The nurse was working
     else {
-
-      // a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be read later
+      // a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be added later
       int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
       cost -= max(0, diffWork*WEIGHT_CONS_DAYS_WORK);
 
       // b. (i)   The nurse was working on a different shift: if too short, add the corresponding cost
       if(shiftTypeIni != firstShiftType){
-	int diff = pScenario_->minConsShiftsOfTypeOf(shiftIni) - nConsShiftIni;
-	cost += max(0, diff*(WEIGHT_CONS_SHIFTS));
+        int diff = pScenario_->minConsShiftsOfTypeOf(shiftIni) - nConsShiftIni;
+        cost += max(0, diff*(WEIGHT_CONS_SHIFTS));
       }
 
-      // // b. (ii)  The nurse was working on the same shift AND the short rotation contains other shifts (easy case for add/subtract)
-      // //            - Subtract the cost due to the consecutive beginning
-      // //            - Subtract the cost due to the consecutive end of the initial state
-      // //            - Add the consecutive cost for all shifts
-      // else if(nConsFirstShift < pContract_->minConsDaysWork_) {
-      // 	//			else if(nConsFirstShift < CDMin_) {
-      // 	int diffShift = nConsShiftIni - pScenario_->maxConsShiftsOfTypeOf(shiftIni);
-      // 	ANS -= max(0, diffShift*WEIGHT_CONS_SHIFTS);
-      // 	ANS -= consShiftCost(firstShift, nConsFirstShift);
-      // 	ANS += consShiftCost(firstShift, (nConsFirstShift + nConsShiftIni));
-      // }
-
-      // b. (iii) The nurse was working on the same shift AND the short rotation only contains that shift (recompute the cost -> easier)
-      else {
-	// ANS -= baseArcCostOfShortSucc_[size][succId];
-	// if( (nConsFirstShift + nConsShiftIni) >= maxvalConsByShift_[shiftTypeIni] )
-	//   ANS += consShiftCost(shiftIni, (nConsFirstShift + nConsShiftIni));
-
-	cost -= arcBaseCost_[a];
-
-	if ( nConsShiftIni + 1  >= maxvalConsByShift_[shiftTypeIni] )
-	  cost += consShiftCost(shiftIni, ( nConsShiftIni + 1 ));
-      }
+//      // // b. (ii)  The nurse was working on the same shift AND the short rotation contains other shifts (easy case for add/subtract)
+//      // //            - Subtract the cost due to the consecutive beginning
+//      // //            - Subtract the cost due to the consecutive end of the initial state
+//      // //            - Add the consecutive cost for all shifts
+//      // else if(nConsFirstShift < pContract_->minConsDaysWork_) {
+//      // 	//			else if(nConsFirstShift < CDMin_) {
+//      // 	int diffShift = nConsShiftIni - pScenario_->maxConsShiftsOfTypeOf(shiftIni);
+//      // 	ANS -= max(0, diffShift*WEIGHT_CONS_SHIFTS);
+//      // 	ANS -= consShiftCost(firstShift, nConsFirstShift);
+//      // 	ANS += consShiftCost(firstShift, (nConsFirstShift + nConsShiftIni));
+//      // }
+//
+//      // b. (iii) The nurse was working on the same shift AND the short rotation only contains that shift (recompute the cost -> easier)
+//      else {
+//	// ANS -= baseArcCostOfShortSucc_[size][succId];
+//	// if( (nConsFirstShift + nConsShiftIni) >= maxvalConsByShift_[shiftTypeIni] )
+//	//   ANS += consShiftCost(shiftIni, (nConsFirstShift + nConsShiftIni));
+//
+//	cost -= arcBaseCost_[a];
+//
+//	if ( nConsShiftIni + 1  >= maxvalConsByShift_[shiftTypeIni] )
+//	  cost += consShiftCost(shiftIni, ( nConsShiftIni + 1 ));
+//      }
     }
   }
   
@@ -906,16 +901,20 @@ double SubProblem::costArcSource(int a, int k, int shiftID){
 }
 
 
-double SubProblem::costArcPrincipal(int a, int k, int shiftID){
-  
+double SubProblem::costArcPrincipal(int a, int k, int shiftID) {
   double  cost = arcBaseCost_[a];
-  
-  cost += preferencesCosts_[k+1][shiftID] ;
-  cost -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
-  if(Tools::isSaturday(k+1)) cost -= pCosts_->workedWeekendCost();
+  cost += preferencesCosts_[k][shiftID] ;
+  cost -= pCosts_->dayShiftWorkCost(k,shiftID);
+  if(Tools::isSaturday(k)) cost -= pCosts_->workedWeekendCost();
   return cost;
 }
 
+double SubProblem::costArcEnd(int a, int k) {
+    double cost = arcBaseCost_[a];
+    cost += endWeekendCosts_[k];
+    cost -= pCosts_->endWorkCost(k);
+    return cost;
+}
 
 //--------------------------------------------
 //
@@ -1017,7 +1016,7 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 
 	// H. REDUCED COST: EACH DAY/SHIFT REDUCED COST
 	//
-	for(int k=startDate; k<=endDate; k++) dayShiftsRedCost -= pCosts_->dayShiftWorkCost( k, succ[k-startDate] - 1 );
+	for(int k=startDate; k<=endDate; k++) dayShiftsRedCost -= pCosts_->dayShiftWorkCost( k, succ[k-startDate] );
 
 
 	// I. RETURN THE TOTAL COST
@@ -1065,36 +1064,27 @@ double SubProblem::costOfVeryShortRotation(int startDate, vector<int> succ){
 //
 void SubProblem::updateArcCosts(){
 
-  //	priceShortSucc();
-
   //	A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
 	
   for(int sh=1; sh<pScenario_->nbShiftsType_; sh++){
-    // for(int k=daysMin_-1; k<nDays_; k++){
-    for(int k=daysMin_-1; k<nDays_-1; k++){
-      for(int n=1; n<=maxvalConsByShift_[sh]; n++){
-	for (int s=0; s < pScenario_->shiftTypeIDToShiftID_[sh].size(); s++) {
-	  int a = arcsFromSource_[sh][k][n][s];
-	  int shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
-	  vector <int> succ;
-	  succ.push_back(shiftID);
-	  double c = costOfVeryShortRotation(k, succ);	  
-	  updateCost( a , c );
-	}
+      for(int k=daysMin_-1; k<nDays_-1; k++){
+        for(int n=1; n<=maxvalConsByShift_[sh]; n++){
+            for (int s=0; s < pScenario_->shiftTypeIDToShiftID_[sh].size(); s++) {
+              int a = arcsFromSource_[sh][k][n][s];
+              int shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
+              if(feasibleArcSource(k, n, shiftID)) {
+                  double c = costArcSource(a, k, shiftID);
+                  updateCost( a , c );
+                  // For an arc that starts on the first day, must update the consumption based on the historical state
+                  if(k==0) {
+                      int  a = arcsFromSource_[sh][0][n][s];
+                      std::vector<int> consumptions = { daysMin_ + pLiveNurse_->pStateIni_->consDaysWorked_,
+                                                        CDMin_ - daysMin_ - pLiveNurse_->pStateIni_->consDaysWorked_ };
+                      updateConsumptions(a, consumptions);
+                  }
+              } else forbidArc(a);
+            }
       }
-    }
-  }
-
-		//		For all those that start on the first day, must update the consumption
-		
-  for(int sh=1; sh<pScenario_->nbShiftsType_; sh++){
-    for(int n=1; n<=maxvalConsByShift_[sh]; n++){
-	for (int s=0; s < pScenario_->shiftTypeIDToShiftID_[sh].size(); s++) {
-	  int  a = arcsFromSource_[sh][0][n][s];
-	  std::vector<int> consumptions = { daysMin_ + pLiveNurse_->pStateIni_->consDaysWorked_,
-                                        CDMin_ - daysMin_ - pLiveNurse_->pStateIni_->consDaysWorked_ };
-	  updateConsumptions(a, consumptions);
-	}
     }
   }
 
@@ -1108,14 +1098,7 @@ void SubProblem::updateArcCosts(){
 				int a = arcsShiftToNewShift_[s1][s2][k][s];
 				if(a > 0){
 				        int  shiftID = pScenario_-> shiftTypeIDToShiftID_[s2][s];
-
-					// double c = arcBaseCost_[a];
-					// // c += preferencesCosts_[k+1][s2] ;
-				        // c += preferencesCosts_[k+1][shiftID] ;
-					// c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
-					// c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
-
-				        double c = costArcPrincipal(a, k, shiftID);
+				        double c = costArcPrincipal(a, k+1, shiftID);
 					updateCost( a , c );
 				}
 			  }
@@ -1130,14 +1113,7 @@ void SubProblem::updateArcCosts(){
 			    for (unsigned int s = 0; s < pScenario_-> shiftTypeIDToShiftID_[sh].size(); s++) {
 				int  a = arcsShiftToSameShift_[sh][k][n][s];
 				int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
-
-				 // double c = arcBaseCost_[a];
-				// // c += preferencesCosts_[k+1][sh] ;
-				// c += preferencesCosts_[k+1][shiftID] ;
-				// c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
-				// if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
-
-				double c = costArcPrincipal(a, k, shiftID);
+				double c = costArcPrincipal(a, k+1, shiftID);
 				updateCost( a , c );
 			    }
 			}
@@ -1151,14 +1127,7 @@ void SubProblem::updateArcCosts(){
 		  for (unsigned int s = 0; s < pScenario_-> shiftTypeIDToShiftID_[sh].size(); s++) {
 			int  a = arcsRepeatShift_[sh][k][s];
 			int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
-			
-			// double c = arcBaseCost_[a];
-			// // c += preferencesCosts_[k+1][sh];
-			// c += preferencesCosts_[k+1][shiftID];
-			// c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
-			// if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
-
-			double c = costArcPrincipal(a, k, shiftID);
+			double c = costArcPrincipal(a, k+1, shiftID);
 			updateCost( a , c );
 		  }
 		}
@@ -1168,9 +1137,7 @@ void SubProblem::updateArcCosts(){
 	for(int s=1; s<pScenario_->nbShiftsType_; s++)
 		for(int k=daysMin_-1; k<nDays_; k++){
 			int a = arcsPrincipalToRotsizein_[s][k];
-			double c = arcBaseCost_[a];
-			c += endWeekendCosts_[k];
-			c -= pCosts_->endWorkCost(k);
+            double c = costArcEnd(a, k);
 			updateCost( a , c );
 		}
 
@@ -1988,7 +1955,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 						potentialCost -= pCosts_->endWorkCost(currentDate+1);
 
 						// RED COST: DAY-SHIFT
-						potentialCost -= pCosts_->dayShiftWorkCost(currentDate+1,newSh-1);
+						potentialCost -= pCosts_->dayShiftWorkCost(currentDate+1,newSh);
 
 
 						if(false){
@@ -2013,7 +1980,7 @@ bool SubProblem::solveLongRotationsHeuristic(){
 							if(Tools::isSaturday(currentDate+1)) cout << pCosts_->workedWeekendCost();
 							cout << endl;
 							cout << "#          +=: " << pCosts_->endWorkCost(currentDate) << " - " << pCosts_->endWorkCost(currentDate+1) << endl;
-							cout << "#          -=: " << pCosts_->dayShiftWorkCost(currentDate+1,newSh-1) << endl;
+							cout << "#          -=: " << pCosts_->dayShiftWorkCost(currentDate+1,newSh) << endl;
 						}
 
 						// CHECK IF CAN BE ADDED
@@ -2558,7 +2525,10 @@ void SubProblem::testGraph_spprc(){
 SubProblemShort::SubProblemShort() {}
 
 SubProblemShort::SubProblemShort(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState):
-  SubProblem(scenario, nbDays, contract,  pInitState, false) {
+  SubProblem(scenario, nbDays, contract,  pInitState) {
+
+  daysMin_ = contract->minConsDaysWork_;
+  nLabels_ = 1;
 
   initShortSuccessions();
 }
@@ -2854,6 +2824,26 @@ void SubProblemShort::initStructuresForSolve(){
 
 }
 
+// Create all arcs whose origin is the source nodes (all go to short rotations nodes)
+void SubProblemShort::createArcsSourceToPrincipal(){
+
+  // DATA
+  int nShiftsType = pScenario_->nbShiftsType_;
+  int origin, destin;
+
+  for(int sh=1; sh<nShiftsType; sh++){
+    for(int k=daysMin_-1; k<nDays_; k++){
+      for(int nCons=1; nCons<=maxvalConsByShift_[sh]; nCons ++){
+        origin = sourceNode_;
+        destin = principalNetworkNodes_[sh][k][nCons];
+        int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][0];
+        arcsFromSource_[sh][k][nCons][0] = nArcs_;
+        addSingleArc(origin, destin, 0, {daysMin_, CDMin_-daysMin_}, SOURCE_TO_PRINCIPAL, shiftID);
+      }
+    }
+  }
+}
+
 
 // Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
 //
@@ -3022,7 +3012,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate){
 
 	// G. REDCOST: EACH DAY/SHIFT REDUCED COST
 	//
-	for(int i=0; i<size; i++) ANS -= pCosts_->dayShiftWorkCost( startDate+i , allowedShortSuccBySize_[size][succId][i]-1 );
+	for(int i=0; i<size; i++) ANS -= pCosts_->dayShiftWorkCost( startDate+i , allowedShortSuccBySize_[size][succId][i] );
 
 
 
@@ -3079,7 +3069,7 @@ void SubProblemShort::updateArcCosts(){
 					double c = arcBaseCost_[a];
 					int  shiftID = pScenario_-> shiftTypeIDToShiftID_[s2][s];
 					c += preferencesCosts_[k+1][shiftID] ;
-					c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
+					c -= pCosts_->dayShiftWorkCost(k+1,shiftID);
 					c -= Tools::isSaturday(k+1) ? pCosts_->workedWeekendCost() : 0 ;
 					updateCost( a , c );
 				}
@@ -3098,7 +3088,7 @@ void SubProblemShort::updateArcCosts(){
 				int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 				// c += preferencesCosts_[k+1][sh] ;
 				c += preferencesCosts_[k+1][shiftID] ;
-				c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
+				c -= pCosts_->dayShiftWorkCost(k+1,shiftID);
 				if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
 				updateCost( a , c );
 			    }
@@ -3116,7 +3106,7 @@ void SubProblemShort::updateArcCosts(){
 			int  shiftID = pScenario_-> shiftTypeIDToShiftID_[sh][s];
 			// c += preferencesCosts_[k+1][sh];
 			c += preferencesCosts_[k+1][shiftID];
-			c -= pCosts_->dayShiftWorkCost(k+1,shiftID-1);
+			c -= pCosts_->dayShiftWorkCost(k+1,shiftID);
 			if(Tools::isSaturday(k+1)) c-= pCosts_->workedWeekendCost();
 			updateCost( a , c );
 		  }

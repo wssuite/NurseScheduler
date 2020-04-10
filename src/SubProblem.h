@@ -91,14 +91,6 @@ struct SubproblemParam{
 		//
 		case 3: shortRotationsStrategy_=2; maxRotationLength_+=1; oneSinkNodePerLastDay_ = true; break;
 
-
-		// 4 -> [No short]
-		//		short = false,
-		//		max   = CD_max+1
-		//		sink  = one / last day
-		//
-		case -1: shortRotationsStrategy_=0; maxRotationLength_+=0; oneSinkNodePerLastDay_ = true; break;
-
 		// UNKNOWN STRATEGY
 		default:
 			std::cout << "# Unknown strategy for the subproblem (" << strategy << ")" << std::endl;
@@ -284,9 +276,6 @@ public:
 	        const spp_res_cont& old_cont,
 	        boost::graph_traits<Graph>::edge_descriptor ed ) const{
 		const Arc_Properties& arc_prop = get( boost::edge_bundle, g )[ed];
-		int s = source( ed, g ), t = target( ed, g );
-		if(s==0 && t ==165)
-		    s = 0;
 		const Vertex_Properties& vert_prop = get( boost::vertex_bundle, g )[target( ed, g )];
 		new_cont.cost = old_cont.cost + arc_prop.cost;
 
@@ -395,7 +384,7 @@ public:
 
 	// Constructor that correctly sets the resource (time + bounds), but NOT THE COST
 	//
-  SubProblem(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState, bool noShort = true);
+  SubProblem(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState);
 
 	// Initialization function for all global variables (not those of the graph)
 	//
@@ -537,16 +526,15 @@ protected:
 	// Initializes the startWeekendCost vector
 	void initStartWeekendCosts();
 
-    // Number of labels to use
-    //
-    int nLabels_;
+	int CDMin_;	// Minimum number of consecutive days worked for free
 
 	int daysMin_;      // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwise
 
-	int CDMin_;	// Minimum number of consecutive days worked for free
+  int nLabels_; // Number of labels to use
 
-	bool  noShort_;        //   false if short rotations enabled;  true otherwise
-  
+  int maxRotationLength_;  // MAXIMUM LENGTH OF A ROTATION (in consecutive worked days)
+
+
 	//-----------------------
 	// THE NODES
 	//-----------------------
@@ -624,7 +612,7 @@ protected:
 	// Initiate variables for the arcs structures (integers, vectors, etc.)
 	void initArcsStructures();
 	// Create the specific types of arcs
-	void createArcsSourceToPrincipal();
+	virtual void createArcsSourceToPrincipal();
 	void createArcsPrincipalToPrincipal();
 	void createArcsAllRotationSize();
 
@@ -632,8 +620,12 @@ protected:
 	// Some arcs always have the same cost (0). Hence, their cost may not be changed
 	void initBaseCostArcs();
 	void updateCostArcs();
-  double costArcPrincipal(int a, int k, int shiftID);
-  double costArcSource(int a, int k, int shiftID);
+
+    bool feasibleArcSource(int k, int n, int shiftID);
+    double costArcSource(int a, int k, int shiftID);
+    double costArcPrincipal(int a, int k, int shiftID);
+    double costArcEnd(int a, int k);
+
 
 	// Get info with the arc ID
 	inline const Arc_Properties & arc(int a) const {
@@ -685,11 +677,6 @@ protected:
 	virtual void updateArcCosts();
 	// For tests, must be able to randomly generate costs
 	void generateRandomCosts(double minVal, double maxVal);
-
-
-	// DATA -- MAXIMUM LENGTH OF A ROTATION (in consecutive worked days)
-	//
-	int maxRotationLength_;
 
 
 	// FUNCTIONS -- MAXIMUM LENGTH OF A ROTATION
@@ -927,6 +914,8 @@ protected:
 
 	// Initializes some cost vectors that depend on the nurse
 	void initStructuresForSolve();
+
+	void createArcsSourceToPrincipal();
 
 	// DATA -- COSTS
 	//

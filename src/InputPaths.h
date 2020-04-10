@@ -25,7 +25,7 @@ public:
 	InputPaths();
 	InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices,
 		std::string solutionPath="",std::string logPath="", std::string paramFile="" , double timeOut=3600.0,
-		   int randSeed=0, bool noShort = false);
+		   int randSeed=0, bool shortSP = true);
 
 protected:
 	std::string instance_;
@@ -39,7 +39,7 @@ protected:
 	std::string paramFile_="";
 	int randSeed_=0;
 	double timeOut_=3600;
-    bool  noShort_ = true;
+	bool  shortSP_ = true;
 
 public:
 	// get/set attributes
@@ -69,8 +69,8 @@ public:
   double timeOut() {return timeOut_;}
   inline void timeOut(double t) {timeOut_= t;}
 
-  bool noShort() {return noShort_;}
-  inline void noShort(bool b) {noShort_ = b;}
+  bool shortSP() {return shortSP_;}
+  inline void shortSP(bool b) {shortSP_ = b;}
 };
 
 #endif

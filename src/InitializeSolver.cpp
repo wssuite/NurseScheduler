@@ -77,8 +77,8 @@ InputPaths* readNonCompactArguments(int argc, char** argv) {
 			pInputPaths->randSeed(std::stoi(str));
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--noShort")) {
-		    pInputPaths->noShort(std::stoi(str));
+		else if (!strcmp(argv[narg],"--short-sp")) {
+		    pInputPaths->shortSP(std::stoi(str));
 			narg += 2;
 		}
 		else {
@@ -107,7 +107,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	//
 	std::string dataDir = "",instanceName = "",solutionPath="",logPath="",paramFile="";
 	int historyIndex = 0, randSeed=0;
-	bool noShort = true;
+	bool shortSP = true;
 	std::vector<int> weekIndices;
 	double timeOut = LARGE_TIME;
 
@@ -164,8 +164,8 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 			randSeed = std::stoi(str);
 			narg += 2;
 		}
-		else if (!strcmp(arg,"--noShort")) {
-			noShort = std::stoi(str);
+		else if (!strcmp(arg,"--short-sp")) {
+      shortSP = std::stoi(str);
 			narg += 2;
 		}
 		else {
@@ -178,7 +178,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	// Initialize the input paths
 	//
 	InputPaths* pInputPaths =
-	  new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,timeOut,randSeed,noShort);
+	  new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,timeOut,randSeed,shortSP);
 
 	return pInputPaths;
 }

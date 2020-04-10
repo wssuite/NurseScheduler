@@ -47,7 +47,7 @@ public:
 
 	// GETTERS
 	//
-	inline double dayShiftWorkCost(int day, int shift){return (workCosts_[day][shift]);}
+	inline double dayShiftWorkCost(int day, int shift){return (workCosts_[day][shift-1]);}
 	inline double startWorkCost(int day){return (startWorkCosts_[day]);}
 	inline double endWorkCost(int day){return (endWorkCosts_[day]);}
 	inline double workedWeekendCost(){return workedWeekendCost_;}

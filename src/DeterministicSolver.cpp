@@ -42,11 +42,9 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 	}
 	std::cout << std::endl;
 
-	if (inputPaths.noShort()) {
-	  completeParameters_.sp_default_strategy_ = -1;
-	  rollingParameters_.sp_default_strategy_ = -1;
-	  lnsParameters_.sp_default_strategy_ = -1;
-	}
+  completeParameters_.sp_short_ = inputPaths.shortSP();
+  rollingParameters_.sp_short_ = inputPaths.shortSP();
+  lnsParameters_.sp_short_ = inputPaths.shortSP();
 
 	if (!options_.logfile_.empty()) {
 		FILE * pFile;

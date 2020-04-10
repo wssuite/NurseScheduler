@@ -198,7 +198,7 @@ void Rotation::checkDualCost(DualCosts& costs){
 
 	/* Working dual cost */
 	for(int k=firstDay_; k<firstDay_+length_; ++k)
-		dualCost -= costs.dayShiftWorkCost(k, shifts_[k]-1);
+		dualCost -= costs.dayShiftWorkCost(k, shifts_[k]);
 	/* Start working dual cost */
 	dualCost -= costs.startWorkCost(firstDay_);
 	/* Stop working dual cost */
@@ -227,7 +227,7 @@ void Rotation::checkDualCost(DualCosts& costs){
 		cout << "#       | Initial rest      : " << initRestCost_ << endl;
 
 		for(int k=firstDay_; k<firstDay_+length_; ++k)
-			cout << "#   | Work day-shift: - " << costs.dayShiftWorkCost(k, shifts_[k]-1) << endl;
+			cout << "#   | Work day-shift: - " << costs.dayShiftWorkCost(k, shifts_[k]) << endl;
 		cout << "#   | Start work    : - " << costs.startWorkCost(firstDay_) << endl;
 		cout << "#   | Finish Work   : - " << costs.endWorkCost(firstDay_+length_-1) << endl;
 		if(Tools::isSunday(firstDay_))

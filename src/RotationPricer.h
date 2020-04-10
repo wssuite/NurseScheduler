@@ -72,6 +72,7 @@ protected:
    //            been reached. Here, we could have all the parameters as fields but they would be too many.
    //
    bool withSecondchance_ = false;
+   bool shortSubproblem_ = true;
    int defaultSubprobemStrategy_ = 0;
    int secondchanceSubproblemStrategy_ = 0;
    int currentSubproblemStrategy_ = 0;
