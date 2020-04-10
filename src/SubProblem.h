@@ -409,6 +409,7 @@ public:
 	//
 	inline bool isUnlimited(int sh){return isUnlimited_[sh];}
 
+	virtual void build();
 
 protected:
 

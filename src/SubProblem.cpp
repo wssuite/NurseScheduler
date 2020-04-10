@@ -31,19 +31,25 @@ static int MAX_TIME = 99999;
 
 // 1 resource comparisons (== and <)
 bool operator==( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) {
-    if ( res_cont_1.cost != res_cont_2.cost ) return false;
+    if ( res_cont_1.cost != res_cont_2.cost )
+      return false;
     for (int l=0; l<res_cont_1.size(); ++l)
-        if ( res_cont_1.label_value(l) != res_cont_2.label_value(l) ) return false;
-	return true;
+        if ( res_cont_1.label_value(l) != res_cont_2.label_value(l) )
+          return false;
+	  return true;
 }
 
 bool operator<( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ){
-    if ( res_cont_1.cost < res_cont_2.cost ) return true;
-    if ( res_cont_1.cost > res_cont_2.cost ) return false;
+    if ( res_cont_1.cost < res_cont_2.cost )
+      return true;
+    if ( res_cont_1.cost > res_cont_2.cost )
+      return false;
     for (int l=0; l<res_cont_1.size(); ++l) {
         int v1 = res_cont_1.label_value(l), v2 = res_cont_2.label_value(l);
-        if (v1 < v2) return labelsOrder[l]; // if order is descending -> true
-        if (v1 > v2) return !labelsOrder[l]; // if order is descending -> !true
+        if (v1 < v2)
+          return labelsOrder[l]; // if order is descending -> true
+        if (v1 > v2)
+          return !labelsOrder[l]; // if order is descending -> !true
     }
     // are equal -> false
     return false;
@@ -67,37 +73,36 @@ SubProblem::SubProblem(Scenario * scenario, int nbDays, const Contract * contrac
 					pScenario_(scenario), nDays_(nbDays), pContract_ (contract),
 					CDMin_(contract->minConsDaysWork_), daysMin_(1), nLabels_(2),
 					maxRotationLength_(nbDays) {
-
-  // CDMin_ = daysMin_ = 1;
-
-
-	init(pInitState);
-
-	//	initShortSuccessions();
-
-	createNodes();
-	createArcs();
-
-	// Set all status to authorized
-	for(int k=0; k<nDays_; k++){
-		vector<bool> v;
-		for(int s=0; s<pScenario_->nbShifts_; s++)
-			v.push_back(true);
-		dayShiftStatus_.push_back(v);
-	}
-	for(int k=0; k<nDays_; k++) startingDayStatus_.push_back(true);
-
-	nPathsMin_ = 0;
-
-	//std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
-
-	//printGraph();
-
-	timeInS_ = new Tools::Timer(); timeInS_->init();
-	timeInNL_ = new Tools::Timer(); timeInNL_->init();
+  init(pInitState);
 }
 
 SubProblem::~SubProblem(){}
+
+void SubProblem::build() {
+
+  //	initShortSuccessions();
+
+  createNodes();
+  createArcs();
+
+  // Set all status to authorized
+  for(int k=0; k<nDays_; k++){
+    vector<bool> v;
+    for(int s=0; s<pScenario_->nbShifts_; s++)
+      v.push_back(true);
+    dayShiftStatus_.push_back(v);
+  }
+  for(int k=0; k<nDays_; k++) startingDayStatus_.push_back(true);
+
+  nPathsMin_ = 0;
+
+  //std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
+
+  //printGraph();
+
+  timeInS_ = new Tools::Timer(); timeInS_->init();
+  timeInNL_ = new Tools::Timer(); timeInNL_->init();
+}
 
 // Initialization function
 void SubProblem::init(vector<State>* pInitState){
