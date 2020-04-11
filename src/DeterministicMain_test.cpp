@@ -6,11 +6,11 @@
 //  Copyright (c) 2016 Jeremy Omer. All rights reserved.
 //
 
-#include "InitializeSolver.h"
-#include "ReadWrite.h"
-#include "MasterProblem.h"
-#include "DeterministicSolver.h"
-#include "MyTools.h"
+#include "solvers/InitializeSolver.h"
+#include "tools/ReadWrite.h"
+#include "solvers/MasterProblem.h"
+#include "solvers/DeterministicSolver.h"
+#include "tools/MyTools.h"
 
 // some include files to go through the files of an input directory
 #include <dirent.h>

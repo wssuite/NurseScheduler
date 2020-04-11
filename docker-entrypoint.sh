@@ -13,12 +13,15 @@ function printBashUsage {
   echo "-t | --timeout: timeout for the solver or the stage. Default: based on the number of nurses and weeks in the instance."
   echo "-o | --output: directory for the output. Default: outfiles/{instance}/{timestamp} or outfiles/{instance}/{seeds}_{timestamp} if dynamic"
   echo "-g | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
+  echo "-v | --valgrind: use valgrind to run the code. Default: false."
 }
 
 # load config arguments
 echo "$@"
+valgrindCMD="valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes "
 instance_description="n005w4_1-2-3-3_0"
 dynamic_args=""
+other_args=""
 while [ ! -z $1 ]; do
   case $1 in
     -h|--help) printBashUsage
@@ -32,10 +35,9 @@ while [ ! -z $1 ]; do
    -ec | --evaluation-config) evalParam=$2; shift 2;;
    -g | --goal) goal=$2; shift 2;;
    -d | --dynamic) dynamic="1"; shift 1;;
-   -*|--*) echo "Option unknown: $1"
-      echo
-      printBashUsage
-      exit 2;;
+   -v | -valgrind) valgrind="1"; shift 1;;
+   -*|--*) echo "Option unknown: $1. It will be passed to the scheduler."
+      other_args="$other_args $1 $2"; shift 2;;
    *) echo "Cannot parse this argument: $1"
       printBashUsage
       exit 2;;
@@ -68,15 +70,23 @@ if [ -z $dynamic ]; then
 		param="paramfiles/default.txt"
 	fi
 
-	# run the scheduler
-	echo "Run: ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param $param --sol $outputDir --timeout $timeout"
-	./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param paramfiles/$param --sol $outputDir --timeout $timeout
+  if [ -z $valgrind ]; then
+  	# run the scheduler
+  	echo "Run: ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param $param --sol $outputDir --timeout $timeout $other_args"
+  	./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param paramfiles/$param --sol $outputDir --timeout $timeout $other_args
 
-	# run the validator
-	./validator.sh $instance $weeks $hist $outputDir
+  	# run the validator
+  	./validator.sh $instance $weeks $hist $outputDir
+  else
+    # run the scheduler with valgrind
+  	echo "Run: $valgrindCMD ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param $param --sol $outputDir --timeout $timeout $other_args"
+  	$valgrindCMD ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param paramfiles/$param --sol $outputDir --timeout $timeout $other_args
+
+    exit 0
+  fi
 else
 	# generate script
-	source ./scripts/writeDynamicRun.sh $dynamic_args
+	source ./scripts/writeDynamicRun.sh $dynamic_args $other_args
 
   # copy config files
 	if [ ! -z $param ]; then

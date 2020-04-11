@@ -1,5 +1,7 @@
 FROM legraina/bcp
 
+# install valgrind
+
 # create a user
 RUN useradd -ms /bin/bash poly
 

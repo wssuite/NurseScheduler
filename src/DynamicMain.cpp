@@ -8,16 +8,16 @@
 
 #include <exception>
 
-#include "MyTools.h"
-#include "ReadWrite.h"
-#include "DemandGenerator.h"
-#include "Greedy.h"
-#include "MasterProblem.h"
-#include "StochasticSolver.h"
-#include "SubProblem.h"
+#include "tools/MyTools.h"
+#include "tools/ReadWrite.h"
+#include "tools/DemandGenerator.h"
+#include "solvers/Greedy.h"
+#include "solvers/MasterProblem.h"
+#include "solvers/StochasticSolver.h"
+#include "solvers/mp/SubProblem.h"
 //#include "CbcModeler.h"
-#include "MyTools.h"
-#include "InitializeSolver.h"
+#include "tools/MyTools.h"
+#include "solvers/InitializeSolver.h"
 
 /******************************************************************************
 * Solve one week inside the stochastic process

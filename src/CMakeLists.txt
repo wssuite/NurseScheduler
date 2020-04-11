@@ -1,32 +1,11 @@
-project(nursescheduler)
+add_subdirectory(data)
+add_subdirectory(solvers)
+add_subdirectory(tools)
 
 set(SOURCE_FILES
-        BcpModeler.cpp
-#        CbcModeler.cpp
-        Demand.cpp
-        DemandGenerator.cpp
-        DeterministicSolver.cpp
-        GlobalStats.cpp
-        Greedy.cpp
-        InitializeSolver.cpp
-        InputPaths.cpp
-        MasterProblem.cpp
-        MyTools.cpp
-        Nurse.cpp
-        ReadWrite.cpp
-        Roster.cpp
-        RotationPricer.cpp
-        Scenario.cpp
-        Solver.cpp
-        StochasticSolver.cpp
-        SubProblem.cpp
-        TreeManager.cpp
-        DeterministicMain_test.cpp RCGraph.cpp RCGraph.h)
-
-#ifdef USE_CBC
-#include "CbcModeler.h"
-#endif
+        DeterministicMain_test.cpp
+        )
 
 # build the dynamic library
 add_library(${NURSE_SCHEDULER_LIB} SHARED ${SOURCE_FILES})
-target_link_libraries(${NURSE_SCHEDULER_LIB} ${LIBS})
+target_link_libraries(${NURSE_SCHEDULER_LIB} data solvers tools ${LIBS})

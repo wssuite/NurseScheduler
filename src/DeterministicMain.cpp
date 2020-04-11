@@ -6,15 +6,15 @@
 //  Copyright (c) 2014 Jeremy Omer. All rights reserved.
 //
 
-#include "InitializeSolver.h"
-#include "MyTools.h"
-#include "ReadWrite.h"
-#include "Solver.h"
+#include "solvers/InitializeSolver.h"
+#include "tools/MyTools.h"
+#include "tools/ReadWrite.h"
+#include "solvers/Solver.h"
 //#include "Greedy.h"
 #include <exception>
-#include "Modeler.h"
-#include "MasterProblem.h"
-#include "DeterministicSolver.h"
+#include "solvers/mp/modeler/Modeler.h"
+#include "solvers/MasterProblem.h"
+#include "solvers/DeterministicSolver.h"
 #include "DeterministicMain_test.h"
 
 
