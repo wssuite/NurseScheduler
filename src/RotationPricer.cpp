@@ -318,7 +318,7 @@ void RotationPricer::addRotationsToMaster(){
 		allNewColumns_.push_back(pMaster_->addRotation(rot, baseName));
 		++nbRotationsAdded;
 		// DBG
-		//cout << rot.toString(nbDays_) << endl;
+//		cout << rot.toString(nbDays_, pScenario_->shiftIDToShiftTypeID_) << endl;
 		if(nbRotationsAdded >= nbMaxRotationsToAdd_)
 			break;
 	}

@@ -21,7 +21,7 @@ set(SOURCE_FILES
         StochasticSolver.cpp
         SubProblem.cpp
         TreeManager.cpp
-        DeterministicMain_test.cpp)
+        DeterministicMain_test.cpp RCGraph.cpp RCGraph.h)
 
 #ifdef USE_CBC
 #include "CbcModeler.h"

@@ -413,13 +413,13 @@ public:
 
 	// Subproblem options
 	//
-	int sp_default_strategy_ = 0;
+	int sp_default_strategy_ = 1;
 	int sp_secondchance_strategy_ = 1;
 	int sp_nbrotationspernurse_ = 20;
 	int sp_nbnursestoprice_ = 15;
 	bool sp_withsecondchance_ = false;
-    bool sp_short_ = true;
-    double sp_max_reduced_cost_bound_ = 0.0;
+  bool sp_short_ = true;
+  double sp_max_reduced_cost_bound_ = 0.0;
 
 public:
 	// Initialize all the parameters according to a small number of options that
