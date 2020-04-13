@@ -9,6 +9,11 @@
 
 #include "solvers/Greedy.h"
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+
 // method that insert a value and the associated index in vectros of values and
 // indices so that the value vector is sorted in ascending order
 void insertInVectors(double value, int index,
@@ -77,7 +82,7 @@ Greedy::Greedy(Scenario* pScenario, Demand* pDemand,
   // initialize the vector of excess in available nurses for a task with respect
   // to minimum demand
   //
-  Tools::initVector3D(&shiftDemand_, pDemand_->nbDays_, pScenario_->nbShifts_, pScenario_->nbSkills_);
+  Tools::initVector3D(shiftDemand_, pDemand_->nbDays_, pScenario_->nbShifts_, pScenario_->nbSkills_, 0);
   for (int day = 0; day < pDemand_->nbDays_; day++){
     for (int sh = 1; sh < pScenario_->nbShifts_; sh++) {
       for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
@@ -581,7 +586,7 @@ void Greedy::assignBestNursesToTask(int day, int sh, int sk, int demand,
   if (isMinDemand && day+1 < pDemand_->nbDays_) {
     std::sort (indexcostvect.begin(), indexcostvect.end(), compareCosts);
 
-    vector3D shiftDemandTmp = shiftDemand_;
+    vector3D<int> shiftDemandTmp = shiftDemand_;
     for (int n = 0; n < nbUnassigned; n++) {
 
       if (indexcostvect[n].cost >= 1.0e6) break;
@@ -902,9 +907,9 @@ void Greedy::computeImplicitDemand() {
   }
 
   // the implicit demand must be constructed end to beginning
-  vector3D implicitDemand;
-  Tools::initVector3D(&implicitDemand,nbDays,nbShifts,nbSkills,0);
-  vector3D demandTmp = pDemand_->minDemand_;
+  vector3D<int> implicitDemand;
+  Tools::initVector3D(implicitDemand,nbDays,nbShifts,nbSkills,0);
+  vector3D<int> demandTmp = pDemand_->minDemand_;
 
   for (int day= nbDays-1; day > 0; day--) {
     for (int sh:shiftsSorted_) {

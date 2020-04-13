@@ -8,10 +8,17 @@
 
 #include <sstream>
 #include <string>
+#include <solvers/Solver.h>
 
 #include "data/Scenario.h"
+#include "data/Nurse.h"
 #include "tools/MyTools.h"
 
+
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
 
 //-----------------------------------------------------------------------------
 //
@@ -158,8 +165,8 @@ Scenario::Scenario(string name, int nbWeeks,
 		   int nbShifts, vector<string> intToShift, map<string,int> shiftToInt,
 		   vector<int> hoursToWork, vector<int> shiftIDToShiftTypeID,
 		   int nbShiftsType, vector<string> intToShiftType, map<string,int> shiftTypeToInt,
-		   vector<vector<int> > shiftTypeIDToShiftID, vector<int> minConsShiftType, vector<int> maxConsShiftType,
-		   vector<int> nbForbiddenSuccessors, vector2D forbiddenSuccessors,
+		   vector2D<int> shiftTypeIDToShiftID, vector<int> minConsShiftType, vector<int> maxConsShiftType,
+		   vector<int> nbForbiddenSuccessors, vector2D<int> forbiddenSuccessors,
 		   int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
 		   int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt) :
   name_(name), nbWeeks_(nbWeeks),
@@ -212,7 +219,7 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
 	// Load the input week demand and preferences
 	//
 	this->linkWithDemand(pDemand);
-	this->linkWithPreferences(*pWeekPreferences);
+	this->linkWithPreferences(pWeekPreferences);
 }
 
 Scenario::Scenario(Scenario* pScenario):name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
@@ -246,7 +253,13 @@ Scenario::~Scenario(){
 		pPositions_.pop_back();
 	}
 
+	delete pWeekPreferences_;
 	delete pWeekDemand_;
+}
+
+void Scenario::setWeekPreferences(Preferences* weekPreferences){
+  delete pWeekPreferences_;
+  pWeekPreferences_ = weekPreferences;
 }
 
 // return true if the shift shNext is a forbidden successor of sh
@@ -306,6 +319,31 @@ bool Scenario::isForbiddenSuccessorShiftType_ShiftType(int shTypeNext, int shTyp
 	return false;
 }
 
+const int Scenario::minTotalShiftsOf(int whichNurse) const {
+  return theNurses_[whichNurse].minTotalShifts();
+}
+int Scenario::maxTotalShiftsOf(int whichNurse) const {
+  return theNurses_[whichNurse].maxTotalShifts();
+}
+int Scenario::minConsDaysWorkOf(int whichNurse) const {
+  return theNurses_[whichNurse].minConsDaysWork();
+}
+int Scenario::maxConsDaysWorkOf(int whichNurse) const {
+  return theNurses_[whichNurse].maxConsDaysWork();
+}
+int Scenario::minConsDaysOffOf(int whichNurse) const {
+  return theNurses_[whichNurse].maxConsDaysOff();
+}
+int Scenario::maxConsDaysOffOf(int whichNurse) const {
+  return theNurses_[whichNurse].maxConsDaysOff();
+}
+int Scenario::maxTotalWeekendsOf(int whichNurse) const {
+  return theNurses_[whichNurse].maxTotalWeekends();
+}
+bool Scenario::isCompleteWeekendsOf(int whichNurse) const {
+  return theNurses_[whichNurse].needCompleteWeekends();
+}
+
 // return the min/max consecutive shifts of the same type as the argument
 
 int Scenario::minConsShiftsOfTypeOf(int whichShift) {
@@ -330,19 +368,28 @@ int Scenario::maxConsShiftsOf(int whichShiftType) {
 
 // update the scenario to treat a new week
 //
-void Scenario::updateNewWeek(Demand* pDemand, Preferences& preferences, vector<State> &initialStates) {
-
-	// delete the current demand
-	if(pWeekDemand_) delete pWeekDemand_;
+void Scenario::updateNewWeek(Demand* pDemand, Preferences* pPreferences, vector<State> &initialStates) {
 
 	// set the demand, preferences and initial states
 	this->linkWithDemand(pDemand);
-	this->linkWithPreferences(preferences);
+	this->linkWithPreferences(pPreferences);
 	this->setInitialState(initialStates);
 
 	// update the index of the week
 	thisWeek_++;
+}
 
+inline void Scenario::linkWithPreferences(Preferences* pPreferences) {
+  delete pWeekPreferences_;
+  pWeekPreferences_ = pPreferences;
+  nbShiftOffRequests_ = 0;
+  for (Nurse nurse:theNurses_) {
+    nbShiftOffRequests_ += pWeekPreferences_->howManyShiftsOff(nurse.id_);
+  }
+  nbShiftOnRequests_ = 0;
+  for (Nurse nurse:theNurses_) {
+    nbShiftOnRequests_ += pWeekPreferences_->howManyShiftsOn(nurse.id_);
+  }
 }
 
 //------------------------------------------------
@@ -405,7 +452,7 @@ string Scenario::toString(){
 		rep << "# WISHED SHIFTS OFF" << std::endl;
 		for(Nurse nurse:theNurses_){
 			// Display only if the nurse has preferences
-			map<int,vector<Wish> >* prefNurse = weekPreferences_.nurseWishesOff(nurse.id_);
+			map<int,vector<Wish> >* prefNurse = pWeekPreferences_->nurseWishesOff(nurse.id_);
 			if(!prefNurse->empty()){
 				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
 				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
@@ -423,7 +470,7 @@ string Scenario::toString(){
 		}
 		for(Nurse nurse:theNurses_){
 			// Display only if the nurse has preferences
-			map<int,vector<Wish> >* prefNurse = weekPreferences_.nurseWishesOn(nurse.id_);
+			map<int,vector<Wish> >* prefNurse = pWeekPreferences_->nurseWishesOn(nurse.id_);
 			if(!prefNurse->empty()){
 				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
 				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
@@ -598,7 +645,7 @@ bool comparePairSecond(pair<int,int> p1, pair<int,int> p2) {
 }
 
 
-// compute the connex components of the positions graph
+// compute the connex components of the positions rcspp
 // (one edge between two positions indicate that they share a skill)
 //
 void Scenario::computeConnexPositions() {

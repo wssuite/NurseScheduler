@@ -15,8 +15,6 @@
 #include "data/Scenario.h"
 #include "data/Nurse.h"
 
-using std::vector;
-
 
 //-----------------------------------------------------------------------------
 // struct task:
@@ -47,11 +45,11 @@ public:
 
   // Constructor: initialize planning from an input set of shifts for the nurse
   //
-  Roster(int nbDays, int firstDay, vector<int> shifts);
+  Roster(int nbDays, int firstDay, const std::vector<int>& shifts);
 
   // Constructor: initialize planning from an input set of shifts and skills
   //
-  Roster(int nbDays, int firstDay, vector<int> shifts, vector<int> skills);
+  Roster(int nbDays, int firstDay, const std::vector<int>& shifts, const std::vector<int>& skills);
 
   // Destructor
   ~Roster();
@@ -72,13 +70,13 @@ private:
   // the vector contains exactly one element per day
   // the shift 0 corresponds to a rest
   //
-  vector<int> shifts_;
+  std::vector<int> shifts_;
 
   // vector containing for each day the shift assigned to the nurse
   // the vector contains exactly one element per day
   // if the nurse is resting, the skill has no importance
   //
-  vector<int> skills_;
+  std::vector<int> skills_;
 
 public:
   // Basic getters
@@ -99,7 +97,7 @@ public:
   // get a vector of consecutive states that will result from applying the
   // the roster from a given initial state
   //
-  vector<State> getStates(const State& pStateIni, Scenario* pScenario);
+  std::vector<State> getStates(const State& pStateIni, Scenario* pScenario);
 
   // assign a task at on a given day
   //

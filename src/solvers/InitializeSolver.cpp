@@ -23,6 +23,10 @@ unsigned int MyObject::s_count = 0;
 unsigned int Rotation::s_count = 0;
 
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
 
 /******************************************************************************
 * Read the arguments in non compact format
@@ -189,8 +193,8 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 Scenario* initializeScenario(string scenPath, string demandPath, string historyPath, string logPath) {
 
 	// Initialize demand and preferences
-	Demand* pDemand(0);
-	Preferences* pPref(0);
+	Demand* pDemand(nullptr);
+	Preferences* pPref(nullptr);
 
 	// Read the scenario
 	Scenario* pScen = ReadWrite::readScenario(scenPath);
@@ -198,7 +202,7 @@ Scenario* initializeScenario(string scenPath, string demandPath, string historyP
 	// Read the demand and preferences and link them with the scenario
 	ReadWrite::readWeek(demandPath, pScen,&pDemand,&pPref);
 	pScen->linkWithDemand(pDemand);
-	pScen->linkWithPreferences(*pPref);
+	pScen->linkWithPreferences(pPref);
 
 	// Read the history
 	ReadWrite::readHistory(historyPath, pScen);
@@ -210,16 +214,14 @@ Scenario* initializeScenario(string scenPath, string demandPath, string historyP
 		logStream << pScen->pWeekDemand()->toString(true) << std::endl;
 	}
 
-	delete pPref;
-
 	return pScen;
 }
 
 Scenario* initializeScenario(const InputPaths & inputPaths, string logPath) {
 
 	// Initialize demand and preferences
-	Demand* pDemand(0);
-	Preferences* pPref(0);
+	Demand* pDemand(nullptr);
+	Preferences* pPref(nullptr);
 
 	// Read the scenario
 	Scenario* pScen = ReadWrite::readScenario(inputPaths.scenario());
@@ -227,7 +229,7 @@ Scenario* initializeScenario(const InputPaths & inputPaths, string logPath) {
 	// Read the demand and preferences and link them with the scenario
 	ReadWrite::readWeek(inputPaths.week(0), pScen,&pDemand,&pPref);
 	pScen->linkWithDemand(pDemand);
-	pScen->linkWithPreferences(*pPref);
+	pScen->linkWithPreferences(pPref);
 
 	// Read the history
 	ReadWrite::readHistory(inputPaths.history(), pScen);
@@ -302,7 +304,7 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 
 	vector<Scenario*> scenariosPerComponent;
 
-	// First, identify the connex components of the graph of positions
+	// First, identify the connex components of the rcspp of positions
 	pScenario->computeConnexPositions();
 
 
@@ -313,15 +315,11 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 		// retrieve a vector containing the indices of the skills contained in the component (decreasing order)
 		// use a set first, because it manages duplicate skills automatically
 		std::set<int> skillsInTheComponent;
-		for (Position* pPosition: positionsInTheComponent) {
-			for (int skill: pPosition->skills()) {
+		for (Position* pPosition: positionsInTheComponent)
+			for (int skill: pPosition->skills())
 				skillsInTheComponent.insert(skill);
-			}
-		}
-		vector<int> skillsVector;
-		for (set<int>::iterator it = skillsInTheComponent.begin(); it != skillsInTheComponent.end(); it++) {
-			skillsVector.push_back(*it);
-		}
+
+		vector<int> skillsVector(skillsInTheComponent.begin(), skillsInTheComponent.end());
 		std::stable_sort(skillsVector.begin(),skillsVector.end(), Tools::compareDecreasing);
 
 		// build a vector containinf the skills that need to be removed from the scenario
@@ -348,8 +346,8 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 		Demand* pDemand = pScenario->pWeekDemand();
 
 		// erase the skills to remove from the minimum and optimal demands
-		vector3D minDemand = pDemand->minDemand_;
-		vector3D optDemand = pDemand->optDemand_;
+		vector3D<int> minDemand = pDemand->minDemand_;
+		vector3D<int> optDemand = pDemand->optDemand_;
 		for (int day = 0; day < pDemand->nbDays_; day++) {
     		for (int shift = 0; shift < pDemand->nbShifts_; shift++) {
 				for (int skill:skillsToRemove) {

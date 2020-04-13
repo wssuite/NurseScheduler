@@ -16,12 +16,6 @@
 #include "tools/MyTools.h"
 #include "data/Demand.h"
 
-using std::map;
-using std::pair;
-using std::set;
-using std::string;
-using std::vector;
-
 
 //-----------------------------------------------------------------------------
 //
@@ -39,7 +33,7 @@ public:
 
    // Name of the contract
    //
-   const string name_;
+   const std::string name_;
 
    // Minimum and maximum total number of shifts over the time period
    //
@@ -60,7 +54,7 @@ public:
 
    // Constructor and Destructor
    //
-   Contract(int id, string name, int minTotalShifts, int maxTotalShifts,
+   Contract(int id, std::string name, int minTotalShifts, int maxTotalShifts,
       int minConsDaysWork, int maxConsDaysWork,
       int minConsDaysOff, int maxConsDaysOff,
       int maxTotalWeekends, int needCompleteWeekends) :
@@ -70,9 +64,13 @@ public:
          maxTotalWeekends_(maxTotalWeekends), needCompleteWeekends_(needCompleteWeekends) {
    };
 
+    // Cost function for consecutive identical shifts
+    //
+    double consDaysCost(int n) const;
+
    // Display methods: toString + override operator<< (easier)
    //
-   string toString();
+   std::string toString();
    friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
 };
 
@@ -90,7 +88,7 @@ class Position{
 public:
    // Constructor and Destructor
    //
-   Position(int index, int nbSkills, vector<int> skills);
+   Position(int index, int nbSkills, std::vector<int> skills);
 
    ~Position() {}
 
@@ -106,19 +104,19 @@ public:
    // Vector of skills for this position.
    // For simplicity, the skill indices are sorted.
    //
-   const vector<int> skills_;
+   const std::vector<int> skills_;
 
 private:
    // Positions that are below and above this one in the hierarchy
    // this is deduced from the dominance criterion implemented in compare()
    //
-   vector<Position*> positionsBelow_;
-   vector<Position*> positionsAbove_;
+   std::vector<Position*> positionsBelow_;
+   std::vector<Position*> positionsAbove_;
    int nbBelow_, nbAbove_;
 
    // Rarity of the skills that appear in this position
    //
-   vector<double> skillRarity_;
+   std::vector<double> skillRarity_;
 
    // Rank of the position with regard to the dominance criterion in compare()
    // rank i contains all the positions that are dominated only by positions
@@ -133,7 +131,7 @@ public:
   int id() {return id_;}
   int nbSkills() {return nbSkills_;}
   int skill(int sk) {return skills_[sk];}
-  vector<int> skills() {return skills_;}
+  std::vector<int> skills() {return skills_;}
   int nbBelow() {return nbBelow_;}
   int nbAbove() {return nbAbove_;}
   Position* positionsBelow(int i) {return positionsBelow_[i];}
@@ -147,7 +145,7 @@ public:
 
 	// Display method: toString
 	//
-	string toString() const;
+  std::string toString() const;
 
 	// Compare this position with the input position
 	// The dominance criterion is that a position p1 with skills sk1 dominates p2
@@ -177,7 +175,7 @@ public:
 	// the vector is sorted without record of the corresponding skill because it
 	// is used only to compare two positions with the same rank
 	//
-	void updateRarities(vector<double> allRarities);
+	void updateRarities(std::vector<double> allRarities);
 
 };
 
@@ -202,12 +200,12 @@ public:
    //        override it because vector members should have some properties (assignable a.o., which implies
    //        non-const)
    //
-   Nurse(int id, string name, int nbSkills, vector<int> skills, Contract* contract);
-   Nurse(int id, string name, int nbSkills, vector<int> skills, const Contract* contract);
+   Nurse(int id, std::string name, int nbSkills, std::vector<int> skills, Contract* contract);
+   Nurse(int id, std::string name, int nbSkills, std::vector<int> skills, const Contract* contract);
    ~Nurse();
 
 
-   // the constant attibutes of the nurses are public
+   // the constant attributes of the nurses are public
 public:
 
    //-----------------------------------------------------------------------------
@@ -225,7 +223,7 @@ public:
    // for simplicity, the vector of skills is sorted
    //
    const int nbSkills_;
-   const vector<int> skills_;
+   const std::vector<int> skills_;
 
    // Her contract type
    //
@@ -253,11 +251,11 @@ public:
    // Avanced getters
    //
    bool hasSkill(int skill) const;
-   string contractName() {return pContract_->name_;}
+    std::string contractName() {return pContract_->name_;}
 
    // Display methods: toString
    //
-   string toString() const;
+   std::string toString() const;
 
    // Assignment (requested to build a vector<Nurse>)
    //
@@ -291,7 +289,7 @@ public:
 	Preferences(int nbNurses, int nbDays, int nbShifts);
 
 	// Initialization with a map corresponding to the input nurses and no wished Shift-Off.
-	Preferences(vector<Nurse>& pNurses, int nbDays, int nbShifts);
+	Preferences(std::vector<Nurse>& pNurses, int nbDays, int nbShifts);
 
 protected:
 	// Number of nurses
@@ -309,8 +307,8 @@ protected:
 	// For each nurse, maps the day to the set of shifts that he/she wants to have off
 	//
   //	map<int, map<int,std::set<int> > > wishesOff_;
-	map<int, map<int,std::vector<Wish> > > wishesOff_;
-	map<int, map<int,std::vector<Wish> > > wishesOn_;
+  std::map<int, std::map<int,std::vector<Wish> > > wishesOff_;
+  std::map<int, std::map<int,std::vector<Wish> > > wishesOn_;
 
 public:
 
@@ -325,8 +323,8 @@ public:
         void addDayOn(int nurse, int day, int level);
 
   //	map<int,std::set<int> >* nurseWishesOff(int id) {return &wishesOff_[id];}
-	map<int,std::vector<Wish> >* nurseWishesOff(int id) {return &wishesOff_[id];}
-	map<int,std::vector<Wish> >* nurseWishesOn(int id) {return &wishesOn_[id];}
+  std::map<int,std::vector<Wish> >* nurseWishesOff(int id) {return &wishesOff_[id];}
+    std::map<int,std::vector<Wish> >* nurseWishesOn(int id) {return &wishesOn_[id];}
 
 	// True if the nurses wants that shift off
         bool wantsTheShiftOff(int nurse, int day, int shift);
@@ -364,7 +362,7 @@ public:
 
 	// Display methods: toString + override operator<< (easier)
 	//
-	string toString();
+  std::string toString();
 	friend std::ostream& operator<< (std::ostream& outs, Preferences obj) {return outs << obj.toString();}
 };
 

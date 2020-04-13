@@ -7,6 +7,8 @@
 
 #include "solvers/mp/RotationPricer.h"
 #include "solvers/mp/modeler/BcpModeler.h"
+#include "solvers/mp/rcspp/SubProblemShort.h"
+
 
 /* namespace usage */
 using namespace std;
@@ -288,7 +290,7 @@ SubProblem* RotationPricer::retriveSubproblem(LiveNurse* pNurse){
 	    subProblem = new SubProblemShort(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_);
 	  else
 	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_);
-	  // then build the graph
+	  // then build the rcspp
 	  subProblem->build();
 	    
 	  //	  subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
@@ -318,7 +320,7 @@ void RotationPricer::addRotationsToMaster(){
 		allNewColumns_.push_back(pMaster_->addRotation(rot, baseName));
 		++nbRotationsAdded;
 		// DBG
-//		cout << rot.toString(nbDays_, pScenario_->shiftIDToShiftTypeID_) << endl;
+		std::cout << rot.toString(nbDays_, pScenario_->shiftIDToShiftTypeID_) << std::endl;
 		if(nbRotationsAdded >= nbMaxRotationsToAdd_)
 			break;
 	}

@@ -13,6 +13,12 @@
 
 // #define COMPARE_EVALUATIONS
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+using std::set;
+
 /******************************************************************************
  * Set the options of the stochastic solver
  * This is not automated, so the options need to be changed inside the code
@@ -118,7 +124,7 @@ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions
 StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory, double costPreviousWeeks):
       Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
       options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0), costPreviousWeeks_(costPreviousWeeks){
-   std::cout << "# New stochastic solver created!" << endl;
+   std::cout << "# New stochastic solver created!" << std::endl;
 
    int remainingDays = ( pScenario_->nbWeeks_ - pScenario_->thisWeek() -1 ) * 7;
    options_.nDaysEvaluation_ = std::min(options_.nDaysEvaluation_, remainingDays);
@@ -133,8 +139,6 @@ StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions
    bestSchedule_ = -1;
    nGenerationDemands_ = 0;
    nSchedules_ = 0;
-
-   pEmptyPreferencesForEvaluation_ = new Preferences(pScenario_->nbNurses(), options_.nDaysEvaluation_, pScenario_->nbShifts());
 
    // initialize the log output
    pLogStream_ = new Tools::LogOutput(options_.logfile_);
@@ -187,9 +191,6 @@ StochasticSolver::~StochasticSolver(){
       if(pReusableEvaluationSolvers_.back()) delete pReusableEvaluationSolvers_.back();
       pReusableEvaluationSolvers_.pop_back();
    }
-
-   // delete the empty preference list
-   delete pEmptyPreferencesForEvaluation_;
 }
 
 
@@ -639,14 +640,15 @@ Solver* StochasticSolver::setEvaluationWithInputAlgorithm(Demand* pDemand, vecto
    pScen->linkWithDemand(new Demand ());
 
    // update the scenario to treat next week
-   pScen->updateNewWeek(pDemand, *pEmptyPreferencesForEvaluation_, *stateEndOfSchedule);
+   Preferences * pEmptyPref = new Preferences(pScenario_->nbNurses(), options_.nDaysEvaluation_, pScenario_->nbShifts());
+   pScen->updateNewWeek(pDemand, pEmptyPref, *stateEndOfSchedule);
 
    switch(options_.evaluationAlgorithm_){
    case GREEDY:
-      pSolver = new Greedy(pScen, pDemand, pEmptyPreferencesForEvaluation_, stateEndOfSchedule);
+      pSolver = new Greedy(pScen, pDemand, pEmptyPref, stateEndOfSchedule);
       break;
    case GENCOL:
-      pSolver = new MasterProblem(pScen, pDemand, pEmptyPreferencesForEvaluation_, stateEndOfSchedule, S_CLP);
+      pSolver = new MasterProblem(pScen, pDemand, pEmptyPref, stateEndOfSchedule, S_CLP);
       break;
    default:
       Tools::throwError("The algorithm is not handled yet");
@@ -700,7 +702,7 @@ bool StochasticSolver::evaluateSchedule(int sched){
       double timeLeft = options_.totalTimeLimitSeconds_ - pTimerTotal_->dSinceInit();
       if (nSchedules_ > 0)
          if (timeLeft < 1.0){
-            cout << "# Time has run out when evaluating schedule no." << (nSchedules_-1) << endl;
+            std::cout << "# Time has run out when evaluating schedule no." << (nSchedules_-1) << std::endl;
             return false;
          }
 
@@ -801,8 +803,7 @@ bool StochasticSolver::evaluateSchedule(int sched){
 void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
    (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Starting the update of the scores and ranking." << std::endl;
 
-   vector<double> theNewScores;
-   Tools::initDoubleVector(&theNewScores, nSchedules_, 0);
+   vector<double> theNewScores(nSchedules_, 0);
 
    if(options_.nEvaluationDemands_ == 0){
       for(int sched = 0; sched < nSchedules_; sched++){
@@ -814,13 +815,13 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
    switch(strategy){
    case RK_SCORE:
       for(int j=0; j<options_.nEvaluationDemands_; j++){
-         (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
+         (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << std::endl;
          int localRank = 1;
          map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
-         for(map<double, set<int> >::iterator it = localCosts.begin(); it != localCosts.end(); ++it){
+         for(auto it = localCosts.begin(); it != localCosts.end(); ++it){
             for(int sched : it->second){
                theNewScores[sched] += (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size());
-               (*pLogStream_) << "#     | sched " << sched << " -> " << it->first << " (score += " << (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size()) << ")" << endl;
+               (*pLogStream_) << "#     | sched " << sched << " -> " << it->first << " (score += " << (double)localRank + ((double)(it->second.size() - 1)) / ((double) it->second.size()) << ")" << std::endl;
             }
             localRank += it->second.size();
          }
@@ -828,12 +829,12 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
       break;
    case RK_MEAN:
       for(int j=0; j<options_.nEvaluationDemands_; j++){
-         (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << endl;
+         (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Solution costs for demand no. " << j << std::endl;
          map<double, set<int> > localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
          for(pair<double, set<int> > p: localCosts)
             for(int sched : p.second){
                theNewScores[sched] +=(int) (p.first/(double)options_.nEvaluationDemands_);
-               (*pLogStream_) << "#     | sched " << sched << " -> " <<  p.first << endl;
+               (*pLogStream_) << "#     | sched " << sched << " -> " <<  p.first << std::endl;
             }
       }
       break;

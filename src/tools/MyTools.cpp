@@ -136,75 +136,12 @@ minstd_rand getANewRandomGenerator(int rdmSeed){
 }
 
 //round with probability
-int roundWithProbability(double number){
-   //round with a certain probability to the floor or the ceil
-   double probFactor = number - floor(number);
-   if(randomDouble(0, 1) < probFactor) return (int)floor(number);
-   else return (int)ceil(number);
-}
-
-// Initializes  a vector of the given size (filled only with zeroes)
-//
-void initVector(std::vector<int>* v1D, int m, int val){
-	v1D->clear();
-	for(int i=0; i < m; i++){
-		v1D->push_back(val);
-	}
-}
-
-// Initializes a vector2D of the given size (filled only with zeroes)
-//
-void initVector2D(vector2D* v2D, int m, int n, int val){
-	for (unsigned int i =0; i < v2D->size(); i++) {
-		(*v2D)[i].clear();
-	}
-	v2D->clear();
-	for (int i=0; i<m; i++){
-		std::vector<int> v;
-		initVector(&v, n, val);
-		v2D->push_back(v);
-	}
-}
-
-// Initializes a vector3D of the given size (filled only with zeroes)
-//
-void initVector3D(vector3D* v3D, int m, int n, int p, int val){
-	for (unsigned int i =0; i < v3D->size(); i++) {
-		for (unsigned int j=0; j < v3D->at(i).size(); j++) {
-			(*v3D)[i][j].clear();
-		}
-		(*v3D)[i].clear();
-	}
-	v3D->clear();
-	for (int i=0; i<m; i++){
-		vector2D v2D;
-		initVector2D(&v2D, n, p, val);
-		v3D->push_back(v2D);
-	}
-}
-
-// Initializes  a vector of the given size (filled only with zeroes), for double vectors
-//
-void initDoubleVector(std::vector<double>* v1D, int m, double val){
-	v1D->clear();
-	for(int i=0; i < m; i++){
-		v1D->push_back(val);
-	}
-}
-
-// Initializes  a vector< vector< double > > of the given size (filled only with zeroes), for double vectors
-//
-void initDoubleVector2D(std::vector< std::vector< double > > * v2D, int m, int n, double val){
-	for (unsigned int i =0; i < v2D->size(); i++) {
-		(*v2D)[i].clear();
-	}
-	v2D->clear();
-	for(int i=0; i < m; i++){
-		std::vector<double> v1D;
-		initDoubleVector(&v1D, n, val);
-		v2D->push_back(v1D);
-	}
-}
+int roundWithProbability(double number) {
+    //round with a certain probability to the floor or the ceil
+    double probFactor = number - floor(number);
+    if (randomDouble(0, 1) < probFactor) return (int) floor(number);
+    else return (int) ceil(number);
+  }
 
 // Returns an integer with random value (uniform) within [minVal, maxVal]
 //

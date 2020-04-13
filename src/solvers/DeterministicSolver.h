@@ -81,7 +81,7 @@ public:
 	int totalTimeLimitSeconds_ = LARGE_TIME;
 
 	// Output options
-	string logfile_ = "";
+	std::string logfile_ = "";
 	int verbose_ = 1;
 
 	// Initial random seed for each solution of a new deterministic solver
@@ -178,10 +178,10 @@ protected:
 
 public:
 	// Main function
-	double solve(vector<Roster> initialSolution = {});
+	double solve(std::vector<Roster> initialSolution = {});
 
 	// Solve the problem using a decomposition of the set nurses by connex components
-	// of the graph of positions
+	// of the rcspp of positions
 	double solveByConnexPositions();
 
 protected:

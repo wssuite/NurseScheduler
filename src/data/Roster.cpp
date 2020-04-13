@@ -3,6 +3,11 @@
 #include "tools/MyTools.h"
 
 
+using std::vector;
+using std::map;
+using std::string;
+using std::pair;
+
 // Constructor: initialize planning from nothing
 //
 Roster::Roster(int nbDays, int firstDay) {
@@ -13,7 +18,7 @@ Roster::Roster(int nbDays, int firstDay) {
 
 // Constructor: initialize planning from an input set of shifts for the nurse
 //
-Roster::Roster(int nbDays, int firstDay, vector<int> shifts):
+Roster::Roster(int nbDays, int firstDay, const vector<int>& shifts):
 nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
 
   // initialize the states at each day
@@ -29,7 +34,7 @@ nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
 
 // Constructor: initialize planning from an input set of shifts and skills
 //
-Roster::Roster(int nbDays, int firstDay, vector<int> shifts, vector<int> skills):
+Roster::Roster(int nbDays, int firstDay, const std::vector<int>& shifts, const std::vector<int>& skills):
 nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
 
   // set the skill assignment

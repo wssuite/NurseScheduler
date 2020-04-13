@@ -18,6 +18,11 @@
 #include "DeterministicMain_test.h"
 
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+
 /******************************************************************************
 * Solve the complete planning horizon with the deterministic solver
 ******************************************************************************/

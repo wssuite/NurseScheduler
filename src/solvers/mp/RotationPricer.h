@@ -12,12 +12,8 @@
 
 #include "tools/MyTools.h"
 #include "solvers/MasterProblem.h"
-#include "solvers/mp/SubProblem.h"
+#include "solvers/mp/rcspp/SubProblem.h"
 #include "solvers/mp/modeler/Modeler.h"
-
-/* namespace usage */
-using namespace std;
-
 
 
 //---------------------------------------------------------------------------
@@ -34,7 +30,7 @@ public:
    virtual ~RotationPricer();
 
    /* perform pricing */
-   vector<MyVar*> pricing(double bound=0, bool before_fathom = true);
+   std::vector<MyVar*> pricing(double bound=0, bool before_fathom = true);
 
    // Initialize parameters
    void initPricerParameters(SolverParam param);
@@ -47,14 +43,14 @@ protected:
    Scenario* pScenario_;
    int nbDays_;
    Modeler* pModel_;
-   vector<LiveNurse*> nursesToSolve_;
+    std::vector<LiveNurse*> nursesToSolve_;
    // One subproblem per contract because the consecutive same shift constraints vary by contract.
-   map<const Contract*, SubProblem*> subProblems_;
+   std::map<const Contract*, SubProblem*> subProblems_;
 
    // DATA - Solutions, rotations, etc.
    //
-   vector<MyVar*> allNewColumns_;
-   vector<Rotation> newRotationsForNurse_;
+   std::vector<MyVar*> allNewColumns_;
+    std::vector<Rotation> newRotationsForNurse_;
    int nbRotationsAddedToMasterSoFar_;
 
    // Stats on the number of subproblems solved and successfully solved
@@ -63,10 +59,10 @@ protected:
 
    // SETTINGS - Options for forbidden shifts, nurses, starting days, etc.
    //
-   set<pair<int,int> > forbiddenShifts_;
-   set<int> forbiddenNursesIds_;
-   set<int> forbiddenStartingDays_;
-   set<int> forbiddenEndingDays_;
+   std::set<std::pair<int,int> > forbiddenShifts_;
+    std::set<int> forbiddenNursesIds_;
+    std::set<int> forbiddenStartingDays_;
+    std::set<int> forbiddenEndingDays_;
 
    // SETTINGS - Options for the neighborhood. need of an original to reset at the end of each node when optimality has
    //            been reached. Here, we could have all the parameters as fields but they would be too many.
@@ -101,28 +97,28 @@ public:
    //                   ALREADY BE THERE !!!
    //
    // Shifts
-   inline void forbidShift(int k, int s){forbiddenShifts_.insert(pair<int,int>(k,s));}
-   inline void forbidShifts(set<pair<int,int> > shifts){ for(auto s : shifts) forbidShift(s.first, s.second);}
-   inline void authorizeShift(int k, int s){forbiddenShifts_.erase(pair<int,int>(k,s));}
+   inline void forbidShift(int k, int s){forbiddenShifts_.insert(std::pair<int,int>(k,s));}
+   inline void forbidShifts(const std::set<std::pair<int,int> > &shifts){ for(auto s : shifts) forbidShift(s.first, s.second);}
+   inline void authorizeShift(int k, int s){forbiddenShifts_.erase(std::pair<int,int>(k,s));}
    inline void clearForbiddenShifts(){forbiddenShifts_.clear();}
    // Nurses
    inline void forbidNurse(int nurseId){forbiddenNursesIds_.insert(nurseId);}
-   inline void forbidNurses(set<int,int> nurses){ for(auto n : nurses) forbidNurse(n);}
+   inline void forbidNurses(const std::set<int,int>& nurses){ for(auto n : nurses) forbidNurse(n);}
    inline void authorizeNurse(int nurseId){forbiddenNursesIds_.erase(nurseId);}
    inline void clearForbiddenNurses(){forbiddenNursesIds_.clear();}
    // Starting days
    inline void forbidStartingDay(int k){forbiddenStartingDays_.insert(k);}
-   inline void forbidStartingDays(set<int> days){ for(auto d : days) forbidStartingDay(d);}
+   inline void forbidStartingDays(const std::set<int>& days){ for(int d : days) forbidStartingDay(d);}
    inline void authorizeStartingDay(int k){forbiddenStartingDays_.erase(k);}
    inline void clearForbiddenStartingDays(){forbiddenStartingDays_.clear();}
    // Ending days
    inline void forbidEndingDay(int k){forbiddenEndingDays_.insert(k);}
-   inline void forbidEndingDays(set<int> days){ for(auto d : days) forbidEndingDay(d);}
+   inline void forbidEndingDays(const std::set<int> &days){ for(int d : days) forbidEndingDay(d);}
    inline void authorizeEndingDay(int k){forbiddenEndingDays_.erase(k);}
    inline void clearForbiddenEndingDays(){forbiddenEndingDays_.clear();}
 
    // Test functions
-   inline bool isShiftForbidden(int k, int n){ return (forbiddenShifts_.find(pair<int,int>(k,n)) != forbiddenShifts_.end()); }
+   inline bool isShiftForbidden(int k, int n){ return (forbiddenShifts_.find(std::pair<int,int>(k,n)) != forbiddenShifts_.end()); }
    inline bool isNurseForbidden(int n){ return (forbiddenNursesIds_.find(n) != forbiddenNursesIds_.end()); }
    inline bool isStartingDayForbidden(int k){ return (forbiddenStartingDays_.find(k) != forbiddenStartingDays_.end()); }
    inline bool isEndingDayForbidden(int k){ return (forbiddenEndingDays_.find(k) != forbiddenEndingDays_.end()); }
@@ -143,9 +139,9 @@ protected:
 
    //get the duals values per day and per shift for a nurse
    //
-   vector< vector<double> > getWorkDualValues(LiveNurse* pNurse);
-   vector<double> getStartWorkDualValues(LiveNurse* pNurse);
-   vector<double> getEndWorkDualValues(LiveNurse* pNurse);
+   vector2D<double> getWorkDualValues(LiveNurse* pNurse);
+    std::vector<double> getStartWorkDualValues(LiveNurse* pNurse);
+    std::vector<double> getEndWorkDualValues(LiveNurse* pNurse);
    double getWorkedWeekendDualValue(LiveNurse* pNurse);
 
    //compute some forbidden shifts from the lasts rotations and forbidden shifts

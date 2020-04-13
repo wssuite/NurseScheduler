@@ -24,12 +24,12 @@ public:
 
   // Specific constructor and destructor
   Greedy(Scenario* pScenario, Demand* pDemand,
-  Preferences* pPreferences, vector<State>* pInitState);
+  Preferences* pPreferences, std::vector<State>* pInitState);
   ~Greedy() {}
 
 
   // Main method to solve the rostering problem for a given input
-  double solve(vector<Roster> solution = {});
+  double solve(std::vector<Roster> solution = {});
 
   // Constructive greedy algorithm
   // Goes through the the demands in a chronological order and assign the nurse
@@ -44,7 +44,7 @@ protected:
   // vector defining the sequence according to which the positions should be
   // treated
   // the vector contains the indices of the positions
-  vector<int> sequencePosition_;
+  std::vector<int> sequencePosition_;
 
   // maximum rank for a nurse
   //
@@ -61,7 +61,7 @@ protected:
   // demand
   // necessary to avoid affecting tasks to higher ranked nurses for better cost
   // and then risk to hit an infeasible solution
-  vector3D shiftDemand_;
+  vector3D<int> shiftDemand_;
 
 private:
 
@@ -80,13 +80,13 @@ private:
   // the feasibility of the task
   //
   double costTask(LiveNurse &nurse, int day, int shift, int skill,
-    vector<State>* states = NULL);
+                  std::vector<State>* states = nullptr);
 
   // Assign the unassigned nurses with best costs to the demand input tasks
   // nbAssigned is the number of nurses that have actually obtained a new task
   //
   void assignBestNursesToTask(int day, int shift, int skills, int demand,
-    vector<LiveNurse*>& pUnassignedNurses, int &nbAssigned, bool isMinimum);
+                              std::vector<LiveNurse*>& pUnassignedNurses, int &nbAssigned, bool isMinimum);
 
   // Necessary actions when assigning a task to a nurse
   //
@@ -103,8 +103,9 @@ private:
   // and returns the best result if nbUnassigned days are treated
   // store the assigned shifts and skills in vectors of int
   //
-  double bestStatesBlock_rec(LiveNurse &nurse, vector<State> &statesBlock,
-    vector<int> &shifts, vector<int> &skills, int dayFirst,int nbUnassigned, double costIni);
+  double bestStatesBlock_rec(LiveNurse &nurse, std::vector<State> &statesBlock,
+                             std::vector<int> &shifts, std::vector<int> &skills,
+                             int dayFirst,int nbUnassigned, double costIni);
 
   //----------------------------------------------------------------------------
   // For the initialization of the constructive greedy

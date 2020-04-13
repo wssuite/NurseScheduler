@@ -14,7 +14,7 @@
 #include "solvers/Greedy.h"
 #include "solvers/MasterProblem.h"
 #include "solvers/StochasticSolver.h"
-#include "solvers/mp/SubProblem.h"
+#include "solvers/mp/graph/SubProblem.h"
 //#include "CbcModeler.h"
 #include "tools/MyTools.h"
 #include "solvers/InitializeSolver.h"

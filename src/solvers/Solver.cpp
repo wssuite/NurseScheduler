@@ -11,6 +11,11 @@
 #include "solvers/Solver.h"
 
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S t a t N u r s e C t
@@ -35,15 +40,15 @@ void StatCtNurse::init(int nbDays) {
 	deltaWeekEnds_ = 0;
 
 	// initialize all the cost vectors
-	Tools::initVector(&costConsShifts_, nbDays_);
-	Tools::initVector(&costConsDays_, nbDays_);
-	Tools::initVector(&costConsDaysOff_, nbDays_);
-	Tools::initVector(&costPref_, nbDays_);
-	Tools::initVector(&costWeekEnd_, nbDays_);
+	Tools::initVector(costConsShifts_, nbDays_, 0);
+	Tools::initVector(costConsDays_, nbDays_, 0);
+	Tools::initVector(costConsDaysOff_, nbDays_, 0);
+	Tools::initVector(costPref_, nbDays_, 0);
+	Tools::initVector(costWeekEnd_, nbDays_, 0);
 
 	// initialize the violation vector
-	for (int day = 0; day < nbDays_; day++) violSuccShifts_.push_back(false);
-	for (int day = 0; day < nbDays_; day++) violSkill_.push_back(false);
+  Tools::initVector(violSuccShifts_, nbDays_, false);
+  Tools::initVector(violSkill_, nbDays_, false);
 }
 
 
@@ -439,6 +444,29 @@ void LiveNurse::computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int nbDa
 		+ std::min(nbDaysMin%lengthStintMax, minConsDaysWork());
 }
 
+// Print the contract type + preferences
+void LiveNurse::printContractAndPrefenrences(Scenario *pScenario) const {
+  std::cout << "# Preferences:" << std::endl;
+  for(map<int,vector<Wish> >::iterator it = pWishesOff_->begin(); it != pWishesOff_->end(); ++it){
+    std::cout <<  "      | " << it->first << "  ->  ";
+    for(Wish s : it->second) std::cout << pScenario->intToShift_[s.shift];
+    std::cout << std::endl;
+  }
+  for(map<int,vector<Wish> >::iterator it = pWishesOn_->begin(); it != pWishesOn_->end(); ++it){
+    std::cout <<  "      | " << it->first << "  ->  ";
+    for(Wish s : it->second) std::cout << pScenario->intToShift_[s.shift];
+    std::cout << std::endl;
+  }
+  std::cout << "# Contract :   ";
+  std::cout << "Days [" << pContract_->minConsDaysOff_ << "<" << pContract_->maxConsDaysOff_ << "]   ";
+  for(int s=1; s<pScenario->nbShiftsType_; s++){
+    std::cout << pScenario->intToShiftType_[s] << " [" << pScenario->minConsShiftsOf(s) << "<" << pScenario->maxConsShiftsOf(s) << "]   ";
+  }
+  std::cout << std::endl;
+  std::cout << "# " << std::endl;
+  std::cout << "# " << std::endl;
+}
+
 
 //-----------------------------------------------------------------------------
 //
@@ -694,7 +722,7 @@ void Solver::preprocessTheNurses() {
 
 	// initialize to zero the satisfied demand
 	//
-	Tools::initVector3D(&satisfiedDemand_, nbDays,pScenario_->nbShifts_, pScenario_->nbSkills_);
+	Tools::initVector3D(satisfiedDemand_, nbDays,pScenario_->nbShifts_, pScenario_->nbSkills_, 0);
 
 	isPreprocessedNurses_ = true;
 }
@@ -1395,7 +1423,7 @@ double Solver::computeSolutionCost(int nbDays) {
 	int nbCons = 0, nbWork = 0, nbRest = 0, nbCov = 0, nbPref = 0, nbWE = 0, totalDays = 0, compWE = 0;
 
 	// reset the satisfied demand to compute it from scratch
-	Tools::initVector3D(&satisfiedDemand_,nbDays, nbShifts, nbSkills);
+	Tools::initVector3D(satisfiedDemand_,nbDays, nbShifts, nbSkills, 0);
 
 	// first add the individual cost of each nurse
 	for (int n = 0; n < nbNurses; n++) {
@@ -1464,8 +1492,8 @@ string Solver::solutionStatisticsToString() {
 	vector<int> extraDays(pScenario_->nbContracts_,0);
 	vector<int> costPrefPerWeek(pScenario_->nbWeeks(),0);
 	vector<int> costPrefPerContract(pScenario_->nbContracts_,0);
-	vector2D assignmentsPerContractAndWeek;
-	Tools::initVector2D(&assignmentsPerContractAndWeek,pScenario_->nbContracts_,pScenario_->nbWeeks(),0);
+	vector2D<int> assignmentsPerContractAndWeek;
+	Tools::initVector2D(assignmentsPerContractAndWeek,pScenario_->nbContracts_,pScenario_->nbWeeks(),0);
 	int totalAssignments = 0;
 	for (LiveNurse* pNurse:theLiveNurses_) {
 		int c = pNurse->pContract_->id_;

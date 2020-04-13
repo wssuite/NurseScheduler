@@ -12,6 +12,11 @@
 #include "solvers/Greedy.h"
 
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+
 //----------------------------------------------------------------------------
 // Constructors and destructors
 //----------------------------------------------------------------------------

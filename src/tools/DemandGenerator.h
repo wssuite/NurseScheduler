@@ -16,11 +16,6 @@
 #include "data/Scenario.h"
 #include "data/Demand.h"
 
-/* namespace usage */
-using std::map;
-using std::pair;
-using std::string;
-using std::vector;
 
 //-----------------------------------------------------------------------------
 //
@@ -34,7 +29,7 @@ using std::vector;
 class DemandGenerator{
 public:
 	// default constructor and destructor
-	DemandGenerator(int nbDemands, int nbDays, vector<Demand*> demands, Scenario* pScenario):
+	DemandGenerator(int nbDemands, int nbDays, std::vector<Demand*> demands, Scenario* pScenario):
 		nbDemandsToGenerate_(nbDemands), nbDaysInGeneratedDemands_(nbDays),demandHistory_(demands), pScenario_(pScenario),
 	   rdm_(Tools::getANewRandomGenerator()) {
 	}
@@ -46,7 +41,7 @@ public:
 	bool checkDemandFeasibility(Demand* pDemand);
 
 	// generate nbScenarios_ through perturbations of the demand history
-	vector<Demand*> generatePerturbedDemands();
+	std::vector<Demand*> generatePerturbedDemands();
 
 	// generate 1 demand through perturbations of the demand history
 	Demand * generateSinglePerturbatedDemand(bool checkFeasibility = true);
@@ -59,7 +54,7 @@ protected:
 	int nbDaysInGeneratedDemands_;
 
 	// demand history from which the random scenarios should be generated
-	vector<Demand*> demandHistory_;
+	std::vector<Demand*> demandHistory_;
 
 	// nurse rostering scenario under study
 	// this attribute is necessary to check the feasibility of the generated demands

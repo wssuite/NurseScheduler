@@ -16,9 +16,6 @@
 #include "data/Scenario.h"
 #include "solvers/StochasticSolver.h"
 
-using std::string;
-using std::cout;
-using std::endl;
 
 //BADVALDBL used as a flag value (not initialised parameter) when there's no ambiguity.
 #define BADVALDBL -666.0
@@ -54,32 +51,32 @@ public:
 
 	//Read several week files and strore the content in one demand and one preference
 	//
-   static Demand* readWeeks(vector<std::string> strWeekFiles, Scenario* pScenario);
+   static Demand* readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario);
 	// Read the Week file and store the content in a Scenario instance
 	//
-	static void readWeek(string strWeekFile, Scenario* pScenario, Demand** pDemand, Preferences** pPref);
+	static void readWeek(std::string strWeekFile, Scenario* pScenario, Demand** pDemand, Preferences** pPref);
 
 	// Read the history file
 	//
-	static void readHistory(string strHistoryFile, Scenario* pScenario);
+	static void readHistory(std::string strHistoryFile, Scenario* pScenario);
 
 	// Read the input custom file
 	// Store the result in a vector of historical demands and return the number of treated weeks
 	//
-	static int readCustom(string strCustomInputFile, Scenario* pScenario, vector<Demand*>& demandHistory);
+	static int readCustom(std::string strCustomInputFile, Scenario* pScenario, std::vector<Demand*>& demandHistory);
 
 	// Read the options of the stochastic and ot the other solvers
 	//
-	static string readStochasticSolverOptions(string strOptionFile, StochasticSolverOptions& options);
-	static string readSolverOptions(string strOptionFile, SolverParam& options);
+	static std::string readStochasticSolverOptions(std::string strOptionFile, StochasticSolverOptions& options);
+	static std::string readSolverOptions(std::string strOptionFile, SolverParam& options);
 
 	// Read the solution from multiple week solution files
 	//
-	static vector<Roster> readSolutionMultipleWeeks(vector<std::string> strWeekSolFiles, Scenario* pScenario);
+	static std::vector<Roster> readSolutionMultipleWeeks(std::vector<std::string> strWeekSolFiles, Scenario* pScenario);
 
 	// Print the main characteristics of all the demands of an input directory
 	// This is done to find some invariant properties among demands
-	static void compareDemands(string inputDir, string logFile);
+	static void compareDemands(std::string inputDir, std::string logFile);
 
 	//--------------------------------------------------------------------------
 
@@ -95,7 +92,7 @@ public:
 	// Write the output custom file from values in the scenario and the solution
 	// instances
 	//
-	static void writeCustom(string stdCustomOutputFile, string strWeekFile, string strCustomInputFile="");
+	static void writeCustom(std::string stdCustomOutputFile, std::string strWeekFile, std::string strCustomInputFile="");
 
 	//--------------------------------------------------------------------------
 
@@ -109,7 +106,7 @@ public:
 
 	// Checks if the string (sentence) ends with the given substring (word)
 	//
-	static bool strEndsWith(string sentence, string word);
+	static bool strEndsWith(std::string sentence, std::string word);
 
 	// writes a string in a stream with a constant number of character
 	//

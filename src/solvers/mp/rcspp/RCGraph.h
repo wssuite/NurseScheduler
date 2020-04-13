@@ -5,7 +5,7 @@
 #ifndef NURSESCHEDULER_RCGRAPH_H
 #define NURSESCHEDULER_RCGRAPH_H
 
-#include "tools/MyTools.h"
+//#include "tools/MyTools.h"
 #include <boost/graph/adjacency_list.hpp>
 #include "boost/config.hpp"
 #include <boost/graph/r_c_shortest_paths.hpp>
@@ -14,7 +14,7 @@
 enum LABEL {MAX_CONS_DAYS = 0, MIN_CONS_DAYS = 1};
 // true if the dominance is done with a descending order (lower the better), false otherwise
 static const std::vector<bool> labelsOrder = { true, false };
-static const std::vector<string> labelName = {
+static const std::vector<std::string> labelName = {
     "MAX_CONS_DAYS", "MIN_CONS_DAYS", "MAX_DAYS     ", "MIN_DAYS     "};
 
 // Different node types and their names
@@ -23,7 +23,7 @@ enum NodeType {
     SOURCE_NODE, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE,
     ROTATION_LENGTH, ROTATION_LENGTH_EXIT, SINK_NODE,
     NONE_NODE};
-static const std::vector<string> nodeTypeName = {
+static const std::vector<std::string> nodeTypeName = {
     "SOURCE_NODE", "PPL_NETWORK", "ROTSIZE__IN",
     "ROTSIZE    ", "ROTSIZE_OUT", "SINK_NODE  ",
     "NONE       "};
@@ -35,7 +35,7 @@ enum ArcType{
     SOURCE_TO_PRINCIPAL, SHIFT_TO_NEWSHIFT, SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE,
     REPEATSHIFT, PRINCIPAL_TO_ROTSIZE, ROTSIZEIN_TO_ROTSIZE, ROTSIZE_TO_ROTSIZEOUT,
     ROTSIZEOUT_TO_SINK, NONE_ARC};
-static const std::vector<string> arcTypeName = {
+static const std::vector<std::string> arcTypeName = {
     "SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ",
     "REPEATSHIFT    ", "PPL_TO_ROTSIZE ", "ROTSZIN_TO_RTSZ", "ROTSIZE_TO_ROUT",
     "ROT OUT TO SINK", "NONE           "};
@@ -45,7 +45,7 @@ static const std::vector<string> arcTypeName = {
 // The following structures are the properties of the nodes and arcs:
 //   For the nodes: id, earliest arrival time, and latest arrival time
 //   For the arcs : id, cost and time (time is the resource here)
-//   For the graph: usual stuff + nodes and and special properties
+//   For the rcspp: usual stuff + nodes and and special properties
 //
 //////////////////////////////////////////////////////////////////////////
 
@@ -334,7 +334,7 @@ struct RCSolution {
 //
 // C l a s s e s   G r a p h s
 //
-// Contains the main graph and some reccurent subgraphs
+// Contains the main rcspp and some reccurent subgraphs
 //
 //---------------------------------------------------------------------------
 
@@ -391,7 +391,7 @@ class RCGraph {
     inline const Arc_Properties & arc(int a) const {
       return get( boost::edge_bundle, g_ )[arcsDescriptors_[a]];
     }
-    inline ArcType arcType(int a) const {return allArcsTypes_[a];}
+    inline ArcType arcType(int a) const {return get( &Arc_Properties::type, g_, arcsDescriptors_[a]);}
     inline int arcOrigin(int a) const {return boost::source(arcsDescriptors_[a], g_);}
     inline int arcDestination(int a) const {return target(arcsDescriptors_[a], g_);}
     inline const std::vector<int> & arcConsumptions(int a) const {
@@ -401,7 +401,7 @@ class RCGraph {
     inline double arcInitialCost(int a) const {return get( &Arc_Properties::initialCost, g_, arcsDescriptors_[a]);}
     inline const std::vector<int>& arcShifts(int a) const {return get( &Arc_Properties::shifts, g_, arcsDescriptors_[a]);}
     inline int arcDay(int a) const {return get( &Arc_Properties::day, g_, arcsDescriptors_[a]);}
-    inline bool arcForbidden(int a) const {return forbiddenArcs_.find(a) != forbiddenArcs_.end();}
+    inline bool arcForbidden(int a) const {return get( &Arc_Properties::forbidden, g_, arcsDescriptors_[a]);}
 
     inline void updateConsumptions(int a, const std::vector<int>& consumptions){
       boost::put( &Arc_Properties::consumptions, g_, arcsDescriptors_[a], consumptions );
@@ -425,14 +425,14 @@ class RCGraph {
 
     // Print functions.
     //
-    void printGraph();
-    string printNode(int v);
-    void printAllNodes();
-    string printArc(int a);
-    void printAllArcs();
-    string shortNameNode(int v);
-    string printSummaryOfGraph();
-    virtual void printPath(std::vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_res_cont ressource);
+    void printGraph() const;
+    std::string printNode(int v) const ;
+    void printAllNodes() const ;
+    std::string printArc(int a) const ;
+    void printAllArcs() const;
+    std::string shortNameNode(int v) const;
+    std::string printSummaryOfGraph() const;
+    void printPath(std::vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_res_cont ressource) const;
 
     // Test function for Shortest Path Problem with Resource Constraint
     //
@@ -442,53 +442,18 @@ class RCGraph {
     // THE GRAPH
     Graph g_;
     int nDays_;
-    int nNodes_;										// Total number of nodes in the graph
+    int nNodes_;										// Total number of nodes in the rcspp
     // Source
     typename boost::graph_traits<Graph>::vertex_descriptor source_;
     // Sink Node
     std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> sinks_;
 
-    int nArcs_;											// Total number of arcs in the graph
-    std::vector<ArcType> allArcsTypes_;						// Vector of their types
+    int nArcs_;											// Total number of arcs in the rcspp
     std::vector< boost::graph_traits< Graph>::edge_descriptor > arcsDescriptors_;
 
     std::set<int> forbiddenNodes_;
     std::set<int> forbiddenArcs_;
 };
-
-//class PrincipalSubGraph {
-//  public:
-//    PrincipalSubGraph();
-//    virtual ~PrincipalSubGraph();
-//
-//  protected:
-//    // Nodes of the PRINCIPAL_NETWORK subnetwork
-//    vector3D principalNetworkNodes_;					// For each SHIFT, DAY, and # of CONSECUTIVE, the corresponding node id
-//    std::vector<int> maxvalConsByShift_;						// For each shift, number of levels that the subnetwork contains
-//    std::map<int,int> principalToShift_;						// For each node of the principal network, maps it ID to the shift it represents
-//    std::map<int,int> principalToDay_;						// For each node of the principal network, maps it ID to the day it represents
-//    std::map<int,int> principalToCons_;						// For each node of the principal network, maps it ID to the number of consecutive shifts it represents
-//
-//    vector4D arcsShiftToNewShift_;		// Index: (shiftType1, shiftType2, day1, shift)
-//    vector4D arcsShiftToSameShift_;		// Index: (shiftType, day, nCons, shift) of origin
-//    vector3D arcsShiftToEndsequence_;	// Index: (shiftType, day, nCons) of origin
-//    vector3D arcsRepeatShift_;		// Index: (shiftType, day, shift) of origin
-//};
-//
-//class RotationLengthSubGraph {
-//  public:
-//    RotationLengthSubGraph();
-//    virtual ~RotationLengthSubGraph();
-//
-//  protected:
-//    // Nodes of the ROTATION_LENGTH subnetwork
-//    std::vector<int> rotationLengthEntrance_;				// For each day, entrance node to the ROTATION_LENGTH subnetwork
-//    std::vector<std::map<int,int> > rotationLengthNodes_;			// For each day, maps the length of the rotation to the corresponding check node
-//    std::map<int,int> rotationLengthNodesLAT_;				// For each rotation length node, the corresponding EAT
-//
-//    std::vector<std::map<int,int> > arcsRotsizeinToRotsizeDay_;	// Index: (day,size) of the rotation [destination]
-//    std::vector<std::map<int,int> > arcsRotsizeToRotsizeoutDay_;	// Index: (day,size) of the rotation [origin]
-//};
 
 
 #endif //NURSESCHEDULER_RCGRAPH_H

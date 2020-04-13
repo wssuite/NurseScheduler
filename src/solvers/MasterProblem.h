@@ -32,7 +32,7 @@ enum CostType {TOTAL_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST, COMPLETE_WEE
 struct DualCosts{
 public:
 
-	DualCosts(vector< vector<double> > & workCosts, vector<double> & startWorkCosts, vector<double> & endWorkCosts, double workedWeekendCost, bool doNotCopy = true):
+	DualCosts(std::vector< std::vector<double> > & workCosts, std::vector<double> & startWorkCosts, std::vector<double> & endWorkCosts, double workedWeekendCost, bool doNotCopy = true):
 	workCosts_(workCosts), startWorkCosts_(startWorkCosts), endWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {
 
 		if(!doNotCopy){
@@ -56,13 +56,13 @@ public:
 protected:
 
 	// Indexed by : (day, shift) !! 0 = shift 1 !!
-	vector< vector<double> > & workCosts_;
+	vector2D<double> & workCosts_;
 
 	// Indexed by : day
-	vector<double> & startWorkCosts_;
+	std::vector<double> & startWorkCosts_;
 
 	// Indexed by : day
-	vector<double> & endWorkCosts_;
+	std::vector<double> & endWorkCosts_;
 
 	// Reduced cost of the weekends
 	double workedWeekendCost_;
@@ -74,33 +74,33 @@ struct Rotation {
 
 	// Specific constructors and destructors
 	//
-	Rotation(map<int,int> shifts, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
+	Rotation(std::map<int,int> shifts, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
 	shifts_(shifts), id_(s_count),nurseId_(nurseId), cost_(cost),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
 	dualCost_(dualCost), length_(shifts.size()), timeDuration_(shifts.size())
 	{
 		++s_count;
 		firstDay_ = 999;
-		for(map<int,int>::iterator itS = shifts.begin(); itS != shifts.end(); ++itS)
+		for(std::map<int,int>::iterator itS = shifts.begin(); itS != shifts.end(); ++itS)
 		if(itS->first < firstDay_) firstDay_ = itS->first;
 	};
 
-	Rotation(int firstDay, vector<int> shiftSuccession, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
+	Rotation(int firstDay, std::vector<int> shiftSuccession, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
 					id_(s_count),nurseId_(nurseId), cost_(cost),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
 	dualCost_(dualCost), firstDay_(firstDay), length_(shiftSuccession.size()), timeDuration_(shiftSuccession.size())
 	{
 		++s_count;
-		for(int k=0; k<length_; k++) shifts_.insert(pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
+		for(int k=0; k<length_; k++) shifts_.insert(std::pair<int,int>( (firstDay+k) , shiftSuccession[k] ));
 	}
 
-	Rotation(vector<double> compactPattern) :
+	Rotation(std::vector<double> compactPattern) :
 					id_(s_count),nurseId_((int)compactPattern[0]), cost_(DBL_MAX),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
 	dualCost_(DBL_MAX), firstDay_((int)compactPattern[1]), length_(compactPattern.size()-2), timeDuration_(compactPattern.size()-2)
 	{
 		++s_count;
-		for(int k=0; k<length_; k++) shifts_.insert(pair<int,int>( (firstDay_+k) , (int)compactPattern[k+2] ));
+		for(int k=0; k<length_; k++) shifts_.insert(std::pair<int,int>( (firstDay_+k) , (int)compactPattern[k+2] ));
 	}
 
 	Rotation(Rotation& rotation, int nurseId) :
@@ -124,7 +124,7 @@ struct Rotation {
 
 	// Shifts to be performed
 	//
-	map<int,int> shifts_;
+	std::map<int,int> shifts_;
 
 	//Id of the rotation
 	//
@@ -160,17 +160,17 @@ struct Rotation {
         int timeDuration_;
 
 	//compact the rotation in a vector
-	const vector<double> getCompactPattern(){
-		vector<double> compact;
+	const std::vector<double> getCompactPattern(){
+		std::vector<double> compact;
 		compact.push_back(nurseId_);
 		compact.push_back(firstDay_);
-		for(pair<int,int> p: shifts_) compact.push_back(p.second);
+		for(std::pair<int,int> p: shifts_) compact.push_back(p.second);
 		return compact;
 	}
 
 	//Compute the cost of a rotation
 	//
-	void computeCost(Scenario* pScenario, Preferences* pPreferences, const vector<LiveNurse*>& liveNurses, int horizon);
+	void computeCost(Scenario* pScenario, Preferences* pPreferences, const std::vector<LiveNurse*>& liveNurses, int horizon);
 
 	//Compute the dual cost of a rotation
 	//
@@ -180,18 +180,18 @@ struct Rotation {
         // calcule le nombre d'heures d'une rotation
         void computeTimeDuration(Scenario* pScenario){
 	  timeDuration_=0;
-	  for(pair<int,int> p: shifts_) {
+	  for(std::pair<int,int> p: shifts_) {
 	    timeDuration_ += pScenario->hoursToWork_[p.second];
 	  }
 	}
 
-	string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}){
+	std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const {
 		if(nbDays == -1) nbDays = firstDay_+length_;
-		stringstream rep;
+		std::stringstream rep;
 		rep << "#   | ROTATION: N=" << nurseId_ << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
 		rep << "#               |";
-		vector<int> allTasks (nbDays);
-		for(map<int,int>::iterator itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
+		std::vector<int> allTasks (nbDays);
+		for(auto itTask = shifts_.begin(); itTask != shifts_.end(); ++itTask)
 		    allTasks[itTask->first] = itTask->second;
 		for(unsigned int i=0; i<allTasks.size(); i++){
 			if(allTasks[i] < 1) rep << "\t|";
@@ -210,7 +210,7 @@ struct Rotation {
 		if(nurseId_ != rot2.nurseId_) return true;
 		if(firstDay_ != rot2.firstDay_) return true;
 		if(length_ != rot2.length_) return true;
-		for(pair<int,int> p: rot2.shifts_) {
+		for(const std::pair<int,int>& p: rot2.shifts_) {
 			if(shifts_[p.first] != p.second) return true;
 		}
 		return false;
@@ -219,7 +219,7 @@ struct Rotation {
 		if(nurseId_ != rot2.nurseId_) return false;
 		if(firstDay_ != rot2.firstDay_) return false;
 		if(length_ != rot2.length_) return false;
-		for(pair<int,int> p: rot2.shifts_) {
+		for(const std::pair<int,int>& p: rot2.shifts_) {
 			if(shifts_[p.first] != p.second) return false;
 		}
 		return true;
@@ -249,7 +249,8 @@ bool isShiftDisjointWith(Rotation& rot2){
 	if( (this->firstDay_+this->length_ < rot2.firstDay_) || (rot2.firstDay_+rot2.length_ < this->firstDay_) )
 	return true;
 
-	int commomFirstDay = max(firstDay_, rot2.firstDay_), commomLastDay=min(firstDay_+length_, rot2.firstDay_+rot2.length_)-1;
+	int commomFirstDay = std::max(firstDay_, rot2.firstDay_),
+	    commomLastDay=std::min(firstDay_+length_, rot2.firstDay_+rot2.length_)-1;
 	for(int k=commomFirstDay; k<=commomLastDay; ++k)
 	if(shifts_[k] == rot2.shifts_[k]) return false;
 
@@ -277,21 +278,21 @@ class MasterProblem : public Solver, public PrintSolution{
 public:
 	// Specific constructor and destructor
 	MasterProblem(Scenario* pScenario, Demand* pDemand,
-		Preferences* pPreferences, vector<State>* pInitState, MySolverType solver);
+		Preferences* pPreferences, std::vector<State>* pInitState, MySolverType solver);
 	~MasterProblem();
 
 	//solve the rostering problem
-	double solve(vector<Roster> solution = {});
+	double solve(std::vector<Roster> solution = {});
 
 	//solve the rostering problem or just the relaxation(root node)
-	double solve(vector<Roster> solution, bool rebuild);
+	double solve(std::vector<Roster> solution, bool rebuild);
 
 	// Solve with parameters
-	double solve(SolverParam parameters, vector<Roster> solution = {});
+	double solve(SolverParam parameters, std::vector<Roster> solution = {});
 
 	//Resolve the problem with another demand and keep the same preferences
 	//
-	double resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {});
+	double resolve(Demand* pDemand, SolverParam parameters, std::vector<Roster> solution = {});
 
 	//get the pointer to the model
 	Modeler* getModel(){
@@ -299,33 +300,33 @@ public:
 	}
 
 	//override PrintSolution virtual method
-	void save(vector<int>& weekIndices, string outdir);
+	void save(std::vector<int>& weekIndices, std::string outdir);
 	void printCurrentSol();
 
 	//get a reference to the restsPerDay_ for a Nurse
-	inline vector< vector<MyVar*> >& getRestsPerDay(Nurse* pNurse){
+	inline vector2D<MyVar*>& getRestsPerDay(Nurse* pNurse){
 		return restsPerDay_[pNurse->id_];
 	}
 
 	// build the, possibly fractional, roster corresponding to the solution
 	// currently stored in the model
-	std::vector<std::vector<std::vector<double> > > getFractionalRoster() ;
+	vector3D<double> getFractionalRoster() ;
 
 	//------------------------------------------------
 	// Solution with rolling horizon process
 	//------------------------------------------------
 
 	// relax/unrelax the integrality constraints of the variables corresponding to input days
-	void relaxDays(vector<bool> isRelax);
-	void unrelaxDays(vector<bool> isUnrelax);
+	void relaxDays(std::vector<bool> isRelax);
+	void unrelaxDays(std::vector<bool> isUnrelax);
 
 	// fix/unfix all the variables corresponding to the input vector of days
-	void fixDays(vector<bool> isFixDay);
-	void unfixDays(vector<bool> isUnfixDay);
+	void fixDays(std::vector<bool> isFixDay);
+	void unfixDays(std::vector<bool> isUnfixDay);
 
 	// fix/unfix all the variables corresponding to the input vector of nurses
-	void fixNurses(vector<bool> isFixNurse);
-	void unfixNurses(vector<bool> isUnfixNurse);
+	void fixNurses(std::vector<bool> isFixNurse);
+	void unfixNurses(std::vector<bool> isUnfixNurse);
 
 	// Solve the problem with a method that allows for a warm start
 	double rollingSolve(SolverParam parameters, int firstDay);
@@ -384,22 +385,22 @@ public:
 public:
 	// getter/setters
 	//
-	vector<MyVar*> getMinWorkedDaysVars() {return minWorkedDaysVars_;}
-	vector<MyVar*> getMaxWorkedDaysVars() {return maxWorkedDaysVars_;}
-	vector<MyVar*> getMaxWorkedWeekendVars() {return maxWorkedWeekendVars_;}
-	vector< vector< vector<MyVar*> > > getOptDemandVars() {return optDemandVars_;}
+  std::vector<MyVar*> getMinWorkedDaysVars() {return minWorkedDaysVars_;}
+    std::vector<MyVar*> getMaxWorkedDaysVars() {return maxWorkedDaysVars_;}
+    std::vector<MyVar*> getMaxWorkedWeekendVars() {return maxWorkedWeekendVars_;}
+	vector3D<MyVar*> getOptDemandVars() {return optDemandVars_;}
 
 private:
 	Modeler* pModel_;
-	vector2D positionsPerSkill_;//link positions to skills
-	vector2D skillsPerPosition_;//link skills to positions
+	vector2D<int> positionsPerSkill_;//link positions to skills
+	vector2D<int> skillsPerPosition_;//link skills to positions
 	MyPricer* pPricer_;//prices the rotations
 	MyTree* pTree_;//store the tree information
 	MyBranchingRule* pRule_; //choose the variables on which we should branch
 	MySolverType solverType_; //which solver is used
 
-	vector<MyVar*> initialStateVars_; //stores all the initial rotations finishing on the first day
-	vector< vector< vector<MyVar*> > > restsPerDay_; //stores all the arcs that are resting on a day for each nurse
+    std::vector<MyVar*> initialStateVars_; //stores all the initial rotations finishing on the first day
+	vector3D<MyVar*> restsPerDay_; //stores all the arcs that are resting on a day for each nurse
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
@@ -409,80 +410,80 @@ private:
 	/*
 	* Variables
 	*/
-	vector< vector<MyVar*> > columnVars_; //binary variables for the columns
+	vector2D<MyVar*> columnVars_; //binary variables for the columns
 
-	vector< vector<MyVar*> > restingVars_; //binary variables for the resting arcs in the rotation network
-	vector< vector< vector<MyVar*> > > longRestingVars_; //binary variables for the resting arcs in the rotation network
+	vector2D<MyVar*> restingVars_; //binary variables for the resting arcs in the rotation network
+	vector3D<MyVar*> longRestingVars_; //binary variables for the resting arcs in the rotation network
 
-	vector<MyVar*> minWorkedDaysVars_; //count the number of missing worked days per nurse
-	vector<MyVar*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
-	vector<MyVar*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
+    std::vector<MyVar*> minWorkedDaysVars_; //count the number of missing worked days per nurse
+    std::vector<MyVar*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
+    std::vector<MyVar*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
 
-	vector<MyVar*> minWorkedDaysAvgVars_; //count the number of missing worked days from average per nurse
-	vector<MyVar*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
-	vector<MyVar*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
+    std::vector<MyVar*> minWorkedDaysAvgVars_; //count the number of missing worked days from average per nurse
+    std::vector<MyVar*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
+    std::vector<MyVar*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
 
-	vector<MyVar*> minWorkedDaysContractAvgVars_; //count the number of missing worked days from average per contract
-	vector<MyVar*> maxWorkedDaysContractAvgVars_; // count the number of exceeding worked days from average per contract
-	vector<MyVar*> maxWorkedWeekendContractAvgVars_; //count the number of exceeding worked weekends from average per contract
+    std::vector<MyVar*> minWorkedDaysContractAvgVars_; //count the number of missing worked days from average per contract
+    std::vector<MyVar*> maxWorkedDaysContractAvgVars_; // count the number of exceeding worked days from average per contract
+    std::vector<MyVar*> maxWorkedWeekendContractAvgVars_; //count the number of exceeding worked weekends from average per contract
 
-	vector< vector< vector<MyVar*> > > optDemandVars_; //count the number of missing nurse to reach the optimal
-	vector< vector< vector<MyVar*> > > numberOfNursesByPositionVars_; // count the number of nurses by position on each day, shift
-	vector< vector< vector< vector<MyVar*> > > > skillsAllocVars_; //makes the allocation of the skills
+	vector3D<MyVar*> optDemandVars_; //count the number of missing nurse to reach the optimal
+	vector3D<MyVar*> numberOfNursesByPositionVars_; // count the number of nurses by position on each day, shift
+	vector4D<MyVar*> skillsAllocVars_; //makes the allocation of the skills
 
 	/*
 	* Constraints
 	*/
 	//transmission of the flow on the resting nodes
 	//initialization of the flow constraint at the first position of each restFlowCons_[i] (i=nurse)
-	vector< vector<MyCons*> > restFlowCons_;
+	vector2D<MyCons*> restFlowCons_;
 	//transmission of the flow on the working nodes
 	//end of the flow constraint at the last position of each workFlowCons_[i] (i=nurse)
-	vector< vector<MyCons*> > workFlowCons_;
+	vector2D<MyCons*> workFlowCons_;
 
-	vector<MyCons*> minWorkedDaysCons_; //count the number of missing worked days per nurse
-	vector<MyCons*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
-	vector<MyCons*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
+	std::vector<MyCons*> minWorkedDaysCons_; //count the number of missing worked days per nurse
+    std::vector<MyCons*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
+    std::vector<MyCons*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
 	MyCons* sumMaxWorkedWeekendCons_;	// count the total number of weekends that will be penalized
 
 
-	vector<MyCons*> minWorkedDaysAvgCons_; //count the number of missing worked days from average per nurse
-	vector<MyCons*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
-	vector<MyCons*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
+    std::vector<MyCons*> minWorkedDaysAvgCons_; //count the number of missing worked days from average per nurse
+    std::vector<MyCons*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
+    std::vector<MyCons*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
 
-	vector<MyCons*> minWorkedDaysContractAvgCons_; //count the number of missing worked days from average per contract
-	vector<MyCons*> maxWorkedDaysContractAvgCons_; // count the number of exceeding worked days from average per contract
-	vector<MyCons*> maxWorkedWeekendContractAvgCons_; //count the number of exceeding worked weekends from average per contract
+    std::vector<MyCons*> minWorkedDaysContractAvgCons_; //count the number of missing worked days from average per contract
+    std::vector<MyCons*> maxWorkedDaysContractAvgCons_; // count the number of exceeding worked days from average per contract
+    std::vector<MyCons*> maxWorkedWeekendContractAvgCons_; //count the number of exceeding worked weekends from average per contract
 
-	vector< vector< vector<MyCons*> > > minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
-	vector< vector< vector<MyCons*> > > optDemandCons_; //count the number of missing nurse to reach the optimal
-	vector< vector< vector<MyCons*> > > numberOfNursesByPositionCons_; //ensure there are enough nurses for numberOfNursesByPositionVars_
-	vector< vector< vector<MyCons*> > > feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
+	vector3D<MyCons*> minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
+	vector3D<MyCons*> optDemandCons_; //count the number of missing nurse to reach the optimal
+	vector3D<MyCons*> numberOfNursesByPositionCons_; //ensure there are enough nurses for numberOfNursesByPositionVars_
+	vector3D<MyCons*> feasibleSkillsAllocCons_; // ensures that each nurse works with the good skill
 
 	// STAB
 	// Stabilization variables for each constraint
 	// Two variables are needed for equality constraints and one for inequalities
 	// The constraints on average values are not stabilized yet
 	// The position and allocation constraints do not require stabilization
-	vector< vector<MyVar*> > stabRestFlowPlus_;
-	vector< vector<MyVar*> > stabRestFlowMinus_;
-	vector< vector<MyVar*> > stabWorkFlowPlus_;
-	vector< vector<MyVar*> > stabWorkFlowMinus_;
+	vector2D<MyVar*> stabRestFlowPlus_;
+	vector2D<MyVar*> stabRestFlowMinus_;
+	vector2D<MyVar*> stabWorkFlowPlus_;
+	vector2D<MyVar*> stabWorkFlowMinus_;
 
-	vector<MyVar*> stabMinWorkedDaysPlus_;
-	vector<MyVar*> stabMaxWorkedDaysMinus_;
-	vector<MyVar*> stabMaxWorkedWeekendMinus_;
+    std::vector<MyVar*> stabMinWorkedDaysPlus_;
+    std::vector<MyVar*> stabMaxWorkedDaysMinus_;
+    std::vector<MyVar*> stabMaxWorkedWeekendMinus_;
 
-	vector< vector< vector<MyVar*> > > stabMinDemandPlus_; //ensure a minimal coverage per day, per shift, per skill
-	vector< vector< vector<MyVar*> > > stabOptDemandPlus_; //count the number of missing nurse to reach the optimal
+	vector3D<MyVar*> stabMinDemandPlus_; //ensure a minimal coverage per day, per shift, per skill
+	vector3D<MyVar*> stabOptDemandPlus_; //count the number of missing nurse to reach the optimal
 
 	// vectors of booleans indicating whether some above constraints are present
 	// in the model
-	vector<bool> isMinWorkedDaysAvgCons_;
-	vector<bool> isMaxWorkedDaysAvgCons_;
-	vector<bool> isMaxWorkedWeekendAvgCons_;
+  std::vector<bool> isMinWorkedDaysAvgCons_;
+    std::vector<bool> isMaxWorkedDaysAvgCons_;
+    std::vector<bool> isMaxWorkedWeekendAvgCons_;
 
-	vector<bool> isMinWorkedDaysContractAvgCons_, isMaxWorkedDaysContractAvgCons_, isMaxWorkedWeekendContractAvgCons_;
+    std::vector<bool> isMinWorkedDaysContractAvgCons_, isMaxWorkedDaysContractAvgCons_, isMaxWorkedWeekendContractAvgCons_;
 
 	/*
 	* Methods
@@ -495,10 +496,10 @@ private:
 	void build(SolverParam parameters);
 
 	// Initialization of the master problem with/without solution
-	void initialize(SolverParam parameters, vector<Roster> solution={});
+	void initialize(SolverParam parameters, std::vector<Roster> solution={});
 
 	// Provide an initial solution to the solver
-	void initializeSolution(vector<Roster> solution);
+	void initializeSolution(std::vector<Roster> solution);
 
 	//solve method to catch execption
 	void solveWithCatch();
@@ -522,21 +523,21 @@ private:
 	double getRotationCosts(CostType costType = TOTAL_COST, bool initStateRotation = false);
 
 	//get the cost of all vars in the solution for a certain CostType
-	double getRotationCosts(CostType costType, const vector<MyVar*>& vars);
+	double getRotationCosts(CostType costType, const std::vector<MyVar*>& vars);
 
 	/* Build each set of constraints - Add also the coefficient of a column for each set */
 	void buildRotationCons(SolverParam parameters);
-	int addRotationConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int k, bool firstDay, bool lastDay);
+	int addRotationConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int k, bool firstDay, bool lastDay);
 	void buildMinMaxCons(SolverParam parameters);
-	int addMinMaxConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int nbDays, int nbWeekends);
+	int addMinMaxConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int nbDays, int nbWeekends);
 	void buildSkillsCoverageCons(SolverParam parameters);
-	int addSkillsCoverageConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int k, int s=-1);
+	int addSkillsCoverageConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int k, int s=-1);
 
 	/* Display functions */
-	string costsConstrainstsToString();
-	string allocationToString(bool printInteger = true);
-	string coverageToString(bool printInteger = true);
-	string workedWeekendsToString(bool printInteger = true);
+  std::string costsConstrainstsToString();
+    std::string allocationToString(bool printInteger = true);
+    std::string coverageToString(bool printInteger = true);
+    std::string workedWeekendsToString(bool printInteger = true);
 };
 
 #endif /* MASTERPROBLEM_H_ */

@@ -12,12 +12,6 @@
 
 #include "tools/MyTools.h"
 
-/* namespace usage */
-using std::map;
-using std::pair;
-using std::string;
-using std::vector;
-
 
 //-----------------------------------------------------------------------------
 //
@@ -34,7 +28,7 @@ public:
   // generic constructor and destructor
 	Demand(): name_(""), nbDays_(0), firstDay_(0), nbShifts_(0), nbSkills_(0){}
   Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string name,
-  vector3D minDemand, vector3D optDemand);
+  vector3D<int> minDemand, vector3D<int> optDemand);
   ~Demand();
 
   // constant attributes of the demand
@@ -55,8 +49,8 @@ public:
 
   // minimum and optimal demand for each day, shift and skill
   //
-  vector3D minDemand_;
-  vector3D optDemand_;
+  vector3D<int> minDemand_;
+  vector3D<int> optDemand_;
 
 public:
 
@@ -70,19 +64,19 @@ public:
 
   // total demand per skill in the minimal and optimal demands
   //
-  vector<int> minPerSkill_, optPerSkill_;
+  std::vector<int> minPerSkill_, optPerSkill_;
 
   // total demand per shift in the minimal and optimal demands
   //
-  vector<int> minPerShift_, optPerShift_;
+  std::vector<int> minPerShift_, optPerShift_;
 
   // total demand per day in the minimal and optimal demands
   //
-  vector<int> minPerDay_, optPerDay_;
+  std::vector<int> minPerDay_, optPerDay_;
 
   // highest demands per skill over the considered period
   //
-  vector<int> minHighestPerSkill_, optHighestPerSkill_;
+  std::vector<int> minHighestPerSkill_, optHighestPerSkill_;
 
 protected:
 
@@ -122,7 +116,7 @@ public:
   // display the demand, and include the preprocessed information if the input
   // boolean is set to true
   //
-  string toString(bool withPreprocessedInfo);
+  std::string toString(bool withPreprocessedInfo);
 
   // copy the input demand and apply a perturbation to generate random demand
   //
@@ -142,7 +136,7 @@ public:
 
 	// remove a list of skills from the demand
 	//
-	void removeSkills(vector<int> skills);
+	void removeSkills(std::vector<int> skills);
 
 };
 

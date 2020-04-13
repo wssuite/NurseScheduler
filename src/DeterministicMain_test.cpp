@@ -18,6 +18,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
 
 // Test the result of the method that divides the scenario according to the connex components of positions
 //

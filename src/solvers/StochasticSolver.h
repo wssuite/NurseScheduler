@@ -75,7 +75,7 @@ public:
 	int nDaysEvaluation_ = 14;
 	int nGenerationDemandsMax_ = 100;
 
-	string logfile_ = "";
+    std::string logfile_ = "";
 
 	SolverParam generationParameters_;
 	SolverParam evaluationParameters_;
@@ -88,10 +88,11 @@ public:
 // Set the options of the stochastic solver
 // The solution time depends on the number of nurses
 void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario,
- string solPath, string logPathIni, double timeout = 10000);
+                                std::string solPath, std::string logPathIni, double timeout = 10000);
 
- void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, string instanceName,
-    string solPath, string logPathIni, string stochasticOptionsFile, string generationOptionsFile, string evaluationOptionsFile);
+ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, std::string instanceName,
+                                 std::string solPath, std::string logPathIni, std::string stochasticOptionsFile,
+                                 std::string generationOptionsFile, std::string evaluationOptionsFile);
 
 //-----------------------------------------------------------------------------
 //
@@ -107,7 +108,7 @@ class StochasticSolver:public Solver {
 public:
 
 	StochasticSolver(Scenario* pScenario, StochasticSolverOptions options,
-	 vector<Demand*> demandHistory, double costPreviousWeeks=0);
+                   std::vector<Demand*> demandHistory, double costPreviousWeeks=0);
 
 	~StochasticSolver();
 
@@ -124,7 +125,7 @@ public:
 	//----------------------------------------------------------------------------
 
 	// Main function
-	double solve(vector<Roster> initialSolution = {});
+	double solve(std::vector<Roster> initialSolution = {});
 
 	//get the number of generated schedules
 	//
@@ -171,11 +172,11 @@ protected:
 	//----------------------------------------------------------------------------
 
 	// History
-	vector<Demand *> demandHistory_;
+  std::vector<Demand *> demandHistory_;
 	// Number of demands generated
 	int nGenerationDemands_;
 	// Vector of random demands that are used to GENERATE the schedules
-	vector<Demand*> pGenerationDemands_;
+  std::vector<Demand*> pGenerationDemands_;
 	// Generate a new demand for generation
 	void generateSingleGenerationDemand();
 
@@ -188,7 +189,7 @@ protected:
 	//----------------------------------------------------------------------------
 
 	// Vector of random demands that are used to EVAULATE the generated schedules
-	vector<Demand*> pEvaluationDemands_;
+  std::vector<Demand*> pEvaluationDemands_;
 	// Generate the schedules that are used for evaluation
 	void generateAllEvaluationDemands();
 
@@ -205,11 +206,11 @@ protected:
 
 	// Schedules
 	int nSchedules_;
-	vector<Solver*> pGenerationSolvers_;
+    std::vector<Solver*> pGenerationSolvers_;
 	// For reusable solvers
 	Solver * pReusableGenerationSolver_;
-	vector<vector<Roster> > schedules_;
-	vector<vector<State> > finalStates_;
+	vector2D<Roster> schedules_;
+	vector2D<State> finalStates_;
 
 	// Return a solver with the algorithm specified for schedule GENERATION
 	Solver * setGenerationSolverWithInputAlgorithm(Demand* pDemand);
@@ -227,22 +228,22 @@ protected:
 	// Empty preferences -> only 1 to avoid multiplying them
 	Preferences * pEmptyPreferencesForEvaluation_;
 	// Evaluation
-	vector<vector<Solver*> > pEvaluationSolvers_;
-	vector<Solver*> pReusableEvaluationSolvers_;
-	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemand_;
-	vector<map<double, set<int> > > schedulesFromObjectiveByEvaluationDemandGreedy_;
+	vector2D<Solver*> pEvaluationSolvers_;
+    std::vector<Solver*> pReusableEvaluationSolvers_;
+    std::vector<std::map<double, std::set<int> > > schedulesFromObjectiveByEvaluationDemand_;
+    std::vector<std::map<double, std::set<int> > > schedulesFromObjectiveByEvaluationDemandGreedy_;
 	// Scores
-	vector<double> theScores_;
-	vector<double> theScoresGreedy_;
+  std::vector<double> theScores_;
+    std::vector<double> theScoresGreedy_;
 
 
 	int bestSchedule_;
 	double bestScore_;
 	double costPreviousWeeks_;
-	vector<double> theBaseCosts_;
+    std::vector<double> theBaseCosts_;
 
 	// Return a solver with the algorithm specified for schedule EVALUATION
-	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule);
+	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, std::vector<State> * stateEndOfSchedule);
 	// Initialization
 	void initScheduleEvaluation(int sched);
 	// Evaluate 1 schedule and store the corresponding detailed results (returns false if time has run out)

@@ -38,11 +38,11 @@ public:
 
 	// costs for the violation of soft constraints
 	//
-	vector<int> costConsDays_;
-	vector<int> costConsDaysOff_;
-	vector<int> costConsShifts_;
-	vector<int> costPref_;
-	vector<int> costWeekEnd_;
+	std::vector<int> costConsDays_;
+	std::vector<int> costConsDaysOff_;
+	std::vector<int> costConsShifts_;
+	std::vector<int> costPref_;
+	std::vector<int> costWeekEnd_;
 	int costTotalDays_;
 	int costTotalWeekEnds_;
 
@@ -54,8 +54,8 @@ public:
 	// vector of booleans equal to true if the corresponding hard contraint is
 	// violated on each day
 	//
-	vector<bool> violSuccShifts_; // forbidden successive shifts
-	vector<bool> violSkill_; // missing required skill
+	std::vector<bool> violSuccShifts_; // forbidden successive shifts
+	std::vector<bool> violSkill_; // missing required skill
 
 public:
 	// initialize the statuses
@@ -79,12 +79,12 @@ public:
 class SkillSorter {
 public:
 	// take the field to sort by in the constructor
-	SkillSorter (const vector<double> skillRarity) : skillRarity_(skillRarity) {}
+	SkillSorter (const std::vector<double> skillRarity) : skillRarity_(skillRarity) {}
 	bool operator() (const int sk1, const int sk2) {
 		return skillRarity_[sk1] > skillRarity_[sk2];
 	}
 private:
-	vector<double> skillRarity_;
+	std::vector<double> skillRarity_;
 };
 
 //-----------------------------------------------------------------------------
@@ -101,14 +101,14 @@ private:
 class ShiftSorter {
 public:
 	// take the field to sort by in the constructor
-	ShiftSorter (const vector<int> nbForbiddenSuccessors) : reverse_(false), nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
-	ShiftSorter (const vector<int> nbForbiddenSuccessors, bool reverse) : reverse_(reverse), nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
+	ShiftSorter (const std::vector<int> nbForbiddenSuccessors) : reverse_(false), nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
+	ShiftSorter (const std::vector<int> nbForbiddenSuccessors, bool reverse) : reverse_(reverse), nbForbiddenSuccessors_(nbForbiddenSuccessors) {}
 	bool operator() (const int sh1, const int sh2) {
 		return (reverse_?-1:1)*nbForbiddenSuccessors_[sh1] < (reverse_?-1:1)*nbForbiddenSuccessors_[sh2];
 	}
 private:
 	bool reverse_;
-	vector<int> nbForbiddenSuccessors_;
+	std::vector<int> nbForbiddenSuccessors_;
 };
 
 //-----------------------------------------------------------------------------
@@ -132,9 +132,9 @@ public:
 	// Constructor and destructor
 	//
 	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn);
+			State* pStateIni, std::map<int,std::vector<Wish> >* pWishesOff, std::map<int,std::vector<Wish> >* pWishesOn);
 	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn, int nurseId);
+			State* pStateIni, std::map<int,std::vector<Wish> >* pWishesOff, std::map<int,std::vector<Wish> >* pWishesOn, int nurseId);
 	~LiveNurse();
 
 public:
@@ -155,8 +155,8 @@ public:
 	State* pStateIni_;
 
 	// Wishes of days off
-	map<int,vector<Wish> >* pWishesOff_;
-	map<int,vector<Wish> >* pWishesOn_;
+	std::map<int,std::vector<Wish> >* pWishesOff_;
+	std::map<int,std::vector<Wish> >* pWishesOn_;
 
 	//----------------------------------------------------------------------------
 	// Planning data
@@ -170,13 +170,13 @@ public:
 
 	// a vector of rosters with no penalty and a maximum number of worked days
 	//
-	vector<Roster> maxFreeRosters_;
+	std::vector<Roster> maxFreeRosters_;
 
 	// vector containing for each day the state of the nurse
 	// the size is the number of days of the roster plus one, since the initial
 	// and the final states are of importance
 	//
-	vector<State> states_;
+	std::vector<State> states_;
 
 	// position of the nurse: this field is deduced from the list of skills
 	//
@@ -271,12 +271,14 @@ public:
 	// check the satisfaction of the hard constraints and record the violations
 	// for the input roster and resulting states
 	//
-	void checkConstraints(const Roster& roster, const vector<State>& states, StatCtNurse& stat);
+	void checkConstraints(const Roster& roster, const std::vector<State>& states, StatCtNurse& stat);
 
 	// Build States from the roster
 	//
 	void buildStates();
 
+  // Print the contract type + preferences
+  void printContractAndPrefenrences(Scenario *pScenario) const;
 
 };
 
@@ -308,7 +310,7 @@ bool compareNurses(LiveNurse* n1, LiveNurse* n2);
 struct PrintSolution{
 	PrintSolution() {}
 	virtual ~PrintSolution() {}
-	virtual void save(vector<int>& weekIndices, string outdir) = 0;
+	virtual void save(std::vector<int>& weekIndices, std::string outdir) = 0;
 	virtual void printCurrentSol() = 0;
 };
 
@@ -339,9 +341,9 @@ public:
 	//print parameters
 	int verbose_ = 0;
 	bool printEverySolution_ = false;
-	string outfile_ = "outfiles/";
-	string logfile_ = "";
-	vector<int> weekIndices_ = {};
+    std::string outfile_ = "outfiles/";
+    std::string logfile_ = "";
+	std::vector<int> weekIndices_ = {};
 	PrintSolution* saveFunction_ = 0;
 
 	bool printRelaxationSol_ = false;
@@ -464,21 +466,21 @@ public:
 
 	// Specific constructor
 	Solver(Scenario* pScenario, Demand* pDemand,
-		Preferences* pPreferences, vector<State>* pInitState);
+		Preferences* pPreferences, std::vector<State>* pInitState);
 
 
 	// Main method to solve the rostering problem for a given input and an initial solution
-	virtual double solve(vector<Roster> solution = {}) { return DBL_MAX;}
+	virtual double solve(std::vector<Roster> solution = {}) { return DBL_MAX;}
 
 	// Main method to solve the rostering problem for a given input and an initial solution and parameters
-	virtual double solve(SolverParam parameters, vector<Roster> solution = {}){
+	virtual double solve(SolverParam parameters, std::vector<Roster> solution = {}){
 		return solve(solution);
 	}
 
 
 	//Resolve the problem with another demand and keep the same preferences
 	//
-	virtual double resolve(Demand* pDemand, SolverParam parameters, vector<Roster> solution = {}){
+	virtual double resolve(Demand* pDemand, SolverParam parameters, std::vector<Roster> solution = {}){
 		pDemand_ = pDemand;
 		return solve(parameters, solution);
 	}
@@ -505,7 +507,7 @@ protected:
 
 	// pointer to the state of each nurse at the beginning of the time horizon
 	//
-	vector<State>* pInitState_;
+	std::vector<State>* pInitState_;
 
 	// Timer started at the creation of the solver and stopped at destruction
 	Tools::Timer* pTimerTotal_;
@@ -517,39 +519,39 @@ protected:
 	// vector of LiveNurses. Initially a copy of the scenario nurses, they may
 	// then be preprocessed and get enw attributes
 	//
-	vector<LiveNurse*> theLiveNurses_;
+	std::vector<LiveNurse*> theLiveNurses_;
 
 	// Preprocessed minimum and maximum number of working days on all the weeks
 	//
-	vector<double> minTotalShifts_, maxTotalShifts_, maxTotalWeekends_;
+	std::vector<double> minTotalShifts_, maxTotalShifts_, maxTotalWeekends_;
 
 	// Interval inside of which there is no penalty for the total number of
 	// working days (for each nurse)
 	// This interval is computed from the max/min number of working days averaged
 	// over the number of remaining weeks
-	vector<double> minTotalShiftsAvg_;
-	vector<double> maxTotalShiftsAvg_;
+	std::vector<double> minTotalShiftsAvg_;
+	std::vector<double> maxTotalShiftsAvg_;
 
 	// Penalties for values outside of [minTotalShiftsAvg_,maxTotalShiftsAvg_]
-	vector<double> weightTotalShiftsAvg_;
+	std::vector<double> weightTotalShiftsAvg_;
 
 	// Number of worked week-ends below which there is no penalty for the
 	// total number of working week-ends
 	// This interval is computed from the max number of working week-ends averaged
 	// over the number of remaining weeks
-	vector<double> maxTotalWeekendsAvg_;
+	std::vector<double> maxTotalWeekendsAvg_;
 
 	// Penalties for the number of working weekends on the current period
 	// (for each nurse)
-	vector<double> weightTotalWeekendsAvg_;
+	std::vector<double> weightTotalWeekendsAvg_;
 
 	//Number of min, max and weekends allowed for all nurses under the same contract
-	vector<double> minTotalShiftsContractAvg_, maxTotalShiftsContractAvg_, maxTotalWeekendsContractAvg_;
+	std::vector<double> minTotalShiftsContractAvg_, maxTotalShiftsContractAvg_, maxTotalWeekendsContractAvg_;
 	//Penalties for exceeding the average number of shifts allowed for all the nurses under the same contract
-	vector<double> weightTotalShiftsContractAvg_, weightTotalWeekendsContractAvg_;
+	std::vector<double> weightTotalShiftsContractAvg_, weightTotalWeekendsContractAvg_;
 
 	//Penalties
-	vector<double> weightTotalShiftsMin_, weightTotalShiftsMax_, weightTotalWeekendsMax_;
+	std::vector<double> weightTotalShiftsMin_, weightTotalShiftsMax_, weightTotalWeekendsMax_;
 
 	//-----------------------------------------------------------------------------
 	// Outputs of the solver
@@ -562,7 +564,7 @@ protected:
 	// a solution is a vector of rosters, one for each nurse
 	// it is recorded in a vector (roster i in the vector corresponds to nurse i)
 	//
-	vector<Roster> solution_;
+	std::vector<Roster> solution_;
 
 	// Objective value of the current solution
 	// Warning: this value may not be updated every time it should be
@@ -572,20 +574,20 @@ protected:
 	// staffing in the solution : a 3D vector that contains the number of nurses
 	//  for each triple (day,shift,skill)
 	//
-	vector3D satisfiedDemand_;
+	vector3D<int> satisfiedDemand_;
 
 	// total cost under-staffing cost and under staffing cost for each triple
 	// (day,shift,skill)
 	//
 	int totalCostUnderStaffing_;
-	vector3D costUnderStaffing_;
+	vector3D<int> costUnderStaffing_;
 
 	// vectors of nurses, skills and shifts that shall be sorted before running
 	// the greedy algorithms
 	//
-	vector<LiveNurse*> theNursesSorted_;
-	vector<int> shiftsSorted_;
-	vector<int> skillsSorted_;
+	std::vector<LiveNurse*> theNursesSorted_;
+	std::vector<int> shiftsSorted_;
+	std::vector<int> skillsSorted_;
 
 public:
 	//------------------------------------------------
@@ -594,30 +596,30 @@ public:
 
 	// list of starting days for which the rotations will be relaxed
 	bool isPartialRelaxDays_=false;
-	vector<bool> isRelaxDay_;
+	std::vector<bool> isRelaxDay_;
 	inline bool isRelaxDay(int day){return !isPartialRelaxDays_?false:isRelaxDay_[day];}
 
 	// list of starting days for which the rotations will be fixed
 	bool isPartialFixDays_=false;
-	vector<bool> isFixDay_;
+	std::vector<bool> isFixDay_;
 	inline bool isFixDay(int day){return !isPartialFixDays_?false:isFixDay_[day];}
 
 	// list of nurses whose roster is fixed in cirrent resolution
 	bool isPartialFixNurses_=false;
-	vector<bool> isFixNurse_;
+	std::vector<bool> isFixNurse_;
 	inline bool isFixNurse(int n){return !isPartialFixNurses_?false:isFixNurse_[n];}
 
 	// relax/unrelax the integrality constraints of the variables corresponding to input days
-	virtual void relaxDays(vector<bool> isRelax) {}
-	virtual void unrelaxDays(vector<bool> isUnrelax) {}
+	virtual void relaxDays(std::vector<bool> isRelax) {}
+	virtual void unrelaxDays(std::vector<bool> isUnrelax) {}
 
 	// fix/unfix all the variables corresponding to the input vector of days
-	virtual void fixDays(vector<bool> isFixDay) {}
-	virtual void unfixDays(vector<bool> isUnfixDay) {}
+	virtual void fixDays(std::vector<bool> isFixDay) {}
+	virtual void unfixDays(std::vector<bool> isUnfixDay) {}
 
 	// fix/unfix all the variables corresponding to the input vector of nurses
-	virtual void fixNurses(vector<bool> isFixNurse) {}
-	virtual void unfixNurses(vector<bool> isUnfixNurse) {}
+	virtual void fixNurses(std::vector<bool> isFixNurse) {}
+	virtual void unfixNurses(std::vector<bool> isUnfixNurse) {}
 
 	// Solve the problem with a method that allows for a warm start
 	virtual double rollingSolve(SolverParam parameters, int firstDay) {return 0.0;}
@@ -627,7 +629,7 @@ public:
 	virtual double LNSSolve(SolverParam parameters) {return 0.0;}
 
 	// Solve the problem using a decomposition of the set nurses by connex components
-	// of the graph of positions
+	// of the rcspp of positions
 	virtual double solveByConnexPositions() {return 0.0;}
 
 	//------------------------------------------------
@@ -640,13 +642,13 @@ public:
 	int maxTotalStaffAvgWork_;
 
 	// potential staffing for each skill, with and without penalt
-	vector<double> maxStaffPerSkillNoPenalty_;
-	vector<double> maxStaffPerSkillAvgWork_;
+	std::vector<double> maxStaffPerSkillNoPenalty_;
+	std::vector<double> maxStaffPerSkillAvgWork_;
 
 	// rarity of the skills
 	// it may depend on how many nurses have a skill and what the demand for this
 	// skill is
-	vector<double> skillRarity_;
+	std::vector<double> skillRarity_;
 
 	// indicators related to the preprocessing
 	//
@@ -655,12 +657,12 @@ public:
 
 	// Load a solution in the solver and build the states of the live nurses
 	//
-	void loadSolution(vector<Roster> &solution);
+	void loadSolution(std::vector<Roster> &solution);
 
 
 	//Initialization of the rostering problem with/without solution
 	//
-	virtual void initialize(SolverParam parameters, vector<Roster> solution) {}
+	virtual void initialize(SolverParam parameters, std::vector<Roster> solution) {}
 
 	//------------------------------------------------
 	// Preprocess functions
@@ -752,7 +754,7 @@ public:
 
    // get aggregate information on the solution and write them in a string
    //
-   string solutionStatisticsToString();
+   std::string solutionStatisticsToString();
 
    //------------------------------------------------
    // Display functions
@@ -765,9 +767,9 @@ public:
 
 	// return/set solution_
 	//
-	vector<Roster> getSolution() { return solution_; }
+	std::vector<Roster> getSolution() { return solution_; }
 	inline void addRosterToSolution(Roster& roster) {solution_.push_back(roster);}
-	inline void setSolution(vector<Roster>& solution) {solution_=solution;}
+	inline void setSolution(std::vector<Roster>& solution) {solution_=solution;}
 
 	// get the timer
 	//
@@ -775,37 +777,37 @@ public:
 
 	// return the solution, but only for the k first days
 	//
-	vector<Roster> getSolutionAtDay(int k);
+	std::vector<Roster> getSolutionAtDay(int k);
 
 	// convert the internal solution of a solver into a interpretable one
 	virtual void storeSolution() {}
-	virtual string costsConstrainstsToString() {return "";}
+	virtual std::string costsConstrainstsToString() {return "";}
 
 	// return the final states of the nurses
 	//
-	vector<State> getFinalStates();
+	std::vector<State> getFinalStates();
 
 	// Returns the states(k+1) since the states start at 0
 	// (hence, the state at the end of day k is state(k+1)
 	//
-	vector<State> getStatesOfDay(int k);
+	std::vector<State> getStatesOfDay(int k);
 
 	// display the whole solution in the required format
 	//
-	string solutionToString();
+  std::string solutionToString();
 
 	// display the whole solution week by week for nbWeeks weeks in the required format
 	//
-	vector<string> solutionToString(int nbWeeks);
+	std::vector<std::string> solutionToString(int nbWeeks);
 
 	// display the solution between firstDay and firstDay+nbDays in the required format
 	//
-	string solutionToString(int firstDay, int nbDays,  int firstWeek);
+  std::string solutionToString(int firstDay, int nbDays,  int firstWeek);
 
 	// display the solution in a more readable format and append advanced
 	// information on the solution quality
 	//
-	string solutionToLogString();
+	std::string solutionToLogString();
 
 	// Returns the number of days over which the solver solves the problem
 	int getFirstDay(){return pDemand_->firstDay_;}
@@ -818,7 +820,7 @@ public:
 	int getNbShifts() {return pDemand_->nbShifts_;}
 
 	// Extend the rosters in the solution with the days covered by the input solution
-	void extendSolution(vector<Roster> solutionExtension);
+	void extendSolution(std::vector<Roster> solutionExtension);
 
 	// Print the current best solution
 	virtual void printCurrentSol() {};

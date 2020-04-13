@@ -12,6 +12,13 @@
 
 // #define COMPARE_EVALUATIONS
 
+
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   D e t e r m i n i s t i c S o l v e r
@@ -25,7 +32,7 @@ DeterministicSolver::DeterministicSolver(Scenario* pScenario,InputPaths inputPat
 Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
 pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 
-	std::cout << "# New deterministic solver created!" << endl;
+	std::cout << "# New deterministic solver created!" << std::endl;
 
 	// The nurses must be preprocessed to use their positions
 	if (!isPreprocessedNurses_) this->preprocessTheNurses();
@@ -419,7 +426,7 @@ double DeterministicSolver::solveCompleteHorizon() {
 	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_);
 	pCompleteSolver_->solve(completeParameters_);
 	pCompleteSolver_->printCurrentSol();
-	cout << pCompleteSolver_->solutionToString() << endl;
+	std::cout << pCompleteSolver_->solutionToString() << std::endl;
 	return this->treatResults(pCompleteSolver_);
 }
 
@@ -467,7 +474,7 @@ double DeterministicSolver::treatResults(Solver* pSolver) {
 //------------------------------------------------------------------------
 //
 // Solve the problem using a decomposition of the set nurses by connex
-// components of the graph of positions
+// components of the rcspp of positions
 //
 //------------------------------------------------------------------------
 

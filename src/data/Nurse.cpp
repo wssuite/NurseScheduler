@@ -1,4 +1,6 @@
+
 #include "data/Nurse.h"
+#include "data/Scenario.h"
 
 #include <fstream>
 #include <iostream>
@@ -6,6 +8,11 @@
 #include <streambuf>
 #include <time.h>
 
+
+using std::vector;
+using std::map;
+using std::string;
+using std::pair;
 
 //-----------------------------------------------------------------------------
 //
@@ -15,9 +22,17 @@
 //
 //-----------------------------------------------------------------------------
 
+// Cost function for consecutive identical shifts
+//
+double Contract::consDaysCost(int n) const {
+  if(minConsDaysWork_ - n > 0) return (WEIGHT_CONS_DAYS_WORK * ( minConsDaysWork_ - n ) );
+  if(n - maxConsDaysWork_ > 0) return (WEIGHT_CONS_DAYS_WORK * ( n - maxConsDaysWork_ ) );
+  return 0;
+}
+
 // Print method
 //
-string Contract::toString(){
+std::string Contract::toString(){
 	std::stringstream rep;
 	rep << name_ << "  -  ";
 	rep << "Tot:" << minTotalShifts_ << "<" << maxTotalShifts_ << "  |  ";
@@ -40,11 +55,11 @@ string Contract::toString(){
 
 // Constructor and Destructor
 //
-Position::Position(int index, int nbSkills, vector<int> skills):
+Position::Position(int index, int nbSkills, std::vector<int> skills):
 			id_(index), nbSkills_(nbSkills), skills_(skills), nbBelow_(0), nbAbove_(0), rank_(0)  {
 	// Verify that the vecor of skills is sorted
 	//
-	for (vector<int>::const_iterator it=skills_.begin(); it!=skills_.end()-1; ++it) {
+	for (auto it=skills_.begin(); it!=skills_.end()-1; ++it) {
 		if (*it >= *(it+1))  {
 			Tools::throwError("The skills in a position are not sorted or some skill is repeated!");
 		}
@@ -67,7 +82,7 @@ void Position::addAbove(Position* pPosition) {
 
 // Print method
 //
-string Position::toString() const{
+std::string Position::toString() const{
 	std::stringstream rep;
 	rep << id_ << ": ";
 	if(id_<10) rep << " ";
@@ -84,14 +99,14 @@ string Position::toString() const{
 	if (!positionsBelow_.empty()) {
 		rep << std::endl;
 		rep << "#\t\t\t\t\tdominates positions:      ";
-		for (vector<Position*>::const_iterator it=positionsBelow_.begin(); it!=positionsBelow_.end();it++) {
+		for (auto it=positionsBelow_.begin(); it!=positionsBelow_.end();it++) {
 			rep << "\t" << (*it)->id_;
 		}
 	}
 	if (!positionsAbove_.empty()) {
 		rep << std::endl;
 		rep << "#\t\t\t\t\tis dominated by positions:";
-		for (vector<Position*>::const_iterator it=positionsAbove_.begin(); it!=positionsAbove_.end();it++) {
+		for (auto it=positionsAbove_.begin(); it!=positionsAbove_.end();it++) {
 			rep << "\t" << (*it)->id_;
 		}
 	}
@@ -104,7 +119,7 @@ string Position::toString() const{
  // the vector is sorted without record of the corresponding skill because it
  // is used only to compare two positions with the same rank
  //
- void Position::updateRarities(vector<double> allRarities) {
+ void Position::updateRarities(std::vector<double> allRarities) {
 	for (int sk = 0; sk < this->nbSkills_; sk++) {
 	  skillRarity_[sk] = allRarities[skills_[sk]];
 	}
@@ -119,9 +134,6 @@ string Position::toString() const{
 // and 0 if there is no dominance
 //
 int Position::compare(const Position &p)  {
-	vector<int>::const_iterator it1;
-	vector<int>::const_iterator it2;
-
 	// no possible dominance if both positions have as many skills
 	if (p.nbSkills_ == this->nbSkills_) {
 		return 0;
@@ -130,8 +142,8 @@ int Position::compare(const Position &p)  {
 	// the comparison of the two skill lists is based on the fact that they are
 	// both sorted
 	else if(p.nbSkills_ > this->nbSkills_) {
-		it1 = p.skills_.begin();
-		for (it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++) {
+		auto it1 = p.skills_.begin();
+		for (auto it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++) {
 			while (*it1 < *it2) {
 				if (it1 == p.skills_.end()-1) return 0;
 				else it1++;
@@ -142,8 +154,8 @@ int Position::compare(const Position &p)  {
 	}
 	// only this position can dominate if it has more skills
 	else if(this->nbSkills_ > p.nbSkills_) {
-		it1 = this->skills_.begin();
-		for (it2 = p.skills_.begin(); it2 != p.skills_.end(); it2++)   {
+		auto it1 = this->skills_.begin();
+		for (auto it2 = p.skills_.begin(); it2 != p.skills_.end(); it2++)   {
 			while (*it1 < *it2) {
 				if (it1 == this->skills_.end()-1) return 0;
 				else it1++;
@@ -159,11 +171,8 @@ int Position::compare(const Position &p)  {
 // returns true if the position shares at least one skill with the input position
 //
 bool Position::shareSkill(const Position&p) {
-	vector<int>::const_iterator it1;
-	vector<int>::const_iterator it2;
-
-	for (it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++) {
-		for (it1 = p.skills_.begin(); it1 != p.skills_.end(); it1++)   {
+	for (auto it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++) {
+		for (auto it1 = p.skills_.begin(); it1 != p.skills_.end(); it1++)   {
 			if (*it1== *it2) return true;
 		}
 	}

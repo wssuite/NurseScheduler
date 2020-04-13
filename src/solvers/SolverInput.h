@@ -40,18 +40,18 @@ protected:
 	// Recall the "const" attributes as pointers : Nurses and Scenario informations
 	//
 	Scenario* pScenario_;
-	vector<Nurse>* pTheNurses_;
+    std::vector<Nurse>* pTheNurses_;
 
 	// Pointers to the minimum and optimum demand for each day, shift and skill
 	//
-	vector3D* pMinDemand_, pOptDemand_;
+	vector3D<int>* pMinDemand_, pOptDemand_;
 
 	// pointer to the preferences of the nurses nurse (that vector must be of same length and in the same order as the nurses)
 	Preferences* pPreferences_;
 
 	// pointer to the state of each nurse at the beginning of the time horizon
 	//
-	vector<State>* pInitState_;
+  std::vector<State>* pInitState_;
 
 };
 

@@ -815,11 +815,9 @@ void MasterProblem::save(vector<int>& weekIndices, string outfile){
 // Build the, possibly fractional, roster corresponding to the solution
 // currently stored in the model
 //------------------------------------------------------------------------------
-vector<vector<vector<double>>> MasterProblem::getFractionalRoster() {
-	vector<vector<vector<double>>> fractionalRoster(getNbNurses());
-	for(vector<vector<double>>& fractionalRoster2: fractionalRoster) {
-		Tools::initDoubleVector2D(&fractionalRoster2,getNbDays(),pDemand_->nbShifts_-1,0);
-	}
+vector3D<double> MasterProblem::getFractionalRoster() {
+	vector3D<double> fractionalRoster;
+  Tools::initVector3D(fractionalRoster, getNbNurses(), getNbDays(), pDemand_->nbShifts_-1, .0);
 
 	// Retrieve current fractional roster for each nurse
 	// Warning, the working shifts are numbered from 0 to nbShifts_-1 instead of
@@ -1682,7 +1680,7 @@ string MasterProblem::allocationToString(bool printInteger){
 
 	for (int n = 0; n < nbNurses; n ++) {
 		LiveNurse* pNurse = theLiveNurses_[n];
-		vector<vector<double>> fractionalRoster; Tools::initDoubleVector2D(&fractionalRoster,nbDays,nbShifts-1,0);
+		vector2D<double> fractionalRoster; Tools::initVector2D(fractionalRoster, nbDays, nbShifts-1, .0);
 		for(MyVar* var : pModel_->getActiveColumns()){
 			if(var->getPattern()[0] != pNurse->id_)
 				continue;

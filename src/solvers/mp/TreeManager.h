@@ -18,27 +18,27 @@ struct ColumnsNode: public MyNode{
 	ColumnsNode(int index, MyNode* pParent, std::vector<Rotation>& rotations):
 		MyNode(index, pParent), rotations_(rotations) {}
 
-	string write() {
-		stringstream out;
+    std::string write() {
+      std::stringstream out;
 		out << "ColumnsNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",#Cols=" << rotations_.size() << ")";
 		return out.str();
 	}
 
 	//vector of the columns on which we have branched.
-	const vector<Rotation> rotations_;
+	const std::vector<Rotation> rotations_;
 };
 
 // Node that correspond to branching on a resting day
 //
 struct RestNode: public MyNode{
-	RestNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool rest, vector<MyVar*>& restArcs):
+	RestNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool rest, std::vector<MyVar*>& restArcs):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), rest_(rest), restArcs_(restArcs) {}
 
-	string write() {
-		stringstream out;
+    std::string write() {
+      std::stringstream out;
 		out << "RestNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse=" << pNurse_->id_ << ",Day=" << day_ << ",";
-		if(rest_) cout << "rest";
-		else cout << "work";
+		if(rest_) std::cout << "rest";
+		else std::cout << "work";
 		out << ")";
 		return out.str();
 	}
@@ -47,18 +47,18 @@ struct RestNode: public MyNode{
 	const LiveNurse* pNurse_;
 	const int day_;
 	const bool rest_;
-	vector<MyVar*> restArcs_;
+    std::vector<MyVar*> restArcs_;
 };
 
 
 // Node that correspond to branching on working shifts
 //
 struct ShiftNode: public MyNode{
-	ShiftNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, vector<int>& forbiddenShifts):
+	ShiftNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), work_(work), forbiddenShifts_(forbiddenShifts) {}
 
-	string write() {
-		stringstream out;
+    std::string write() {
+      std::stringstream out;
 		out << "ShiftNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse=" << pNurse_->id_ << ",Day=" << day_ << ",";
 		if(work_) out << "work";
 		else out << "N.A.";
@@ -72,18 +72,18 @@ struct ShiftNode: public MyNode{
 	const LiveNurse* pNurse_;
 	const int day_;
 	const bool work_;
-	vector<int> forbiddenShifts_;
+    std::vector<int> forbiddenShifts_;
 };
 
 // Node that corresponds to branching on a penalized original variable
 // The variable can relate to cover constraints, total shifts or total week-ends
 //
 struct PenaltyNode: public MyNode{
-	PenaltyNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, vector<int>& forbiddenShifts):
+	PenaltyNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), work_(work), forbiddenShifts_(forbiddenShifts) {}
 
-	string write() {
-		stringstream out;
+    std::string write() {
+      std::stringstream out;
 		out << "PenaltyNide: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse=" << pNurse_->id_ << ",Day=" << day_ << ",";
 		if(work_) out << "work";
 		else out << "N.A.";
@@ -97,7 +97,7 @@ struct PenaltyNode: public MyNode{
 	const LiveNurse* pNurse_;
 	const int day_;
 	const bool work_;
-	vector<int> forbiddenShifts_;
+    std::vector<int> forbiddenShifts_;
 };
 
 
@@ -105,8 +105,8 @@ struct NursesNumberNode: public MyNode{
 	NursesNumberNode(int index, MyNode* pParent, MyVar* var, double lb, double ub):
 		MyNode(index, pParent), pNumberOfNurses_(var), nursesLhs_(lb), nursesRhs_(ub) {}
 
-	string write() {
-		stringstream out;
+    std::string write() {
+      std::stringstream out;
 		out << "NursesNumberNode: (depth=" << depth_ << ",LB=" << bestLB_;
 		out << ",Var=" << pNumberOfNurses_->name_ << ",LB=" << nursesLhs_ << ",UB=" << nursesRhs_ << ")";
 		return out.str();
@@ -122,7 +122,7 @@ struct RestTree: public MyTree{
 
 	void logical_fixing();
 
-	void addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbidenShifts);
+	void addForbiddenShifts(LiveNurse* pNurse, std::set<std::pair<int,int> >& forbidenShifts);
 
 	inline void pushBackNewNursesNumberNode(MyVar* var, double lb, double ub){
 		NursesNumberNode* node = new NursesNumberNode(tree_.size(), currentNode_, var, lb, ub);
@@ -134,12 +134,12 @@ struct RestTree: public MyTree{
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewRestNode(LiveNurse* pNurse, int day, bool rest, vector<MyVar*>& restArcs){
+	inline void pushBackNewRestNode(LiveNurse* pNurse, int day, bool rest, std::vector<MyVar*>& restArcs){
 		RestNode* node = new RestNode(tree_.size(), currentNode_, pNurse, day, rest, restArcs);
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewShiftNode(LiveNurse* pNurse, int day, bool work, vector<int>& shifts){
+	inline void pushBackNewShiftNode(LiveNurse* pNurse, int day, bool work, std::vector<int>& shifts){
 		ShiftNode* node = new ShiftNode(tree_.size(), currentNode_, pNurse, day, work, shifts);
 		pushBackNode(node);
 	}
@@ -148,24 +148,24 @@ struct RestTree: public MyTree{
 
 	inline bool continueDiving(){
 		if(is_columns_node()) return true;
-		return (diveDepth_ <= max(min_depth_+10, diveLength_));
+		return (diveDepth_ <= std::max(min_depth_+10, diveLength_));
 	}
 
 	void reset();
 
 	void updateStats(MyNode* node);
 
-	string writeBranchStats();
+    std::string writeBranchStats();
 
-	string writeOneStat(string name, vector<pair<int,double>>& stats);
+    std::string writeOneStat(std::string name, std::vector<std::pair<int,double>>& stats);
 
 protected:
 	Scenario* pScenario_;
 	Demand* pDemand_;
 	//Tree statistics
 	//each pair represents first the number of times of the branching and second the increase of the LB
-	vector<pair<int,double>> statsRestByDay_, statsWorkByDay_, statsRestByNurse_, statsWorkByNurse_;
-	pair<int,double> statsCols_;
+  std::vector<std::pair<int,double>> statsRestByDay_, statsWorkByDay_, statsRestByNurse_, statsWorkByNurse_;
+    std::pair<int,double> statsCols_;
 };
 
 struct ColumnsComparator {
@@ -202,12 +202,13 @@ public:
    bool column_candidates(MyBranchingCandidate& candidate);
 
    /* Choose columns */
-   vector<MyVar*> chooseColumns(vector<pair<MyVar*,double>>& candidates, vector<Rotation>& rotations, double& maxValue, ColumnsComparator& comparator);
+   std::vector<MyVar*> chooseColumns(std::vector<std::pair<MyVar*,double>>& candidates,
+       std::vector<Rotation>& rotations, double& maxValue, ColumnsComparator& comparator);
 
    /* compare columns */
-   static bool compareColumnCloseToInt(pair<MyVar*, double> obj1, pair<MyVar*, double> obj2);
+   static bool compareColumnCloseToInt(std::pair<MyVar*, double> obj1, std::pair<MyVar*, double> obj2);
 
-   static bool compareColumnCloseTo5(pair<MyVar*, double> obj1, pair<MyVar*, double> obj2);
+   static bool compareColumnCloseTo5(std::pair<MyVar*, double> obj1, std::pair<MyVar*, double> obj2);
 
 protected:
    //Pointer to the master problem to link the master and the sub problems

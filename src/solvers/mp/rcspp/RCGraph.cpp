@@ -2,7 +2,8 @@
 // Created by antoine legrain on 2020-04-10.
 //
 
-#include "solvers/mp/graph/RCGraph.h"
+#include "solvers/mp/rcspp/RCGraph.h"
+#include <iostream>
 
 RCGraph::RCGraph(int nDays): nDays_(nDays), nNodes_(0), nArcs_(0) {}
 RCGraph::~RCGraph() {}
@@ -142,8 +143,8 @@ void RCGraph::resetAuthorizations() {
   forbiddenArcs_.clear();
 }
 
-// Print the graph
-void RCGraph::printGraph(){
+// Print the rcspp
+void RCGraph::printGraph() const {
 
   // TITLE
   std::cout << "# " << std::endl;
@@ -167,7 +168,7 @@ void RCGraph::printGraph(){
 }
 
 // Prints the line of a node
-string RCGraph::printNode(int v){
+std::string RCGraph::printNode(int v) const {
   std::stringstream rep;
   const Vertex_Properties& vert_prop = node(v);
   rep << "# NODE  " << v << " \t" << nodeTypeName[vert_prop.type];
@@ -178,7 +179,7 @@ string RCGraph::printNode(int v){
 }
 
 // Prints all nodes
-void RCGraph::printAllNodes(){
+void RCGraph::printAllNodes() const {
   std::cout << "#   NODES (" << nNodes_ << ")" << std::endl;
   for(int v=0; v<nNodes_; v++) std::cout << printNode(v) << std::endl;
   std::cout << "# " << std::endl;
@@ -186,7 +187,7 @@ void RCGraph::printAllNodes(){
 }
 // Prints the line of an arc
 
-string RCGraph::printArc(int a){
+std::string RCGraph::printArc(int a) const {
   std::stringstream rep;
   rep << "# ARC   " << a << " \t" << arcTypeName[arcType(a)] << " \t";
   rep << "(" << arcOrigin(a) << "," << arcDestination(a) << ") \t" << "c= " << arcCost(a) ;
@@ -200,14 +201,14 @@ string RCGraph::printArc(int a){
 }
 
 // Prints all arcs
-void RCGraph::printAllArcs(){
+void RCGraph::printAllArcs() const {
   std::cout << "#   ARCS (" << nArcs_ << "]" << std::endl;
   for(int a=0; a<nArcs_; a++) std::cout << printArc(a) << std::endl;
   std::cout << "# " << std::endl;
 }
 
 // Short name for a node
-string RCGraph::shortNameNode(int v){
+std::string RCGraph::shortNameNode(int v) const {
 
   std::stringstream rep;
   NodeType type_v = get( &Vertex_Properties::type, g_)[v];
@@ -246,8 +247,8 @@ string RCGraph::shortNameNode(int v){
   return rep.str();
 }
 
-// Summary of the graph
-string RCGraph::printSummaryOfGraph(){
+// Summary of the rcspp
+std::string RCGraph::printSummaryOfGraph() const {
   std::stringstream rep;
   std::map<NodeType,int> nNodesPerType;
   std::map<ArcType,int> nArcsPerType;
@@ -300,7 +301,7 @@ string RCGraph::printSummaryOfGraph(){
 
 // Print the path (arcs, nodes, cost of each arc in the current network, etc.)
 //
-void RCGraph::printPath(std::vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_res_cont resource){
+void RCGraph::printPath(std::vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_res_cont resource) const {
 
   // The successive nodes, and corresponding arc costs / time
   //

@@ -7,6 +7,12 @@
 
 #include "solvers/mp/TreeManager.h"
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+using std::set;
+
 //////////////////////////////////////////////////////////////
 //
 // B C P T R E E S T A T S   M E T H O D S
@@ -116,7 +122,7 @@ void RestTree::updateStats(MyNode* node) {
 }
 
 string RestTree::writeBranchStats(){
-	stringstream rep;
+	std::stringstream rep;
 	rep << "";
 
 	int nbNurses = statsRestByNurse_.size();
@@ -125,7 +131,7 @@ string RestTree::writeBranchStats(){
 	rep << "Stats on Columns" << std::endl;
 	char buffer0[100];
 	sprintf(buffer0, "Has branched %3d times with an average increased of the lower bound of %.2f", statsCols_.first, statsCols_.second / statsCols_.first);
-	rep << buffer0 << endl;
+	rep << buffer0 << std::endl;
 	rep << "-------------------------------------"<< std::endl;
 
 
@@ -155,7 +161,7 @@ string RestTree::writeBranchStats(){
 }
 
 string RestTree::writeOneStat(string name, vector<pair<int,double>>& stats){
-	stringstream rep;
+  std::stringstream rep;
 
 	rep << name << "\t\t  ";
 	for (unsigned int n = 0; n < stats.size(); n++) {
@@ -261,7 +267,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 	}
 
 	if (pModel_->getParameters().branchColumnDisjoint_) {
-	  double valueMax = max (1.0, pMaster_->pScenario_->nbWeeks_ / 2.0);
+	  double valueMax = std::max (1.0, pMaster_->pScenario_->nbWeeks_ / 2.0);
 		DayDisjointComparator comp1 = DayDisjointComparator();
 		fixingCandidates = chooseColumns(candidates, rotations, valueMax, comp1); // (pMaster_->pScenario_->nbWeeks_ + 1) / 2.0
 

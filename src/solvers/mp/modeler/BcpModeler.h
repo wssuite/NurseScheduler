@@ -115,7 +115,8 @@ struct BcpCoreVar: public CoinVar, public BCP_var_core {
 		return type;
 	}
 
-	BcpCoreVar(const char* name, int index, double cost, VarType type, double lb, double ub, const vector<double>& pattern = DEFAULT_PATTERN):
+	BcpCoreVar(const char* name, int index, double cost, VarType type, double lb, double ub,
+	    const std::vector<double>& pattern = DEFAULT_PATTERN):
 		CoinVar(name, index, cost, type, lb, ub, pattern),
 		BCP_var_core(getBcpVarType(type), cost, lb, ub)
 	{
@@ -140,8 +141,8 @@ struct BcpCoreVar: public CoinVar, public BCP_var_core {
 
 
 struct BcpColumn: public CoinVar, public BCP_var_algo{
-	BcpColumn(const char* name, int index, double cost, const vector<double>& pattern, double dualCost, VarType type, double lb, double ub,
-			const vector<int>& indexRows = Tools::EMPTY_INT_VECTOR, const vector<double>& coeffs = Tools::EMPTY_DOUBLE_VECTOR):
+	BcpColumn(const char* name, int index, double cost, const std::vector<double>& pattern, double dualCost, VarType type, double lb, double ub,
+			const std::vector<int>& indexRows = Tools::EMPTY_INT_VECTOR, const std::vector<double>& coeffs = Tools::EMPTY_DOUBLE_VECTOR):
 				CoinVar(name, index, cost, type, lb, ub, pattern, dualCost, indexRows, coeffs),
 				BCP_var_algo(BcpCoreVar::getBcpVarType(type), cost, lb, ub)
 	{
@@ -172,11 +173,11 @@ struct BcpColumn: public CoinVar, public BCP_var_algo{
 
 	//use BCP bounds
 	double getLB() const {
-		return max(lb_,lb());
+		return std::max(lb_,lb());
 	}
 
 	double getUB() const {
-		return min(ub_,ub());
+		return std::min(ub_,ub());
 	}
 };
 
@@ -200,7 +201,7 @@ struct BcpCoreCons: public CoinCons, public BCP_cut_core{
 //these constraints are not generated, they are always in the LP problem
 struct BcpBranchCons: public CoinCons, public BCP_cut_algo{
 	BcpBranchCons(const char* name, int index, double lhs, double rhs,
-			vector<int>& indexCols, vector<double>& coeffs):
+                std::vector<int>& indexCols, std::vector<double>& coeffs):
 				CoinCons(name, index, lhs, rhs),
 				BCP_cut_algo(lhs, rhs),
 				indexCols_(indexCols), coeffs_(coeffs)
@@ -212,13 +213,13 @@ struct BcpBranchCons: public CoinCons, public BCP_cut_algo{
 
 	~BcpBranchCons(){ }
 
-	vector<int>& getIndexCols() { return indexCols_; }
+    std::vector<int>& getIndexCols() { return indexCols_; }
 
-	vector<double>& getCoeffCols() { return coeffs_; }
+    std::vector<double>& getCoeffCols() { return coeffs_; }
 
 protected:
-	vector<int> indexCols_; //index of the cols of the matrix where the col has non-zero coefficient
-	vector<double> coeffs_; //value of these coefficients
+    std::vector<int> indexCols_; //index of the cols of the matrix where the col has non-zero coefficient
+    std::vector<double> coeffs_; //value of these coefficients
 };
 
 // LP solver types
@@ -256,7 +257,7 @@ public:
 		if(!col)
 			std::cout << "error";
 		Modeler::addActiveColumn(var, index);
-		if(index>=0) columnsToIndex_.insert(pair<int,int>(col->getIndex(), index));
+		if(index>=0) columnsToIndex_[col->getIndex()] = index;
 	}
 
 	void clearActiveColumns() {
@@ -272,9 +273,9 @@ protected:
 	 *    lhs, rhs are the lower and upper bound of the variable
 	 *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
 	 */
-	int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const vector<double>& pattern = DEFAULT_PATTERN);
+	int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const std::vector<double>& pattern = DEFAULT_PATTERN);
 
-	int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub);
+	int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub);
 
 	/*
 	 * Create linear constraint:
@@ -323,9 +324,9 @@ public:
 	 * Outputs *
 	 *************/
 
-	int writeProblem(string fileName);
+	int writeProblem(std::string fileName);
 
-	int writeLP(string fileName);
+	int writeLP(std::string fileName);
 
 	/*
 	 * Class own methods and parameters
@@ -334,7 +335,7 @@ public:
 	void setLPSol(const BCP_lp_result& lpres, const BCP_vec<BCP_var*>&  vars, int lpIteration);
 
 	int getIndexCol(int colIndex) {
-		map<int,int>::iterator it = columnsToIndex_.find(colIndex);
+		auto it = columnsToIndex_.find(colIndex);
 		if(it == columnsToIndex_.end()) return -1;
 		return it->second;
 	}
@@ -359,7 +360,7 @@ public:
 	// solution and set the primal values accordingly
 	void loadInputSol(BCP_solution_generic& sol);
 
-	inline void setPrimal(vector<double>& primal){ primalValues_ = primal; }
+	inline void setPrimal(const std::vector<double>& primal){ primalValues_ = primal; }
 
 	inline int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
 
@@ -378,16 +379,16 @@ public:
 	void setEveryRotationToOne();
 
 	// fix/unfix all the rotations variables starting from the input vector of days
-	void fixRotationsStartingFromDays(vector<bool> isFixDay);
-	void unfixRotationsStartingFromDays(vector<bool> isUnfixDay);
+	void fixRotationsStartingFromDays(const std::vector<bool>& isFixDay);
+	void unfixRotationsStartingFromDays(const std::vector<bool>& isUnfixDay);
 
 	// fix/unfix all the rotations variables of the input nurses
-	void fixRotationsOfNurses(vector<bool> isFixNurse);
-	void unfixRotationsOfNurses(vector<bool> isUnfixNurse);
+	void fixRotationsOfNurses(const std::vector<bool>& isFixNurse);
+	void unfixRotationsOfNurses(const std::vector<bool>& isUnfixNurse);
 
 	// relax/unrelax the integrality of all the rotations variables starting from the input vector of days
-	void relaxRotationsStartingFromDays(vector<bool> isRelaxDay);
-	void unrelaxRotationsStartingFromDays(vector<bool> isUnRelaxDay);
+	void relaxRotationsStartingFromDays(const std::vector<bool>& isRelaxDay);
+	void unrelaxRotationsStartingFromDays(const std::vector<bool>& isUnRelaxDay);
 
 	/*
 	 * Manage the storage of our own tree
@@ -410,8 +411,7 @@ public:
 
 	inline void addToMapping(const CoinTreeSiblings* s) {
 		const int nbLeaves = s->size();
-		vector<MyNode*> leaves = pTree_->addToMapping(nbLeaves, s->currentNode()->getDepth());
-		treeMapping_.insert(pair<const CoinTreeSiblings*, vector<MyNode*> >(s, leaves));
+    treeMapping_[s] = pTree_->addToMapping(nbLeaves, s->currentNode()->getDepth());
 	}
 
 	inline MyNode* getNode(const CoinTreeSiblings* s) {
@@ -420,9 +420,9 @@ public:
 	}
 
 	inline void createCutLinear(MyCons** cons, const char* con_name, double lhs, double rhs,
-			vector<MyVar*> vars = {}, vector<double> coeffs = {});
+			std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {});
 
-	inline vector<MyCons*>& getBranchingCons(){ return branchingCons_; }
+	inline std::vector<MyCons*>& getBranchingCons(){ return branchingCons_; }
 
 	inline void addBranchingCons(MyCons* cons){
 		return branchingCons_.push_back( new BcpBranchCons( *(dynamic_cast<BcpBranchCons*>(cons)) ) );
@@ -434,9 +434,9 @@ public:
 
 	inline LPSolverType getLPSolverType() { return LPSolverType_; };
 
-	inline  map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
+	inline  std::map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
-	inline  map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
+	inline  std::map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
 
 	inline bool is_solution_changed() { return solHasChanged_; }
 
@@ -454,7 +454,7 @@ public:
 	//check the active rotations
 	void checkActiveColumns(const BCP_vec<BCP_var*>&  vars);
 
-	pair<BCP_lp_par::int_params, int> strong_branching = pair<BCP_lp_par::int_params, int>(BCP_lp_par::MaxPresolveIter, -1); //disable strong branching
+    std::pair<BCP_lp_par::int_params, int> strong_branching = std::pair<BCP_lp_par::int_params, int>(BCP_lp_par::MaxPresolveIter, -1); //disable strong branching
 
 	// Get/set the value of the current level in the branch and bound tree
 	//
@@ -499,17 +499,17 @@ protected:
 
   //mapping between the CoinTreeSiblings* and my BcpNode*
 	//a sibblings contains a list of all its leaves CoinTreeNode
-	map<const CoinTreeSiblings*, vector<MyNode*>> treeMapping_;
+  std::map<const CoinTreeSiblings*, std::vector<MyNode*>> treeMapping_;
 	//results
-	vector<double> obj_history_;
-	vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
-	map<int,int> columnsToIndex_;
+  std::vector<double> obj_history_;
+    std::vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
+    std::map<int,int> columnsToIndex_;
 	bool solHasChanged_ = false; //reload solution ?
 	//bcp branching cons
-	vector<MyCons*> branchingCons_;
+  std::vector<MyCons*> branchingCons_;
 	//bcp solution
-	vector<BCP_solution_generic> bcpSolutions_;
-	vector<MyVar*> columnsInSolutions_;
+  std::vector<BCP_solution_generic> bcpSolutions_;
+    std::vector<MyVar*> columnsInSolutions_;
 	// bcp solution of the root node
 	BcpLpSol rootSolution_;
 
@@ -545,7 +545,7 @@ protected:
 
 
 	/* Tree Manager verbosity parameters */
-	map<BCP_tm_par::chr_params, bool> tm_parameters = {
+  std::map<BCP_tm_par::chr_params, bool> tm_parameters = {
 			{ BCP_tm_par::VerbosityShutUp, 0},
 			{ BCP_tm_par::TmVerb_First, 0},
 			{ BCP_tm_par::TmVerb_AllFeasibleSolutionValue, 0},
@@ -564,7 +564,7 @@ protected:
 	};
 
 	/* LP verbosity parameters */
-	map<BCP_lp_par::chr_params, bool> lp_parameters = {
+  std::map<BCP_lp_par::chr_params, bool> lp_parameters = {
 			{ BCP_lp_par::ReportWhenDefaultIsExecuted, 0},// Print out a message when the default version of an overridable method is executed.
 			{ BCP_lp_par::LpVerb_AddedCutCount, 0},// Print the number of cuts added from the local cut pool in the current iteration. (BCP_lp_main_loop)
 			{ BCP_lp_par::LpVerb_CutsToCutPoolCount, 0},// Print the number of cuts sent from the LP to the cut pool. (BCP_lp_send_cuts_to_cp)
@@ -650,7 +650,7 @@ public:
 			const BCP_vec<BCP_var*>& vars,
 			const BCP_vec<BCP_cut*>& cuts);
 
-	static bool compareCol(const pair<int,double>& p1, const pair<int,double>& p2);
+	static bool compareCol(const std::pair<int,double>& p1, const std::pair<int,double>& p2);
 
 	//Modify parameters of the LP solver before optimization.
 	//This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
@@ -789,7 +789,7 @@ protected:
 	//number of generated columns
 	int nbGeneratedColumns_;
 	// Number of dives to wait before branching on columns again
-	list<int> nb_dives_to_wait_before_branching_on_columns_;
+  std::list<int> nb_dives_to_wait_before_branching_on_columns_;
 
 	//vars = are just the giver vars
 	//cols is the vector where the new columns will be stored
@@ -961,11 +961,11 @@ public:
 		buf.unpack(lb);
 		buf.unpack(ub);
 		buf.unpack(dualCost);
-		vector<int> indexRows;
+    std::vector<int> indexRows;
 		buf.unpack(indexRows);
-		vector<double> coeffs;
+    std::vector<double> coeffs;
 		buf.unpack(coeffs);
-		vector<double> pattern;
+    std::vector<double> pattern;
 		buf.unpack(pattern);
 		BcpColumn* col = new BcpColumn(name, index, cost, pattern, dualCost, type, lb, ub, indexRows, coeffs);
 

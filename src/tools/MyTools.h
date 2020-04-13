@@ -28,8 +28,8 @@
 #define _USE_MATH_DEFINES // needed for the constant M_PI
 #include <math.h>
 
-using std::string;
-using std::set;
+//using std::string;
+//using std::set;
 
 static const int DEBUG = 1;
 static const std::string REST_SHIFT = "None";
@@ -44,9 +44,9 @@ static const int LARGE_TIME = 9999999;
 
 // definitions of multi-dimensional int vector types
 //
-typedef std::vector<std::vector<int> > vector2D;
-typedef std::vector<std::vector<std::vector<int> > > vector3D;
-typedef std::vector<std::vector<std::vector<std::vector<int> > > > vector4D;
+template<class T> using vector2D = std::vector<std::vector<T>>;
+template<class T> using vector3D = std::vector<vector2D<T>>;
+template<class T> using vector4D = std::vector<vector3D<T>>;
 
 namespace Tools{
 
@@ -115,13 +115,30 @@ std::string itoa(T num){
   return stream.str();
 }
 
-// initializes a 1D, 2D or 3D Vector of the given size (filled only with zeroes)
+// initializes a 1D, 2D, 3D or 4D Vector of the given size (filled only with val)
 //
-void initVector(std::vector<int>* v1D, int m, int val=0);
-void initVector2D(vector2D* v2D, int m, int n, int val=0);
-void initVector3D(vector3D* v3D, int m, int n, int p, int val=0);
-void initDoubleVector(std::vector<double>* v1D, int m, double val=0);
-void initDoubleVector2D(std::vector< std::vector< double > >* v2D, int m, int n, double val=0);
+  template<class T> void initVector(std::vector<T>& v, int m, T val) {
+    v.clear();
+    v.resize(m, val);
+  }
+
+  template<class T> void initVector2D(vector2D<T>& v2D, int m, int n, T val) {
+    v2D.clear();
+    v2D.resize(m);
+    for (std::vector<T> &v: v2D) initVector(v, n, val);
+  }
+
+  template<class T> void initVector3D(vector3D<T>& v3D, int m, int n, int p, T val) {
+    v3D.clear();
+    v3D.resize(m);
+    for (vector2D<T> &v2: v3D) initVector2D(v2, n, p, val);
+  }
+
+  template<class T> void initVector4D(vector4D<T>& v4D, int m, int n, int p, int  q, T val) {
+    v4D.clear();
+    v4D.resize(m);
+    for (vector3D<T> &v3: v4D) initVector3D(v3, n, p, q, val);
+  }
 
 //empty vector for default initialization
 static std::vector<int> EMPTY_INT_VECTOR;

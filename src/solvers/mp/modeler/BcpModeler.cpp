@@ -28,6 +28,12 @@
 #include "CbcModeler.h"
 #endif
 
+
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
+
 /*
  * BCP_lp_user methods
  */
@@ -69,7 +75,7 @@ OsiSolverInterface* BcpLpModel::initialize_solver_interface(){
 		Tools::throwError("The LP solver requested is not implemented.");
 	}
 
-	int verbosity = max(0, pModel_->getVerbosity()-1);
+	int verbosity = std::max(0, pModel_->getVerbosity()-1);
 	solver->messageHandler()->setLogLevel(verbosity);
 	return solver;
 }
@@ -209,7 +215,7 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 
 		//print a line as it is the first iteration of this node
 		if (pModel_->getParameters().printBcpSummary_|| pModel_->getVerbosity() > 0) {
-			cout << "======================================================================================================================================" << endl;
+      std::cout << "======================================================================================================================================" << std::endl;
 			printSummaryLine();
 		}
 
@@ -626,7 +632,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 	//
 	if(current_index() == 0) {
 		for(MyVar* col: pModel_->getActiveColumns()){
-			if(((CoinVar*)col)->getCost() >= 1000.0 && pModel_->getVarValue(col) > EPSILON)
+			if(((CoinVar*)col)->getCost() >= LARGE_SCORE && pModel_->getVarValue(col) > EPSILON)
 			throw InfeasibleStop("Feasibility columns are still present in the solution");
 		}
 		pModel_->recordLpSol();
@@ -1175,8 +1181,8 @@ void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var*>&  vars){
       for(pair<int,int> p: rot.shifts_)
          if(shiftNode->day_ == p.first &&
             find(shiftNode->forbiddenShifts_.begin(), shiftNode->forbiddenShifts_.end(), p.second) != shiftNode->forbiddenShifts_.end()){
-            cout << "problem: active column " << var->bcpind() << " with forbidden shift " << p.second << endl;
-            cout << rot.toString() << endl;
+           std::cout << "problem: active column " << var->bcpind() << " with forbidden shift " << p.second << std::endl;
+           std::cout << rot.toString() << std::endl;
             getchar();
          }
    }
@@ -1206,7 +1212,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
       }
       else {
 			mySol.add_entry((BcpCoreVar*)coreVars_[sol2->_vars[i]->bcpind()], sol2->_values[i]);
-			if (((BcpCoreVar*)coreVars_[sol2->_vars[i]->bcpind()])->getCost()  > 1000.0) {
+			if (((BcpCoreVar*)coreVars_[sol2->_vars[i]->bcpind()])->getCost()  >= LARGE_SCORE) {
 				if (sol2->_values[i] > EPSILON) isArtificialSol = true;
 			}
 		}
@@ -1329,7 +1335,7 @@ void BcpModeler::setEveryRotationToOne() {
 /*
  * fix/unfix all the rotations variables starting from the input vector of days
  */
-void BcpModeler::fixRotationsStartingFromDays(vector<bool> isFixDay) {
+void BcpModeler::fixRotationsStartingFromDays(const vector<bool>& isFixDay) {
 
    // get the best solution currently in BCP
    int index = getBestSolIndex();
@@ -1351,7 +1357,7 @@ void BcpModeler::fixRotationsStartingFromDays(vector<bool> isFixDay) {
       }
    }
 }
-void BcpModeler::unfixRotationsStartingFromDays(vector<bool> isUnfixDay) {
+void BcpModeler::unfixRotationsStartingFromDays(const vector<bool>& isUnfixDay) {
    for(MyVar* var: activeColumnVars_){
       if(isUnfixDay[var->getFirstDay()]) {
          var->setLB(0.0);
@@ -1368,7 +1374,7 @@ void BcpModeler::unfixRotationsStartingFromDays(vector<bool> isUnfixDay) {
 }
 
 // fix/unfix all the rotations variables of the input nurses
-void BcpModeler::fixRotationsOfNurses(vector<bool> isFixNurse) {
+void BcpModeler::fixRotationsOfNurses(const vector<bool>& isFixNurse) {
 
    // get the best solution currently in BCP
 
@@ -1404,7 +1410,7 @@ void BcpModeler::fixRotationsOfNurses(vector<bool> isFixNurse) {
 	}
 
 }
-void BcpModeler::unfixRotationsOfNurses(vector<bool> isUnfixNurse) {
+void BcpModeler::unfixRotationsOfNurses(const vector<bool>& isUnfixNurse) {
    for(MyVar* var: activeColumnVars_){
       if(isUnfixNurse[var->getNurseId()]) {
          var->setLB(0.0);
@@ -1423,14 +1429,14 @@ void BcpModeler::unfixRotationsOfNurses(vector<bool> isUnfixNurse) {
 /*
  * relax/unrelax all the rotations variables starting from the input vector of days
  */
-void BcpModeler::relaxRotationsStartingFromDays(vector<bool> isRelaxDay) {
+void BcpModeler::relaxRotationsStartingFromDays(const vector<bool>& isRelaxDay) {
    for(MyVar* var: activeColumnVars_){
       if(isRelaxDay[var->getFirstDay()]) {
          var->setVarType(VARTYPE_CONTINUOUS);
       }
    }
 }
-void BcpModeler::unrelaxRotationsStartingFromDays(vector<bool> isUnrelaxDay) {
+void BcpModeler::unrelaxRotationsStartingFromDays(const vector<bool>& isUnrelaxDay) {
    for(MyVar* var: activeColumnVars_){
       if(isUnrelaxDay[var->getFirstDay()]) {
          var->setVarType(VARTYPE_INTEGER);

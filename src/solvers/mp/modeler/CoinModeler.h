@@ -36,8 +36,8 @@ public:
 //Coin var, just a virtual class
 struct CoinVar: public MyVar {
 	CoinVar(const char* name, int index, double cost, VarType type, double lb, double ub,
-	const vector<double>& pattern = DEFAULT_PATTERN, double dualCost = 99999,
-	const vector<int>& indexRows = Tools::EMPTY_INT_VECTOR, const vector<double>& coeffs = Tools::EMPTY_DOUBLE_VECTOR):
+	const std::vector<double>& pattern = DEFAULT_PATTERN, double dualCost = 99999,
+	const std::vector<int>& indexRows = Tools::EMPTY_INT_VECTOR, const std::vector<double>& coeffs = Tools::EMPTY_DOUBLE_VECTOR):
 	MyVar(name, index, cost, type, lb, ub, pattern), dualCost_(dualCost), indexRows_(indexRows), coeffs_(coeffs)
 	{ }
 
@@ -56,27 +56,27 @@ struct CoinVar: public MyVar {
 		coeffs_.push_back(coeff);
 	}
 
-	void toString(vector<CoinCons*>& cons) {
-		cout << name_ << ":";
+	void toString(std::vector<CoinCons*>& cons) {
+    std::cout << name_ << ":";
 		for(unsigned int i=0; i<indexRows_.size(); ++i)
-		cout << " " << cons[indexRows_[i]]->name_ << ":" << coeffs_[i];
-		cout << endl;
+      std::cout << " " << cons[indexRows_[i]]->name_ << ":" << coeffs_[i];
+    std::cout << std::endl;
 	}
 
 	int getNbRows() { return indexRows_.size(); }
 
-	vector<int>& getIndexRows() { return indexRows_; }
+    std::vector<int>& getIndexRows() { return indexRows_; }
 
 	int getIndexRow(int i) { return indexRows_[i]; }
 
-	vector<double>& getCoeffRows() { return coeffs_; }
+    std::vector<double>& getCoeffRows() { return coeffs_; }
 
 	double getCoeffRow(int i) { return coeffs_[i]; }
 
 protected:
 	double dualCost_; //dualCost of the variable
-	vector<int> indexRows_; //index of the rows of the matrix where the variable has non-zero coefficient
-	vector<double> coeffs_; //value of these coefficients
+    std::vector<int> indexRows_; //index of the rows of the matrix where the variable has non-zero coefficient
+    std::vector<double> coeffs_; //value of these coefficients
 };
 
 class CoinModeler: public Modeler {
@@ -100,11 +100,11 @@ public:
 protected:
 	//has to be implement to create the good var according to the coin modeler chosen (BCP, CBC ...)
 	//WARNING: core vars have to all be created before creating column vars
-	virtual int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const vector<double>& pattern = DEFAULT_PATTERN)=0;
+	virtual int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const std::vector<double>& pattern = DEFAULT_PATTERN)=0;
 
-	virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub)=0;
+	virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub)=0;
 
-	int createVar(MyVar** var, const char* var_name, int index, double objCoeff, double lb, double ub, VarType vartype, const vector<double>& pattern, double score){
+	int createVar(MyVar** var, const char* var_name, int index, double objCoeff, double lb, double ub, VarType vartype, const std::vector<double>& pattern, double score){
 
 		CoinVar* var2;
 		createCoinVar(&var2, var_name, index, objCoeff, vartype, lb, ub, pattern);
@@ -114,7 +114,7 @@ protected:
 		return 1;
 	}
 
-	int createColumnVar(MyVar** var, const char* var_name, int index, double objCoeff, const vector<double>& pattern, double dualObj, double lb, double ub, VarType vartype, double score){
+	int createColumnVar(MyVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj, double lb, double ub, VarType vartype, double score){
 
 		CoinVar* var2;
 		createColumnCoinVar(&var2, var_name, index, objCoeff, pattern, dualObj, vartype, lb, ub);
@@ -137,7 +137,7 @@ protected:
 	virtual int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs)=0;
 
 	int createConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
-	vector<MyVar*> vars, vector<double> coeffs){
+                       std::vector<MyVar*> vars, std::vector<double> coeffs){
 
 		CoinCons* con2;
 		createCoinConsLinear(&con2, con_name, index, lhs, rhs);
@@ -153,7 +153,7 @@ protected:
 
 	//Add there is no final linear constraints for BCP
 	virtual int createFinalConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
-		vector<MyVar*> vars = {}, vector<double> coeffs = {}){
+                                    std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
 		return createConsLinear(con, con_name, index, lhs, rhs, vars, coeffs);
 	}
 
@@ -177,12 +177,12 @@ public:
 	*/
 
 	/* build the problem */
-	CoinPackedMatrix buildCoinMatrix(const vector<MyVar*>& columns = EMPTY_VARS){
+	CoinPackedMatrix buildCoinMatrix(const std::vector<MyVar*>& columns = EMPTY_VARS){
 		//define nb rows and col
 		const int corenum = coreVars_.size(), colnum = corenum+columns.size();
 		//define a matrix as a vector of tuples (row_index, col_index, coeff)
-		vector<int> row_indices, col_indices;
-		vector<double> coeffs;
+    std::vector<int> row_indices, col_indices;
+    std::vector<double> coeffs;
 
 		for(int i=0; i<colnum; ++i){
 			CoinVar* var(0);
@@ -241,7 +241,7 @@ public:
 
 		double value = getVarValue(var);
 		if(print && value>EPSILON)
-		cout << var->name_ << ": " << value << "*" << var2->getCost() << endl;
+      std::cout << var->name_ << ": " << value << "*" << var2->getCost() << std::endl;
 		return value *  var2->getCost();
 	}
 
@@ -293,9 +293,9 @@ public:
 
 	virtual bool loadBestSol() { return false; }
 
-	virtual int writeProblem(string fileName) { return 0; }
+	virtual int writeProblem(std::string fileName) { return 0; }
 
-	virtual int writeLP(string fileName) { return 0; }
+	virtual int writeLP(std::string fileName) { return 0; }
 
 	virtual void toString(MyObject* obj){
 		CoinVar* var = dynamic_cast<CoinVar*>(obj);
@@ -304,14 +304,14 @@ public:
 	}
 
 	//get the variables that are always present in the model
-	vector<CoinVar*>& getCoreVars(){ return coreVars_; }
+  std::vector<CoinVar*>& getCoreVars(){ return coreVars_; }
 
-	vector<CoinCons*>& getCons(){ return cons_; }
+    std::vector<CoinCons*>& getCons(){ return cons_; }
 
 protected:
 
-	vector<CoinVar*> coreVars_;
-	vector<CoinCons*> cons_;
+    std::vector<CoinVar*> coreVars_;
+    std::vector<CoinCons*> cons_;
 };
 
 #endif /* SRC_COINMODELER_H_ */

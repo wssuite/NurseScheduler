@@ -1,4 +1,3 @@
-#include "tools/MyTools.h"
 #include "data/Demand.h"
 #include "data/Scenario.h"
 
@@ -17,7 +16,7 @@
 // constructor and destructor
 //
 Demand::Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string name,
-   vector3D minDemand, vector3D optDemand): name_(name),
+   vector3D<int> minDemand, vector3D<int> optDemand): name_(name),
    nbDays_(nbDays), firstDay_(firstDay), nbShifts_(nbShifts), nbSkills_(nbSkills),
    minDemand_(minDemand), optDemand_(optDemand),
    minTotal_(0), optTotal_(0), isPreprocessed_(false)
@@ -34,14 +33,14 @@ Demand::~Demand()
 //
 void Demand::preprocessDemand() {
    // initialize the preprocessed vectors
-   Tools::initVector(&minPerDay_, nbDays_);
-   Tools::initVector(&optPerDay_, nbDays_);
-   Tools::initVector(&minPerShift_, nbShifts_);
-   Tools::initVector(&optPerShift_, nbShifts_);
-   Tools::initVector(&minPerSkill_, nbSkills_);
-   Tools::initVector(&optPerSkill_, nbSkills_);
-   Tools::initVector(&minHighestPerSkill_, nbSkills_);
-   Tools::initVector(&optHighestPerSkill_, nbSkills_);
+   Tools::initVector(minPerDay_, nbDays_, 0);
+   Tools::initVector(optPerDay_, nbDays_, 0);
+   Tools::initVector(minPerShift_, nbShifts_, 0);
+   Tools::initVector(optPerShift_, nbShifts_, 0);
+   Tools::initVector(minPerSkill_, nbSkills_, 0);
+   Tools::initVector(optPerSkill_, nbSkills_, 0);
+   Tools::initVector(minHighestPerSkill_, nbSkills_, 0);
+   Tools::initVector(optHighestPerSkill_, nbSkills_, 0);
 
    for (int day = 0; day < nbDays_; day++)	{
       for (int shift = 1; shift < nbShifts_; shift++) {
@@ -79,7 +78,7 @@ void Demand::preprocessDemand() {
 void Demand::push_back(Demand* pDemand){
    // check if same scenario
    if( (nbShifts_ != pDemand->nbShifts_) || (nbSkills_ != pDemand->nbSkills_) ){
-      string error = "Demands are not compatible";
+     std::string error = "Demands are not compatible";
       Tools::throwError(error.c_str());
    }
 
@@ -92,9 +91,9 @@ void Demand::push_back(Demand* pDemand){
    nbDays_ += pDemand->nbDays_;
 
    //pushes back the second demand on the first
-   for(vector2D vector: pDemand->minDemand_)
+   for(const vector2D<int>& vector: pDemand->minDemand_)
       minDemand_.push_back(vector);
-   for(vector2D vector: pDemand->optDemand_)
+   for(const vector2D<int>& vector: pDemand->optDemand_)
       optDemand_.push_back(vector);
 
    // run the preprocessing
@@ -108,7 +107,7 @@ Demand * Demand::append(Demand* pDemand){
 
    // check if same scenario
    if( (nbShifts_ != pDemand->nbShifts_) || (nbSkills_ != pDemand->nbSkills_) ){
-      string error = "Demands are not compatible";
+     std::string error = "Demands are not compatible";
       Tools::throwError(error.c_str());
    }
 
@@ -117,11 +116,11 @@ Demand * Demand::append(Demand* pDemand){
    bigDemand->nbDays_ += pDemand->nbDays_;
 
    //pushes back the second demand on the first
-   for(vector2D vector: pDemand->minDemand_) {
+   for(const vector2D<int>& vector: pDemand->minDemand_) {
       bigDemand->minDemand_.push_back(vector);
    }
 
-   for(vector2D vector: pDemand->optDemand_) {
+   for(const vector2D<int>& vector: pDemand->optDemand_) {
 	   bigDemand->optDemand_.push_back(vector);
    }
 
@@ -140,27 +139,14 @@ void Demand::swapDays(int nbSwaps) {
     int day2 = Tools::randomInt(0, nbDays_ - 1);
 
     // save the demand on day 1
-    vector2D minDemandTmp, optDemandTmp;
-    Tools::initVector2D(&minDemandTmp,nbShifts_,nbSkills_,0);
-    Tools::initVector2D(&optDemandTmp,nbShifts_,nbSkills_,0);
-
-    for (int sh = 1; sh < nbShifts_; sh++) {
-      for (int sk = 0; sk < nbSkills_; sk++) {
-        minDemandTmp[sh][sk] = minDemand_[day1][sh][sk];
-        optDemandTmp[sh][sk] = optDemand_[day1][sh][sk];
-      }
-    }
+    vector2D<int> minDemandTmp = minDemand_[day1], optDemandTmp = optDemand_[day1];
 
     // make the modification in the demand
-    for (int sh = 1; sh < nbShifts_; sh++) {
-      for (int sk = 0; sk < nbSkills_; sk++) {
-        minDemand_[day1][sh][sk] = minDemand_[day2][sh][sk];
-        optDemand_[day1][sh][sk] = optDemand_[day2][sh][sk];
+    minDemand_[day1] = minDemand_[day2];
+    optDemand_[day1] = minDemand_[day2];
 
-        minDemand_[day2][sh][sk] = minDemandTmp[sh][sk];
-        optDemand_[day2][sh][sk] = optDemandTmp[sh][sk];
-      }
-    }
+    minDemand_[day2] = minDemandTmp;
+    optDemand_[day2] = optDemandTmp;
   }
 }
 
@@ -295,7 +281,7 @@ void Demand::removeFirstNDays(int nbDays) {
 
 // remove a list of skills from the demand
 //
-void Demand::removeSkills(vector<int> skills) {
+void Demand::removeSkills(std::vector<int> skills) {
 
   // make sure that the indices of skills are ordered
   std::stable_sort(skills.begin(),skills.end());
@@ -314,7 +300,7 @@ void Demand::removeSkills(vector<int> skills) {
 // display the demand, and include the preprocessed information if the input
 // boolean is set to true
 //
-string Demand::toString(bool withPreprocessedInfo) {
+std::string Demand::toString(bool withPreprocessedInfo) {
 
    std::stringstream rep;
 

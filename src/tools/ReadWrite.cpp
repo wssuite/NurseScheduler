@@ -21,6 +21,10 @@
 
 #include <boost/assign/list_of.hpp>
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
 
 std::map<std::string, Algorithm> stringToAlgorithm =
 	boost::assign::map_list_of("GREEDY", GREEDY)("GENCOL", GENCOL)("STOCHASTIC_GREEDY",STOCHASTIC_GREEDY)("STOCHASTIC_GENCOL",STOCHASTIC_GENCOL)("NONE",NONE);
@@ -59,8 +63,8 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	vector<string> intToSkill, intToShift, intToShiftType, intToContract;
 	map<string,int> skillToInt, shiftToInt, shiftTypeToInt, nurseNameToInt;
 	vector<int> minConsShiftType, maxConsShiftType, nbForbiddenSuccessors, hoursInShift, shiftIDToShiftTypeID;
-        vector<vector<int> > shiftTypeIDToShiftID;
-	vector2D forbiddenSuccessors;
+        vector2D<int> shiftTypeIDToShiftID;
+	vector2D<int> forbiddenSuccessors;
 	map<string,Contract*> contracts;
 	vector<Nurse> theNurses;
 
@@ -289,8 +293,8 @@ Scenario* ReadWrite::readScenario(string fileName) {
 Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario)
 {
 	//initialize pDemand
-	Demand* pDemand(0);
-	Preferences* pPref(0);
+	Demand* pDemand(nullptr);
+	Preferences* pPref(nullptr);
 
 	for(string strWeekFile: strWeekFiles)
 		if(pDemand == 0){
@@ -298,25 +302,21 @@ Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pS
 		}
 		else{
 			//load the next week
-			Demand* nextDemand(0);
-			Preferences* nextPref(0);
+			Demand* nextDemand(nullptr);
+			Preferences* nextPref(nullptr);
 			ReadWrite::readWeek(strWeekFile, pScenario, &nextDemand, &nextPref);
 			//update the current weeks
 			pDemand->push_back(nextDemand);
 			pPref->push_backOff(nextPref);
 			pScenario->addAWeek();
 			//delete the demand and the preferences which we have created
-			if (nextDemand) delete nextDemand;
-			if (nextPref) delete nextPref;
+			delete nextDemand;
+			delete nextPref;
 		}
 
 	//link the scenario to the current demand and preferences
 	pScenario->linkWithDemand(pDemand);
-	pScenario->linkWithPreferences(*pPref);
-
-	// The preferences are copy pasted in the scenario when linking
-	if (pPref) delete pPref;
-
+	pScenario->linkWithPreferences(pPref);
 
 	return pDemand;
 }
@@ -342,8 +342,8 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 	// declare the attributes to be updated in the Scenario*
 	//
 	string weekName;
-	vector3D minWeekDemand;
-	vector3D optWeekDemand;
+	vector3D<int> minWeekDemand;
+	vector3D<int> optWeekDemand;
 	int nbShiftOffRequests;
 	int nbShiftOnRequests;
 	if (*pPref) delete *pPref;
@@ -367,8 +367,8 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 			string shiftName, skillName;
 			int shiftId, skillId;
 			// init the vectors
-			Tools::initVector3D(&minWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_);
-			Tools::initVector3D(&optWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_);
+			Tools::initVector3D(minWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_, 0);
+			Tools::initVector3D(optWeekDemand, 7, pScenario->nbShifts_, pScenario->nbSkills_, 0);
 
 			// Do not take the rest shift into account here (by initialization, requirements already at 0
 			for(int i=1; i<pScenario->nbShifts_; i++){
@@ -562,11 +562,11 @@ int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector
 			string strDemandFile;
 			for (int i = 0; i < nbWeeks; i++) {
 				file >> strDemandFile;
-				Demand* pDemand = NULL;
-				Preferences* pPref = NULL;
+				Demand* pDemand = nullptr;
+				Preferences* pPref = nullptr;
 				readWeek(strDemandFile,pScenario,&pDemand,&pPref);
 				demandHistory.push_back(pDemand);
-				if (pPref) delete pPref;
+				delete pPref;
 			}
 		}
 	}
@@ -819,8 +819,8 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 	struct dirent *dirp;
 	Tools::LogOutput logStream(logFile,8);
 
-	vector2D minPerShift, optPerShift, minPerSkill,optPerSkill;
-	vector2D minHighestPerSkill, optHighestPerSkill;
+	vector2D<int> minPerShift, optPerShift, minPerSkill,optPerSkill;
+	vector2D<int> minHighestPerSkill, optHighestPerSkill;
   vector<int> minTotal, optTotal;
 
 	// Open the input directory
@@ -852,8 +852,8 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 
 		string filepath = inputDir + "/" + filename;
 
-		Demand* pDemand(0);
-		Preferences* pPref(0);
+		Demand* pDemand(nullptr);
+		Preferences* pPref(nullptr);
 		ReadWrite::readWeek(filepath, pScen, &pDemand, &pPref);
 
 		logStream << "#####################################\n";
@@ -875,7 +875,7 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 	 // retrieve information about the nurses
 	 if (!coDemand) {
 		pScen->linkWithDemand(pDemand);
-		pScen->linkWithPreferences(*pPref);
+		pScen->linkWithPreferences(pPref);
 	 }
 	 else {
 		delete pDemand;

@@ -1,6 +1,10 @@
-set(LIB_NAME graph)
+set(LIB_NAME rcspp)
 set(SOURCE_FILES
         RCGraph.cpp
+        SubProblem.cpp
+        PrincipalGraph.cpp
+        PriceLabelsGraph.cpp
+        SubProblemShort.cpp
         )
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})
