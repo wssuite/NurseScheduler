@@ -9,7 +9,7 @@ using std::string;
 using std::vector;
 
 PrincipalGraph::PrincipalGraph(int shift_type,  SubProblem* sp):
-  pSP_(sp), shift_type_(shift_type), max_cons_(0) {
+  pSP_(sp), shift_type_(shift_type), max_cons_(-1) {
   if(sp) {
     max_cons_ = sp->maxCons(shift_type);
     int i = 0;

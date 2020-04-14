@@ -176,14 +176,13 @@ struct Rotation {
 	//
 	void checkDualCost(DualCosts& costs);
 
-
-        // calcule le nombre d'heures d'une rotation
-        void computeTimeDuration(Scenario* pScenario){
-	  timeDuration_=0;
-	  for(std::pair<int,int> p: shifts_) {
-	    timeDuration_ += pScenario->hoursToWork_[p.second];
-	  }
-	}
+  // calcule le nombre d'heures d'une rotation
+  void computeTimeDuration(Scenario* pScenario) {
+    timeDuration_ = 0;
+    for (std::pair<int, int> p: shifts_) {
+      timeDuration_ += pScenario->hoursToWork_[p.second];
+    }
+  }
 
 	std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const {
 		if(nbDays == -1) nbDays = firstDay_+length_;

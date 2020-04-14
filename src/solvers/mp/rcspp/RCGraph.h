@@ -343,7 +343,8 @@ class RCGraph {
     RCGraph(int nDays=0);
     virtual ~RCGraph();
 
-    std::vector<RCSolution> solve(int nLabels, double maxReducedCostBound);
+    std::vector<RCSolution> solve(int nLabels, double maxReducedCostBound,
+        std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks={});
 
     RCSolution solution(
         const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
@@ -359,6 +360,7 @@ class RCGraph {
     int source() const { return source_; }
     void addSink(int v) { sinks_.push_back(v); }
     int sink(int k=0) const { return sinks_.at(k); }
+    const std::vector<boost::graph_traits<Graph>::vertex_descriptor>& sinks() const { return sinks_; }
 
     // Get info from the node ID
     inline int nodesSize() const { return nNodes_; }

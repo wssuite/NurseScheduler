@@ -167,7 +167,6 @@ Scenario* ReadWrite::readScenario(string fileName) {
 		  foundShift = true;
 
 			// IMPORTANT : INSERT REST SHIFT !!!!!!
-			// It is given 0 and 99 as bounds so that they never perturbate the cost
 			//
 			intToShift.push_back(REST_SHIFT);
 			shiftToInt.insert(pair<string,int>(REST_SHIFT,0));
@@ -269,11 +268,13 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	
 	if (!foundShift) {
 	  nbShifts=nbShiftsType;
-	  for(int i=0; i<nbShiftsType; i++){
-	    intToShift.push_back(intToShiftType[i]);
-	    shiftToInt.insert(pair<string,int>(intToShiftType[i],i-1));
-	    hoursInShift.push_back(1);
+    intToShift = intToShiftType;
+    shiftToInt = shiftTypeToInt;
+    shiftTypeIDToShiftID.resize(nbShiftsType);
+    for(int i=0; i<nbShiftsType; i++){
+	    hoursInShift.push_back(1); // 1 as default (could be days, hours, ...)
 	    shiftIDToShiftTypeID.push_back(i);
+      shiftTypeIDToShiftID[i].push_back(i);
 	  }
 	}
 

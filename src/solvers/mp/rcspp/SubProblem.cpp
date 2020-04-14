@@ -127,10 +127,6 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 
 	// printAllRotations();
 
-	// Reset authorizations
-	authorize(forbiddenDayShifts);
-	authorizeStartingDays(forbiddenStartingDays);
-
 	return ANS;
 }
 
@@ -141,6 +137,7 @@ bool SubProblem::preprocess() {
 // For the long rotations, depends whether we want optimality or not
 bool SubProblem::solveRCGraph(bool optimality){
   updateArcCosts();
+//  g_.printGraph();
 	if(optimality)
 		return solveRCGraphOptimal();		// Solve shortest path problem
 	else
@@ -149,7 +146,11 @@ bool SubProblem::solveRCGraph(bool optimality){
 
 // Function called when optimal=true in the arguments of solve -> shortest path problem is to be solved
 bool SubProblem::solveRCGraphOptimal(){
-	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_);
+  std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks = g_.sinks();
+  if(param_.oneSinkNodePerLastDay_) sinks.resize(sinks.size()-1); // remove last sink (it's the main one)
+  else sinks = {sinks.back()}; // keep just the main one
+
+	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_, sinks);
 
   for(const RCSolution& sol: solutions) {
     Rotation rot = buildColumn(sol);
@@ -206,15 +207,13 @@ void SubProblem::createNodes(){
 	for(int k=0; k<nDays_; k++){
     priceLabelsGraphs_.emplace_back(PriceLabelsGraph(CDMin_, maxRotationLength_, this));
     // Daily sink node
-    if(param_.oneSinkNodePerLastDay_)
-      g_.addSink(priceLabelsGraphs_.back().exit());
+    g_.addSink(priceLabelsGraphs_.back().exit());
   }
 
 	// 4. SINK NODE
 	//
 	v = addSingleNode(SINK_NODE);
-  if(!param_.oneSinkNodePerLastDay_)
-    g_.addSink(v);
+  g_.addSink(v);
 }
 
 
@@ -277,14 +276,12 @@ void SubProblem::createArcsAllPriceLabels(){
 			int destin = priceLabelsGraphs_[k].entrance();
 			arcsPrincipalToPriceLabelsIn_[sh][k] =
 			    g_.addSingleArc(origin, destin, 0, {0,0}, PRINCIPAL_TO_ROTSIZE, k);	// Allow to stop rotation that day
-
-      // outgoing  arcs
-      if(!param_.oneSinkNodePerLastDay_) {
-        int origin = priceLabelsGraphs_[k].exit();
-        int destin = g_.sink();
-        g_.addSingleArc(origin, destin, 0, {0,0}, ROTSIZEOUT_TO_SINK, k);
-      }
 		}
+
+    // outgoing  arcs
+    int origin = priceLabelsGraphs_[k].exit();
+    int destin = g_.sink();
+    g_.addSingleArc(origin, destin, 0, {0,0}, ROTSIZEOUT_TO_SINK, k);
 	}
 }
 
@@ -415,14 +412,14 @@ void SubProblem::updateArcCosts() {
   for (PrincipalGraph &pg: principalGraphs_)
 
     for (int k = daysMin_ - 1; k < nDays_; k++)
-      for (int n = 0; n < pg.maxCons(); ++n)
+      for (int n = 0; n <= pg.maxCons(); ++n)
         for (int a: arcsFromSource_[pg.shiftType()][k][n]) {
           const Arc_Properties &arc_prop = g_.arc(a);
-          if (canSuccStartHere(arc_prop) && pg.checkFeasibilityEntranceArc(arc_prop, n)) {
+          if (!arc_prop.forbidden && canSuccStartHere(arc_prop) && pg.checkFeasibilityEntranceArc(arc_prop, n)) {
             double c = startWorkCost(a);
             g_.updateCost(a, c);
             // For an arc that starts on the first day, must update the consumption based on the historical state
-            if (k == 0) {
+            if (k == daysMin_ - 1) {
               std::vector<int> consumptions = {daysMin_ + pLiveNurse_->pStateIni_->consDaysWorked_,
                                                CDMin_ - daysMin_ - pLiveNurse_->pStateIni_->consDaysWorked_};
               g_.updateConsumptions(a, consumptions);
@@ -574,9 +571,10 @@ void SubProblem::authorizeStartingDay(int k){
 // Reset all authorizations to true
 //
 void SubProblem::resetAuthorizations(){
-	for(int s=1; s<pScenario_->nbShifts_; s++)
-		for(int k=0; k<nDays_; k++)
-			authorizeDayShift(k,s);
+	// set all value to true
+  Tools::initVector2D(dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
+  Tools::initVector(startingDayStatus_, nDays_, true);
+  // reset authorizations for all arcs and nodes
 	g_.resetAuthorizations();
 }
 

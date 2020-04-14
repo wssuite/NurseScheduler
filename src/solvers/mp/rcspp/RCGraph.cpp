@@ -8,7 +8,10 @@
 RCGraph::RCGraph(int nDays): nDays_(nDays), nNodes_(0), nArcs_(0) {}
 RCGraph::~RCGraph() {}
 
-std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound) {
+std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
+    std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks) {
+  if(sinks.empty()) sinks = sinks_;
+
   std::vector< std::vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spp;
   std::vector<spp_res_cont> pareto_opt_rcs_spp;
 
@@ -16,13 +19,13 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound) 
   //
   std::vector<int> initial_label_values(nLabels);
   // if only one  sink node
-  if(sinks_.size() == 1)
+  if(sinks.size() == 1)
     r_c_shortest_paths(
         g_,
         get( &Vertex_Properties::num, g_ ),
         get( &Arc_Properties::num, g_ ),
         source_,
-        sinks_.front(),
+        sinks.front(),
         opt_solutions_spp,
         pareto_opt_rcs_spp,
         spp_res_cont (0, initial_label_values),
@@ -34,7 +37,7 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound) 
                                              get( &Vertex_Properties::num, g_ ),
                                              get( &Arc_Properties::num, g_ ),
                                              source_,
-                                             sinks_,
+                                             sinks,
                                              opt_solutions_spp,
                                              pareto_opt_rcs_spp,
                                              true,
@@ -90,7 +93,7 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound) 
 RCSolution RCGraph::solution(
     const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
     const spp_res_cont& resource){
-
+//  printPath(path, resource);
   RCSolution sol(resource.cost);
 
   // All arcs are consecutively considered
@@ -189,12 +192,16 @@ void RCGraph::printAllNodes() const {
 
 std::string RCGraph::printArc(int a) const {
   std::stringstream rep;
-  rep << "# ARC   " << a << " \t" << arcTypeName[arcType(a)] << " \t";
-  rep << "(" << arcOrigin(a) << "," << arcDestination(a) << ") \t" << "c= " << arcCost(a) ;
-  arcCost(a) < 10000 ? rep << "     " : rep << "";
+  const Arc_Properties& arc_prop = arc(a);
+  rep << "# ARC   " << a << " \t" << arcTypeName[arc_prop.type] << " \t";
+  rep << "(" << arcOrigin(a) << "," << arcDestination(a) << ") \t" << "c= " << arc_prop.cost ;
+  arc_prop.cost < 10000 ? rep << "     " : rep << "";
+  rep << "\t" << (arc_prop.forbidden ? "forbidden" : "authorized");
   int l = 0;
-  for(int c: arcConsumptions(a))
+  for(int c: arc_prop.consumptions)
     rep << "\t" << labelName[l++] << "=" << c;
+  rep << "\t" << arc_prop.day << ": ";
+  for(int s: arc_prop.shifts) rep << s << " ";
   rep << " \t[" << shortNameNode(arcOrigin(a)) << "] -> [" << shortNameNode(arcDestination(a)) << "]";
   return rep.str();
 

@@ -95,9 +95,6 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 			// SET SOLVING OPTIONS
 			SubproblemParam sp_param (currentSubproblemStrategy_,pNurse);
 
-			// DBG ***
-			// generateRandomForbiddenStartingDays();
-
 			// SOLVE THE PROBLEM
 			++ nbSPTried_;
 			subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
@@ -106,18 +103,8 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 			// RETRIEVE THE GENERATED ROTATIONS
 			newRotationsForNurse_ = subProblem->getRotations();
 
-			// DBG ***
-			// checkForbiddenStartingDays();
-			// recordSPStats(subProblem);
-			// for(Rotation& rot: newRotationsForNurse_){
-			// 	rot.checkDualCost(dualCosts);
-			// }
-
 			// ADD THE ROTATIONS TO THE MASTER PROBLEM
 			addRotationsToMaster();
-
-
-
 		}
 
 		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
@@ -320,7 +307,7 @@ void RotationPricer::addRotationsToMaster(){
 		allNewColumns_.push_back(pMaster_->addRotation(rot, baseName));
 		++nbRotationsAdded;
 		// DBG
-		std::cout << rot.toString(nbDays_, pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//		std::cout << rot.toString(nbDays_, pScenario_->shiftIDToShiftTypeID_) << std::endl;
 		if(nbRotationsAdded >= nbMaxRotationsToAdd_)
 			break;
 	}

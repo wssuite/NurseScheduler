@@ -47,7 +47,7 @@ void SubProblemShort::initShortSuccessions() {
 
   // Initialize the other way round
   for(int s=0; s<nShiftsType; s++)
-    allShortSuccCDMinByLastShiftCons_.emplace_back(vector2D<int>(principalGraphs_[s].maxCons()+1));
+    allShortSuccCDMinByLastShiftCons_.emplace_back(vector2D<int>(maxCons(s)+1));
 
   // For all size from 1 to CD_min, compute all allowed shift successions.
   //
@@ -144,7 +144,7 @@ void SubProblemShort::initShortSuccessions() {
 
             // Since it is the longest one, record the tables the other way round
             //
-            int n = std::min(newNLast, principalGraphs_[newShTypeID].maxCons());
+            int n = std::min(newNLast, maxCons(newShTypeID));
             allShortSuccCDMinByLastShiftCons_[newShTypeID][n].push_back(allSuccSizeC.size() - 1);
 
           }
@@ -222,12 +222,12 @@ bool SubProblemShort::solveShortRotations() {
 void SubProblemShort::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (PrincipalGraph &pg: principalGraphs_)
-    for (int k = daysMin_ - 1; k < nDays_; k++)
+    for (int k = CDMin_ - 1; k < nDays_; k++)
       for(int dest : pg.getDayNodes(k))
         // add one arc consume all the minimum cons days available
         // the shifts will be updated based on their dual costs
         arcsFromSource_[pg.shiftType()][k].push_back(
-            {addSingleArc(origin, dest, 0, {CDMin_, 0}, SOURCE_TO_PRINCIPAL, k, {})});
+            {addSingleArc(origin, dest, 0, {CDMin_, 0}, SOURCE_TO_PRINCIPAL, k - CDMin_ + 1, {})});
 }
 
 double SubProblemShort::startWorkCost(int a) const {
@@ -245,7 +245,7 @@ void SubProblemShort::priceShortSucc() {
   for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
     for (int k = daysMin_ - 1; k < nDays_; k++) {
       int max_cons = principalGraphs_[s].maxCons();
-      for (int n = 1; n <= max_cons; n++) {
+      for (int n = 0; n <= max_cons; n++) {
 
         int best_id = -1;
         double best_cost = MAX_COST;
@@ -255,7 +255,7 @@ void SubProblemShort::priceShortSucc() {
 
           for (unsigned int i = 0; i < (allShortSuccCDMinByLastShiftCons_[s][n]).size(); i++) {
             int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
-            vector<int> succ = allowedShortSuccBySize_[CDMin_][curSuccId];
+            const vector<int>& succ = allowedShortSuccBySize_[CDMin_][curSuccId];
 
             // SUCCESSION IS TAKEN INTO ACCOUNT ONLY IF IT DOES NOT VIOLATE ANY FORBIDDEN DAY-SHIFT COUPLE
             if (canSuccStartHere(k - CDMin_ + 1, succ)) {
@@ -289,6 +289,8 @@ void SubProblemShort::priceShortSucc() {
         int a = arcsFromSource_[s][k][n].front();
         if (best_id >= 0) {
           g_.updateCost(a, best_cost);
+          if(allowedShortSuccBySize_[CDMin_][best_id].empty())
+            std::cout << "F";
           g_.updateShifts(a, allowedShortSuccBySize_[CDMin_][best_id]);
         }
           // otherwise, forbid it
