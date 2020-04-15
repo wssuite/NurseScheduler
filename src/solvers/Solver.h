@@ -415,7 +415,7 @@ public:
 
 	// Subproblem options
 	//
-	int sp_default_strategy_ = 1;
+	int sp_default_strategy_ = 0;
 	int sp_secondchance_strategy_ = 1;
 	int sp_nbrotationspernurse_ = 20;
 	int sp_nbnursestoprice_ = 15;

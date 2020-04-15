@@ -50,7 +50,6 @@ void SubProblem::init(const vector<State>& initStates){
 	for(const State& state: initStates)
 		maxOngoingDaysWorked_ = std::max( state.consDaysWorked_, maxOngoingDaysWorked_ );
 
-	Tools::initVector2D(preferencesCosts_, nDays_, pScenario_->nbShifts_, .0);
 	nFound_=0;
 }
 
@@ -123,7 +122,7 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 	timeInNL_->stop();
 
 	// cout << " 3   ----------------------------------------------" << endl;
-	// printGraph();
+//	g_.printGraph();
 
 	// printAllRotations();
 
@@ -204,8 +203,9 @@ void SubProblem::createNodes(){
 	// 3. ROTATION LENGTH CHECK
 	//
 	// For each of the days, do a rotation-length-checker
+	// Deactivate the min cost for the last day
 	for(int k=0; k<nDays_; k++){
-    priceLabelsGraphs_.emplace_back(PriceLabelsGraph(CDMin_, maxRotationLength_, this));
+    priceLabelsGraphs_.emplace_back(PriceLabelsGraph(CDMin_, maxRotationLength_, this, k<nDays_-1)); // k<nDays_-1 is false for last day
     // Daily sink node
     g_.addSink(priceLabelsGraphs_.back().exit());
   }
@@ -306,22 +306,19 @@ void SubProblem::initStructuresForSolve(){
 
 	// Preference costs.
 	//
-	for(int k=0; k<nDays_; k++)
-		// for(int s=0; s<pScenario_->nbShiftsType_; s++)
-		for(int s=0; s<pScenario_->nbShifts_; s++)
-			preferencesCosts_[k][s] = 0;
-	for(const auto &p: *pLiveNurse_->pWishesOff_)
-		for(Wish s : p.second)
+  Tools::initVector2D(preferencesCosts_, nDays_, pScenario_->nbShifts_, .0);
+  for(const auto &p: *pLiveNurse_->pWishesOff_)
+		for(const Wish& s : p.second)
       preferencesCosts_[p.first][s.shift] = WEIGHT_PREFERENCES_OFF[s.level];
   for(const auto &p: *pLiveNurse_->pWishesOn_)
-    for(Wish s : p.second)
+    for(const Wish& s: p.second)
       preferencesCosts_[p.first][s.shift] = WEIGHT_PREFERENCES_ON[s.level];
 }
 
 double SubProblem::startWorkCost(int a) const {
   // retrieve the work cost
   const Arc_Properties& arc_prop = g_.arc(a);
-  double cost = workCost(arc_prop);
+  double cost = workCost(arc_prop, true);
   cost -= pCosts_->startWorkCost(arc_prop.day);
   cost += startWeekendCosts_[arc_prop.day];
 
@@ -372,18 +369,20 @@ double SubProblem::startWorkCost(int a) const {
 }
 
 
-double SubProblem::workCost(int a) const {
+double SubProblem::workCost(int a, bool first_day) const {
   return workCost(g_.arc(a));
 }
 
-double SubProblem::workCost(const Arc_Properties& arc_prop) const {
+double SubProblem::workCost(const Arc_Properties& arc_prop, bool first_day) const {
   double cost = arc_prop.initialCost;
   int k = arc_prop.day;
   // iterate through the shift to update the cost
   for(int s: arc_prop.shifts) {
     cost += preferencesCosts_[k][s] ;
     cost -= pCosts_->dayShiftWorkCost(k,s);
-    if(Tools::isSaturday(k)) cost -= pCosts_->workedWeekendCost();
+    // add weekend cost on saturday, except when first day is sunday
+    if(Tools::isSaturday(k) || (first_day && Tools::isSunday(k)))
+      cost -= pCosts_->workedWeekendCost();
     ++k;
   }
   return cost;

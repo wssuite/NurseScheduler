@@ -14,10 +14,16 @@
 #include "solvers/Greedy.h"
 #include "solvers/MasterProblem.h"
 #include "solvers/StochasticSolver.h"
-#include "solvers/mp/graph/SubProblem.h"
+#include "solvers/mp/rcspp/SubProblem.h"
 //#include "CbcModeler.h"
 #include "tools/MyTools.h"
 #include "solvers/InitializeSolver.h"
+
+
+using std::string;
+using std::vector;
+using std::pair;
+
 
 /******************************************************************************
 * Solve one week inside the stochastic process
@@ -50,16 +56,16 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 					generationOptions = pathIni+"generationOptions.txt",
 					evaluationOptions = pathIni+"evaluationOptions.txt";
 	try {
-		logStream << "Stochastic options:" << endl <<
-      ReadWrite::readStochasticSolverOptions(stochasticOptions, options) << endl;
+		logStream << "Stochastic options:" << std::endl <<
+      ReadWrite::readStochasticSolverOptions(stochasticOptions, options) << std::endl;
 	} catch(const std::string& ex) {}
 	try {
-    logStream << "Generation options:" << endl <<
-      ReadWrite::readSolverOptions(generationOptions, options.generationParameters_) << endl;
+    logStream << "Generation options:" << std::endl <<
+      ReadWrite::readSolverOptions(generationOptions, options.generationParameters_) << std::endl;
 	} catch(const std::string& ex) {}
 	try {
-    logStream << "Evaluation options:" << endl <<
-      ReadWrite::readSolverOptions(evaluationOptions, options.evaluationParameters_) << endl;
+    logStream << "Evaluation options:" << std::endl <<
+      ReadWrite::readSolverOptions(evaluationOptions, options.evaluationParameters_) << std::endl;
 	} catch(const std::string& ex) {}
 
 	// get history demands by reading the custom file
@@ -170,7 +176,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 			}
 
 			// update the scenario to treat next week
-			pScen->updateNewWeek(pDemand, *pPref, initialStates);
+			pScen->updateNewWeek(pDemand, pPref, initialStates);
 		}
 
 		delete pSolver;
@@ -305,7 +311,7 @@ int main(int argc, char** argv)
     if (!customOutputFile.empty()) {
        ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
     }
-    cout << "Custom output file : " << customOutputFile << endl;
+    std::cout << "Custom output file : " << customOutputFile << std::endl;
     // Todo: the method that writes the history file corresponding to the
     // solution
     // string outputHistoryFile("history-week");

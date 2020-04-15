@@ -36,24 +36,25 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
 		// In that case, no rotation can inlude a shift on the fixed resting day
 		//
 		RestNode* restNode = dynamic_cast<RestNode*>(node);
-		if(restNode != 0 && restNode->pNurse_ == pNurse)
-		{
-			if(restNode->rest_) {
-				for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)	{
-					forbidenShifts.insert(pair<int,int>(restNode->day_, i));
-				}
-			}
-		}
+		if(restNode) {
+      if(restNode->pNurse_ == pNurse && restNode->rest_)
+        for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)
+          forbidenShifts.insert(pair<int,int>(restNode->day_, i));
+      node = node->pParent_;
+      continue;
+    }
 
 		// If on a shift node, it is natural to forbid all the working forbidden
 		// shifts in rotation pricing
 		//
 		ShiftNode* shiftNode = dynamic_cast<ShiftNode*>(node);
-		if(shiftNode != 0 && shiftNode->pNurse_ == pNurse)
-		{
-			for(int s: shiftNode->forbiddenShifts_)	{
-				if (s!=0) forbidenShifts.insert(pair<int,int>(shiftNode->day_, s));
-			}
+		if(shiftNode) {
+		  if(shiftNode->pNurse_ == pNurse)
+        for(int s: shiftNode->forbiddenShifts_)
+          if (s!=0)
+            forbidenShifts.insert(pair<int,int>(shiftNode->day_, s));
+      node = node->pParent_;
+      continue;
 		}
 
 		// If in a column node , forbid all the shifts that would be worked on a
@@ -62,22 +63,20 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
 		// rotation, so the shifts can also be forbidden on these two days (if
 		// the rotation is not at an extremity of the horizon)
 		ColumnsNode* columnsNode = dynamic_cast<ColumnsNode*>(node);
-		if(columnsNode != 0 )
-		{
-			for(Rotation rot: columnsNode->rotations_) {
-				if (rot.nurseId_ == pNurse->id_) {
-					for (int day = rot.firstDay_-1; day <= rot.firstDay_+rot.length_; day++) {
-						if (day<pScenario_->firstDay()) continue;
-						if (day>=pScenario_->firstDay()+pScenario_->nbDays()) continue;
-						for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)	{
-							forbidenShifts.insert(pair<int,int>(day, i));
-						}
-					}
-				}
-			}
-		}
-		node = node->pParent_;
+		if(columnsNode == 0 )
+		  Tools::throwError("Type of node not recognized.");
 
+		for(Rotation rot: columnsNode->rotations_)
+      if (rot.nurseId_ == pNurse->id_)
+        for (int day = rot.firstDay_ - 1; day <= rot.firstDay_ + rot.length_; day++) {
+          if (day < pScenario_->firstDay()) continue;
+          if (day >= pScenario_->firstDay() + pScenario_->nbDays()) continue;
+          for (int i = 1; i < pNurse->pScenario_->nbShifts_; ++i) {
+            forbidenShifts.insert(pair<int, int>(day, i));
+          }
+        }
+
+		node = node->pParent_;
 	}
 }
 

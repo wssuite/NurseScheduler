@@ -155,12 +155,13 @@ void PrincipalGraph::forbidDayShift(int k, int s) {
 
   int i = shifts_to_indices_.at(s);
   pSP_->g().forbidArc(arcsShiftToSameShift_[k][0][i]); // forbid first cons shift
-  if(k>0) { // forbid any ingoing arcs using shift s
+  if(k-- > 0) { // if k>0, coninue and do --k
+    // forbid any ingoing arcs using shift s
     for (int n = 1; n < max_cons_; n++) {
 //    pSP_->g().forbidNode(principalNetworkNodes_[k][n]);
-      pSP_->g().forbidArc(arcsShiftToSameShift_[k-1][n][i]);
+      pSP_->g().forbidArc(arcsShiftToSameShift_[k][n][i]);
     }
-    pSP_->g().forbidArc(arcsRepeatShift_[k-1][i]);
+    pSP_->g().forbidArc(arcsRepeatShift_[k][i]);
   }
 }
 

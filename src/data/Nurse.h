@@ -17,6 +17,8 @@
 #include "data/Demand.h"
 
 
+class Scenario;
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   C o n t r a c t
@@ -348,22 +350,19 @@ public:
 
 	// add another week preferences at the end of the current one
 	//
-	void push_backOff(Preferences* pDemand);
-	void push_backOn(Preferences* pDemand);
+  void push_back(Preferences* pPref);
 
 	// Keep the preferences relative to the days in [begin,end)
-	Preferences* keepOff(int begin, int end);
-	Preferences* keepOn(int begin, int end);
+  Preferences* keep(int begin, int end);
 
 	// Remove the preferences relative to the nbDays first days
-	Preferences* removeNFirstDayOff(int nbDays);
-	Preferences* removeNFirstDayOn(int nbDays);
+  Preferences* removeNFirstDays(int nbDays);
 
 
 	// Display methods: toString + override operator<< (easier)
 	//
-  std::string toString();
-	friend std::ostream& operator<< (std::ostream& outs, Preferences obj) {return outs << obj.toString();}
+  std::string toString(Scenario* pScenario = nullptr) const;
+	friend std::ostream& operator<< (std::ostream& outs, const Preferences& obj) {return outs << obj.toString();}
 };
 
 #endif

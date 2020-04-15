@@ -27,7 +27,7 @@ using std::pair;
 * Solve the complete planning horizon with the deterministic solver
 ******************************************************************************/
 
-void solveDeterministic(InputPaths inputPaths, string solPath, string logPathIni, double timeout) {
+void solveDeterministic(InputPaths inputPaths, double timeout) {
 
 	// set the scenario
 	//
@@ -138,7 +138,7 @@ int main(int argc, char** argv)
 
 	// Solve the problem
 	//
-	solveDeterministic(*pInputPaths, pInputPaths->solutionPath(), pInputPaths->logPath(), timeout);
+	solveDeterministic(*pInputPaths, timeout);
 
 	// Release memory
 	//

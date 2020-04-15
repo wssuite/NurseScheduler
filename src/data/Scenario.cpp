@@ -348,12 +348,12 @@ bool Scenario::isCompleteWeekendsOf(int whichNurse) const {
 
 int Scenario::minConsShiftsOfTypeOf(int whichShift) {
   int  shiftType = shiftIDToShiftTypeID_[whichShift];
-  return minConsShiftType_[shiftType];
+  return minConsShiftsOf(shiftType);
 }
 
 int Scenario::maxConsShiftsOfTypeOf(int whichShift) {
   int  shiftType = shiftIDToShiftTypeID_[whichShift];
-  return maxConsShiftType_[shiftType];
+  return maxConsShiftsOf(shiftType);
 }
 
 

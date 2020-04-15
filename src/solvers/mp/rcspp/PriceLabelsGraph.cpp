@@ -6,8 +6,8 @@
 #include "SubProblem.h"
 
 
-PriceLabelsGraph::PriceLabelsGraph(int min_ub, int max_ub, SubProblem* sp):
-    pSP_(sp), min_ub_(min_ub), max_ub_(max_ub) {
+PriceLabelsGraph::PriceLabelsGraph(int min_ub, int max_ub, SubProblem* sp, bool compute_min_cost):
+    pSP_(sp), min_ub_(min_ub), max_ub_(max_ub), compute_min_cost_(compute_min_cost) {
   if(sp) build();
 }
 
@@ -26,9 +26,13 @@ void PriceLabelsGraph::build() {
   // CREATE THE ARCS
   int l =  0;
   for(int v: checkNodes_) {
-    int c = pSP_->contract()->consDaysCost(l++);
+    int c = 0;
+    // penalize the minimum consecutive when compute_min_cost_ and always penalize the maximum
+    if( compute_min_cost_ || l > pSP_->contract()->maxConsDaysWork_)
+      c = pSP_->contract()->consDaysCost(l);
     in_arcs_.emplace_back(pSP_->addSingleArc(entrance_, v, c, {0,0}, ROTSIZEIN_TO_ROTSIZE));
     out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, {0,0}, ROTSIZE_TO_ROTSIZEOUT));
+    ++l;
   }
 }
 

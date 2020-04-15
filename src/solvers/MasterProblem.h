@@ -47,6 +47,7 @@ public:
 
 	// GETTERS
 	//
+	inline int nDays() const { return startWorkCosts_.size(); }
 	inline double dayShiftWorkCost(int day, int shift){return (workCosts_[day][shift-1]);}
 	inline double startWorkCost(int day){return (startWorkCosts_[day]);}
 	inline double endWorkCost(int day){return (endWorkCosts_[day]);}
@@ -97,10 +98,10 @@ struct Rotation {
 	Rotation(std::vector<double> compactPattern) :
 					id_(s_count),nurseId_((int)compactPattern[0]), cost_(DBL_MAX),
 	consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-	dualCost_(DBL_MAX), firstDay_((int)compactPattern[1]), length_(compactPattern.size()-2), timeDuration_(compactPattern.size()-2)
+	dualCost_(DBL_MAX), firstDay_((int)compactPattern[1]), length_(compactPattern.size()-3), timeDuration_((int)compactPattern[2])
 	{
 		++s_count;
-		for(int k=0; k<length_; k++) shifts_.insert(std::pair<int,int>( (firstDay_+k) , (int)compactPattern[k+2] ));
+		for(int k=0; k<length_; k++) shifts_.insert(std::pair<int,int>( (firstDay_+k) , (int)compactPattern[k+3] ));
 	}
 
 	Rotation(Rotation& rotation, int nurseId) :
@@ -164,6 +165,7 @@ struct Rotation {
 		std::vector<double> compact;
 		compact.push_back(nurseId_);
 		compact.push_back(firstDay_);
+    compact.push_back(timeDuration_);
 		for(std::pair<int,int> p: shifts_) compact.push_back(p.second);
 		return compact;
 	}

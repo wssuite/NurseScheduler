@@ -21,6 +21,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gdwarf-3")
         set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -gdwarf-3")
         #    add_definitions(-D_GLIBCXX_DEBUG)
+        add_definitions(-DNDEBUG)
 endif()
 add_definitions(-pedantic -Wall)
 

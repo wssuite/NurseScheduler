@@ -178,7 +178,7 @@ class SubProblem {
 
     virtual double startWorkCost(int a) const;
 
-    virtual double workCost(int a) const;
+    virtual double workCost(int a, bool first_day=false) const;
 
     virtual double endWorkCost(int a) const;
 
@@ -309,7 +309,7 @@ class SubProblem {
     // Updates the costs depending on the reduced costs given for the nurse
     virtual void updateArcCosts();
 
-    double workCost(const Arc_Properties &a) const;
+    double workCost(const Arc_Properties &a, bool first_day=false) const;
 
     // FUNCTIONS -- SOLVE
     //

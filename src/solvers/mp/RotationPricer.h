@@ -103,7 +103,7 @@ public:
    inline void clearForbiddenShifts(){forbiddenShifts_.clear();}
    // Nurses
    inline void forbidNurse(int nurseId){forbiddenNursesIds_.insert(nurseId);}
-   inline void forbidNurses(const std::set<int,int>& nurses){ for(auto n : nurses) forbidNurse(n);}
+   inline void forbidNurses(const std::set<int>& nurses){ for(auto n : nurses) forbidNurse(n);}
    inline void authorizeNurse(int nurseId){forbiddenNursesIds_.erase(nurseId);}
    inline void clearForbiddenNurses(){forbiddenNursesIds_.clear();}
    // Starting days

@@ -147,14 +147,12 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 
 	for(int k=firstDay_; k<firstDay_+length_; ++k) {
 	  int  level = pPreferences->wantsTheShiftOffLevel(nurseId_, k, shifts_[k]);
-
 	  if (level != -1)
 	    preferenceCost_ += WEIGHT_PREFERENCES_OFF[level];
 	}
 
 	for(int k=firstDay_; k<firstDay_+length_; ++k) {
 	  int  level = pPreferences->wantsTheShiftOnLevel(nurseId_, k, shifts_[k]);
-
 	  if (level != -1)
 	    preferenceCost_ += WEIGHT_PREFERENCES_ON[level];
 	}
@@ -172,7 +170,7 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
 	 * Compute the sum of the cost and stores it in cost_
 	 */
 	if(false){
-		cout << "# Calcul du cout:" << endl;
+		cout << "# Costs:" << endl;
 		cout << "#       | Consecutive shifts: " << consShiftsCost_ << endl;
 		cout << "#       | Consecutive days  : " << consDaysWorkedCost_ << endl;
 		cout << "#       | Complete weekends : " << completeWeekendCost_ << endl;
@@ -213,7 +211,7 @@ void Rotation::checkDualCost(DualCosts& costs){
 
 	// Display: set to true if you want to display the details of the cost
 
-	if(abs(dualCost_ - dualCost) > EPSILON ){
+	if(abs(dualCost_ - dualCost) / (1 - dualCost) > EPSILON ){
 		cout << "# " << endl;
 		cout << "# " << endl;
 		cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << endl;
@@ -235,10 +233,8 @@ void Rotation::checkDualCost(DualCosts& costs){
 		for(int k=firstDay_; k<firstDay_+length_; ++k)
 			if(Tools::isSaturday(k))
 				cout << "#   | Weekends      : - " << costs.workedWeekendCost() << endl;
-		std::cout << "#   | ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
-		std::cout << "#               |";
-		toString(56);
-		cout << "# " << endl;
+//		std::cout << "#   | ROTATION:" << "  cost=" << cost_ << "  dualCost=" << dualCost_ << "  firstDay=" << firstDay_ << "  length=" << length_ << std::endl;
+		std::cout << toString(costs.nDays());
 		cout << "# " << endl;
 
 	}

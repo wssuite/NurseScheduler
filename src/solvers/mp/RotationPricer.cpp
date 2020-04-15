@@ -100,11 +100,15 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 			subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
 					bound);
 
-			// RETRIEVE THE GENERATED ROTATIONS
+			// RETRIEVE THE GENERATED ROTATIONSork
 			newRotationsForNurse_ = subProblem->getRotations();
 
 			// ADD THE ROTATIONS TO THE MASTER PROBLEM
 			addRotationsToMaster();
+
+#ifndef NDEBUG
+			for(Rotation& rot: newRotationsForNurse_) rot.checkDualCost(dualCosts);
+#endif
 		}
 
 		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS

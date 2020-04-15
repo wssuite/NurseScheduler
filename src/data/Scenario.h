@@ -16,13 +16,13 @@
 // other classes (e.g. solvers)
 //
 
-static const int NB_LEVEL = 3;         //  0: strong; 1: moderate; 2: weak
+static const int NB_LEVEL = 4;         //  0: weak 1: moderate; 2:strong; 3:compulsory;
 static const int WEIGHT_OPTIMAL_DEMAND    = 30;
 static const int WEIGHT_CONS_SHIFTS       = 15;
 static const int WEIGHT_CONS_DAYS_WORK    = 30;
 static const int WEIGHT_CONS_DAYS_OFF     = 30;
-static const int WEIGHT_PREFERENCES_OFF[NB_LEVEL]       = {10, 10, 10};
-static const int WEIGHT_PREFERENCES_ON [NB_LEVEL]       = {-50, -40, -30};
+static const int WEIGHT_PREFERENCES_OFF[NB_LEVEL]       = {10, 20, 50, 1000};
+static const int WEIGHT_PREFERENCES_ON [NB_LEVEL]       = {-10, -20, -50, 1000};
 static const int WEIGHT_COMPLETE_WEEKEND  = 30;
 static const int WEIGHT_TOTAL_SHIFTS      = 20;
 static const int WEIGHT_TOTAL_WEEKENDS    = 30;

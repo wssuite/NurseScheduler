@@ -300,16 +300,19 @@ Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pS
 	for(string strWeekFile: strWeekFiles)
 		if(pDemand == 0){
 			ReadWrite::readWeek(strWeekFile, pScenario,&pDemand,&pPref);
+      std::cout << pPref->toString(pScenario) << std::endl;
 		}
 		else{
 			//load the next week
 			Demand* nextDemand(nullptr);
 			Preferences* nextPref(nullptr);
 			ReadWrite::readWeek(strWeekFile, pScenario, &nextDemand, &nextPref);
+      std::cout << nextPref->toString(pScenario) << std::endl;
 			//update the current weeks
 			pDemand->push_back(nextDemand);
-			pPref->push_backOff(nextPref);
+			pPref->push_back(nextPref);
 			pScenario->addAWeek();
+      std::cout << pPref->toString(pScenario) << std::endl;
 			//delete the demand and the preferences which we have created
 			delete nextDemand;
 			delete nextPref;
@@ -345,8 +348,6 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 	string weekName;
 	vector3D<int> minWeekDemand;
 	vector3D<int> optWeekDemand;
-	int nbShiftOffRequests;
-	int nbShiftOnRequests;
 	if (*pPref) delete *pPref;
 	if (*pDemand) delete *pDemand;
 
@@ -396,10 +397,11 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 		// Read the shift off requests
 		//
 		else if(strEndsWith(title,"SHIFT_OFF_REQUESTS ")){
-			*pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
+      if(!*pPref)
+        *pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
 			string nurseName, shift, day;
-			int nurseId, shiftId, dayId, level;
+			int nbShiftOffRequests, nurseId, shiftId, dayId, level;
 			file >> nbShiftOffRequests;
 			for (int i=0; i<nbShiftOffRequests; i++){
 				file >> nurseName;
@@ -422,10 +424,11 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 		// Read the shift on requests
 		//
 		else if(strEndsWith(title,"SHIFT_ON_REQUESTS ")){
-			*pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
+			if(!*pPref)
+			  *pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
 			string nurseName, shift, day;
-			int nurseId, shiftId, dayId, level;
+			int nbShiftOnRequests, nurseId, shiftId, dayId, level;
 			file >> nbShiftOnRequests;
 			for (int i=0; i<nbShiftOnRequests; i++){
 				file >> nurseName;
@@ -520,7 +523,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 				if(consRest == 0 && consDaysWorked == 0)
                     Tools::throwError("History of nurse " + nurseName + " is invalid as one must either work or rest.");
 
-				int  shiftID = pScenario->shiftTypeIDToShiftID_[shiftTypeId][0];
+				int  shiftID = pScenario->shiftTypeIDToShiftID_[shiftTypeId].front();
 				consShifts = (shiftTypeId == 0) ? consRest : consShiftWorked;
 				State nurseState (0, totalTimeWorked, totalWeekendsWorked,
 						  consDaysWorked, consShifts, consRest, shiftTypeId, shiftID);
@@ -567,7 +570,6 @@ int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector
 				Preferences* pPref = nullptr;
 				readWeek(strDemandFile,pScenario,&pDemand,&pPref);
 				demandHistory.push_back(pDemand);
-				delete pPref;
 			}
 		}
 	}
