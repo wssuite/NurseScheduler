@@ -6,8 +6,10 @@
 #include "SubProblem.h"
 
 
-PriceLabelsGraph::PriceLabelsGraph(int min_ub, int max_ub, SubProblem* sp, bool compute_min_cost):
-    pSP_(sp), min_ub_(min_ub), max_ub_(max_ub), compute_min_cost_(compute_min_cost) {
+PriceLabelsGraph::PriceLabelsGraph(int min_ub, int max_ub, SubProblem* sp,
+    bool compute_min_cost, bool reset_labels_after_pricing):
+    pSP_(sp), min_ub_(min_ub), max_ub_(max_ub),
+    compute_min_cost_(compute_min_cost), reset_labels_after_pricing_(reset_labels_after_pricing) {
   if(sp) build();
 }
 
@@ -31,7 +33,9 @@ void PriceLabelsGraph::build() {
     if( compute_min_cost_ || l > pSP_->contract()->maxConsDaysWork_)
       c = pSP_->contract()->consDaysCost(l);
     in_arcs_.emplace_back(pSP_->addSingleArc(entrance_, v, c, {0,0}, ROTSIZEIN_TO_ROTSIZE));
-    out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, {0,0}, ROTSIZE_TO_ROTSIZEOUT));
+    if(reset_labels_after_pricing_)
+      out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, {-max_ub_, std::min(min_ub_, l)} , ROTSIZE_TO_ROTSIZEOUT));
+    else out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, {0,0} , ROTSIZE_TO_ROTSIZEOUT));
     ++l;
   }
 }

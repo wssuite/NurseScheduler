@@ -12,7 +12,8 @@ class SubProblem;
 
 class PriceLabelsGraph {
   public:
-    PriceLabelsGraph(int min_ub, int max_ub, SubProblem* sp = nullptr, bool compute_min_cost=true);
+    PriceLabelsGraph(int min_ub, int max_ub, SubProblem* sp = nullptr,
+        bool compute_min_cost=true, bool reset_labels_after_pricing=false);
     virtual ~PriceLabelsGraph();
 
     void updateArcCosts();
@@ -25,7 +26,7 @@ class PriceLabelsGraph {
     SubProblem* pSP_;
 
     int min_ub_, max_ub_;
-    bool compute_min_cost_;
+    bool compute_min_cost_, reset_labels_after_pricing_;
 
     int entrance_;				// entrance node to the subnetwork
     std::vector<int> checkNodes_;			// check nodes (measure the level of labels)
