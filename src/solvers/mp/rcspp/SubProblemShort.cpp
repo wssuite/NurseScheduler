@@ -19,7 +19,7 @@ using std::map;
 // Constructors and destructor
 SubProblemShort::SubProblemShort() {}
 
-SubProblemShort::SubProblemShort(Scenario * scenario, int nbDays, const Contract * contract, vector<State>* pInitState):
+SubProblemShort::SubProblemShort(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState):
     SubProblem(scenario, nbDays, contract,  pInitState) {
 
   daysMin_ = contract->minConsDaysWork_;
@@ -401,7 +401,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
   // G. REDCOST: EACH DAY/SHIFT REDUCED COST
   //
   for (int i = 0; i < size; i++)
-    ANS -= pCosts_->dayShiftWorkCost(startDate + i, succ[i]);
+    ANS -= pCosts_->workedDayShiftCost(startDate + i, succ[i]);
 
   return ANS;
 }
@@ -415,83 +415,51 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
 // Brutally try all possible short rotations from the very first day
 bool SubProblemShort::priceVeryShortRotationsFirstDay(){
   int nFound = 0;
-  if(startingDayStatus_[0]){
-    for(int c=1; c<CDMin_; c++){
-      vector2D<int> succs = allowedShortSuccBySize_[c];
-      for(unsigned int i=0; i<succs.size(); i++){
-        vector<int> succ = allowedShortSuccBySize_[c][i];
-        double redCost = costOfVeryShortRotation(0,succ);
-        int rotationLength = succ.size() + (pLiveNurse_->pStateIni_->shift_ > 0 ? pLiveNurse_->pStateIni_->consDaysWorked_ : 0);
-        if(redCost < maxReducedCostBound_ and rotationLength <= maxRotationLength_){
-          Rotation rot (0, succ, pLiveNurse_->id_, MAX_COST, redCost);
-          theRotations_.push_back(rot);
-          nPaths_ ++;
-          nVeryShortFound_++;
-          nFound ++;
-          bestReducedCost_ = std::min(bestReducedCost_, rot.dualCost_);
-        }
-      }
-    }
-  }
+  for(int c=1; c<CDMin_; c++)
+    nFound += priceVeryShortSameSizeRotations(0, allowedShortSuccBySize_[c]);
   return nFound > 0;
 }
 
 // Brutally try all possible short rotations that end on the last day
 bool SubProblemShort::priceVeryShortRotationsLastDay(){
   int nFound = 0;
-  for(int c=1; c<CDMin_; c++){
-    if(startingDayStatus_[nDays_-c]){
-      vector2D<int> succs = allowedShortSuccBySize_[c];
-      for(unsigned int i=0; i<succs.size(); i++){
-        vector<int> succ = allowedShortSuccBySize_[c][i];
-        double redCost = costOfVeryShortRotation( nDays_-c ,succ);
-        if(redCost < maxReducedCostBound_){
-          Rotation rot (nDays_-c, succ, pLiveNurse_->id_, MAX_COST, redCost);
-          theRotations_.push_back(rot);
-          nPaths_ ++;
-          nVeryShortFound_++;
-          nFound ++;
-          bestReducedCost_ = std::min(bestReducedCost_, rot.dualCost_);
-        }
-      }
-    }
-  }
+  for(int c=1; c<CDMin_; c++)
+      nFound += priceVeryShortSameSizeRotations(nDays_-c, allowedShortSuccBySize_[c]);
   return nFound > 0;
 }
 
 // Brutally try all possible short rotations from every first day
-bool SubProblemShort::priceVeryShortRotations(){
+bool SubProblemShort::priceVeryShortRotations() {
   int nFound = 0;
-  for(int c=1; c<CDMin_; c++){
-    vector2D<int> succs = allowedShortSuccBySize_[c];
-    for(unsigned int i = 0; i<succs.size(); i++){
-      vector<int> succ = allowedShortSuccBySize_[c][i];
-      for(int k=0; k <= nDays_ - c; k++){
-        if(startingDayStatus_[k]){
-          double redCost = costOfVeryShortRotation(k,succ);
-          if(redCost < maxReducedCostBound_){
-            Rotation rot (k, succ, pLiveNurse_->id_, MAX_COST, redCost);
-            theRotations_.push_back(rot);
-            nPaths_ ++;
-            nVeryShortFound_++;
-            nFound ++;
-            bestReducedCost_ = std::min(bestReducedCost_, rot.dualCost_);
-          }
-        }
-      }
-    }
+  for (int c = 1; c < CDMin_; c++) {
+    const vector2D<int> &succs = allowedShortSuccBySize_[c];
+    for (int k = 0; k <= nDays_ - c; k++)
+      nFound += priceVeryShortSameSizeRotations(k, succs);
   }
   return nFound > 0;
 }
+
+int SubProblemShort::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs) {
+  int nFound = 0;
+  if (startingDayStatus_[k])
+    for (const vector<int> &succ: succs) {
+      double redCost = costOfVeryShortRotation(k, succ);
+      if (redCost < maxReducedCostBound_) {
+        theSolutions_.emplace_back(k, succ, redCost);
+        nPaths_++;
+        nVeryShortFound_++;
+        nFound++;
+        bestReducedCost_ = std::min(bestReducedCost_, redCost);
+      }
+    }
+  return nFound;
+}
+
 
 // Compute the cost of a single short rotation
 double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>& succ) {
 
   int endDate = startDate + succ.size() - 1;
-
-  // check if the first day is forbidden
-  if(!startingDayStatus_[startDate])
-    return MAX_COST;
 
   //check if any shift is forbidden
   for(int k=startDate; k<=endDate; k++)
@@ -578,7 +546,7 @@ double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>
 
   // H. REDUCED COST: EACH DAY/SHIFT REDUCED COST
   //
-  for(int k=startDate; k<=endDate; k++) dayShiftsRedCost -= pCosts_->dayShiftWorkCost( k, succ[k-startDate] );
+  for(int k=startDate; k<=endDate; k++) dayShiftsRedCost -= pCosts_->workedDayShiftCost(k, succ[k - startDate]);
 
 
   // I. RETURN THE TOTAL COST

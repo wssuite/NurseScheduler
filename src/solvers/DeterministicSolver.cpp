@@ -7,8 +7,9 @@
 
 #include "solvers/DeterministicSolver.h"
 //#include "solvers/Greedy.h"
-#include "solvers/MasterProblem.h"
+#include "solvers/mp/RotationMP.h"
 #include "solvers/InitializeSolver.h"
+#include "solvers/mp/modeler/BcpModeler.h"
 
 // #define COMPARE_EVALUATIONS
 
@@ -363,7 +364,7 @@ double DeterministicSolver::solve(vector<Roster> initialSolution){
 		|| (pScenario_->nbDays() <= 56 && pScenario_->nbNurses() <= 5) ) {
 		completeParameters_.setOptimalityLevel(OPTIMALITY);
 		objValue_ = this->solveCompleteHorizon();
-		if (MasterProblem* pMaster = dynamic_cast<MasterProblem*> (pCompleteSolver_)) {
+		if (MasterProblem* pMaster = static_cast<MasterProblem*> (pCompleteSolver_)) {
 			this->updateInitialStats(pMaster);
 		}
 		return objValue_;
@@ -384,13 +385,13 @@ double DeterministicSolver::solve(vector<Roster> initialSolution){
 		//
 		if (options_.withRollingHorizon_) {
 			objValue_ = this->solveWithRollingHorizon();
-			if (MasterProblem* pMaster = dynamic_cast<MasterProblem*> (pRollingSolver_)) {
+			if (MasterProblem* pMaster = static_cast<MasterProblem*> (pRollingSolver_)) {
 				this->updateInitialStats(pMaster);
 			}
 		}
 		else {
 			objValue_ = this->solveCompleteHorizon();
-			if (MasterProblem* pMaster = dynamic_cast<MasterProblem*> (pCompleteSolver_)) {
+			if (MasterProblem* pMaster = static_cast<MasterProblem*> (pCompleteSolver_)) {
 				this->updateInitialStats(pMaster);
 			}
 			// do not bother improving the solution if it is already optimal
@@ -404,7 +405,7 @@ double DeterministicSolver::solve(vector<Roster> initialSolution){
 		if (options_.withLNS_) {
 			objValue_ = this->solveWithLNS();
 
-			if (MasterProblem* pMaster = dynamic_cast<MasterProblem*> (pLNSSolver_)) {
+			if (MasterProblem* pMaster = static_cast<MasterProblem*> (pLNSSolver_)) {
 				this->updateImproveStats(pMaster);
 			}
 		}
@@ -444,7 +445,7 @@ double DeterministicSolver::treatResults(Solver* pSolver) {
 	std::cout << "(time limit is "<< options_.totalTimeLimitSeconds_ << " s)" << std::endl;
 	if (status_ == TIME_LIMIT) {
 		std::cout << "Stop solution process: time limit is reached" << std::endl;
-		if (MasterProblem* pMaster = dynamic_cast<MasterProblem*>(pSolver)) {
+		if (MasterProblem* pMaster = static_cast<MasterProblem*>(pSolver)) {
 			if (pMaster->getModel()->nbSolutions() >= 1) {
 				status_ = FEASIBLE;
 			}
@@ -995,7 +996,7 @@ Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand) {
 		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
 		//break;
 		case GENCOL:
-		pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+		pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
 		break;
 		default:
 		Tools::throwError("The algorithm is not handled yet");
@@ -1013,7 +1014,7 @@ Solver* DeterministicSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Alg
 		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
 		//break;
 		case GENCOL:
-		pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+		pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
 		break;
 		default:
 		Tools::throwError("The algorithm is not handled yet");

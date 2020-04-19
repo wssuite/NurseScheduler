@@ -83,9 +83,9 @@ struct MyVar: public MyObject{
 
 	int getIndex() const { return index_; }
 
-	virtual VarType getVarType() {return type_;}
+	virtual VarType getVarType() const {return type_;}
 
-	double getCost() { return cost_; }
+	double getCost() const { return cost_; }
 
 	virtual double getLB() const { return lb_; }
 
@@ -99,15 +99,15 @@ struct MyVar: public MyObject{
 
 	virtual void setVarType(VarType newType) {type_=newType;}
 
-	bool is_integer() { return type_ != VARTYPE_CONTINUOUS; }
+	bool is_integer() const { return type_ != VARTYPE_CONTINUOUS; }
 
-	const std::vector<double>& getPattern() { return pattern_; }
+	const std::vector<double>& getPattern() const { return pattern_; }
 
-	int getIterationCreation() { return iteration_creation_; }
+	int getIterationCreation() const { return iteration_creation_; }
 
-	int getActiveCount() { return active_count_; }
+	int getActiveCount() const { return active_count_; }
 
-	int getLastActive() { return last_active_; }
+	int getLastActive() const { return last_active_; }
 
 	void addActiveIteration(int iteration) {
 		if(last_active_!=iteration){
@@ -163,15 +163,15 @@ struct MyCons: public MyObject{
 	 * Getters
 	 */
 
-	double getLhs() { return lhs_; }
+	double getLhs() const { return lhs_; }
 
-	double getRhs() { return rhs_; }
+	double getRhs() const { return rhs_; }
 
 	void setLhs(double lhs) { lhs_=lhs; }
 
 	void setRhs(double rhs) { rhs_=rhs; }
 
-	int getIndex(){ return index_; }
+	int getIndex() const { return index_; }
 
 protected:
 	int index_;
@@ -195,7 +195,7 @@ struct MyPricer{
 	virtual std::vector<MyVar*> pricing(double bound=0, bool before_fathom = true)=0;
 
 	// set pricer parameters
-	virtual void initPricerParameters(SolverParam parameters) {}
+	virtual void initPricerParameters(const SolverParam& parameters) {}
 
 	   // METHODS - Forbidden shifts, nurses, starting days, etc.
    //
@@ -292,7 +292,7 @@ struct MyBranchingCandidate{
 		return children_.size()-1;
 	}
 
-	MyBranchingNode& getChild(int index){
+	MyBranchingNode& getChild(int index) {
 		return children_[index];
 	}
 
@@ -417,7 +417,7 @@ struct MyNode{
 		}
 	}
 
-	inline double getHighestGap(){
+	inline double getHighestGap() const {
 		//if root, it is the best
 		if(!pParent_)
 			return LARGE_SCORE;
@@ -428,7 +428,7 @@ struct MyNode{
 
 	// The quality of a node is used to sort the candidate list (siblings of the branching tree)
 	// They are sorted in ascending order
-	inline double getQuality(){
+	inline double getQuality() const {
 		//if root, does not apply
 		if(!pParent_)
 			return LARGE_SCORE;
@@ -436,22 +436,22 @@ struct MyNode{
 		return pParent_->getBestLB() ;
 	}
 
-	inline double getBestLB() { return bestLB_; }
+	inline double getBestLB() const { return bestLB_; }
 
 	// STAB
-	inline double getBestLagLB() { return bestLagLB_; }
+	inline double getBestLagLB() const { return bestLagLB_; }
 	inline void setBestLagLB(double bestLagLB) {bestLagLB_ = bestLagLB;}
 
 	// LAGLB
-	inline double getLastLagLB() {return lastLagLB_;}
+	inline double getLastLagLB() const {return lastLagLB_;}
 	inline void setLastLagLB(double lb) {lastLagLB_ = lb;}
 
 
 	inline void setDepth(int depth) { depth_ = depth; }
 
-	inline double getDepth() { return depth_; }
+	inline double getDepth() const { return depth_; }
 
-	virtual std::string write() {
+	virtual std::string write() const {
     std::stringstream out;
 		out << "MyNode: (depth=" << depth_ << ",LB=" << bestLB_ << ")";
 		return out.str();
@@ -481,17 +481,22 @@ struct MyTree {
 
 	inline void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
 
-	inline double getRootLB(){ return best_lb_in_root; }
+	inline double getRootLB() const { return best_lb_in_root; }
 
-	inline void setCurrentNode(MyNode* currentNode) {
+	inline void setCurrentNode(MyNode* currentNode, bool diving=false) {
 		currentNode_ = currentNode;
-		--tree_size_;
+		// update tree size
+    --tree_size_;
 		//one more node without new incumbent and since last dive
 		++nb_nodes_last_incumbent_;
 		++nb_nodes_since_dive_;
-		//we start a new dive
-		if(diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
-			diveLength_ = 1+diveDepth_;
+    //if dive length has not been updated and we are not diving
+    // this would be called once at the end of the first dive
+    if(!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
+      diveLength_ = 1+diveDepth_;
+#ifdef DBG
+    if(currentNode_) std::cout << currentNode_->write() << std::endl;
+#endif
 	}
 
 	/* clear tree */
@@ -516,24 +521,22 @@ struct MyTree {
 		activeTreeMapping_.insert(std::pair<MyNode*, std::vector<MyNode*> >(currentNode_, leaves));
 		//finally update the current node for the moment.
 		//Will not change for the first node as diving
-		currentNode_ = leaves[0];
-		tree_size_ += nbLeaves -1; //-1 as diving
-		//one more node without new incumbent
-		++nb_nodes_last_incumbent_;
-		++nb_nodes_since_dive_;
-		//we dive
+		tree_size_ += nbLeaves;
+		setCurrentNode(leaves[0], true);
+		// set dive depth
 		diveDepth_ = diveDepth;
 
 		return leaves;
 	}
 
-	//when diving with just one node, the previous methos is not called, so we update the right arguments
+	//when diving with just one node
 	inline void updateDive(){
-		currentNode_ = tree_.back();
-		//one more node without new incumbent
-		++nb_nodes_last_incumbent_;
-		++nb_nodes_since_dive_;
-		++diveDepth_;
+	  // add one node
+    tree_size_++;
+    // set new node
+		setCurrentNode(tree_.back(), true);
+		// update the depth
+    ++diveDepth_;
 	}
 
 	inline void eraseCurrentSibblings(){
@@ -544,11 +547,11 @@ struct MyTree {
 			if(p.first->getDepth() < min_depth_) min_depth_ = p.first->getDepth();
 	}
 
-	inline MyNode* getNode(const int nodeIndex) {
+	inline MyNode* getNode(const int nodeIndex) const {
 		return tree_[nodeIndex];
 	}
 
-	inline double getBestLB(){
+	inline double computeBestLB() {
 		best_lb = currentNode_->getBestLB();
 		for(std::pair<MyNode*, std::vector<MyNode*> > p: activeTreeMapping_)
 			for(MyNode* node: p.second)
@@ -559,7 +562,7 @@ struct MyTree {
 		return best_lb;
 	}
 
-	inline double get_best_lb() {return best_lb;}
+	inline double get_best_lb() const {return best_lb; }
 
 	inline void setBestUB(double ub) {
 		/* reinitialize nb_nodes_last_incumbent_ */
@@ -567,9 +570,9 @@ struct MyTree {
 		if(ub < best_ub) best_ub = ub;
 	}
 
-	inline double getBestUB() { return best_ub; }
+	inline double getBestUB() const { return best_ub; }
 
-	inline double getCurrentLB(){return currentNode_->getBestLB();}
+	inline double getCurrentLB() const {return currentNode_->getBestLB();}
 
 	//Reset and clear solving parameters
 	virtual void reset() {
@@ -585,15 +588,15 @@ struct MyTree {
 		best_lb = LARGE_SCORE;
 	}
 
-	inline int getTreeSize(){ return tree_size_; }
+	inline int getTreeSize() const { return tree_size_; }
 
-	inline int getNbNodesSinceLastIncumbent() { return nb_nodes_last_incumbent_; }
+	inline int getNbNodesSinceLastIncumbent() const { return nb_nodes_last_incumbent_; }
 
 	inline void resetNbNodesSinceLastDive(){ nb_nodes_since_dive_ = 0; }
 
-	inline int getDiveLength() { return diveLength_; }
+	inline int getDiveLength() const { return diveLength_; }
 
-	inline int getNbDives() { return nb_nodes_since_dive_ / diveLength_; } //nb_nodes_last_incumbent_
+	inline int getNbDives() const { return nb_nodes_since_dive_ / diveLength_; } //nb_nodes_last_incumbent_
 
 	inline void updateNodeLB(double lb){
 		if(best_lb_in_root > lb)
@@ -603,8 +606,8 @@ struct MyTree {
 	}
 
 	// STAB: getter and setter for lagrangian bound
-	inline double getNodeBestLagLB(){return currentNode_->getBestLagLB();}
-	inline double getNodeLastLagLB(){return currentNode_->getLastLagLB();}
+	inline double getNodeBestLagLB() const {return currentNode_->getBestLagLB();}
+	inline double getNodeLastLagLB() const {return currentNode_->getLastLagLB();}
 	inline bool updateNodeLagLB(double lb){
 		currentNode_->setLastLagLB(lb);
 		if (lb > currentNode_->getBestLagLB()+EPSILON) {
@@ -614,9 +617,9 @@ struct MyTree {
 		return false;
 	}
 
-	double getObjective(){ return best_ub; }
+	double getObjective() const { return best_ub; }
 
-	double getRelaxedObjective() { return best_lb_in_root; }
+	double getRelaxedObjective() const { return best_lb_in_root; }
 
 	inline void pushBackNewNode(){
 		pushBackNode(new MyNode);
@@ -629,13 +632,13 @@ struct MyTree {
 			currentNode_->pushBackChild(node);
 	}
 
-	MyNode* getCurrentNode() { return currentNode_; }
+	MyNode* getCurrentNode() const { return currentNode_; }
 
-	virtual bool is_columns_node() { return false; }
+	virtual bool is_columns_node() const { return false; }
 
-	virtual bool continueDiving(){return false;}
+	virtual bool continueDiving() const {return false;}
 
-	inline void addCurrentNodeToStack(){
+	inline void addCurrentNodeToStack() {
 		//currentNode_ is finally
 		tree_size_ ++;
 		--nb_nodes_last_incumbent_;
@@ -650,9 +653,9 @@ struct MyTree {
 
 	virtual void updateStats(MyNode* node) {}
 
-	virtual std::string writeBranchStats() { return ""; }
+	virtual std::string writeBranchStats() const { return ""; }
 
-	void printStats() { std::cout << writeBranchStats(); }
+	void printStats() const { std::cout << writeBranchStats(); }
 
 protected:
 	//mapping between the Siblings and MyNode*
@@ -907,7 +910,7 @@ public:
 	 * get the primal values
 	 */
 
-	virtual bool isInteger(MyVar* var){
+	virtual bool isInteger(MyVar* var) const {
 		double value = getVarValue(var);
 		double fractionalPart = round(value) - value;
 		if( abs(fractionalPart) < EPSILON )
@@ -915,17 +918,17 @@ public:
 		return false;
 	}
 
-	virtual double getVarValue(MyVar* var)=0;
+	virtual double getVarValue(MyVar* var) const =0;
 
 	//compute the total cost of a multiple vectors of MyObject* in the solution
-	template<typename V> inline double getVarValue(std::vector<V>& vector){
+	template<typename V> inline double getVarValue(const std::vector<V>& vector) const {
 		double value = 0 ;
-		for(V& vect: vector)
+		for(const V& vect: vector)
 			value += getVarValue(vect);
 		return value;
 	}
 
-	inline std::vector<double> getVarValues(std::vector<MyVar*>& vars){
+	inline std::vector<double> getVarValues(const std::vector<MyVar*>& vars) const {
 	 	std::vector<double> values(vars.size());
 		for(unsigned int i=0; i<vars.size(); ++i)
 			values[i] = getVarValue(vars[i]);
@@ -936,9 +939,9 @@ public:
 	 * Get the dual variables
 	 */
 
-	virtual double getDual(MyCons* cons, bool transformed = false)=0;
+	virtual double getDual(MyCons* cons, bool transformed = false) const=0;
 
-	inline std::vector<double> getDuals(std::vector<MyCons*>& cons, bool transformed = false){
+	inline std::vector<double> getDuals(const std::vector<MyCons*>& cons, bool transformed = false) const {
 	 	std::vector<double> dualValues(cons.size());
 		for(unsigned int i=0; i<cons.size(); ++i)
 			dualValues[i] = getDual(cons[i], transformed);
@@ -949,27 +952,27 @@ public:
 	 * Get the reduced cost
 	 */
 
-	virtual double getReducedCost(MyVar* var)=0;
+	virtual double getReducedCost(MyVar* var) const=0;
 
 	/*
 	 * Getters and setters
 	 */
 
 	//compute the total cost of MyObject* in the solution
-	virtual double getTotalCost(MyVar* var, bool print = false)=0;
+	virtual double getTotalCost(MyVar* var, bool print = false) const=0;
 
 	//compute the total cost of a vector of MyObject* in the solution
-	template<typename T>  inline double getTotalCost(std::map<MyVar*, T>& map0, bool print = false){
+	template<typename T>  inline double getTotalCost(const std::map<MyVar*, T>& map0, bool print = false) const {
 		double value = 0 ;
-		for(std::pair<MyObject*, T>& var: map0)
+		for(const std::pair<MyObject*, T>& var: map0)
 			value += getTotalCost(var.first, print);
 		return value;
 	}
 
 	//compute the total cost of a multiple vectors of MyObject* in the solution
-	template<typename V> inline double getTotalCost(std::vector<V>& vector, bool print = false){
+	template<typename V> inline double getTotalCost(const std::vector<V>& vector, bool print = false) const {
 		double value = 0 ;
-		for(V& vect: vector)
+		for(const V& vect: vector)
 			value += getTotalCost(vect, print);
 		return value;
 	}
@@ -983,42 +986,42 @@ public:
 	 * Outputs *
 	 *************/
 
-	virtual int printStats() { pTree_->printStats(); return 1; };
+	virtual int printStats() const { pTree_->printStats(); return 1; };
 
 	virtual int printBestSol()=0;
 
-	virtual int writeProblem(std::string fileName)=0;
+	virtual int writeProblem(std::string fileName) const =0;
 
-	virtual int writeLP(std::string fileName)=0;
+	virtual int writeLP(std::string fileName) const =0;
 
-	virtual void toString(MyObject* obj){ std::cout << obj->name_ << std::endl; }
+	virtual void toString(MyObject* obj) const { std::cout << obj->name_ << std::endl; }
 
 	/**************
 	 * Getters *
 	 *************/
 
-	template<typename M> M getModel(){
+	template<typename M> M getModel() const {
     std::string error = "This template has not been implemented.";
 		Tools::throwError(error.c_str());
 	}
 
-	inline std::vector<MyVar*>& getBinaryCoreVars(){ return binaryCoreVars_; }
+	inline const std::vector<MyVar*>& getBinaryCoreVars() const { return binaryCoreVars_; }
 
-	inline std::vector<MyVar*>& getIntegerCoreVars(){ return integerCoreVars_; }
+	inline const std::vector<MyVar*>& getIntegerCoreVars() const { return integerCoreVars_; }
 
-	inline std::vector<MyVar*>& getPositiveCoreVars(){ return positiveCoreVars_; }
+	inline const std::vector<MyVar*>& getPositiveCoreVars() const { return positiveCoreVars_; }
 
-	inline int getVerbosity() { return verbosity_; }
+	inline int getVerbosity() const { return verbosity_; }
 
 	inline virtual void setBestUB(double ub) { pTree_->setBestUB(ub); }
 
-	inline virtual double getObjective(){ return pTree_->getBestUB(); }
-	virtual double getObjective(int index) { return LARGE_SCORE; }
+	inline virtual double getObjective() const { return pTree_->getBestUB(); }
+	virtual double getObjective(int index) const { return LARGE_SCORE; }
 
 
-	inline virtual double getRelaxedObjective() { return pTree_->getRootLB(); }
+	inline virtual double getRelaxedObjective() const { return pTree_->getRootLB(); }
 
-	inline double getCurrentLB() { return pTree_->getCurrentLB(); }
+	inline double getCurrentLB() const { return pTree_->getCurrentLB(); }
 
 	inline void updateNodeLB(double lb) { pTree_->updateNodeLB(lb); }
 
@@ -1027,16 +1030,16 @@ public:
 	inline double getNodeLastLagLB() {return pTree_->getNodeLastLagLB();}
 	inline bool updateNodeLagLB(double lb) {return pTree_->updateNodeLagLB(lb);}
 
-	inline double getRootLB() { return pTree_->getRootLB(); }
+	inline double getRootLB() const { return pTree_->getRootLB(); }
 
-	inline double getBestLB() { return pTree_->getBestLB(); }
-	inline double get_best_lb() { return pTree_->get_best_lb(); }
+	inline double computeBestLB() { return pTree_->computeBestLB(); }
+	inline double get_best_lb() const { return pTree_->get_best_lb(); }
 
-	inline int getTreeSize() { return pTree_->getTreeSize(); }
+	inline int getTreeSize() const { return pTree_->getTreeSize(); }
 
-	inline std::string writeCurrentNode() { return pTree_->writeCurrentNode(); }
+	inline std::string writeCurrentNode() const { return pTree_->writeCurrentNode(); }
 
-	inline bool is_columns_node() { return pTree_->is_columns_node(); }
+	inline bool is_columns_node() const { return pTree_->is_columns_node(); }
 
 	inline void updateDive() { return pTree_->updateDive(); }
 
@@ -1044,27 +1047,28 @@ public:
 
 	inline void addCurrentNodeToStack() { pTree_->addCurrentNodeToStack(); }
 
-	inline int getNbDives() { return pTree_->getNbDives(); }
+	inline int getNbDives() const { return pTree_->getNbDives(); }
 
 	inline void resetNbNodesSinceLastDive() { pTree_->resetNbNodesSinceLastDive(); }
 
-	inline virtual int nbSolutions() { return 0; }
+	inline virtual int nbSolutions() const { return 0; }
 
 	inline void setSearchStrategy(SearchStrategy searchStrategy){
 		searchStrategy_ = searchStrategy;
 		set_search_strategy(searchStrategy);
 	}
 
-	inline SearchStrategy getSearchStrategy(){ return searchStrategy_; }
+	inline SearchStrategy getSearchStrategy() const { return searchStrategy_; }
 
-	inline virtual void setParameters(SolverParam parameters){
+	inline virtual void setParameters(const SolverParam& parameters, PrintSolution* func){
 		parameters_ = parameters;
+		parameters_.saveFunction_ = func;
 		setVerbosity(parameters_.verbose_);
 		logfile_ = parameters.logfile_;
 	}
-	inline std::string logfile() {return logfile_;}
+	inline std::string logfile() const {return logfile_;}
 
-	inline SolverParam& getParameters() { return parameters_; }
+	inline const SolverParam& getParameters() const { return parameters_; }
 
 	inline void setLogFile(std::string fileName) {logfile_ = fileName;}
 
@@ -1108,11 +1112,11 @@ public:
 
 	// Get te current level in the branch and bound tree
 	//
-	virtual int getCurrentTreeLevel() {return 0;};
+	virtual int getCurrentTreeLevel() const {return 0;};
 
 	// get the current number of objects
 	//
-	int getNbObjectsInMemory() {return objects_.size();}
+	int getNbObjectsInMemory() const {return objects_.size();}
 
 
 protected:

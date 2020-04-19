@@ -66,9 +66,9 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
 		if(columnsNode == 0 )
 		  Tools::throwError("Type of node not recognized.");
 
-		for(Rotation rot: columnsNode->rotations_)
-      if (rot.nurseId_ == pNurse->id_)
-        for (int day = rot.firstDay_ - 1; day <= rot.firstDay_ + rot.length_; day++) {
+		for(PPattern pat: columnsNode->patterns_)
+      if (pat->nurseId_ == pNurse->id_)
+        for (int day = pat->firstDay_ - 1; day <= pat->firstDay_ + pat->length_; day++) {
           if (day < pScenario_->firstDay()) continue;
           if (day >= pScenario_->firstDay() + pScenario_->nbDays()) continue;
           for (int i = 1; i < pNurse->pScenario_->nbShifts_; ++i) {
@@ -120,7 +120,7 @@ void RestTree::updateStats(MyNode* node) {
 	}
 }
 
-string RestTree::writeBranchStats(){
+string RestTree::writeBranchStats() const {
 	std::stringstream rep;
 	rep << "";
 
@@ -159,12 +159,12 @@ string RestTree::writeBranchStats(){
 	return rep.str();
 }
 
-string RestTree::writeOneStat(string name, vector<pair<int,double>>& stats){
+string RestTree::writeOneStat(string name, const vector<pair<int,double>>& stats) const{
   std::stringstream rep;
 
 	rep << name << "\t\t  ";
 	for (unsigned int n = 0; n < stats.size(); n++) {
-		pair<int,double>& p = stats[n];
+		const pair<int,double>& p = stats[n];
 		if(p.first){
 			char buffer[100];
 			sprintf(buffer, "|%3.2f", p.second / p.first);
@@ -215,7 +215,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 	vector<MyVar*> integerFixingCandidates;
 	std::vector<MyVar*> fixingCandidates;
 	std::vector<MyVar*> otherFixingCandidates;
-	vector<Rotation> rotations;
+	vector<PPattern> patterns;
 
 	if ( (pModel_->getParameters().branchColumnUntilValue_&&pModel_->getParameters().branchColumnDisjoint_)
 		|| (!pModel_->getParameters().branchColumnUntilValue_&&!pModel_->getParameters().branchColumnDisjoint_) )
@@ -240,8 +240,8 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 		//if var is non null
 		if (value > 1-EPSILON) {
 			integerFixingCandidates.push_back(var);
-			Rotation rot(var->getPattern());
-			rotations.push_back(rot);
+			PPattern pat = pMaster_->getPattern(var->getPattern());
+			patterns.push_back(pat);
 			continue;
 		}
 		if(value > EPSILON)
@@ -266,12 +266,12 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 	}
 
 	if (pModel_->getParameters().branchColumnDisjoint_) {
-	  double valueMax = std::max (1.0, pMaster_->pScenario_->nbWeeks_ / 2.0);
+	  double valueMax = std::max (1.0, pMaster_->getScenario()->nbWeeks_ / 2.0);
 		DayDisjointComparator comp1 = DayDisjointComparator();
-		fixingCandidates = chooseColumns(candidates, rotations, valueMax, comp1); // (pMaster_->pScenario_->nbWeeks_ + 1) / 2.0
+		fixingCandidates = chooseColumns(candidates, patterns, valueMax, comp1); // (pMaster_->pScenario_->nbWeeks_ + 1) / 2.0
 
 		ShiftDisjointComparator comp2 = ShiftDisjointComparator();
-		otherFixingCandidates = chooseColumns(candidates, rotations, valueMax, comp2); // (pMaster_->pScenario_->nbWeeks_ - 1)  / 2.0
+		otherFixingCandidates = chooseColumns(candidates, patterns, valueMax, comp2); // (pMaster_->pScenario_->nbWeeks_ - 1)  / 2.0
 	}
 
 
@@ -292,16 +292,19 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 		node.setLb(index, 1);
 	}
 
-	// Find the rotation to desactivate
+	// Find the rotation to deactivate
 	for(MyVar* var: pModel_->getActiveColumns()){
 		if(var->getUB() == 0)
 			continue;
-		Rotation activeRot(var->getPattern());
-		for(Rotation nodeRot: rotations) {
-
-			if(activeRot==nodeRot || activeRot.nurseId_ != nodeRot.nurseId_ ||
-				activeRot.firstDay_ > nodeRot.firstDay_+nodeRot.length_ ||
-				activeRot.firstDay_+activeRot.length_ < nodeRot.firstDay_ ) continue;
+    PPattern activePat = pMaster_->getPattern(var->getPattern());
+		for(PPattern nodePat: patterns) {
+      // do not deactivate if activePat:
+      // 1/ will be used (==nodePat)
+      // 2/ applied to a different nurse
+      // 3/ is disjoint with nodePat
+			if(activePat->equals(nodePat) ||
+			   activePat->nurseId_ != nodePat->nurseId_ ||
+			   activePat->isDisjointWith(nodePat, false) ) continue;
 
 			//add the variable to the candidate
 			int index = candidate.addBranchingVar(var);
@@ -314,10 +317,9 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 		}
 	}
 
-
 	/* update tree */
 	// append fixing candidates
-	tree_->pushBackNewColumnsNode(rotations);
+	tree_->pushBackNewColumnsNode(patterns);
 
 	return true;
 }
@@ -339,13 +341,13 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 	LiveNurse* pBestNurse(0);
 	double lowestScore = DBL_MAX;
 
-	for(LiveNurse* pNurse: pMaster_->theLiveNurses_) {
+	for(LiveNurse* pNurse: pMaster_->getLiveNurses()) {
 
 		// ROLLING/LNS: do not branch on a nurse whose rotations are fixed
 		//
 		if (pMaster_->isFixNurse(pNurse->id_)) continue;
 
-		for(int k=0; k<pMaster_->pDemand_->nbDays_; ++k){
+		for(int k=0; k<pMaster_->getNbDays(); ++k){
 
 			// ROLLING/LNS: do not branch on a day whose rotations are relaxed or fixed
 			//
@@ -354,7 +356,7 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 			}
 
 			//choose the set of arcs the closest to .5
-			double restValue = pModel_->getVarValue(pMaster_->getRestsPerDay(pNurse)[k]);
+			double restValue = pModel_->getVarValue(pMaster_->getRestVarsPerDay(pNurse, k));
 
 			//The value has to be not integer
 			if(restValue < EPSILON || restValue > 1 - EPSILON)
@@ -380,7 +382,7 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 		sprintf(name, "RestBranchingCons_N%d_%d", pBestNurse->id_, bestDay);
 		vector<double> coeffs;
 		vector<MyVar*> restingArcs;
-		for(MyVar* var: pMaster_->getRestsPerDay(pBestNurse)[bestDay]){
+		for(MyVar* var: pMaster_->getRestVarsPerDay(pBestNurse, bestDay)){
 			restingArcs.push_back(var);
 			coeffs.push_back(1);
 		}
@@ -397,19 +399,19 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 		workNode.setLhs(index, 0);
 		workNode.setRhs(index, 0);
 
-		// Find the rotation to desactivate
-		for(MyVar* var: pModel_->getActiveColumns()){
-			if(var->getUB() == 0)
-				continue;
-			Rotation rot(var->getPattern());
-			if(rot.nurseId_ != pBestNurse->id_ || rot.firstDay_ > bestDay || rot.firstDay_ + rot.length_ <= bestDay) continue;
+		// Find the rotation to deactivate
+		for(MyVar* var: pModel_->getActiveColumns()) {
+      if (var->getUB() == 0)
+        continue;
+      PPattern pat = pMaster_->getPattern(var->getPattern());
+      if (pat->nurseId_ == pBestNurse->id_ && pat->firstDay_ > bestDay && pat->firstDay_ + pat->length_ <= bestDay) {
+        //add the variable to the candidate
+        index = candidate.addBranchingVar(var);
 
-			//add the variable to the candidate
-			index = candidate.addBranchingVar(var);
-
-			//check if the shift is present in shifts
-			//set the UB to 0 for the non-possible rotations
-			restNode.setUb(index, 0);
+        //check if the shift is present in shifts
+        //set the UB to 0 for the non-possible rotations
+        restNode.setUb(index, 0);
+      }
 		}
 
 		// Here : random choice to decide the order of the siblings
@@ -519,16 +521,16 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	vector<int> forbiddenShifts;
 
 	//compute the solution for each nurse, day, shift
-	vector<vector<vector<double>>> fractionalRoster = pMaster_->getFractionalRoster();
+	vector3D<double> fractionalRoster = pMaster_->getFractionalRoster();
 
 	//search for the best branching decision (set of shifts the closest to .5)
-	for(LiveNurse* pNurse: pMaster_->theLiveNurses_) {
+	for(LiveNurse* pNurse: pMaster_->getLiveNurses()) {
 
 		// LNS: do not branch on a nurse whose rotations are fixed
 		//
 		if (pMaster_->isFixNurse(pNurse->id_)) continue;
 
-		for(int k=0; k<pMaster_->pDemand_->nbDays_; ++k){
+		for(int k=0; k<pMaster_->getNbDays(); ++k){
 
 			// ROLLING/LNS:
 			// do not branch on a day whose rotations are relaxed or fixed
@@ -540,23 +542,37 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 			// Get the fraction that is spent on the resting shift and recover an
 			// indexation of the working shifts from 1 to NbShifts_
 			//
-			vector<pair<int,double>> fractionalNurseDay;
+			vector<std::pair<int,double>> fractionalNurseDay;
 			int s = 0;
 			double valueLeft = 1;
-			for(double val: fractionalRoster[pNurse->id_][k]){
+      bool isFractional = false;
+			for(int s=1; s<pMaster_->getNbShifts(); ++s){
+			  double val = fractionalRoster[pNurse->id_][k][s];
+			  // check if solution is fractional
+			  if(abs(val-round(val)) > EPSILON)
+          isFractional = true;
 				valueLeft -= val;
-				fractionalNurseDay.push_back(pair<int,double>(++s, -val));
+				fractionalNurseDay.emplace_back(pair<int,double>(s,-val));
 			}
-			fractionalNurseDay.push_back(pair<int,double>(0, -valueLeft));
+			// if not fractional, continue
+			if(!isFractional)
+        continue;
+      // put the value left in the rest shift (if any left)
+			fractionalNurseDay.emplace_back(
+			    pair<int,double>(0,-fractionalRoster[pNurse->id_][k][s]-valueLeft));
 
 			sort(fractionalNurseDay.begin(), fractionalNurseDay.end(), compareObject<double>);
 
-			//look for the balance between the shifts.
+			//look for the balance between the shifts:
+			// the sum of the weight in currentShifts should be as close as possible to 0.5
+      // scoreNode1 is the sum of the weights of the shifts in currentShifts
+      // nbShifts is the number of shifts in currentShitfs
+      // scoreNode2, nbSbhifts2 are the same for the shifts not in currentShifts
 			double scoreNode1 = 0, scoreNode2 = 0;
 			int nbShitfs1 = 0, nbShitfs2 = 0;
 			vector<int> currentShifts;
 			for(pair<int,double>& p: fractionalNurseDay){
-				if(p.second == 0)
+				if(p.second < EPSILON)
 					if(nbShitfs1 >= nbShitfs2) ++ nbShitfs2;
 					else{
 						++ nbShitfs1;
@@ -592,7 +608,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 		sprintf(name, "ShiftBranchingCons_N%d_%d", pBestNurse->id_, bestDay);
 		vector<double> coeffs;
 		vector<MyVar*> restingArcs;
-		for(MyVar* var: pMaster_->getRestsPerDay(pBestNurse)[bestDay]){
+		for(MyVar* var: pMaster_->getRestVarsPerDay(pBestNurse, bestDay)){
 			restingArcs.push_back(var);
 			coeffs.push_back(1);
 		}
@@ -603,7 +619,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 		//compute the forbidden shifts
 		vector<int> complementaryShifts;
 		bool work = true;
-		for(int i=0; i<pMaster_->pScenario_->nbShifts_; ++i){
+		for(int i=0; i<pMaster_->getNbShifts(); ++i){
 			if(find(forbiddenShifts.begin(), forbiddenShifts.end(), i) == forbiddenShifts.end()){
 				complementaryShifts.push_back(i);
 				//if the forbidden shift 0 (rest) is in the complementary, it is possible to rest for the first node
@@ -623,24 +639,34 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 		if(work) node1.setRhs(index, 0);
 		else node2.setRhs(index, 0);
 
-		// Find the rotation to desactivate
+		// Find the rotation to deactivate
 		for(MyVar* var: pModel_->getActiveColumns()){
 			if(var->getUB() == 0)
 				continue;
-			Rotation rot(var->getPattern());
-			if(rot.nurseId_ != pBestNurse->id_ || rot.firstDay_ > bestDay || rot.firstDay_ + rot.length_ <= bestDay) continue;
+      PPattern pat = pMaster_->getPattern(var->getPattern());
+			if(pat->nurseId_ == pBestNurse->id_ && pat->firstDay_ <= bestDay && pat->firstDay_ + pat->length_ > bestDay) {
+        //add the variable to the candidate
+        index = candidate.addBranchingVar(var);
 
-			//add the variable to the candidate
-			index = candidate.addBranchingVar(var);
-
-			//check if the shift is present in shifts
-			//set the UB to 0 for the non-possible rotations
-			if( find(forbiddenShifts.begin(),forbiddenShifts.end(), rot.shifts_[bestDay]) != forbiddenShifts.end())
-				node1.setUb(index, 0);
-			else node2.setUb(index, 0);
+        //check if the shift is present in shifts
+        //set the UB to 0 for the non-possible rotations
+        if (find(forbiddenShifts.begin(), forbiddenShifts.end(), pat->getShift(bestDay)) != forbiddenShifts.end())
+          node1.setUb(index, 0);
+        else node2.setUb(index, 0);
+      }
 		}
 		return true;
 	}
+
+	// throw an error here. Should never happened
+	for(MyVar* v: pModel_->getActiveColumns()) {
+	  double value = pModel_->getVarValue(v);
+	  if(abs(value-round(value)) < EPSILON) continue;
+    std::cout << v->getIndex() << ": " << pModel_->getVarValue(v) << " -> pattern:";
+    for(double s: v->getPattern()) std::cout << " " << s;
+    std::cout << std::endl;
+  }
+  Tools::throwError("Solution should be fractional if trying to branch on shifts.");
 
 	return false;
 }
@@ -650,24 +676,24 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 
 //-----------------------------------------------------------------------------
 
-vector<MyVar*> DiveBranchingRule::chooseColumns(vector<pair<MyVar*,double>>& candidates, vector<Rotation>& rotations, double& maxValue, ColumnsComparator& comparator){
+vector<MyVar*> DiveBranchingRule::chooseColumns(vector<pair<MyVar*,double>>& candidates, vector<PPattern>& patterns, double& maxValue, ColumnsComparator& comparator){
 	vector<MyVar*> fixingCandidates;
 	for(pair<MyVar*,double>& p: candidates){
 		if(maxValue < p.second) continue;
 
-		Rotation rot1(p.first->getPattern());
+    PPattern pat1 = pMaster_->getPattern(p.first->getPattern());
 		//check if this rotation is totally disjoint with all the others
 		//if not should be disjoint for the shift and the nurse
 		bool isDisjoint = true;
-		for(Rotation& rot2 : rotations)
-			if( !comparator.is_disjoint(rot1, rot2) ){
+		for(PPattern pat2 : patterns)
+			if( !comparator.is_disjoint(pat1, pat2) ){
 				isDisjoint = false;
 				break;
 			}
 		if(isDisjoint){
 			fixingCandidates.push_back(p.first);
 			maxValue -= p.second;
-			rotations.push_back(rot1);
+			patterns.push_back(pat1);
 			//			cout << rot1.toString(7*pMaster_->pScenario_->nbWeeks_) << endl;
 		}
 	}

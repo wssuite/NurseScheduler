@@ -3,7 +3,9 @@ add_subdirectory(modeler)
 
 set(LIB_NAME mp)
 set(SOURCE_FILES
-        RotationPricer.cpp
+        MasterProblem.cpp
+        RotationMP.cpp
+        RCPricer.cpp
         TreeManager.cpp
         )
 

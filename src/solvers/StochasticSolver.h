@@ -10,7 +10,6 @@
 #define __StochasticSolver__
 
 #include "solvers/Solver.h"
-#include "solvers/MasterProblem.h"
 
 enum RankingStrategy {RK_MEAN, RK_SCORE, RK_NONE};
 

@@ -12,8 +12,6 @@
 #include "solvers/Solver.h"
 //#include "Greedy.h"
 #include <exception>
-#include "solvers/mp/modeler/Modeler.h"
-#include "solvers/MasterProblem.h"
 #include "solvers/DeterministicSolver.h"
 #include "DeterministicMain_test.h"
 

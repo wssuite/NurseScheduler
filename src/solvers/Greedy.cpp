@@ -291,7 +291,7 @@ double Greedy::costTask(LiveNurse &nurse, int day, int _shift, int skill,
   // the consecutive number of working days until the end of the demand period
   int minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay;
   State nextState;
-  nextState.addDayToState(state, shiftType, _shift, pScenario_->hoursToWork_[_shift]);
+  nextState.addDayToState(state, shiftType, _shift, pScenario_->timeDurationToWork_[_shift]);
   nurse.computeMinMaxDaysNoPenaltyConsDay(&nextState, nurse.nbDays_-(day+1-nurse.firstDay_),
     minDaysNoPenaltyConsDay, maxDaysNoPenaltyConsDay);
 
@@ -352,7 +352,7 @@ void Greedy::assignTaskToNurse(LiveNurse &nurse, int day, int _shift, int skill)
    
     nurse.roster_.assignTask(day, _shift, skill);
     State nextState;
-    nextState.addDayToState(nurse.states_[day], shiftType, _shift, pScenario_->hoursToWork_[_shift]);
+    nextState.addDayToState(nurse.states_[day], shiftType, _shift, pScenario_->timeDurationToWork_[_shift]);
     nurse.states_[day+1] = nextState;
 
     // increment the vector of satisfied demand
@@ -363,7 +363,7 @@ void Greedy::assignTaskToNurse(LiveNurse &nurse, int day, int _shift, int skill)
     // fill the gaps in the roster if the last day has no assignment
     if (nurse.states_[day].shiftType_ < 0) {
       fillTheGaps(nurse, day);
-      nextState.addDayToState(nurse.states_[day], shiftType, _shift, pScenario_->hoursToWork_[_shift]);
+      nextState.addDayToState(nurse.states_[day], shiftType, _shift, pScenario_->timeDurationToWork_[_shift]);
       nurse.states_[day+1] = nextState;
     }
 }
@@ -444,7 +444,7 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
         if ( (day+nbUnassigned < nurse.firstDay_+nurse.nbDays_)
           && (sh != nurse.roster_.shift(day+nbUnassigned)) ) {
 	  int shiftType = pScenario_->shiftIDToShiftTypeID_[sh];
-	  stateTmp.addDayToState(states.back(), shiftType, sh, pScenario_->hoursToWork_[sh]);
+	  stateTmp.addDayToState(states.back(), shiftType, sh, pScenario_->timeDurationToWork_[sh]);
           int missingShifts = pScenario_->minConsShiftsOfTypeOf(sh)-(nbUnassigned-1 + stateTmp.consShifts_);
           if (missingShifts > 0) {
             costTmp += missingShifts * WEIGHT_CONS_SHIFTS;
@@ -464,7 +464,7 @@ double Greedy::bestStatesBlock_rec(LiveNurse &nurse, vector<State> &states,
     if (shMin) {
       State stateWork;
       int shiftType = pScenario_->shiftIDToShiftTypeID_[shMin];
-      stateWork.addDayToState(states.back(), shiftType, shMin, pScenario_->hoursToWork_[shMin]);
+      stateWork.addDayToState(states.back(), shiftType, shMin, pScenario_->timeDurationToWork_[shMin]);
       states2.push_back(stateWork);
       shifts2.push_back(shMin);
       skills2.push_back(skMin);

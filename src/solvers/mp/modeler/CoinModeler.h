@@ -56,22 +56,22 @@ struct CoinVar: public MyVar {
 		coeffs_.push_back(coeff);
 	}
 
-	void toString(std::vector<CoinCons*>& cons) {
+	void toString(const std::vector<CoinCons*>& cons) const {
     std::cout << name_ << ":";
 		for(unsigned int i=0; i<indexRows_.size(); ++i)
       std::cout << " " << cons[indexRows_[i]]->name_ << ":" << coeffs_[i];
     std::cout << std::endl;
 	}
 
-	int getNbRows() { return indexRows_.size(); }
+	int getNbRows() const { return indexRows_.size(); }
 
-    std::vector<int>& getIndexRows() { return indexRows_; }
+    const std::vector<int>& getIndexRows() const { return indexRows_; }
 
-	int getIndexRow(int i) { return indexRows_[i]; }
+	int getIndexRow(int i) const { return indexRows_[i]; }
 
-    std::vector<double>& getCoeffRows() { return coeffs_; }
+    const std::vector<double>& getCoeffRows() const { return coeffs_; }
 
-	double getCoeffRow(int i) { return coeffs_[i]; }
+	double getCoeffRow(int i) const { return coeffs_[i]; }
 
 protected:
 	double dualCost_; //dualCost of the variable
@@ -212,19 +212,19 @@ public:
 	* Get the primal value
 	*/
 
-	virtual double getVarValue(MyVar* var) { return 0; }
+	virtual double getVarValue(MyVar* var) const { return 0; }
 
 	/*
 	* Get the dual variables
 	*/
 
-	virtual double getDual(MyCons* cons, bool transformed = false) { return 0; }
+	virtual double getDual(MyCons* cons, bool transformed = false) const { return 0; }
 
 	/*
 	* Get the reduced cost
 	*/
 
-	virtual double getReducedCost(MyVar* var) { return 0; }
+	virtual double getReducedCost(MyVar* var) const { return 0; }
 
 	/**************
 	* Parameters *
@@ -236,7 +236,7 @@ public:
 	*************/
 
 	//compute the total cost of a var*
-	double getTotalCost(MyVar* var, bool print = false){
+	double getTotalCost(MyVar* var, bool print = false) const {
 		CoinVar* var2 = (CoinVar*) var;
 
 		double value = getVarValue(var);
@@ -245,12 +245,12 @@ public:
 		return value *  var2->getCost();
 	}
 
-	virtual int nbSolutions() { return 0; }
+	virtual int nbSolutions() const { return 0; }
 
-	inline virtual double getObjective(){ return pTree_->getBestUB(); }
-	virtual double getObjective(int index) { return LARGE_SCORE; }
+	inline virtual double getObjective() const { return pTree_->getBestUB(); }
+	virtual double getObjective(int index) const { return LARGE_SCORE; }
 
-	virtual int printBestSol(){
+	virtual int printBestSol() {
 		FILE * pFile;
 		pFile = logfile_.empty() ? stdout : fopen (logfile_.c_str(),"a");
 		//print the value of the relaxation
@@ -293,20 +293,20 @@ public:
 
 	virtual bool loadBestSol() { return false; }
 
-	virtual int writeProblem(std::string fileName) { return 0; }
+	virtual int writeProblem(std::string fileName) const { return 0; }
 
-	virtual int writeLP(std::string fileName) { return 0; }
+	virtual int writeLP(std::string fileName) const { return 0; }
 
-	virtual void toString(MyObject* obj){
+	virtual void toString(MyObject* obj) const {
 		CoinVar* var = dynamic_cast<CoinVar*>(obj);
 		if(var) var->toString(cons_);
 		else Modeler::toString(obj);
 	}
 
 	//get the variables that are always present in the model
-  std::vector<CoinVar*>& getCoreVars(){ return coreVars_; }
+  const std::vector<CoinVar*>& getCoreVars() const { return coreVars_; }
 
-    std::vector<CoinCons*>& getCons(){ return cons_; }
+  const std::vector<CoinCons*>& getCons() const { return cons_; }
 
 protected:
 

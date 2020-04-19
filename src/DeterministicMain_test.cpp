@@ -8,7 +8,6 @@
 
 #include "solvers/InitializeSolver.h"
 #include "tools/ReadWrite.h"
-#include "solvers/MasterProblem.h"
 #include "solvers/DeterministicSolver.h"
 #include "tools/MyTools.h"
 

@@ -10,22 +10,22 @@
 
 #include "tools/MyTools.h"
 #include "solvers/mp/modeler/Modeler.h"
-#include "solvers/MasterProblem.h"
+#include "solvers/mp/MasterProblem.h"
 
 // Node that correspond to branching on a set of columns (diving)
 //
 struct ColumnsNode: public MyNode{
-	ColumnsNode(int index, MyNode* pParent, std::vector<Rotation>& rotations):
-		MyNode(index, pParent), rotations_(rotations) {}
+	ColumnsNode(int index, MyNode* pParent, std::vector<PPattern>& patterns):
+		MyNode(index, pParent), patterns_(patterns) {}
 
-    std::string write() {
+    std::string write() const {
       std::stringstream out;
-		out << "ColumnsNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",#Cols=" << rotations_.size() << ")";
+		out << "ColumnsNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",#Cols=" << patterns_.size() << ")";
 		return out.str();
 	}
 
 	//vector of the columns on which we have branched.
-	const std::vector<Rotation> rotations_;
+	const std::vector<PPattern> patterns_;
 };
 
 // Node that correspond to branching on a resting day
@@ -34,7 +34,7 @@ struct RestNode: public MyNode{
 	RestNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool rest, std::vector<MyVar*>& restArcs):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), rest_(rest), restArcs_(restArcs) {}
 
-    std::string write() {
+    std::string write() const {
       std::stringstream out;
 		out << "RestNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse=" << pNurse_->id_ << ",Day=" << day_ << ",";
 		if(rest_) std::cout << "rest";
@@ -57,7 +57,7 @@ struct ShiftNode: public MyNode{
 	ShiftNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), work_(work), forbiddenShifts_(forbiddenShifts) {}
 
-    std::string write() {
+    std::string write() const {
       std::stringstream out;
 		out << "ShiftNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse=" << pNurse_->id_ << ",Day=" << day_ << ",";
 		if(work_) out << "work";
@@ -82,7 +82,7 @@ struct PenaltyNode: public MyNode{
 	PenaltyNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), work_(work), forbiddenShifts_(forbiddenShifts) {}
 
-    std::string write() {
+    std::string write() const {
       std::stringstream out;
 		out << "PenaltyNide: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse=" << pNurse_->id_ << ",Day=" << day_ << ",";
 		if(work_) out << "work";
@@ -105,7 +105,7 @@ struct NursesNumberNode: public MyNode{
 	NursesNumberNode(int index, MyNode* pParent, MyVar* var, double lb, double ub):
 		MyNode(index, pParent), pNumberOfNurses_(var), nursesLhs_(lb), nursesRhs_(ub) {}
 
-    std::string write() {
+    std::string write() const {
       std::stringstream out;
 		out << "NursesNumberNode: (depth=" << depth_ << ",LB=" << bestLB_;
 		out << ",Var=" << pNumberOfNurses_->name_ << ",LB=" << nursesLhs_ << ",UB=" << nursesRhs_ << ")";
@@ -129,8 +129,8 @@ struct RestTree: public MyTree{
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewColumnsNode(std::vector<Rotation>& rotations){
-		ColumnsNode* node = new ColumnsNode(tree_.size(), currentNode_, rotations);
+	inline void pushBackNewColumnsNode(std::vector<PPattern>& patterns){
+		ColumnsNode* node = new ColumnsNode(tree_.size(), currentNode_, patterns);
 		pushBackNode(node);
 	}
 
@@ -144,9 +144,9 @@ struct RestTree: public MyTree{
 		pushBackNode(node);
 	}
 
-	inline bool is_columns_node() { return dynamic_cast<ColumnsNode*>(currentNode_)!=0; }
+	inline bool is_columns_node() const { return dynamic_cast<ColumnsNode*>(currentNode_)!=0; }
 
-	inline bool continueDiving(){
+	inline bool continueDiving() const {
 		if(is_columns_node()) return true;
 		return (diveDepth_ <= std::max(min_depth_+10, diveLength_));
 	}
@@ -155,9 +155,9 @@ struct RestTree: public MyTree{
 
 	void updateStats(MyNode* node);
 
-    std::string writeBranchStats();
+    std::string writeBranchStats() const;
 
-    std::string writeOneStat(std::string name, std::vector<std::pair<int,double>>& stats);
+    std::string writeOneStat(std::string name, const std::vector<std::pair<int,double>>& stats) const;
 
 protected:
 	Scenario* pScenario_;
@@ -169,15 +169,15 @@ protected:
 };
 
 struct ColumnsComparator {
-	virtual bool is_disjoint(Rotation& rot1, Rotation& rot2)=0;
+	virtual bool is_disjoint(PPattern col1, PPattern col2)=0;
 };
 
 struct DayDisjointComparator: public ColumnsComparator{
-	bool is_disjoint(Rotation& rot1, Rotation& rot2) { return rot1.isDisjointWith(rot2); }
+	bool is_disjoint(PPattern col1, PPattern col2) { return col1->isDisjointWith(col2); }
 };
 
 struct ShiftDisjointComparator: public ColumnsComparator{
-	bool is_disjoint(Rotation& rot1, Rotation& rot2) { return rot1.nurseId_!=rot2.nurseId_ && rot1.isShiftDisjointWith(rot2); }
+	bool is_disjoint(PPattern col1, PPattern col2) { return col1->nurseId_!=col2->nurseId_ && col1->isShiftDisjointWith(col2); }
 };
 
 class DiveBranchingRule: public MyBranchingRule
@@ -203,7 +203,7 @@ public:
 
    /* Choose columns */
    std::vector<MyVar*> chooseColumns(std::vector<std::pair<MyVar*,double>>& candidates,
-       std::vector<Rotation>& rotations, double& maxValue, ColumnsComparator& comparator);
+       std::vector<PPattern>& patterns, double& maxValue, ColumnsComparator& comparator);
 
    /* compare columns */
    static bool compareColumnCloseToInt(std::pair<MyVar*, double> obj1, std::pair<MyVar*, double> obj2);

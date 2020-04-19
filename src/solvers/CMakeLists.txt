@@ -5,7 +5,6 @@ set(SOURCE_FILES
         DeterministicSolver.cpp
         Greedy.cpp
         InitializeSolver.cpp
-        MasterProblem.cpp
         Solver.cpp
         StochasticSolver.cpp
         )

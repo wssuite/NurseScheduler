@@ -63,6 +63,7 @@ class SubProblemShort : public SubProblem {
     bool priceVeryShortRotationsFirstDay();
     bool priceVeryShortRotationsLastDay();
     bool priceVeryShortRotations();
+    int priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs);
     double costOfVeryShortRotation(int firstDay, const std::vector<int>& succ);
 
 

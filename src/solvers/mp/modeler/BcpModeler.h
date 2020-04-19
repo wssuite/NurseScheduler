@@ -9,7 +9,7 @@
 #define SRC_BCPMODELER_H_
 
 #include "solvers/mp/modeler/CoinModeler.h"
-#include "solvers/MasterProblem.h"
+#include "solvers/mp/MasterProblem.h"
 
 /* BCP includes */
 #include "BCP_enum.hpp"
@@ -294,27 +294,27 @@ public:
 	 * Get/set the primal value
 	 */
 
-	double getVarValue(MyVar* var);
+	double getVarValue(MyVar* var) const;
 	void setVarValue(MyVar* var, double value);
 
 	/*
 	 * Get the dual variables
 	 */
 
-	double getDual(MyCons* cons, bool transformed = false);
+	double getDual(MyCons* cons, bool transformed = false) const;
 
 	/*
 	 * Get the reduced cost
 	 */
 
-	double getReducedCost(MyVar* var);
+	double getReducedCost(MyVar* var) const;
 
 	/**************
 	 * Parameters *
 	 *************/
 	int setVerbosity(int v);
-	inline void setParameters(SolverParam parameters){
-		Modeler::setParameters(parameters);
+	inline void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr){
+		Modeler::setParameters(parameters, func);
 		if (pPricer_) {
 			pPricer_->initPricerParameters(parameters);
 		}
@@ -324,9 +324,9 @@ public:
 	 * Outputs *
 	 *************/
 
-	int writeProblem(std::string fileName);
+	int writeProblem(std::string fileName) const;
 
-	int writeLP(std::string fileName);
+	int writeLP(std::string fileName) const;
 
 	/*
 	 * Class own methods and parameters
@@ -440,54 +440,54 @@ public:
 
 	inline bool is_solution_changed() { return solHasChanged_; }
 
-	inline int nbSolutions() { return bcpSolutions_.size(); }
+	inline int nbSolutions() const { return bcpSolutions_.size(); }
 
-	inline double getObjective() {return Modeler::getObjective(); }
+	inline double getObjective() const {return Modeler::getObjective(); }
 
-	inline double getObjective(int index) { return bcpSolutions_[index].objective_value(); }
+	inline double getObjective(int index) const { return bcpSolutions_[index].objective_value(); }
 
-	inline MasterProblem* getMaster() {return pMaster_;}
+	inline MasterProblem* getMaster() const {return pMaster_;}
 
 	//check if Bcp stops
-	bool doStop();
+	bool doStop() const;
 
 	//check the active rotations
-	void checkActiveColumns(const BCP_vec<BCP_var*>&  vars);
+	void checkActiveColumns(const BCP_vec<BCP_var*>& vars) const;
 
-    std::pair<BCP_lp_par::int_params, int> strong_branching = std::pair<BCP_lp_par::int_params, int>(BCP_lp_par::MaxPresolveIter, -1); //disable strong branching
+	std::pair<BCP_lp_par::int_params, int> strong_branching = std::pair<BCP_lp_par::int_params, int>(BCP_lp_par::MaxPresolveIter, -1); //disable strong branching
 
 	// Get/set the value of the current level in the branch and bound tree
 	//
-	int getCurrentTreeLevel() {return currentTreeLevel_;}
+	int getCurrentTreeLevel() const {return currentTreeLevel_;}
 	void setCurrentTreeLevel(int level) {currentTreeLevel_ = level;}
 
 	// STAB
 	// Get/set the number of consecutive column generation degenerate iterations
 	//
-	int getNbDegenerateIt() {return nbDegenerateIt_;}
+	int getNbDegenerateIt() const {return nbDegenerateIt_;}
 	void setNbDegenerateIt(int nbIt) {nbDegenerateIt_=nbIt;}
 	void incrementNbDegenerateIt() {nbDegenerateIt_++;}
 
 	// LNS
 	// Record the current solution of the relaxation
 	//
-	BcpLpSol recordLpSol() {
+	BcpLpSol recordLpSol() const {
 		BcpLpSol currentSol(activeColumnVars_, columnsToIndex_, primalValues_, dualValues_, reducedCosts_, lhsValues_);
 		return currentSol;
 	}
 
 	// Get the solution of the root node relaxation
 	//
-	BcpLpSol* getRootSolution() {return &rootSolution_;}
+	const BcpLpSol& getRootSolution() const {return rootSolution_;}
 
 	// Get/set statistics
 	//
-	BCP_lp_statistics getTimeStats() {return timeStats_;}
-	double gettimeFirstRoot() {return timeFirstRoot_;}
+	BCP_lp_statistics getTimeStats() const {return timeStats_;}
+	double gettimeFirstRoot() const {return timeFirstRoot_;}
 	void settimeFirstRoot(double t) {timeFirstRoot_ = t;}
-	int getNbLpIterations() {return nbLpIterations_;}
+	int getNbLpIterations() const {return nbLpIterations_;}
 	void incrementNbNodes() {nbNodes_++;}
-	int getNbNodes() {return nbNodes_-1;}
+	int getNbNodes() const {return nbNodes_-1;}
 
 // protected:
 

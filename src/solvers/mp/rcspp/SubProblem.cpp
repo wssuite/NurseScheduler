@@ -32,7 +32,7 @@ using std::set;
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario * scenario, int nDays, const Contract * contract, vector<State>* pInitState):
+SubProblem::SubProblem(Scenario* scenario, int nDays, const Contract* contract, vector<State>* pInitState):
 					pScenario_(scenario), nDays_(nDays), pContract_ (contract),
 					CDMin_(contract->minConsDaysWork_), daysMin_(1), nLabels_(2),
 					maxRotationLength_(nDays) {
@@ -105,7 +105,7 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 	forbid(forbiddenDayShifts);								// Forbid arcs
 	forbidStartingDays(forbiddenStartingDays);				// Forbid starting days
 
-	if(false) printContractAndPrefenrences();				// Set to true if you want to display contract + preferences (for debug)
+	if(false) pLiveNurse_->printContractAndPrefenrences(pScenario_);				// Set to true if you want to display contract + preferences (for debug)
 
 	// cout << " 1   ----------------------------------------------" << endl;
 	// printGraph();
@@ -124,7 +124,13 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 	// cout << " 3   ----------------------------------------------" << endl;
 //	g_.printGraph();
 
-	// printAllRotations();
+	// printAllSolutions();
+
+#ifdef DBG
+  // check that all solution respects forbidden shifts
+  for(const RCSolution& sol: theSolutions_)
+    checkForbiddenDaysAndShifts(sol);
+#endif
 
 	return ANS;
 }
@@ -136,7 +142,9 @@ bool SubProblem::preprocess() {
 // For the long rotations, depends whether we want optimality or not
 bool SubProblem::solveRCGraph(bool optimality){
   updateArcCosts();
+#ifdef DBG
 //  g_.printGraph();
+#endif
 	if(optimality)
 		return solveRCGraphOptimal();		// Solve shortest path problem
 	else
@@ -146,33 +154,31 @@ bool SubProblem::solveRCGraph(bool optimality){
 // Function called when optimal=true in the arguments of solve -> shortest path problem is to be solved
 bool SubProblem::solveRCGraphOptimal(){
   std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks = g_.sinks();
-  if(param_.oneSinkNodePerLastDay_) sinks.resize(sinks.size()-1); // remove last sink (it's the main one)
+
+  if(param_.oneSinkNodePerLastDay_)
+    sinks.resize(sinks.size()-1); // remove last sink (it's the main one)
   else sinks = {sinks.back()}; // keep just the main one
 
 	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_, sinks);
 
   for(const RCSolution& sol: solutions) {
-    Rotation rot = buildColumn(sol);
-    theRotations_.push_back(rot);
+    theSolutions_.push_back(sol);
     nPaths_ ++;
     nFound_++;
-    bestReducedCost_ = std::min(bestReducedCost_, rot.dualCost_);
+    bestReducedCost_ = std::min(bestReducedCost_, sol.cost);
   }
 
-  return !solutions.empty();
-}
+#ifdef DBG
+//  printAllSolutions();
+#endif
 
-// Transforms a solution found into a proper column.
-//
-Rotation SubProblem::buildColumn(const RCSolution& sol){
-  Rotation rot (sol.firstDay, sol.shifts, pLiveNurse_->id_, MAX_COST, sol.cost);
-  return rot;
+  return !solutions.empty();
 }
 
 // Resets all solutions data (rotations, number of solutions, etc.)
 //
 void SubProblem::resetSolutions(){
-	theRotations_.clear();
+	theSolutions_.clear();
 	nPaths_ = 0;
 }
 
@@ -280,7 +286,7 @@ void SubProblem::createArcsAllPriceLabels(){
 
     // outgoing  arcs
     int origin = priceLabelsGraphs_[k].exit();
-    int destin = g_.sink();
+    int destin = g_.lastSink();
     g_.addSingleArc(origin, destin, 0, {0,0}, ROTSIZEOUT_TO_SINK, k);
 	}
 }
@@ -379,7 +385,7 @@ double SubProblem::workCost(const Arc_Properties& arc_prop, bool first_day) cons
   // iterate through the shift to update the cost
   for(int s: arc_prop.shifts) {
     cost += preferencesCosts_[k][s] ;
-    cost -= pCosts_->dayShiftWorkCost(k,s);
+    cost -= pCosts_->workedDayShiftCost(k, s);
     // add weekend cost on saturday, except when first day is sunday
     if(Tools::isSaturday(k) || (first_day && Tools::isSunday(k)))
       cost -= pCosts_->workedWeekendCost();
@@ -747,7 +753,7 @@ bool SubProblem::solveRCGraphHeuristic(){
 						potentialCost -= pCosts_->endWorkCost(currentDate+1);
 
 						// RED COST: DAY-SHIFT
-						potentialCost -= pCosts_->dayShiftWorkCost(currentDate+1,newSh);
+						potentialCost -= pCosts_->workedDayShiftCost(currentDate + 1, newSh);
 
 
 						if(false){
@@ -772,7 +778,7 @@ bool SubProblem::solveRCGraphHeuristic(){
 							if(Tools::isSaturday(currentDate+1)) std::cout << pCosts_->workedWeekendCost();
 							std::cout << std::endl;
 							std::cout << "#          +=: " << pCosts_->endWorkCost(currentDate) << " - " << pCosts_->endWorkCost(currentDate+1) << std::endl;
-							std::cout << "#          -=: " << pCosts_->dayShiftWorkCost(currentDate+1,newSh) << std::endl;
+							std::cout << "#          -=: " << pCosts_->workedDayShiftCost(currentDate + 1, newSh) << std::endl;
 						}
 
 						// CHECK IF CAN BE ADDED
@@ -780,12 +786,12 @@ bool SubProblem::solveRCGraphHeuristic(){
 						if(potentialCost < maxReducedCostBound_){
 							vector<int> succToStore = bestSucc;
 							succToStore.push_back(newSh);
-							Rotation rot (startDate, succToStore, pLiveNurse_->id_, MAX_COST, potentialCost);
+							RCSolution sol(startDate, succToStore, potentialCost);
 							nPaths_ ++;
-							theRotations_.push_back(rot);
+							theSolutions_.push_back(sol);
 							nFound_ ++;
 							nFound ++;
-							bestReducedCost_ = std::min(bestReducedCost_, rot.dualCost_);
+							bestReducedCost_ = std::min(bestReducedCost_, potentialCost);
 						}
 
 						// CHECK IF BETTER THAN PREVIOUS ONE
@@ -828,16 +834,16 @@ bool SubProblem::solveRCGraphHeuristic(){
 //--------------------------------------------
 
 // Prints all rotations in the current list
-void SubProblem::printAllRotations(){
+void SubProblem::printAllSolutions() const {
 	std::cout << "# HERE ARE ALL " << nPaths_ << " ROTATIONS OF THE CURRENT SOLUTION LIST :" << std::endl;
-	for(const Rotation& r : theRotations_){
-		std::cout << r.toString(nDays_, pScenario_->shiftIDToShiftTypeID_);
+	for(const RCSolution& sol : theSolutions_){
+		std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_);
 	}
 	std::cout << "# " << std::endl;
 }
 
 // Print the list of currently forbidden day and shifts
-void SubProblem::printForbiddenDayShift(){
+void SubProblem::printForbiddenDayShift() const {
 	std::cout << "# List of currently forbidden day-shift pairs :";
 	bool anyForbidden = false;
 	for(int k=0; k<nDays_; k++){
@@ -855,4 +861,16 @@ void SubProblem::printForbiddenDayShift(){
 	}
 	if(!anyForbidden) std::cout << " NONE";
 	std::cout << std::endl;
+}
+
+void SubProblem::checkForbiddenDaysAndShifts(const RCSolution& sol) const {
+  if (isStartingDayforbidden(sol.firstDay))
+    Tools::throwError("A RC solution starts on a forbidden day " + std::to_string(sol.firstDay) + ": "
+                      + sol.toString(pScenario_->shiftIDToShiftTypeID_));
+  int k = sol.firstDay;
+  for (int s: sol.shifts)
+    if (isDayShiftForbidden(k++, s))
+      Tools::throwError("A RC solution uses the forbidden day " + std::to_string(k - 1)
+                        + " and shift " + std::to_string(s) + ": "
+                        + sol.toString(pScenario_->shiftIDToShiftTypeID_));
 }

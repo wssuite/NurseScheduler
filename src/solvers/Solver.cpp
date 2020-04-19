@@ -388,7 +388,7 @@ void LiveNurse::checkConstraints(const Roster& roster,
 void LiveNurse::buildStates(){
   for(unsigned int k=1; k<states_.size(); ++k) {
     int newShiftType = pScenario_->shiftIDToShiftTypeID_[roster_.shift(k-1)];
-    states_[k].addDayToState(states_[k-1], newShiftType, roster_.shift(k-1), pScenario_->hoursToWork_[roster_.shift(k-1)]);
+    states_[k].addDayToState(states_[k-1], newShiftType, roster_.shift(k-1), pScenario_->timeDurationToWork_[roster_.shift(k-1)]);
   }
 }
 
@@ -1361,13 +1361,13 @@ bool checkFeasibility() {
 // Count the fraction of current solution that is integer
 //------------------------------------------------------------------------------
 double Solver::computeFractionOfIntegerInCurrentSolution() {
-	std::vector<std::vector<std::vector<double> > > fractionalRoster=getFractionalRoster();
+	vector3D<double> fractionalRoster=getFractionalRoster();
 	int nbFractional=0;
 	int nbDayNurse=0;
 	for(int nurse=0; nurse < getNbNurses(); nurse++){
 		for (int day=0; day < getNbDays(); day++) {
 			nbDayNurse++;
-			for (int shift = 0; shift < getNbShifts()-1; shift++) {
+			for (int shift = 1; shift < getNbShifts(); shift++) {
 				double activity = fractionalRoster[nurse][day][shift];
 				if((activity < 1 - EPSILON) && (activity > EPSILON)) {
 					nbFractional++;
@@ -1386,7 +1386,7 @@ double Solver::computeFractionOfIntegerInCurrentSolution() {
 // model with complete plannings
 //------------------------------------------------------------------------
 double Solver::computeFractionalWeekendPenalty() {
-	std::vector<std::vector<std::vector<double> > > fractionalRoster = getFractionalRoster();
+	vector3D<double> fractionalRoster = getFractionalRoster();
 
 	int nbWeeks = pScenario_->nbWeeks_-pScenario_->thisWeek();
 	double fractionalWeekendPenalty=0.0;
@@ -1397,7 +1397,7 @@ double Solver::computeFractionalWeekendPenalty() {
 			double weekendActivity;
 			double activitySaturday=0.0;
 			double activitySunday=0.0;
-			for (int shift=0; shift < getNbShifts()-1; shift++) {
+			for (int shift=1; shift < getNbShifts(); shift++) {
 				activitySaturday += fractionalRoster[nurse][7*w+5][shift];
 				activitySunday += fractionalRoster[nurse][7*w+6][shift];
 			}

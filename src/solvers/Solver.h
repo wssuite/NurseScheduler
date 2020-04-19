@@ -473,14 +473,14 @@ public:
 	virtual double solve(std::vector<Roster> solution = {}) { return DBL_MAX;}
 
 	// Main method to solve the rostering problem for a given input and an initial solution and parameters
-	virtual double solve(SolverParam parameters, std::vector<Roster> solution = {}){
+	virtual double solve(const SolverParam& parameters, std::vector<Roster> solution = {}){
 		return solve(solution);
 	}
 
 
 	//Resolve the problem with another demand and keep the same preferences
 	//
-	virtual double resolve(Demand* pDemand, SolverParam parameters, std::vector<Roster> solution = {}){
+	virtual double resolve(Demand* pDemand, const SolverParam& parameters, std::vector<Roster> solution = {}){
 		pDemand_ = pDemand;
 		return solve(parameters, solution);
 	}
@@ -622,11 +622,11 @@ public:
 	virtual void unfixNurses(std::vector<bool> isUnfixNurse) {}
 
 	// Solve the problem with a method that allows for a warm start
-	virtual double rollingSolve(SolverParam parameters, int firstDay) {return 0.0;}
+	virtual double rollingSolve(const SolverParam& parameters, int firstDay) {return 0.0;}
 
 	// Special solve function for LNS
 	// It is a priori the same as a regular, but it might be modified if needed
-	virtual double LNSSolve(SolverParam parameters) {return 0.0;}
+	virtual double LNSSolve(const SolverParam& parameters) {return 0.0;}
 
 	// Solve the problem using a decomposition of the set nurses by connex components
 	// of the rcspp of positions
@@ -662,7 +662,7 @@ public:
 
 	//Initialization of the rostering problem with/without solution
 	//
-	virtual void initialize(SolverParam parameters, std::vector<Roster> solution) {}
+	virtual void initialize(const SolverParam& parameters, std::vector<Roster> solution) {}
 
 	//------------------------------------------------
 	// Preprocess functions
@@ -736,7 +736,7 @@ public:
 
 	// build the, possibly fractional, roster corresponding to the solution
 	// currently stored in the model
-	virtual std::vector<std::vector<std::vector<double> > > getFractionalRoster() {return {};}
+	virtual vector3D<double> getFractionalRoster() {return {};}
 
 	// count the fraction of current solution that is integer
 	//
@@ -808,6 +808,13 @@ public:
 	// information on the solution quality
 	//
 	std::string solutionToLogString();
+
+	Scenario* getScenario() const { return pScenario_; }
+
+  const std::vector<LiveNurse*>& getLiveNurses() const { return theLiveNurses_; }
+	const std::vector<LiveNurse*>& getSortedLiveNurses() const { return theNursesSorted_; }
+
+	std::vector<State>* pInitialStates() const { return pInitState_; }
 
 	// Returns the number of days over which the solver solves the problem
 	int getFirstDay(){return pDemand_->firstDay_;}

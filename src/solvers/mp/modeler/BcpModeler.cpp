@@ -10,9 +10,9 @@
 #include "CoinTime.hpp"
 #include "BCP_lp.hpp"
 #include "BCP_lp_node.hpp"
-#include "solvers/mp/RotationPricer.h"
+#include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
-#include "solvers/MasterProblem.h"
+#include "solvers/mp/MasterProblem.h"
 #include <string>
 
 #ifdef USE_CPLEX
@@ -291,7 +291,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
             "Node", "Lvl", "BestUB", "RootLB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
          fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %10s %12s %10s | %10s %5s %5s \n",
             current_index(), pModel_->getTreeSize(), current_level(),
-            pModel_->getObjective(), pModel_->getRootLB(), pModel_->getBestLB(),
+            pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
             "-", "-", "-", "-", "-", "-", "-");
       }
 
@@ -310,7 +310,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars){
 
          fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10ld | %10.2f %5d %5d  \n",
             current_index(), pModel_->getTreeSize(), current_level(),
-            pModel_->getObjective(), pModel_->getRootLB(), pModel_->getBestLB(),
+            pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
             lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
             pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbGeneratedColumns_);
       }
@@ -417,12 +417,12 @@ void BcpLpModel::TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col
 
       //create a new array which will be deleted by ~BCP_col()
       int* indexRows = new int[size];
-      vector<int>& index = var->getIndexRows();
+      const vector<int>& index = var->getIndexRows();
       copy(index.begin(), index.end(), indexRows);
 
       //create a new array which will be deleted by ~BCP_col()
       double* coeffRows = new double[size];
-      vector<double>& coeffs = var->getCoeffRows();
+      const vector<double>& coeffs = var->getCoeffRows();
       copy(coeffs.begin(), coeffs.end(), coeffRows);
 
       cols.unchecked_push_back(
@@ -503,7 +503,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 	MasterProblem* pMaster = pModel_->getMaster();
 	if ( (current_index() > 0 && pModel_->getParameters().isLagrangianFathom_)
 		|| pModel_->getParameters().isStabilization_) {
-		lagLb = pModel_->getBestLB();
+		lagLb = pModel_->computeBestLB();
 
 		if (pModel_->getParameters().isStabilization_) {
 			lagLb=pMaster->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
@@ -740,10 +740,10 @@ void BcpLpModel::buildCandidate(const MyBranchingCandidate& candidate, const BCP
    //bounds
    for(const MyBranchingNode& node: candidate.getChildren()){
       //		cout << "Node " << ++l << " -- modified bounds:" << endl;
-      vector<double>::const_iterator lbIt = node.getLb().begin();
-      vector<MyVar*>::const_iterator varIt = candidate.getBranchingVars().begin();
+      auto lbIt = node.getLb().begin();
+      auto varIt = candidate.getBranchingVars().begin();
       int i = 0;
-      for(vector<double>::const_iterator ubIt = node.getUb().begin(); ubIt != node.getUb().end(); ++ubIt){
+      for(auto ubIt = node.getUb().begin(); ubIt != node.getUb().end(); ++ubIt){
          vbd.push_back(*lbIt);
          vbd.push_back(*ubIt);
          			//debug
@@ -779,8 +779,8 @@ void BcpLpModel::buildCandidate(const MyBranchingCandidate& candidate, const BCP
 
    //bounds
    for(const MyBranchingNode& node: candidate.getChildren()){
-      vector<double>::const_iterator lhsIt = node.getLhs().begin();
-      for(vector<double>::const_iterator rhsIt = node.getRhs().begin(); rhsIt != node.getRhs().end(); ++rhsIt){
+      auto lhsIt = node.getLhs().begin();
+      for(auto rhsIt = node.getRhs().begin(); rhsIt != node.getRhs().end(); ++rhsIt){
          cbd.push_back(*lhsIt);
          cbd.push_back(*rhsIt);
          ++lhsIt;
@@ -1163,26 +1163,28 @@ void BcpModeler::createCutLinear(MyCons** cons, const char* con_name, double lhs
 	 for(int i=nbCoreVar; i<nbVar; ++i){
 		 BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
 		 if(primalValues_[i] > EPSILON)
-		 var->addActiveIteration(lpIteration); //update the different counters
+		   var->addActiveIteration(lpIteration); //update the different counters
 		 addActiveColumn(var, i);
 	 }
 	 //	//debug
 	 //	checkActiveColumns(vars);
  }
 
-void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var*>&  vars){
+void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var*>&  vars) const {
    ShiftNode* shiftNode = dynamic_cast<ShiftNode*>(pTree_->getCurrentNode());
    if(shiftNode == 0) return;
 
    for(unsigned int i=coreVars_.size(); i<vars.size(); ++i){
       BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
-      Rotation rot(var->getPattern());
-      if(var->getUB() == 0 || var->ub() == 0 || shiftNode->pNurse_->id_ != rot.nurseId_) continue;
-      for(pair<int,int> p: rot.shifts_)
-         if(shiftNode->day_ == p.first &&
-            find(shiftNode->forbiddenShifts_.begin(), shiftNode->forbiddenShifts_.end(), p.second) != shiftNode->forbiddenShifts_.end()){
-           std::cout << "problem: active column " << var->bcpind() << " with forbidden shift " << p.second << std::endl;
-           std::cout << rot.toString() << std::endl;
+      PPattern pat = pMaster_->getPattern(var->getPattern());
+      if(var->getUB() == 0 || var->ub() == 0 || shiftNode->pNurse_->id_ != pat->nurseId_)
+        continue;
+      for(int k=pat->firstDay_; k<pat->firstDay_+pat->length_; ++k)
+         if( shiftNode->day_ == k &&
+             find(shiftNode->forbiddenShifts_.begin(), shiftNode->forbiddenShifts_.end(), pat->getShift(k))
+                != shiftNode->forbiddenShifts_.end() ){
+           std::cout << "problem: active column " << var->bcpind() << " with forbidden shift " << pat->getShift(k) << std::endl;
+           std::cout << pat->toString() << std::endl;
             getchar();
          }
    }
@@ -1234,7 +1236,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
       }
    }
 
-	if(pTree_->getBestLB()<1.0e5 && pTree_->getBestUB() - pTree_->getBestLB() < parameters_.absoluteGap_ - EPSILON){
+	if(pTree_->computeBestLB()<1.0e5 && pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - EPSILON){
 		char error[100];
 		sprintf(error, "Stopped: absolute gap < %.2f.", parameters_.absoluteGap_);
 		throw OptimalStop(error);
@@ -1449,7 +1451,7 @@ void BcpModeler::unrelaxRotationsStartingFromDays(const vector<bool>& isUnrelaxD
  * get/set the primal values
  */
 
-double BcpModeler::getVarValue(MyVar* var){
+double BcpModeler::getVarValue(MyVar* var) const {
    if(primalValues_.size() ==0 )
       Tools::throwError("Primal solution has not been initialized.");
 
@@ -1457,8 +1459,8 @@ double BcpModeler::getVarValue(MyVar* var){
    //if a column, fetch index
    if(index>=coreVars_.size()){
       //if the column is not active, return 0
-      if(columnsToIndex_.count(index)==0) return 0;
-      index = columnsToIndex_[index];
+      if(columnsToIndex_.count(index) == 0) return 0;
+      index = columnsToIndex_.at(index);
    }
    return primalValues_[index];
 }
@@ -1481,7 +1483,7 @@ void BcpModeler::setVarValue(MyVar* var, double value){
  * Get the dual variables
  */
 
-double BcpModeler::getDual(MyCons* cons, bool transformed){
+double BcpModeler::getDual(MyCons* cons, bool transformed) const {
    CoinCons* cons2 = (CoinCons*) cons;
    if(dualValues_.size() == 0)
       Tools::throwError("Dual solution has been initialized.");
@@ -1492,7 +1494,7 @@ double BcpModeler::getDual(MyCons* cons, bool transformed){
  * Get the reduced cost
  */
 
-double BcpModeler::getReducedCost(MyVar* var){
+double BcpModeler::getReducedCost(MyVar* var) const{
    if(reducedCosts_.size() == 0)
       Tools::throwError("Reduced cost solution has been initialized.");
 
@@ -1500,8 +1502,9 @@ double BcpModeler::getReducedCost(MyVar* var){
    //if a column, fetch index
    if(index>=coreVars_.size()){
       //if the column is not active, return 0
-      if(columnsToIndex_.count(index)==0) return 0;
-      index = columnsToIndex_[index];
+      auto it =  columnsToIndex_.find(index);
+      if(it == columnsToIndex_.end()) return 0;
+      index = it->second;
    }
    return reducedCosts_[index];
 }
@@ -1568,13 +1571,13 @@ int BcpModeler::setVerbosity(int v){
 }
 
 //Check if BCP must stop
-bool BcpModeler::doStop(){
+bool BcpModeler::doStop() const {
    //continue if doesn't have a lb
-   if(pTree_->getBestLB() >= LARGE_SCORE)
+   if(pTree_->computeBestLB() >= LARGE_SCORE)
       return false;
 
    //check relative gap
-	if(pTree_->getBestUB() - pTree_->getBestLB() < parameters_.absoluteGap_ - EPSILON){
+	if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - EPSILON){
       char error[100];
       sprintf(error, "Stopped: absolute gap < %.2f.", parameters_.absoluteGap_);
       throw OptimalStop(error);
@@ -1595,12 +1598,12 @@ bool BcpModeler::doStop(){
 		sprintf(error, "Stopped: %d solutions have been founded", nbSolutions());
 		throw FeasibleStop(error);
 	}
-	else if(pTree_->getBestUB() - pTree_->getBestLB() < parameters_.minRelativeGap_ * pTree_->getBestLB() - EPSILON){
+	else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.minRelativeGap_ * pTree_->get_best_lb() - EPSILON){
 		char error[100];
 		sprintf(error, "Stopped: relative gap < %.2f.", parameters_.minRelativeGap_);
 		throw FeasibleStop(error);
 	}
-   else if(pTree_->getBestUB() - pTree_->getBestLB() < parameters_.relativeGap_ * pTree_->getBestLB() - EPSILON){
+   else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.relativeGap_ * pTree_->get_best_lb() - EPSILON){
       //if the relative gap is small enough and if same incumbent since the last dive, stop
       if(pTree_->getNbNodesSinceLastIncumbent() > parameters_.nbDiveIfMinGap_*pTree_->getDiveLength()){
          char error[100];
@@ -1628,13 +1631,12 @@ bool BcpModeler::doStop(){
  * Outputs *
  *************/
 
-int BcpModeler::writeProblem(string fileName){
-  // pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
-  return 0;
+int BcpModeler::writeProblem(string fileName) const{
+  return  writeLP(fileName);
 }
 
-int BcpModeler::writeLP(string fileName){
-   //   OsiClpSolverInterface solver = ;
-   //   solver.writeLp(fileName.c_str(), "lp", 1e-5, 10, 5);
-   return 0;
+int BcpModeler::writeLP(string fileName) const{
+  BcpLpModel* lpModel = pBcp_->getBcpLpModel();
+  if(lpModel) lpModel->getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
+  return 0;
 }

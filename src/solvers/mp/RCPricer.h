@@ -1,5 +1,5 @@
 /*
- * RotationPricer.h
+ * RCPricer.h
  *
  * Allow to link the sub problems and the master problem trough scip
  *
@@ -11,7 +11,7 @@
 #define ROTATIONPRICER_H_
 
 #include "tools/MyTools.h"
-#include "solvers/MasterProblem.h"
+#include "MasterProblem.h"
 #include "solvers/mp/rcspp/SubProblem.h"
 #include "solvers/mp/modeler/Modeler.h"
 
@@ -23,17 +23,17 @@
 // Contains the pricer that generates new columns.
 //
 //---------------------------------------------------------------------------
-class RotationPricer: public MyPricer
+class RCPricer: public MyPricer
 {
 public:
-   RotationPricer(MasterProblem* master, const char* name, SolverParam param);
-   virtual ~RotationPricer();
+   RCPricer(MasterProblem* master, const char* name, const SolverParam& param);
+   virtual ~RCPricer();
 
    /* perform pricing */
    std::vector<MyVar*> pricing(double bound=0, bool before_fathom = true);
 
    // Initialize parameters
-   void initPricerParameters(SolverParam param);
+   void initPricerParameters(const SolverParam& param);
 
 protected:
 
@@ -50,8 +50,7 @@ protected:
    // DATA - Solutions, rotations, etc.
    //
    std::vector<MyVar*> allNewColumns_;
-    std::vector<Rotation> newRotationsForNurse_;
-   int nbRotationsAddedToMasterSoFar_;
+   std::vector<RCSolution> newSolutionsForNurse_;
 
    // Stats on the number of subproblems solved and successfully solved
    int nbSPTried_;
@@ -75,7 +74,7 @@ protected:
 
    // SETTINGS - Settings for the maximum number of problems to solve and of rotations to add to the master problem
    //
-   int nbMaxRotationsToAdd_ = 0;
+   int nbMaxColumnsToAdd_ = 0;
    int nbSubProblemsToSolve_ = 0;
 
 public:
@@ -84,9 +83,8 @@ public:
    //
    inline void resetSolutions(){
 	   allNewColumns_.clear();
-	   newRotationsForNurse_.clear();
+     newSolutionsForNurse_.clear();
 	   forbiddenShifts_.clear();
-	   nbRotationsAddedToMasterSoFar_ = 0;
 	   nbSPSolvedWithSuccess_ = 0;
 	   nbSPTried_ = 0;
    }
@@ -139,7 +137,7 @@ protected:
 
    //get the duals values per day and per shift for a nurse
    //
-   vector2D<double> getWorkDualValues(LiveNurse* pNurse);
+   vector2D<double> getShiftsDualValues(LiveNurse*  pNurse);
     std::vector<double> getStartWorkDualValues(LiveNurse* pNurse);
     std::vector<double> getEndWorkDualValues(LiveNurse* pNurse);
    double getWorkedWeekendDualValue(LiveNurse* pNurse);
@@ -148,17 +146,17 @@ protected:
    void addForbiddenShifts();
 
    // Retrieve the right subproblem
-   SubProblem* retriveSubproblem(LiveNurse*);
+   SubProblem* retriveSubproblem(LiveNurse* pNurse);
 
    // Add the rotations to the master problem
-   void addRotationsToMaster();
+   int addColumnsToMaster(int nurseId);
 
    // Sort the rotations that just were generated for a nurse. Default option is sort by increasing reduced cost but we
    // could try something else (involving disjoint columns for ex.)
-   void sortNewlyGeneratedRotations();
+   void sortNewlyGeneratedSolutions();
 
    // Set the subproblem options depending on the parameters
-//   void setSubproblemOptions(vector<SolveOption>& options, int& maxRotationLengthForSubproblem, LiveNurse* pNurse);
+//   void setSubproblemOptions(vector<SolveOption>& options, int& maxRotationLengthForSubproblem, pLiveNurse pNurse);
 
    int nb_int_solutions_;
 
@@ -188,9 +186,6 @@ protected:
    // DBG functions
    void recordSPStats(SubProblem* sp);
    void generateRandomForbiddenStartingDays();
-   void checkForbiddenStartingDays();
-
-
 };
 
 #endif /* ROTATIONPRICER_H_ */

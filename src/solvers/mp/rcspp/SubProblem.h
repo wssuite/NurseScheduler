@@ -11,7 +11,7 @@
 #include "solvers/mp/rcspp/RCGraph.h"
 #include "solvers/mp/rcspp/PriceLabelsGraph.h"
 #include "solvers/mp/rcspp/PrincipalGraph.h"
-#include "solvers/MasterProblem.h"
+#include "solvers/mp/MasterProblem.h"
 
 static int MAX_COST = 99999;
 
@@ -25,7 +25,7 @@ struct SubproblemParam{
 	}
 	~SubproblemParam(){};
 
-	void initSubprobemParam(int strategy, LiveNurse * pNurse){
+	void initSubprobemParam(int strategy, LiveNurse*   pNurse){
 		maxRotationLength_ = pNurse->maxConsDaysWork();
 		switch(strategy){
 
@@ -114,7 +114,7 @@ class SubProblem {
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    SubProblem(Scenario *scenario, int nbDays, const Contract *contract, std::vector<State> *pInitState);
+    SubProblem(Scenario* scenario, int nbDays, const Contract* contract, std::vector<State> *pInitState);
 
     // Initialization function for all global variables (not those of the rcspp)
     //
@@ -122,7 +122,7 @@ class SubProblem {
 
     // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
     //
-    virtual bool solve(LiveNurse *nurse,
+    virtual bool solve(LiveNurse*  nurse,
                        DualCosts *costs,
                        SubproblemParam param,
                        std::set<std::pair<int, int> > forbiddenDayShifts = {},
@@ -132,17 +132,17 @@ class SubProblem {
 
     // Returns all rotations saved during the process of solving the SPPRC
     //
-    inline const std::vector<Rotation>& getRotations() { return theRotations_; }
+    inline const std::vector<RCSolution>& getSolutions() const { return theSolutions_; }
 
     virtual void build();
 
     // Some getters
     //
-    inline Scenario *scenario() const { return pScenario_; }
+    inline Scenario* scenario() const { return pScenario_; }
 
-    inline const Contract *contract() const { return pContract_; }
+    inline const Contract* contract() const { return pContract_; }
 
-    inline const LiveNurse *liveNurse() const { return pLiveNurse_; }
+    inline const LiveNurse*  liveNurse() const { return pLiveNurse_; }
 
     inline int nDays() const { return nDays_; }
 
@@ -182,16 +182,13 @@ class SubProblem {
 
     virtual double endWorkCost(int a) const;
 
-    // Print functions.
+    // Print and check functions.
     //
-    void printRotation(Rotation rot);
+    void printAllSolutions() const;
 
-    void printAllRotations();
+    void printForbiddenDayShift() const;
 
-    void printForbiddenDayShift();
-
-    void printContractAndPrefenrences();
-
+    void checkForbiddenDaysAndShifts(const RCSolution& sol) const;
 
   protected:
     //----------------------------------------------------------------
@@ -206,7 +203,7 @@ class SubProblem {
 
     // Pointer to the scenario considered
     //
-    Scenario *pScenario_;
+    Scenario* pScenario_;
 
     // Number of days of the scenario (usually a multiple of 7)
     //
@@ -214,7 +211,7 @@ class SubProblem {
 
     // Contract type
     //
-    const Contract *pContract_;
+    const Contract* pContract_;
 
     // (Minimum) number of paths to return to the MP
     //
@@ -222,7 +219,7 @@ class SubProblem {
 
     // Current live nurse considered
     //
-    LiveNurse *pLiveNurse_;
+    LiveNurse*  pLiveNurse_;
 
     // All costs from Master Problem
     //
@@ -244,7 +241,7 @@ class SubProblem {
 
     // Saved Rotations
     //
-    std::vector<Rotation> theRotations_;
+    std::vector<RCSolution> theSolutions_;
 
     // Number of paths found
     //
@@ -328,12 +325,6 @@ class SubProblem {
     // Resets all solutions data (rotations, number of solutions, etc.)
     void resetSolutions();
 
-    // Returns the rotation made from the given path
-    virtual Rotation buildColumn(const RCSolution &sol);
-
-    // Adds a single rotation to the list of solutions
-    void addSingleRotationToListOfSolution();
-
     void updatedMaxRotationLengthOnNodes(int maxRotationLentgh);
 
     // FORBIDDEN ARCS AND NODES
@@ -359,9 +350,9 @@ class SubProblem {
     void authorizeStartingDays(const std::set<int>& forbiddenStartingDays);
 
     // Know if node
-    inline bool isDayShiftForbidden(int k, int s) { return !dayShiftStatus_[k][s]; }
+    inline bool isDayShiftForbidden(int k, int s) const { return !dayShiftStatus_[k][s]; }
 
-    inline bool isStartingDayforbidden(int k) { return !startingDayStatus_[k]; }
+    inline bool isStartingDayforbidden(int k) const { return !startingDayStatus_[k]; }
 
     // Forbid a node / arc
     void forbidDayShift(int k, int s);

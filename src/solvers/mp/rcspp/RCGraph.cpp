@@ -5,6 +5,79 @@
 #include "solvers/mp/rcspp/RCGraph.h"
 #include <iostream>
 
+// print a solution
+std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
+  std::stringstream buff;
+  buff << "RC solution of cost " << cost
+       << " starting on day " << firstDay << ":" << std::endl;
+  for(int k=0; k<firstDay; k++) buff << "|     ";
+
+  char buffer[500];
+  if(shiftIDToShiftTypeID.empty())
+    for(int s: shifts) {
+      std::sprintf(buffer,  "| -:%2d", s);
+      buff << buffer;
+    }
+  else
+    for(int s: shifts) {
+      std::sprintf(buffer, "|%2d:%2d", shiftIDToShiftTypeID[s], s);
+      buff << buffer;
+    }
+  buff <<  buffer  <<  "|" << std::endl;
+  return buff.str();
+}
+
+// Resources extension model (arc has cost + label consumptions)
+    bool ref_spp::operator()( const Graph& g,
+                            spp_res_cont& new_cont,
+                            const spp_res_cont& old_cont,
+                            boost::graph_traits<Graph>::edge_descriptor ed ) const {
+  const Arc_Properties &arc_prop = get(boost::edge_bundle, g)[ed];
+  if (arc_prop.forbidden)
+    return false;
+  const Vertex_Properties &vert_prop = get(boost::vertex_bundle, g)[target(ed, g)];
+  if (vert_prop.forbidden)
+    return false;
+  new_cont.cost = old_cont.cost + arc_prop.cost;
+
+  for (int l = 0; l < old_cont.size(); ++l) {
+    int lv = std::max(vert_prop.lb(l), old_cont.label_value(l) + arc_prop.consumption(l));
+    if (lv > vert_prop.ub(l))
+      return false;
+    new_cont.label_values[l] = lv;
+  }
+
+  return true;
+}
+
+// Dominance function model
+bool dominance_spp::operator()( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) const {
+  // must be "<=" here!!!
+  // must NOT be "<"!!!
+  if (res_cont_1.cost > res_cont_2.cost) return false;
+  for (int l = 0; l < res_cont_1.size(); ++l)
+    if (labelsOrder.at(l)) { // dominance done with descending order (lower the better)
+      if (res_cont_1.label_value(l) > res_cont_2.label_value(l)) return false;
+    } else if (res_cont_1.label_value(l) < res_cont_2.label_value(l)) return false;
+  return true;
+  // this is not a contradiction to the documentation
+  // the documentation says:
+  // "A label $l_1$ dominates a label $l_2$ if and only if both are resident
+  // at the same vertex, and if, for each resource, the resource consumption
+  // of $l_1$ is less than or equal to the resource consumption of $l_2$,
+  // and if there is at least one resource where $l_1$ has a lower resource
+  // consumption than $l_2$."
+  // one can think of a new label with a resource consumption equal to that
+  // of an old label as being dominated by that old label, because the new
+  // one will have a higher number and is created at a later point in time,
+  // so one can implicitly use the number or the creation time as a resource
+  // for tie-breaking
+}
+
+/*
+ * Main definitions of the RCGraph
+ */
+
 RCGraph::RCGraph(int nDays): nDays_(nDays), nNodes_(0), nArcs_(0) {}
 RCGraph::~RCGraph() {}
 
@@ -93,7 +166,10 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
 RCSolution RCGraph::solution(
     const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
     const spp_res_cont& resource){
+#ifdef DBG
 //  printPath(path, resource);
+#endif
+
   RCSolution sol(resource.cost);
 
   // All arcs are consecutively considered

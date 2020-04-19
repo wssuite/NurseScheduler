@@ -12,14 +12,13 @@
 #include "solvers/Solver.h"
 #include "tools/InputPaths.h"
 #include "tools/GlobalStats.h"
-#include "MasterProblem.h"
-#include "solvers/mp/modeler/BcpModeler.h"
+#include "solvers/mp/MasterProblem.h"
 
 enum NursesSelectionOperator {NURSES_RANDOM,NURSES_POSITION,NURSES_CONTRACT};
 enum DaysSelectionOperator {TWO_WEEKS,FOUR_WEEKS,ALL_WEEKS};
 enum RepairOperator {REPAIR_TWO_DIVES,REPAIR_REPEATED_DIVES,REPAIR_OPTIMALITY};
 
-class DeterministicSolverOptions{
+class DeterministicSolverOptions {
 
 public:
 

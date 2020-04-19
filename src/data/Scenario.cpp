@@ -71,7 +71,7 @@ State::~State(){}
 void State::addDayToState(const State& prevState, int newShiftType, int newShift, int timeWorked)   {
 
   //  int  timeWorked = 1;               // days worked
-  //  int  timeWorked = hoursToWork_[newShift];      // hours worked
+  //  int  timeWorked = timeDurationToWork_[newShift];      // hours worked
   
 	// Total shifts worked if it is a worked day
 	// totalTimeWorked_ = prevState.totalTimeWorked_+(newShiftType > 0 ? 1 : 0);
@@ -172,7 +172,7 @@ Scenario::Scenario(string name, int nbWeeks,
   name_(name), nbWeeks_(nbWeeks),
   nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
   nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
-  hoursToWork_(hoursToWork), shiftIDToShiftTypeID_(shiftIDToShiftTypeID),
+  timeDurationToWork_(hoursToWork), shiftIDToShiftTypeID_(shiftIDToShiftTypeID),
   nbShiftsType_(nbShiftsType), intToShiftType_(intToShiftType), shiftTypeToInt_(shiftTypeToInt),
   shiftTypeIDToShiftID_(shiftTypeIDToShiftID), 
   nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
@@ -199,7 +199,7 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
   name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
   nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
   nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
-  hoursToWork_(pScenario->hoursToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
+  timeDurationToWork_(pScenario->timeDurationToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
   nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
   shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
   nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
@@ -225,7 +225,7 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
 Scenario::Scenario(Scenario* pScenario):name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
 nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
 nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
-hoursToWork_(pScenario->hoursToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
+timeDurationToWork_(pScenario->timeDurationToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
 nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
 shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
 nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),

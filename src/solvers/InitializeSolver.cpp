@@ -9,7 +9,7 @@
 #include "solvers/InitializeSolver.h"
 #include "tools/ReadWrite.h"
 //#include "solvers/Greedy.h"
-#include "solvers/MasterProblem.h"
+#include "solvers/mp/RotationMP.h"
 #include "tools/MyTools.h"
 
 // some include files to go through the files of an input directory
@@ -428,7 +428,7 @@ Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
 	case GENCOL:
 		// DBG: ICI, ON CHOISIT SI ON UTILISE CLP OU GUROBI, A TERME IL CHOISIR EN FONCTION D'UNE OPTION...
 //	   		pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_Gurobi);
-		pSolver = new MasterProblem(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_CLP);
+		pSolver = new RotationMP(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState(), S_CLP);
 		break;
 	default:
 		Tools::throwError("The algorithm is not handled yet");

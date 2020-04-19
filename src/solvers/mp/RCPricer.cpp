@@ -1,11 +1,11 @@
 /*
- * RotationPricer.cpp
+ * RCPricer.cpp
  *
  *  Created on: 2015-03-02
  *      Author: legraina
  */
 
-#include "solvers/mp/RotationPricer.h"
+#include "solvers/mp/RCPricer.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/rcspp/SubProblemShort.h"
 
@@ -15,16 +15,15 @@ using namespace std;
 
 //////////////////////////////////////////////////////////////
 //
-// R O T A T I O N   P R I C E R
+// R C   P R I C E R
 //
 //////////////////////////////////////////////////////////////
 
-
-static char const * baseName = "rotation";
-
 /* Constructs the pricer object. */
-RotationPricer::RotationPricer(MasterProblem* master, const char* name, SolverParam param):
-  MyPricer(name), pMaster_(master), pScenario_(master->pScenario_), nbDays_(master->pDemand_->nbDays_), pModel_(master->getModel()), nursesToSolve_(master->theNursesSorted_), nbMaxRotationsToAdd_(20), nbSubProblemsToSolve_(15), nb_int_solutions_(0)
+RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& param):
+  MyPricer(name), pMaster_(master), pScenario_(master->getScenario()), nbDays_(master->getNbDays()),
+  pModel_(master->getModel()), nursesToSolve_(master->getSortedLiveNurses()),
+  nbMaxColumnsToAdd_(20), nbSubProblemsToSolve_(15), nb_int_solutions_(0)
 {
 	// Initialize the parameters
 	initPricerParameters(param);
@@ -34,15 +33,15 @@ RotationPricer::RotationPricer(MasterProblem* master, const char* name, SolverPa
 }
 
 /* Destructs the pricer object. */
-RotationPricer::~RotationPricer() {
+RCPricer::~RCPricer() {
 	for(pair<const Contract*, SubProblem*> p: subProblems_)
 		delete p.second;
 }
 
-void RotationPricer::initPricerParameters(SolverParam param){
+void RCPricer::initPricerParameters(const SolverParam& param){
 	// Here: doing a little check to be sure that secondchance is activated only when the parameters are different...
 	withSecondchance_ = param.sp_withsecondchance_ && (param.sp_default_strategy_ != param.sp_secondchance_strategy_);
-	nbMaxRotationsToAdd_ = param.sp_nbrotationspernurse_;
+	nbMaxColumnsToAdd_ = param.sp_nbrotationspernurse_;
 	nbSubProblemsToSolve_ = param.sp_nbnursestoprice_;
 	defaultSubprobemStrategy_ = param.sp_default_strategy_;
 	secondchanceSubproblemStrategy_ = param.sp_secondchance_strategy_;
@@ -53,7 +52,7 @@ void RotationPricer::initPricerParameters(SolverParam param){
 /******************************************************
  * Perform pricing
  ******************************************************/
-vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
+vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom) {
 
 	// Reset all rotations, columns, counters, etc.
 	resetSolutions();
@@ -64,7 +63,7 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 	double minDualCost = 0;
 	vector<LiveNurse*> nursesSolved;
 
-	for(vector<LiveNurse*>::iterator it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();){
+	for(auto it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();){
 
 		// RETRIEVE THE NURSE AND CHECK THAT HE/SHE IS NOT FORBIDDEN
 		LiveNurse* pNurse = *it0;
@@ -79,11 +78,7 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 			SubProblem* subProblem = retriveSubproblem(pNurse);
 
 			// RETRIEVE DUAL VALUES
-			vector< vector<double> > workDualCosts(getWorkDualValues(pNurse));
-			vector<double> startWorkDualCosts(getStartWorkDualValues(pNurse));
-			vector<double> endWorkDualCosts(getEndWorkDualValues(pNurse));
-			double workedWeekendDualCost = getWorkedWeekendDualValue(pNurse);
-			DualCosts dualCosts (workDualCosts, startWorkDualCosts, endWorkDualCosts, workedWeekendDualCost, true);
+			DualCosts dualCosts = pMaster_->buildDualCosts(pNurse);
 
 			// UPDATE FORBIDDEN SHIFTS
 			if (pModel_->getParameters().isColumnDisjoint_) {
@@ -100,23 +95,19 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 			subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
 					bound);
 
-			// RETRIEVE THE GENERATED ROTATIONSork
-			newRotationsForNurse_ = subProblem->getRotations();
+			// RETRIEVE THE GENERATED ROTATIONS
+			newSolutionsForNurse_ = subProblem->getSolutions();
 
 			// ADD THE ROTATIONS TO THE MASTER PROBLEM
-			addRotationsToMaster();
-
-#ifndef NDEBUG
-			for(Rotation& rot: newRotationsForNurse_) rot.checkDualCost(dualCosts);
-#endif
+      addColumnsToMaster(pNurse->id_);
 		}
 
 		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
 		// If yes, store the nures
-		if(newRotationsForNurse_.size() > 0 && !nurseForbidden){
+		if(!newSolutionsForNurse_.empty() && !nurseForbidden){
 			++nbSPSolvedWithSuccess_;
-			if(newRotationsForNurse_[0].dualCost_ < minDualCost)
-				minDualCost = newRotationsForNurse_[0].dualCost_;
+			if(newSolutionsForNurse_.front().cost < minDualCost)
+				minDualCost = newSolutionsForNurse_.front().cost;
 
 			nursesToSolve_.erase(it0);
 			nursesSolved.push_back(pNurse);
@@ -147,11 +138,9 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 	nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
 	//set statistics
-	BcpModeler* model = dynamic_cast<BcpModeler*>(pModel_);
-	if(model){
-		model->setLastNbSubProblemsSolved(nbSPTried_);
-		model->setLastMinDualCost(minDualCost);
-	}
+	BcpModeler* model = static_cast<BcpModeler*>(pModel_);
+	model->setLastNbSubProblemsSolved(nbSPTried_);
+	model->setLastMinDualCost(minDualCost);
 
 	if(allNewColumns_.empty())
 		print_current_solution_();
@@ -163,124 +152,36 @@ vector<MyVar*> RotationPricer::pricing(double bound, bool before_fathom){
 }
 
 /******************************************************
- * Get the duals values per day for a nurse
- ******************************************************/
-vector< vector<double> > RotationPricer::getWorkDualValues(LiveNurse* pNurse){
-	vector< vector<double> > dualValues(nbDays_);
-	int i = pNurse->id_;
-	int p = pNurse->pContract_->id_;
-
-	/* Min/Max constraints */
-	double minWorkedDays = pModel_->getDual(pMaster_->minWorkedDaysCons_[i], true);
-	double maxWorkedDays = pModel_->getDual(pMaster_->maxWorkedDaysCons_[i], true);
-
-	double minWorkedDaysAvg = pMaster_->isMinWorkedDaysAvgCons_[i] ? pModel_->getDual(pMaster_->minWorkedDaysAvgCons_[i], true):0.0;
-	double maxWorkedDaysAvg = pMaster_->isMaxWorkedDaysAvgCons_[i] ? pModel_->getDual(pMaster_->maxWorkedDaysAvgCons_[i], true):0.0;
-
-	double minWorkedDaysContractAvg = pMaster_->isMinWorkedDaysContractAvgCons_[p] ?
-			pModel_->getDual(pMaster_->minWorkedDaysContractAvgCons_[p], true):0.0;
-	double maxWorkedDaysContractAvg = pMaster_->isMaxWorkedDaysContractAvgCons_[p] ?
-			pModel_->getDual(pMaster_->maxWorkedDaysContractAvgCons_[p], true):0.0;
-
-	for(int k=0; k<nbDays_; ++k){
-		//initialize vector
-		vector<double> dualValues2(pScenario_->nbShifts_-1);
-
-		for(int s=1; s<pScenario_->nbShifts_; ++s){
-			/* Min/Max constraints */
-			dualValues2[s-1] = minWorkedDays + minWorkedDaysAvg + minWorkedDaysContractAvg;
-			dualValues2[s-1] += maxWorkedDays + maxWorkedDaysAvg + maxWorkedDaysContractAvg;
-
-			// pour ajuster les valeurs duales en fonction des heures travaillees
-			
-			dualValues2[s-1] *= pScenario_->hoursToWork_[s];
-			
-			/* Skills coverage */
-			dualValues2[s-1] += pModel_->getDual(
-					pMaster_->numberOfNursesByPositionCons_[k][s-1][pNurse->pPosition_->id_], true);
-		}
-
-		//store vector
-		dualValues[k] = dualValues2;
-	}
-
-	return dualValues;
-}
-
-
-vector<double> RotationPricer::getStartWorkDualValues(LiveNurse* pNurse){
-	int i = pNurse->id_;
-	vector<double> dualValues(nbDays_);
-
-	//get dual value associated to the source
-	dualValues[0] =  pModel_->getDual(pMaster_->restFlowCons_[i][0], true);
-	//get dual values associated to the work flow constraints
-	//don't take into account the last which is the sink
-	for(int k=1; k<nbDays_; ++k)
-		dualValues[k] = pModel_->getDual(pMaster_->workFlowCons_[i][k-1], true);
-
-	return dualValues;
-}
-
-vector<double> RotationPricer::getEndWorkDualValues(LiveNurse* pNurse){
-	int i = pNurse->id_;
-	vector<double> dualValues(nbDays_);
-
-	//get dual values associated to the work flow constraints
-	//don't take into account the first which is the source
-	//take into account the cost, if the last day worked is k
-	for(int k=0; k<nbDays_-1; ++k)
-		dualValues[k] = -pModel_->getDual(pMaster_->restFlowCons_[i][k+1], true);
-
-	//get dual value associated to the sink
-	dualValues[nbDays_-1] =  pModel_->getDual(
-			pMaster_->workFlowCons_[i][nbDays_-1], true);
-
-	return dualValues;
-}
-
-double RotationPricer::getWorkedWeekendDualValue(LiveNurse* pNurse){
-	int id = pNurse->id_;
-	double dualVal = pModel_->getDual(pMaster_->maxWorkedWeekendCons_[id], true);
-	if (pMaster_->isMaxWorkedWeekendAvgCons_[id]) {
-		dualVal += pModel_->getDual(pMaster_->maxWorkedWeekendAvgCons_[id], true);
-	}
-	if (pMaster_->isMaxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_]) {
-		dualVal += pModel_->getDual(pMaster_->maxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_], true);
-	}
-
-	return dualVal;
-}
-
-/******************************************************
  * add some forbidden shifts
  ******************************************************/
-void RotationPricer::addForbiddenShifts(){
+void RCPricer::addForbiddenShifts(){
 	//search best rotation
-	vector<Rotation>::iterator bestRotation;
+	RCSolution bestSolution;
 	double bestDualcost = DBL_MAX;
-	for(vector<Rotation>::iterator it = newRotationsForNurse_.begin(); it != newRotationsForNurse_.end(); ++it)
-		if(it->dualCost_ < bestDualcost){
-			bestDualcost = it->dualCost_;
-			bestRotation = it;
+	for(const RCSolution &sol: newSolutionsForNurse_)
+		if(sol.cost < bestDualcost){
+			bestDualcost = sol.cost;
+      bestSolution = sol;
 		}
 
 	//forbid shifts of the best rotation
-	if(bestDualcost != DBL_MAX)
-		for(pair<int,int> pair: bestRotation->shifts_)
-			forbiddenShifts_.insert(pair);
+	if(bestDualcost != DBL_MAX) {
+	  int k = bestSolution.firstDay;
+    for (int s: bestSolution.shifts)
+      forbiddenShifts_.insert(pair<int,int>(k++,s));
+  }
 }
 
 // Returns a pointer to the right subproblem
-SubProblem* RotationPricer::retriveSubproblem(LiveNurse* pNurse){
+SubProblem* RCPricer::retriveSubproblem(LiveNurse* pNurse){
 	SubProblem* subProblem;
-	map<const Contract*, SubProblem*>::iterator it =  subProblems_.find(pNurse->pContract_);
+	auto it = subProblems_.find(pNurse->pContract_);
 	// Each contract has one subproblem. If it has not already been created, create it.
 	if( it == subProblems_.end() ){
 	  if (shortSubproblem_)
-	    subProblem = new SubProblemShort(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_);
+	    subProblem = new SubProblemShort(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
 	  else
-	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_);
+	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
 	  // then build the rcspp
 	  subProblem->build();
 	    
@@ -293,41 +194,34 @@ SubProblem* RotationPricer::retriveSubproblem(LiveNurse* pNurse){
 }
 
 // Add the rotations to the master problem
-void RotationPricer::addRotationsToMaster(){
-
-    // COMPUTE THE COST OF THE ROTATIONS
-	for(Rotation& rot: newRotationsForNurse_){
-		rot.computeCost(pScenario_, pMaster_->pPreferences_, pMaster_->theLiveNurses_,nbDays_);
-		rot.computeTimeDuration(pScenario_);
-		rot.treeLevel_ = pModel_->getCurrentTreeLevel();
-	}
-
-	// SORT THE ROTATIONS
-	sortNewlyGeneratedRotations();
+int RCPricer::addColumnsToMaster(int nurseId){
+	// SORT THE SOLUTIONS
+  sortNewlyGeneratedSolutions();
 
 	// SECOND, ADD THE ROTATIONS TO THE MASTER PROBLEM (in the previously computed order)
-	int nbRotationsAdded = 0;
-	for(Rotation& rot: newRotationsForNurse_){
-		allNewColumns_.push_back(pMaster_->addRotation(rot, baseName));
-		++nbRotationsAdded;
-		// DBG
-//		std::cout << rot.toString(nbDays_, pScenario_->shiftIDToShiftTypeID_) << std::endl;
-		if(nbRotationsAdded >= nbMaxRotationsToAdd_)
+	int nbcolumnsAdded = 0;
+	for(const RCSolution& sol: newSolutionsForNurse_){
+		allNewColumns_.emplace_back(pMaster_->addColumn(nurseId, sol));
+		++nbcolumnsAdded;
+		if(nbcolumnsAdded >= nbMaxColumnsToAdd_)
 			break;
 	}
+
+  return nbcolumnsAdded;
 }
 
 // Sort the rotations that just were generated for a nurse. Default option is sort by increasing reduced cost but we
 // could try something else (involving disjoint columns for ex.)
-void RotationPricer::sortNewlyGeneratedRotations(){
-	std::stable_sort(newRotationsForNurse_.begin(), newRotationsForNurse_.end(), Rotation::compareDualCost);
+void RCPricer::sortNewlyGeneratedSolutions(){
+	std::stable_sort(newSolutionsForNurse_.begin(), newSolutionsForNurse_.end(),
+	    [](const RCSolution& sol1, const RCSolution& sol2) { return sol1.cost < sol2.cost; });
 
 }
 
 // Set the subproblem options depending on the parameters
 //
-//void RotationPricer::setSubproblemOptions(vector<SolveOption>& options, int& maxRotationLengthForSubproblem,
-//		LiveNurse* pNurse){
+//void RCPricer::setSubproblemOptions(vector<SolveOption>& options, int& maxRotationLengthForSubproblem,
+//		pLiveNurse pNurse){
 //
 //	// Default option that should be used
 //	options.push_back(SOLVE_ONE_SINK_PER_LAST_DAY);
@@ -359,7 +253,7 @@ void RotationPricer::sortNewlyGeneratedRotations(){
 //
 // ------------------------------------------
 
-void RotationPricer::print_current_solution_(){
+void RCPricer::print_current_solution_(){
 	//pMaster_->costsConstrainstsToString();
 	//pMaster_->allocationToString();
 	if(nb_int_solutions_ < pMaster_->getModel()->nbSolutions()){
@@ -368,7 +262,7 @@ void RotationPricer::print_current_solution_(){
 		//pMaster_->costsConstrainstsToString();
 	}
 }
-void RotationPricer::printStatSPSolutions(){
+void RCPricer::printStatSPSolutions(){
 	double tMeanSubproblems = timeInExSubproblems_ / ((double)nbExSubproblems_);
 	double tMeanS = timeForS_ / ((double)nbS_);
 	double tMeanNL = timeForNL_ / ((double)nbNL_);
@@ -397,7 +291,7 @@ void RotationPricer::printStatSPSolutions(){
 //
 // ------------------------------------------
 
-//void RotationPricer::recordSPStats(SubProblem* sp){
+//void RCPricer::recordSPStats(SubProblem* sp){
 //	if (currentPricerParam_.isExhaustiveSearch()) {
 //		nbExSubproblems_++; nbSubproblems_++; nbS_++; nbNL_++;
 //		timeForS_ += sp->timeInS_->dSinceStart();
@@ -412,20 +306,11 @@ void RotationPricer::printStatSPSolutions(){
 //	}
 //}
 
-void RotationPricer::generateRandomForbiddenStartingDays(){
+void RCPricer::generateRandomForbiddenStartingDays(){
 	set<int> randomForbiddenStartingDays;
 	for(int m=0; m<5; m++){
 		int k = Tools::randomInt(0, nbDays_-1);
 		randomForbiddenStartingDays.insert(k);
 	}
 	forbiddenStartingDays_ = randomForbiddenStartingDays;
-}
-void RotationPricer::checkForbiddenStartingDays(){
-	for(Rotation& rot: newRotationsForNurse_){
-		int startingDay = rot.firstDay_;
-		if(forbiddenStartingDays_.find(startingDay) != forbiddenStartingDays_.end()){
-			cout << "# On a généré une rotation qui commence un jour interdit !" << endl;
-			getchar();
-		}
-	}
 }

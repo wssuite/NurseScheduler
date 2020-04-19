@@ -8,13 +8,9 @@
 
 #include <exception>
 
-#include "tools/MyTools.h"
 #include "tools/ReadWrite.h"
 #include "tools/DemandGenerator.h"
-#include "solvers/Greedy.h"
-#include "solvers/MasterProblem.h"
 #include "solvers/StochasticSolver.h"
-#include "solvers/mp/rcspp/SubProblem.h"
 //#include "CbcModeler.h"
 #include "tools/MyTools.h"
 #include "solvers/InitializeSolver.h"

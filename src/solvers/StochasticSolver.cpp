@@ -8,7 +8,7 @@
 #include "solvers/StochasticSolver.h"
 #include "tools/DemandGenerator.h"
 #include "solvers/Greedy.h"
-#include "solvers/MasterProblem.h"
+#include "solvers/mp/RotationMP.h"
 #include "tools/ReadWrite.h"
 
 // #define COMPARE_EVALUATIONS
@@ -562,7 +562,7 @@ Solver* StochasticSolver::setGenerationSolverWithInputAlgorithm(Demand* pDemand)
       pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
       break;
    case GENCOL:
-      pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
+      pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
       break;
    default:
       Tools::throwError("The algorithm is not handled yet");
@@ -648,7 +648,7 @@ Solver* StochasticSolver::setEvaluationWithInputAlgorithm(Demand* pDemand, vecto
       pSolver = new Greedy(pScen, pDemand, pEmptyPref, stateEndOfSchedule);
       break;
    case GENCOL:
-      pSolver = new MasterProblem(pScen, pDemand, pEmptyPref, stateEndOfSchedule, S_CLP);
+      pSolver = new RotationMP(pScen, pDemand, pEmptyPref, stateEndOfSchedule, S_CLP);
       break;
    default:
       Tools::throwError("The algorithm is not handled yet");
@@ -885,7 +885,7 @@ Solver* StochasticSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Algori
       pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
       break;
    case GENCOL:
-      pSolver = new MasterProblem(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
+      pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
       break;
    default:
       Tools::throwError("The algorithm is not handled yet");
