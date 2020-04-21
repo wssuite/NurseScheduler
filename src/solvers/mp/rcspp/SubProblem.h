@@ -9,7 +9,7 @@
 #define SUBPROBLEM_H_
 
 #include "solvers/mp/rcspp/RCGraph.h"
-#include "solvers/mp/rcspp/PriceLabelsGraph.h"
+#include "solvers/mp/rcspp/PriceLabelGraph.h"
 #include "solvers/mp/rcspp/PrincipalGraph.h"
 #include "solvers/mp/MasterProblem.h"
 
@@ -142,11 +142,13 @@ class SubProblem {
 
     inline const Contract* contract() const { return pContract_; }
 
-    inline const LiveNurse*  liveNurse() const { return pLiveNurse_; }
+    inline const LiveNurse* liveNurse() const { return pLiveNurse_; }
 
     inline int nDays() const { return nDays_; }
 
     inline RCGraph &g() { return g_; }
+
+    inline int maxRotationLength() const { return maxRotationLength_; }
 
     inline int nPaths() const { return nPaths_; }
 
@@ -165,15 +167,27 @@ class SubProblem {
       return pScenario_->maxConsShiftsOf(shift_type);
     }
 
-    inline int addSingleNode(NodeType type, std::vector<int> lbs = {0, 0}, std::vector<int> ubs = {}) {
+    inline int addSingleNode(NodeType type, std::vector<int> lbs = {}, std::vector<int> ubs = {}) {
+      if (lbs.empty())
+        lbs = defaultLBs();
       if (ubs.empty())
-        ubs = {maxRotationLength_, CDMin_};
+        ubs = defaultUBs();
       return g_.addSingleNode(type, lbs, ubs);
     }
 
     inline int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
                             ArcType type, int day = -1, std::vector<int> shifts = {}) {
       return g_.addSingleArc(origin, destination, baseCost, consumptions, type, day, shifts);
+    }
+
+    std::vector<int> defaultLBs() const {
+      return {0,0,0,0,0};
+    }
+
+    std::vector<int> defaultUBs() const {
+      return {maxRotationLength_, CDMin_,
+              pScenario_->nbDays(), pContract_->minTotalShifts_,
+              pScenario_->nbWeeks()};
     }
 
     virtual double startWorkCost(int a) const;
@@ -286,7 +300,7 @@ class SubProblem {
 
     // Data structures for the nodes and arcs
     std::vector<PrincipalGraph> principalGraphs_;
-    std::vector<PriceLabelsGraph> priceLabelsGraphs_;
+    vector2D<PriceLabelGraph> priceLabelsGraphs_;
     vector4D<int> arcsFromSource_;    // Index: (shiftType, day, n, shift) of destination
     vector2D<int> arcsPrincipalToPriceLabelsIn_;  // Index: (shiftType, day) of origin
 

@@ -191,6 +191,10 @@ class RotationMP: public MasterProblem {
       return restsPerDay_[pNurse->id_][day];
     }
 
+    const std::vector<MyVar*>& getMinWorkedDaysVars() const {return minWorkedDaysVars_;}
+    const std::vector<MyVar*>& getMaxWorkedDaysVars() const {return maxWorkedDaysVars_;}
+    const std::vector<MyVar*>& getMaxWorkedWeekendVars() const {return maxWorkedWeekendVars_;}
+
   protected:
     // Main method to build the rostering problem for a given input
     void build(const SolverParam& parameters) override ;
@@ -206,18 +210,27 @@ class RotationMP: public MasterProblem {
     //compute and add the last rotation finishing on the day just before the first one
     Rotation computeInitStateRotation(LiveNurse* pNurse);
 
+    /* Build each set of constraints - Add also the coefficient of a column for each set */
     void buildRotationCons(const SolverParam& parameters);
-
     int addRotationConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs,
                              int i, int k, bool firstDay, bool lastDay);
+
+    void buildMinMaxCons(const SolverParam& parameters);
+    int addMinMaxConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int nbDays, int nbWeekends);
 
     // return the costs of all active columns associated to the type
     double getColumnsCost(CostType costType, bool historicalCosts) const override ;
     double getColumnsCost(CostType costType, const std::vector<MyVar*>& vars) const;
 
+    double getMinDaysCost() const override;
+    double getMaxDaysCost() const override;
+    double getMaxWeekendCost() const override;
+
     /* retrieve the dual values */
+    vector2D<double> getShiftsDualValues(LiveNurse*  pNurse) const override;
     std::vector<double> getStartWorkDualValues(LiveNurse* pNurse) const override ;
     std::vector<double> getEndWorkDualValues(LiveNurse* pNurse) const override ;
+    double getWorkedWeekendDualValue(LiveNurse* pNurse) const override;
 
     /*
     * Variables
@@ -226,6 +239,19 @@ class RotationMP: public MasterProblem {
     vector2D<MyVar*> restingVars_; //binary variables for the resting arcs in the rotation network
     vector3D<MyVar*> longRestingVars_; //binary variables for the resting arcs in the rotation network
     std::vector<MyVar*> initialStateVars_; //stores all the initial rotations finishing on the first day
+
+    std::vector<MyVar*> minWorkedDaysVars_; //count the number of missing worked days per nurse
+    std::vector<MyVar*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
+    std::vector<MyVar*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
+
+    std::vector<MyVar*> minWorkedDaysAvgVars_; //count the number of missing worked days from average per nurse
+    std::vector<MyVar*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
+    std::vector<MyVar*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
+
+    std::vector<MyVar*> minWorkedDaysContractAvgVars_; //count the number of missing worked days from average per contract
+    std::vector<MyVar*> maxWorkedDaysContractAvgVars_; // count the number of exceeding worked days from average per contract
+    std::vector<MyVar*> maxWorkedWeekendContractAvgVars_; //count the number of exceeding worked weekends from average per contract
+
 
     /*
     * Constraints
@@ -237,6 +263,20 @@ class RotationMP: public MasterProblem {
     //end of the flow constraint at the last position of each workFlowCons_[i] (i=nurse)
     vector2D<MyCons*> workFlowCons_;
 
+    std::vector<MyCons*> minWorkedDaysCons_; //count the number of missing worked days per nurse
+    std::vector<MyCons*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
+    std::vector<MyCons*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
+    MyCons* sumMaxWorkedWeekendCons_;	// count the total number of weekends that will be penalized
+
+    std::vector<MyCons*> minWorkedDaysAvgCons_; //count the number of missing worked days from average per nurse
+    std::vector<MyCons*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
+    std::vector<MyCons*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
+
+    std::vector<MyCons*> minWorkedDaysContractAvgCons_; //count the number of missing worked days from average per contract
+    std::vector<MyCons*> maxWorkedDaysContractAvgCons_; // count the number of exceeding worked days from average per contract
+    std::vector<MyCons*> maxWorkedWeekendContractAvgCons_; //count the number of exceeding worked weekends from average per contract
+
+
     // STAB
     // Stabilization variables for each constraint
     // Two variables are needed for equality constraints and one for inequalities
@@ -246,6 +286,19 @@ class RotationMP: public MasterProblem {
     vector2D<MyVar*> stabRestFlowMinus_;
     vector2D<MyVar*> stabWorkFlowPlus_;
     vector2D<MyVar*> stabWorkFlowMinus_;
+
+    std::vector<MyVar*> stabMinWorkedDaysPlus_;
+    std::vector<MyVar*> stabMaxWorkedDaysMinus_;
+    std::vector<MyVar*> stabMaxWorkedWeekendMinus_;
+
+    // vectors of booleans indicating whether some above constraints are present
+    // in the model
+    std::vector<bool> isMinWorkedDaysAvgCons_,
+        isMaxWorkedDaysAvgCons_,
+        isMaxWorkedWeekendAvgCons_,
+        isMinWorkedDaysContractAvgCons_,
+        isMaxWorkedDaysContractAvgCons_,
+        isMaxWorkedWeekendContractAvgCons_;
 };
 
 

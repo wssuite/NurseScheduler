@@ -2,7 +2,7 @@
 // Created by antoine legrain on 2020-04-12.
 //
 
-#include "SubProblemShort.h"
+#include "ShortSP.h"
 
 using std::string;
 using std::vector;
@@ -17,9 +17,9 @@ using std::map;
 //---------------------------------------------------------------------------
 
 // Constructors and destructor
-SubProblemShort::SubProblemShort() {}
+ShortSP::ShortSP() {}
 
-SubProblemShort::SubProblemShort(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState):
+ShortSP::ShortSP(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState):
     SubProblem(scenario, nbDays, contract,  pInitState) {
 
   daysMin_ = contract->minConsDaysWork_;
@@ -28,10 +28,10 @@ SubProblemShort::SubProblemShort(Scenario* scenario, int nbDays, const Contract*
   initShortSuccessions();
 }
 
-SubProblemShort::~SubProblemShort(){}
+ShortSP::~ShortSP(){}
 
 // Initializes the short successions. Should only be used ONCE (when creating the SubProblem).
-void SubProblemShort::initShortSuccessions() {
+void ShortSP::initShortSuccessions() {
 
   // Primary information needed
   //
@@ -171,7 +171,7 @@ void SubProblemShort::initShortSuccessions() {
 //--------------------------------------------
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
-bool SubProblemShort::preprocess() {
+bool ShortSP::preprocess() {
   // find best start of rotation
   priceShortSucc();
   // find short rotations
@@ -180,7 +180,7 @@ bool SubProblemShort::preprocess() {
 
 
 // For the short rotations, depends on the chosen option + on whether we want optimality (more important)
-bool SubProblemShort::solveShortRotations() {
+bool ShortSP::solveShortRotations() {
   nVeryShortFound_ = 0;
   bool ANS = false;
 
@@ -219,7 +219,7 @@ bool SubProblemShort::solveShortRotations() {
 }
 
 // Create all arcs whose origin is the source nodes (all go to short rotations nodes)
-void SubProblemShort::createArcsSourceToPrincipal() {
+void ShortSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (PrincipalGraph &pg: principalGraphs_)
     for (int k = CDMin_ - 1; k < nDays_; k++)
@@ -230,14 +230,14 @@ void SubProblemShort::createArcsSourceToPrincipal() {
             {addSingleArc(origin, dest, 0, {CDMin_, 0}, SOURCE_TO_PRINCIPAL, k - CDMin_ + 1, {})});
 }
 
-double SubProblemShort::startWorkCost(int a) const {
+double ShortSP::startWorkCost(int a) const {
   return g_.arcCost(a); // cost already updated;
 }
 
 
 // Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
 //
-void SubProblemShort::priceShortSucc() {
+void ShortSP::priceShortSucc() {
 
   map<int, int> specialArcsSuccId;
   map<int, double> specialArcsCost;
@@ -313,7 +313,7 @@ void SubProblemShort::priceShortSucc() {
 
 // Given a short succession and a start date, returns the cost of the corresponding arc
 //
-double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
+double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
   double ANS = 0;
   const vector<int>& succ = allowedShortSuccBySize_[size][succId];
 
@@ -413,7 +413,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
 //----------------------------------------------------------------
 
 // Brutally try all possible short rotations from the very first day
-bool SubProblemShort::priceVeryShortRotationsFirstDay(){
+bool ShortSP::priceVeryShortRotationsFirstDay(){
   int nFound = 0;
   for(int c=1; c<CDMin_; c++)
     nFound += priceVeryShortSameSizeRotations(0, allowedShortSuccBySize_[c]);
@@ -421,7 +421,7 @@ bool SubProblemShort::priceVeryShortRotationsFirstDay(){
 }
 
 // Brutally try all possible short rotations that end on the last day
-bool SubProblemShort::priceVeryShortRotationsLastDay(){
+bool ShortSP::priceVeryShortRotationsLastDay(){
   int nFound = 0;
   for(int c=1; c<CDMin_; c++)
       nFound += priceVeryShortSameSizeRotations(nDays_-c, allowedShortSuccBySize_[c]);
@@ -429,7 +429,7 @@ bool SubProblemShort::priceVeryShortRotationsLastDay(){
 }
 
 // Brutally try all possible short rotations from every first day
-bool SubProblemShort::priceVeryShortRotations() {
+bool ShortSP::priceVeryShortRotations() {
   int nFound = 0;
   for (int c = 1; c < CDMin_; c++) {
     const vector2D<int> &succs = allowedShortSuccBySize_[c];
@@ -439,7 +439,7 @@ bool SubProblemShort::priceVeryShortRotations() {
   return nFound > 0;
 }
 
-int SubProblemShort::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs) {
+int ShortSP::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs) {
   int nFound = 0;
   if (startingDayStatus_[k])
     for (const vector<int> &succ: succs) {
@@ -457,7 +457,7 @@ int SubProblemShort::priceVeryShortSameSizeRotations(int k,  const vector2D<int>
 
 
 // Compute the cost of a single short rotation
-double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>& succ) {
+double ShortSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) {
 
   int endDate = startDate + succ.size() - 1;
 
@@ -591,7 +591,7 @@ double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>
 }
 
 // Summary of the short successions generated
-void SubProblemShort::printShortSucc() const {
+void ShortSP::printShortSucc() const {
   std::cout << "#   +------------+" << std::endl;
   std::cout << "#   | CD_min = " << CDMin_ << std::endl;
   std::cout << "#   +------------+" << std::endl;
@@ -610,7 +610,7 @@ void SubProblemShort::printShortSucc() const {
 }
 
 // Prints all active pairs ( arcFromSource - corresponding short successions )
-void SubProblemShort::printShortArcs() const {
+void ShortSP::printShortArcs() const {
   for(int s=1; s<pScenario_->nbShiftsType_; s++){
     for(int k=daysMin_-1; k<nDays_; k++){
       for(int n=1; n<=principalGraphs_[s].maxCons(); n++){

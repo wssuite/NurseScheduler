@@ -7,7 +7,7 @@
 
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/modeler/BcpModeler.h"
-#include "solvers/mp/rcspp/SubProblemShort.h"
+#include "solvers/mp/rcspp/ShortSP.h"
 
 
 /* namespace usage */
@@ -179,7 +179,7 @@ SubProblem* RCPricer::retriveSubproblem(LiveNurse* pNurse){
 	// Each contract has one subproblem. If it has not already been created, create it.
 	if( it == subProblems_.end() ){
 	  if (shortSubproblem_)
-	    subProblem = new SubProblemShort(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+	    subProblem = new ShortSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
 	  else
 	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
 	  // then build the rcspp

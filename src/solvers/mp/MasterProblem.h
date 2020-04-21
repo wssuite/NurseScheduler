@@ -22,7 +22,8 @@
 #include "OsiSolverInterface.hpp"
 
 enum CostType {TOTAL_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST,
-    COMPLETE_WEEKEND_COST, PREFERENCE_COST, REST_COST};
+    COMPLETE_WEEKEND_COST, PREFERENCE_COST, REST_COST,
+    MIN_DAYS_COST, MAX_DAYS_COST, MAX_WEEKEND_COST};
 
 struct DualCosts{
 public:
@@ -252,9 +253,6 @@ class MasterProblem : public Solver, public PrintSolution{
 
     // getter/setters
     //
-    std::vector<MyVar*> getMinWorkedDaysVars() {return minWorkedDaysVars_;}
-    std::vector<MyVar*> getMaxWorkedDaysVars() {return maxWorkedDaysVars_;}
-    std::vector<MyVar*> getMaxWorkedWeekendVars() {return maxWorkedWeekendVars_;}
     vector3D<MyVar*> getOptDemandVars() {return optDemandVars_;}
 
   protected:
@@ -274,20 +272,6 @@ class MasterProblem : public Solver, public PrintSolution{
     /*
     * Variables
     */
-    vector2D<MyVar*> columnVars_; //binary variables for the columns
-
-    std::vector<MyVar*> minWorkedDaysVars_; //count the number of missing worked days per nurse
-    std::vector<MyVar*> maxWorkedDaysVars_; //count the number of exceeding worked days per nurse
-    std::vector<MyVar*> maxWorkedWeekendVars_; //count the number of exceeding worked weekends per nurse
-
-    std::vector<MyVar*> minWorkedDaysAvgVars_; //count the number of missing worked days from average per nurse
-    std::vector<MyVar*> maxWorkedDaysAvgVars_; // count the number of exceeding worked days from average per nurse
-    std::vector<MyVar*> maxWorkedWeekendAvgVars_; //count the number of exceeding worked weekends from average per nurse
-
-    std::vector<MyVar*> minWorkedDaysContractAvgVars_; //count the number of missing worked days from average per contract
-    std::vector<MyVar*> maxWorkedDaysContractAvgVars_; // count the number of exceeding worked days from average per contract
-    std::vector<MyVar*> maxWorkedWeekendContractAvgVars_; //count the number of exceeding worked weekends from average per contract
-
     vector3D<MyVar*> optDemandVars_; //count the number of missing nurse to reach the optimal
     vector3D<MyVar*> numberOfNursesByPositionVars_; // count the number of nurses by position on each day, shift
     vector4D<MyVar*> skillsAllocVars_; //makes the allocation of the skills
@@ -295,19 +279,6 @@ class MasterProblem : public Solver, public PrintSolution{
     /*
     * Constraints
     */
-    std::vector<MyCons*> minWorkedDaysCons_; //count the number of missing worked days per nurse
-    std::vector<MyCons*> maxWorkedDaysCons_; //count the number of exceeding worked days per nurse
-    std::vector<MyCons*> maxWorkedWeekendCons_; //count the number of exceeding worked weekends per nurse
-    MyCons* sumMaxWorkedWeekendCons_;	// count the total number of weekends that will be penalized
-
-
-    std::vector<MyCons*> minWorkedDaysAvgCons_; //count the number of missing worked days from average per nurse
-    std::vector<MyCons*> maxWorkedDaysAvgCons_; // count the number of exceeding worked days from average per nurse
-    std::vector<MyCons*> maxWorkedWeekendAvgCons_; //count the number of exceeding worked weekends from average per nurse
-
-    std::vector<MyCons*> minWorkedDaysContractAvgCons_; //count the number of missing worked days from average per contract
-    std::vector<MyCons*> maxWorkedDaysContractAvgCons_; // count the number of exceeding worked days from average per contract
-    std::vector<MyCons*> maxWorkedWeekendContractAvgCons_; //count the number of exceeding worked weekends from average per contract
 
     vector3D<MyCons*> minDemandCons_; //ensure a minimal coverage per day, per shift, per skill
     vector3D<MyCons*> optDemandCons_; //count the number of missing nurse to reach the optimal
@@ -319,21 +290,9 @@ class MasterProblem : public Solver, public PrintSolution{
     // Two variables are needed for equality constraints and one for inequalities
     // The constraints on average values are not stabilized yet
     // The position and allocation constraints do not require stabilization
-    std::vector<MyVar*> stabMinWorkedDaysPlus_;
-    std::vector<MyVar*> stabMaxWorkedDaysMinus_;
-    std::vector<MyVar*> stabMaxWorkedWeekendMinus_;
 
     vector3D<MyVar*> stabMinDemandPlus_; //ensure a minimal coverage per day, per shift, per skill
     vector3D<MyVar*> stabOptDemandPlus_; //count the number of missing nurse to reach the optimal
-
-    // vectors of booleans indicating whether some above constraints are present
-    // in the model
-    std::vector<bool> isMinWorkedDaysAvgCons_,
-                      isMaxWorkedDaysAvgCons_,
-                      isMaxWorkedWeekendAvgCons_,
-                      isMinWorkedDaysContractAvgCons_,
-                      isMaxWorkedDaysContractAvgCons_,
-                      isMaxWorkedWeekendContractAvgCons_;
 
     /*
     * Methods
@@ -360,13 +319,15 @@ class MasterProblem : public Solver, public PrintSolution{
     // return the costs of all active columns associated to the type
     virtual double getColumnsCost(CostType costType, bool justHistoricalCosts) const = 0;
 
+    virtual double getMinDaysCost() const = 0;
+    virtual double getMaxDaysCost() const = 0;
+    virtual double getMaxWeekendCost() const = 0;
+
     //update the demand with a new one of the same size
     //change the rhs of the constraints minDemandCons_ and optDemandCons_
     void updateDemand(Demand* pDemand);
 
     /* Build each set of constraints - Add also the coefficient of a column for each set */
-    void buildMinMaxCons(const SolverParam& parameters);
-    int addMinMaxConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int nbDays, int nbWeekends);
     void buildSkillsCoverageCons(const SolverParam& parameters);
     int addSkillsCoverageConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int k, int s=-1);
 

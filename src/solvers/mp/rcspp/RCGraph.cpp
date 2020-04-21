@@ -167,7 +167,7 @@ RCSolution RCGraph::solution(
     const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
     const spp_res_cont& resource){
 #ifdef DBG
-//  printPath(path, resource);
+  printPath(path, resource);
 #endif
 
   RCSolution sol(resource.cost);
@@ -307,15 +307,16 @@ std::string RCGraph::shortNameNode(int v) const {
     rep << "PRINCIPAL_NETWORK";
   }
 
-  else if (type_v == ROTATION_LENGTH_ENTRANCE){
+  else if (type_v == PRICE_LABEL_ENTRANCE){
     rep << "LEN_IN";
   }
 
-  else if (type_v == ROTATION_LENGTH){
-    rep << "LEN_<=" << nodeUBs(v)[MAX_CONS_DAYS];
+  else if (type_v == PRICE_LABEL){
+    rep << "LEN_<=";
+    for(int ub: nodeUBs(v)) rep << " " << ub;
   }
 
-  else if (type_v == ROTATION_LENGTH_EXIT){
+  else if (type_v == PRICE_LABEL_EXIT){
     rep << "ROTSIZE OUT";
   }
 

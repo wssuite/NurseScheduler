@@ -210,11 +210,22 @@ void SubProblem::createNodes(){
 	//
 	// For each of the days, do a rotation-length-checker
 	// Deactivate the min cost for the last day
-	for(int k=0; k<nDays_; k++){
-    priceLabelsGraphs_.emplace_back(PriceLabelsGraph(CDMin_, maxRotationLength_, this, k<nDays_-1)); // k<nDays_-1 is false for last day
+	for(int k=0; k<nDays_-1; k++) {
+    priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
+        {PriceLabelGraph(pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this),
+         PriceLabelGraph(0, CDMin_, MIN_CONS_DAYS, this) }));
+
+    // link the sub graphs
+    priceLabelsGraphs_.back().front().linkOutSubGraph(priceLabelsGraphs_.back().back());
+
     // Daily sink node
-    g_.addSink(priceLabelsGraphs_.back().exit());
+    g_.addSink(priceLabelsGraphs_.back().back().exit());
   }
+	// last day: price just max
+  priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
+      {PriceLabelGraph(pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this)}));
+  // Daily sink node
+  g_.addSink(priceLabelsGraphs_.back().back().exit());
 
 	// 4. SINK NODE
 	//
@@ -279,15 +290,15 @@ void SubProblem::createArcsAllPriceLabels(){
     for(int sh=1; sh<pScenario_->nbShiftsType_; sh++){		// For all shifts
       // incoming  arc
       int origin = principalGraphs_[sh].getDayNodes(k).back();
-			int destin = priceLabelsGraphs_[k].entrance();
+			int destin = priceLabelsGraphs_[k].front().entrance();
 			arcsPrincipalToPriceLabelsIn_[sh][k] =
-			    g_.addSingleArc(origin, destin, 0, {0,0}, PRINCIPAL_TO_ROTSIZE, k);	// Allow to stop rotation that day
+			    g_.addSingleArc(origin, destin, 0, {0,0}, PRINCIPAL_TO_PRICE_LABEL, k);	// Allow to stop rotation that day
 		}
 
     // outgoing  arcs
-    int origin = priceLabelsGraphs_[k].exit();
+    int origin = priceLabelsGraphs_[k].back().exit();
     int destin = g_.lastSink();
-    g_.addSingleArc(origin, destin, 0, {0,0}, ROTSIZEOUT_TO_SINK, k);
+    g_.addSingleArc(origin, destin, 0, {0,0}, PRICE_LABEL_OUT_TO_SINK, k);
 	}
 }
 
@@ -437,7 +448,7 @@ void SubProblem::updateArcCosts() {
   for (PrincipalGraph &pg: principalGraphs_)
     pg.updateArcCosts();
 
-  // C. ARCS : PRINCIPAL_TO_ROTSIZE
+  // C. ARCS : PRINCIPAL_TO_PRICE_LABEL
   //
   for (int s = 1; s < pScenario_->nbShiftsType_; s++)
     for (int k = daysMin_ - 1; k < nDays_; k++) {
@@ -447,8 +458,9 @@ void SubProblem::updateArcCosts() {
     }
 
   //D. ARCS : PRICE LABELS
-  for (PriceLabelsGraph &plg: priceLabelsGraphs_)
-    plg.updateArcCosts(); // nothing for the moment
+  for (std::vector<PriceLabelGraph> &graphs: priceLabelsGraphs_)
+    for (PriceLabelGraph& plg: graphs)
+      plg.updateArcCosts(); // nothing for the moment
 }
 
 
@@ -464,7 +476,7 @@ void SubProblem::updatedMaxRotationLengthOnNodes(int maxRotationLength){
   if(maxRotationLength != maxRotationLength_){
     maxRotationLength_ = maxRotationLength;
     for(int v=0; v<g_.nodesSize(); v++) {
-      if (g_.nodeType(v) != ROTATION_LENGTH) {
+      if (g_.nodeType(v) != PRICE_LABEL) {
         std::vector<int> ubs = g_.nodeUBs(v);
         ubs[MAX_CONS_DAYS] = maxRotationLength;
         g_.updateUBs(v, ubs);

@@ -11,21 +11,21 @@
 #include <boost/graph/r_c_shortest_paths.hpp>
 
 
-enum LABEL {MAX_CONS_DAYS = 0, MIN_CONS_DAYS = 1};
+enum LABEL {MAX_CONS_DAYS = 0, MIN_CONS_DAYS = 1, MAX_DAYS = 2, MIN_DAYS = 3, MAX_WEEKEND = 4};
 // true if the dominance is done with a descending order (lower the better), false otherwise
-static const std::vector<bool> labelsOrder = { true, false };
+static const std::vector<bool> labelsOrder = { true, false, true, false, true };
 static const std::vector<std::string> labelName = {
-    "MAX_CONS_DAYS", "MIN_CONS_DAYS", "MAX_DAYS     ", "MIN_DAYS     "};
+    "MAX_CONS_DAYS", "MIN_CONS_DAYS", "MAX_DAYS     ", "MIN_DAYS     ", "MAX_WEEKEND  "};
 
 // Different node types and their names
 //
 enum NodeType {
-    SOURCE_NODE, PRINCIPAL_NETWORK, ROTATION_LENGTH_ENTRANCE,
-    ROTATION_LENGTH, ROTATION_LENGTH_EXIT, SINK_NODE,
+    SOURCE_NODE, PRINCIPAL_NETWORK, PRICE_LABEL_ENTRANCE,
+    PRICE_LABEL, PRICE_LABEL_EXIT, SINK_NODE,
     NONE_NODE};
 static const std::vector<std::string> nodeTypeName = {
-    "SOURCE_NODE", "PPL_NETWORK", "ROTSIZE__IN",
-    "ROTSIZE    ", "ROTSIZE_OUT", "SINK_NODE  ",
+    "SOURCE_NODE", "PPL_NETWORK", "PRI_LAB__IN",
+    "PRICE_LABEL", "PRI_LAB_OUT", "SINK_NODE  ",
     "NONE       "};
 
 
@@ -33,12 +33,12 @@ static const std::vector<std::string> nodeTypeName = {
 //
 enum ArcType{
     SOURCE_TO_PRINCIPAL, SHIFT_TO_NEWSHIFT, SHIFT_TO_SAMESHIFT, SHIFT_TO_ENDSEQUENCE,
-    REPEATSHIFT, PRINCIPAL_TO_ROTSIZE, ROTSIZEIN_TO_ROTSIZE, ROTSIZE_TO_ROTSIZEOUT,
-    ROTSIZEOUT_TO_SINK, NONE_ARC};
+    REPEATSHIFT, PRINCIPAL_TO_PRICE_LABEL, PRICE_LABEL_IN_TO_PRICE_LABEL, PRICE_LABEL_TO_PRICE_LABEL_OUT,
+    PRICE_LABEL_OUT_TO_SINK, NONE_ARC};
 static const std::vector<std::string> arcTypeName = {
     "SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ",
-    "REPEATSHIFT    ", "PPL_TO_ROTSIZE ", "ROTSZIN_TO_RTSZ", "ROTSIZE_TO_ROUT",
-    "ROT OUT TO SINK", "NONE           "};
+    "REPEATSHIFT    ", "PPL_TO_PRI_LAB ", "PLBIN_TO_PRILAB", "PRILAB_TO_PLOUT",
+    "PLOUT  TO  SINK", "NONE           "};
 
 //////////////////////////////////////////////////////////////////////////
 //
@@ -303,9 +303,27 @@ struct RCSolution {
 //
 // C l a s s e s   G r a p h s
 //
-// Contains the main rcspp and some reccurent subgraphs
+// Contains a interface for subgraphs and the main rcspp
 //
 //---------------------------------------------------------------------------
+class SubGraph {
+  public:
+    SubGraph() {};
+    virtual ~SubGraph() {};
+
+    virtual int entrance(int day=-1) const=0;
+    virtual int exit(int day=-1) const=0;
+
+    // link two sub graphs together:
+    // 1. create an arc from the exit of inSubGraph to the current entrance
+    // 2. the entrance method should now returns the entrance of the  inSubGraph
+    virtual void linkInSubGraph(SubGraph& inSubGraph, int day=-1)=0;
+
+    // link two sub graphs together:
+    // 1. create an arc from the current exit to the entrance of outSubGraph
+    // 2. the exit method should now returns the exit of the outSubGraph
+    virtual void linkOutSubGraph(SubGraph& outSubGraph, int day=-1)=0;
+};
 
 class RCGraph {
   public:

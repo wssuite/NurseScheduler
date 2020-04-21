@@ -235,9 +235,10 @@ std::string Rotation::toString(int nbDays, std::vector<int> shiftIDToShiftTypeID
     if(allTasks[i] < 1) rep << "\t|";
     else {
       int t = allTasks[i];
-      if(t < shiftIDToShiftTypeID.size())
+      if(t < shiftIDToShiftTypeID.size()) {
         rep << shiftIDToShiftTypeID[t] << ":";
-      rep << allTasks[i]<< "|";
+        rep << allTasks[i] << "|";
+      } else rep << " " << allTasks[i] << " |";
     }
   }
   rep << std::endl;
@@ -278,12 +279,30 @@ bool Rotation::compareDualCost(const Rotation& rot1, const Rotation& rot2){
 RotationMP::RotationMP(Scenario* pScenario, Demand* pDemand, Preferences* pPreferences,
     std::vector<State> *pInitState, MySolverType solver) :
      MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
-     restsPerDay_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_),
-     longRestingVars_(pScenario->nbNurses_), restFlowCons_(pScenario->nbNurses_),
+     restsPerDay_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_), longRestingVars_(pScenario->nbNurses_),
+     minWorkedDaysVars_(pScenario->nbNurses_), maxWorkedDaysVars_(pScenario->nbNurses_), maxWorkedWeekendVars_(pScenario->nbNurses_),
+     minWorkedDaysAvgVars_(pScenario->nbNurses_), maxWorkedDaysAvgVars_(pScenario->nbNurses_), maxWorkedWeekendAvgVars_(pScenario_->nbNurses_),
+     minWorkedDaysContractAvgVars_(pScenario->nbContracts_), maxWorkedDaysContractAvgVars_(pScenario->nbContracts_), maxWorkedWeekendContractAvgVars_(pScenario_->nbContracts_),
+
+     restFlowCons_(pScenario->nbNurses_),
      workFlowCons_(pScenario->nbNurses_),
+     minWorkedDaysCons_(pScenario->nbNurses_), maxWorkedDaysCons_(pScenario->nbNurses_), maxWorkedWeekendCons_(pScenario->nbNurses_),
+     minWorkedDaysAvgCons_(pScenario->nbNurses_), maxWorkedDaysAvgCons_(pScenario->nbNurses_), maxWorkedWeekendAvgCons_(pScenario_->nbNurses_),
+     minWorkedDaysContractAvgCons_(pScenario->nbContracts_), maxWorkedDaysContractAvgCons_(pScenario->nbContracts_), maxWorkedWeekendContractAvgCons_(pScenario_->nbContracts_),
      // STAB
      stabRestFlowPlus_(pScenario->nbNurses_), stabRestFlowMinus_(pScenario->nbNurses_),
-     stabWorkFlowPlus_(pScenario->nbNurses_), stabWorkFlowMinus_(pScenario->nbNurses_) {}
+     stabWorkFlowPlus_(pScenario->nbNurses_), stabWorkFlowMinus_(pScenario->nbNurses_),
+     stabMinWorkedDaysPlus_(pScenario->nbNurses_), stabMaxWorkedDaysMinus_(pScenario->nbNurses_), stabMaxWorkedWeekendMinus_(pScenario->nbNurses_) {
+
+  // initialize the vectors indicating whether the min/max total constraints
+  // with averaged bounds are considered
+  Tools::initVector(isMinWorkedDaysAvgCons_, pScenario_->nbNurses_, false);
+  Tools::initVector(isMaxWorkedDaysAvgCons_, pScenario_->nbNurses_, false);
+  Tools::initVector(isMaxWorkedWeekendAvgCons_, pScenario_->nbNurses_, false);
+  Tools::initVector(isMinWorkedDaysContractAvgCons_, pScenario_->nbContracts_, false);
+  Tools::initVector(isMaxWorkedDaysContractAvgCons_, pScenario_->nbContracts_, false);
+  Tools::initVector(isMaxWorkedWeekendContractAvgCons_, pScenario_->nbContracts_, false);
+}
 
 RotationMP::~RotationMP() {}
 
@@ -295,6 +314,9 @@ PPattern RotationMP::getPattern(const std::vector<double>& pattern) const {
 void RotationMP::build(const SolverParam& param){
   /* Rotation constraints */
   buildRotationCons(param);
+
+  /* Min/Max constraints */
+  buildMinMaxCons(param);
 
   /* build the rest of the model */
   MasterProblem::build(param);
@@ -370,6 +392,39 @@ void RotationMP::initializeSolution(const vector<Roster>& solution) {
   }
 }
 
+vector2D<double> RotationMP::getShiftsDualValues(LiveNurse*  pNurse) const {
+  vector2D<double> dualValues = MasterProblem::getShiftsDualValues(pNurse);
+
+  int i = pNurse->id_;
+  int p = pNurse->pContract_->id_;
+
+  /* Min/Max constraints */
+  double minWorkedDays = pModel_->getDual(minWorkedDaysCons_[i], true);
+  double maxWorkedDays = pModel_->getDual(maxWorkedDaysCons_[i], true);
+
+  double minWorkedDaysAvg = isMinWorkedDaysAvgCons_[i] ? pModel_->getDual(minWorkedDaysAvgCons_[i], true):0.0;
+  double maxWorkedDaysAvg = isMaxWorkedDaysAvgCons_[i] ? pModel_->getDual(maxWorkedDaysAvgCons_[i], true):0.0;
+
+  double minWorkedDaysContractAvg = isMinWorkedDaysContractAvgCons_[p] ?
+                                    pModel_->getDual(minWorkedDaysContractAvgCons_[p], true):0.0;
+  double maxWorkedDaysContractAvg = isMaxWorkedDaysContractAvgCons_[p] ?
+                                    pModel_->getDual(maxWorkedDaysContractAvgCons_[p], true):0.0;
+
+  /* Min/Max constraints */
+  double d = minWorkedDays + minWorkedDaysAvg + minWorkedDaysContractAvg;
+  d += maxWorkedDays + maxWorkedDaysAvg + maxWorkedDaysContractAvg;
+
+
+  for(int k=0; k<pDemand_->nbDays_; ++k){
+    vector<double>& dualValues2 = dualValues[k];
+    for(int s=1; s<pScenario_->nbShifts_; ++s)
+      // adjust the dual in function of the time duration of the shift
+      dualValues2[s-1] += d * pScenario_->timeDurationToWork_[s];
+  }
+
+  return dualValues;
+}
+
 vector<double> RotationMP::getStartWorkDualValues(LiveNurse* pNurse) const {
   int i = pNurse->id_;
   vector<double> dualValues(pDemand_->nbDays_);
@@ -399,6 +454,20 @@ vector<double> RotationMP::getEndWorkDualValues(LiveNurse* pNurse) const {
       pModel_->getDual(workFlowCons_[i][pDemand_->nbDays_-1], true);
 
   return dualValues;
+}
+
+double RotationMP::getWorkedWeekendDualValue(LiveNurse* pNurse) const{
+  int id = pNurse->id_;
+  double dualVal = pModel_->getDual(maxWorkedWeekendCons_[id], true);
+  if (isMaxWorkedWeekendAvgCons_[id]) {
+    dualVal += pModel_->getDual(maxWorkedWeekendAvgCons_[id], true);
+  }
+  if (isMaxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_]) {
+    dualVal += pModel_->getDual(
+        maxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_], true);
+  }
+
+  return dualVal;
 }
 
 //------------------------------------------------------------------------------
@@ -755,6 +824,214 @@ int RotationMP::addRotationConsToCol(vector<MyCons*>& cons, vector<double>& coef
   return 0;
 }
 
+/*
+ * Min/Max constraints
+ */
+void RotationMP::buildMinMaxCons(const SolverParam& param){
+  char name[255];
+  for(int i=0; i<pScenario_->nbNurses_; i++){
+    sprintf(name, "minWorkedDaysVar_N%d", i);
+    pModel_->createPositiveVar(&minWorkedDaysVars_[i], name, weightTotalShiftsMin_[i]);
+    sprintf(name, "maxWorkedDaysVar_N%d", i);
+    pModel_->createPositiveVar(&maxWorkedDaysVars_[i], name, weightTotalShiftsMax_[i]);
+
+    sprintf(name, "minWorkedDaysCons_N%d", i);
+    vector<MyVar*> vars1 = {minWorkedDaysVars_[i]};
+    vector<double> coeffs1 = {1};
+    pModel_->createGEConsLinear(&minWorkedDaysCons_[i], name, minTotalShifts_[i], vars1, coeffs1);
+
+    // STAB:Add stabilization variable
+    //
+    if (param.isStabilization_) {
+      sprintf(name,"stabMinWorkedDaysPlus_%i",i);
+      pModel_->createPositiveVar(&stabMinWorkedDaysPlus_[i],name,param.stabCostIni_+param.stabCostMargin_,DEFAULT_PATTERN,0,param.stabBoundIni_);
+      pModel_->addCoefLinear(minWorkedDaysCons_[i],stabMinWorkedDaysPlus_[i],1.0);
+    }
+
+    sprintf(name, "maxWorkedDaysCons_N%d", i);
+    vector<MyVar*> vars2 = {maxWorkedDaysVars_[i]};
+    vector<double> coeffs2 = {-1};
+    pModel_->createLEConsLinear(&maxWorkedDaysCons_[i], name, maxTotalShifts_[i], vars2, coeffs2);
+
+    // STAB:Add stabilization variable
+    //
+    if (param.isStabilization_) {
+      sprintf(name,"stabMaxWorkedDaysMinus_%i",i);
+      pModel_->createPositiveVar(&stabMaxWorkedDaysMinus_[i],name,-param.stabCostIni_+param.stabCostMargin_,DEFAULT_PATTERN,0,param.stabBoundIni_);
+      pModel_->addCoefLinear(maxWorkedDaysCons_[i],stabMaxWorkedDaysMinus_[i],-1.0);
+    }
+
+    // add constraints on the total number of shifts to satisfy bounds that
+    // correspond to the global bounds averaged over the weeks
+    //
+    // STAB: not implemented there yet
+    if (!minTotalShiftsAvg_.empty() && !maxTotalShiftsAvg_.empty() && !weightTotalShiftsAvg_.empty()) {
+
+      // only add the constraint if is tighter than the already added constraint
+      if (minTotalShiftsAvg_[i] > minTotalShifts_[i]) {
+        sprintf(name, "minWorkedDaysAvgVar_N%d", i);
+        pModel_->createPositiveVar(&minWorkedDaysAvgVars_[i], name, weightTotalShiftsAvg_[i]);
+
+        sprintf(name, "minWorkedDaysAvgCons_N%d", i);
+        vector<MyVar*> varsAvg1 = {minWorkedDaysVars_[i], minWorkedDaysAvgVars_[i]};
+        vector<double> coeffsAvg1 = {1,1};
+        pModel_->createGEConsLinear(&minWorkedDaysAvgCons_[i], name, minTotalShiftsAvg_[i], varsAvg1, coeffsAvg1);
+
+        isMinWorkedDaysAvgCons_[i] = true;
+      }
+
+      if (maxTotalShiftsAvg_[i] < maxTotalShifts_[i]) {
+        sprintf(name, "maxWorkedDaysAvgVar_N%d", i);
+        pModel_->createPositiveVar(&maxWorkedDaysAvgVars_[i], name, weightTotalShiftsAvg_[i]);
+
+        sprintf(name, "maxWorkedDaysAvgCons_N%d", i);
+        vector<MyVar*> varsAvg2 = {maxWorkedDaysVars_[i],maxWorkedDaysAvgVars_[i]};
+        vector<double> coeffsAvg2 = {-1,-1};
+        pModel_->createLEConsLinear(&maxWorkedDaysAvgCons_[i], name, maxTotalShiftsAvg_[i], varsAvg2, coeffsAvg2);
+
+        isMaxWorkedDaysAvgCons_[i] = true;
+      }
+    }
+
+    sprintf(name, "maxWorkedWeekendVar_N%d", i);
+    pModel_->createPositiveVar(&maxWorkedWeekendVars_[i], name, weightTotalWeekendsMax_[i]);
+
+    sprintf(name, "maxWorkedWeekendCons_N%d", i);
+    vector<MyVar*> vars3 = {maxWorkedWeekendVars_[i]};
+    vector<double> coeffs3 = {-1};
+    pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, maxTotalWeekends_[i],
+                                vars3, coeffs3);
+
+    // STAB:Add stabilization variable
+    //
+    if (param.isStabilization_) {
+      sprintf(name,"stabMaxWorkedWeekendMinus_%i",i);
+      pModel_->createPositiveVar(&stabMaxWorkedWeekendMinus_[i],name,-param.stabCostIni_+param.stabCostMargin_,DEFAULT_PATTERN,0,param.stabBoundIni_);
+      pModel_->addCoefLinear(maxWorkedWeekendCons_[i],stabMaxWorkedWeekendMinus_[i],-1.0);
+    }
+
+    // STAB: not implemented there yet
+    if ( !maxTotalWeekendsAvg_.empty()  && !weightTotalWeekendsAvg_.empty()
+         && maxTotalWeekendsAvg_[i] < theLiveNurses_[i]->maxTotalWeekends() - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_) {
+
+      sprintf(name, "maxWorkedWeekendAvgVar_N%d", i);
+      pModel_->createPositiveVar(&maxWorkedWeekendAvgVars_[i], name, weightTotalWeekendsAvg_[i]);
+
+      sprintf(name, "maxWorkedWeekendAvgCons_N%d", i);
+      vector<MyVar*> varsAvg3 = {maxWorkedWeekendVars_[i],maxWorkedWeekendAvgVars_[i]};
+      vector<double> coeffsAvg3 = {-1,-1};
+      pModel_->createLEConsLinear(&maxWorkedWeekendAvgCons_[i], name, maxTotalWeekendsAvg_[i]- theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
+                                  varsAvg3, coeffsAvg3);
+
+      isMaxWorkedWeekendAvgCons_[i] = true;
+
+    }
+
+  }
+
+  // WEEKEND CUTS
+  // sprintf(name, "sumMaxWorkedWeekendCons");
+  // std::vector<pVar> varsSum3;
+  // std::vector<double> coeffsSum3;
+  // for(int i=0; i<pScenario_->nbNurses_; i++) {
+  // 	varsSum3.push_back(maxWorkedWeekendVars_[i]);
+  // 	coeffsSum3.push_back(1);
+  // }
+  // pModel_->createGEConsLinear(&sumMaxWorkedWeekendCons_, name, 4, varsSum3, coeffsSum3);
+
+
+
+  for(int p=0; p<pScenario_->nbContracts_; ++p){
+
+    if(!minTotalShiftsContractAvg_.empty() && !maxTotalShiftsContractAvg_.empty()  && !weightTotalShiftsContractAvg_.empty()){
+      sprintf(name, "minWorkedDaysContractAvgVar_P%d", p);
+      pModel_->createPositiveVar(&minWorkedDaysContractAvgVars_[p], name, weightTotalShiftsContractAvg_[p]);
+      sprintf(name, "maxWorkedDaysContractAvgVar_P%d", p);
+      pModel_->createPositiveVar(&maxWorkedDaysContractAvgVars_[p], name, weightTotalShiftsContractAvg_[p]);
+
+      sprintf(name, "minWorkedDaysContractAvgCons_P%d", p);
+      vector<MyVar*> vars1 = {minWorkedDaysContractAvgVars_[p]};
+      vector<double> coeffs1 = {1};
+      pModel_->createGEConsLinear(&minWorkedDaysContractAvgCons_[p], name, minTotalShiftsContractAvg_[p], vars1, coeffs1);
+
+      sprintf(name, "maxWorkedDaysContractAvgCons_P%d", p);
+      vector<MyVar*> vars2 = {maxWorkedDaysContractAvgVars_[p]};
+      vector<double> coeffs2 = {-1};
+      pModel_->createLEConsLinear(&maxWorkedDaysContractAvgCons_[p], name, maxTotalShiftsContractAvg_[p], vars2, coeffs2);
+
+      isMinWorkedDaysContractAvgCons_[p] = true;
+      isMaxWorkedDaysContractAvgCons_[p] = true;
+    }
+
+    if(!maxTotalWeekendsContractAvg_.empty()  && !weightTotalWeekendsContractAvg_.empty()){
+      sprintf(name, "maxWorkedWeekendContractAvgVar_P%d", p);
+      pModel_->createPositiveVar(&maxWorkedWeekendContractAvgVars_[p], name, weightTotalWeekendsContractAvg_[p]);
+
+      sprintf(name, "maxWorkedWeekendContractAvgCons_C%d", p);
+      vector<MyVar*> varsAvg3 = {maxWorkedWeekendContractAvgVars_[p]};
+      vector<double> coeffsAvg3 = {-1 };
+      pModel_->createLEConsLinear(&maxWorkedWeekendContractAvgCons_[p], name, maxTotalWeekendsContractAvg_[p],
+                                  varsAvg3, coeffsAvg3);
+
+      isMaxWorkedWeekendContractAvgCons_[p] = true;
+    }
+  }
+}
+
+int RotationMP::addMinMaxConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int nbDays, int nbWeekends){
+  int nbCons(0);
+  int p = theLiveNurses_[i]->pContract_->id_;
+  ++nbCons;
+  cons.push_back(minWorkedDaysCons_[i]);
+  coeffs.push_back(nbDays);
+  ++nbCons;
+  cons.push_back(maxWorkedDaysCons_[i]);
+  coeffs.push_back(nbDays);
+  if (isMinWorkedDaysAvgCons_[i]) {
+    ++nbCons;
+    cons.push_back(minWorkedDaysAvgCons_[i]);
+    coeffs.push_back(nbDays);
+  }
+  if (isMaxWorkedDaysAvgCons_[i]) {
+    ++nbCons;
+    cons.push_back(maxWorkedDaysAvgCons_[i]);
+    coeffs.push_back(nbDays);
+  }
+  if (isMinWorkedDaysContractAvgCons_[p]) {
+    ++nbCons;
+    cons.push_back(minWorkedDaysContractAvgCons_[p]);
+    coeffs.push_back(nbDays);
+  }
+  if (isMaxWorkedDaysContractAvgCons_[p]) {
+    ++nbCons;
+    cons.push_back(maxWorkedDaysContractAvgCons_[p]);
+    coeffs.push_back(nbDays);
+  }
+
+
+  if(nbWeekends){
+    ++nbCons;
+    cons.push_back(maxWorkedWeekendCons_[i]);
+    coeffs.push_back(nbWeekends);
+
+    if (isMaxWorkedWeekendAvgCons_[i]) {
+      ++nbCons;
+      cons.push_back(maxWorkedWeekendAvgCons_[i]);
+      coeffs.push_back(nbWeekends);
+    }
+
+    if (isMaxWorkedWeekendContractAvgCons_[p]) {
+      ++nbCons;
+      cons.push_back(maxWorkedWeekendContractAvgCons_[p]);
+      coeffs.push_back(nbWeekends);
+    }
+  }
+
+
+
+  return nbCons;
+}
+
 double RotationMP::getColumnsCost(CostType costType, bool justHistoricalCosts) const {
   double cost = 0;
   if(justHistoricalCosts) {
@@ -772,7 +1049,8 @@ double RotationMP::getColumnsCost(CostType costType, bool justHistoricalCosts) c
             + pModel_->getTotalCost(longRestingVars_)
             // cost for empty rotation: rotation for initial state followed by rest
             // -> already included in longRestingVars_
-            - getColumnsCost(costType, initialStateVars_);
+            - getColumnsCost(costType, initialStateVars_)
+            + getColumnsCost(REST_COST, pModel_->getActiveColumns()); // just initial rest costs;
 
   cost = getColumnsCost(costType, pModel_->getActiveColumns());
   if(costType == TOTAL_COST) // add rest costs + historical costs
@@ -813,6 +1091,18 @@ double RotationMP::getColumnsCost(CostType costType, const vector<MyVar*>& vars)
   return cost;
 }
 
+double RotationMP::getMinDaysCost() const {
+  return pModel_->getTotalCost(minWorkedDaysVars_);
+}
+
+double RotationMP::getMaxDaysCost() const {
+  return pModel_->getTotalCost(maxWorkedDaysVars_);
+}
+
+double RotationMP::getMaxWeekendCost() const {
+  return pModel_->getTotalCost(maxWorkedWeekendVars_);
+}
+
 Rotation RotationMP::computeInitStateRotation(LiveNurse* pNurse){
   //initialize rotation
   Rotation rot = Rotation(map<int,int>(), pNurse->id_);
@@ -846,6 +1136,12 @@ void RotationMP::stabUpdateBound(OsiSolverInterface* solver, double factor) {
       multiplyUbInSolver(stabWorkFlowMinus_[i][k], solver, factor);
       multiplyUbInSolver(stabWorkFlowPlus_[i][k], solver, factor);
     }
+
+    // stabilization variables corresponding to the global constraints of
+    // of the nurses
+    multiplyUbInSolver(stabMinWorkedDaysPlus_[i], solver, factor);
+    multiplyUbInSolver(stabMaxWorkedDaysMinus_[i], solver, factor);
+    multiplyUbInSolver(stabMaxWorkedWeekendMinus_[i], solver, factor);
   }
 }
 
@@ -864,6 +1160,15 @@ void RotationMP::stabUpdateCost(OsiSolverInterface* solver, double margin) {
       updateVarCostInSolver(stabWorkFlowMinus_[i][k], solver, -workFlowDual+margin);
       updateVarCostInSolver(stabWorkFlowPlus_[i][k], solver, workFlowDual+margin);
     }
+
+    // stabilization variables corresponding to the global constraints of
+    // of the nurses
+    double minWorkedDaysDual = pModel_->getDual(minWorkedDaysCons_[i], true);
+    double maxWorkedDaysDual = pModel_->getDual(maxWorkedDaysCons_[i], true);
+    double maxWorkedWeekendDual = pModel_->getDual(maxWorkedWeekendCons_[i], true);
+    updateVarCostInSolver(stabMinWorkedDaysPlus_[i], solver, minWorkedDaysDual+margin);
+    updateVarCostInSolver(stabMaxWorkedDaysMinus_[i], solver, -maxWorkedDaysDual+margin);
+    updateVarCostInSolver(stabMaxWorkedWeekendMinus_[i], solver, -maxWorkedWeekendDual+margin);
   }
 }
 
@@ -875,8 +1180,7 @@ void RotationMP::stabUpdateCost(OsiSolverInterface* solver, double margin) {
 bool RotationMP::stabCheckStoppingCriterion() const {
   if (!pModel_->getParameters().isStabilization_)
     return true;
-  if(!MasterProblem::stabCheckStoppingCriterion())
-    return false;
+
   for(int i=0; i<pScenario_->nbNurses_; i++)
     // stabilization variables corresponding to the flow constraints
     for(int k=0; k<pDemand_->nbDays_; ++k)
@@ -885,7 +1189,16 @@ bool RotationMP::stabCheckStoppingCriterion() const {
           pModel_->getVarValue(stabWorkFlowMinus_[i][k]) > EPSILON ||
           pModel_->getVarValue(stabWorkFlowPlus_[i][k]) > EPSILON)
         return false;
-  return true;
+
+  for(int i=0; i<pScenario_->nbNurses_; i++)
+    // stabilization variables corresponding to the global constraints of
+    // of the nurses
+    if (pModel_->getVarValue(stabMinWorkedDaysPlus_[i]) > EPSILON ||
+        pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]) >EPSILON ||
+        pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]) > EPSILON)
+      return false;
+
+  return MasterProblem::stabCheckStoppingCriterion();
 }
 
 // STAB: compute the lagrangian bound
@@ -902,6 +1215,12 @@ double RotationMP::computeLagrangianBound(double objVal,double sumRedCost) const
         stabSumCostValue += stabWorkFlowPlus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowPlus_[i][k]);
         stabSumCostValue += stabWorkFlowMinus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowMinus_[i][k]);
       }
+
+      // stabilization variables corresponding to the global constraints of
+      // of the nurses
+      stabSumCostValue += stabMinWorkedDaysPlus_[i]->getCost()*pModel_->getVarValue(stabMinWorkedDaysPlus_[i]);
+      stabSumCostValue += stabMaxWorkedDaysMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]);
+      stabSumCostValue += stabMaxWorkedWeekendMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]);
     }
   }
   return bound-stabSumCostValue;
@@ -924,5 +1243,14 @@ void RotationMP::stabResetBoundAndCost(OsiSolverInterface* solver, const SolverP
       updateVarUbInSolver(stabWorkFlowMinus_[i][k], solver, param.stabBoundIni_);
       updateVarUbInSolver(stabWorkFlowPlus_[i][k], solver, param.stabBoundIni_);
     }
+
+    // stabilization variables corresponding to the global constraints of
+    // of the nurses
+    updateVarCostInSolver(stabMinWorkedDaysPlus_[i], solver, param.stabCostIni_+param.stabCostMargin_);
+    updateVarCostInSolver(stabMaxWorkedDaysMinus_[i], solver, -param.stabCostIni_+param.stabCostMargin_);
+    updateVarCostInSolver(stabMaxWorkedWeekendMinus_[i], solver, -param.stabCostIni_+param.stabCostMargin_);
+    updateVarUbInSolver(stabMinWorkedDaysPlus_[i], solver, param.stabBoundIni_);
+    updateVarUbInSolver(stabMaxWorkedDaysMinus_[i], solver, param.stabBoundIni_);
+    updateVarUbInSolver(stabMaxWorkedWeekendMinus_[i], solver, param.stabBoundIni_);
   }
 }

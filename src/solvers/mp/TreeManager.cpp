@@ -7,6 +7,8 @@
 
 #include "solvers/mp/TreeManager.h"
 
+#include "solvers/mp/RotationMP.h"
+
 using std::string;
 using std::vector;
 using std::map;
@@ -437,6 +439,8 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 //-----------------------------------------------------------------------------
 
 bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
+  RotationMP* master = dynamic_cast<RotationMP*>(pMaster_);
+  if(!master) return false;
 
 	std::vector<std::pair<MyVar*,double> > candidates;
 	std::vector<MyVar*> integerCandidates;
@@ -446,7 +450,7 @@ bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
 	// The already integer ones are directly stored in a list of integer
 	// candidates
 	//
-	for (MyVar* pVar: pMaster_->getMinWorkedDaysVars()) {
+	for (MyVar* pVar: master->getMinWorkedDaysVars()) {
 		double varValue = pModel_->getVarValue(pVar);
 		if (varValue > EPSILON) {
 			// if the variable is already integer and has not been branched on yet
@@ -460,7 +464,7 @@ bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
 			candidates.push_back(std::pair<MyVar*,double>(pVar,varValue));
 		}
 	}
-	for (MyVar* pVar: pMaster_->getMaxWorkedDaysVars()) {
+	for (MyVar* pVar: master->getMaxWorkedDaysVars()) {
 		double varValue = pModel_->getVarValue(pVar);
 		if (varValue > EPSILON) {
 			// if the variable is already integer and has not been branched on yet
@@ -474,15 +478,15 @@ bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
 			candidates.push_back(std::pair<MyVar*,double>(pVar,varValue));
 		}
 	}
-	for (MyVar* pVar: pMaster_->getMaxWorkedWeekendVars()) {
+	for (MyVar* pVar: master->getMaxWorkedWeekendVars()) {
 		double varValue = pModel_->getVarValue(pVar);
 		if (varValue > EPSILON) {
 			candidates.push_back(std::pair<MyVar*,double>(pVar,varValue));
 		}
 	}
-	for (int day= 0; day < pMaster_->getNbDays(); day++) {
-		for (int shift = 0; shift < pMaster_->getNbShifts()-1; shift++) {
-			for (MyVar* pVar: pMaster_->getOptDemandVars()[day][shift]) {
+	for (int day= 0; day < master->getNbDays(); day++) {
+		for (int shift = 0; shift < master->getNbShifts()-1; shift++) {
+			for (MyVar* pVar: master->getOptDemandVars()[day][shift]) {
 				double varValue = pModel_->getVarValue(pVar);
 				if (varValue > EPSILON) {
 					// if the variable is already integer and has not been branched on yet

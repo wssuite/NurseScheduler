@@ -68,7 +68,9 @@ public:
 
     // Cost function for consecutive identical shifts
     //
-    double consDaysCost(int n) const;
+    int consDaysCost(int n) const;
+    int totalShiftCost(int n) const;
+    int totalWeekendCost(int n) const;
 
    // Display methods: toString + override operator<< (easier)
    //

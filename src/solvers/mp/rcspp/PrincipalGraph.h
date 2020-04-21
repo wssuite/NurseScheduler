@@ -10,7 +10,7 @@
 
 class SubProblem;
 
-class PrincipalGraph {
+class PrincipalGraph: public SubGraph {
   public:
     PrincipalGraph(int shift_type,  SubProblem* sp = nullptr);
     virtual ~PrincipalGraph();
@@ -35,6 +35,27 @@ class PrincipalGraph {
       return Tools::EMPTY_INT_VECTOR;
     }
 
+    // link two sub graphs together:
+    // 1. create an arc from the exit of inSubGraph to the current entrance
+    // 2. the entrance method should now returns the entrance of the  inSubGraph
+    void linkInSubGraph(SubGraph& inSubGraphs, int day=-1) override;
+
+    // link two sub graphs together:
+    // 1. create an arc from the current exit to the entrance of outSubGraph
+    // 2. the exit method should now returns the exit of the outSubGraph
+    void linkOutSubGraph(SubGraph& outSubGraph, int day=-1) override;
+
+
+    inline int entrance(int day=-1) const override {
+      if(inSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
+      return getNode(day, 0);
+    }
+
+    inline int exit(int day=-1) const override {
+      if(outSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
+      return getNode(day, max_cons_);
+    }
+
   protected:
     SubProblem* pSP_;
 
@@ -49,7 +70,13 @@ class PrincipalGraph {
     vector2D<int> arcsShiftToEndsequence_;	// Index: (day, nCons) of origin
     vector2D<int> arcsRepeatShift_;		// Index: (day, shift) of origin
 
+    // in subgraphs
+    std::vector<SubGraph*> inSubGraphs_, outSubGraphs_;
+
     void build();
+
+    // return the right vector of consumption based on the day (if < 0, not performing any shift)
+    std::vector<int> getConsumption(int day=-1) const;
 };
 
 
