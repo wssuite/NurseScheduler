@@ -157,14 +157,14 @@ class SubProblem {
     // Returns true if the corresponding shift has no maximum limit of consecutive worked days
     //
     inline bool isUnlimited(int shift_type) const {
-      return pScenario_->maxConsShiftsOf(shift_type) >= nDays_ + maxOngoingDaysWorked_
-             or pScenario_->maxConsShiftsOf(shift_type) >= NB_SHIFT_UNLIMITED;
+      int maxCons = shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
+      return maxCons >= std::min(nDays_ + maxOngoingDaysWorked_, NB_SHIFT_UNLIMITED);
     }
 
     inline int maxCons(int shift_type) const {
       if (isUnlimited(shift_type))
-        return pScenario_->minConsShiftsOf(shift_type);
-      return pScenario_->maxConsShiftsOf(shift_type);
+        return shift_type ? pScenario_->minConsShiftsOf(shift_type) : pContract_->minConsDaysOff_;
+      return shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
     }
 
     inline int addSingleNode(NodeType type, std::vector<int> lbs = {}, std::vector<int> ubs = {}) {
@@ -173,6 +173,11 @@ class SubProblem {
       if (ubs.empty())
         ubs = defaultUBs();
       return g_.addSingleNode(type, lbs, ubs);
+    }
+
+    inline int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
+                            ArcType type, int day, int shift) {
+      return g_.addSingleArc(origin, destination, baseCost, consumptions, type, day, {shift});
     }
 
     inline int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
@@ -186,7 +191,7 @@ class SubProblem {
 
     std::vector<int> defaultUBs() const {
       return {maxRotationLength_, CDMin_,
-              pScenario_->nbDays(), pContract_->minTotalShifts_,
+              maxTotalDuration_, pContract_->minTotalShifts_,
               pScenario_->nbWeeks()};
     }
 
@@ -288,10 +293,10 @@ class SubProblem {
     vector2D<double> preferencesCosts_;
 
     int CDMin_;  // Minimum number of consecutive days worked for free
-    int daysMin_;      // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwis
+    int minConsDays_;      // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwis
     int nLabels_; // Number of labels to use
     int maxRotationLength_;  // MAXIMUM LENGTH OF A ROTATION (in consecutive worked days)
-
+    int maxTotalDuration_;  // Maximum time duration of a roster
 
     //-----------------------
     // THE GRAPH
@@ -302,10 +307,11 @@ class SubProblem {
     std::vector<PrincipalGraph> principalGraphs_;
     vector2D<PriceLabelGraph> priceLabelsGraphs_;
     vector4D<int> arcsFromSource_;    // Index: (shiftType, day, n, shift) of destination
+    vector3D<int> principalToPrincipal_; // Index: (shiftType, shiftType, day)
     vector2D<int> arcsPrincipalToPriceLabelsIn_;  // Index: (shiftType, day) of origin
 
     // Creates all nodes of the rcspp (including resource window)
-    void createNodes();
+    virtual void createNodes();
 
     // Creates all arcs of the rcspp
     void createArcs();
@@ -340,6 +346,8 @@ class SubProblem {
     void resetSolutions();
 
     void updatedMaxRotationLengthOnNodes(int maxRotationLentgh);
+
+    std::vector<int> startConsumption(int day, std::vector<int> shifts) const;
 
     // FORBIDDEN ARCS AND NODES
     //

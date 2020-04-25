@@ -5,7 +5,7 @@
 #ifndef NURSESCHEDULER_RCGRAPH_H
 #define NURSESCHEDULER_RCGRAPH_H
 
-//#include "tools/MyTools.h"
+#include "tools/MyTools.h"
 #include <boost/graph/adjacency_list.hpp>
 #include "boost/config.hpp"
 #include <boost/graph/r_c_shortest_paths.hpp>
@@ -177,6 +177,8 @@ struct spp_res_cont{
     //
     std::vector<int> label_values;
 
+    int pred_arc = -1;
+
     int label_value(int l) const {
       return label_values.at(l);
     }
@@ -198,7 +200,14 @@ class ref_spp{
 // Dominance function model
 class dominance_spp{
   public:
+    dominance_spp(const std::vector<bool>& labelOrder, const std::vector<int>& labelsMinLevel):
+      labelsOrder_(labelOrder), labelsMinLevel_(labelsMinLevel) {}
     inline bool operator()( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) const;
+  private:
+    std::vector<bool> labelsOrder_;
+    // if label value is below (or above based on order) this level, label cannot be dominated
+    // this is necessary as labels pricing could be even 0 for dominated label and label  could be reseted
+    std::vector<int> labelsMinLevel_;
 };
 
 //----------------------------------------------------------------
@@ -331,7 +340,8 @@ class RCGraph {
     virtual ~RCGraph();
 
     std::vector<RCSolution> solve(int nLabels, double maxReducedCostBound,
-        std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks={});
+                                  const std::vector<int>& labelsMinLevel,
+                                  std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks={});
 
     RCSolution solution(
         const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
@@ -352,7 +362,9 @@ class RCGraph {
 
     // Get info from the node ID
     inline int nodesSize() const { return nNodes_; }
-    inline const Vertex_Properties & node(int v) const { return get( boost::vertex_bundle, g_ )[v]; }
+    inline const Vertex_Properties & node(int v) const {
+      if(v == -1) Tools::throwError("Cannot retrieve a node for index -1;");
+      return get( boost::vertex_bundle, g_ )[v]; }
     inline NodeType nodeType(int v) const {return get( &Vertex_Properties::type, g_)[v];}
     inline const std::vector<int> & nodeLBs(int v) const {return get( &Vertex_Properties::lbs, g_)[v];}
     inline const std::vector<int> & nodeUBs(int v) const {return get( &Vertex_Properties::ubs, g_)[v];}
@@ -379,6 +391,7 @@ class RCGraph {
     // Get info with the arc ID
     inline int arcsSize() const { return nArcs_; }
     inline const Arc_Properties & arc(int a) const {
+      if(a == -1) Tools::throwError("Cannot retrieve an arc for index -1;");
       return get( boost::edge_bundle, g_ )[arcsDescriptors_[a]];
     }
     inline ArcType arcType(int a) const {return get( &Arc_Properties::type, g_, arcsDescriptors_[a]);}
@@ -415,14 +428,16 @@ class RCGraph {
 
     // Print functions.
     //
-    void printGraph() const;
-    std::string printNode(int v) const ;
-    void printAllNodes() const ;
-    std::string printArc(int a) const ;
-    void printAllArcs() const;
+    void printGraph(int nLabel=-1, int nShifts=1) const;
+    std::string printNode(int v, int nLabel=-1) const ;
+    void printAllNodes(int nLabel=-1) const ;
+    std::string printArc(int a, int nLabel=-1, int nShifts=1) const ;
+    void printAllArcs(int nLabel=-1, int nShifts=1) const;
     std::string shortNameNode(int v) const;
     std::string printSummaryOfGraph() const;
-    void printPath(std::vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_res_cont ressource) const;
+    void printPath(std::ostream& out,
+        std::vector< boost::graph_traits<Graph>::edge_descriptor > path,
+        spp_res_cont ressource) const;
 
     // Test function for Shortest Path Problem with Resource Constraint
     //

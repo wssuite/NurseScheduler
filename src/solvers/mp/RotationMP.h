@@ -18,83 +18,57 @@
 //
 //-----------------------------------------------------------------------------
 
-struct Rotation: Pattern {
+struct RotationPattern: Pattern {
 
     // Specific constructors and destructors
     //
-    Rotation(std::map<int,int> shifts, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
-        Pattern(nurseId, -1, shifts.size()),
-        shifts_(shifts), id_(s_count), cost_(cost),
+    RotationPattern(std::map<int,int> shifts, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
+        Pattern(-1, shifts.size(), nurseId, cost, dualCost), shifts_(shifts),
         consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-        dualCost_(dualCost), timeDuration_(shifts.size())
+        timeDuration_(shifts.size())
     {
-      ++s_count;
       firstDay_ = INT_MAX;
       for(auto itS = shifts.begin(); itS != shifts.end(); ++itS)
         if(itS->first < firstDay_) firstDay_ = itS->first;
     };
 
-    Rotation(int firstDay, std::vector<int> shiftSuccession, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
-        Pattern(nurseId, firstDay, shiftSuccession.size()),
-        id_(s_count), cost_(cost),
+    RotationPattern(int firstDay, std::vector<int> shiftSuccession, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
+        Pattern(firstDay, shiftSuccession.size(), nurseId, cost, dualCost),
         consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-        dualCost_(dualCost), timeDuration_(shiftSuccession.size())
+        timeDuration_(shiftSuccession.size())
     {
-      ++s_count;
       for(int k=0; k<length_; k++)
         shifts_[firstDay+k] = shiftSuccession[k];
     }
 
-    Rotation(const std::vector<double>& compactPattern) :
+    RotationPattern(const std::vector<double>& compactPattern) :
         Pattern(compactPattern),
-        id_(s_count), cost_(DBL_MAX),
         consShiftsCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0), initRestCost_(0),
-        dualCost_(DBL_MAX), timeDuration_((int)compactPattern.back())
+        timeDuration_((int)compactPattern.back())
     {
-      ++s_count;
       for(int k=0; k<length_; k++)
         shifts_[firstDay_+k] = (int)compactPattern[k+3];
     }
 
-    Rotation(const Rotation& rotation, int nurseId) :
-        Pattern(nurseId, rotation.firstDay_, rotation.length_),
-        shifts_(rotation.shifts_), id_(rotation.id_), cost_(rotation.cost_),
+    RotationPattern(const RotationPattern& rotation, int nurseId) :
+        Pattern(rotation, nurseId), shifts_(rotation.shifts_),
         consShiftsCost_(rotation.consShiftsCost_), consDaysWorkedCost_(rotation.consDaysWorkedCost_),
         completeWeekendCost_(rotation.completeWeekendCost_), preferenceCost_(rotation.preferenceCost_), initRestCost_(rotation.initRestCost_),
-        dualCost_(rotation.dualCost_), timeDuration_(rotation.timeDuration_)
-    {
-      if(rotation.nurseId_ != nurseId_){
-        cost_ = DBL_MAX;
-        dualCost_ = DBL_MAX;
-      }
-    }
+        timeDuration_(rotation.timeDuration_) { }
 
-    ~Rotation(){}
+    ~RotationPattern(){}
 
     int getShift(int day) const override {
       return shifts_.at(day);
     }
 
-    //count rotations
-    //
-    static unsigned int s_count;
-
     // Shifts to be performed
     //
     std::map<int,int> shifts_;
 
-    //Id of the rotation
-    //
-    long id_;
-
     // Cost
     //
-    double cost_;
     double consShiftsCost_ , consDaysWorkedCost_, completeWeekendCost_, preferenceCost_, initRestCost_ ;
-
-    // Dual cost as found in the subproblem
-    //
-    double dualCost_;
 
     // Level of the branch and bound tree where the rotation has been generated
     //
@@ -120,27 +94,16 @@ struct Rotation: Pattern {
     //
     void checkDualCost(DualCosts& costs);
 
-    // calcule le nombre d'heures d'une rotation
+    std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const override;
+
+  private:
+    // compute the time duration of the rotation (number of days, cumulative number of hours, etc)
     void computeTimeDuration(Scenario* pScenario) {
       timeDuration_ = 0;
       for (std::pair<int, int> p: shifts_) {
         timeDuration_ += pScenario->timeDurationToWork_[p.second];
       }
     }
-
-    std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const override;
-
-    //Compare rotations on index
-    //
-    static bool compareId(const Rotation& rot1, const Rotation& rot2);
-
-    //Compare rotations on cost
-    //
-    static bool compareCost(const Rotation& rot1, const Rotation& rot2);
-
-    //Compare rotations on dual cost
-    //
-    static bool compareDualCost(const Rotation& rot1, const Rotation& rot2);
 };
 
 //-----------------------------------------------------------------------------
@@ -205,10 +168,10 @@ class RotationMP: public MasterProblem {
     //Create a new rotation variable
     //add the correct constraints and coefficients for the nurse i working on a rotation
     //if s=-1, the nurse works on all shifts
-    MyVar* addRotation(const Rotation& rotation, const char* baseName, bool coreVar = false);
+    MyVar* addRotation(const RotationPattern& rotation, const char* baseName, bool coreVar = false);
 
     //compute and add the last rotation finishing on the day just before the first one
-    Rotation computeInitStateRotation(LiveNurse* pNurse);
+    RotationPattern computeInitStateRotation(LiveNurse* pNurse);
 
     /* Build each set of constraints - Add also the coefficient of a column for each set */
     void buildRotationCons(const SolverParam& parameters);

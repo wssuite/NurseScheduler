@@ -69,6 +69,7 @@ public:
     // Cost function for consecutive identical shifts
     //
     int consDaysCost(int n) const;
+    int consDaysOffCost(int n) const;
     int totalShiftCost(int n) const;
     int totalWeekendCost(int n) const;
 
@@ -251,6 +252,11 @@ public:
    int maxConsDaysOff() const {return pContract_->maxConsDaysOff_;}
    int maxTotalWeekends() const {return pContract_->maxTotalWeekends_;}
    int needCompleteWeekends() const {return pContract_->needCompleteWeekends_;}
+
+    int consDaysCost(int n) const { return pContract_->consDaysCost(n); }
+    int consDaysOffCost(int n) const { return pContract_->consDaysOffCost(n); }
+    int totalShiftCost(int n) const { return pContract_->totalShiftCost(n); }
+    int totalWeekendCost(int n) const { return pContract_->totalWeekendCost(n); }
 
    // Avanced getters
    //

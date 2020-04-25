@@ -1,0 +1,160 @@
+//
+// Created by antoine legrain on 2020-04-22.
+//
+
+#ifndef NURSESCHEDULER_ROSTERMP_H
+#define NURSESCHEDULER_ROSTERMP_H
+
+#include "MasterProblem.h"
+#include "solvers/mp/rcspp/RCGraph.h"
+
+//-----------------------------------------------------------------------------
+//
+//  S t r u c t   R o s t e r C o l u m n
+//
+//  A rotation is a set of shifts for a set of consecutive days.
+//  It has a cost and a dual cost (tbd).
+//
+//-----------------------------------------------------------------------------
+
+struct RosterPattern: Pattern {
+
+    // Specific constructors and destructors
+    //
+    RosterPattern(std::vector<int> shifts, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX) :
+        Pattern(0, shifts.size(), nurseId, cost, dualCost), shifts_(shifts),
+        consShiftsCost_(0), consDaysOffCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0),
+        initRestCost_(0), initWorkCost_(0), minDaysCost_(0), maxDaysCost_(0), maxWeekendCost_(0),
+        timeDuration_(-1), nbWeekends_(-1) { };
+
+    RosterPattern(const std::vector<double>& compactPattern) :
+        Pattern(compactPattern), shifts_(length_),
+        consShiftsCost_(0), consDaysOffCost_(0), consDaysWorkedCost_(0), completeWeekendCost_(0), preferenceCost_(0),
+        initRestCost_(0), initWorkCost_(0), minDaysCost_(0), maxDaysCost_(0), maxWeekendCost_(0),
+        timeDuration_((int)compactPattern[compactPattern.size()-2]), nbWeekends_((int)compactPattern.back())
+    {
+      for(int k=0; k<length_; k++)
+        shifts_[firstDay_+k] = (int)compactPattern[k+3];
+    }
+
+    RosterPattern(const RosterPattern& roster, int nurseId) :
+        Pattern(roster, nurseId), shifts_(roster.shifts_),
+        consShiftsCost_(roster.consShiftsCost_), consDaysOffCost_(roster.consDaysOffCost_), consDaysWorkedCost_(roster.consDaysWorkedCost_),
+        completeWeekendCost_(roster.completeWeekendCost_), preferenceCost_(roster.preferenceCost_),
+        initRestCost_(roster.initRestCost_), initWorkCost_(roster.initWorkCost_),
+        minDaysCost_(roster.minDaysCost_), maxDaysCost_(roster.maxDaysCost_), maxWeekendCost_(roster.maxWeekendCost_),
+        timeDuration_(roster.timeDuration_), nbWeekends_(roster.nbWeekends_) { }
+
+    ~RosterPattern(){}
+
+    int getShift(int day) const override {
+      return shifts_[day];
+    }
+
+
+
+    // Shifts to be performed
+    //
+    std::vector<int> shifts_;
+
+    // Cost
+    //
+    double consShiftsCost_ , consDaysOffCost_, consDaysWorkedCost_, completeWeekendCost_, preferenceCost_,
+            initRestCost_, initWorkCost_, minDaysCost_, maxDaysCost_, maxWeekendCost_;
+
+    // Level of the branch and bound tree where the rotation has been generated
+    //
+    int treeLevel_=0;
+
+    // Time duration (in a certain unit: day, hours, half-hours, ...)
+    int timeDuration_;
+    int nbWeekends_;
+
+    //compact the rotation in a vector
+    std::vector<double> getCompactPattern() const override {
+      std::vector<double> pattern = Pattern::getCompactPattern();
+      pattern.insert(pattern.end(), shifts_.begin(), shifts_.end());
+      pattern.push_back(timeDuration_);
+      pattern.push_back(nbWeekends_);
+      return pattern;
+    }
+
+    //Compute the cost of a rotation
+    //
+    void computeCost(Scenario* pScenario, Preferences* pPreferences, const std::vector<LiveNurse*>& liveNurses);
+
+    //Compute the dual cost of a rotation
+    //
+    void checkDualCost(DualCosts& costs, Scenario* Scenario);
+
+
+    std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const override;
+
+    std::string costsToString(bool initialCosts = true) const;
+};
+
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   M a s t e r P r o b l e m
+//
+// Build and solve the master problem of the column generation scheme
+//
+//-----------------------------------------------------------------------------
+class RosterMP: public MasterProblem {
+  public:
+    RosterMP(Scenario* pScenario, Demand* pDemand, Preferences* pPreferences, std::vector<State> *pInitState,
+               MySolverType solver);
+    virtual ~RosterMP();
+
+    PPattern getPattern(const std::vector<double>& pattern) const override;
+
+    MyVar* addColumn(int nurseId, const RCSolution& solution) override;
+
+    //get a reference to the restsPerDay_ for a Nurse
+    inline const std::vector<MyVar*>& getRestVarsPerDay(LiveNurse* pNurse, int day) const override {
+      return restsPerDay_[pNurse->id_][day];
+    }
+
+  protected:
+    // Main method to build the rostering problem for a given input
+    void build(const SolverParam& parameters) override ;
+
+    // Provide an initial solution to the solver. If empty, add artificial columns
+    void initializeSolution(const std::vector<Roster>& solution) override ;
+
+    //Create a new rotation variable
+    //add the correct constraints and coefficients for the nurse i working on a rotation
+    //if s=-1, the nurse works on all shifts
+    MyVar* addRoster(const RosterPattern& rotation, const char* baseName, bool coreVar = false);
+
+    /* Build each set of constraints - Add also the coefficient of a column for each set */
+    void buildAssignmentCons(const SolverParam &parameters);
+    int addRosterConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i);
+
+    int addRosterToRestVars(MyVar* var, const RosterPattern& roster);
+
+    // return the costs of all active columns associated to the type
+    double getColumnsCost(CostType costType, bool historicalCosts) const override ;
+    double getColumnsCost(CostType costType, const std::vector<MyVar*>& vars, bool historicalCosts) const;
+
+    double getMinDaysCost() const override;
+    double getMaxDaysCost() const override;
+    double getMaxWeekendCost() const override;
+
+    /* retrieve the dual values */
+    double getConstantDualvalue(LiveNurse* pNurse) const override;
+
+    /*
+    * Variables
+    */
+    vector3D<MyVar*> restsPerDay_; //stores all the arcs that are resting on a day for each nurse
+
+    /*
+    * Constraints
+    */
+    // Ensure that is nurse has a roster assigned to her
+    std::vector<MyCons*> assignmentCons_;
+};
+
+
+#endif //NURSESCHEDULER_ROSTERMP_H

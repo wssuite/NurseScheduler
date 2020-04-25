@@ -8,6 +8,8 @@
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/rcspp/ShortSP.h"
+#include "solvers/mp/rcspp/RosterSP.h"
+#include "solvers/mp/RosterMP.h"
 
 
 /* namespace usage */
@@ -28,6 +30,9 @@ RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& p
 	// Initialize the parameters
 	initPricerParameters(param);
 
+	// set rosterSubproblem_
+  rosterSubproblem_ = dynamic_cast<RosterMP*>(master);
+
 	/* sort the nurses */
 	//   random_shuffle( nursesToSolve_.begin(), nursesToSolve_.end());
 }
@@ -45,7 +50,7 @@ void RCPricer::initPricerParameters(const SolverParam& param){
 	nbSubProblemsToSolve_ = param.sp_nbnursestoprice_;
 	defaultSubprobemStrategy_ = param.sp_default_strategy_;
 	secondchanceSubproblemStrategy_ = param.sp_secondchance_strategy_;
-    shortSubproblem_ = param.sp_short_;
+	shortSubproblem_ = param.sp_short_;
 	currentSubproblemStrategy_ = defaultSubprobemStrategy_;
 }
 
@@ -56,7 +61,6 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom) {
 
 	// Reset all rotations, columns, counters, etc.
 	resetSolutions();
-
 
 	// count and store the nurses whose subproblems produced rotations.
 	// DBG: why minDualCost? Isn't it more a reduced cost?
@@ -178,14 +182,16 @@ SubProblem* RCPricer::retriveSubproblem(LiveNurse* pNurse){
 	auto it = subProblems_.find(pNurse->pContract_);
 	// Each contract has one subproblem. If it has not already been created, create it.
 	if( it == subProblems_.end() ){
-	  if (shortSubproblem_)
+    if(rosterSubproblem_)
+      subProblem = new RosterSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+	  else if (shortSubproblem_)
 	    subProblem = new ShortSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
 	  else
 	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+//
 	  // then build the rcspp
 	  subProblem->build();
 	    
-	  //	  subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
 		subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
 	} else {
 		subProblem = it->second;
@@ -201,11 +207,18 @@ int RCPricer::addColumnsToMaster(int nurseId){
 	// SECOND, ADD THE ROTATIONS TO THE MASTER PROBLEM (in the previously computed order)
 	int nbcolumnsAdded = 0;
 	for(const RCSolution& sol: newSolutionsForNurse_){
+#ifdef DBG
+	  std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+#endif
 		allNewColumns_.emplace_back(pMaster_->addColumn(nurseId, sol));
 		++nbcolumnsAdded;
 		if(nbcolumnsAdded >= nbMaxColumnsToAdd_)
 			break;
 	}
+
+#ifdef DBG
+  std::cerr << "---------------------------------------------------------------" << std::endl;
+#endif
 
   return nbcolumnsAdded;
 }

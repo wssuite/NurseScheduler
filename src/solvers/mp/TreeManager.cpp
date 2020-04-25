@@ -439,8 +439,9 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 //-----------------------------------------------------------------------------
 
 bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
-  RotationMP* master = dynamic_cast<RotationMP*>(pMaster_);
-  if(!master) return false;
+  auto master = dynamic_cast<RotationMP*>(pMaster_);
+  if(!master)
+    Tools::throwError("branchOnPenalty is implemented only for a RptationMP master problem.");
 
 	std::vector<std::pair<MyVar*,double> > candidates;
 	std::vector<MyVar*> integerCandidates;
@@ -461,7 +462,7 @@ bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
 				}
 				continue;
 			}
-			candidates.push_back(std::pair<MyVar*,double>(pVar,varValue));
+			candidates.emplace_back(std::pair<MyVar*,double>(pVar,varValue));
 		}
 	}
 	for (MyVar* pVar: master->getMaxWorkedDaysVars()) {
@@ -475,13 +476,13 @@ bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
 				}
 				continue;
 			}
-			candidates.push_back(std::pair<MyVar*,double>(pVar,varValue));
+			candidates.emplace_back(std::pair<MyVar*,double>(pVar,varValue));
 		}
 	}
 	for (MyVar* pVar: master->getMaxWorkedWeekendVars()) {
 		double varValue = pModel_->getVarValue(pVar);
 		if (varValue > EPSILON) {
-			candidates.push_back(std::pair<MyVar*,double>(pVar,varValue));
+			candidates.emplace_back(std::pair<MyVar*,double>(pVar,varValue));
 		}
 	}
 	for (int day= 0; day < master->getNbDays(); day++) {
@@ -497,7 +498,7 @@ bool DiveBranchingRule::branchOnPenalty(MyBranchingCandidate& candidate) {
 						}
 						continue;
 					}
-					candidates.push_back(std::pair<MyVar*,double>(pVar,varValue));
+					candidates.emplace_back(std::pair<MyVar*,double>(pVar,varValue));
 				}
 			}
 		}

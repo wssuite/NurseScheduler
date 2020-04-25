@@ -38,6 +38,32 @@ using std::cout;
 using std::endl;
 
 
+
+// P a t t e r n   s t a t i c   m e t h o d s
+
+//Compare rotations on index
+//
+bool Pattern::compareId(Pattern* pat1, Pattern* pat2){
+  return ( pat1->id_ < pat2->id_ );
+}
+
+//Compare rotations on cost
+//
+bool Pattern::compareCost(Pattern* pat1, Pattern* pat2){
+  if(pat1->cost_ == DBL_MAX || pat2->cost_ == DBL_MAX)
+    Tools::throwError("Pattern cost not computed.");
+  return ( pat1->cost_ < pat2->cost_ );
+}
+
+//Compare rotations on dual cost
+//
+bool Pattern::compareDualCost(Pattern* pat1, Pattern* pat2){
+  if(pat1->dualCost_ == DBL_MAX || pat2->dualCost_ == DBL_MAX)
+    Tools::throwError("Pattern dual cost not computed.");
+  return ( pat1->dualCost_ < pat2->dualCost_ );
+}
+
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   M a s t e r P r o b l e m
@@ -515,7 +541,8 @@ void MasterProblem::printCurrentSol(){
 // build a DualCosts structure
 DualCosts MasterProblem::buildDualCosts(LiveNurse*  pNurse) const {
   return DualCosts(getShiftsDualValues(pNurse), getStartWorkDualValues(pNurse),
-      getEndWorkDualValues(pNurse), getWorkedWeekendDualValue(pNurse));
+      getEndWorkDualValues(pNurse), getWorkedWeekendDualValue(pNurse),
+      getConstantDualvalue(pNurse));
 }
 
 vector2D<double> MasterProblem::getShiftsDualValues(LiveNurse*  pNurse) const {
@@ -537,6 +564,10 @@ vector<double> MasterProblem::getEndWorkDualValues(LiveNurse* pNurse) const {
 }
 
 double MasterProblem::getWorkedWeekendDualValue(LiveNurse* pNurse) const{
+  return 0;
+}
+
+double MasterProblem::getConstantDualvalue(LiveNurse* pNurse) const{
   return 0;
 }
 
@@ -644,22 +675,25 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 	}
 }
 
-int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, int i, int k, int s){
+int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons*>& cons, vector<double>& coeffs, const Pattern& pat) const{
 	int nbCons(0);
 
-	int p(theLiveNurses_[i]->pPosition_->id_);
-	if(s==-1){
-		for(int s0=1; s0<pScenario_->nbShifts_; ++s0){
-			++nbCons;
-			cons.push_back(numberOfNursesByPositionCons_[p][k][s0-1]);
-			coeffs.push_back(1.0);
-		}
-	}
-	else{
-		++nbCons;
-		cons.push_back(numberOfNursesByPositionCons_[p][k][s-1]);
-		coeffs.push_back(1.0);
-	}
+	int p = theLiveNurses_[pat.nurseId_]->pPosition()->id_;
+  for(int k=pat.firstDay_; k<pat.firstDay_+pat.length_; ++k) {
+    int s = pat.getShift(k);
+    if(s==-1){
+      for(int s0=1; s0<pScenario_->nbShifts_; ++s0){
+        ++nbCons;
+        cons.push_back(numberOfNursesByPositionCons_[p][k][s0-1]);
+        coeffs.push_back(1.0);
+      }
+    }
+    else if (pScenario_->isWorkShift(s)) { // if work
+      ++nbCons;
+      cons.push_back(numberOfNursesByPositionCons_[p][k][s-1]);
+      coeffs.push_back(1.0);
+    }
+  }
 
 	return nbCons;
 }

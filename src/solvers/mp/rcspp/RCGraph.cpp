@@ -23,7 +23,7 @@ std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
       std::sprintf(buffer, "|%2d:%2d", shiftIDToShiftTypeID[s], s);
       buff << buffer;
     }
-  buff <<  buffer  <<  "|" << std::endl;
+  buff << "|" << std::endl;
   return buff.str();
 }
 
@@ -39,8 +39,19 @@ std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
   if (vert_prop.forbidden)
     return false;
   new_cont.cost = old_cont.cost + arc_prop.cost;
+  new_cont.pred_arc = arc_prop.num;
+
+#ifdef DBG
+  if(arc_prop.num == 68)
+    assert(old_cont.size() == new_cont.size());
+#endif
 
   for (int l = 0; l < old_cont.size(); ++l) {
+#ifdef DBG
+    assert(old_cont.size() == new_cont.size());
+    int old_ub = get(boost::vertex_bundle, g)[source(ed, g)].ub(l);
+    assert(old_cont.label_value(l) <= old_ub);
+#endif
     int lv = std::max(vert_prop.lb(l), old_cont.label_value(l) + arc_prop.consumption(l));
     if (lv > vert_prop.ub(l))
       return false;
@@ -54,12 +65,40 @@ std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
 bool dominance_spp::operator()( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) const {
   // must be "<=" here!!!
   // must NOT be "<"!!!
-  if (res_cont_1.cost > res_cont_2.cost) return false;
-  for (int l = 0; l < res_cont_1.size(); ++l)
-    if (labelsOrder.at(l)) { // dominance done with descending order (lower the better)
-      if (res_cont_1.label_value(l) > res_cont_2.label_value(l)) return false;
-    } else if (res_cont_1.label_value(l) < res_cont_2.label_value(l)) return false;
-  return true;
+  if (res_cont_1.cost > res_cont_2.cost + EPSILON) return false;
+//  for (int l = 0; l < res_cont_1.size(); ++l)
+//    if (labelsOrder.at(l)) { // dominance done with descending order (lower the better)
+//      if (res_cont_1.label_value(l) > res_cont_2.label_value(l)) return false;
+//    } else if (res_cont_1.label_value(l) < res_cont_2.label_value(l)) return false;
+//  return false;
+//  return true;
+  if(res_cont_1.pred_arc == 68)
+    int bb = 1;
+  bool biggerThanMinLevel = false,
+       equalLevels = true;
+  for (int l = 0; l < res_cont_1.size(); ++l) {
+    // if label is increasing -> can dominate after a certain level
+    // if label is decreasing -> cannot dominate (min level should be an ub)
+    // res_cont_1 dominates res_cont_2 only if a strict dominance is observed:
+    // 1- cost1 < cost2 at epsilon and all the labels are smaller
+    // 2- cost1 == cost2 at epsilon and it exists one label1 < label2 with label2 > minLevel (significant)
+    int label1 = res_cont_1.label_value(l),
+        label2 = res_cont_2.label_value(l),
+        minLevel = labelsMinLevel_.at(l);
+    // 1. label1 > label2 -> cannot be dominated
+    if (label1 > label2) return false;
+    // 2.a. if not equal
+    if (label1 < label2) {
+      equalLevels = false;
+      // 2.b. check if label is bigger than a certain level
+      // below this level, the label value does not imply bigger cost
+      if (label2 > minLevel)
+        biggerThanMinLevel = true;
+    }
+  }
+
+  if(equalLevels) return true;
+  return biggerThanMinLevel;
   // this is not a contradiction to the documentation
   // the documentation says:
   // "A label $l_1$ dominates a label $l_2$ if and only if both are resident
@@ -82,7 +121,8 @@ RCGraph::RCGraph(int nDays): nDays_(nDays), nNodes_(0), nArcs_(0) {}
 RCGraph::~RCGraph() {}
 
 std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
-    std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks) {
+                                       const std::vector<int>& labelsMinLevel,
+                                       std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks) {
   if(sinks.empty()) sinks = sinks_;
 
   std::vector< std::vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spp;
@@ -91,6 +131,7 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
   // 1 - solve the resource constraints shortest path problem
   //
   std::vector<int> initial_label_values(nLabels);
+  dominance_spp dominance(labelsOrder, labelsMinLevel);
   // if only one  sink node
   if(sinks.size() == 1)
     r_c_shortest_paths(
@@ -103,7 +144,7 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
         pareto_opt_rcs_spp,
         spp_res_cont (0, initial_label_values),
         ref_spp(),
-        dominance_spp(),
+        dominance,
         std::allocator< boost::r_c_shortest_paths_label< Graph, spp_res_cont> >(),
         boost::default_r_c_shortest_paths_visitor() );
   else r_c_shortest_paths_dispatch_several_sinks( g_,
@@ -116,7 +157,7 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
                                              true,
                                              spp_res_cont (0, initial_label_values),
                                              ref_spp(),
-                                             dominance_spp(),
+                                             dominance,
                                              std::allocator< boost::r_c_shortest_paths_label< Graph, spp_res_cont> >(),
                                              boost::default_r_c_shortest_paths_visitor() );
 
@@ -156,6 +197,7 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
           std::cerr << "Not a feasible path." << std::endl;
         if( !b_correctly_extended )
           std::cerr << "Not correctly extended." << std::endl;
+        printPath(std::cerr, opt_solutions_spp[p], pareto_opt_rcs_spp[p]);
       }
 
     }
@@ -167,7 +209,7 @@ RCSolution RCGraph::solution(
     const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
     const spp_res_cont& resource){
 #ifdef DBG
-  printPath(path, resource);
+//  printPath(std::cout, path, resource);
 #endif
 
   RCSolution sol(resource.cost);
@@ -223,7 +265,7 @@ void RCGraph::resetAuthorizations() {
 }
 
 // Print the rcspp
-void RCGraph::printGraph() const {
+void RCGraph::printGraph(int nLabel, int nShifts) const {
 
   // TITLE
   std::cout << "# " << std::endl;
@@ -232,11 +274,11 @@ void RCGraph::printGraph() const {
 
   // THE NODES
   //
-  printAllNodes();
+  printAllNodes(nLabel);
 
   // THE ARCS
   //
-  printAllArcs();
+  printAllArcs(nLabel, nShifts);
 
   // SUMMARY
   //
@@ -247,46 +289,65 @@ void RCGraph::printGraph() const {
 }
 
 // Prints the line of a node
-std::string RCGraph::printNode(int v) const {
+std::string RCGraph::printNode(int v, int nLabel) const {
   std::stringstream rep;
   const Vertex_Properties& vert_prop = node(v);
-  rep << "# NODE  " << v << " \t" << nodeTypeName[vert_prop.type];
-  for(int l=0; l<vert_prop.size(); ++l)
-    rep << " \t" << labelName[l] << "=[" << vert_prop.lb(l) << ", " << vert_prop.ub(l) << "]";
-  rep << "\t" << shortNameNode(v);
+  char buff[255];
+  sprintf(buff, "# NODE   %5d  %15s", v, nodeTypeName[vert_prop.type].c_str());
+
+  if(nLabel==-1) nLabel = vert_prop.size();
+  for(int l=0; l<nLabel; ++l) {
+    sprintf(buff, "  %13s=[%3d,%3d]", labelName[l].c_str(), vert_prop.lb(l), vert_prop.ub(l));
+    rep << buff;
+  }
+  rep << "  " << shortNameNode(v);
   return rep.str();
 }
 
 // Prints all nodes
-void RCGraph::printAllNodes() const {
+void RCGraph::printAllNodes(int nLabel) const {
   std::cout << "#   NODES (" << nNodes_ << ")" << std::endl;
-  for(int v=0; v<nNodes_; v++) std::cout << printNode(v) << std::endl;
+  for(int v=0; v<nNodes_; v++) std::cout << printNode(v, nLabel) << std::endl;
   std::cout << "# " << std::endl;
 
 }
 // Prints the line of an arc
 
-std::string RCGraph::printArc(int a) const {
+std::string RCGraph::printArc(int a, int nLabel, int nShifts) const {
   std::stringstream rep;
   const Arc_Properties& arc_prop = arc(a);
-  rep << "# ARC   " << a << " \t" << arcTypeName[arc_prop.type] << " \t";
-  rep << "(" << arcOrigin(a) << "," << arcDestination(a) << ") \t" << "c= " << arc_prop.cost ;
-  arc_prop.cost < 10000 ? rep << "     " : rep << "";
-  rep << "\t" << (arc_prop.forbidden ? "forbidden" : "authorized");
-  int l = 0;
-  for(int c: arc_prop.consumptions)
-    rep << "\t" << labelName[l++] << "=" << c;
-  rep << "\t" << arc_prop.day << ": ";
-  for(int s: arc_prop.shifts) rep << s << " ";
-  rep << " \t[" << shortNameNode(arcOrigin(a)) << "] -> [" << shortNameNode(arcDestination(a)) << "]";
+  char buff[255];
+  sprintf(buff, "# ARC   %5d  %15s  (%5d,%5d)  c=%12.2f  ", a, arcTypeName[arc_prop.type].c_str(),
+      arcOrigin(a),  arcDestination(a), arc_prop.cost);
+  rep << buff;
+  sprintf(buff, "%10s  %2d:", (arc_prop.forbidden ? "forbidden" : "authorized"), arc_prop.day);
+  rep << buff;
+  for(int s=0; s<nShifts; ++s){
+    if(s < arc_prop.shifts.size())
+      sprintf(buff, " %3d", arc_prop.shifts[s]);
+    else sprintf(buff, " %3s", "");
+    rep << buff;
+  }
+  rep << (nShifts < arc_prop.shifts.size() ? " ..." : "    ");
+  sprintf(buff, "  [%20s] -> [%20s]", shortNameNode(arcOrigin(a)).c_str(),
+      shortNameNode(arcDestination(a)).c_str());
+  rep << buff;
+
+  if(nLabel==-1) nLabel = arc_prop.size();
+  for(int l=0; l<nLabel; ++l) {
+    if(l<arc_prop.size())
+      sprintf(buff, "  %13s=%3d", labelName[l].c_str(), arc_prop.consumptions[l]);
+    else sprintf(buff, "  %13s=%3s", labelName[l].c_str(), "");
+    rep << buff;
+  }
   return rep.str();
 
 }
 
 // Prints all arcs
-void RCGraph::printAllArcs() const {
+void RCGraph::printAllArcs(int nLabel, int nShifts) const {
   std::cout << "#   ARCS (" << nArcs_ << "]" << std::endl;
-  for(int a=0; a<nArcs_; a++) std::cout << printArc(a) << std::endl;
+  for(int a=0; a<nArcs_; a++) std::cout << printArc(a, nLabel, nShifts) << std::endl;
   std::cout << "# " << std::endl;
 }
 
@@ -363,18 +424,13 @@ std::string RCGraph::printSummaryOfGraph() const {
   rep << "# " << std::endl;
 
   // COUNT THE ARCS
-  for(int t = SOURCE_TO_PRINCIPAL; t!=NONE_ARC; t++){
-    ArcType ty = static_cast<ArcType>(t);
-    nArcsPerType.insert(std::pair<ArcType,int>(ty,0));
-  }
-  for(int a=0; a<nArcs_; a++) nArcsPerType.at(arcType(a))++;
+  for(int a=0; a<nArcs_; a++) nArcsPerType[arcType(a)]++;
   // DISPLAY ARCS
   rep << "#     -------------------------" << std::endl;
   rep << "#   > ARCS                     " << std::endl;
   rep << "#     -------------------------" << std::endl;
-  for(int t = SOURCE_TO_PRINCIPAL; t!=NONE_ARC; t++){
-    ArcType ty = static_cast<ArcType>(t);
-    rep << "#        " << arcTypeName[ty] << "  " <<nArcsPerType.at(ty) << std::endl;
+  for(auto p: nArcsPerType){
+    rep << "#        " << arcTypeName[p.first] << "  " << p.second << std::endl;
   }
   rep << "#     -------------------------" << std::endl;
   rep << "#        TOTAL            " << nArcs_ << std::endl;
@@ -385,38 +441,38 @@ std::string RCGraph::printSummaryOfGraph() const {
 
 // Print the path (arcs, nodes, cost of each arc in the current network, etc.)
 //
-void RCGraph::printPath(std::vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_res_cont resource) const {
+void RCGraph::printPath(std::ostream& out, std::vector< boost::graph_traits<Graph>::edge_descriptor > path, spp_res_cont resource) const {
 
   // The successive nodes, and corresponding arc costs / time
   //
-  std::cout << "# " << std::endl;
+//  out << "# " << std::endl;
+//  for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
+//    int a = boost::get(&Arc_Properties::num, g_, path[j]);
+//    out << "# \t| [ " << shortNameNode(boost::source( path[j], g_ )) << " ]";
+//    out << "\t\tCost:  " << arcCost(a);
+//    const std::vector<int> & consumptions = arcConsumptions(a);
+//    for(int l=0; l<consumptions.size(); ++l)
+//      out << "\t\t" << labelName[l] << ":" << consumptions[l];
+//    out << "\t\t[" << (arcForbidden(a) ? "forbidden" : " allowed ") << "]" << std::endl;
+//  }
+//  out << "# " << std::endl;
   for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
     int a = boost::get(&Arc_Properties::num, g_, path[j]);
-    std::cout << "# \t| [ " << shortNameNode(boost::source( path[j], g_ )) << " ]";
-    std::cout << "\t\tCost:  " << arcCost(a);
-    const std::vector<int> & consumptions = arcConsumptions(a);
-    for(int l=0; l<consumptions.size(); ++l)
-      std::cout << "\t\t" << labelName[l] << ":" << consumptions[l];
-    std::cout << "\t\t[" << (arcForbidden(a) ? "forbidden" : " allowed ") << "]" << std::endl;
-  }
-  std::cout << "# " << std::endl;
-  for( int j = static_cast<int>( path.size() ) - 1; j >= 0;	--j){
-    int a = boost::get(&Arc_Properties::num, g_, path[j]);
-    std::cout << printArc(a) << std::endl;
+    out << printArc(a, resource.size()) << std::endl;
   }
 
   // Last node and total
   //
-  std::cout << "# \t| [";
-  for(int s: sinks_) std::cout << shortNameNode(s) << " ";
-  std::cout << "]" << std::endl;
-  std::cout << "# \t| ~TOTAL~   \t\tCost:   " << resource.cost;
+  out << "# \t| [";
+  for(int s: sinks_) out << shortNameNode(s) << " ";
+  out << "]" << std::endl;
+  out << "# \t| ~TOTAL~   \t\tCost:   " << resource.cost;
   for(int l=0; l<resource.size(); ++l)
-    std::cout << "\t\t" << labelName[l] << ":" << resource.label_value(l);
-  std::cout << std::endl << "# \t| " << std::endl;
-  std::cout << "# \t| Rotation: |";
+    out << "\t\t" << labelName[l] << ":" << resource.label_value(l);
+  out << std::endl << "# \t| " << std::endl;
+  out << "# \t| RC Solution: |";
 
-  // Print it "as a rotation"
+  // Print it
   //
   int k=0;
   int firstDay = -1;
@@ -424,20 +480,21 @@ void RCGraph::printPath(std::vector< boost::graph_traits<Graph>::edge_descriptor
     if(firstDay == -1 && boost::source( path[j], g_ ) == source_) {
       firstDay = boost::get(&Arc_Properties::day, g_, path[j]);
       while (k < firstDay) {
-        std::cout << " |";
+        out << " |";
         k++;
       }
     }
     for(int s: get( &Arc_Properties::shifts, g_, path[j])) {
-      std::cout << s << "|";
+      out << s << "|";
       k++;
     }
   }
   while(k < nDays_){
-    std::cout << " |";
+    out << " |";
     k++;
   }
-  std::cout << std::endl;
+  out << std::endl;
+  out << std::endl;
 }
 
 /*************************************************************************
@@ -510,7 +567,7 @@ void RCGraph::testGraph_spprc(){
       pareto_opt_rcs_spptw_single,
       spp_res_cont( 0, {0} ),
       ref_spp(),
-      dominance_spp(),
+      dominance_spp(labelsOrder, {0}),
       std::allocator< boost::r_c_shortest_paths_label< Graph, spp_res_cont> >(),
       boost::default_r_c_shortest_paths_visitor() );
 
@@ -553,7 +610,7 @@ void RCGraph::testGraph_spprc(){
       true,
       spp_res_cont( 0, {0} ),
       ref_spp(),
-      dominance_spp(),
+      dominance_spp(labelsOrder, {0}),
       std::allocator< boost::r_c_shortest_paths_label< Graph, spp_res_cont> >(),
       boost::default_r_c_shortest_paths_visitor() );
 

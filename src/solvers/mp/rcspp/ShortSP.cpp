@@ -22,7 +22,7 @@ ShortSP::ShortSP() {}
 ShortSP::ShortSP(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState):
     SubProblem(scenario, nbDays, contract,  pInitState) {
 
-  daysMin_ = contract->minConsDaysWork_;
+  minConsDays_ = contract->minConsDaysWork_;
   nLabels_ = 1;
 
   initShortSuccessions();
@@ -221,13 +221,18 @@ bool ShortSP::solveShortRotations() {
 // Create all arcs whose origin is the source nodes (all go to short rotations nodes)
 void ShortSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
-  for (PrincipalGraph &pg: principalGraphs_)
+  for (PrincipalGraph &pg: principalGraphs_) {
+    int s = pScenario_->shiftTypeIDToShiftID_[pg.shiftType()].front(); // any shift with the right shit type
+    std::vector<int> shifts;
+    Tools::initVector(shifts, minConsDays_, s);
     for (int k = CDMin_ - 1; k < nDays_; k++)
       for(int dest : pg.getDayNodes(k))
-        // add one arc consume all the minimum cons days available
+        // add one arc for each cons days available
         // the shifts will be updated based on their dual costs
         arcsFromSource_[pg.shiftType()][k].push_back(
-            {addSingleArc(origin, dest, 0, {CDMin_, 0}, SOURCE_TO_PRINCIPAL, k - CDMin_ + 1, {})});
+            {addSingleArc(origin, dest, 0, startConsumption(k, shifts),
+                          SOURCE_TO_PRINCIPAL, k - CDMin_ + 1)});
+      }
 }
 
 double ShortSP::startWorkCost(int a) const {
@@ -243,7 +248,7 @@ void ShortSP::priceShortSucc() {
   map<int, double> specialArcsCost;
 
   for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
-    for (int k = daysMin_ - 1; k < nDays_; k++) {
+    for (int k = minConsDays_ - 1; k < nDays_; k++) {
       int max_cons = principalGraphs_[s].maxCons();
       for (int n = 0; n <= max_cons; n++) {
 
@@ -289,8 +294,6 @@ void ShortSP::priceShortSucc() {
         int a = arcsFromSource_[s][k][n].front();
         if (best_id >= 0) {
           g_.updateCost(a, best_cost);
-          if(allowedShortSuccBySize_[CDMin_][best_id].empty())
-            std::cout << "F";
           g_.updateShifts(a, allowedShortSuccBySize_[CDMin_][best_id]);
         }
           // otherwise, forbid it
@@ -515,7 +518,8 @@ double ShortSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) 
     if(newShiftType == shiftType){
       consShifts ++;
     } else {
-      consShiftsRegCost += pScenario_->consShiftCost(shift,consShifts);
+      if(shiftType>0)
+        consShiftsRegCost += pScenario_->consShiftCost(shift,consShifts);
       consShifts = 1;
       shift = newShift;
     }
@@ -612,7 +616,7 @@ void ShortSP::printShortSucc() const {
 // Prints all active pairs ( arcFromSource - corresponding short successions )
 void ShortSP::printShortArcs() const {
   for(int s=1; s<pScenario_->nbShiftsType_; s++){
-    for(int k=daysMin_-1; k<nDays_; k++){
+    for(int k=minConsDays_-1; k<nDays_; k++){
       for(int n=1; n<=principalGraphs_[s].maxCons(); n++){
         const Arc_Properties& arc_prop = arcsFromSource_[s][k][n].front();
         if(!arc_prop.forbidden){

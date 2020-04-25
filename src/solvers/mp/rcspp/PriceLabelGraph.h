@@ -13,7 +13,7 @@ class SubProblem;
 
 class PriceLabelGraph: public SubGraph {
   public:
-    PriceLabelGraph(int lb, int ub, LABEL label,
+    PriceLabelGraph(int day, int lb, int ub, LABEL label,
         SubProblem* sp = nullptr, bool reset_labels_after_pricing=false);
     virtual ~PriceLabelGraph();
 
@@ -30,11 +30,13 @@ class PriceLabelGraph: public SubGraph {
     void linkOutSubGraph(SubGraph& outSubGraph, int day=-1) override;
 
     inline int entrance(int day=-1) const override {
+      if(!pSP_) return -1;
       if(inSubGraph_) return inSubGraph_->entrance(day);
       return entrance_;
     }
 
     inline int exit(int day=-1) const override {
+      if(!pSP_) return -1;
       if(outSubGraph_) return outSubGraph_->exit(day);
       return exit_;
     }
@@ -42,7 +44,7 @@ class PriceLabelGraph: public SubGraph {
   protected:
     SubProblem* pSP_;
 
-    int lb_, ub_;
+    int day_, lb_, ub_;
     LABEL label_;
     bool reset_labels_after_pricing_;
 

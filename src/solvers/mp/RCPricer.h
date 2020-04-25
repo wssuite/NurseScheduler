@@ -27,6 +27,7 @@ class RCPricer: public MyPricer
 {
 public:
    RCPricer(MasterProblem* master, const char* name, const SolverParam& param);
+
    virtual ~RCPricer();
 
    /* perform pricing */
@@ -68,6 +69,7 @@ protected:
    //
    bool withSecondchance_ = false;
    bool shortSubproblem_ = true;
+   bool rosterSubproblem_ = false;
    int defaultSubprobemStrategy_ = 0;
    int secondchanceSubproblemStrategy_ = 0;
    int currentSubproblemStrategy_ = 0;

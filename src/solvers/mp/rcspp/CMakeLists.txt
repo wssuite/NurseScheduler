@@ -5,7 +5,7 @@ set(SOURCE_FILES
         PrincipalGraph.cpp
         PriceLabelGraph.cpp
         ShortSP.cpp
-        #RosterSP.cpp
+        RosterSP.cpp
         )
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})

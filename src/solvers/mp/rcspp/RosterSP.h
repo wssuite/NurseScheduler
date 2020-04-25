@@ -30,10 +30,13 @@ class RosterSP : public SubProblem {
 
     // FUNCTIONS -- SOLVE
     //
-    bool preprocess() override;
+
+    // Creates all nodes of the rcspp (including resource window)
+    void createNodes() override;
 
     // override creation of arcs source -> principal
     void createArcsSourceToPrincipal() override;
+    void createArcsAllPriceLabels() override;
 };
 
 

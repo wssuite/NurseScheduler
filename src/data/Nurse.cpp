@@ -30,6 +30,12 @@ int Contract::consDaysCost(int n) const {
   return 0;
 }
 
+int Contract::consDaysOffCost(int n) const {
+  if(minConsDaysOff_ - n > 0) return (WEIGHT_CONS_DAYS_OFF * ( minConsDaysOff_ - n ) );
+  if(n - maxConsDaysOff_ > 0) return (WEIGHT_CONS_DAYS_OFF * ( n - maxConsDaysOff_ ) );
+  return 0;
+}
+
 int Contract::totalShiftCost(int n) const {
   if(minTotalShifts_ - n > 0) return (WEIGHT_TOTAL_SHIFTS * ( minTotalShifts_ - n ) );
   if(n - maxTotalShifts_ > 0) return (WEIGHT_TOTAL_SHIFTS * ( n - maxTotalShifts_ ) );

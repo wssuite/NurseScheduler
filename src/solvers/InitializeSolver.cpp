@@ -20,7 +20,7 @@
 
 //initialize the counter of objects
 unsigned int MyObject::s_count = 0;
-unsigned int Rotation::s_count = 0;
+unsigned long Pattern::s_count = 0;
 
 
 using std::string;

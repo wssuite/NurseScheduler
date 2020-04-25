@@ -597,17 +597,17 @@ public:
 	// list of starting days for which the rotations will be relaxed
 	bool isPartialRelaxDays_=false;
 	std::vector<bool> isRelaxDay_;
-	inline bool isRelaxDay(int day){return !isPartialRelaxDays_?false:isRelaxDay_[day];}
+	inline bool isRelaxDay(int day)  const  {return !isPartialRelaxDays_?false:isRelaxDay_[day];}
 
 	// list of starting days for which the rotations will be fixed
 	bool isPartialFixDays_=false;
 	std::vector<bool> isFixDay_;
-	inline bool isFixDay(int day){return !isPartialFixDays_?false:isFixDay_[day];}
+	inline bool isFixDay(int day) const {return !isPartialFixDays_?false:isFixDay_[day];}
 
 	// list of nurses whose roster is fixed in cirrent resolution
 	bool isPartialFixNurses_=false;
 	std::vector<bool> isFixNurse_;
-	inline bool isFixNurse(int n){return !isPartialFixNurses_?false:isFixNurse_[n];}
+	inline bool isFixNurse(int n) const {return !isPartialFixNurses_?false:isFixNurse_[n];}
 
 	// relax/unrelax the integrality constraints of the variables corresponding to input days
 	virtual void relaxDays(std::vector<bool> isRelax) {}
@@ -762,7 +762,7 @@ public:
 
 	// return the status of the solution
 	//
-	Status getStatus() {return status_;}
+	Status getStatus() const {return status_;}
 	void setStatus(Status status) {status_ = status;}
 
 	// return/set solution_
@@ -773,7 +773,7 @@ public:
 
 	// get the timer
 	//
-	Tools::Timer* getTimerTotal() {return pTimerTotal_;}
+	Tools::Timer* getTimerTotal() const {return pTimerTotal_;}
 
 	// return the solution, but only for the k first days
 	//
@@ -817,14 +817,14 @@ public:
 	std::vector<State>* pInitialStates() const { return pInitState_; }
 
 	// Returns the number of days over which the solver solves the problem
-	int getFirstDay(){return pDemand_->firstDay_;}
-	int getNbDays(){return pDemand_->nbDays_;}
+	int getFirstDay() const {return pDemand_->firstDay_;}
+	int getNbDays() const {return pDemand_->nbDays_;}
 
 	// Returns the number of nurses
-	int getNbNurses() {return theLiveNurses_.size();}
+	int getNbNurses() const {return theLiveNurses_.size();}
 
 	// Returns the number of shifts
-	int getNbShifts() {return pDemand_->nbShifts_;}
+	int getNbShifts() const {return pDemand_->nbShifts_;}
 
 	// Extend the rosters in the solution with the days covered by the input solution
 	void extendSolution(std::vector<Roster> solutionExtension);

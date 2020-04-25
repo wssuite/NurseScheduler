@@ -20,6 +20,8 @@ class PrincipalGraph: public SubGraph {
 
     void updateArcCosts();
 
+    double consCost(int n) const;
+
     void forbidDayShift(int k, int s);
     void authorizeDayShift(int k, int s);
     bool checkIfShiftBelongsHere(int s, bool print_err =  false) const;
@@ -28,7 +30,10 @@ class PrincipalGraph: public SubGraph {
 
     inline int maxCons() const { return max_cons_; }
 
-    inline int getNode(int k, int n) const { return principalNetworkNodes_[k][n]; }
+    inline int getNode(int k, int n) const {
+      if(!pSP_) return -1;
+      return principalNetworkNodes_[k][n];
+    }
 
     inline const std::vector<int>& getDayNodes(int k) const {
       if(pSP_) return principalNetworkNodes_[k];
@@ -47,11 +52,13 @@ class PrincipalGraph: public SubGraph {
 
 
     inline int entrance(int day=-1) const override {
+      if(!pSP_) return -1;
       if(inSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
       return getNode(day, 0);
     }
 
     inline int exit(int day=-1) const override {
+      if(!pSP_) return -1;
       if(outSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
       return getNode(day, max_cons_);
     }
@@ -76,7 +83,7 @@ class PrincipalGraph: public SubGraph {
     void build();
 
     // return the right vector of consumption based on the day (if < 0, not performing any shift)
-    std::vector<int> getConsumption(int day=-1) const;
+    std::vector<int> getConsumption(int day, int shift) const;
 };
 
 

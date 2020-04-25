@@ -31,17 +31,21 @@ public:
   DualCosts(const vector2D<double> & workedShiftsCosts,
             const std::vector<double> & startWorkCosts,
             const std::vector<double> & endWorkCosts,
-            double workedWeekendCost):
+            double workedWeekendCost, double constant=0):
               workedShiftsCosts_(workedShiftsCosts), startWorkCosts_(startWorkCosts),
-              endWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost) {}
+              endWorkCosts_(endWorkCosts), workedWeekendCost_(workedWeekendCost), constant_(constant) {}
 
   // GETTERS
   //
   inline int nDays() const { return startWorkCosts_.size(); }
-  inline double workedDayShiftCost(int day, int shift){return (workedShiftsCosts_[day][shift-1]);}
-  inline double startWorkCost(int day){return (startWorkCosts_[day]);}
-  inline double endWorkCost(int day){return (endWorkCosts_[day]);}
-  inline double workedWeekendCost(){return workedWeekendCost_;}
+  inline double workedDayShiftCost(int day, int shift) const{
+    if(!shift) return 0;
+    return (workedShiftsCosts_[day][shift-1]);
+  }
+  inline double startWorkCost(int day) const{return (startWorkCosts_[day]);}
+  inline double endWorkCost(int day) const{return (endWorkCosts_[day]);}
+  inline double workedWeekendCost() const{return workedWeekendCost_;}
+  inline double constant() const { return constant_; }
 
 
 protected:
@@ -58,16 +62,29 @@ protected:
   // Reduced cost of the weekends
   double workedWeekendCost_;
 
+  // constant part of the reduced cost
+  double constant_;
+
 };
 
 struct Pattern;
 typedef std::shared_ptr<Pattern> PPattern;
 
 struct Pattern {
-    Pattern(int nurseId, int firstDay, int length):
-      nurseId_(nurseId), firstDay_(firstDay), length_(length) {}
-      Pattern(const std::vector<double>& pattern):
-      nurseId_((int)pattern[0]), firstDay_((int)pattern[1]), length_((int)pattern[2]) {}
+    Pattern(int firstDay, int length, int nurseId = -1, double cost = DBL_MAX, double dualCost = DBL_MAX):
+      nurseId_(nurseId), firstDay_(firstDay), length_(length), id_(s_count++),
+      cost_(cost), dualCost_(dualCost) {}
+    Pattern(const Pattern& pat, int nurseId):
+        nurseId_(nurseId), firstDay_(pat.firstDay_), length_(pat.length_), id_(pat.id_),
+        cost_(pat.cost_), dualCost_(pat.dualCost_) {
+      if(pat.nurseId_ != nurseId_){
+        cost_ = DBL_MAX;
+        dualCost_ = DBL_MAX;
+      }
+    }
+    Pattern(const std::vector<double>& pattern):
+      nurseId_((int)pattern[0]), firstDay_((int)pattern[1]), length_((int)pattern[2]), id_(s_count++),
+      cost_(DBL_MAX), dualCost_(DBL_MAX){}
     virtual ~Pattern() {}
 
     virtual bool equals(PPattern pat) const {
@@ -118,6 +135,35 @@ struct Pattern {
     int nurseId_;
     int firstDay_;
     int length_;
+
+    //Id of the rotation
+    //
+    const long id_;
+
+    // Cost
+    //
+    double cost_;
+
+    // Dual cost as found in the subproblem
+    //
+    double dualCost_;
+
+    //Compare rotations on index
+    //
+    static bool compareId(Pattern* pat1, Pattern* pat2);
+
+    //Compare rotations on cost
+    //
+    static bool compareCost(Pattern* pat1, Pattern* pat2);
+
+    //Compare rotations on dual cost
+    //
+    static bool compareDualCost(Pattern* pat1, Pattern* pat2);
+
+  private:
+    //count rotations
+    //
+    static unsigned long s_count;
 
 };
 
@@ -329,13 +375,14 @@ class MasterProblem : public Solver, public PrintSolution{
 
     /* Build each set of constraints - Add also the coefficient of a column for each set */
     void buildSkillsCoverageCons(const SolverParam& parameters);
-    int addSkillsCoverageConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int k, int s=-1);
+    int addSkillsCoverageConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, const Pattern& pat) const;
 
     /* retrieve the dual values */
     virtual vector2D<double> getShiftsDualValues(LiveNurse*  pNurse) const;
     virtual std::vector<double> getStartWorkDualValues(LiveNurse* pNurse) const;
     virtual std::vector<double> getEndWorkDualValues(LiveNurse* pNurse) const;
     virtual double getWorkedWeekendDualValue(LiveNurse* pNurse) const;
+    virtual double getConstantDualvalue(LiveNurse* pNurse) const;
 
     /* Display functions */
     std::string costsConstrainstsToString();

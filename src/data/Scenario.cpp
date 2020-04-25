@@ -358,10 +358,14 @@ int Scenario::maxConsShiftsOfTypeOf(int whichShift) {
 
 
 int Scenario::minConsShiftsOf(int whichShiftType) {
+  if(whichShiftType == 0)
+    Tools::throwError("Behavior not defined for a rest shift. Please use minConsDaysOffOf.");
   return minConsShiftType_[whichShiftType];
 }
 
 int Scenario::maxConsShiftsOf(int whichShiftType) {
+  if(whichShiftType == 0)
+    Tools::throwError("Behavior not defined for a rest shift. Please use maxConsDaysOffOf.");
   return maxConsShiftType_[whichShiftType];
 }
 

@@ -162,7 +162,10 @@ public:
 	const int nbShifts_;
 	const std::vector<std::string> intToShift_;
 	const std::map<std::string,int> shiftToInt_;
-        const std::vector<int> timeDurationToWork_, shiftIDToShiftTypeID_;
+  const std::vector<int> timeDurationToWork_, shiftIDToShiftTypeID_;
+
+  bool isRestShift(int shift) const { return shiftIDToShiftTypeID_[shift] == 0; }
+  bool isWorkShift(int shift) const { return !isRestShift(shift); }
 
 	// number of typeshifts, a std::map and a std::vector matching the name of each type shift to an
 	// index and reversely

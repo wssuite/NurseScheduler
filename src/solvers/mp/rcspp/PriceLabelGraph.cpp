@@ -6,11 +6,16 @@
 #include "SubProblem.h"
 
 
-PriceLabelGraph::PriceLabelGraph(int lb, int ub, LABEL label, SubProblem* sp,
+PriceLabelGraph::PriceLabelGraph(int day, int lb, int ub, LABEL label, SubProblem* sp,
     bool reset_labels_after_pricing):
-    SubGraph(), pSP_(sp), lb_(lb), ub_(ub), label_(label),
+    SubGraph(), pSP_(sp), day_(day), lb_(lb), ub_(ub), label_(label),
     reset_labels_after_pricing_(reset_labels_after_pricing),
     inSubGraph_(nullptr), outSubGraph_(nullptr) {
+  if(lb > ub) {
+    lb_ = ub;
+    std::cout << "WARNING: price label lb(" << lb << ") is greater than ub("
+              << ub << ") for label "  << labelName[label]<< std::endl;
+  }
   if(sp) build();
 }
 
@@ -30,20 +35,20 @@ void PriceLabelGraph::build() {
     checkNodes_.emplace_back(pSP_->addSingleNode(PRICE_LABEL, lbs, ubs2));
   }
   // exit day
+  if(reset_labels_after_pricing_ && minLabel()) // lb = ub, reach the UB as the label will decrease with consumption
+    lbs[label_] = ubs[label_];
   exit_ = pSP_->addSingleNode(PRICE_LABEL_EXIT, lbs, ubs);
 
   // CREATE THE ARCS
-  int l = lb_;
-  for(int v: checkNodes_) {
-    int c = minLabel() ? getLabelCost(ub_-l) : getLabelCost(l);
-    std::vector<int> consumptions = {0,0,0,0,0};
-    in_arcs_.emplace_back(pSP_->addSingleArc(entrance_, v, c, consumptions, PRICE_LABEL_IN_TO_PRICE_LABEL));
-    if(reset_labels_after_pricing_) {
-      std::vector<int> ubs = pSP_->defaultUBs();
-      if (minLabel()) consumptions[label_] = ubs[label_] - l;
-      else consumptions[label_] = -ubs[label_];
-    }
-    out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, consumptions , PRICE_LABEL_TO_PRICE_LABEL_OUT));
+  std::vector<int> in_consumptions = {0,0,0,0,0},  out_consumptions = {0,0,0,0,0};
+  if(reset_labels_after_pricing_ && !minLabel())
+    out_consumptions[label_] = -ubs[label_]; // decrease the label to a negative value -> will be set to 0 by the lb
+int l = lb_;
+
+for(int v: checkNodes_) {
+    int c = minLabel() ? getLabelCost(ub_-l) : getLabelCost(l); // min cost is decreasing with l, and max cost is increasing with l
+    in_arcs_.emplace_back(pSP_->addSingleArc(entrance_, v, c, in_consumptions, PRICE_LABEL_IN_TO_PRICE_LABEL, day_));
+    out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, out_consumptions , PRICE_LABEL_TO_PRICE_LABEL_OUT, day_));
     ++l;
   }
 }
@@ -67,10 +72,10 @@ int PriceLabelGraph::getLabelCost(int l) const {
 
 void PriceLabelGraph::linkInSubGraph(SubGraph& inSubGraph, int day) {
   inSubGraph_ = &inSubGraph;
-  pSP_->addSingleArc(inSubGraph.exit(day), entrance_, 0, {0,0,0,0,0}, NONE_ARC);
+  pSP_->addSingleArc(inSubGraph.exit(day), entrance_, 0, {0,0,0,0,0}, NONE_ARC, day_);
 }
 
 void PriceLabelGraph::linkOutSubGraph(SubGraph& outSubGraph, int day) {
   outSubGraph_ = &outSubGraph;
-  pSP_->addSingleArc(exit_, outSubGraph.entrance(day), 0, {0, 0, 0, 0, 0}, NONE_ARC);
+  pSP_->addSingleArc(exit_, outSubGraph.entrance(day), 0, {0, 0, 0, 0, 0}, NONE_ARC, day_);
 }

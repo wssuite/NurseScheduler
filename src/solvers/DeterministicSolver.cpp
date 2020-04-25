@@ -8,6 +8,7 @@
 #include "solvers/DeterministicSolver.h"
 //#include "solvers/Greedy.h"
 #include "solvers/mp/RotationMP.h"
+#include "solvers/mp/RosterMP.h"
 #include "solvers/InitializeSolver.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 
@@ -996,7 +997,8 @@ Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand) {
 		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
 		//break;
 		case GENCOL:
-		pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+      pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+//		  pSolver = new RosterMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
 		break;
 		default:
 		Tools::throwError("The algorithm is not handled yet");

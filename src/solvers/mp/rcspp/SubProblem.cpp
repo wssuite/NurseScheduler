@@ -30,12 +30,17 @@ using std::set;
 //---------------------------------------------------------------------------
 
 // Constructors and destructor
-SubProblem::SubProblem() {}
+SubProblem::SubProblem():
+    pScenario_(nullptr), nDays_(0), pContract_(nullptr), pLiveNurse_(nullptr), pCosts_(nullptr) {}
 
 SubProblem::SubProblem(Scenario* scenario, int nDays, const Contract* contract, vector<State>* pInitState):
-					pScenario_(scenario), nDays_(nDays), pContract_ (contract),
-					CDMin_(contract->minConsDaysWork_), daysMin_(1), nLabels_(2),
+					pScenario_(scenario), nDays_(nDays), pContract_ (contract), pLiveNurse_(nullptr),
+					CDMin_(contract->minConsDaysWork_), minConsDays_(1), nLabels_(2),
 					maxRotationLength_(nDays) {
+  int max = 0;
+  for(int t: pScenario_->timeDurationToWork_)
+    if(t>max) max = t;
+  maxTotalDuration_ = max * nDays; // working everyday on the longest shift
   if(pInitState) init(*pInitState);
 }
 
@@ -91,7 +96,7 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 	bestReducedCost_ = 0;
   nFound_=0;
 	param_ = param;
-  maxReducedCostBound_ = redCostBound - EPSILON;			// Cost bound
+  maxReducedCostBound_ = costs->constant() - redCostBound - EPSILON;			// Cost bound
   pLiveNurse_ = nurse;									// Store the new nurse
   pCosts_ = costs;										// Store the new cost
 
@@ -107,30 +112,26 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 
 	if(false) pLiveNurse_->printContractAndPrefenrences(pScenario_);				// Set to true if you want to display contract + preferences (for debug)
 
-	// cout << " 1   ----------------------------------------------" << endl;
-	// printGraph();
-
 	 timeInS_->start();
 	 preprocess();
 	 timeInS_->stop();
-
-	// cout << " 2   ----------------------------------------------" << endl;
-	// printGraph();
 	
 	timeInNL_->start();
 	bool ANS = solveRCGraph(optimality);
 	timeInNL_->stop();
 
-	// cout << " 3   ----------------------------------------------" << endl;
-//	g_.printGraph();
-
 	// printAllSolutions();
 
+
+  // substract the constant part from the cost
+  // and check that all solution respects forbidden shifts
+  for(RCSolution& sol: theSolutions_) {
+    sol.cost -= costs->constant();
 #ifdef DBG
-  // check that all solution respects forbidden shifts
-  for(const RCSolution& sol: theSolutions_)
     checkForbiddenDaysAndShifts(sol);
 #endif
+  }
+
 
 	return ANS;
 }
@@ -143,7 +144,7 @@ bool SubProblem::preprocess() {
 bool SubProblem::solveRCGraph(bool optimality){
   updateArcCosts();
 #ifdef DBG
-//  g_.printGraph();
+//  g_.printGraph(nLabels_, minConsDays_);
 #endif
 	if(optimality)
 		return solveRCGraphOptimal();		// Solve shortest path problem
@@ -155,11 +156,19 @@ bool SubProblem::solveRCGraph(bool optimality){
 bool SubProblem::solveRCGraphOptimal(){
   std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks = g_.sinks();
 
-  if(param_.oneSinkNodePerLastDay_)
+  if(param_.oneSinkNodePerLastDay_ && sinks.size()>1)
     sinks.resize(sinks.size()-1); // remove last sink (it's the main one)
   else sinks = {sinks.back()}; // keep just the main one
 
-	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_, sinks);
+  std::vector<int> labelsMinLevel = {
+      pLiveNurse_->maxConsDaysWork(),
+      pLiveNurse_->minConsDaysWork(), // cannot be reach (UB)
+      pLiveNurse_->maxTotalShifts(),
+      pLiveNurse_->minTotalShifts(), // cannot be reach (UB)
+      pLiveNurse_->maxTotalWeekends()
+  };
+	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_,
+	    labelsMinLevel, sinks);
 
   for(const RCSolution& sol: solutions) {
     theSolutions_.push_back(sol);
@@ -212,8 +221,8 @@ void SubProblem::createNodes(){
 	// Deactivate the min cost for the last day
 	for(int k=0; k<nDays_-1; k++) {
     priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
-        {PriceLabelGraph(pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this),
-         PriceLabelGraph(0, CDMin_, MIN_CONS_DAYS, this) }));
+        {PriceLabelGraph(k, pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this),
+         PriceLabelGraph(k, 0, CDMin_, MIN_CONS_DAYS, this) }));
 
     // link the sub graphs
     priceLabelsGraphs_.back().front().linkOutSubGraph(priceLabelsGraphs_.back().back());
@@ -223,7 +232,7 @@ void SubProblem::createNodes(){
   }
 	// last day: price just max
   priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
-      {PriceLabelGraph(pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this)}));
+      {PriceLabelGraph(nDays_-1, pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this)}));
   // Daily sink node
   g_.addSink(priceLabelsGraphs_.back().back().exit());
 
@@ -244,6 +253,7 @@ void SubProblem::createNodes(){
 void SubProblem::createArcs(){
   // Initialization
   Tools::initVector4D(arcsFromSource_, pScenario_->nbShiftsType_, nDays_, 0, 0, -1);
+  Tools::initVector3D(principalToPrincipal_, pScenario_->nbShiftsType_, pScenario_->nbShiftsType_, nDays_, -1);
   Tools::initVector2D(arcsPrincipalToPriceLabelsIn_, pScenario_->nbShiftsType_, nDays_, -1);
 
   // create arcs
@@ -256,32 +266,34 @@ void SubProblem::createArcs(){
 void SubProblem::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (PrincipalGraph &pg: principalGraphs_)
-    for (int k = daysMin_ - 1; k < nDays_; k++)
-      for(int dest : pg.getDayNodes(k)) {
+    for (int k = minConsDays_ - 1; k < nDays_; k++)
+      for (int dest : pg.getDayNodes(k)) {
         std::vector<int> vec;
         for (int s: pScenario_->shiftTypeIDToShiftID_[pg.shiftType()])
-          vec.emplace_back(addSingleArc(origin, dest, 0, {daysMin_, CDMin_ - daysMin_}, SOURCE_TO_PRINCIPAL, k, {s}));
+          vec.emplace_back(addSingleArc(origin, dest, 0, startConsumption(k, {s}),
+                                        SOURCE_TO_PRINCIPAL, k, s));
         arcsFromSource_[pg.shiftType()][k].push_back(vec);
       }
 }
 
 // Create all arcs within the principal network
-void SubProblem::createArcsPrincipalToPrincipal(){
-	// CHANGE SUBNETWORK FOR EACH OF THE SUBNETWORKS AND EACH OF THE DAYS
-	//
+void SubProblem::createArcsPrincipalToPrincipal() {
+  // CHANGE SUBNETWORK FOR EACH OF THE SUBNETWORKS AND EACH OF THE DAYS
+  //
   int nShiftsType = pScenario_->nbShiftsType_;
-  for (int sh=1; sh<nShiftsType; sh++){
-		for(int k=0; k<nDays_-1; k++){
-			int origin = principalGraphs_[sh].getDayNodes(k).back(); // last level for day k
-			for(int newSh=1; newSh<nShiftsType; newSh++){
-			  // check if succession is allowed
-			  if(newSh != sh and ! pScenario_->isForbiddenSuccessorShiftType_ShiftType(newSh, sh)){
-			    int destin = principalGraphs_[newSh].getNode(k+1, 0); // entrance level for day k+1
-			    g_.addSingleArc(origin, destin, 0, {0,0}, SHIFT_TO_NEWSHIFT, k+1, {});
-			  }
-			}
-		}
-	}
+  for (int sh = 0; sh < nShiftsType; sh++)
+    for (int newSh = 0; newSh < nShiftsType; newSh++)
+      // check if succession is allowed
+      if (newSh != sh and !pScenario_->isForbiddenSuccessorShiftType_ShiftType(newSh, sh))
+        for (int k = 1; k < nDays_ - 1; k++) {
+          int origin = principalGraphs_[sh].exit(k); // last level for day k
+          if (origin == -1) continue; // if undefined, continue
+          // entrance level for day k
+          int destin = principalGraphs_[newSh].entrance(k);
+          if (destin == -1) continue; // if undefined, continue
+          principalToPrincipal_[sh][newSh][k] =
+              g_.addSingleArc(origin, destin, 0, {0, 0, 0, 0, 0}, SHIFT_TO_NEWSHIFT, k);
+        }
 }
 
 // Create all arcs that involve the rotation size checking subnetwork (incoming, internal, and exiting that subnetwork)
@@ -289,16 +301,16 @@ void SubProblem::createArcsAllPriceLabels(){
   for(int k=0; k<nDays_; k++){				// For all days
     for(int sh=1; sh<pScenario_->nbShiftsType_; sh++){		// For all shifts
       // incoming  arc
-      int origin = principalGraphs_[sh].getDayNodes(k).back();
+      int origin = principalGraphs_[sh].exit(k);
 			int destin = priceLabelsGraphs_[k].front().entrance();
 			arcsPrincipalToPriceLabelsIn_[sh][k] =
-			    g_.addSingleArc(origin, destin, 0, {0,0}, PRINCIPAL_TO_PRICE_LABEL, k);	// Allow to stop rotation that day
+			    g_.addSingleArc(origin, destin, 0, {0,0,0,0,0}, PRINCIPAL_TO_PRICE_LABEL, k);	// Allow to stop rotation that day
 		}
 
     // outgoing  arcs
     int origin = priceLabelsGraphs_[k].back().exit();
     int destin = g_.lastSink();
-    g_.addSingleArc(origin, destin, 0, {0,0}, PRICE_LABEL_OUT_TO_SINK, k);
+    g_.addSingleArc(origin, destin, 0, {0,0,0,0,0}, PRICE_LABEL_OUT_TO_SINK, k);
 	}
 }
 
@@ -336,48 +348,77 @@ double SubProblem::startWorkCost(int a) const {
   // retrieve the work cost
   const Arc_Properties& arc_prop = g_.arc(a);
   double cost = workCost(arc_prop, true);
-  cost -= pCosts_->startWorkCost(arc_prop.day);
-  cost += startWeekendCosts_[arc_prop.day];
+  int start = arc_prop.day;
+  if(arc_prop.shifts.empty())
+    ++start; // start work the next day as no shift today
+  cost -= pCosts_->startWorkCost(start);
+  cost += startWeekendCosts_[start];
 
-  // if first day, take into account historical state. (shift ID cannot be 0)
-  if (arc_prop.day == 0) {
-    int shiftIni = pLiveNurse_->pStateIni_->shift_;
+  // if first day, take into account historical state depending on current shift
+  if (start == 0) {
+    // WARNING: the following logic is based on the fact that shifts contains only one element
+    if(arc_prop.shifts.size() != 1)
+      Tools::throwError("The initial state handling in startWorkCost "
+                        "is implemented only for a sequence of one shift.");
+
+    int currentShift = arc_prop.shifts.front();
+    int shiftTypeIni = pLiveNurse_->pStateIni_->shiftType_;
     int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
     int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
 
-    // check if the nurse is changing of shift type
-    int shiftTypeIni = pScenario_->shiftIDToShiftTypeID_[shiftIni];
-
-    // 1. The nurse was resting: pay more only if the rest is too short
-    if(shiftTypeIni == 0) {
-      int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
-      cost += std::max(0, diffRest*WEIGHT_CONS_DAYS_OFF);
-    }
-    // 2. The nurse was working
-    else {
-      // a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be added later
-      int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
-      cost -= std::max(0, diffWork*WEIGHT_CONS_DAYS_WORK);
-
-      // b. (i)   The nurse was working on a different shift: if too short, add the corresponding cost
-      int shiftType = pScenario_->shiftIDToShiftTypeID_[arc_prop.shifts.front()];
-      if(shiftTypeIni != shiftType){
-        int diff = pScenario_->minConsShiftsOfTypeOf(shiftIni) - nConsShiftIni;
-        cost += std::max(0, diff*(WEIGHT_CONS_SHIFTS));
+    // if resting
+    if (currentShift == 0) {
+      // 1. The nurse was resting
+      if (shiftTypeIni == 0) {
+        // if the nurse has already exceeded its max amount of rest,
+        // remove the cost, that will be added latter
+        // (as we do not count the max penalty from previous week)
+        int diffRest = pLiveNurse_->pStateIni_->consDaysOff_ - pLiveNurse_->maxConsDaysOff();
+        cost += std::max(0, diffRest * WEIGHT_CONS_DAYS_OFF);
       }
-      // b. (ii) If working on the same shift type, need to update the consecutive shift cost
+      // 2. The nurse was working
       else {
-        int nOldConsShift = 0;
-        for(int s: arc_prop.shifts) {
-          ++ nConsShiftIni;
-          ++ nOldConsShift;
-          if(pScenario_->shiftIDToShiftTypeID_[s] != shiftType) {
-            // remove old cost and add new one
-            cost -= pScenario_->consShiftCost(shiftTypeIni, nOldConsShift);
-            cost += pScenario_->consShiftCost(shiftTypeIni, nConsShiftIni);
-            break;
-          }
+        // pay just penalty for min
+        int diff = pLiveNurse_->minConsDaysWork() - nConsWorkIni;
+        cost += std::max(0, diff * WEIGHT_CONS_DAYS_WORK);
+
+        int diff2 = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
+        cost += std::max(0, diff2 * WEIGHT_CONS_SHIFTS);
+      }
+    }
+    // otherwise, currently working
+    else {
+      // 1. The nurse was resting: pay more only if the rest is too short
+      if (shiftTypeIni == 0) {
+        int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
+        cost += std::max(0, diffRest * WEIGHT_CONS_DAYS_OFF);
+      }
+      // 2. The nurse was working
+      else {
+        // a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be added later
+        int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
+        cost -= std::max(0, diffWork * WEIGHT_CONS_DAYS_WORK);
+
+        // b.   The nurse was working on a different shift: if too short, add the corresponding cost
+        int shiftType = pScenario_->shiftIDToShiftTypeID_[currentShift];
+        if (shiftTypeIni != shiftType) {
+          int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
+          cost += std::max(0, diff * (WEIGHT_CONS_SHIFTS));
         }
+//        // c. If working on the same shift type, need to update the consecutive shift cost
+//        else {
+//          int nOldConsShift = 0;
+//          for (int s: arc_prop.shifts) {
+//            ++nConsShiftIni;
+//            ++nOldConsShift;
+//            if (pScenario_->shiftIDToShiftTypeID_[s] != shiftType) {
+//              // remove old cost and add new one
+//              cost -= pScenario_->consShiftCost(shiftTypeIni, nOldConsShift);
+//              cost += pScenario_->consShiftCost(shiftTypeIni, nConsShiftIni);
+//              break;
+//            }
+//          }
+//        }
       }
     }
   }
@@ -408,9 +449,11 @@ double SubProblem::workCost(const Arc_Properties& arc_prop, bool first_day) cons
 double SubProblem::endWorkCost(int a) const {
   const Arc_Properties& arc_prop = g_.arc(a);
   double cost = workCost(arc_prop);
-  int length = arc_prop.shifts.size(), end = arc_prop.day + (length>1 ? length-1 : 0);
+  int length = arc_prop.shifts.size(), end = arc_prop.day;
+  if(length > 1) end += length-1; // compute the end of the sequence of shifts
   cost += endWeekendCosts_[end];
   cost -= pCosts_->endWorkCost(end);
+
   return cost;
 }
 
@@ -426,20 +469,16 @@ void SubProblem::updateArcCosts() {
 
   //	A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
   for (PrincipalGraph &pg: principalGraphs_)
-
-    for (int k = daysMin_ - 1; k < nDays_; k++)
+    for (int k = minConsDays_ - 1; k < arcsFromSource_[pg.shiftType()].size(); k++)
       for (int n = 0; n <= pg.maxCons(); ++n)
         for (int a: arcsFromSource_[pg.shiftType()][k][n]) {
           const Arc_Properties &arc_prop = g_.arc(a);
-          if (!arc_prop.forbidden && canSuccStartHere(arc_prop) && pg.checkFeasibilityEntranceArc(arc_prop, n)) {
-            double c = startWorkCost(a);
-            g_.updateCost(a, c);
+          if (!arc_prop.forbidden && canSuccStartHere(arc_prop) &&
+              pg.checkFeasibilityEntranceArc(arc_prop, n)) {
+            g_.updateCost(a, startWorkCost(a));
             // For an arc that starts on the first day, must update the consumption based on the historical state
-            if (k == daysMin_ - 1) {
-              std::vector<int> consumptions = {daysMin_ + pLiveNurse_->pStateIni_->consDaysWorked_,
-                                               CDMin_ - daysMin_ - pLiveNurse_->pStateIni_->consDaysWorked_};
-              g_.updateConsumptions(a, consumptions);
-            }
+            if (k == minConsDays_ - 1)
+              g_.updateConsumptions(a, startConsumption(k, arc_prop.shifts));
           } else g_.forbidArc(a);
         }
 
@@ -448,16 +487,22 @@ void SubProblem::updateArcCosts() {
   for (PrincipalGraph &pg: principalGraphs_)
     pg.updateArcCosts();
 
-  // C. ARCS : PRINCIPAL_TO_PRICE_LABEL
-  //
-  for (int s = 1; s < pScenario_->nbShiftsType_; s++)
-    for (int k = daysMin_ - 1; k < nDays_; k++) {
-      int a = arcsPrincipalToPriceLabelsIn_[s][k];
-      double c = endWorkCost(a);
-      g_.updateCost(a, c);
-    }
+  // C. ARCS : PRINCIPAL GRAPH TO PRINCIPAL GRAPH
+  // usefull if rest principal graph active
+  for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
+    for (int a: principalToPrincipal_[0][s])
+      if(a != -1) g_.updateCost(a, startWorkCost(a));
+    for (int a: principalToPrincipal_[s][0])
+      if(a != -1) g_.updateCost(a, endWorkCost(a));
+  }
 
-  //D. ARCS : PRICE LABELS
+  // D. ARCS : PRINCIPAL_TO_PRICE_LABEL
+  // starts at 1, as on 0 we rest (so no end work)
+  for (int s = 1; s < pScenario_->nbShiftsType_; s++)
+    for (int a: arcsPrincipalToPriceLabelsIn_[s])
+      g_.updateCost(a, endWorkCost(a));
+
+  // E. ARCS : PRICE LABELS
   for (std::vector<PriceLabelGraph> &graphs: priceLabelsGraphs_)
     for (PriceLabelGraph& plg: graphs)
       plg.updateArcCosts(); // nothing for the moment
@@ -483,6 +528,41 @@ void SubProblem::updatedMaxRotationLengthOnNodes(int maxRotationLength){
       }
     }
   }
+}
+
+std::vector<int> SubProblem::startConsumption(int day, std::vector<int> shifts) const {
+  if(pScenario_->isRestShift(shifts.back())) return {
+        0,
+        CDMin_,
+        0,
+        pContract_->minTotalShifts_,
+        0
+    };
+
+  int timeDuration = 0, size = 0;
+  for(int s: shifts) {
+    if(pScenario_->isRestShift(s)) {
+      timeDuration = 0;
+      size = 0;
+    }
+    else {
+      timeDuration += pScenario_->timeDurationToWork_[s];
+      ++ size;
+    }
+  }
+  std::vector<int> c = {
+      size,
+      CDMin_ - size,
+      timeDuration,
+      pContract_->minTotalShifts_ - timeDuration,
+      Tools::containsWeekend(day-size+1, day)
+  };
+  // if need to take the historical state
+  if(day == size - 1 && pLiveNurse_) {
+    c[MAX_CONS_DAYS] += pLiveNurse_->pStateIni_->consDaysWorked_;
+    c[MIN_CONS_DAYS] -= pLiveNurse_->pStateIni_->consDaysWorked_;
+  }
+  return  c;
 }
 
 
@@ -617,7 +697,7 @@ bool SubProblem::solveRCGraphHeuristic(){
 	// ALL OTHER DAYS
 	//
 	int nFound = 0;
-	for(int startDate=1; startDate<nDays_-daysMin_; startDate ++){
+	for(int startDate=1; startDate<nDays_-minConsDays_; startDate ++){
 
 		vector<int> bestSucc;
 		double bestCost = 0;
