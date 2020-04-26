@@ -530,9 +530,16 @@ void MasterProblem::checkIfPatternAlreadyPresent(const std::vector<double>& patt
   }
 }
 
-void MasterProblem::printCurrentSol(){
-	allocationToString();
-		coverageToString();
+void MasterProblem::printCurrentSol() {
+  allocationToString();
+  coverageToString();
+  for (MyVar *var: pModel_->getActiveColumns()) {
+    double v  = pModel_->getVarValue(var);
+    if(v < EPSILON) continue;
+    std::cout << var->name_ << ": " << v << std::endl;
+    PPattern pat = getPattern(var->getPattern());
+    std::cout << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_) << std::endl;
+  }
 }
 
 /******************************************************

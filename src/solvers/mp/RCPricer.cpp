@@ -104,6 +104,23 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom) {
 
 			// ADD THE ROTATIONS TO THE MASTER PROBLEM
       addColumnsToMaster(pNurse->id_);
+
+#ifdef DBG
+//      SubProblem* sub2 = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+//      sub2->build();
+//      sub2->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
+//                  bound);
+//      std::vector<RCSolution> sols = sub2->getSolutions();
+//      std::stable_sort(sols.begin(), sols.end(),
+//                       [](const RCSolution& sol1, const RCSolution& sol2) { return sol1.cost < sol2.cost; });
+//      for(int i=0; i<std::min(nbMaxColumnsToAdd_, (int)sols.size()); ++i)
+//        std::cout << sols[i].toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//      std::cout << "**********************************************************" << std::endl;
+//      delete sub2;
+//
+//      if(sols.empty() && !newSolutionsForNurse_.empty())
+//        int bb = 1;
+#endif
 		}
 
 		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
@@ -208,7 +225,7 @@ int RCPricer::addColumnsToMaster(int nurseId){
 	int nbcolumnsAdded = 0;
 	for(const RCSolution& sol: newSolutionsForNurse_){
 #ifdef DBG
-	  std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//	  std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
 #endif
 		allNewColumns_.emplace_back(pMaster_->addColumn(nurseId, sol));
 		++nbcolumnsAdded;
@@ -217,7 +234,7 @@ int RCPricer::addColumnsToMaster(int nurseId){
 	}
 
 #ifdef DBG
-  std::cerr << "---------------------------------------------------------------" << std::endl;
+//  std::cerr << "---------------------------------------------------------------" << std::endl;
 #endif
 
   return nbcolumnsAdded;

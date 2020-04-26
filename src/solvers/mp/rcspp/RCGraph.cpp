@@ -39,19 +39,19 @@ std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
   if (vert_prop.forbidden)
     return false;
   new_cont.cost = old_cont.cost + arc_prop.cost;
-  new_cont.pred_arc = arc_prop.num;
 
 #ifdef DBG
-  if(arc_prop.num == 68)
+  new_cont.pred_arc = arc_prop.num;
+  new_cont.shifts_.insert(new_cont.shifts_.end(),
+      arc_prop.shifts.begin(), arc_prop.shifts.end());
+#endif
+
+#ifdef DBG
+//  if(new_cont.pred_arc == 368 || new_cont.pred_arc == 68 || new_cont.pred_arc == 524)
     assert(old_cont.size() == new_cont.size());
 #endif
 
   for (int l = 0; l < old_cont.size(); ++l) {
-#ifdef DBG
-    assert(old_cont.size() == new_cont.size());
-    int old_ub = get(boost::vertex_bundle, g)[source(ed, g)].ub(l);
-    assert(old_cont.label_value(l) <= old_ub);
-#endif
     int lv = std::max(vert_prop.lb(l), old_cont.label_value(l) + arc_prop.consumption(l));
     if (lv > vert_prop.ub(l))
       return false;
@@ -72,8 +72,10 @@ bool dominance_spp::operator()( const spp_res_cont& res_cont_1, const spp_res_co
 //    } else if (res_cont_1.label_value(l) < res_cont_2.label_value(l)) return false;
 //  return false;
 //  return true;
-  if(res_cont_1.pred_arc == 68)
-    int bb = 1;
+#ifdef DBG
+//  if(res_cont_1.pred_arc == 368 || res_cont_1.pred_arc == 68 || res_cont_1.pred_arc == 524)
+//    int bb = 1;
+#endif
   bool biggerThanMinLevel = false,
        equalLevels = true;
   for (int l = 0; l < res_cont_1.size(); ++l) {
@@ -294,6 +296,7 @@ std::string RCGraph::printNode(int v, int nLabel) const {
   const Vertex_Properties& vert_prop = node(v);
   char buff[255];
   sprintf(buff, "# NODE   %5d  %15s", v, nodeTypeName[vert_prop.type].c_str());
+  rep << buff;
 
   if(nLabel==-1) nLabel = vert_prop.size();
   for(int l=0; l<nLabel; ++l) {

@@ -619,6 +619,10 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 	//update node
 	pModel_->updateNodeLB(lpres.objval());
 
+#ifdef DBG
+//	pModel_->pMaster_->printCurrentSol();
+#endif
+
 	//update true_lower_bound, as we reach the end of the column generation
 	getLpProblemPointer()->node->true_lower_bound = lpres.objval();
 	heuristicHasBeenRun_ = true;

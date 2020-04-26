@@ -177,7 +177,10 @@ struct spp_res_cont{
     //
     std::vector<int> label_values;
 
+#ifdef DBG
     int pred_arc = -1;
+    std::vector<int> shifts_;
+#endif
 
     int label_value(int l) const {
       return label_values.at(l);

@@ -144,7 +144,8 @@ bool SubProblem::preprocess() {
 bool SubProblem::solveRCGraph(bool optimality){
   updateArcCosts();
 #ifdef DBG
-//  g_.printGraph(nLabels_, minConsDays_);
+//  if(minConsDays_==1)
+//    g_.printGraph(nLabels_, minConsDays_);
 #endif
 	if(optimality)
 		return solveRCGraphOptimal();		// Solve shortest path problem
@@ -285,7 +286,7 @@ void SubProblem::createArcsPrincipalToPrincipal() {
     for (int newSh = 0; newSh < nShiftsType; newSh++)
       // check if succession is allowed
       if (newSh != sh and !pScenario_->isForbiddenSuccessorShiftType_ShiftType(newSh, sh))
-        for (int k = 1; k < nDays_ - 1; k++) {
+        for (int k = 0; k < nDays_ - 1; k++) {
           int origin = principalGraphs_[sh].exit(k); // last level for day k
           if (origin == -1) continue; // if undefined, continue
           // entrance level for day k
