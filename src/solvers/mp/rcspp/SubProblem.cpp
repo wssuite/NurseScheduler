@@ -96,7 +96,7 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 	bestReducedCost_ = 0;
   nFound_=0;
 	param_ = param;
-  maxReducedCostBound_ = costs->constant() - redCostBound - EPSILON;			// Cost bound
+  maxReducedCostBound_ = - redCostBound - EPSILON;			// Cost bound
   pLiveNurse_ = nurse;									// Store the new nurse
   pCosts_ = costs;										// Store the new cost
 
@@ -123,15 +123,12 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 	// printAllSolutions();
 
 
-  // substract the constant part from the cost
   // and check that all solution respects forbidden shifts
-  for(RCSolution& sol: theSolutions_) {
-    sol.cost -= costs->constant();
 #ifdef DBG
+  for(RCSolution& sol: theSolutions_) {
     checkForbiddenDaysAndShifts(sol);
-#endif
   }
-
+#endif
 
 	return ANS;
 }
@@ -144,8 +141,7 @@ bool SubProblem::preprocess() {
 bool SubProblem::solveRCGraph(bool optimality){
   updateArcCosts();
 #ifdef DBG
-//  if(minConsDays_==1)
-//    g_.printGraph(nLabels_, minConsDays_);
+  g_.printGraph(nLabels_, minConsDays_);
 #endif
 	if(optimality)
 		return solveRCGraphOptimal();		// Solve shortest path problem
@@ -169,7 +165,7 @@ bool SubProblem::solveRCGraphOptimal(){
       pLiveNurse_->maxTotalWeekends()
   };
 	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_,
-	    labelsMinLevel, sinks);
+	    labelsMinLevel, sinks, postProcessResCont());
 
   for(const RCSolution& sol: solutions) {
     theSolutions_.push_back(sol);
@@ -183,6 +179,13 @@ bool SubProblem::solveRCGraphOptimal(){
 #endif
 
   return !solutions.empty();
+}
+
+std::function<void (spp_res_cont&)> SubProblem::postProcessResCont() const {
+  double constant = pCosts_->constant();
+  return [constant](spp_res_cont& res_cont) {
+      res_cont.cost -= constant;
+  };
 }
 
 // Resets all solutions data (rotations, number of solutions, etc.)
@@ -292,8 +295,10 @@ void SubProblem::createArcsPrincipalToPrincipal() {
           // entrance level for day k
           int destin = principalGraphs_[newSh].entrance(k);
           if (destin == -1) continue; // if undefined, continue
+          // if start work on sunday (rest to start shift)
+          bool weekend = (sh==0 && Tools::isSunday(k+1));
           principalToPrincipal_[sh][newSh][k] =
-              g_.addSingleArc(origin, destin, 0, {0, 0, 0, 0, 0}, SHIFT_TO_NEWSHIFT, k);
+              g_.addSingleArc(origin, destin, 0, {0, 0, 0, 0, weekend}, SHIFT_TO_NEWSHIFT, k);
         }
 }
 

@@ -50,7 +50,7 @@ void RCPricer::initPricerParameters(const SolverParam& param){
 	nbSubProblemsToSolve_ = param.sp_nbnursestoprice_;
 	defaultSubprobemStrategy_ = param.sp_default_strategy_;
 	secondchanceSubproblemStrategy_ = param.sp_secondchance_strategy_;
-	shortSubproblem_ = param.sp_short_;
+	shortSubproblem_ = (param.sp_type_ == LONG_ROTATION);
 	currentSubproblemStrategy_ = defaultSubprobemStrategy_;
 }
 

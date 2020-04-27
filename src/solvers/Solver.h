@@ -327,6 +327,26 @@ enum OptimalityLevel {UNTIL_FEASIBLE,TWO_DIVES,REPEATED_DIVES,OPTIMALITY};
 static std::map<std::string,OptimalityLevel> stringToOptimalityLevel=
 	{{"UNTIL_FEASIBLE",UNTIL_FEASIBLE},{"TWO_DIVES",TWO_DIVES},{"REPEATED_DIVES",REPEATED_DIVES},{"OPTIMALITY",OPTIMALITY}};
 
+// Algorithms for the overall solution
+//
+enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL, NONE};
+static const std::map<std::string,Algorithm> AlgorithmsByName =
+    {{"GREEDY",GREEDY},{"GENCOL",GENCOL},{"STOCHASTIC_GREEDY",STOCHASTIC_GREEDY},
+     {"STOCHASTIC_GENCOL",STOCHASTIC_GENCOL},{"NONE",NONE}};
+
+
+// Solution statuses
+//
+enum Status{UNSOLVED,FEASIBLE,INFEASIBLE,OPTIMAL,TIME_LIMIT};
+static const std::map<Status,std::string> statusToString = {{UNSOLVED,"UNSOLVED"},{FEASIBLE,"FEASIBLE"},{INFEASIBLE,"INFEASIBLE"},{OPTIMAL,"OPTIMAL"},{TIME_LIMIT,"TIME_LIMIT"}};
+
+
+// Subproblem (and also master) type
+enum SPType { LONG_ROTATION = 0, ALL_ROTATION = 1, ROSTER = 2};
+static const std::map<std::string,SPType> SPTypesByName =
+    {{"LONG",LONG_ROTATION},{"ALL",ALL_ROTATION},{"ROSTER",ROSTER}};
+
+
 class SolverParam{
 
 public:
@@ -420,8 +440,10 @@ public:
 	int sp_nbrotationspernurse_ = 20;
 	int sp_nbnursestoprice_ = 15;
 	bool sp_withsecondchance_ = false;
-  bool sp_short_ = true;
   double sp_max_reduced_cost_bound_ = 0.0;
+
+  // type of the subproblem used
+  SPType sp_type_ = LONG_ROTATION;
 
 public:
 	// Initialize all the parameters according to a small number of options that
@@ -444,17 +466,6 @@ public:
 //
 //-----------------------------------------------------------------------------
 
-// Algorithms for the overall solution
-//
-enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL, NONE};
-static std::map<std::string,Algorithm> AlgorithmsByName =
-	{{"GREEDY",GREEDY},{"GENCOL",GENCOL},{"STOCHASTIC_GREEDY",STOCHASTIC_GREEDY},
-	{"STOCHASTIC_GENCOL",STOCHASTIC_GENCOL},{"NONE",NONE}};
-
-// Solution statuses
-//
-enum Status{UNSOLVED,FEASIBLE,INFEASIBLE,OPTIMAL,TIME_LIMIT};
-static std::map<Status,std::string> statusToString = {{UNSOLVED,"UNSOLVED"},{FEASIBLE,"FEASIBLE"},{INFEASIBLE,"INFEASIBLE"},{OPTIMAL,"OPTIMAL"},{TIME_LIMIT,"TIME_LIMIT"}};
 
 class Solver{
 

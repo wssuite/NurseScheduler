@@ -31,6 +31,9 @@ class RosterSP : public SubProblem {
     // FUNCTIONS -- SOLVE
     //
 
+    // return a function that will post process any path found by the RC graph
+    std::function<void (spp_res_cont&)> postProcessResCont() const override ;
+
     // Creates all nodes of the rcspp (including resource window)
     void createNodes() override;
 

@@ -98,14 +98,18 @@ struct Arc_Properties{
 
     // Constructor
     //
-    Arc_Properties( int n = 0, ArcType ty = NONE_ARC, double c = 0, std::vector<int> consumptions={},
+    Arc_Properties( int n = 0, int origin=-1, int destination=-1, ArcType ty = NONE_ARC, double c = 0, std::vector<int> consumptions={},
         int day=-1, std::vector<int> shifts={}, bool forbidden=false) :
-        num( n ), type(ty), cost( c ), initialCost( c ), consumptions( consumptions ),
+        num( n ), origin(origin), destination(destination),
+        type(ty), cost( c ), initialCost( c ), consumptions( consumptions ),
         day( day ), shifts( shifts ), forbidden(forbidden) {}
 
     // id
     //
     int num;
+
+    // VERTICES
+    int origin, destination;
 
     // type
     //
@@ -178,7 +182,7 @@ struct spp_res_cont{
     std::vector<int> label_values;
 
 #ifdef DBG
-    int pred_arc = -1;
+    int pred_arc = -1, day = 0;
     std::vector<int> shifts_;
 #endif
 
@@ -189,6 +193,10 @@ struct spp_res_cont{
     int size() const {
       return label_values.size();
     }
+
+#ifdef DBG
+    void print() const;
+#endif
 };
 
 // Resources extension model (arc has cost + label consumptions)
@@ -344,7 +352,8 @@ class RCGraph {
 
     std::vector<RCSolution> solve(int nLabels, double maxReducedCostBound,
                                   const std::vector<int>& labelsMinLevel,
-                                  std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks={});
+                                  std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks={},
+                                  std::function<void (spp_res_cont&)> post_process_res_cont = nullptr);
 
     RCSolution solution(
         const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
@@ -440,11 +449,7 @@ class RCGraph {
     std::string printSummaryOfGraph() const;
     void printPath(std::ostream& out,
         std::vector< boost::graph_traits<Graph>::edge_descriptor > path,
-        spp_res_cont ressource) const;
-
-    // Test function for Shortest Path Problem with Resource Constraint
-    //
-    void testGraph_spprc();
+        spp_res_cont resource) const;
 
   protected:
     // THE GRAPH

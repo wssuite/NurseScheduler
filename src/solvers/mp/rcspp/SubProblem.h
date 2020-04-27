@@ -15,6 +15,7 @@
 
 static int MAX_COST = 99999;
 
+
 // Parameters (called in the solve function)
 //
 struct SubproblemParam{
@@ -338,6 +339,9 @@ class SubProblem {
     virtual bool solveRCGraphOptimal();
 
     virtual bool solveRCGraphHeuristic();
+
+    // return a function that will post process any path found by the RC graph
+    virtual std::function<void (spp_res_cont&)> postProcessResCont() const;
 
     // Initializes some cost vectors that depend on the nurse
     virtual void initStructuresForSolve();

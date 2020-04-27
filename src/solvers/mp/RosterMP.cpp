@@ -210,8 +210,9 @@ void RosterPattern::checkDualCost(DualCosts& costs, Scenario* pScenario){
       if(k>0 && !rest) dualCost -= costs.endWorkCost(k-1);
       rest = true;
     }
-
   }
+  /* Stop working dual cost */
+  if(!rest) dualCost -= costs.endWorkCost(length_-1);
 
   // Display: set to true if you want to display the details of the cost
 
@@ -226,7 +227,8 @@ void RosterPattern::checkDualCost(DualCosts& costs, Scenario* pScenario){
 
     std::cout << "#   | Constant: - " << costs.constant() << std::endl;
     for(int k=0; k<length_; ++k)
-      std::cout << "#   | Work day-shift " << k << ": - " << costs.workedDayShiftCost(k, shifts_[k]) << std::endl;
+      if(pScenario->isWorkShift(shifts_[k]))
+        std::cout << "#   | Work day-shift " << k << ": - " << costs.workedDayShiftCost(k, shifts_[k]) << std::endl;
     std::cout << toString(costs.nDays(), pScenario->shiftIDToShiftTypeID_);
     std::cout << "# " << std::endl;
 

@@ -27,6 +27,18 @@ std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
   return buff.str();
 }
 
+#ifdef DBG
+void spp_res_cont::print() const {
+  RCSolution sol(day, shifts_, cost);
+  std::cout << sol.toString();
+  for(int l=0; l<size(); l++) {
+    std::cout << labelName[l].c_str() << "=" << label_value(l) << "  ";
+  }
+  std::cout << std::endl;
+  std::cout << "Arc taken: " << pred_arc << std::endl;
+}
+#endif
+
 // Resources extension model (arc has cost + label consumptions)
     bool ref_spp::operator()( const Graph& g,
                             spp_res_cont& new_cont,
@@ -42,8 +54,12 @@ std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
 
 #ifdef DBG
   new_cont.pred_arc = arc_prop.num;
-  new_cont.shifts_.insert(new_cont.shifts_.end(),
-      arc_prop.shifts.begin(), arc_prop.shifts.end());
+  if(!arc_prop.shifts.empty()) {
+    if(new_cont.shifts_.empty()) new_cont.day = arc_prop.day;
+    new_cont.shifts_.insert(new_cont.shifts_.end(),
+                            arc_prop.shifts.begin(),
+                            arc_prop.shifts.end());
+  }
 #endif
 
 #ifdef DBG
@@ -66,41 +82,55 @@ bool dominance_spp::operator()( const spp_res_cont& res_cont_1, const spp_res_co
   // must be "<=" here!!!
   // must NOT be "<"!!!
   if (res_cont_1.cost > res_cont_2.cost + EPSILON) return false;
-//  for (int l = 0; l < res_cont_1.size(); ++l)
-//    if (labelsOrder.at(l)) { // dominance done with descending order (lower the better)
-//      if (res_cont_1.label_value(l) > res_cont_2.label_value(l)) return false;
-//    } else if (res_cont_1.label_value(l) < res_cont_2.label_value(l)) return false;
-//  return false;
-//  return true;
-#ifdef DBG
-//  if(res_cont_1.pred_arc == 368 || res_cont_1.pred_arc == 68 || res_cont_1.pred_arc == 524)
-//    int bb = 1;
-#endif
-  bool biggerThanMinLevel = false,
-       equalLevels = true;
+
+  /* Dominance:
+   * if label is increasing -> can dominate after a certain level:
+   *    if the label do not reach the minimum level, there is no additional cost
+   * if label is decreasing -> cannot dominate (min level should be an ub).
+   *    the label could continue to decrease in the future and not imply any additional cost.
+   * So, res_cont_1 dominates res_cont_2 in one of these 3 situations:
+   * a- cost1 < cost2 at epsilon and all label1 <= label2
+   * b- cost1 == cost2 at epsilon and all label1 <= label2 and
+   *    it exists one label1 < label2 with label2 > minLevel (significant)
+   * c- res_cont_1 == res_cont_2
+   */
+
+  bool dominate = (res_cont_1.cost < res_cont_2.cost - EPSILON),
+      biggerThanMinLevel = false,
+      equal = !dominate;
   for (int l = 0; l < res_cont_1.size(); ++l) {
-    // if label is increasing -> can dominate after a certain level
-    // if label is decreasing -> cannot dominate (min level should be an ub)
-    // res_cont_1 dominates res_cont_2 only if a strict dominance is observed:
-    // 1- cost1 < cost2 at epsilon and all the labels are smaller
-    // 2- cost1 == cost2 at epsilon and it exists one label1 < label2 with label2 > minLevel (significant)
     int label1 = res_cont_1.label_value(l),
         label2 = res_cont_2.label_value(l),
         minLevel = labelsMinLevel_.at(l);
-    // 1. label1 > label2 -> cannot be dominated
+    // label1 > label2 -> cannot be dominated in any case
     if (label1 > label2) return false;
-    // 2.a. if not equal
-    if (label1 < label2) {
-      equalLevels = false;
-      // 2.b. check if label is bigger than a certain level
-      // below this level, the label value does not imply bigger cost
+
+    // b or not c
+    if (!dominate && label1 < label2) {
+      equal = false;
+      // b: check if label is bigger than the min level
       if (label2 > minLevel)
         biggerThanMinLevel = true;
     }
   }
 
-  if(equalLevels) return true;
-  return biggerThanMinLevel;
+#ifdef DBG
+//  if(dominate || biggerThanMinLevel) {
+//    std::cout << "**************** DOMINATED ****************" << std::endl;
+//    res_cont_2.print();
+//    std::cout << "******************* BY ********************" << std::endl;
+//    res_cont_1.print();
+//    std::cout << "*******************************************" << std::endl;
+//  }
+#endif
+
+  // a
+  if(dominate) return true;
+  // b
+  if(biggerThanMinLevel) return true;
+  // c
+  return equal;
+
   // this is not a contradiction to the documentation
   // the documentation says:
   // "A label $l_1$ dominates a label $l_2$ if and only if both are resident
@@ -124,14 +154,30 @@ RCGraph::~RCGraph() {}
 
 std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
                                        const std::vector<int>& labelsMinLevel,
-                                       std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks) {
+                                       std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks,
+                                       std::function<void (spp_res_cont&)> post_process_res_cont) {
   if(sinks.empty()) sinks = sinks_;
+
+  // 0 - Remove all fordidden edges
+  //
+  std::map<int,Arc_Properties> arcs_to_remove;
+  std::vector<boost::graph_traits< Graph>::edge_descriptor> edges_to_remove;
+  for(int a=0; a<nArcs_; ++a) {
+    const Arc_Properties& arc_prop = arc(a);
+    if(arc_prop.forbidden) {
+      arcs_to_remove[a] = arc_prop;
+      edges_to_remove.push_back(arcsDescriptors_[a]);
+    }
+  }
+  for(auto& e: edges_to_remove)
+    boost::remove_edge(e, g_);
+
+  // 1 - solve the resource constraints shortest path problem
+  //
 
   std::vector< std::vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spp;
   std::vector<spp_res_cont> pareto_opt_rcs_spp;
 
-  // 1 - solve the resource constraints shortest path problem
-  //
   std::vector<int> initial_label_values(nLabels);
   dominance_spp dominance(labelsOrder, labelsMinLevel);
   // if only one  sink node
@@ -188,8 +234,10 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
       // b. if feasible, add the solution
       if( b_is_a_path_at_all && b_feasible && b_correctly_extended )
       {
-        if(pareto_opt_rcs_spp[p].cost < maxReducedCostBound)
-          rc_solutions.push_back(solution(opt_solutions_spp[p], pareto_opt_rcs_spp[p]));
+        spp_res_cont &res_cont = pareto_opt_rcs_spp[p];
+        if(post_process_res_cont) post_process_res_cont(res_cont);
+        if(res_cont.cost < maxReducedCostBound)
+          rc_solutions.push_back(solution(opt_solutions_spp[p], res_cont));
       }
       // c. print a warning as it shouldn't be the case
       else {
@@ -204,14 +252,22 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
 
     }
 
-    return rc_solutions;
+  // 3 - Add back all fordidden edges
+  //
+  for(auto& p: arcs_to_remove) {
+    boost::graph_traits< Graph>::edge_descriptor e =
+        (add_edge( p.second.origin, p.second.destination, p.second, g_ )).first;
+    arcsDescriptors_[p.first] = e;
+  }
+
+  return rc_solutions;
 }
 
 RCSolution RCGraph::solution(
     const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
     const spp_res_cont& resource){
 #ifdef DBG
-//  printPath(std::cout, path, resource);
+  printPath(std::cout, path, resource);
 #endif
 
   RCSolution sol(resource.cost);
@@ -244,7 +300,7 @@ int RCGraph::addSingleNode(NodeType type, std::vector<int> lbs, std::vector<int>
 int RCGraph::addSingleArc(int o, int d, double baseCost, std::vector<int> consumptions,
     ArcType type, int day, std::vector<int> shifts){
   boost::graph_traits< Graph>::edge_descriptor e =
-      (add_edge( o, d, Arc_Properties( nArcs_, type, baseCost, consumptions, day, shifts ), g_ )).first;
+      (add_edge( o, d, Arc_Properties( nArcs_, o, d, type, baseCost, consumptions, day, shifts ), g_ )).first;
   arcsDescriptors_.push_back(e);
   return nArcs_++;
 
@@ -500,193 +556,7 @@ void RCGraph::printPath(std::ostream& out, std::vector< boost::graph_traits<Grap
   out << std::endl;
 }
 
-/*************************************************************************
- * A GARDER AU CAS OU COMME EXEMPLE POUR CERTAINES FONCTIONS / SYNTAXES. *
- *************************************************************************/
-enum nodes { A, B, C, D, E, F, G };
-char name[] = "ABCDEFG";
 
-void RCGraph::testGraph_spprc(){
-  std::cout << "# " << std::endl;
-  std::cout << "# ====================================================================================" << std::endl;
-  std::cout << "# = Fonction de test du probleme de plus court chemin avec contraintes de ressources =" << std::endl;
-  std::cout << "# ====================================================================================" << std::endl;
-  std::cout << "# " << std::endl;
-
-  Graph g;
-
-  add_vertex( Vertex_Properties( A, NONE_NODE, {0}, {0} ), g );
-  add_vertex( Vertex_Properties( B, NONE_NODE, {3}, {20} ), g );
-  add_vertex( Vertex_Properties( C, NONE_NODE, {5}, {20} ), g );
-  add_vertex( Vertex_Properties( D, NONE_NODE, {0}, {20} ), g );
-  add_vertex( Vertex_Properties( E, NONE_NODE, {0}, {20} ), g );
-  add_vertex( Vertex_Properties( F, NONE_NODE, {1}, {2} ), g );
-  add_vertex( Vertex_Properties( G, NONE_NODE, {10},{20} ), g );
-
-  add_edge( A, B, Arc_Properties( 0, NONE_ARC, 1, {1} ), g );
-  add_edge( A, D, Arc_Properties( 1, NONE_ARC, 1, {1} ), g );
-  add_edge( B, C, Arc_Properties( 2, NONE_ARC, 1, {2} ), g );
-  add_edge( B, G, Arc_Properties( 3, NONE_ARC, 1, {12} ), g );
-  add_edge( D, C, Arc_Properties( 4, NONE_ARC, 1, {30} ), g );
-  add_edge( D, G, Arc_Properties( 5, NONE_ARC, 5, {2} ), g );
-  add_edge( D, E, Arc_Properties( 6, NONE_ARC, 2, {5} ), g );
-  add_edge( D, F, Arc_Properties( 7, NONE_ARC, 5, {2} ), g );
-  add_edge( E, G, Arc_Properties( 8, NONE_ARC, 1, {4} ), g );
-  add_edge( E, F, Arc_Properties( 9, NONE_ARC, 0, {2} ), g );
-
-
-  // the unique shortest path from A to E in the dijkstra-example.cpp is
-  // A -> C -> D -> E
-  // its length is 5
-  // the following code also yields this result
-
-  // with the above time windows, this path is infeasible
-  // now, there are two shortest paths that are also feasible with respect to
-  // the vertex time windows:
-  // A -> C -> B -> D -> E and
-  // A -> C -> B -> E
-  // however, the latter has a longer total travel time and is therefore not
-  // pareto-optimal, i.e., it is dominated by the former path
-  // therefore, the code below returns only the former path
-
-  boost::graph_traits<Graph>::vertex_descriptor s = A;
-  boost::graph_traits<Graph>::vertex_descriptor t = G;
-
-  std::vector<boost::graph_traits<Graph>::vertex_descriptor> tVec;
-  tVec.push_back(C);
-  tVec.push_back(G);
-  tVec.push_back(F);
-
-  std::vector< std::vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw_single;
-  std::vector<spp_res_cont> pareto_opt_rcs_spptw_single;
-
-  r_c_shortest_paths(
-      g,
-      get( &Vertex_Properties::num, g ),
-      get( &Arc_Properties::num, g ),
-      s,
-      t,
-      opt_solutions_spptw_single,
-      pareto_opt_rcs_spptw_single,
-      spp_res_cont( 0, {0} ),
-      ref_spp(),
-      dominance_spp(labelsOrder, {0}),
-      std::allocator< boost::r_c_shortest_paths_label< Graph, spp_res_cont> >(),
-      boost::default_r_c_shortest_paths_visitor() );
-
-  std::cout << "#" << std::endl;
-  std::cout << "# ----------------------------------" << std::endl;
-  std::cout << "#" << std::endl;
-  std::cout << "SPP with time windows:" << std::endl;
-  std::cout << "Number of optimal solutions: ";
-  std::cout << static_cast<int>( opt_solutions_spptw_single.size() ) << std::endl;
-  for( int i = 0; i < static_cast<int>( opt_solutions_spptw_single.size() ); ++i )
-  {
-    std::cout << "The " << i << "th shortest path from " << name[s] << " to " << name[t] << " is: ";
-    std::cout << std::endl;
-    for( int j = static_cast<int>( opt_solutions_spptw_single[i].size() ) - 1;
-         j >= 0;
-         --j )
-      std::cout << name[boost::source( opt_solutions_spptw_single[i][j], g )] << std::endl;
-    std::cout << name[t] << std::endl;
-    std::cout << "Length: " << pareto_opt_rcs_spptw_single[i].cost << std::endl;
-    std::cout << "Time: " << pareto_opt_rcs_spptw_single[i].label_value(0) << std::endl;
-  }
-  std::cout << "#" << std::endl;
-  std::cout << "# ----------------------------------" << std::endl;
-  std::cout << "#" << std::endl;
-
-
-
-  // spptw
-  std::vector< std::vector< boost::graph_traits<Graph>::edge_descriptor> > opt_solutions_spptw;
-  std::vector<spp_res_cont> pareto_opt_rcs_spptw;
-
-  r_c_shortest_paths_dispatch_several_sinks(
-      g,
-      get( &Vertex_Properties::num, g ),
-      get( &Arc_Properties::num, g ),
-      s,
-      tVec,
-      opt_solutions_spptw,
-      pareto_opt_rcs_spptw,
-      true,
-      spp_res_cont( 0, {0} ),
-      ref_spp(),
-      dominance_spp(labelsOrder, {0}),
-      std::allocator< boost::r_c_shortest_paths_label< Graph, spp_res_cont> >(),
-      boost::default_r_c_shortest_paths_visitor() );
-
-  std::cout << "#" << std::endl;
-  std::cout << "# ----------------------------------" << std::endl;
-  std::cout << "#" << std::endl;
-  std::cout << "SPP with time windows:" << std::endl;
-  std::cout << "Number of optimal solutions: ";
-  std::cout << static_cast<int>( opt_solutions_spptw.size() ) << std::endl;
-  for( int i = 0; i < static_cast<int>( opt_solutions_spptw.size() ); ++i )
-  {
-    std::cout << "The " << i << "th shortest path from A to sink " << name[target( opt_solutions_spptw[i][0], g )]<< " is: ";
-    std::cout << std::endl;
-    for( int j = static_cast<int>( opt_solutions_spptw[i].size() ) - 1;
-         j >= 0;
-         --j ){
-      std::cout << name[boost::source( opt_solutions_spptw[i][j], g )] << std::endl;
-      if(j==0){
-        std::cout << name[boost::target(opt_solutions_spptw[i][j], g)] << std::endl;
-      }
-
-    }
-    std::cout << "Length: " << pareto_opt_rcs_spptw[i].cost << std::endl;
-    std::cout << "Time: " << pareto_opt_rcs_spptw[i].label_value(0) << std::endl;
-  }
-  std::cout << "#" << std::endl;
-  std::cout << "# ----------------------------------" << std::endl;
-  std::cout << "#" << std::endl;
-
-  // utility function check_r_c_path example
-  std::cout << std::endl;
-  bool b_is_a_path_at_all = false;
-  bool b_feasible = false;
-  bool b_correctly_extended = false;
-  spp_res_cont actual_final_resource_levels( 0, {0} );
-  boost::graph_traits<Graph>::edge_descriptor ed_last_extended_arc;
-  check_r_c_path( g,
-                  opt_solutions_spptw[0],
-                  spp_res_cont( 0, {0} ),
-                  true,
-                  pareto_opt_rcs_spptw[0],
-                  actual_final_resource_levels,
-                  ref_spp(),
-                  b_is_a_path_at_all,
-                  b_feasible,
-                  b_correctly_extended,
-                  ed_last_extended_arc );
-  if( !b_is_a_path_at_all )
-    std::cout << "Not a path." << std::endl;
-  if( !b_feasible )
-    std::cout << "Not a feasible path." << std::endl;
-  if( !b_correctly_extended )
-    std::cout << "Not correctly extended." << std::endl;
-  if( b_is_a_path_at_all && b_feasible && b_correctly_extended )
-  {
-    std::cout << "Actual final resource levels:" << std::endl;
-    std::cout << "Length: " << actual_final_resource_levels.cost << std::endl;
-    std::cout << "Time: " << actual_final_resource_levels.label_value(0) << std::endl;
-    std::cout << "OK." << std::endl;
-  }
-
-  getchar();
-
-}
-
-//----------------------------------------------------------------
-//
-// Shortest path function with several sinks
-// (modified from boost so that we can give several sink nodes)
-//
-//----------------------------------------------------------------
-
-/////////////////////////////////////////////////
 //
 // Comparison override for 1 and 2 resource paths
 //
@@ -719,45 +589,6 @@ bool operator<( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 )
 }
 
 //// r_c_shortest_paths_several_sinks function -> calls r_c_shortest_paths_dispatch
-//template<class Graph,
-//    class VertexIndexMap,
-//    class EdgeIndexMap,
-//    class Resource_Container,
-//    class Resource_Extension_Function,
-//    class Dominance_Function,
-//    class Label_Allocator,
-//    class Visitor>
-//void r_c_shortest_paths_several_sinks( const Graph& g,
-//                                       const VertexIndexMap& vertex_index_map,
-//                                       const EdgeIndexMap& edge_index_map,
-//                                       typename boost::graph_traits<Graph>::vertex_descriptor s,
-//                                       std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> t,
-//    // each inner vector corresponds to a pareto-optimal path
-//                                       std::vector<std::vector<typename boost::graph_traits<Graph>::edge_descriptor> >&
-//                                       pareto_optimal_solutions,
-//                                       std::vector<Resource_Container>& pareto_optimal_resource_containers,
-//    // to initialize the first label/resource container
-//    // and to carry the type information
-//                                       const Resource_Container& rc,
-//                                       const Resource_Extension_Function& ref,
-//                                       const Dominance_Function& dominance,
-//    // to specify the memory management strategy for the labels
-//                                       Label_Allocator la,
-//                                       Visitor vis ){
-//  r_c_shortest_paths_dispatch_several_sinks( g,
-//                                             vertex_index_map,
-//                                             edge_index_map,
-//                                             s,
-//                                             t,
-//                                             pareto_optimal_solutions,
-//                                             pareto_optimal_resource_containers,
-//                                             true,
-//                                             rc,
-//                                             ref,
-//                                             dominance,
-//                                             la,
-//                                             vis );
-//}
 
 // r_c_shortest_paths_dispatch function (body/implementation)
 template<class Graph,

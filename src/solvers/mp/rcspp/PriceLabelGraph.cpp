@@ -25,30 +25,34 @@ void PriceLabelGraph::build() {
   // CREATE THE NODES
   // dafault bounds
   std::vector<int> lbs = pSP_->defaultLBs(),
-                   ubs = pSP_->defaultUBs();
+      ubs = pSP_->defaultUBs();
   // Entrance
   entrance_ = pSP_->addSingleNode(PRICE_LABEL_ENTRANCE, lbs, ubs);
   // Check nodes
-  for(int l=lb_; l<=ub_; l++)	{
-    std::vector<int> ubs2 = ubs;
+  for (int l = lb_; l <= ub_; l++) {
+    // WARNING: it's important to set the LB = UB to ensure a valid dominance operator
+    // Otherwise, some path could be wrongly dominated leading to segfault in boost.
+    std::vector<int> lbs2 = lbs, ubs2 = ubs;
+    lbs2[label_] = l;
     ubs2[label_] = l;
-    checkNodes_.emplace_back(pSP_->addSingleNode(PRICE_LABEL, lbs, ubs2));
+    checkNodes_.emplace_back(pSP_->addSingleNode(PRICE_LABEL, lbs2, ubs2));
   }
   // exit day
-  if(reset_labels_after_pricing_ && minLabel()) // lb = ub, reach the UB as the label will decrease with consumption
+  if (reset_labels_after_pricing_ && minLabel()) // lb = ub, reach the UB as the label will decrease with consumption
     lbs[label_] = ubs[label_];
   exit_ = pSP_->addSingleNode(PRICE_LABEL_EXIT, lbs, ubs);
 
   // CREATE THE ARCS
-  std::vector<int> in_consumptions = {0,0,0,0,0},  out_consumptions = {0,0,0,0,0};
-  if(reset_labels_after_pricing_ && !minLabel())
+  std::vector<int> in_consumptions = {0, 0, 0, 0, 0}, out_consumptions = {0, 0, 0, 0, 0};
+  if (reset_labels_after_pricing_ && !minLabel())
     out_consumptions[label_] = -ubs[label_]; // decrease the label to a negative value -> will be set to 0 by the lb
-int l = lb_;
 
-for(int v: checkNodes_) {
-    int c = minLabel() ? getLabelCost(ub_-l) : getLabelCost(l); // min cost is decreasing with l, and max cost is increasing with l
+  int l = lb_;
+  for (int v: checkNodes_) {
+    int c = minLabel() ? getLabelCost(ub_ - l) : getLabelCost(
+        l); // min cost is decreasing with l, and max cost is increasing with l
     in_arcs_.emplace_back(pSP_->addSingleArc(entrance_, v, c, in_consumptions, PRICE_LABEL_IN_TO_PRICE_LABEL, day_));
-    out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, out_consumptions , PRICE_LABEL_TO_PRICE_LABEL_OUT, day_));
+    out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, out_consumptions, PRICE_LABEL_TO_PRICE_LABEL_OUT, day_));
     ++l;
   }
 }

@@ -51,10 +51,6 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 	}
 	std::cout << std::endl;
 
-  completeParameters_.sp_short_ = inputPaths.shortSP();
-  rollingParameters_.sp_short_ = inputPaths.shortSP();
-  lnsParameters_.sp_short_ = inputPaths.shortSP();
-
 	if (!options_.logfile_.empty()) {
 		FILE * pFile;
 		pFile = fopen (options_.logfile_.c_str(),"w");
@@ -102,6 +98,11 @@ void DeterministicSolver::setOptionsToDefault(InputPaths& inputPaths) {
 	// parameters of the solution in the large neighborhood search
 	SolverParam lnsParameters(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
 	lnsParameters_ = lnsParameters;
+
+  SPType t = SPTypesByName.at(inputPaths.SPType());
+  completeParameters_.sp_type_ = t;
+  rollingParameters_.sp_type_ = t;
+  lnsParameters_.sp_type_ = t;
 }
 
 // Read deterministic options from a file
@@ -129,6 +130,7 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 	// go through all the lines of the parameter file
 	std::string title;
 	SolverParam param;
+  param.sp_type_ = SPTypesByName.at(inputPaths.SPType());
 	OptimalityLevel completeOptimalityLevel=UNTIL_FEASIBLE;
 	OptimalityLevel lnsOptimalityLevel=UNTIL_FEASIBLE;
 	OptimalityLevel rollingOptimalityLevel=UNTIL_FEASIBLE;
@@ -188,7 +190,7 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 		else if (Tools::strEndsWith(title, "solutionAlgorithm")) {
 			std::string algoName;
 			file >> algoName;
-			options_.solutionAlgorithm_ = AlgorithmsByName[algoName];
+			options_.solutionAlgorithm_ = AlgorithmsByName.at(algoName);
 		}
 		else if (Tools::strEndsWith(title, "solverType")) {
 			std::string solverName;
@@ -425,7 +427,7 @@ double DeterministicSolver::solveCompleteHorizon() {
 
 	// Initialize solver and solve
 	//
-	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_);
+	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_, completeParameters_.sp_type_);
 	pCompleteSolver_->solve(completeParameters_);
 	pCompleteSolver_->printCurrentSol();
 	std::cout << pCompleteSolver_->solutionToString() << std::endl;
@@ -571,7 +573,7 @@ double DeterministicSolver::solveWithRollingHorizon() {
 	// Initialize the solver that will handle the iterative solution of the
 	// receeding horizon
 	//
-	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_);
+	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_, rollingParameters_.sp_type_);
 
 	// Solve the instance iteratively with a rolling horizon
 	//
@@ -684,7 +686,7 @@ double DeterministicSolver::solveWithLNS() {
 	double timeSinceStart = pTimerTotal_->dSinceStart();
 	lnsParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_ - timeSinceStart;
 
-	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_);
+	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_, lnsParameters_.sp_type_);
 	// pLNSSolver_->initialize(options_.lnsParameters_,this->solution_);
 
 	// Perform destroy/repair iterations until a given number of iterations
@@ -990,37 +992,33 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 //----------------------------------------------------------------------------
 
 // Return a solver with the algorithm specified for resolution
-Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand) {
-	Solver* pSolver=NULL;
-	switch(options_.solutionAlgorithm_){
-		//case GREEDY:
-		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-		//break;
-		case GENCOL:
-      pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
-//		  pSolver = new RosterMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
-		break;
-		default:
-		Tools::throwError("The algorithm is not handled yet");
-		break;
-	}
-	return pSolver;
+Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, SPType SPType) {
+	return setSolverWithInputAlgorithm(pDemand, options_.solutionAlgorithm_, SPType);
 }
 
 // Return a solver with the input algorithm
-Solver* DeterministicSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm) {
-
-	Solver* pSolver=NULL;
-	switch(algorithm){
-		//case GREEDY:
-		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-		//break;
-		case GENCOL:
-		pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
-		break;
-		default:
-		Tools::throwError("The algorithm is not handled yet");
-		break;
-	}
-	return pSolver;
+Solver* DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm, SPType SPType) {
+  Solver* pSolver= nullptr;
+  switch(algorithm){
+    //case GREEDY:
+    //pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
+    //break;
+    case GENCOL:
+      switch(SPType) {
+        case LONG_ROTATION:
+        case ALL_ROTATION:
+          pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+          break;
+        case ROSTER:
+          pSolver = new RosterMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+          break;
+        default:
+          Tools::throwError("The subproblem type is not handled yet");
+      }
+      break;
+    default:
+      Tools::throwError("The algorithm is not handled yet");
+      break;
+  }
+  return pSolver;
 }

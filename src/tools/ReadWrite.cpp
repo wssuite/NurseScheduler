@@ -272,7 +272,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
     shiftToInt = shiftTypeToInt;
     shiftTypeIDToShiftID.resize(nbShiftsType);
     for(int i=0; i<nbShiftsType; i++){
-	    hoursInShift.push_back(1); // 1 as default (could be days, hours, ...)
+	    hoursInShift.push_back(i>0); // 1 as default (could be days, hours, ...) for non rest shift (>0)
 	    shiftIDToShiftTypeID.push_back(i);
       shiftTypeIDToShiftID[i].push_back(i);
 	  }

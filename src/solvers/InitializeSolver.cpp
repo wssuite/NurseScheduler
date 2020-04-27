@@ -79,8 +79,8 @@ InputPaths* readNonCompactArguments(int argc, char** argv) {
 			pInputPaths->randSeed(std::stoi(str));
 			narg += 2;
 		}
-		else if (!strcmp(argv[narg],"--short-sp")) {
-		    pInputPaths->shortSP(std::stoi(str));
+		else if (!strcmp(argv[narg],"--sp-type")) {
+		    pInputPaths->SPType(str);
 			narg += 2;
 		}
 		else {
@@ -108,8 +108,8 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	// Default arguments are set to enable simple call to the function without argument
 	//
 	std::string dataDir = "",instanceName = "",solutionPath="",logPath="",paramFile="";
+	std::string SPType = "LONG";
 	int historyIndex = 0, randSeed=0;
-	bool shortSP = true;
 	std::vector<int> weekIndices;
 	double timeOut = LARGE_TIME;
 
@@ -119,7 +119,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	while (narg < argc) {
 		const char* arg = argv[narg];
 		std::cout << "arg = " << arg << " " << argv[narg+1] << std::endl;
-		// Attention usine a gaz: problem with the java simulator that add quote
+		// WARNING: problem with the java simulator that add quote
 		// marks in the arguments, which messes with the open file methods
 		// the code below is here to remove these quote marks
 		//
@@ -166,8 +166,8 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 			randSeed = std::stoi(str);
 			narg += 2;
 		}
-		else if (!strcmp(arg,"--short-sp")) {
-      shortSP = std::stoi(str);
+		else if (!strcmp(arg,"--sp-type")) {
+      SPType = str;
 			narg += 2;
 		}
 		else {
@@ -180,7 +180,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	// Initialize the input paths
 	//
 	InputPaths* pInputPaths =
-	  new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,timeOut,randSeed,shortSP);
+	  new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,timeOut,randSeed,SPType);
 
 	return pInputPaths;
 }

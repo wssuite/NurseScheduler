@@ -19,6 +19,18 @@ RosterSP::RosterSP(Scenario* scenario, int nbDays, const Contract* contract, vec
 
 RosterSP::~RosterSP(){}
 
+std::function<void (spp_res_cont&)> RosterSP::postProcessResCont() const {
+  double constant = pCosts_->constant();
+  int max_days = pLiveNurse_->maxTotalShifts(),
+      max_weekends = pLiveNurse_->maxTotalWeekends();
+  return [constant, max_days, max_weekends](spp_res_cont& res_cont) {
+    res_cont.cost -= constant;
+    res_cont.cost += res_cont.label_value(MIN_DAYS) * WEIGHT_TOTAL_SHIFTS;
+    res_cont.cost += std::max(0, res_cont.label_value(MAX_DAYS) - max_days) * WEIGHT_TOTAL_SHIFTS;
+    res_cont.cost += std::max(0, res_cont.label_value(MAX_WEEKEND) - max_weekends) * WEIGHT_TOTAL_WEEKENDS;
+  };
+}
+
 // Function that creates the nodes of the network
 void RosterSP::createNodes() {
   // INITIALIZATION
@@ -52,9 +64,10 @@ void RosterSP::createNodes() {
   // last day: price max cons days, min/max days and max weekend
   priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
       {PriceLabelGraph(nDays_-1, pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this),
-       PriceLabelGraph(nDays_-1, pContract_->maxTotalShifts_, maxTotalDuration_, MAX_DAYS, this),
-       PriceLabelGraph(nDays_-1, 0, pContract_->minTotalShifts_, MIN_DAYS, this),
-       PriceLabelGraph(nDays_-1, pContract_->maxTotalWeekends_, pScenario_->nbWeeks(), MAX_WEEKEND, this)
+       // use a postprocess function instead
+       //       PriceLabelGraph(nDays_-1, pContract_->maxTotalShifts_, maxTotalDuration_, MAX_DAYS, this),
+//       PriceLabelGraph(nDays_-1, 0, pContract_->minTotalShifts_, MIN_DAYS, this),
+//       PriceLabelGraph(nDays_-1, pContract_->maxTotalWeekends_, pScenario_->nbWeeks(), MAX_WEEKEND, this)
        }));
   // link subgraphs
   SubGraph* previousGraph = nullptr;
