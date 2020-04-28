@@ -15,7 +15,9 @@
 // they are set as static constant values in case they need to be shared with
 // other classes (e.g. solvers)
 //
-
+enum PREF_LEVEL {WEAK=0, MODERATE=1, STRONG=2, COMPULSORY=3};
+const std::map<PREF_LEVEL,std::string> levelsToString = {{WEAK, "WEAK"}, {MODERATE, "MODERATE"},
+                                                         {STRONG, "STRONG"}, {COMPULSORY, "COMPULSORY"}};
 static const int NB_LEVEL = 4;         //  0: weak 1: moderate; 2:strong; 3:compulsory;
 static const int WEIGHT_OPTIMAL_DEMAND    = 30;
 static const int WEIGHT_CONS_SHIFTS       = 15;

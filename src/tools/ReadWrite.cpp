@@ -400,22 +400,35 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
       if(!*pPref)
         *pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
-			string nurseName, shift, day;
-			int nbShiftOffRequests, nurseId, shiftId, dayId, level;
-			file >> nbShiftOffRequests;
-			for (int i=0; i<nbShiftOffRequests; i++){
-				file >> nurseName;
+			string nurseName, shift, day, strLevel;
+			bool levelDefined = true;
+			int nbShifts, nurseId, dayId;
+			PREF_LEVEL level = WEAK;
+			file >> nbShifts;
+			for (int i=0; i<nbShifts; i++){
+				if(nurseName.empty())
+				  file >> nurseName;
+        nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        nurseName.clear();
 				file >> shift;
 				file >> day;
-				file >> level;
-				nurseId = pScenario->nurseNameToInt_.at(nurseName);
-				dayId = Tools::dayToInt(day);
+        dayId = Tools::dayToInt(day);
+				// in case there is no level defined for the preferences
+				if(levelDefined) {
+          file >> strLevel;
+          try {
+            level = (PREF_LEVEL) std::stoi(strLevel);
+          } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
+            nurseName = strLevel;
+            levelDefined = false;
+          }
+        }
 
 				if(shift == "Any")
 				  (*pPref)->addDayOff(nurseId, dayId, level);
 				else {
 					// shiftId = pScenario->shiftTypeToInt_.at(shift);
-					shiftId = pScenario->shiftToInt_.at(shift);
+					int shiftId = pScenario->shiftToInt_.at(shift);
 					(*pPref)->addShiftOff(nurseId, dayId, shiftId, level);
 				}
 			}
@@ -427,22 +440,35 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 			if(!*pPref)
 			  *pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
-			string nurseName, shift, day;
-			int nbShiftOnRequests, nurseId, shiftId, dayId, level;
-			file >> nbShiftOnRequests;
-			for (int i=0; i<nbShiftOnRequests; i++){
-				file >> nurseName;
-				file >> shift;
-				file >> day;
-				file >> level;
-				nurseId = pScenario->nurseNameToInt_.at(nurseName);
-				dayId = Tools::dayToInt(day);
+      string nurseName, shift, day, strLevel;
+      bool levelDefined = true;
+      int nbShifts, nurseId, dayId;
+      PREF_LEVEL level = WEAK;
+      file >> nbShifts;
+      for (int i=0; i<nbShifts; i++){
+        if(nurseName.empty())
+          file >> nurseName;
+        nurseName.clear();
+        nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        file >> shift;
+        file >> day;
+        dayId = Tools::dayToInt(day);
+        // in case there is no level defined for the preferences
+        if(levelDefined) {
+          file >> strLevel;
+          try {
+            level = (PREF_LEVEL) std::stoi(strLevel);
+          } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
+            nurseName = strLevel;
+            levelDefined = false;
+          }
+        }
 
 				if(shift == "Any")
 				  (*pPref)->addDayOn(nurseId, dayId, level);
 				else {
 					// shiftId = pScenario->shiftTypeToInt_.at(shift);
-					shiftId = pScenario->shiftToInt_.at(shift);
+					int shiftId = pScenario->shiftToInt_.at(shift);
 					(*pPref)->addShiftOn(nurseId, dayId, shiftId, level);
 				}
 			}

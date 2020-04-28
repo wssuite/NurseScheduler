@@ -14,7 +14,8 @@
 #include <vector>
 
 #include "tools/MyTools.h"
-#include "data/Demand.h"
+//#include "data/Demand.h"
+#include "data/Scenario.h"
 
 
 class Scenario;
@@ -276,7 +277,7 @@ public:
 
 struct Wish {
   int  shift;
-  int  level;   // 0: fort, 1: moyen, 2: faible
+  PREF_LEVEL level;   // 0: fort, 1: moyen, 2: faible
 };
 
 
@@ -316,13 +317,13 @@ public:
 
 	// For a given day, and a given shift, adds it to the wish-list for OFF-SHIFT
   //	void addShiftOff(int nurse, int day, int shift);
-        void addShiftOff(int nurse, int day, int shift, int level);
-        void addShiftOn(int nurse, int day, int shift, int level);
+        void addShiftOff(int nurse, int day, int shift, PREF_LEVEL level);
+        void addShiftOn(int nurse, int day, int shift, PREF_LEVEL level);
 
 	// Adds the whole day to the wish-list
   //	void addDayOff(int nurse, int day);
-        void addDayOff(int nurse, int day, int level);
-        void addDayOn(int nurse, int day, int level);
+        void addDayOff(int nurse, int day, PREF_LEVEL level);
+        void addDayOn(int nurse, int day, PREF_LEVEL level);
 
   //	map<int,std::set<int> >* nurseWishesOff(int id) {return &wishesOff_[id];}
   std::map<int,std::vector<Wish> >* nurseWishesOff(int id) {return &wishesOff_[id];}

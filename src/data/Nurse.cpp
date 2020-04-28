@@ -1,6 +1,5 @@
 
 #include "data/Nurse.h"
-#include "data/Scenario.h"
 
 #include <fstream>
 #include <iostream>
@@ -235,13 +234,13 @@ Preferences::Preferences(vector<Nurse>& nurses, int nbDays, int nbShifts) :
 }
 
 // Add a wished day-shift off for a nurse
-void Preferences::addShiftOff(int nurseId, int day, int shift, int level){
+void Preferences::addShiftOff(int nurseId, int day, int shift, PREF_LEVEL level){
 	// Insert the wished shift in the set
 	wishesOff_[nurseId][day].push_back({shift, level});
 }
 
 // Adds the whole day to the wish-list
-void Preferences::addDayOff(int nurseId, int day, int level){
+void Preferences::addDayOff(int nurseId, int day, PREF_LEVEL level){
 	vector<Wish>& wishList = wishesOff_[nurseId][day];
 	for(int s=1; s<nbShifts_; s++)           // Starts from 1 because it's a rest wish
 	  wishList.push_back({s, level});
@@ -299,13 +298,13 @@ int Preferences::howManyDaysOff(int nurseId, int dayMin, int dayMax){
 //////////////////////////////////////////////////////////////////
 
 // Add a wished day-shift on for a nurse
-void Preferences::addShiftOn(int nurseId, int day, int shift, int level){
+void Preferences::addShiftOn(int nurseId, int day, int shift, PREF_LEVEL level){
   // Insert the wished shift in the set
   wishesOn_[nurseId][day].push_back({shift, level});
 }
 
 // Adds the whole day to the wish-list
-void Preferences::addDayOn(int nurseId, int day, int level){
+void Preferences::addDayOn(int nurseId, int day, PREF_LEVEL level){
   vector<Wish>& wishList = wishesOn_[nurseId][day];
   for(int s=1; s<nbShifts_; s++)           // Starts from 1 because it's a rest wish
     wishList.push_back({s, level});
@@ -445,7 +444,8 @@ string Preferences::toString(Scenario* pScenario) const{
     for(const auto & pWishes2: pWishes.second) {
       rep <<  "      | " << pWishes.first << ":" << pWishes2.first << "  ->  ";
       for(const Wish& w : pWishes2.second)
-        rep << (pScenario ? pScenario->intToShift_[w.shift] : std::to_string(w.shift)) << "\t";
+        rep << (pScenario ? pScenario->intToShift_[w.shift] : std::to_string(w.shift))
+            << " (" << levelsToString.at(w.level) <<")\t";
       rep << std::endl;
     }
   rep << "# Wished on:" << std::endl;
@@ -453,7 +453,8 @@ string Preferences::toString(Scenario* pScenario) const{
     for(const auto & pWishes2: pWishes.second) {
     rep <<  "      | " << pWishes.first << ":" << pWishes2.first << "  ->  ";
     for(const Wish& w : pWishes2.second)
-      rep << (pScenario ? pScenario->intToShift_[w.shift] : std::to_string(w.shift));
+      rep << (pScenario ? pScenario->intToShift_[w.shift] : std::to_string(w.shift))
+          << " (" << levelsToString.at(w.level) <<")\t";
     rep << std::endl;
   }
 	return rep.str();
