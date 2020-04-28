@@ -35,13 +35,16 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
 	vector<MyVar*> arcs;
 	while(node->pParent_){
 		// If on a rest node, we forbid shifts only if rest is forced
-		// In that case, no rotation can inlude a shift on the fixed resting day
+		// In that case, no rotation can include a shift on the fixed resting day
 		//
 		RestNode* restNode = dynamic_cast<RestNode*>(node);
 		if(restNode) {
-      if(restNode->pNurse_ == pNurse && restNode->rest_)
-        for(int i=1; i<pNurse->pScenario_->nbShifts_; ++i)
-          forbidenShifts.insert(pair<int,int>(restNode->day_, i));
+      if(restNode->pNurse_ == pNurse) {
+        if(restNode->rest_) {
+          for (int i = 1; i < pNurse->pScenario_->nbShifts_; ++i)
+            forbidenShifts.insert(pair<int, int>(restNode->day_, i));
+        } else forbidenShifts.insert(pair<int,int>(restNode->day_, 0));
+      }
       node = node->pParent_;
       continue;
     }
@@ -53,8 +56,7 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
 		if(shiftNode) {
 		  if(shiftNode->pNurse_ == pNurse)
         for(int s: shiftNode->forbiddenShifts_)
-          if (s!=0)
-            forbidenShifts.insert(pair<int,int>(shiftNode->day_, s));
+          forbidenShifts.insert(pair<int,int>(shiftNode->day_, s));
       node = node->pParent_;
       continue;
 		}
@@ -65,7 +67,7 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
 		// rotation, so the shifts can also be forbidden on these two days (if
 		// the rotation is not at an extremity of the horizon)
 		ColumnsNode* columnsNode = dynamic_cast<ColumnsNode*>(node);
-		if(columnsNode == 0 )
+		if(columnsNode == nullptr )
 		  Tools::throwError("Type of node not recognized.");
 
 		for(PPattern pat: columnsNode->patterns_)
@@ -73,9 +75,8 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
         for (int day = pat->firstDay_ - 1; day <= pat->firstDay_ + pat->length_; day++) {
           if (day < pScenario_->firstDay()) continue;
           if (day >= pScenario_->firstDay() + pScenario_->nbDays()) continue;
-          for (int i = 1; i < pNurse->pScenario_->nbShifts_; ++i) {
+          for (int i = 0; i < pNurse->pScenario_->nbShifts_; ++i)
             forbidenShifts.insert(pair<int, int>(day, i));
-          }
         }
 
 		node = node->pParent_;
@@ -268,7 +269,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 	}
 
 	if (pModel_->getParameters().branchColumnDisjoint_) {
-	  double valueMax = std::max (1.0, pMaster_->getScenario()->nbWeeks_ / 2.0);
+	  double valueMax = pMaster_->getBranchColumnValueMax();
 		DayDisjointComparator comp1 = DayDisjointComparator();
 		fixingCandidates = chooseColumns(candidates, patterns, valueMax, comp1); // (pMaster_->pScenario_->nbWeeks_ + 1) / 2.0
 
@@ -294,7 +295,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 		node.setLb(index, 1);
 	}
 
-	// Find the rotation to deactivate
+	// Find the column to deactivate
 	for(MyVar* var: pModel_->getActiveColumns()){
 		if(var->getUB() == 0)
 			continue;
@@ -327,7 +328,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate& candidate){
 }
 
 bool DiveBranchingRule::branching_candidates(MyBranchingCandidate& candidate){
-		return branchOnRestingArcs(candidate);
+		return branchOnRestDay(candidate);
 		//return branchOnShifts(candidate);
 }
 
@@ -336,7 +337,7 @@ bool DiveBranchingRule::branching_candidates(MyBranchingCandidate& candidate){
 // Branch on a set of resting arcs
 //-----------------------------------------------------------------------------
 
-bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
+bool DiveBranchingRule::branchOnRestDay(MyBranchingCandidate &candidate){
 	//set of rest variable closest to .5
 	int bestDay = -1;
 	double advantage = .2;
@@ -378,59 +379,50 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 		}
 	}
 
-	if(pBestNurse != nullptr){
-		//creating the branching cut
-		char name[50];
-		sprintf(name, "RestBranchingCons_N%d_%d", pBestNurse->id_, bestDay);
-		vector<double> coeffs;
-		vector<MyVar*> restingArcs;
-		for(MyVar* var: pMaster_->getRestVarsPerDay(pBestNurse, bestDay)){
-			restingArcs.push_back(var);
-			coeffs.push_back(1);
-		}
-		//create a new cons
-		MyCons* cons;
-		pModel_->createCutLinear(&cons, name, 0, 0, restingArcs, coeffs);
+	if(pBestNurse != nullptr) {
+    int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
+    MyBranchingNode &restNode = candidate.getChild(index1), &workNode = candidate.getChild(index2);
 
-		/* update candidate */
-		int index = candidate.addNewBranchingCons(cons);
-		int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
-		MyBranchingNode &restNode = candidate.getChild(index1), &workNode = candidate.getChild(index2);
-		restNode.setLhs(index, 1);
-		restNode.setRhs(index, 1);
-		workNode.setLhs(index, 0);
-		workNode.setRhs(index, 0);
-
-		// Find the rotation to deactivate
-		for(MyVar* var: pModel_->getActiveColumns()) {
-      if (var->getUB() == 0)
-        continue;
-      PPattern pat = pMaster_->getPattern(var->getPattern());
-      if (pat->nurseId_ == pBestNurse->id_ && pat->firstDay_ > bestDay && pat->firstDay_ + pat->length_ <= bestDay) {
-        //add the variable to the candidate
-        index = candidate.addBranchingVar(var);
-
-        //check if the shift is present in shifts
-        //set the UB to 0 for the non-possible rotations
-        restNode.setUb(index, 0);
-      }
-		}
+    buildRestNodes(candidate, pBestNurse, bestDay, restNode, workNode);
 
 		// Here : random choice to decide the order of the siblings
 		if(Tools::randomInt(0, 1) == 0){
-			tree_->pushBackNewRestNode(pBestNurse, bestDay, true, restingArcs);
-			tree_->pushBackNewRestNode(pBestNurse, bestDay , false, restingArcs);
+			tree_->pushBackNewRestNode(pBestNurse, bestDay, true);
+			tree_->pushBackNewRestNode(pBestNurse, bestDay , false);
 		} else {
-			tree_->pushBackNewRestNode(pBestNurse, bestDay , false, restingArcs);
-			tree_->pushBackNewRestNode(pBestNurse, bestDay , true, restingArcs);
-			//put the workNode before the restNode
-			candidate.swapChildren(index1, index2);
-		}
+      tree_->pushBackNewRestNode(pBestNurse, bestDay, false);
+      tree_->pushBackNewRestNode(pBestNurse, bestDay, true);
+      //put the workNode before the restNode
+      candidate.swapChildren(index1, index2);
+    }
 
 		return true;
 	}
 
 	return branchOnShifts(candidate);
+}
+
+void DiveBranchingRule::buildRestNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day,
+    MyBranchingNode &restNode, MyBranchingNode &workNode) const {
+//creating the branching cut
+  char name[50];
+  sprintf(name, "RestBranchingCons_N%d_%d", pNurse->id_, day);
+  vector<double> coeffs;
+  vector<MyVar *> restingArcs;
+  for (MyVar *var: pMaster_->getRestVarsPerDay(pNurse, day)) {
+    restingArcs.push_back(var);
+    coeffs.push_back(1);
+  }
+//create a new cons
+  MyCons *cons;
+  pModel_->createCutLinear(&cons, name, 0, 0, restingArcs, coeffs);
+
+/* update candidate */
+  int index = candidate.addNewBranchingCons(cons);
+  restNode.setLhs(index, 1);
+  restNode.setRhs(index, 1);
+  workNode.setLhs(index, 0);
+  workNode.setRhs(index, 0);
 }
 
 
@@ -608,59 +600,30 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	}
 
 	if(pBestNurse != nullptr){
-		//creating the branching cut
-		char name[50];
-		sprintf(name, "ShiftBranchingCons_N%d_%d", pBestNurse->id_, bestDay);
-		vector<double> coeffs;
-		vector<MyVar*> restingArcs;
-		for(MyVar* var: pMaster_->getRestVarsPerDay(pBestNurse, bestDay)){
-			restingArcs.push_back(var);
-			coeffs.push_back(1);
-		}
-		//create a new cons
-		MyCons* cons;
-		pModel_->createCutLinear(&cons, name, 0, 1, restingArcs, coeffs);
-
-		//compute the forbidden shifts
-		vector<int> complementaryShifts;
-		bool work = true;
-		for(int i=0; i<pMaster_->getNbShifts(); ++i){
-			if(find(forbiddenShifts.begin(), forbiddenShifts.end(), i) == forbiddenShifts.end()){
-				complementaryShifts.push_back(i);
-				//if the forbidden shift 0 (rest) is in the complementary, it is possible to rest for the first node
-				if(i==0) work = false;
-			}
-		}
-
-		//add the node to the tree
-		tree_->pushBackNewShiftNode(pBestNurse, bestDay, work, forbiddenShifts);
-		tree_->pushBackNewShiftNode(pBestNurse, bestDay , !work, complementaryShifts);
-
-		/* update candidate */
-		int index = candidate.addNewBranchingCons(cons);
-		int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
-		MyBranchingNode &node1 = candidate.getChild(index1), &node2 = candidate.getChild(index2);
-		// forbid to rest for the node where there are only working shifts
-		if(work) node1.setRhs(index, 0);
-		else node2.setRhs(index, 0);
-
-		// Find the rotation to deactivate
-		for(MyVar* var: pModel_->getActiveColumns()){
-			if(var->getUB() == 0)
-				continue;
-      PPattern pat = pMaster_->getPattern(var->getPattern());
-			if(pat->nurseId_ == pBestNurse->id_ && pat->firstDay_ <= bestDay && pat->firstDay_ + pat->length_ > bestDay) {
-        //add the variable to the candidate
-        index = candidate.addBranchingVar(var);
-
-        //check if the shift is present in shifts
-        //set the UB to 0 for the non-possible rotations
-        if (find(forbiddenShifts.begin(), forbiddenShifts.end(), pat->getShift(bestDay)) != forbiddenShifts.end())
-          node1.setUb(index, 0);
-        else node2.setUb(index, 0);
+    //compute the forbidden shifts
+    vector<int> complementaryShifts;
+    bool work = true;
+    for(int i=0; i<pMaster_->getNbShifts(); ++i){
+      if(find(forbiddenShifts.begin(), forbiddenShifts.end(), i) == forbiddenShifts.end()){
+        complementaryShifts.push_back(i);
+        //if the forbidden shift 0 (rest) is in the complementary, it is possible to rest for the first node
+        if(i==0) work = false;
       }
-		}
-		return true;
+    }
+
+    // create and build the nodes
+    int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
+    MyBranchingNode &node1 = candidate.getChild(index1), &node2 = candidate.getChild(index2);
+    buildShiftsNodes(candidate, pBestNurse, bestDay, work, node1, node2);
+
+    // Find the columns to deactivate
+    deactivateColumns(candidate, pBestNurse->id_, bestDay, forbiddenShifts, node1, node2);
+
+    //add the node to the tree
+    tree_->pushBackNewShiftNode(pBestNurse, bestDay, work, forbiddenShifts);
+    tree_->pushBackNewShiftNode(pBestNurse, bestDay , !work, complementaryShifts);
+
+    return true;
 	}
 
 	// throw an error here. Should never happened
@@ -676,6 +639,26 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	return false;
 }
 
+void DiveBranchingRule::buildShiftsNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day, bool work,
+                                         MyBranchingNode &node1, MyBranchingNode &node2) const {
+  //creating the branching cut
+  char name[50];
+  sprintf(name, "ShiftBranchingCons_N%d_%d", pNurse->id_, day);
+  vector<double> coeffs;
+  vector<MyVar *> restingArcs;
+  for (MyVar *var: pMaster_->getRestVarsPerDay(pNurse, day)) {
+    restingArcs.push_back(var);
+    coeffs.push_back(1);
+  }
+  //create a new cons
+  MyCons *cons;
+  pModel_->createCutLinear(&cons, name, 0, 1, restingArcs, coeffs);
+  int index = candidate.addNewBranchingCons(cons);
+
+  // forbid to rest for the node where there are only working shifts
+  if (work) node1.setRhs(index, 0);
+  else node2.setRhs(index, 0);
+}
 
 //-----------------------------------------------------------------------------
 
@@ -723,4 +706,11 @@ bool DiveBranchingRule::compareColumnCloseTo5(pair<MyVar*, double> obj1, pair<My
 	double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
 	double closeTo5_1 = abs(0.5-frac1), closeTo5_2 = abs(0.5-frac2);
 	return (closeTo5_1 < closeTo5_2);
+}
+
+
+void RosterBranchingRule::buildRestNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day,
+                    MyBranchingNode &restNode, MyBranchingNode &workNode) const {
+  // Find the columns to deactivate
+    deactivateColumns(candidate, pNurse->id_, day, {0}, workNode, restNode);
 }

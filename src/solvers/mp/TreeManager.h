@@ -31,8 +31,8 @@ struct ColumnsNode: public MyNode{
 // Node that correspond to branching on a resting day
 //
 struct RestNode: public MyNode{
-	RestNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool rest, std::vector<MyVar*>& restArcs):
-		MyNode(index, pParent), pNurse_(pNurse), day_(day), rest_(rest), restArcs_(restArcs) {}
+	RestNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool rest):
+		MyNode(index, pParent), pNurse_(pNurse), day_(day), rest_(rest) {}
 
     std::string write() const {
       std::stringstream out;
@@ -47,7 +47,6 @@ struct RestNode: public MyNode{
 	const LiveNurse* pNurse_;
 	const int day_;
 	const bool rest_;
-    std::vector<MyVar*> restArcs_;
 };
 
 
@@ -134,8 +133,8 @@ struct RestTree: public MyTree{
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewRestNode(LiveNurse* pNurse, int day, bool rest, std::vector<MyVar*>& restArcs){
-		RestNode* node = new RestNode(tree_.size(), currentNode_, pNurse, day, rest, restArcs);
+	inline void pushBackNewRestNode(LiveNurse* pNurse, int day, bool rest){
+		RestNode* node = new RestNode(tree_.size(), currentNode_, pNurse, day, rest);
 		pushBackNode(node);
 	}
 
@@ -190,7 +189,7 @@ public:
    bool branching_candidates(MyBranchingCandidate& candidate);
 
    /* branch on a set of resting arcs */
-   bool branchOnRestingArcs(MyBranchingCandidate& candidate);
+   bool branchOnRestDay(MyBranchingCandidate &candidate);
 
    /* branch on a set of shifts */
    bool branchOnShifts(MyBranchingCandidate& candidate);
@@ -222,6 +221,47 @@ protected:
    //pointers to the data
    //
    Modeler* pModel_;
+
+  virtual void buildRestNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day,
+      MyBranchingNode &restNode, MyBranchingNode &workNode) const;
+
+  virtual void buildShiftsNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day, bool work,
+      MyBranchingNode &restNode, MyBranchingNode &workNode) const;
+
+  void deactivateColumns(MyBranchingCandidate &candidate, int nurseId, int day,
+      std::vector<int> forbiddenShifts, MyBranchingNode &forbiddenNode, MyBranchingNode &complementaryNode) const {
+    // Find the columns to deactivate
+    for (MyVar *var: pModel_->getActiveColumns()) {
+      if (var->getUB() == 0)
+        continue;
+      PPattern pat = pMaster_->getPattern(var->getPattern());
+      if (pat->nurseId_ == nurseId && pat->firstDay_ <= day && pat->firstDay_ + pat->length_ > day) {
+        //add the variable to the candidate
+        int index = candidate.addBranchingVar(var);
+
+        //check if the shift is present in shifts
+        //set the UB to 0 for the non-possible rotations
+        if (find(forbiddenShifts.begin(), forbiddenShifts.end(), pat->getShift(day)) != forbiddenShifts.end())
+          forbiddenNode.setUb(index, 0);
+        else complementaryNode.setUb(index, 0);
+      }
+    }
+  }
+};
+
+class RosterBranchingRule: public DiveBranchingRule {
+  public:
+    RosterBranchingRule(MasterProblem *master, RestTree *tree, const char *name) :
+        DiveBranchingRule(master, tree, name) {}
+
+    virtual ~RosterBranchingRule() {}
+
+  protected:
+    void buildRestNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day,
+                        MyBranchingNode &restNode, MyBranchingNode &workNode) const override ;
+
+    void buildShiftsNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day, bool work,
+                                  MyBranchingNode &restNode, MyBranchingNode &workNode) const override {}
 };
 
 #endif /* SRC_TREEMANAGER_H_ */

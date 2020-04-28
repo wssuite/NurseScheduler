@@ -226,6 +226,12 @@ class MasterProblem : public Solver, public PrintSolution{
     // build a DualCosts structure
     DualCosts buildDualCosts(LiveNurse* pNurse) const;
 
+    // return the value V used to choose the number of columns on which to branch.
+    // Choose as many columns as possible such that: sum (1 - value(column)) < V
+    virtual double getBranchColumnValueMax() const {
+      return std::max (1.0, pScenario_->nbWeeks_ / 2.0);
+    }
+
     //------------------------------------------------
     // Solution with rolling horizon process
     //------------------------------------------------

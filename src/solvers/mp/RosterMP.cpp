@@ -3,6 +3,7 @@
 //
 
 #include "RosterMP.h"
+#include "solvers/mp/TreeManager.h"
 
 
 //-----------------------------------------------------------------------------
@@ -300,6 +301,10 @@ void RosterMP::build(const SolverParam& param) {
 
   /* build the rest of the model */
   MasterProblem::build(param);
+
+  /* Change the branching rule */
+  pRule_ = new RosterBranchingRule(this, (RestTree*)pTree_, "branching rule");
+  pModel_->addBranchingRule(pRule_);
 }
 
 // Provide an initial solution to the solver. If empty, add artificial columns

@@ -87,6 +87,40 @@ struct RosterPattern: Pattern {
     //
     void checkDualCost(DualCosts& costs, Scenario* Scenario);
 
+    // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest) !!
+    bool isDisjointWith(PPattern pat, bool needRest=true) const override {
+      if(pat->nurseId_ == nurseId_) return false; // cannot be disjoint if same nurse
+
+      int last_day1 = -1, last_day2 = -1;
+      for(int k=0; k<shifts_.size(); k++) {
+        int s1 = getShift(k), s2 = pat->getShift(k);
+        if(s1 > 0 && s2 >0) // work both
+          return false;
+        if(s1 > 0) {
+          if(last_day2>=k-needRest) // 1 work and 2 was resting on previous days if needed
+            return false;
+          last_day1 = k;
+        } else if(s2 > 0) {
+          if(last_day1>=k-needRest) // 2 work and 1 was resting on previous days if needed
+            return false;
+          last_day2 = k;
+        }
+      }
+      return true;
+    };
+
+    // Returns true if both columns are disjoint for shifts !!
+    bool isShiftDisjointWith(PPattern pat, bool needRest=true) const override {
+      if(pat->nurseId_ == nurseId_) return false; // cannot be disjoint if same nurse
+
+      for(int k=0; k<shifts_.size(); k++) {
+        int s1 = getShift(k), s2 = pat->getShift(k);
+        if(s1>0 && s2>0 && s1==s2)
+          return false; // work on same shift
+      }
+      return true;
+    };
+
 
     std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const override;
 
@@ -113,6 +147,12 @@ class RosterMP: public MasterProblem {
     //get a reference to the restsPerDay_ for a Nurse
     inline const std::vector<MyVar*>& getRestVarsPerDay(LiveNurse* pNurse, int day) const override {
       return restsPerDay_[pNurse->id_][day];
+    }
+
+    // return the value V used to choose the number of columns on which to branch.
+    // Choose as many columns as possible such that: sum (1 - value(column)) < V
+    double getBranchColumnValueMax() const override {
+      return 1-EPSILON;
     }
 
   protected:
