@@ -105,7 +105,7 @@ bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam para
 	forbid(forbiddenDayShifts);								// Forbid arcs
 	forbidStartingDays(forbiddenStartingDays);				// Forbid starting days
 
-	if(false) pLiveNurse_->printContractAndPrefenrences(pScenario_);				// Set to true if you want to display contract + preferences (for debug)
+	if(false) pLiveNurse_->printContractAndPreferences(pScenario_);				// Set to true if you want to display contract + preferences (for debug)
 
 	// cout << " 1   ----------------------------------------------" << endl;
 	// printGraph();

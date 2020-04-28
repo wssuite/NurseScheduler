@@ -445,7 +445,7 @@ void LiveNurse::computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int nbDa
 }
 
 // Print the contract type + preferences
-void LiveNurse::printContractAndPrefenrences(Scenario *pScenario) const {
+void LiveNurse::printContractAndPreferences(Scenario *pScenario) const {
   std::cout << "# Preferences:" << std::endl;
   for(map<int,vector<Wish> >::iterator it = pWishesOff_->begin(); it != pWishesOff_->end(); ++it){
     std::cout <<  "      | " << it->first << "  ->  ";

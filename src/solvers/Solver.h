@@ -278,7 +278,7 @@ public:
 	void buildStates();
 
   // Print the contract type + preferences
-  void printContractAndPrefenrences(Scenario *pScenario) const;
+  void printContractAndPreferences(Scenario *pScenario) const;
 
 };
 
