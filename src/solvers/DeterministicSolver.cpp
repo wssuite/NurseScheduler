@@ -427,7 +427,7 @@ double DeterministicSolver::solveCompleteHorizon() {
 
 	// Initialize solver and solve
 	//
-	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_, completeParameters_.sp_type_);
+	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_, completeParameters_);
 	pCompleteSolver_->solve(completeParameters_);
 	pCompleteSolver_->printCurrentSol();
 	std::cout << pCompleteSolver_->solutionToString() << std::endl;
@@ -573,7 +573,7 @@ double DeterministicSolver::solveWithRollingHorizon() {
 	// Initialize the solver that will handle the iterative solution of the
 	// receeding horizon
 	//
-	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_, rollingParameters_.sp_type_);
+	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_, rollingParameters_);
 
 	// Solve the instance iteratively with a rolling horizon
 	//
@@ -686,7 +686,7 @@ double DeterministicSolver::solveWithLNS() {
 	double timeSinceStart = pTimerTotal_->dSinceStart();
 	lnsParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_ - timeSinceStart;
 
-	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_, lnsParameters_.sp_type_);
+	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_, lnsParameters_);
 	// pLNSSolver_->initialize(options_.lnsParameters_,this->solution_);
 
 	// Perform destroy/repair iterations until a given number of iterations
@@ -992,25 +992,27 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 //----------------------------------------------------------------------------
 
 // Return a solver with the algorithm specified for resolution
-Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, SPType SPType) {
-	return setSolverWithInputAlgorithm(pDemand, options_.solutionAlgorithm_, SPType);
+Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, SolverParam& param) {
+	return setSolverWithInputAlgorithm(pDemand, options_.solutionAlgorithm_, param);
 }
 
 // Return a solver with the input algorithm
-Solver* DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm, SPType SPType) {
+Solver* DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm, SolverParam& param) {
   Solver* pSolver= nullptr;
   switch(algorithm){
     //case GREEDY:
     //pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
     //break;
     case GENCOL:
-      switch(SPType) {
+      switch(param.sp_type_) {
         case LONG_ROTATION:
         case ALL_ROTATION:
           pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
           break;
         case ROSTER:
           pSolver = new RosterMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+          param.isColumnDisjoint_ = true;
+          param.nbMaxColumnsToAdd_ = 40;
           break;
         default:
           Tools::throwError("The subproblem type is not handled yet");

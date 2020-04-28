@@ -185,6 +185,7 @@ protected:
    int nbS_ = 0;
    int nbN_ = 0;
    int nbNL_ = 0;
+   std::minstd_rand rand_;
    // DBG functions
    void recordSPStats(SubProblem* sp);
    void generateRandomForbiddenStartingDays();

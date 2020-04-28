@@ -429,6 +429,8 @@ public:
 	// only add disjoint columns if active
 	//
 	bool isColumnDisjoint_ = false;
+	int nbMaxColumnsToAdd_ = 20;
+  int nbSubProblemsToSolve_ = 15;
 
 	//primal-dual strategy
 	WeightStrategy weightStrategy_ =  NO_STRAT;

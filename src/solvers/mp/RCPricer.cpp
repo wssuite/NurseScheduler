@@ -25,7 +25,8 @@ using namespace std;
 RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& param):
   MyPricer(name), pMaster_(master), pScenario_(master->getScenario()), nbDays_(master->getNbDays()),
   pModel_(master->getModel()), nursesToSolve_(master->getSortedLiveNurses()),
-  nbMaxColumnsToAdd_(20), nbSubProblemsToSolve_(15), nb_int_solutions_(0)
+  nbMaxColumnsToAdd_(param.nbMaxColumnsToAdd_), nbSubProblemsToSolve_(param.nbSubProblemsToSolve_),
+  nb_int_solutions_(0), rand_(Tools::getANewRandomGenerator())
 {
 	// Initialize the parameters
 	initPricerParameters(param);
@@ -34,7 +35,8 @@ RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& p
   rosterSubproblem_ = dynamic_cast<RosterMP*>(master);
 
 	/* sort the nurses */
-	//   random_shuffle( nursesToSolve_.begin(), nursesToSolve_.end());
+	auto  rdm = rand_;
+	random_shuffle( nursesToSolve_.begin(), nursesToSolve_.end(), [&rdm](int i) { return ((int)rdm())%i; });
 }
 
 /* Destructs the pricer object. */
@@ -96,7 +98,7 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom) {
 
 			// SOLVE THE PROBLEM
 			++ nbSPTried_;
-			subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
+			subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true,
 					bound);
 
 			// RETRIEVE THE GENERATED ROTATIONS
@@ -155,6 +157,13 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom) {
 			break;
 	}
 
+  /* sort the nurses solved - useful when doing column disjoint */
+//  auto  rdm = rand_;
+//  random_shuffle( nursesSolved.begin(), nursesSolved.end(), [&rdm](int i) { return ((int)rdm())%i; });
+
+  // reverse vector
+  std::reverse(nursesSolved.begin(), nursesSolved.end());
+
 	//Add the nurse in nursesSolved at the end
 	nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
 
@@ -185,11 +194,12 @@ void RCPricer::addForbiddenShifts(){
       bestSolution = sol;
 		}
 
-	//forbid shifts of the best rotation
-	if(bestDualcost != DBL_MAX) {
+	//forbid shifts of the best rotation if small enough
+	if(bestDualcost < -1e3) {
 	  int k = bestSolution.firstDay;
     for (int s: bestSolution.shifts)
-      forbiddenShifts_.insert(pair<int,int>(k++,s));
+      if(pScenario_->isWorkShift(s))
+        forbiddenShifts_.insert(pair<int,int>(k++,s));
   }
 }
 

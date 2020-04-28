@@ -168,12 +168,12 @@ class SubProblem {
       return shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
     }
 
-    inline int addSingleNode(NodeType type, std::vector<int> lbs = {}, std::vector<int> ubs = {}) {
+    inline int addSingleNode(NodeType type, std::vector<int> lbs = {}, std::vector<int> ubs = {}, bool hard_lbs = false) {
       if (lbs.empty())
         lbs = defaultLBs();
       if (ubs.empty())
         ubs = defaultUBs();
-      return g_.addSingleNode(type, lbs, ubs);
+      return g_.addSingleNode(type, lbs, ubs, hard_lbs);
     }
 
     inline int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
@@ -310,6 +310,7 @@ class SubProblem {
     vector4D<int> arcsFromSource_;    // Index: (shiftType, day, n, shift) of destination
     vector3D<int> principalToPrincipal_; // Index: (shiftType, shiftType, day)
     vector2D<int> arcsPrincipalToPriceLabelsIn_;  // Index: (shiftType, day) of origin
+    std::vector<int> arcsTosink_; // arcs to main sink
 
     // Creates all nodes of the rcspp (including resource window)
     virtual void createNodes();

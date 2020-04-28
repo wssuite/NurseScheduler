@@ -29,17 +29,17 @@ void PriceLabelGraph::build() {
   // Entrance
   entrance_ = pSP_->addSingleNode(PRICE_LABEL_ENTRANCE, lbs, ubs);
   // Check nodes
+  bool hard_lb = false;
   for (int l = lb_; l <= ub_; l++) {
     // WARNING: it's important to set the LB = UB to ensure a valid dominance operator
     // Otherwise, some path could be wrongly dominated leading to segfault in boost.
     std::vector<int> lbs2 = lbs, ubs2 = ubs;
     lbs2[label_] = l;
     ubs2[label_] = l;
-    checkNodes_.emplace_back(pSP_->addSingleNode(PRICE_LABEL, lbs2, ubs2));
+    checkNodes_.emplace_back(pSP_->addSingleNode(PRICE_LABEL, lbs2, ubs2, hard_lb));
+    hard_lb = true;
   }
   // exit day
-  if (reset_labels_after_pricing_ && minLabel()) // lb = ub, reach the UB as the label will decrease with consumption
-    lbs[label_] = ubs[label_];
   exit_ = pSP_->addSingleNode(PRICE_LABEL_EXIT, lbs, ubs);
 
   // CREATE THE ARCS
@@ -49,9 +49,13 @@ void PriceLabelGraph::build() {
 
   int l = lb_;
   for (int v: checkNodes_) {
-    int c = minLabel() ? getLabelCost(ub_ - l) : getLabelCost(
-        l); // min cost is decreasing with l, and max cost is increasing with l
+    // min cost is decreasing with l, and max cost is increasing with l
+    int c = minLabel() ? getLabelCost(ub_ - l) : getLabelCost(l);
     in_arcs_.emplace_back(pSP_->addSingleArc(entrance_, v, c, in_consumptions, PRICE_LABEL_IN_TO_PRICE_LABEL, day_));
+    if (reset_labels_after_pricing_) {
+      if(minLabel()) out_consumptions[label_] = ub_ - l;
+      else out_consumptions[label_] = -l;
+    }
     out_arcs_.emplace_back(pSP_->addSingleArc(v, exit_, 0, out_consumptions, PRICE_LABEL_TO_PRICE_LABEL_OUT, day_));
     ++l;
   }

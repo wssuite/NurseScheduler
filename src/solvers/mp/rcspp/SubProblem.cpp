@@ -141,10 +141,10 @@ bool SubProblem::preprocess() {
 bool SubProblem::solveRCGraph(bool optimality){
   updateArcCosts();
 #ifdef DBG
-  g_.printGraph(nLabels_, minConsDays_);
+//  g_.printGraph(nLabels_, minConsDays_);
 #endif
 	if(optimality)
-		return solveRCGraphOptimal();		// Solve shortest path problem
+	  return solveRCGraphOptimal();		// Solve shortest path problem
 	else
 		return solveRCGraphHeuristic();	// Generate new rotations with greedy
 }
@@ -153,8 +153,10 @@ bool SubProblem::solveRCGraph(bool optimality){
 bool SubProblem::solveRCGraphOptimal(){
   std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks = g_.sinks();
 
-  if(param_.oneSinkNodePerLastDay_ && sinks.size()>1)
-    sinks.resize(sinks.size()-1); // remove last sink (it's the main one)
+  if(param_.oneSinkNodePerLastDay_ && sinks.size()>1) {
+    sinks.resize(sinks.size() - 1); // remove last sink (it's the main one)
+    for(int a: arcsTosink_) g_.forbidArc(a);
+  }
   else sinks = {sinks.back()}; // keep just the main one
 
   std::vector<int> labelsMinLevel = {
@@ -316,7 +318,7 @@ void SubProblem::createArcsAllPriceLabels(){
     // outgoing  arcs
     int origin = priceLabelsGraphs_[k].back().exit();
     int destin = g_.lastSink();
-    g_.addSingleArc(origin, destin, 0, {0,0,0,0,0}, PRICE_LABEL_OUT_TO_SINK, k);
+    arcsTosink_.push_back(g_.addSingleArc(origin, destin, 0, {0,0,0,0,0}, PRICE_LABEL_OUT_TO_SINK, k));
 	}
 }
 

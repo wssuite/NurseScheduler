@@ -56,8 +56,8 @@ struct Vertex_Properties{
     // Constructor
     //
     Vertex_Properties( int n = 0, NodeType t = NONE_NODE,
-                       std::vector<int> lbs={}, std::vector<int> ubs={}, bool forbidden=false ) :
-        num( n ), type( t ), lbs( lbs ), ubs( ubs ), forbidden(forbidden) {}
+                       std::vector<int> lbs={}, std::vector<int> ubs={}, bool hard_lbs=false, bool forbidden=false ) :
+        num( n ), type( t ), lbs( lbs ), ubs( ubs ), hard_lbs_(hard_lbs), forbidden(forbidden) {}
 
     // id
     //
@@ -74,6 +74,9 @@ struct Vertex_Properties{
     // label upper bounds
     //
     std::vector<int> ubs;
+
+    // hard lb
+    bool hard_lbs_;
 
     // forbidden
     //
@@ -140,7 +143,8 @@ struct Arc_Properties{
 // Graph with RC generic structure
 //
 typedef boost::adjacency_list< boost::vecS, boost::vecS, boost::directedS, Vertex_Properties, Arc_Properties> Graph;
-
+typedef boost::graph_traits<Graph>::vertex_descriptor vertex;
+typedef boost::graph_traits<Graph>::edge_descriptor edge;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -181,8 +185,10 @@ struct spp_res_cont{
     //
     std::vector<int> label_values;
 
+
+    int first_day = -1, day = -1;
 #ifdef DBG
-    int pred_arc = -1, day = 0;
+    int pred_arc = -1;
     std::vector<int> shifts_;
 #endif
 
@@ -220,47 +226,6 @@ class dominance_spp{
     // this is necessary as labels pricing could be even 0 for dominated label and label  could be reseted
     std::vector<int> labelsMinLevel_;
 };
-
-//----------------------------------------------------------------
-//
-// Shortest path function with several sinks
-// (modified from boost so that we can give several sink nodes)
-//
-//----------------------------------------------------------------
-
-// r_c_shortest_paths_dispatch function (body/implementation)
-template<class Graph,
-    class VertexIndexMap,
-    class EdgeIndexMap,
-    class Resource_Container,
-    class Resource_Extension_Function,
-    class Dominance_Function,
-    class Label_Allocator,
-    class Visitor>
-void r_c_shortest_paths_dispatch_several_sinks
-    ( const Graph& g,
-      const VertexIndexMap& vertex_index_map,
-      const EdgeIndexMap& /*edge_index_map*/,
-      typename boost::graph_traits<Graph>::vertex_descriptor s,
-      std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> t,
-        // each inner vector corresponds to a pareto-optimal path
-      std::vector
-      <std::vector
-          <typename boost::graph_traits
-              <Graph>::edge_descriptor> >& pareto_optimal_solutions,
-      std::vector
-      <Resource_Container>& pareto_optimal_resource_containers,
-      bool b_all_pareto_optimal_solutions,
-        // to initialize the first label/resource container
-        // and to carry the type information
-      const Resource_Container& rc,
-      const Resource_Extension_Function& ref,
-      const Dominance_Function& dominance,
-        // to specify the memory management strategy for the labels
-      Label_Allocator /*la*/,
-      Visitor vis );
-
-/////////////////////////////////////////////////////////////////////////////
 
 
 //---------------------------------------------------------------------------
@@ -306,6 +271,11 @@ class ks_smart_pointer
     T* pt;
 }; // ks_smart_pointer
 
+// comparator to order the processing of the nodes in boost rc spp
+typedef ks_smart_pointer<boost::r_c_shortest_paths_label<Graph, spp_res_cont> > Spplabel;
+struct SpplabelComparator {
+    bool operator()(const Spplabel& splabel1, const Spplabel& splabel2) const;
+};
 
 struct RCSolution {
     RCSolution(int firstDay, const std::vector<int>& shifts, double c=0):
@@ -318,6 +288,28 @@ struct RCSolution {
 
     std::string toString(std::vector<int> shiftIDToShiftTypeID={}) const;
 };
+
+// modified boost::r_c_shortest_paths_dispatch function
+template<class Graph,
+    class VertexIndexMap,
+    class Resource_Container,
+    class Resource_Extension_Function,
+    class Dominance_Function,
+    class Label_Allocator,
+    class Visitor,
+    class Splabel_Comparator>
+void r_c_shortest_paths_dispatch(const Graph& g,
+                                 const VertexIndexMap& vertex_index_map,
+                                 vertex s,
+                                 std::vector<vertex> t,
+                                 vector2D<edge>& opt_solutions_spp,
+                                 std::vector<spp_res_cont>& pareto_opt_rcs_spp,
+                                 const Resource_Container& rc,
+                                 const Resource_Extension_Function& ref,
+                                 const Dominance_Function& dominance,
+                                 Label_Allocator /*la*/,
+                                 Visitor vis,
+                                 Splabel_Comparator);
 
 //---------------------------------------------------------------------------
 //
@@ -352,25 +344,23 @@ class RCGraph {
 
     std::vector<RCSolution> solve(int nLabels, double maxReducedCostBound,
                                   const std::vector<int>& labelsMinLevel,
-                                  std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks={},
-                                  std::function<void (spp_res_cont&)> post_process_res_cont = nullptr);
-
-    RCSolution solution(
-        const std::vector< boost::graph_traits<Graph>::edge_descriptor >& path,
-        const spp_res_cont& resource);
+                                  std::vector<vertex> sinks={},
+                                  std::function<void (spp_res_cont&)> post_process_rc=nullptr);
 
     ////////////////////
     //  NODES
     ////////////////////
 
+    Graph& g() { return g_; }
+
     // Basic function for adding a node
-    int addSingleNode(NodeType type, std::vector<int> lbs, std::vector<int> ubs);
+    int addSingleNode(NodeType type, std::vector<int> lbs, std::vector<int> ubs, bool hard_lbs=false);
     void setSource(int v) { source_ = v; }
     int source() const { return source_; }
     void addSink(int v) { sinks_.push_back(v); }
     int sink(int k=0) const { return sinks_.at(k); }
     int lastSink() const { return sinks_.back(); }
-    const std::vector<boost::graph_traits<Graph>::vertex_descriptor>& sinks() const { return sinks_; }
+    const std::vector<vertex>& sinks() const { return sinks_; }
 
     // Get info from the node ID
     inline int nodesSize() const { return nNodes_; }
@@ -447,9 +437,7 @@ class RCGraph {
     void printAllArcs(int nLabel=-1, int nShifts=1) const;
     std::string shortNameNode(int v) const;
     std::string printSummaryOfGraph() const;
-    void printPath(std::ostream& out,
-        std::vector< boost::graph_traits<Graph>::edge_descriptor > path,
-        spp_res_cont resource) const;
+    void printPath(std::ostream& out, std::vector<edge> path, spp_res_cont resource) const;
 
   protected:
     // THE GRAPH
@@ -457,16 +445,24 @@ class RCGraph {
     int nDays_;
     int nNodes_;										// Total number of nodes in the rcspp
     // Source
-    typename boost::graph_traits<Graph>::vertex_descriptor source_;
+    vertex source_;
     // Sink Node
-    std::vector<typename boost::graph_traits<Graph>::vertex_descriptor> sinks_;
+    std::vector<vertex> sinks_;
 
     int nArcs_;											// Total number of arcs in the rcspp
-    std::vector< boost::graph_traits< Graph>::edge_descriptor > arcsDescriptors_;
+    std::vector<edge> arcsDescriptors_;
 
     std::set<int> forbiddenNodes_;
     std::set<int> forbiddenArcs_;
+
+    bool processPath(std::vector<edge>& path, spp_res_cont& rc,
+        std::function<void (spp_res_cont&)> post_process_rc) const;
+
+    RCSolution solution(const std::vector<edge>& path,
+        const spp_res_cont& resource) const;
 };
+
+
 
 
 #endif //NURSESCHEDULER_RCGRAPH_H
