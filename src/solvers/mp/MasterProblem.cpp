@@ -518,7 +518,7 @@ void MasterProblem::checkIfPatternAlreadyPresent(const std::vector<double>& patt
   for(MyVar* var: pModel_->getActiveColumns()) {
     for (int j = 0; j < pattern.size(); ++j)
       if (abs(pattern[j] - var->getPattern()[j]) > EPSILON)
-        return;
+        continue;
       string name = var->name_;
       Tools::throwError("Pattern already present as column: "+name);
   }
