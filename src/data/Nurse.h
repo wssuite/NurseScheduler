@@ -77,8 +77,6 @@ public:
    friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
 };
 
-typedef std::shared_ptr<const Contract> PConstContract;
-
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   P o s i t i o n
