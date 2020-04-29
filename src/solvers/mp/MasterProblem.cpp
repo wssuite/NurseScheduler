@@ -1074,10 +1074,6 @@ string MasterProblem::coverageToString(bool printInteger){
 	return rep.str();
 }
 
-string MasterProblem::workedWeekendsToString(bool printInteger){
-	return "";
-}
-
 //---------------------------------------------------------------------------
 //
 // STAB: Methods required to implement stabilization in the column generation

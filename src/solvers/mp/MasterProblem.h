@@ -376,7 +376,6 @@ class MasterProblem : public Solver, public PrintSolution{
     std::string costsConstrainstsToString();
     std::string allocationToString(bool printInteger = true);
     std::string coverageToString(bool printInteger = true);
-    std::string workedWeekendsToString(bool printInteger = true);
 };
 
 #endif /* MASTERPROBLEM_H_ */
