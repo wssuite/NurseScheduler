@@ -8,6 +8,7 @@
 #ifndef __MyTools__
 #define __MyTools__
 
+#include <memory>
 #include <iostream>
 #include <iomanip>      // std::setprecision
 #include <sstream>
