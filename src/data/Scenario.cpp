@@ -167,7 +167,7 @@ Scenario::Scenario(string name, int nbWeeks,
 		   int nbShiftsType, vector<string> intToShiftType, map<string,int> shiftTypeToInt,
 		   vector2D<int> shiftTypeIDToShiftID, vector<int> minConsShiftType, vector<int> maxConsShiftType,
 		   vector<int> nbForbiddenSuccessors, vector2D<int> forbiddenSuccessors,
-		   int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
+		   int nbContracts, vector<string> intToContract, map<string,PConstContract> contracts,
 		   int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt) :
   name_(name), nbWeeks_(nbWeeks),
   nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
@@ -208,7 +208,7 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
   nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
   pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
   nbPositions_(0), nursesPerPosition_(0){
-  
+
 	// Preprocess the vector of nurses
 	// This creates the positions
 	//
@@ -243,15 +243,9 @@ nbPositions_(0), nursesPerPosition_(0){
 }
 
 Scenario::~Scenario(){
-	// delete the contracts
-	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
-		delete (itC->second);
-	}
   //delete pPositions_;
-	while (!pPositions_.empty()){
-		if (pPositions_.back()) delete pPositions_.back();
-		pPositions_.pop_back();
-	}
+  for(auto& p: pPositions_)
+    delete p;
 
 	delete pWeekPreferences_;
 	delete pWeekDemand_;
@@ -427,8 +421,8 @@ string Scenario::toString(){
 		rep << std::endl;
 	}
 	rep << "# CONTRACTS        " << std::endl;
-	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
-		rep << "#\t\t\t" << *(itC->second) << std::endl;
+	for(const auto& contract: contracts_){
+		rep << "#\t\t\t" << *(contract.second) << std::endl;
 	}
 	rep << "# " << std::endl;
 	rep << "# NURSES           \t= " << nbNurses_ << std::endl;
@@ -452,16 +446,15 @@ string Scenario::toString(){
 		rep << "# WISHED SHIFTS OFF" << std::endl;
 		for(Nurse nurse:theNurses_){
 			// Display only if the nurse has preferences
-			map<int,vector<Wish> >* prefNurse = pWeekPreferences_->nurseWishesOff(nurse.id_);
-			if(!prefNurse->empty()){
+			const map<int,vector<Wish> >& prefNurse = pWeekPreferences_->nurseWishesOff(nurse.id_);
+			if(!prefNurse.empty()){
 				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
-				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
-					rep << Tools::intToDay(itWishlist->first) << ": ";
-					vector<Wish> dayList = itWishlist->second;
+				for(const auto &itWishlist: prefNurse){
+					rep << Tools::intToDay(itWishlist.first) << ": ";
 					bool first = true;
-					for(vector<Wish>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
+					for(const auto& itShift: itWishlist.second){
 						if(first) first = false; else rep << ",";
-						rep << intToShift_[itShift->shift];
+						rep << intToShift_[itShift.shift];
 					}
 					rep << "    ";
 				}
@@ -470,20 +463,19 @@ string Scenario::toString(){
 		}
 		for(Nurse nurse:theNurses_){
 			// Display only if the nurse has preferences
-			map<int,vector<Wish> >* prefNurse = pWeekPreferences_->nurseWishesOn(nurse.id_);
-			if(!prefNurse->empty()){
-				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
-				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
-					rep << Tools::intToDay(itWishlist->first) << ": ";
-					vector<Wish> dayList = itWishlist->second;
-					bool first = true;
-					for(vector<Wish>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
-						if(first) first = false; else rep << ",";
-						rep << intToShift_[itShift->shift];
-					}
-					rep << "    ";
-				}
-				rep << std::endl;
+			const map<int,vector<Wish> >& prefNurse = pWeekPreferences_->nurseWishesOn(nurse.id_);
+			if(!prefNurse.empty()){
+        rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
+        for(const auto &itWishlist: prefNurse){
+          rep << Tools::intToDay(itWishlist.first) << ": ";
+          bool first = true;
+          for(const auto& itShift: itWishlist.second){
+            if(first) first = false; else rep << ",";
+            rep << intToShift_[itShift.shift];
+          }
+          rep << "    ";
+        }
+        rep << std::endl;
 			}
 		}
 	}
@@ -523,15 +515,14 @@ void Scenario::preprocessTheNurses() {
 		bool positionExists = nbPositions_ != 0;
 		int nbSkills = nurse.nbSkills_;
 		vector<int> skills = nurse.skills_;
-		vector<Position*>::iterator itPos = pPositions_.begin();
 
 		// go through every existing position to see if the position of this nurse
 		// has already been created
-		for (itPos = pPositions_.begin(); itPos != pPositions_.end(); itPos++)	{
+		for (Position* pos: pPositions_)	{
 			positionExists = true;
-			if ((*itPos)->nbSkills_ == nbSkills) {
+			if (pos->nbSkills_ == nbSkills) {
 				for (int i = 0; i < nbSkills; i++) {
-					if (skills[i] != (*itPos)->skills_[i])	{
+					if (skills[i] != pos->skills_[i])	{
 						positionExists = false;
 						break;
 					}
@@ -543,7 +534,7 @@ void Scenario::preprocessTheNurses() {
 
 		// create the position if if doesn't exist
 		if (!positionExists) {
-			pPositions_.push_back(new Position(nbPositions_, nbSkills, skills));
+			pPositions_.emplace_back(new Position(nbPositions_, nbSkills, skills));
 			nbPositions_++;
 		}
 	}

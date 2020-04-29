@@ -114,7 +114,7 @@ struct Rotation: Pattern {
 
     //Compute the cost of a rotation
     //
-    void computeCost(Scenario* pScenario, Preferences* pPreferences, const std::vector<LiveNurse*>& liveNurses, int horizon);
+    void computeCost(Scenario* pScenario, const std::vector<LiveNurse*>& liveNurses, int horizon);
 
     //Compute the dual cost of a rotation
     //

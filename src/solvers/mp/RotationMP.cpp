@@ -25,7 +25,7 @@ using std::endl;
 //
 //-----------------------------------------------------------------------------
 
-void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const vector<LiveNurse*>& liveNurses, int horizon){
+void Rotation::computeCost(Scenario* pScenario, const vector<LiveNurse*>& liveNurses, int horizon){
   //check if pNurse points to a nurse
   if(nurseId_ == -1)
     Tools::throwError("LiveNurse = NULL");
@@ -129,13 +129,13 @@ void Rotation::computeCost(Scenario* pScenario, Preferences* pPreferences, const
    */
 
   for(int k=firstDay_; k<firstDay_+length_; ++k) {
-    int  level = pPreferences->wantsTheShiftOffLevel(nurseId_, k, shifts_[k]);
+    int  level = pNurse->wishesOffLevel(k, shifts_[k]);
     if (level != -1)
       preferenceCost_ += WEIGHT_PREFERENCES_OFF[level];
   }
 
   for(int k=firstDay_; k<firstDay_+length_; ++k) {
-    int  level = pPreferences->wantsTheShiftOnLevel(nurseId_, k, shifts_[k]);
+    int  level = pNurse->wishesOnLevel(k, shifts_[k]);
     if (level != -1)
       preferenceCost_ += WEIGHT_PREFERENCES_ON[level];
   }
@@ -330,7 +330,7 @@ void RotationMP::initializeSolution(const vector<Roster>& solution) {
           //if stop to work, build the rotation
         else if (workedLastDay) {
           Rotation rotation(shifts, i);
-          rotation.computeCost(pScenario_, pPreferences_, theLiveNurses_, pDemand_->nbDays_);
+          rotation.computeCost(pScenario_, theLiveNurses_, pDemand_->nbDays_);
           rotation.computeTimeDuration(pScenario_);
           pModel_->addActiveColumn(addRotation(rotation, baseName.c_str()));
           shifts.clear();
@@ -341,7 +341,7 @@ void RotationMP::initializeSolution(const vector<Roster>& solution) {
       //if work on the last day, build the rotation
       if (workedLastDay) {
         Rotation rotation(shifts, i);
-        rotation.computeCost(pScenario_, pPreferences_, theLiveNurses_, pDemand_->nbDays_);
+        rotation.computeCost(pScenario_, theLiveNurses_, pDemand_->nbDays_);
         rotation.computeTimeDuration(pScenario_);
         pModel_->addActiveColumn(addRotation(rotation, baseName.c_str()));
         shifts.clear();
@@ -408,7 +408,7 @@ vector<double> RotationMP::getEndWorkDualValues(LiveNurse* pNurse) const {
 MyVar* RotationMP::addColumn(int nurseId, const RCSolution& solution) {
   // Build rotation from RCSolution
   Rotation rotation(solution.firstDay, solution.shifts, nurseId, DBL_MAX, solution.cost);
-  rotation.computeCost(pScenario_, pPreferences_, theLiveNurses_, getNbDays());
+  rotation.computeCost(pScenario_, theLiveNurses_, getNbDays());
   rotation.computeTimeDuration(pScenario_);
   rotation.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
@@ -789,7 +789,7 @@ double RotationMP::getColumnsCost(CostType costType, const vector<MyVar*>& vars)
     double value = pModel_->getVarValue(var);
     if(value > EPSILON){
       Rotation rot(var->getPattern());
-      rot.computeCost(pScenario_, pPreferences_, theLiveNurses_, pDemand_->nbDays_);
+      rot.computeCost(pScenario_, theLiveNurses_, pDemand_->nbDays_);
       switch(costType){
         case CONS_SHIFTS_COST: cost += rot.consShiftsCost_*value;
           break;

@@ -322,7 +322,7 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 		vector<int> skillsVector(skillsInTheComponent.begin(), skillsInTheComponent.end());
 		std::stable_sort(skillsVector.begin(),skillsVector.end(), Tools::compareDecreasing);
 
-		// build a vector containinf the skills that need to be removed from the scenario
+		// build a vector containing the skills that need to be removed from the scenario
 		vector<int> skillsToRemove;
 		for (int skill=0; skill < pScenario->nbSkills_; skill++) {
 			skillsToRemove.push_back(skill);
@@ -365,32 +365,21 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 		Preferences* pPreferences = pScenario->pWeekPreferences();
 
 		// only keep the demand of the nurses in the component
-		for (unsigned int i = 0; i < nursesInTheComponent.size(); i++) {
-			Nurse nurse = nursesInTheComponent[i];
-			map<int,std::vector<Wish> >::iterator itDay;
-			for (itDay = pPreferences->nurseWishesOff(nurse.id_)->begin(); itDay != pPreferences->nurseWishesOff(nurse.id_)->end(); itDay++) {
-				vector<Wish>::iterator itShift;
-				for (itShift = (*itDay).second.begin(); itShift != (*itDay).second.end(); itShift++) {
-				  pPreferencesInTheComponent->addShiftOff(i,(*itDay).first, itShift->shift, itShift->level);
-				}
-			}
-		}
+		for (const Nurse &nurse: nursesInTheComponent)
+		  for (const auto& itDay: pPreferences->nurseWishesOff(nurse.id_))
+				for (const auto& itShift: itDay.second)
+				  pPreferencesInTheComponent->addShiftOff(nurse.id_, itDay.first, itShift.shift, itShift.level);
 
 		// only keep the demand of the nurses in the component
-		for (unsigned int i = 0; i < nursesInTheComponent.size(); i++) {
-			Nurse nurse = nursesInTheComponent[i];
-			map<int,std::vector<Wish> >::iterator itDay;
-			for (itDay = pPreferences->nurseWishesOn(nurse.id_)->begin(); itDay != pPreferences->nurseWishesOn(nurse.id_)->end(); itDay++) {
-				vector<Wish>::iterator itShift;
-				for (itShift = (*itDay).second.begin(); itShift != (*itDay).second.end(); itShift++) {
-				  pPreferencesInTheComponent->addShiftOn(i,(*itDay).first, itShift->shift, itShift->level);
-				}
-			}
-		}
+    for (const Nurse &nurse: nursesInTheComponent)
+      for (const auto& itDay: pPreferences->nurseWishesOn(nurse.id_))
+        for (const auto& itShift: itDay.second)
+          pPreferencesInTheComponent->addShiftOn(nurse.id_, itDay.first, itShift.shift, itShift.level);
 
 		// Create the new scenario
 		//
-		Scenario* pScenarioInTheConnexComponent = new Scenario(pScenario,nursesInTheComponent,pDemandInTheComponent,pPreferencesInTheComponent);
+		Scenario* pScenarioInTheConnexComponent =
+		    new Scenario(pScenario,nursesInTheComponent,pDemandInTheComponent,pPreferencesInTheComponent);
 
 		// create the initial states that relate only to the nurses of the connex component
 		//
@@ -405,9 +394,6 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 		// Push back in the vector of scenarios
 		//
 		scenariosPerComponent.push_back(pScenarioInTheConnexComponent);
-
-		//delete pDemandInTheComponent;
-		delete pPreferencesInTheComponent;
 	}
 
 	return scenariosPerComponent;

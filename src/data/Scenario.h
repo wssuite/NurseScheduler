@@ -125,7 +125,7 @@ public:
 		 int nbShiftsType, std::vector<std::string> intToShiftType, std::map<std::string,int> shiftTypeToInt,
 		 std::vector<std::vector<int> > shiftTypeIDToShiftID, std::vector<int> minConsShiftsType, std::vector<int> maxConsShiftsType,
 		 std::vector<int> nbForbiddenSuccessors, vector2D<int> forbiddenSuccessors,
-		 int nbContracts, std::vector<std::string> intToContract, std::map<std::string,Contract*> contracts,
+		 int nbContracts, std::vector<std::string> intToContract, std::map<std::string,std::shared_ptr<const Contract>> contracts,
 		 int nbNurses, std::vector<Nurse>& theNurses, std::map<std::string,int> nurseNameToInt);
 
 	// Hybrid copy constructor : this is only called when constructing a new scenario that copies most parameters
@@ -180,7 +180,7 @@ public:
 	//
 	const int nbContracts_;
 	const std::vector<std::string> intToContract_;
-	const std::map<std::string, Contract*> contracts_;
+	const std::map<std::string, std::shared_ptr<const Contract>> contracts_;
 
 	// number of nurses, and std::vector of all the nurses
 	//

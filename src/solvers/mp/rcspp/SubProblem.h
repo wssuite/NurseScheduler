@@ -114,7 +114,7 @@ class SubProblem {
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    SubProblem(Scenario* scenario, int nbDays, const Contract* contract, std::vector<State> *pInitState);
+    SubProblem(Scenario* scenario, int nbDays, PConstContract contract, std::vector<State> *pInitState);
 
     // Initialization function for all global variables (not those of the rcspp)
     //
@@ -140,7 +140,7 @@ class SubProblem {
     //
     inline Scenario* scenario() const { return pScenario_; }
 
-    inline const Contract* contract() const { return pContract_; }
+    inline PConstContract contract() const { return pContract_; }
 
     inline const LiveNurse*  liveNurse() const { return pLiveNurse_; }
 
@@ -211,7 +211,7 @@ class SubProblem {
 
     // Contract type
     //
-    const Contract* pContract_;
+    PConstContract pContract_;
 
     // (Minimum) number of paths to return to the MP
     //

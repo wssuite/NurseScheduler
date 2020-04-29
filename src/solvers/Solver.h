@@ -132,12 +132,10 @@ public:
 	// Constructor and destructor
 	//
 	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni, std::map<int,std::vector<Wish> >* pWishesOff, std::map<int,std::vector<Wish> >* pWishesOn);
+			State* pStateIni, Preferences* pPreferences);
 	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni, std::map<int,std::vector<Wish> >* pWishesOff, std::map<int,std::vector<Wish> >* pWishesOn, int nurseId);
+			State* pStateIni, Preferences* pPreferences, int nurseId);
 	~LiveNurse();
-
-public:
 
 	//----------------------------------------------------------------------------
 	// Pointers to background data
@@ -150,13 +148,13 @@ public:
 	// Data of the the particular period the live nurse is going to work
 	//----------------------------------------------------------------------------
 	int nbDays_, firstDay_;
+	const int originalNurseId_;
 
 	// Initial state
 	State* pStateIni_;
 
 	// Wishes of days off
-	std::map<int,std::vector<Wish> >* pWishesOff_;
-	std::map<int,std::vector<Wish> >* pWishesOn_;
+	Preferences* pPreferences_;
 
 	//----------------------------------------------------------------------------
 	// Planning data
@@ -204,7 +202,6 @@ public:
 	//
 	double minAvgWorkDaysNoPenaltyTotalDays_, maxAvgWorkDaysNoPenaltyTotalDays_;
 
-public:
 	// basic getters
 	//
 	Position* pPosition() const {return pPosition_;}
@@ -238,6 +235,9 @@ public:
 	// assign a task at on a given day and update the states of the nurse
 	//
 	void assignTask(task t, int day);
+
+	const std::map<int,std::vector<Wish> > & wishesOff() const;
+  const std::map<int,std::vector<Wish> > & wishesOn() const;
 
 	// returns true if the nurse wishes the day-shift off
 	//

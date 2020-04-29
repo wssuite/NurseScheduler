@@ -77,6 +77,7 @@ public:
    friend std::ostream& operator<< (std::ostream& outs, Contract obj) {return outs << obj.toString();}
 };
 
+typedef std::shared_ptr<const Contract> PConstContract;
 
 //-----------------------------------------------------------------------------
 //
@@ -203,8 +204,7 @@ public:
    //        override it because vector members should have some properties (assignable a.o., which implies
    //        non-const)
    //
-   Nurse(int id, std::string name, int nbSkills, std::vector<int> skills, Contract* contract);
-   Nurse(int id, std::string name, int nbSkills, std::vector<int> skills, const Contract* contract);
+   Nurse(int id, std::string name, int nbSkills, std::vector<int> skills, PConstContract contract);
    ~Nurse();
 
 
@@ -214,7 +214,7 @@ public:
    //-----------------------------------------------------------------------------
    // Constant characteristics of the nurses (no set method)
    //-----------------------------------------------------------------------------
-   // Id of the nurse (=entry in the vector<Nurse> theNurse of the Scenario)
+   // Id of the nurse within a scenario (=index in the vector<Nurse> theNurse of the Scenario)
    //
    const int id_;
 
@@ -230,7 +230,7 @@ public:
 
    // Her contract type
    //
-   const Contract* pContract_;
+   PConstContract pContract_;
 
 protected:
    //-----------------------------------------------------------------------------
@@ -259,10 +259,6 @@ public:
    // Display methods: toString
    //
    std::string toString() const;
-
-   // Assignment (requested to build a vector<Nurse>)
-   //
-   Nurse& operator=(const Nurse& n);
 };
 
 //-----------------------------------------------------------------------------
@@ -293,6 +289,8 @@ public:
 
 	// Initialization with a map corresponding to the input nurses and no wished Shift-Off.
 	Preferences(std::vector<Nurse>& pNurses, int nbDays, int nbShifts);
+
+	static int wishLevel(const std::map<int, std::vector<Wish> > &wishes, int day, int shift);
 
 protected:
 	// Number of nurses
@@ -326,28 +324,28 @@ public:
         void addDayOn(int nurse, int day, PREF_LEVEL level);
 
   //	map<int,std::set<int> >* nurseWishesOff(int id) {return &wishesOff_[id];}
-  std::map<int,std::vector<Wish> >* nurseWishesOff(int id) {return &wishesOff_[id];}
-    std::map<int,std::vector<Wish> >* nurseWishesOn(int id) {return &wishesOn_[id];}
+  const std::map<int,std::vector<Wish>>& nurseWishesOff(int id) const {return wishesOff_.at(id);}
+  const std::map<int,std::vector<Wish>>& nurseWishesOn(int id) const {return wishesOn_.at(id);}
 
 	// True if the nurses wants that shift off
-        bool wantsTheShiftOff(int nurse, int day, int shift);
-        bool wantsTheShiftOn(int nurse, int day, int shift);
+  bool wantsTheShiftOff(int nurse, int day, int shift) const;
+  bool wantsTheShiftOn(int nurse, int day, int shift) const;
 
   // Returns level if the nurse wants that shift off : -1 otherwise
-  int wantsTheShiftOffLevel(int nurseId, int day, int shift);
-  int wantsTheShiftOnLevel(int nurseId, int day, int shift);
+  int wantsTheShiftOffLevel(int nurseId, int day, int shift) const;
+  int wantsTheShiftOnLevel(int nurseId, int day, int shift) const;
   
 	// True if the nurses wants the whole day off
-	bool wantsTheDayOff(int nurse, int day);
-	bool wantsTheDayOn(int nurse, int day);
+	bool wantsTheDayOff(int nurse, int day) const;
+	bool wantsTheDayOn(int nurse, int day) const;
 
 	// Total number of shifts off that the nurse wants
-	int howManyShiftsOff(int nurse);
-	int howManyShiftsOn(int nurse);
+	int howManyShiftsOff(int nurse) const;
+	int howManyShiftsOn(int nurse) const;
 
 	// Number of whole days off that the nurse wants
-	int howManyDaysOff(int nurse, int dayMin, int dayMax);
-	int howManyDaysOn(int nurse, int dayMin, int dayMax);
+	int howManyDaysOff(int nurse, int dayMin, int dayMax) const;
+	int howManyDaysOn(int nurse, int dayMin, int dayMax) const;
 
 	// add another week preferences at the end of the current one
 	//

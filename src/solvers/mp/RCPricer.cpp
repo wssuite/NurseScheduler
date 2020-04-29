@@ -34,7 +34,7 @@ RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& p
 
 /* Destructs the pricer object. */
 RCPricer::~RCPricer() {
-	for(pair<const Contract*, SubProblem*> p: subProblems_)
+	for(auto& p: subProblems_)
 		delete p.second;
 }
 
@@ -186,7 +186,7 @@ SubProblem* RCPricer::retriveSubproblem(LiveNurse* pNurse){
 	  subProblem->build();
 	    
 	  //	  subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
-		subProblems_.insert(it, pair<const Contract*, SubProblem*>(pNurse->pContract_, subProblem));
+		subProblems_[pNurse->pContract_] = subProblem;
 	} else {
 		subProblem = it->second;
 	}

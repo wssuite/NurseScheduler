@@ -197,7 +197,6 @@ void Position::resetBelow() {
 //
 //-----------------------------------------------------------------------------
 
-
 // Default constructor and destructor
 Preferences::Preferences(){}
 Preferences::~Preferences(){}
@@ -206,31 +205,35 @@ Preferences::~Preferences(){}
 Preferences::Preferences(int nbNurses, int nbDays, int nbShifts) :
 				nbNurses_(nbNurses), nbDays_(nbDays), nbShifts_(nbShifts){
 	// Wish lists are initialized to empty
-	map<int, map<int,vector<Wish> > > wishesOff;
 	for(int i=0; i<nbNurses_; i++){
-		map<int,vector<Wish> > m;
-		wishesOff[i] = m;
+    wishesOff_[i];
+    wishesOn_[i];
 	}
-	wishesOff_ = wishesOff;
-	
-	map<int, map<int,vector<Wish> > > wishesOn;
-	for(int i=0; i<nbNurses_; i++){
-		map<int,vector<Wish> > m;
-		wishesOn[i] = m;
-	}
-	wishesOn_ = wishesOn;
 }
 
 // Initialization with a map corresponding to the input nurses and no wished Shift-Off.
 Preferences::Preferences(vector<Nurse>& nurses, int nbDays, int nbShifts) :
 				nbNurses_(nurses.size()), nbDays_(nbDays), nbShifts_(nbShifts){
 	// Wish lists are initialized to empty
-	map<int, map<int,vector<Wish> > > wishesOff;
 	for(Nurse nurse: nurses){
-		map<int,vector<Wish> > m;
-		wishesOff[nurse.id_] = m;
+    wishesOff_[nurse.id_];
+    wishesOn_[nurse.id_];
 	}
-	wishesOff_ = wishesOff;
+}
+
+
+int Preferences::wishLevel(const std::map<int, std::vector<Wish> > &wishes, int day, int shift) {
+  auto itM = wishes.find(day);
+  // If the day is not in the wish-list, no possible violation
+  if (itM == wishes.end())
+    return -1;
+  // no preference either in the wish-list for that day
+  else {
+    for (const Wish &w: itM->second)
+      if (w.shift == shift)
+        return w.level;
+  }
+  return -1;
 }
 
 // Add a wished day-shift off for a nurse
@@ -247,49 +250,49 @@ void Preferences::addDayOff(int nurseId, int day, PREF_LEVEL level){
 }
 
 // Returns true if the nurse wants that shift off
-bool Preferences::wantsTheShiftOff(int nurseId, int day, int shift){
+bool Preferences::wantsTheShiftOff(int nurseId, int day, int shift) const{
   return wantsTheShiftOffLevel(nurseId, day, shift) != -1;
 }
 
 // Returns level if the nurse wants that shift off : -1 otherwise
-int Preferences::wantsTheShiftOffLevel(int nurseId, int day, int shift){
+int Preferences::wantsTheShiftOffLevel(int nurseId, int day, int shift) const {
 	// If the day is not in the wish-list, return -1
-	auto itM = wishesOff_[nurseId].find(day);
-	if(itM == wishesOff_[nurseId].end())
+	auto itM = wishesOff_.at(nurseId).find(day);
+	if(itM == wishesOff_.at(nurseId).end())
 	  return -1;
 	// If the shift is not in the wish-list for that day, return -1
-	std::vector<Wish> &wishes = itM->second;
+	const std::vector<Wish> &wishes = itM->second;
 	for(const Wish &wish: wishes)
 	  if(wish.shift == shift) return wish.level;
   return -1;
 }
 
 // True if the nurse wants the whole day off
-bool Preferences::wantsTheDayOff(int nurseId, int day){
+bool Preferences::wantsTheDayOff(int nurseId, int day) const{
 	// If the day is not in the wish-list, return false
-	auto itM = wishesOff_[nurseId].find(day);
-	if(itM == wishesOff_[nurseId].end())
+	auto itM = wishesOff_.at(nurseId).find(day);
+	if(itM == wishesOff_.at(nurseId).end())
 		return false;
   // Set does not repeat its elements. Wants the day off if and only if all shifts off (-1 because REST does not appear)
 	return itM->second.size() == nbShifts_-1;
 }
 
 // Total number of shifts off that the nurse wants
-int Preferences::howManyShiftsOff(int nurseId) {
+int Preferences::howManyShiftsOff(int nurseId) const {
 	int nbShiftsOff = 0;
 
 	// look at every wishes of the nurse
-	for( const auto & dayOff: wishesOff_[nurseId]){
+	for( const auto & dayOff: wishesOff_.at(nurseId)){
 		nbShiftsOff += dayOff.second.size();
 	}
 	return nbShiftsOff;
 }
 
 // Number of whole days off that the nurse wants
-int Preferences::howManyDaysOff(int nurseId, int dayMin, int dayMax){
+int Preferences::howManyDaysOff(int nurseId, int dayMin, int dayMax) const {
 	int nbDayOff = 0;
 	// look at every wishes of the nurse
-	for( const auto & dayOff: wishesOff_[nurseId]){
+	for( const auto & dayOff: wishesOff_.at(nurseId)){
 		nbDayOff += ( (dayOff.first >= dayMin) && (dayOff.first <= dayMax) && (dayOff.second.size() == nbShifts_-1));
 	}
 	return nbDayOff;
@@ -311,49 +314,48 @@ void Preferences::addDayOn(int nurseId, int day, PREF_LEVEL level){
 }
 
 // Returns true if the nurse wants that shift on
-bool Preferences::wantsTheShiftOn(int nurseId, int day, int shift){
+bool Preferences::wantsTheShiftOn(int nurseId, int day, int shift) const{
   return wantsTheShiftOnLevel(nurseId, day, shift) != -1;
 }
 
 // Returns level if the nurse wants that shift on : -1 otherwise
-int Preferences::wantsTheShiftOnLevel(int nurseId, int day, int shift){
+int Preferences::wantsTheShiftOnLevel(int nurseId, int day, int shift) const{
   // If the day is not in the wish-list, return -1
-  auto itM = wishesOn_[nurseId].find(day);
-  if(itM == wishesOn_[nurseId].end())
+  auto itM = wishesOn_.at(nurseId).find(day);
+  if(itM == wishesOn_.at(nurseId).end())
     return -1;
   // If the shift is not in the wish-list for that day, return -1
-  std::vector<Wish> &wishes = itM->second;
-  for(const Wish &wish: wishes)
+  for(const Wish &wish: itM->second)
     if(wish.shift == shift) return wish.level;
   return -1;
 }
 
 // True if the nurse wants the whole day on
-bool Preferences::wantsTheDayOn(int nurseId, int day){
+bool Preferences::wantsTheDayOn(int nurseId, int day) const{
   // If the day is not in the wish-list, return false
-  auto itM = wishesOn_[nurseId].find(day);
-  if(itM == wishesOn_[nurseId].end())
+  auto itM = wishesOn_.at(nurseId).find(day);
+  if(itM == wishesOn_.at(nurseId).end())
     return false;
   // Set does not repeat its elements. Wants the day on if and only if all shifts off (-1 because REST does not appear)
   return itM->second.size() == nbShifts_-1;
 }
 
 // Total number of shifts on that the nurse wants
-int Preferences::howManyShiftsOn(int nurseId) {
+int Preferences::howManyShiftsOn(int nurseId) const {
   int nbShiftsOn = 0;
 
   // look at every wishes of the nurse
-  for( const auto & dayOn: wishesOn_[nurseId]){
+  for( const auto & dayOn: wishesOn_.at(nurseId)){
     nbShiftsOn += dayOn.second.size();
   }
   return nbShiftsOn;
 }
 
 // Number of whole days on that the nurse wants
-int Preferences::howManyDaysOn(int nurseId, int dayMin, int dayMax){
+int Preferences::howManyDaysOn(int nurseId, int dayMin, int dayMax) const {
   int nbDayOn = 0;
   // look at every wishes of the nurse
-  for( const auto & dayOn: wishesOn_[nurseId]){
+  for( const auto & dayOn: wishesOn_.at(nurseId)){
     nbDayOn += ( (dayOn.first >= dayMin) && (dayOn.first <= dayMax) && (dayOn.second.size() == nbShifts_-1));
   }
   return nbDayOn;
@@ -477,17 +479,7 @@ string Preferences::toString(Scenario* pScenario) const{
 //        override it because vector members should have some properties (assignable a.o., which implies
 //        non-const)
 //
-Nurse::Nurse(int id, string name, int nbSkills, vector<int> skills, Contract* contract) :
-			id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){
-	// Verify that the vecor of skills is sorted
-	//
-	for (vector<int>::const_iterator it=skills_.begin(); it!=skills_.end()-1; ++it) {
-		if (*it >= *(it+1))  {
-			Tools::throwError("The skills in a nurse are not sorted or some skill is repeated!");
-		}
-	}
-}
-Nurse::Nurse(int id, string name, int nbSkills, vector<int> skills, const Contract* contract) :
+Nurse::Nurse(int id, string name, int nbSkills, vector<int> skills, PConstContract contract) :
 			id_(id), name_(name), nbSkills_(nbSkills), skills_(skills), pContract_(contract){
 	// Verify that the vecor of skills is sorted
 	//
@@ -524,17 +516,4 @@ string Nurse::toString() const{
 	if(nbSkills_==1) rep << "\t";
 	rep << pContract_->name_;
 	return rep.str();
-}
-
-// Assignment operator -> vector request
-//
-Nurse& Nurse::operator=(const Nurse& n){
-	int id = n.id_;
-	string name = n.name_;
-	int nbSkills = n.nbSkills_;
-	vector<int> skills = n.skills_;
-	const Contract* contract;
-	contract = n.pContract_;
-	Nurse * n2 = new Nurse(id, name, nbSkills, skills, contract);
-	return *n2;
 }

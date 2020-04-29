@@ -482,43 +482,40 @@ double DeterministicSolver::treatResults(Solver* pSolver) {
 double DeterministicSolver::solveByConnexPositions() {
 
 	// DIVIDE THE SCENARIO INTO CONNEX COMPONENTS AND PRINT THE RESULT
-	vector<Scenario*> scenariosPerComponent;
-	scenariosPerComponent = divideScenarioIntoConnexPositions(pScenario_);
+	vector<Scenario*> scenariosPerComponent = divideScenarioIntoConnexPositions(pScenario_);
 
 	// SOLVE THE PROBLEM COMPONENT-WISE
-	vector<DeterministicSolver*> solverPerComponent;
+	int i = 0;
 	for (Scenario* pScenario: scenariosPerComponent) {
 		std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
 		std::cout << pScenario->toString() << std::endl;
 
 		// SET THE SOLVER AND SOLVE THE SUBPROBLEM
 		InputPaths inputPaths;
-		solverPerComponent.push_back(new DeterministicSolver(pScenario,inputPaths));
-		solverPerComponent.back()->copyParameters(this);
+    DeterministicSolver* solver = new DeterministicSolver(pScenario,inputPaths);
+		solver->copyParameters(this);
 
 		// set allowed time proportionnally to the number of nurses in each
 		// component
 		double allowedTime = options_.totalTimeLimitSeconds_*(double)pScenario->nbNurses()/(double)pScenario_->nbNurses();
 		// if solving the last component, leave it all the time left
-		if (solverPerComponent.size() == scenariosPerComponent.size()) {
+		if (i++ == scenariosPerComponent.size()) {
 			allowedTime = std::max(allowedTime,options_.totalTimeLimitSeconds_-pTimerTotal_->dSinceStart());
 		}
-		solverPerComponent.back()->setTotalTimeLimit(allowedTime);
+		solver->setTotalTimeLimit(allowedTime);
 
 		// solve the component
-		solverPerComponent.back()->solve();
+		solver->solve();
 
 		// STORE THE SOLUTION
 		// Be particularly cautious that the nurse indices are not the same in the
 		// initial scenario and in the solvers per component
-		for (int n=0; n<pScenario->nbNurses_; ++n) {
-			int idNurse = pScenario->theNurses_[n].id_;
-			theLiveNurses_[idNurse]->roster_ = solverPerComponent.back()->getSolution()[n];
-		}
+		for (LiveNurse *pNurse: solver->theLiveNurses_)
+			theLiveNurses_[pNurse->originalNurseId_]->roster_ = solver->getSolution()[pNurse->id_];
 
 		// Consolidate the global state of the solver
-		stats_.add(solverPerComponent.back()->getGlobalStat());
-		Status lastStatus = solverPerComponent.back()->getStatus();
+		stats_.add(solver->getGlobalStat());
+		Status lastStatus = solver->getStatus();
 
 		// in several cases, the new status is the status of the last solver solved
 		if (status_ == UNSOLVED || status_ == OPTIMAL ||
@@ -534,21 +531,16 @@ double DeterministicSolver::solveByConnexPositions() {
 			return -1;
 		}
 
-		// the solver of the component can be deleted at this stage
-		delete solverPerComponent.back();
-		solverPerComponent.back()=0;
+    // release memory
+		// the solver and scenario of the component can be deleted at this stage
+		delete solver;
+    delete pScenario;
 	}
 
 	// update nurses' states
 	for(int n=0; n<pScenario_->nbNurses_; ++n){
 		solution_.push_back(theLiveNurses_[n]->roster_);
 		theLiveNurses_[n]->buildStates();
-	}
-
-	//  release memory
-	for (Scenario* pScenario: scenariosPerComponent) {
-		if (pScenario->pWeekDemand()) delete pScenario->pWeekDemand();
-		pScenario->setWeekDemand(0);
 	}
 
 	return computeSolutionCost();
@@ -959,7 +951,7 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 
 		// initialize with the first nurse
 		theLiveNursesWithContract.push_back(copyTheLiveNurses[0]);
-		const Contract* thisContract = copyTheLiveNurses[0]->pContract_;
+    PConstContract thisContract = copyTheLiveNurses[0]->pContract_;
 		copyTheLiveNurses.erase(copyTheLiveNurses.begin());
 
 		// search for the nurses with same contract in the remaining nurses

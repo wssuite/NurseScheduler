@@ -45,7 +45,7 @@ protected:
    Modeler* pModel_;
     std::vector<LiveNurse*> nursesToSolve_;
    // One subproblem per contract because the consecutive same shift constraints vary by contract.
-   std::map<const Contract*, SubProblem*> subProblems_;
+   std::map<PConstContract, SubProblem*> subProblems_;
 
    // DATA - Solutions, rotations, etc.
    //

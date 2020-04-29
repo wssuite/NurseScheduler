@@ -68,10 +68,10 @@ void StatCtNurse::init(int nbDays) {
 // Constructor
 //
 LiveNurse::LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn):
+State* pStateIni, Preferences* pPreferences):
 Nurse(nurse.id_, nurse.name_, nurse.nbSkills_, nurse.skills_, nurse.pContract_),
-pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay),
-pStateIni_(pStateIni), pWishesOff_(pWishesOff), pWishesOn_(pWishesOn), pPosition_(0),
+pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay), originalNurseId_(nurse.id_),
+pStateIni_(pStateIni), pPreferences_(pPreferences), pPosition_(0),
 minWorkDaysNoPenaltyConsDays_(-1), maxWorkDaysNoPenaltyConsDays_(-1),
 minWorkDaysNoPenaltyTotalDays_(-1), maxWorkDaysNoPenaltyTotalDays_(-1),
 minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
@@ -90,10 +90,10 @@ minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
 }
 
 LiveNurse::LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-State* pStateIni, map<int,vector<Wish> >* pWishesOff, map<int,vector<Wish> >* pWishesOn, int nurseId):
+State* pStateIni, Preferences* pPreferences, int nurseId):
 Nurse(nurseId, nurse.name_, nurse.nbSkills_, nurse.skills_, nurse.pContract_),
-pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay),
-pStateIni_(pStateIni), pWishesOff_(pWishesOff), pWishesOn_(pWishesOn), pPosition_(0),
+pScenario_(pScenario), nbDays_(nbDays), firstDay_(firstDay), originalNurseId_(nurse.id_),
+pStateIni_(pStateIni), pPreferences_(pPreferences), pPosition_(0),
 minWorkDaysNoPenaltyConsDays_(-1), maxWorkDaysNoPenaltyConsDays_(-1),
 minWorkDaysNoPenaltyTotalDays_(-1), maxWorkDaysNoPenaltyTotalDays_(-1),
 minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
@@ -113,84 +113,37 @@ minAvgWorkDaysNoPenaltyTotalDays_(-1), maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
 
 LiveNurse::~LiveNurse() { }
 
+
+const std::map<int,std::vector<Wish> > & LiveNurse::wishesOff() const {
+  return pPreferences_->nurseWishesOff(originalNurseId_);
+}
+
+const std::map<int,std::vector<Wish> > & LiveNurse::wishesOn() const {
+  return pPreferences_->nurseWishesOn(originalNurseId_);
+}
+
 // returns true if the nurse wishes the day-shift off
 //
 bool LiveNurse::wishesOff(int day, int shift) const {
-	map<int,vector<Wish> >::iterator itM = pWishesOff_->find(day);
-	// If the day is not in the wish-list, no possible violation
-	if(itM == pWishesOff_->end())  {
-		return false;
-	}
-	// no preference either in the wish-list for that day
-	else {
-	  vector<Wish>::iterator itShift;
-	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
-	  if(itShift->shift == shift)
-	    return true;
-	  }
-	}
-	
-	return false;
+  return Preferences::wishLevel(wishesOff(), day, shift) != -1;
 }
 
 // returns true if the nurse wishes the day-shift off
 //
 int LiveNurse::wishesOffLevel(int day, int shift) const {
-	map<int,vector<Wish> >::iterator itM = pWishesOff_->find(day);
-	// If the day is not in the wish-list, no possible violation
-	if(itM == pWishesOff_->end())  {
-		return -1;
-	}
-	// no preference either in the wish-list for that day
-	else {
-	  vector<Wish>::iterator itShift;
-	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
-	  if(itShift->shift == shift)
-	    return itShift->level;
-	  }
-	}
-	
-	return -1;
+  return Preferences::wishLevel(wishesOff(), day, shift);
 }
 
 // returns true if the nurse wishes the day-shift off
 //
 bool LiveNurse::wishesOn(int day, int shift) const {
-	map<int,vector<Wish> >::iterator itM = pWishesOn_->find(day);
-	// If the day is not in the wish-list, no possible violation
-	if(itM == pWishesOn_->end())  {
-		return false;
-	}
-	// no preference either in the wish-list for that day
-	else {
-	  vector<Wish>::iterator itShift;
-	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
-	  if(itShift->shift == shift)
-	    return true;
-	  }
-	}
-	
-	return false;
+  return Preferences::wishLevel(wishesOn(), day, shift) != -1;
 }
 
 // returns true if the nurse wishes the day-shift off
 //
 int LiveNurse::wishesOnLevel(int day, int shift) const {
-	map<int,vector<Wish> >::iterator itM = pWishesOn_->find(day);
-	// If the day is not in the wish-list, no possible violation
-	if(itM == pWishesOn_->end())  {
-		return -1;
-	}
-	// no preference either in the wish-list for that day
-	else {
-	  vector<Wish>::iterator itShift;
-	  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
-	  if(itShift->shift == shift)
-	    return itShift->level;
-	  }
-	}
-	
-	return -1;
+  return Preferences::wishLevel(wishesOn(), day, shift);
 }
 
 // returns true if the nurses reached the maximum number of consecutive worked
@@ -328,30 +281,10 @@ void LiveNurse::checkConstraints(const Roster& roster,
 		// check the preferences
 		//
 		stat.costPref_[day-1] = 0;
-
-		map<int,vector<Wish> >::iterator itM = pWishesOff_->find(day-1);
-		// If the day is not in the wish-list, no possible violation
-		if(itM != pWishesOff_->end())  {
-		  vector<Wish>::iterator itShift;
-		  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
-		    if(itShift->shift == shift) {
-		      stat.costPref_[day-1] = WEIGHT_PREFERENCES_OFF[itShift->level];
-		      break;
-		    }
-		  }
-		}
-
-		itM = pWishesOn_->find(day-1);
-		// If the day is not in the wish-list, no possible violation
-		if(itM != pWishesOn_->end())  {
-		  vector<Wish>::iterator itShift;
-		  for (itShift = itM->second.begin(); itShift != itM->second.end(); itShift++) {
-		    if(itShift->shift == shift) {
-		      stat.costPref_[day-1] = WEIGHT_PREFERENCES_ON[itShift->level];
-		      break;
-		    }
-		  }
-		}
+		int l = wishesOffLevel(day-1, shift);
+		if(l>=0) stat.costPref_[day-1] += WEIGHT_PREFERENCES_OFF[l];
+    l = wishesOnLevel(day-1, shift);
+    if(l>=0) stat.costPref_[day-1] += WEIGHT_PREFERENCES_OFF[l];
 
 		// check the complete week-end (only if the nurse requires them)
 		// this cost is only assigned to the sundays
@@ -447,14 +380,14 @@ void LiveNurse::computeMinMaxDaysNoPenaltyConsDay(State* pCurrentState, int nbDa
 // Print the contract type + preferences
 void LiveNurse::printContractAndPreferences(Scenario *pScenario) const {
   std::cout << "# Preferences:" << std::endl;
-  for(map<int,vector<Wish> >::iterator it = pWishesOff_->begin(); it != pWishesOff_->end(); ++it){
-    std::cout <<  "      | " << it->first << "  ->  ";
-    for(Wish s : it->second) std::cout << pScenario->intToShift_[s.shift];
+  for(const auto& wishes: wishesOff()){
+    std::cout <<  "      | " << wishes.first << "  ->  ";
+    for(const Wish& s : wishes.second) std::cout << pScenario->intToShift_[s.shift];
     std::cout << std::endl;
   }
-  for(map<int,vector<Wish> >::iterator it = pWishesOn_->begin(); it != pWishesOn_->end(); ++it){
-    std::cout <<  "      | " << it->first << "  ->  ";
-    for(Wish s : it->second) std::cout << pScenario->intToShift_[s.shift];
+  for(const auto& wishes: wishesOn()){
+    std::cout <<  "      | " << wishes.first << "  ->  ";
+    for(const Wish& s : wishes.second) std::cout << pScenario->intToShift_[s.shift];
     std::cout << std::endl;
   }
   std::cout << "# Contract :   ";
@@ -628,8 +561,7 @@ Solver::Solver(Scenario* pScenario, Demand* pDemand,
 	for (int i=0; i < pScenario->nbNurses_; i++) {
 		theLiveNurses_.push_back(
 			new LiveNurse( pScenario->theNurses_[i], pScenario_, pDemand_->nbDays_,
-				       pDemand_->firstDay_, &(*pInitState_)[i], pPreferences_->nurseWishesOff(i),
-				       pPreferences_->nurseWishesOn(i) , i) );
+				       pDemand_->firstDay_, &(*pInitState_)[i], pPreferences_, i) );
 	}
 
 	// initialize the minimum and maximum number of total working days
@@ -774,11 +706,11 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 	map<string,int> minWorkDaysFutureNoPenaltyConsDays;
 	map<string,int> maxWorkDaysFutureNoPenaltyConsDays;
 	map<string, Contract*>::const_iterator itC;
-	for (itC = pScenario_->contracts_.begin(); itC != pScenario_->contracts_.end(); itC++)	{
+	for (auto p: pScenario_->contracts_)	{
 
 		// initialization
 		string name = itC->first;
-		Contract* pContract = itC->second;
+    PConstContract pContract = p.second;
 		minWorkDaysFutureNoPenaltyConsDays[name] = 0;
 		maxWorkDaysFutureNoPenaltyConsDays[name] = 0;
 
@@ -1222,7 +1154,7 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy){
 
 				 //to penalize some contracts vs the others
 				 const string contractName = pScenario_->intToContract_[p];
-				 Contract* pContract = (pScenario_->contracts_.at( contractName ));
+        PConstContract pContract = pScenario_->contracts_.at(contractName);
 				 int lengthStintMin = pContract->minConsDaysWork_ + pContract->maxConsDaysOff_;
 				 //compute the number of days worked, if the nurse works the minimum days without penalties
 				 int minWorkDaysNoPenalty = pContract->minConsDaysWork_ * (7*pScenario_->nbWeeks_) / lengthStintMin;

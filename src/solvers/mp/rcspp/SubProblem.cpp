@@ -32,7 +32,7 @@ using std::set;
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario* scenario, int nDays, const Contract* contract, vector<State>* pInitState):
+SubProblem::SubProblem(Scenario* scenario, int nDays, PConstContract contract, vector<State>* pInitState):
 					pScenario_(scenario), nDays_(nDays), pContract_ (contract),
 					CDMin_(contract->minConsDaysWork_), daysMin_(1), nLabels_(2),
 					maxRotationLength_(nDays) {
@@ -313,10 +313,10 @@ void SubProblem::initStructuresForSolve(){
 	// Preference costs.
 	//
   Tools::initVector2D(preferencesCosts_, nDays_, pScenario_->nbShifts_, .0);
-  for(const auto &p: *pLiveNurse_->pWishesOff_)
+  for(const auto &p: pLiveNurse_->wishesOff())
 		for(const Wish& s : p.second)
       preferencesCosts_[p.first][s.shift] = WEIGHT_PREFERENCES_OFF[s.level];
-  for(const auto &p: *pLiveNurse_->pWishesOn_)
+  for(const auto &p: pLiveNurse_->wishesOn())
     for(const Wish& s: p.second)
       preferencesCosts_[p.first][s.shift] = WEIGHT_PREFERENCES_ON[s.level];
 }

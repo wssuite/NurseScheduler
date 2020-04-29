@@ -65,7 +65,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	vector<int> minConsShiftType, maxConsShiftType, nbForbiddenSuccessors, hoursInShift, shiftIDToShiftTypeID;
         vector2D<int> shiftTypeIDToShiftID;
 	vector2D<int> forbiddenSuccessors;
-	map<string,Contract*> contracts;
+	map<string,PConstContract> contracts;
 	vector<Nurse> theNurses;
 
 	bool  foundShift = false;
@@ -230,8 +230,10 @@ Scenario* ReadWrite::readScenario(string fileName) {
 				file >> isTotalWeekend;
 				readUntilChar(&file,'\n',&strTmp);
 
-				Contract * pContract = new Contract (i, contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
-				contracts.insert(pair<string,Contract*>(contractName,pContract));
+        PConstContract pContract =
+            std::make_shared<Contract>(i, contractName, minDays, maxDays, minConsWork, maxConsWork,
+                minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
+				contracts[contractName] = pContract;
 				intToContract.push_back(contractName);
 			}
 		}
