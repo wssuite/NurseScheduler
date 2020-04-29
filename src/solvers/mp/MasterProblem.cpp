@@ -708,18 +708,6 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 
 	}
 
-	// WEEKEND CUTS
-	// sprintf(name, "sumMaxWorkedWeekendCons");
-	// std::vector<pVar> varsSum3;
-	// std::vector<double> coeffsSum3;
-	// for(int i=0; i<pScenario_->nbNurses_; i++) {
-	// 	varsSum3.push_back(maxWorkedWeekendVars_[i]);
-	// 	coeffsSum3.push_back(1);
-	// }
-	// pModel_->createGEConsLinear(&sumMaxWorkedWeekendCons_, name, 4, varsSum3, coeffsSum3);
-
-
-
 	for(int p=0; p<pScenario_->nbContracts_; ++p){
 
 		if(!minTotalShiftsContractAvg_.empty() && !maxTotalShiftsContractAvg_.empty()  && !weightTotalShiftsContractAvg_.empty()){
