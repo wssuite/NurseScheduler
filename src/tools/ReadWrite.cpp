@@ -26,8 +26,6 @@ using std::vector;
 using std::map;
 using std::pair;
 
-std::map<std::string, Algorithm> stringToAlgorithm =
-	boost::assign::map_list_of("GREEDY", GREEDY)("GENCOL", GENCOL)("STOCHASTIC_GREEDY",STOCHASTIC_GREEDY)("STOCHASTIC_GENCOL",STOCHASTIC_GENCOL)("NONE",NONE);
 std::map<std::string, WeightStrategy> stringToWeightStrategy =
 	boost::assign::map_list_of("MAX", MAX)("MEAN", MEAN)("RANDOMMEANMAX",RANDOMMEANMAX)("BOUNDRATIO",BOUNDRATIO)("NO_STRAT",NO_STRAT);
 std::map<std::string, RankingStrategy> stringToRankingStrategy =
@@ -350,8 +348,8 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 	string weekName;
 	vector3D<int> minWeekDemand;
 	vector3D<int> optWeekDemand;
-	if (*pPref) delete *pPref;
-	if (*pDemand) delete *pDemand;
+	delete *pPref;
+	delete *pDemand;
 
 
 	// fill the attributes when reading the week file
@@ -687,12 +685,12 @@ std::string ReadWrite::readStochasticSolverOptions(string strOptionFile, Stochas
 		if(!strcmp(title.c_str(), "generationAlgorithm")){
 			string strtmp;
 			file >> strtmp;
-			options.generationAlgorithm_ = stringToAlgorithm[strtmp];
+			options.generationAlgorithm_ = AlgorithmsByName.at(strtmp);
 		}
 		if(!strcmp(title.c_str(), "evaluationAlgorithm")){
 			string strtmp;
 			file >> strtmp;
-			options.evaluationAlgorithm_ = stringToAlgorithm[strtmp];
+			options.evaluationAlgorithm_ = AlgorithmsByName.at(strtmp);
 		}
 		if(!strcmp(title.c_str(), "rankingStrategy")){
 			string strtmp;

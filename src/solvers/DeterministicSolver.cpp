@@ -6,7 +6,6 @@
 */
 
 #include "solvers/DeterministicSolver.h"
-//#include "solvers/Greedy.h"
 #include "solvers/mp/RotationMP.h"
 #include "solvers/InitializeSolver.h"
 #include "solvers/mp/modeler/BcpModeler.h"
@@ -64,8 +63,8 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 
 DeterministicSolver::~DeterministicSolver(){
 	// delete also the reusable solvers
-	if(pCompleteSolver_) delete pCompleteSolver_;
-	if(pRollingSolver_) delete pRollingSolver_;
+	delete pCompleteSolver_;
+	delete pRollingSolver_;
 	// DBG if (pLNSSolver_) delete pLNSSolver_;
 }
 
@@ -982,35 +981,24 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 
 // Return a solver with the algorithm specified for resolution
 Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand) {
-	Solver* pSolver=NULL;
 	switch(options_.solutionAlgorithm_){
-		//case GREEDY:
-		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-		//break;
 		case GENCOL:
-		pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
-		break;
+		return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
 		default:
 		Tools::throwError("The algorithm is not handled yet");
 		break;
 	}
-	return pSolver;
+	return nullptr;
 }
 
 // Return a solver with the input algorithm
 Solver* DeterministicSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm) {
-
-	Solver* pSolver=NULL;
 	switch(algorithm){
-		//case GREEDY:
-		//pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-		//break;
 		case GENCOL:
-		pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
-		break;
+		return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
 		default:
 		Tools::throwError("The algorithm is not handled yet");
 		break;
 	}
-	return pSolver;
+	return nullptr;
 }

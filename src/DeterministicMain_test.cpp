@@ -54,7 +54,7 @@ bool testDivideIntoConnexComponents() {
 
 
 	//  release memory
-	if (pScenarioInitial) delete pScenarioInitial;
+	delete pScenarioInitial;
 
 	return true;
 }

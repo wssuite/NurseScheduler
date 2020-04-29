@@ -84,44 +84,38 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
 
 	// This OSI interface is created only to retrieve the proper value of
 	// infinity for the solver
-	OsiSolverInterface* solver=NULL;
-
+  double inf = -1;
 	switch(solverType){
 	case S_CLP:
     pModel_ = new BcpModeler(this,PB_NAME, CLP);
-		solver = new OsiClpSolverInterface();
+    inf = OsiClpSolverInterface().getInfinity();
 		break;
 	case S_Gurobi:
 #ifdef USE_GUROBI
 		pModel_ = new BcpModeler(this,PB_NAME, Gurobi);
-		solver = new OsiGrbSolverInterface();
+		inf = OsiGrbSolverInterface().getInfinity();
 #else
 	  Tools::throwError("BCP has not been built with Gurobi.");
 #endif
 		break;
 	case S_Cplex:
 #ifdef USE_CPLEX
-		pModel_ = new BcpModeler(this,PB_NAME, Cplex);
-		solver = new OsiCpxSolverInterface();
+		pModel_ = new BcpModeler(this,PB_NAME, Cplex);\
+		inf = OsiCpxSolverInterface().getInfinity();
 #else
 	  Tools::throwError("BCP has not been built with Cplex.");
 #endif
 		break;
 	case S_CBC:
     pModel_ = new BcpModeler(this,PB_NAME);
-		solver = new OsiClpSolverInterface();
+    inf = OsiClpSolverInterface().getInfinity();
 		break;
 	default:
 		Tools::throwError("MasterProblem::initializeSolver: the requested solver is not supported presently.");
 		break;
 	}
 
-	pModel_->setInfinity(solver->getInfinity());
-	// DBG : QUESTION
-	// DBG : REPONSE, cet Osi n'est pas celui qui sera utilise pour resoudre les
-	// LPs, il ne sert qu'a recuperer la valeur infinity. Il est donc necessaire
-	// de le supprimer  pour eviter les fuites
-	delete solver;
+//  pModel_->setInfinity(inf);
 
 	this->preprocessData();
 
@@ -185,7 +179,9 @@ double MasterProblem::solve(vector<Roster> solution, bool rebuild){
 	this->initializeSolution(solution);
 
 	// DBG
+#ifdef  DBG
 	pModel_->writeProblem("model.lp");
+#endif
 
 	// RqJO: warning, it would be better to define an enumerate type of verbosity
 	// levels and create the matching in the Modeler subclasses

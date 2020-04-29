@@ -9,7 +9,6 @@
 #include "tools/ReadWrite.h"
 #include "tools/MyTools.h"
 #include "data/Nurse.h"
-#include "solvers/Greedy.h"
 
 
 using std::string;
@@ -32,25 +31,21 @@ DemandGenerator::~DemandGenerator() {
 
 bool DemandGenerator::checkDemandFeasibility(Demand* pDemand) {
 
-	// Create empty preferences and initial states (this represents the most favorable situation)
+  // Todo: build empty preferences and empty initial state to test the feasibility
+  // Create empty preferences and initial states (this represents the most favorable situation)
 	// They are needed to run the greedy algorithm.
 	// We prefer take empty objects than arbitrary values, because the optimization of the current week
 	// is likely to find a favorable situation
-	Preferences* pPref = new Preferences(pScenario_->nbNurses_,pScenario_->nbDays(),pScenario_->nbShifts_);
-	vector<State> emptyStates;
-	for (int i = 0; i < pScenario_->nbNurses_; i++) {
-		State state;
-		emptyStates.push_back(state);
-	}
+//	Preferences* pPref = new Preferences(pScenario_->nbNurses_,pScenario_->nbDays(),pScenario_->nbShifts_);
+//	vector<State> emptyStates;
+//	for (int i = 0; i < pScenario_->nbNurses_; i++) {
+//		State state;
+//		emptyStates.push_back(state);
+//	}
 
+//  Tools::throwError("checkDemandFeasibility is not implemented.");
 
-	// Todo: build empty preferences and empty initial state to test the feasibility
-	Greedy* pGreedy = new Greedy(pScenario_, pDemand, pPref, &emptyStates);
-	bool ans = pGreedy->constructiveGreedy();
-	if(ans){
-		std::cout << "# Demand has been checked and is valid" << std::endl;
-	}
-	return ans;
+	return true;
 
 }
 

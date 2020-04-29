@@ -1043,6 +1043,8 @@ int BcpModeler::solve(bool relaxation){
 		getMaster()->setStatus(INFEASIBLE);
 	}catch(TimeoutStop& e) {
 		getMaster()->setStatus(TIME_LIMIT);
+	}catch (const std::exception &e) {
+	  std::cerr << e.what() << std::endl;
 	}
 
 	// retrieve the statistics of the solution

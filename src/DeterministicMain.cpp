@@ -78,8 +78,8 @@ void solveDeterministic(InputPaths inputPaths, double timeout) {
 
 
 	//  release memory
-	if (pSolver) delete pSolver;
-	if (pScenario) delete pScenario;
+	delete pSolver;
+	delete pScenario;
 	statStream.close();
 }
 
@@ -140,6 +140,6 @@ int main(int argc, char** argv)
 
 	// Release memory
 	//
-	if (pInputPaths) delete pInputPaths;
+	delete pInputPaths;
 
 }

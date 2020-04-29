@@ -359,10 +359,10 @@ void RotationMP::initializeSolution(const vector<Roster>& solution) {
     for(int i=0; i<pScenario_->nbNurses_; ++i){
       // DBG: Compute the cost of artificial variables in accordance to the soft
       // constraints
-      double artificialCost = WEIGHT_TOTAL_SHIFTS*pScenario_->nbShifts_*(pScenario_->nbDays()-pScenario_->maxTotalShiftsOf(i));
-      artificialCost += WEIGHT_CONS_DAYS_WORK*pScenario_->nbShifts_*(pScenario_->nbDays()-pScenario_->maxConsDaysWorkOf(i));
+      double artificialCost = WEIGHT_TOTAL_SHIFTS*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxTotalShiftsOf(i));
+      artificialCost += WEIGHT_CONS_DAYS_WORK*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxConsDaysWorkOf(i));
       for (int s = 1; s < pScenario_->nbShifts_; s++) {
-        artificialCost += WEIGHT_CONS_SHIFTS*(pScenario_->nbDays()-pScenario_->maxConsShiftsOfTypeOf(s));
+        artificialCost += WEIGHT_CONS_SHIFTS*(getNbDays()-pScenario_->maxConsShiftsOfTypeOf(s));
       }
       Rotation rotation(shifts, i, LARGE_SCORE);// artificialCost);//
       addRotation(rotation, baseName.c_str(), true);

@@ -84,8 +84,8 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	solStream << pSolver->solutionToString() << std::endl;
 
 	//  release memory
-	if (pScen) delete pScen;
-	if (pSolver) delete pSolver;
+	delete pScen;
+	delete pSolver;
 	while (!demandHistory.empty()) {
 		delete demandHistory.back();
 		demandHistory.pop_back();
@@ -157,8 +157,8 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 		if (week < nbWeeks-1) {
 
 			// Initialize demand and preferences
-			Demand* pDemand(0);
-			Preferences* pPref(0);
+			Demand* pDemand(nullptr);
+			Preferences* pPref(nullptr);
 
 			// Read the demand and preferences and link them with the scenario
 			ReadWrite::readWeek(inputPaths.week(week+1), pScen, &pDemand, &pPref);

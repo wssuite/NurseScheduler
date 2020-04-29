@@ -69,8 +69,8 @@ void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbid
 		for(PPattern pat: columnsNode->patterns_)
       if (pat->nurseId_ == pNurse->id_)
         for (int day = pat->firstDay_ - 1; day <= pat->firstDay_ + pat->length_; day++) {
-          if (day < pScenario_->firstDay()) continue;
-          if (day >= pScenario_->firstDay() + pScenario_->nbDays()) continue;
+          if (day < pDemand_->firstDay_) continue;
+          if (day >= pDemand_->firstDay_ + pDemand_->nbDays_) continue;
           for (int i = 1; i < pNurse->pScenario_->nbShifts_; ++i) {
             forbidenShifts.insert(pair<int, int>(day, i));
           }

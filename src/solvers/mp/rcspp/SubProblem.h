@@ -317,8 +317,6 @@ class SubProblem {
     // Function called when optimal=true in the arguments of solve
     virtual bool solveRCGraphOptimal();
 
-    virtual bool solveRCGraphHeuristic();
-
     // Initializes some cost vectors that depend on the nurse
     virtual void initStructuresForSolve();
 

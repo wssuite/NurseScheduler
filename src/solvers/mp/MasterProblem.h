@@ -128,10 +128,6 @@ struct Pattern {
 //
 //-----------------------------------------------------------------------------
 
-enum MySolverType { S_SCIP, S_CLP, S_Gurobi, S_Cplex, S_CBC };
-static std::map<std::string,MySolverType> MySolverTypesByName =
-{{"CLP",S_CLP},{"Gurobi",S_Gurobi},{"Cplex",S_Cplex},{"CBC",S_CBC},{"SCIP",S_SCIP}};
-
 class MasterProblem : public Solver, public PrintSolution{
   public:
     // Specific constructor and destructor

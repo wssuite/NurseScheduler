@@ -206,7 +206,7 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
   nbNurses_(theNurses.size()), theNurses_(theNurses), nurseNameToInt_(pScenario->nurseNameToInt_),
   minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
   nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
-  pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+  pWeekDemand_(nullptr), nbShiftOffRequests_(0), nbShiftOnRequests_(0), pWeekPreferences_(nullptr), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
   nbPositions_(0), nursesPerPosition_(0){
 
 	// Preprocess the vector of nurses
@@ -222,17 +222,18 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
 	this->linkWithPreferences(pWeekPreferences);
 }
 
-Scenario::Scenario(Scenario* pScenario):name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
-nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
-nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
-timeDurationToWork_(pScenario->timeDurationToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
-nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
-shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
-nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
-nbNurses_(pScenario->nbNurses()), theNurses_(pScenario->theNurses_), nurseNameToInt_(pScenario->nurseNameToInt_),
-minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
-nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
-pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+Scenario::Scenario(const Scenario& pScenario):name_(pScenario.name_), nbWeeks_(pScenario.nbWeeks_),
+nbSkills_(pScenario.nbSkills_), intToSkill_(pScenario.intToSkill_), skillToInt_(pScenario.skillToInt_),
+nbShifts_(pScenario.nbShifts_), intToShift_(pScenario.intToShift_), shiftToInt_(pScenario.shiftToInt_),
+timeDurationToWork_(pScenario.timeDurationToWork_), shiftIDToShiftTypeID_(pScenario.shiftIDToShiftTypeID_),
+nbShiftsType_(pScenario.nbShiftsType_), intToShiftType_(pScenario.intToShiftType_), shiftTypeToInt_(pScenario.shiftTypeToInt_),
+shiftTypeIDToShiftID_(pScenario.shiftTypeIDToShiftID_),
+nbContracts_(pScenario.nbContracts_), intToContract_(pScenario.intToContract_), contracts_(pScenario.contracts_),
+nbNurses_(pScenario.nbNurses_), theNurses_(pScenario.theNurses_), nurseNameToInt_(pScenario.nurseNameToInt_),
+minConsShiftType_(pScenario.minConsShiftType_), maxConsShiftType_(pScenario.maxConsShiftType_),
+nbForbiddenSuccessors_(pScenario.nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario.forbiddenSuccessors_),
+pWeekDemand_(nullptr), nbShiftOffRequests_(0), nbShiftOnRequests_(0), pWeekPreferences_(nullptr),
+thisWeek_(pScenario.thisWeek_), nbWeeksLoaded_(pScenario.nbWeeksLoaded_),
 nbPositions_(0), nursesPerPosition_(0){
 
         // Preprocess the vector of nurses

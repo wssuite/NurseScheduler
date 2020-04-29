@@ -9,6 +9,7 @@
 #include <math.h>
 #include <cmath>
 #include "solvers/Solver.h"
+#include "solvers/mp/RotationMP.h"
 
 
 using std::string;
@@ -1282,10 +1283,31 @@ bool comparePositions(Position* p1, Position* p2) {
 
 
 //------------------------------------------------------------------------------
+// Create a solver
+//-----------------------------------------------------------------------------
+// Return a solver with the algorithm specified for resolution
+//Solver* Solver::setSolverWithInputAlgorithm(Algorithm algorithm, MySolverType type) const {
+//  return setSolverWithInputAlgorithm(pScenario_, pScenario_->pInitialState(), algorithm, type);
+//}
+//
+//Solver* Solver::setSolverWithInputAlgorithm(Scenario* pScenario, vector<State> * stateEndOfSchedule, Algorithm algorithm, MySolverType type) const {
+//  switch(algorithm){
+//    case GENCOL:
+//      return new RotationMP(pScenario_, pScenario->pWeekDemand(), pScenario_->pWeekPreferences(), stateEndOfSchedule, type);
+//    default:
+//      Tools::throwError("The algorithm is not handled yet");
+//      break;
+//  }
+//  return nullptr;
+//}
+
+
+//------------------------------------------------------------------------------
 // Check the feasibility of the demand with these nurses
 //-----------------------------------------------------------------------------
 
-bool checkFeasibility() {
+bool Solver::checkFeasibility() {
+  Tools::throwError("checkFeasibility() is not implemented.");
 	return true;
 }
 

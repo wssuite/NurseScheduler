@@ -7,7 +7,6 @@
 
 #include "solvers/StochasticSolver.h"
 #include "tools/DemandGenerator.h"
-#include "solvers/Greedy.h"
 #include "solvers/mp/RotationMP.h"
 #include "tools/ReadWrite.h"
 
@@ -503,12 +502,13 @@ void StochasticSolver::generateSingleGenerationDemand(){
          DemandGenerator dg (1, nDaysInDemand, demandHistory_ , pScenario_);
          pSingleDemand = dg.generateSinglePerturbatedDemand(false); // no feasibility check here
          pCompleteDemand = pScenario_->pWeekDemand()->append(pSingleDemand);
-         isFeasible = dg.checkDemandFeasibility(pCompleteDemand);
-         if(!isFeasible){
-            (*pLogStream_) << "# Demand has been deleted because it was infeasible." << std::endl;
-            delete pCompleteDemand;
-            delete pSingleDemand;
-         }
+        isFeasible = true;
+//         isFeasible = dg.checkDemandFeasibility(pCompleteDemand);
+//         if(!isFeasible){
+//            (*pLogStream_) << "# Demand has been deleted because it was infeasible." << std::endl;
+//            delete pCompleteDemand;
+//            delete pSingleDemand;
+//         }
       }
       delete pSingleDemand;
    }
@@ -556,19 +556,14 @@ void StochasticSolver::generateAllEvaluationDemands(){
 
 // Return a solver with the algorithm specified for schedule GENERATION
 Solver* StochasticSolver::setGenerationSolverWithInputAlgorithm(Demand* pDemand){
-   Solver* pSolver(nullptr);
    switch(options_.generationAlgorithm_){
-   case GREEDY:
-      pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-      break;
    case GENCOL:
-      pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
-      break;
+      return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
    default:
       Tools::throwError("The algorithm is not handled yet");
       break;
    }
-   return pSolver;
+   return nullptr;
 }
 
 // Generate a new schedule
@@ -637,16 +632,12 @@ void StochasticSolver::generateNewSchedule(){
 Solver* StochasticSolver::setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule){
    Solver* pSolver(nullptr);
    Scenario * pScen = new Scenario (*pScenario_);
-   pScen->linkWithDemand(new Demand ());
 
    // update the scenario to treat next week
    Preferences * pEmptyPref = new Preferences(pScenario_->nbNurses(), options_.nDaysEvaluation_, pScenario_->nbShifts());
-   pScen->updateNewWeek(pDemand, pEmptyPref, *stateEndOfSchedule);
+   pScen->updateNewWeek(new Demand(*pDemand), pEmptyPref, *stateEndOfSchedule);
 
    switch(options_.evaluationAlgorithm_){
-   case GREEDY:
-      pSolver = new Greedy(pScen, pDemand, pEmptyPref, stateEndOfSchedule);
-      break;
    case GENCOL:
       pSolver = new RotationMP(pScen, pDemand, pEmptyPref, stateEndOfSchedule, S_CLP);
       break;
@@ -881,9 +872,6 @@ Solver* StochasticSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Algori
 
    Solver* pSolver(nullptr);
    switch(algorithm){
-   case GREEDY:
-      pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-      break;
    case GENCOL:
       pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
       break;

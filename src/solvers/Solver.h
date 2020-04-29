@@ -446,10 +446,13 @@ public:
 
 // Algorithms for the overall solution
 //
-enum Algorithm{GREEDY, GENCOL, STOCHASTIC_GREEDY, STOCHASTIC_GENCOL, NONE};
+enum Algorithm{GENCOL, STOCHASTIC_GENCOL, NONE};
 static std::map<std::string,Algorithm> AlgorithmsByName =
-	{{"GREEDY",GREEDY},{"GENCOL",GENCOL},{"STOCHASTIC_GREEDY",STOCHASTIC_GREEDY},
-	{"STOCHASTIC_GENCOL",STOCHASTIC_GENCOL},{"NONE",NONE}};
+	{{"GENCOL",GENCOL},{"STOCHASTIC_GENCOL",STOCHASTIC_GENCOL},{"NONE",NONE}};
+
+enum MySolverType { S_SCIP, S_CLP, S_Gurobi, S_Cplex, S_CBC };
+static std::map<std::string,MySolverType> MySolverTypesByName =
+    {{"CLP",S_CLP},{"Gurobi",S_Gurobi},{"Cplex",S_Cplex},{"CBC",S_CBC},{"SCIP",S_SCIP}};
 
 // Solution statuses
 //
@@ -559,7 +562,7 @@ protected:
 
 	// Status of the solver
 	//
-	Status status_;
+	Status status_ = INFEASIBLE;
 
 	// a solution is a vector of rosters, one for each nurse
 	// it is recorded in a vector (roster i in the vector corresponds to nurse i)
@@ -732,7 +735,12 @@ public:
 
 	// check the feasibility of the demand with these nurses
 	//
-	bool checkFeasibility();
+	virtual bool checkFeasibility();
+
+//  // Return a solver with the algorithm specified in the options_
+//  //
+//  virtual Solver* setSolverWithInputAlgorithm(Algorithm algorithm, MySolverType type) const;
+//  virtual Solver* setSolverWithInputAlgorithm(Scenario* pScenario, std::vector<State> * stateEndOfSchedule, Algorithm algorithm, MySolverType type) const;
 
 	// build the, possibly fractional, roster corresponding to the solution
 	// currently stored in the model

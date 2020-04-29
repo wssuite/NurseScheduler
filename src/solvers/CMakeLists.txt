@@ -3,7 +3,6 @@ add_subdirectory(mp)
 set(LIB_NAME solvers)
 set(SOURCE_FILES
         DeterministicSolver.cpp
-        Greedy.cpp
         InitializeSolver.cpp
         Solver.cpp
         StochasticSolver.cpp
