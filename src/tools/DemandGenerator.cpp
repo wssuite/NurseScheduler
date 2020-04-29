@@ -93,10 +93,6 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility)
 		// create the first week
 		Demand* pCompleteDemand = demandHistory_[indexInHistory[0]]->randomPerturbation();
 
-		// int t = demandHistory_.size();
-		// int i = indexInHistory[0];
-
-
 		// create the following weeks append them to the complete demand
 		for (int i = 0; i < nbWeeksInGeneratedDemands-1; i++) {
 			Demand* pWeekDemand = demandHistory_[indexInHistory[i]]->randomPerturbation();

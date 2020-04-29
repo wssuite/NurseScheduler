@@ -10,6 +10,10 @@
 
 class SubProblem;
 
+
+// PrincipalGraph is a subgraph to model the work activity on a given shift type.
+// It models the consecutive constraints on a shift type and
+// the possibility to choose which shift to work on within a given shift type.
 class PrincipalGraph {
   public:
     PrincipalGraph(int shift_type,  SubProblem* sp = nullptr);
