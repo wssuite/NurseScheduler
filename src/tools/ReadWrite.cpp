@@ -300,19 +300,16 @@ Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pS
 	for(string strWeekFile: strWeekFiles)
 		if(pDemand == 0){
 			ReadWrite::readWeek(strWeekFile, pScenario,&pDemand,&pPref);
-      std::cout << pPref->toString(pScenario) << std::endl;
 		}
 		else{
 			//load the next week
 			Demand* nextDemand(nullptr);
 			Preferences* nextPref(nullptr);
 			ReadWrite::readWeek(strWeekFile, pScenario, &nextDemand, &nextPref);
-      std::cout << nextPref->toString(pScenario) << std::endl;
 			//update the current weeks
 			pDemand->push_back(nextDemand);
 			pPref->push_back(nextPref);
 			pScenario->addAWeek();
-      std::cout << pPref->toString(pScenario) << std::endl;
 			//delete the demand and the preferences which we have created
 			delete nextDemand;
 			delete nextPref;

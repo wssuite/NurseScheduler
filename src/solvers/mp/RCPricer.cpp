@@ -39,20 +39,20 @@ RCPricer::~RCPricer() {
 }
 
 void RCPricer::initPricerParameters(const SolverParam& param){
-	// Here: doing a little check to be sure that secondchance is activated only when the parameters are different...
-	withSecondchance_ = param.sp_withsecondchance_ && (param.sp_default_strategy_ != param.sp_secondchance_strategy_);
 	nbMaxColumnsToAdd_ = param.sp_nbrotationspernurse_;
 	nbSubProblemsToSolve_ = param.sp_nbnursestoprice_;
 	defaultSubprobemStrategy_ = param.sp_default_strategy_;
-	secondchanceSubproblemStrategy_ = param.sp_secondchance_strategy_;
-    shortSubproblem_ = param.sp_short_;
-	currentSubproblemStrategy_ = defaultSubprobemStrategy_;
+	shortSubproblem_ = param.sp_short_;
+	Tools::initVector(currentSubproblemStrategy_, pMaster_->getNbNurses(), defaultSubprobemStrategy_);
 }
 
 /******************************************************
  * Perform pricing
  ******************************************************/
-vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom) {
+vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fathom, bool backtracked) {
+  // reset the current strategies at the beginning of a node
+  if(after_fathom) // first pricing for a new node
+    Tools::initVector(currentSubproblemStrategy_, pMaster_->getNbNurses(), defaultSubprobemStrategy_);
 
 	// Reset all rotations, columns, counters, etc.
 	resetSolutions();
@@ -61,78 +61,93 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom) {
 	// count and store the nurses whose subproblems produced rotations.
 	// DBG: why minDualCost? Isn't it more a reduced cost?
 	double minDualCost = 0;
-	vector<LiveNurse*> nursesSolved;
+	vector<LiveNurse*> nursesSolved, nursesIncreasedStrategy;
 
 	for(auto it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();){
 
 		// RETRIEVE THE NURSE AND CHECK THAT HE/SHE IS NOT FORBIDDEN
 		LiveNurse* pNurse = *it0;
-		bool nurseForbidden = isNurseForbidden(pNurse->id_);
 
-		// cout << "NURSE # " << pNurse->id_ << "    " << pNurse->name_ << endl;
-
-		// IF THE NURSE IS NOT FORBIDDEN, SOLVE THE SUBPROBLEM
-		if(!nurseForbidden){
-
-			// BUILD OR RE-USE THE SUBPROBLEM
-			SubProblem* subProblem = retriveSubproblem(pNurse);
-
-			// RETRIEVE DUAL VALUES
-			DualCosts dualCosts = pMaster_->buildDualCosts(pNurse);
-
-			// UPDATE FORBIDDEN SHIFTS
-			if (pModel_->getParameters().isColumnDisjoint_) {
-				addForbiddenShifts();
-			}
-			set<pair<int,int> > nurseForbiddenShifts(forbiddenShifts_);
-			pModel_->addForbiddenShifts(pNurse, nurseForbiddenShifts);
-
-			// SET SOLVING OPTIONS
-			SubproblemParam sp_param (currentSubproblemStrategy_,pNurse);
-
-			// SOLVE THE PROBLEM
-			++ nbSPTried_;
-			subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
-					bound);
-
-			// RETRIEVE THE GENERATED ROTATIONS
-			newSolutionsForNurse_ = subProblem->getSolutions();
-
-			// ADD THE ROTATIONS TO THE MASTER PROBLEM
-      addColumnsToMaster(pNurse->id_);
+    // try next nurse if forbidden
+		if(isNurseForbidden(pNurse->id_)) {
+      ++it0;
+      continue;
 		}
+
+    // BUILD OR RE-USE THE SUBPROBLEM
+    SubProblem* subProblem = retriveSubproblem(pNurse);
+
+    // RETRIEVE DUAL VALUES
+    DualCosts dualCosts = pMaster_->buildDualCosts(pNurse);
+
+    // UPDATE FORBIDDEN SHIFTS
+    if (pModel_->getParameters().isColumnDisjoint_) {
+      addForbiddenShifts();
+    }
+    set<pair<int,int> > nurseForbiddenShifts(forbiddenShifts_);
+    pModel_->addForbiddenShifts(pNurse, nurseForbiddenShifts);
+
+    // SET SOLVING OPTIONS
+    SubproblemParam sp_param(currentSubproblemStrategy_[pNurse->id_], pNurse);
+
+    // SOLVE THE PROBLEM
+    ++ nbSPTried_;
+    subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
+        bound);
+
+    // RETRIEVE THE GENERATED ROTATIONS
+    newSolutionsForNurse_ = subProblem->getSolutions();
+
+    // ADD THE ROTATIONS TO THE MASTER PROBLEM
+    addColumnsToMaster(pNurse->id_);
 
 		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
 		// If yes, store the nures
-		if(!newSolutionsForNurse_.empty() && !nurseForbidden){
+		if(!newSolutionsForNurse_.empty()){
 			++nbSPSolvedWithSuccess_;
 			if(newSolutionsForNurse_.front().cost < minDualCost)
 				minDualCost = newSolutionsForNurse_.front().cost;
 
+			// erase the  current nurse (and thus try next one in the loop)
 			nursesToSolve_.erase(it0);
 			nursesSolved.push_back(pNurse);
-		}
-		// Otherwise (no rotation generated or nurse is forbidden), try the next nurse
-		else {
-			++it0;
 
-			// If it was the last nurse to search AND no improving column was found AND we may want to solve SP with
-			// different parameters -> change these parameters and go for another loop of solving
-			if( it0 == nursesToSolve_.end() && allNewColumns_.empty() && withSecondchance_){
-				if(currentSubproblemStrategy_ == defaultSubprobemStrategy_){
-					nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
-					it0 = nursesToSolve_.begin();
-					currentSubproblemStrategy_ = secondchanceSubproblemStrategy_;
-				} else if (currentSubproblemStrategy_ == secondchanceSubproblemStrategy_) {
-					currentSubproblemStrategy_ = defaultSubprobemStrategy_;
-				}
-			}
+      //if the maximum number of subproblem solved is reached, break.
+      if(nbSPSolvedWithSuccess_ == nbSubProblemsToSolve_)
+        break;
+      // otherwise continue
+      else
+        continue;
 		}
+		// Otherwise (no solution generated),
+    // try next nurse
+    // if not the most exaustive, increase the strategy for next round
+    else if (currentSubproblemStrategy_[pNurse->id_]  <  SubproblemParam::maxSubproblemStrategyLevel_) {
+      currentSubproblemStrategy_[pNurse->id_]++;
+      nursesIncreasedStrategy.push_back(pNurse);
+      // try next nurse
+      nursesToSolve_.erase(it0);
+    }
+    // just try next nurse
+    else {
+      ++it0;
+    }
 
-		//if the maximum number of subproblem solved is reached, break.
-		if(nbSPSolvedWithSuccess_ == nbSubProblemsToSolve_)
-			break;
+    // If it was the last nurse to search AND no improving column was found AND we have increased strategy level
+    // try to solve for these nurses
+    if( it0 == nursesToSolve_.end() && allNewColumns_.empty() && !nursesIncreasedStrategy.empty()){
+      // add the nurses left at the beginning of the nursesSolved vector for next loop
+      nursesSolved.insert(nursesSolved.begin(), nursesToSolve_.begin(), nursesToSolve_.end());
+      // then update the nurse to solve and restart loop
+      nursesToSolve_ = nursesIncreasedStrategy;
+      it0 = nursesToSolve_.begin();
+      // remove all the nurses that have just been added back
+      nursesIncreasedStrategy.clear();
+    }
 	}
+
+  //Add the nurse in nursesIncreasedStrategy at the beginning (first to be tried next round)
+  nursesToSolve_.insert(nursesToSolve_.begin(), nursesIncreasedStrategy.begin(), nursesIncreasedStrategy.end());
 
 	//Add the nurse in nursesSolved at the end
 	nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());

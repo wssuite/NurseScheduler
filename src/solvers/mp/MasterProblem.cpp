@@ -516,11 +516,16 @@ vector3D<double> MasterProblem::getFractionalRoster() {
 
 void MasterProblem::checkIfPatternAlreadyPresent(const std::vector<double>& pattern) const {
   for(MyVar* var: pModel_->getActiveColumns()) {
+    bool equal = true;
     for (int j = 0; j < pattern.size(); ++j)
-      if (abs(pattern[j] - var->getPattern()[j]) > EPSILON)
-        continue;
+      if (abs(pattern[j] - var->getPattern()[j]) > EPSILON) {
+        equal = false;
+        break;
+      }
+    if(equal) {
       string name = var->name_;
-      Tools::throwError("Pattern already present as column: "+name);
+      Tools::throwError("Pattern already present as column: " + name);
+    }
   }
 }
 

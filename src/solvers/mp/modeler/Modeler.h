@@ -192,7 +192,7 @@ struct MyPricer{
 
 	/* perform pricing */
 	//return true if optimal
-	virtual std::vector<MyVar*> pricing(double bound=0, bool before_fathom = true)=0;
+	virtual std::vector<MyVar*> pricing(double bound=0, bool before_fathom = false, bool after_fathom = false, bool backtracked=false)=0;
 
 	// set pricer parameters
 	virtual void initPricerParameters(const SolverParam& parameters) {}
@@ -734,9 +734,9 @@ public:
 	 */
 
 	//return true if optimal
-	inline std::vector<MyVar*> pricing(double bound=0, bool before_fathom = true){
+	inline std::vector<MyVar*> pricing(double bound=0, bool before_fathom = false, bool after_fathom = false, bool backtracked=false){
 		if(pPricer_)
-			return pPricer_->pricing(bound, before_fathom);
+			return pPricer_->pricing(bound, before_fathom, after_fathom, backtracked);
 		return EMPTY_VARS;
 	}
 

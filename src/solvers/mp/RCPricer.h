@@ -30,7 +30,7 @@ public:
    virtual ~RCPricer();
 
    /* perform pricing */
-   std::vector<MyVar*> pricing(double bound=0, bool before_fathom = true);
+   std::vector<MyVar*> pricing(double bound=0, bool before_fathom = false, bool after_fathom = false, bool backtracked=false) override;
 
    // Initialize parameters
    void initPricerParameters(const SolverParam& param);
@@ -66,11 +66,9 @@ protected:
    // SETTINGS - Options for the neighborhood. need of an original to reset at the end of each node when optimality has
    //            been reached. Here, we could have all the parameters as fields but they would be too many.
    //
-   bool withSecondchance_ = false;
    bool shortSubproblem_ = true;
    int defaultSubprobemStrategy_ = 0;
-   int secondchanceSubproblemStrategy_ = 0;
-   int currentSubproblemStrategy_ = 0;
+   std::vector<int> currentSubproblemStrategy_;  // by nurse
 
    // SETTINGS - Settings for the maximum number of problems to solve and of rotations to add to the master problem
    //

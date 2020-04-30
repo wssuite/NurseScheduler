@@ -34,28 +34,15 @@ struct SubproblemParam{
 		//		max   = CD_max
 		//		sink  = one / last day
 		//
-		case 0: shortRotationsStrategy_=2; maxRotationLength_+=0; oneSinkNodePerLastDay_ = true; break;
+		case 0: shortRotationsStrategy_=2; maxRotationLength_+=1; oneSinkNodePerLastDay_ = true; break;
 
-		// 1 -> [Exhaustive search]
+		// 3 -> [Exhaustive search]
 		//		short = true,
 		// 		max   = LARGE
 		//		sink  = one / last day
 		//
-		case 1:	shortRotationsStrategy_=1;	maxRotationLength_=pNurse->pStateIni_->consDaysWorked_+pNurse->nbDays_; oneSinkNodePerLastDay_ = true; break;
+		case 1:	shortRotationsStrategy_=3;	maxRotationLength_=pNurse->pStateIni_->consDaysWorked_+pNurse->nbDays_; oneSinkNodePerLastDay_ = true; break;
 
-		// 2 -> [Short + not too long]
-		//		short = true,
-		//		max   = CD_max+3
-		//		sink  = one / last day
-		//
-		case 2: shortRotationsStrategy_=1; maxRotationLength_+=3; oneSinkNodePerLastDay_ = true; break;
-
-		// 3 -> [No short + barely above legal]
-		//		short = false,
-		//		max   = CD_max+1
-		//		sink  = one / last day
-		//
-		case 3: shortRotationsStrategy_=2; maxRotationLength_+=1; oneSinkNodePerLastDay_ = true; break;
 
 		// UNKNOWN STRATEGY
 		default:
@@ -65,12 +52,12 @@ struct SubproblemParam{
 	}
 
 	// *** PARAMETERS ***
+  static const int maxSubproblemStrategyLevel_ = 1;
 
 	// 0 -> no short rotations
-	// 1 -> all short rotations
+	// 1 -> day-0 short rotations only
 	// 2 -> day-0 and last-day short rotations only
-	// 3 -> day-0 short rotations only
-	// 4 -> last-day short rotations only
+	// 3 -> all short rotations
 	int shortRotationsStrategy_ = 0;
 
 	// maximal length for a rotation

@@ -780,9 +780,11 @@ public:
 protected:
 	BcpModeler* pModel_;
 	//count the iteration
-	int lpIteration_;
+	int currentNodelpIteration_, lpIteration_;
 	//count the nodes
 	int last_node;
+	// stored if the current node corresponds to a backtracking
+	bool backtracked_;
 	//if heuristic has been run. To be sure to run the heuristic no more than one time per node
 	bool heuristicHasBeenRun_;
 	int nbNodesSinceLastHeuristic_;

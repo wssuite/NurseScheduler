@@ -39,7 +39,8 @@ using std::pair;
  */
 
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
-pModel_(pModel), lpIteration_(0), last_node(-1), heuristicHasBeenRun_(false),nbNodesSinceLastHeuristic_(0), nbGeneratedColumns_(0)
+pModel_(pModel), currentNodelpIteration_(0), lpIteration_(0),
+last_node(-1), backtracked_(false), heuristicHasBeenRun_(false),nbNodesSinceLastHeuristic_(0), nbGeneratedColumns_(0)
 {
    // Initialization of nb_dives_to_wait_before_branching_on_columns_
    for(int i=4; i<1000000; i*=2)
@@ -444,8 +445,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 	BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
 	if(doStop())
-	return;
-
+	  return;
 
 	// STAB
 	// Detect when the coluln generation is stalling
@@ -479,13 +479,15 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 	}
 
 	// update the total number of LP solutions (from the beginning)
+  ++currentNodelpIteration_;
 	++lpIteration_;
 
 	// call the rotation pricer to find columns that should be added to the LP
 	//
 	pModel_->setLPSol(lpres, vars, lpIteration_);
+	bool after_fathom = (currentNodelpIteration_ == 1);
 	double maxReducedCost = pModel_->getParameters().sp_max_reduced_cost_bound_; // max reduced cost of a rotation that would be added to MP (a tolerance is substracted in the SP)
-	vector<MyVar*> generatedColumns = pModel_->pricing(maxReducedCost, before_fathom);
+	vector<MyVar*> generatedColumns = pModel_->pricing(maxReducedCost, before_fathom, after_fathom, backtracked_);
 	nbGeneratedColumns_ = generatedColumns.size();
 
 	// Print a line summary of the solver state
@@ -623,9 +625,11 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 	getLpProblemPointer()->node->true_lower_bound = lpres.objval();
 	heuristicHasBeenRun_ = true;
 	nbNodesSinceLastHeuristic_++;
+	// increase the number of nodes and reset currentNodelpIteration_
 	pModel_->incrementNbNodes();
-
-	pModel_->setLPSol(lpres, vars, lpIteration_);
+  currentNodelpIteration_ = 0;
+  // store current solution
+  pModel_->setLPSol(lpres, vars, lpIteration_);
 
 	//if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
 	// otherwise, record the root solution for future use
@@ -640,6 +644,9 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 			pModel_->settimeFirstRoot(CoinWallclockTime()-start_time());
 		}
 	}
+
+	// set backtracked to true (true for most case == DoNotBranch)
+  backtracked_ = true;
 
 	//stop this process for BCP or the node
 	if(doStop()){
@@ -680,6 +687,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 		pModel_->column_candidates(candidate);
 		buildCandidate(candidate, vars, cuts, cands);
 		pModel_->updateDive();
+    backtracked_ = false; // i.e. branch
 		return BCP_DoBranch;
 	}
 
@@ -700,6 +708,8 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 	if(!generate) {
 		return BCP_DoNotBranch_Fathomed;
 	}
+
+  backtracked_ = false; // i.e. branch
 
 	buildCandidate(candidate, vars, cuts, cands);
 

@@ -244,17 +244,11 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 		else if (Tools::strEndsWith(title, "spDefaultStrategy")) {
 			file >> param.sp_default_strategy_;
 		}
-		else if (Tools::strEndsWith(title, "spSecondChanceStrategy")) {
-			file >> param.sp_secondchance_strategy_;
-		}
 		else if (Tools::strEndsWith(title, "spNbRotationsPerNurse")) {
 			file >> param.sp_nbrotationspernurse_;
 		}
 		else if (Tools::strEndsWith(title, "spNbNursesToPrice")) {
 			file >> param.sp_nbnursestoprice_;
-		}
-		else if (Tools::strEndsWith(title, "spWithSecondChance")) {
-			file >> param.sp_withsecondchance_;
 		}
 		else if (Tools::strEndsWith(title, "spMaxReducedCostBound")) {
 			file >> param.sp_max_reduced_cost_bound_;
