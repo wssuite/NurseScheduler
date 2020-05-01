@@ -195,9 +195,6 @@ public:
    /* branch on a set of shifts */
    bool branchOnShifts(MyBranchingCandidate& candidate);
 
-	/* branch on a set of original penalty variables */
-   bool branchOnPenalty(MyBranchingCandidate& candidate);
-
    /* compute fixing decisions */
    bool column_candidates(MyBranchingCandidate& candidate);
 
