@@ -31,11 +31,15 @@ static const int WEIGHT_TOTAL_WEEKENDS    = 30;
 
 
 class Scenario;
+typedef std::shared_ptr<Scenario> PScenario;
 class Nurse;
+typedef std::shared_ptr<Nurse> PNurse;
 class Contract;
 typedef std::shared_ptr<const Contract> PConstContract;
 class Position;
+typedef std::shared_ptr<Position> PPosition;
 class Preferences;
+typedef std::shared_ptr<Preferences> PPreferences;
 
 //-----------------------------------------------------------------------------
 //
@@ -72,7 +76,7 @@ public:
    // // Function that appends a new day worked on a given shift to an input state
    // // to update this state
    // //
-   // void addDayToState(const State& prevState, int newShift, const Scenario* pScenario);
+   // void addDayToState(const State& prevState, int newShift, const PScenario pScenario);
 
 
    // Display methods: toString + override operator<< (easier)
@@ -127,16 +131,12 @@ public:
 		 std::vector<std::vector<int> > shiftTypeIDToShiftID, std::vector<int> minConsShiftsType, std::vector<int> maxConsShiftsType,
 		 std::vector<int> nbForbiddenSuccessors, vector2D<int> forbiddenSuccessors,
 		 int nbContracts, std::vector<std::string> intToContract, std::map<std::string,PConstContract> contracts,
-		 int nbNurses, std::vector<Nurse>& theNurses, std::map<std::string,int> nurseNameToInt);
+		 int nbNurses, std::vector<PNurse>& theNurses, std::map<std::string,int> nurseNameToInt);
 
 	// Hybrid copy constructor : this is only called when constructing a new scenario that copies most parameters
 	// from the input scenario but for only a subgroup of nurses
 	//
-	Scenario(Scenario* pScenario,  std::vector<Nurse>& theNurses, Demand* pDemand, Preferences* pWeekPreferences);
-
-	// copy constructor
-	//
-	Scenario(const Scenario& pScenario);
+	Scenario(PScenario pScenario, const std::vector<PNurse>& theNurses, PDemand pDemand, PPreferences pWeekPreferences);
 
 	~Scenario();
 
@@ -165,7 +165,7 @@ public:
 	const int nbShifts_;
 	const std::vector<std::string> intToShift_;
 	const std::map<std::string,int> shiftToInt_;
-        const std::vector<int> timeDurationToWork_, shiftIDToShiftTypeID_;
+  const std::vector<int> timeDurationToWork_, shiftIDToShiftTypeID_;
 
 	// number of typeshifts, a std::map and a std::vector matching the name of each type shift to an
 	// index and reversely
@@ -186,7 +186,7 @@ public:
 	// number of nurses, and std::vector of all the nurses
 	//
 	const int nbNurses_;
-	const std::vector<Nurse> theNurses_;
+	const std::vector<PNurse> theNurses_;
 	std::map<std::string,int> nurseNameToInt_;
 
 
@@ -210,13 +210,13 @@ private:
 	std::string weekName_;
 	// Current week demand for each DAY, SHIFT, and SKILL
 	//
-	Demand* pWeekDemand_ = nullptr;
+	PDemand pWeekDemand_ = nullptr;
 
 	// Shift off requests : Preferences for each nurse : which (day,shift) do they want off ?
 	//
 	int nbShiftOffRequests_;
 	int nbShiftOnRequests_;
-	Preferences* pWeekPreferences_ = nullptr;
+	PPreferences pWeekPreferences_ = nullptr;
 	//------------------------------------------------
 
 
@@ -244,10 +244,10 @@ private:
 	// std::vector of existing positions
 	//
 	int nbPositions_;
-	std::vector<Position*> pPositions_;
-	vector2D<Nurse> nursesPerPosition_;
-	vector2D<Position*> componentsOfConnexPositions_;
-	vector2D<Nurse> nursesPerConnexComponentOfPositions_;
+	std::vector<PPosition> pPositions_;
+	vector2D<PNurse> nursesPerPosition_;
+	vector2D<PPosition> componentsOfConnexPositions_;
+	vector2D<PNurse> nursesPerConnexComponentOfPositions_;
 
 
 	//------------------------------------------------
@@ -264,20 +264,20 @@ public:
 	int thisWeek() {return thisWeek_;}
 	int nbWeeksLoaded() {return nbWeeksLoaded_;}
 	std::string weekName() {return weekName_;}
-	Demand* pWeekDemand() {return pWeekDemand_;}
+	PDemand pWeekDemand() {return pWeekDemand_;}
 	int nbShifts() {return nbShifts_;}
 	int nbShiftOffRequests() {return nbShiftOffRequests_;}
 	int nbShiftOnRequests() {return nbShiftOnRequests_;}
-	Preferences* pWeekPreferences() {return pWeekPreferences_;}
+	PPreferences pWeekPreferences() {return pWeekPreferences_;}
 	std::vector<State>* pInitialState() {return &initialState_;}
 	int nbSkills() {return nbSkills_;}
 	int nbPositions() {return nbPositions_;}
-	const std::vector<Position*>& pPositions() const {return pPositions_;}
-	Position* pPosition(int p) const {return pPositions_[p];}
+	const std::vector<PPosition>& pPositions() const {return pPositions_;}
+	PPosition pPosition(int p) const {return pPositions_[p];}
 	int nbNurses() {return nbNurses_;}
 	int nbOfConnexComponentsOfPositions() {return componentsOfConnexPositions_.size();}
-	const std::vector<Position*>& componentOfConnexPositions(int c) const {return componentsOfConnexPositions_[c];}
-	const std::vector<Nurse>& nursesInConnexComponentOfPositions(int c) const {return nursesPerConnexComponentOfPositions_[c];}
+	const std::vector<PPosition>& componentOfConnexPositions(int c) const {return componentsOfConnexPositions_[c];}
+	const std::vector<PNurse>& nursesInConnexComponentOfPositions(int c) const {return nursesPerConnexComponentOfPositions_[c];}
 
   int nbForbiddenSuccessorsShift(int shift) {
     int  shiftType = shiftIDToShiftTypeID_[shift];
@@ -346,13 +346,12 @@ public:
 	// when reading the week file (Demand and preferences)
 	//
 	inline void setWeekName(std::string weekName){ weekName_ = weekName;}
-	inline void setWeekDemand(Demand* pDemand) {
-    delete pWeekDemand_;
+	inline void setWeekDemand(PDemand pDemand) {
     pWeekDemand_ = pDemand;
   }
 	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
 	inline void setTNbShiftOnRequests(int nbShiftOnRequests){ nbShiftOnRequests_ = nbShiftOnRequests; }
-	void setWeekPreferences(Preferences* weekPreferences);
+	void setWeekPreferences(PPreferences weekPreferences);
 
 	// when reading the history file
 	//
@@ -369,17 +368,16 @@ public:
 
 	// update the scenario to treat a new week
 	//
-	void updateNewWeek(Demand* pDemand, Preferences* pPreferences, std::vector<State> &initialStates);
+	void updateNewWeek(PDemand pDemand, PPreferences pPreferences, std::vector<State> &initialStates);
 
 	// Link the scenario with the Demand and the Preferences
 	//
-	inline void linkWithDemand(Demand* pDemand){
-	  delete pWeekDemand_;
+	inline void linkWithDemand(PDemand pDemand){
 	   weekName_ = pDemand->name_;
 	   pWeekDemand_ = pDemand;
 	}
 
-	void linkWithPreferences(Preferences* pPreferences);
+	void linkWithPreferences(PPreferences pPreferences);
 
 	//------------------------------------------------
 	// Display functions

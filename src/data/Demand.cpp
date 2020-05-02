@@ -75,7 +75,7 @@ void Demand::preprocessDemand() {
 
 // add another week demand at the end of the current one
 // update all the parameters
-void Demand::push_back(Demand* pDemand){
+void Demand::push_back(PDemand pDemand){
    // check if same scenario
    if( (nbShifts_ != pDemand->nbShifts_) || (nbSkills_ != pDemand->nbSkills_) ){
      std::string error = "Demands are not compatible";
@@ -101,9 +101,9 @@ void Demand::push_back(Demand* pDemand){
 }
 
 // Returns a new demand that appends pDemand to the current one
-Demand * Demand::append(Demand* pDemand){
+PDemand Demand::append(PDemand pDemand){
 
-	Demand * bigDemand = new Demand(*this);
+  PDemand bigDemand = std::make_shared<Demand>(*this);
 
    // check if same scenario
    if( (nbShifts_ != pDemand->nbShifts_) || (nbSkills_ != pDemand->nbSkills_) ){
@@ -218,8 +218,8 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
 
 // copy the input demand and apply a perturbation to generate random demand
 //
-Demand* Demand::randomPerturbation() {
-  Demand* pDemand = new Demand(*this);
+PDemand Demand::randomPerturbation() {
+  PDemand pDemand = std::make_shared<Demand>(*this);
 
   // three different types of perturbations are made
   // the order does not seem to be important
@@ -234,8 +234,8 @@ Demand* Demand::randomPerturbation() {
 }
 
 // Keep the preferences relative to the days in [begin,end)
-Demand* Demand::keep(int begin, int end){
-   Demand* pDemand = new Demand(*this);
+PDemand Demand::keep(int begin, int end){
+   PDemand pDemand = std::make_shared<Demand>(*this);
 
    pDemand->minDemand_.erase(pDemand->minDemand_.begin()+end,pDemand->minDemand_.end());
 	pDemand->optDemand_.erase(pDemand->optDemand_.begin()+end,pDemand->optDemand_.end());

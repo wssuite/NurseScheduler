@@ -190,14 +190,14 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 * Initialize the week scenario by reading the input files
 *************************************************************************/
 
-Scenario* initializeScenario(string scenPath, string demandPath, string historyPath, string logPath) {
+PScenario initializeScenario(string scenPath, string demandPath, string historyPath, string logPath) {
 
 	// Initialize demand and preferences
-	Demand* pDemand(nullptr);
-	Preferences* pPref(nullptr);
+	PDemand pDemand(nullptr);
+	PPreferences pPref(nullptr);
 
 	// Read the scenario
-	Scenario* pScen = ReadWrite::readScenario(scenPath);
+	PScenario pScen = ReadWrite::readScenario(scenPath);
 
 	// Read the demand and preferences and link them with the scenario
 	ReadWrite::readWeek(demandPath, pScen,&pDemand,&pPref);
@@ -217,14 +217,14 @@ Scenario* initializeScenario(string scenPath, string demandPath, string historyP
 	return pScen;
 }
 
-Scenario* initializeScenario(const InputPaths & inputPaths, string logPath) {
+PScenario initializeScenario(const InputPaths & inputPaths, string logPath) {
 
 	// Initialize demand and preferences
-	Demand* pDemand(nullptr);
-	Preferences* pPref(nullptr);
+	PDemand pDemand(nullptr);
+	PPreferences pPref(nullptr);
 
 	// Read the scenario
-	Scenario* pScen = ReadWrite::readScenario(inputPaths.scenario());
+	PScenario pScen = ReadWrite::readScenario(inputPaths.scenario());
 
 	// Read the demand and preferences and link them with the scenario
 	ReadWrite::readWeek(inputPaths.week(0), pScen,&pDemand,&pPref);
@@ -249,14 +249,14 @@ Scenario* initializeScenario(const InputPaths & inputPaths, string logPath) {
 * When calling this function, the intent is to solve all the weeks at once
 ******************************************************************************/
 
-Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
+PScenario initializeMultipleWeeks(string dataDir, string instanceName,
 	int historyIndex, vector<int> weekIndices, string logPath) {
 
 	// build the paths of the input files
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
 
 	// Read the scenario
-	Scenario* pScen = ReadWrite::readScenario(inputPaths.scenario());
+	PScenario pScen = ReadWrite::readScenario(inputPaths.scenario());
 
 	// Read the demand and preferences and link them with the scenario
 	ReadWrite::readWeeks(inputPaths.weeks(), pScen);
@@ -274,10 +274,10 @@ Scenario* initializeMultipleWeeks(string dataDir, string instanceName,
 	return pScen;
 }
 
-Scenario* initializeMultipleWeeks(const InputPaths & inputPaths, string logPath) {
+PScenario initializeMultipleWeeks(const InputPaths & inputPaths, string logPath) {
 
 	// Read the scenario
-	Scenario* pScen = ReadWrite::readScenario(inputPaths.scenario());
+	PScenario pScen = ReadWrite::readScenario(inputPaths.scenario());
 
 	// Read the demand and preferences and link them with the scenario
 	ReadWrite::readWeeks(inputPaths.weeks(), pScen);
@@ -300,22 +300,22 @@ Scenario* initializeMultipleWeeks(const InputPaths & inputPaths, string logPath)
 * whose positions are in the same connex component of positions
 ******************************************************************************/
 
-vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
+vector<PScenario> divideScenarioIntoConnexPositions(PScenario pScenario) {
 
-	vector<Scenario*> scenariosPerComponent;
+	vector<PScenario> scenariosPerComponent;
 
 	// First, identify the connex components of the rcspp of positions
 	pScenario->computeConnexPositions();
 
 
 	for (int c = 0; c < pScenario->nbOfConnexComponentsOfPositions(); c++) {
-		vector<Position*> positionsInTheComponent = pScenario->componentOfConnexPositions(c);
-		vector<Nurse> nursesInTheComponent = pScenario->nursesInConnexComponentOfPositions(c);
+		const vector<PPosition>& positionsInTheComponent = pScenario->componentOfConnexPositions(c);
+		const vector<PNurse>& nursesInTheComponent = pScenario->nursesInConnexComponentOfPositions(c);
 
 		// retrieve a vector containing the indices of the skills contained in the component (decreasing order)
 		// use a set first, because it manages duplicate skills automatically
 		std::set<int> skillsInTheComponent;
-		for (Position* pPosition: positionsInTheComponent)
+		for (PPosition pPosition: positionsInTheComponent)
 			for (int skill: pPosition->skills())
 				skillsInTheComponent.insert(skill);
 
@@ -343,7 +343,7 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 
 		// create the demand that relates only to input skills
 		//
-		Demand* pDemand = pScenario->pWeekDemand();
+		PDemand pDemand = pScenario->pWeekDemand();
 
 		// erase the skills to remove from the minimum and optimal demands
 		vector3D<int> minDemand = pDemand->minDemand_;
@@ -356,38 +356,39 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 				}
 			}
 		}
-		Demand* pDemandInTheComponent = new Demand(pDemand->nbDays_, pDemand->firstDay_, pDemand->nbShifts_,
+		PDemand pDemandInTheComponent = std::make_shared<Demand>(pDemand->nbDays_, pDemand->firstDay_, pDemand->nbShifts_,
 		 pDemand->nbSkills_, pDemand->name_, minDemand, optDemand);
 
 		// create the preferences that relate only to the nurses of the connex component
 		//
-		Preferences* pPreferencesInTheComponent = new Preferences(nursesInTheComponent,pDemand->nbDays_,pScenario->nbShifts_);
-		Preferences* pPreferences = pScenario->pWeekPreferences();
+		PPreferences pPreferencesInTheComponent =
+		    std::make_shared<Preferences>(nursesInTheComponent,pDemand->nbDays_,pScenario->nbShifts_);
+		PPreferences pPreferences = pScenario->pWeekPreferences();
 
 		// only keep the demand of the nurses in the component
-		for (const Nurse &nurse: nursesInTheComponent)
-		  for (const auto& itDay: pPreferences->nurseWishesOff(nurse.id_))
+		for (PNurse pNurse: nursesInTheComponent)
+		  for (const auto& itDay: pPreferences->nurseWishesOff(pNurse->id_))
 				for (const auto& itShift: itDay.second)
-				  pPreferencesInTheComponent->addShiftOff(nurse.id_, itDay.first, itShift.shift, itShift.level);
+				  pPreferencesInTheComponent->addShiftOff(pNurse->id_, itDay.first, itShift.shift, itShift.level);
 
 		// only keep the demand of the nurses in the component
-    for (const Nurse &nurse: nursesInTheComponent)
-      for (const auto& itDay: pPreferences->nurseWishesOn(nurse.id_))
+    for (PNurse pNurse: nursesInTheComponent)
+      for (const auto& itDay: pPreferences->nurseWishesOn(pNurse->id_))
         for (const auto& itShift: itDay.second)
-          pPreferencesInTheComponent->addShiftOn(nurse.id_, itDay.first, itShift.shift, itShift.level);
+          pPreferencesInTheComponent->addShiftOn(pNurse->id_, itDay.first, itShift.shift, itShift.level);
 
 		// Create the new scenario
 		//
-		Scenario* pScenarioInTheConnexComponent =
-		    new Scenario(pScenario,nursesInTheComponent,pDemandInTheComponent,pPreferencesInTheComponent);
+		PScenario pScenarioInTheConnexComponent = std::make_shared<Scenario>(
+		    pScenario,nursesInTheComponent,pDemandInTheComponent,pPreferencesInTheComponent);
 
 		// create the initial states that relate only to the nurses of the connex component
 		//
 		vector<State> intialStatesInTheComponent;
 		vector<State>* pInitialState = pScenario->pInitialState();
 
-		for (Nurse nurse: nursesInTheComponent) {
-			intialStatesInTheComponent.push_back(pInitialState->at(nurse.id_));
+		for (PNurse pNurse: nursesInTheComponent) {
+			intialStatesInTheComponent.push_back(pInitialState->at(pNurse->id_));
 		}
 		pScenarioInTheConnexComponent->setInitialState(intialStatesInTheComponent);
 
@@ -404,7 +405,7 @@ vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario) {
 * Create a solver of the class specified by the input algorithm type
 ******************************************************************************/
 
-Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm) {
+Solver* setSolverWithInputAlgorithm(PScenario pScen, Algorithm algorithm) {
 
 	Solver* pSolver = nullptr;
 	switch(algorithm){
@@ -447,7 +448,7 @@ void displaySolutionMultipleWeeks(string dataDir, string instanceName,
   }
 
 	// load the solution in a new solver
-	Scenario* pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
+	PScenario pScen = initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
 	Solver* pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
 	pSolver->loadSolution(solution);
 
@@ -461,9 +462,7 @@ void displaySolutionMultipleWeeks(string dataDir, string instanceName,
 		Tools::LogOutput solutionStream(solutionFile);
  		solutionStream << solutions[w];
 	}
-
 	delete pSolver;
-	delete pScen;
 }
 
 void displaySolutionMultipleWeeks(InputPaths inputPaths, vector<Roster> &solution, Status status, string outDir) {
@@ -485,7 +484,7 @@ void displaySolutionMultipleWeeks(InputPaths inputPaths, vector<Roster> &solutio
 	}
 
 	// load the solution in a new solver
-	Scenario* pScen = initializeMultipleWeeks(inputPaths);
+	PScenario pScen = initializeMultipleWeeks(inputPaths);
 	Solver* pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
 	pSolver->loadSolution(solution);
 
@@ -501,7 +500,6 @@ void displaySolutionMultipleWeeks(InputPaths inputPaths, vector<Roster> &solutio
 	}
 
 	delete pSolver;
-	delete pScen;
 }
 
 /******************************************************************************

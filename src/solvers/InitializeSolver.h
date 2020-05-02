@@ -17,24 +17,24 @@ InputPaths* readNonCompactArguments(int argc, char** argv);
 InputPaths* readCompactArguments(int argc, char** argv);
 
 //Initialize the week scenario by reading the input files
-Scenario* initializeScenario(std::string scenFile, std::string demandFile, std::string historyFile, std::string logFile="");
-Scenario* initializeScenario(const InputPaths & inputPaths, std::string logPath="");
+PScenario initializeScenario(std::string scenFile, std::string demandFile, std::string historyFile, std::string logFile="");
+PScenario initializeScenario(const InputPaths & inputPaths, std::string logPath="");
 
 // Initialize the scenario for multiple weeks
 // When calling this function, the intent is to solve all the weeks at once
-Scenario* initializeMultipleWeeks(std::string dataDir, std::string instanceName,
+PScenario initializeMultipleWeeks(std::string dataDir, std::string instanceName,
   int historyIndex, std::vector<int> weekIndices, std::string logPath="");
-Scenario* initializeMultipleWeeks(const InputPaths & inputPaths, std::string logPath="");
+PScenario initializeMultipleWeeks(const InputPaths & inputPaths, std::string logPath="");
 
 // Separate the scenario into multiple scenarios that only focus on the nurses
 // whose positions are in the same connex component of positions
-std::vector<Scenario*> divideScenarioIntoConnexPositions(Scenario* pScenario);
+std::vector<PScenario> divideScenarioIntoConnexPositions(PScenario pScenario);
 
 // Solve the complete planning horizon with the deterministic solver
 //void solveDeterministic(InputPaths inputPaths, string solPath, string logPathIni, double timeout);
 
 // Create a solver of the class specified by the input algorithm type
-Solver* setSolverWithInputAlgorithm(Scenario* pScen, Algorithm algorithm);
+Solver* setSolverWithInputAlgorithm(PScenario pScen, Algorithm algorithm);
 
 // When a solution of multiple consecutive weeks is available, load it in a
 // solver for all the weeks and  display the results

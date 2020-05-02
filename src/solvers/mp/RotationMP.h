@@ -114,14 +114,14 @@ struct Rotation: Pattern {
 
     //Compute the cost of a rotation
     //
-    void computeCost(Scenario* pScenario, const std::vector<LiveNurse*>& liveNurses, int horizon);
+    void computeCost(PScenario pScenario, const std::vector<PLiveNurse>& liveNurses, int horizon);
 
     //Compute the dual cost of a rotation
     //
     void checkDualCost(DualCosts& costs);
 
     // calcule le nombre d'heures d'une rotation
-    void computeTimeDuration(Scenario* pScenario) {
+    void computeTimeDuration(PScenario pScenario) {
       timeDuration_ = 0;
       for (std::pair<int, int> p: shifts_) {
         timeDuration_ += pScenario->timeDurationToWork_[p.second];
@@ -152,7 +152,7 @@ struct Rotation: Pattern {
 //-----------------------------------------------------------------------------
 class RotationMP: public MasterProblem {
   public:
-    RotationMP(Scenario* pScenario, Demand* pDemand, Preferences* pPreferences, std::vector<State> *pInitState,
+    RotationMP(PScenario pScenario, PDemand pDemand, PPreferences pPreferences, std::vector<State> *pInitState,
                MySolverType solver);
     virtual ~RotationMP();
 
@@ -187,7 +187,7 @@ class RotationMP: public MasterProblem {
                                const SolverParam& parameters) override ;
 
     //get a reference to the restsPerDay_ for a Nurse
-    inline const std::vector<MyVar*>& getRestVarsPerDay(LiveNurse* pNurse, int day) const override {
+    inline const std::vector<MyVar*>& getRestVarsPerDay(PLiveNurse pNurse, int day) const override {
       return restsPerDay_[pNurse->id_][day];
     }
 
@@ -204,7 +204,7 @@ class RotationMP: public MasterProblem {
     MyVar* addRotation(const Rotation& rotation, const char* baseName, bool coreVar = false);
 
     //compute and add the last rotation finishing on the day just before the first one
-    Rotation computeInitStateRotation(LiveNurse* pNurse);
+    Rotation computeInitStateRotation(PLiveNurse pNurse);
 
     void buildRotationCons(const SolverParam& parameters);
 
@@ -216,8 +216,8 @@ class RotationMP: public MasterProblem {
     double getColumnsCost(CostType costType, const std::vector<MyVar*>& vars) const;
 
     /* retrieve the dual values */
-    std::vector<double> getStartWorkDualValues(LiveNurse* pNurse) const override ;
-    std::vector<double> getEndWorkDualValues(LiveNurse* pNurse) const override ;
+    std::vector<double> getStartWorkDualValues(PLiveNurse pNurse) const override ;
+    std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const override ;
 
     /*
     * Variables

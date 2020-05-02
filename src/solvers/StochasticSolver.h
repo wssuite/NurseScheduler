@@ -86,7 +86,7 @@ public:
 
 // Set the options of the stochastic solver
 // The solution time depends on the number of nurses
-void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario,
+void setStochasticSolverOptions(StochasticSolverOptions& options, PScenario pScenario,
                                 std::string solPath, std::string logPathIni, double timeout = 10000);
 
  void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions, std::string instanceName,
@@ -106,8 +106,8 @@ class StochasticSolver:public Solver {
 
 public:
 
-	StochasticSolver(Scenario* pScenario, StochasticSolverOptions options,
-                   std::vector<Demand*> demandHistory, double costPreviousWeeks=0);
+	StochasticSolver(PScenario pScenario, StochasticSolverOptions options,
+                   std::vector<PDemand> demandHistory, double costPreviousWeeks=0);
 
 	~StochasticSolver();
 
@@ -171,11 +171,11 @@ protected:
 	//----------------------------------------------------------------------------
 
 	// History
-  std::vector<Demand *> demandHistory_;
+  std::vector<PDemand> demandHistory_;
 	// Number of demands generated
 	int nGenerationDemands_;
 	// Vector of random demands that are used to GENERATE the schedules
-  std::vector<Demand*> pGenerationDemands_;
+  std::vector<PDemand> pGenerationDemands_;
 	// Generate a new demand for generation
 	void generateSingleGenerationDemand();
 
@@ -188,7 +188,7 @@ protected:
 	//----------------------------------------------------------------------------
 
 	// Vector of random demands that are used to EVAULATE the generated schedules
-  std::vector<Demand*> pEvaluationDemands_;
+  std::vector<PDemand> pEvaluationDemands_;
 	// Generate the schedules that are used for evaluation
 	void generateAllEvaluationDemands();
 
@@ -212,7 +212,7 @@ protected:
 	vector2D<State> finalStates_;
 
 	// Return a solver with the algorithm specified for schedule GENERATION
-	Solver * setGenerationSolverWithInputAlgorithm(Demand* pDemand);
+	Solver * setGenerationSolverWithInputAlgorithm(PDemand pDemand);
 	// Generate a new schedule
 	void generateNewSchedule();
 
@@ -242,7 +242,7 @@ protected:
     std::vector<double> theBaseCosts_;
 
 	// Return a solver with the algorithm specified for schedule EVALUATION
-	Solver * setEvaluationWithInputAlgorithm(Demand* pDemand, std::vector<State> * stateEndOfSchedule);
+	Solver * setEvaluationWithInputAlgorithm(PDemand pDemand, std::vector<State> * stateEndOfSchedule);
 	// Initialization
 	void initScheduleEvaluation(int sched);
 	// Evaluate 1 schedule and store the corresponding detailed results (returns false if time has run out)
@@ -264,7 +264,7 @@ protected:
 	//
 	void computeWeightsTotalShifts();
 
-	Solver * setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algo);
+	Solver * setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algo);
 
 
 

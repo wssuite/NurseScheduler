@@ -101,7 +101,7 @@ class DeterministicSolver:public Solver {
 
 public:
 
-	DeterministicSolver(Scenario* pScenario, InputPaths inputPaths);
+	DeterministicSolver(PScenario pScenario, InputPaths inputPaths);
 
 	~DeterministicSolver();
 
@@ -290,8 +290,8 @@ protected:
 	//
 	int nbPositions_=0;
 	int nbContracts_=0;
-	std::vector<std::vector<LiveNurse*> > theLiveNursesByPosition_;
-	std::vector<std::vector<LiveNurse*> > theLiveNursesByContract_;
+	std::vector<std::vector<PLiveNurse> > theLiveNursesByPosition_;
+	std::vector<std::vector<PLiveNurse> > theLiveNursesByContract_;
 
 	// Weights of the position or contract when drawing the destroy operator
 	//
@@ -303,8 +303,8 @@ protected:
 protected:
 	// Return a solver with the algorithm specified in the options_
 	//
-	Solver * setSolverWithInputAlgorithm(Demand* pDemand);
-	Solver* setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm);
+	Solver * setSolverWithInputAlgorithm(PDemand pDemand);
+	Solver* setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm);
 
 
 };

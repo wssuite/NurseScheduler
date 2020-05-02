@@ -112,8 +112,8 @@ private:
    // Positions that are below and above this one in the hierarchy
    // this is deduced from the dominance criterion implemented in compare()
    //
-   std::vector<Position*> positionsBelow_;
-   std::vector<Position*> positionsAbove_;
+   std::vector<PPosition> positionsBelow_;
+   std::vector<PPosition> positionsAbove_;
    int nbBelow_, nbAbove_;
 
    // Rarity of the skills that appear in this position
@@ -136,8 +136,8 @@ public:
   std::vector<int> skills() {return skills_;}
   int nbBelow() {return nbBelow_;}
   int nbAbove() {return nbAbove_;}
-  Position* positionsBelow(int i) {return positionsBelow_[i];}
-  Position* positionsAbove(int i) {return positionsAbove_[i];}
+  PPosition positionsBelow(int i) {return positionsBelow_[i];}
+  PPosition positionsAbove(int i) {return positionsAbove_[i];}
   double skillRarity(int sk) {return skillRarity_[sk];}
   int rank() {return rank_;}
 
@@ -164,8 +164,8 @@ public:
 
 	// set positions above and below
 	//
-	void addBelow(Position* pPosition);
-	void addAbove(Position* pPosition);
+	void addBelow(PPosition pPosition);
+	void addAbove(PPosition pPosition);
 
 	// reset the list of positions below and above
 	//
@@ -197,14 +197,8 @@ class Nurse {
 public:
 
    // Constructor and destructor
-   // Note : need both with const Contract and (non-const) Contract because non-const is used in our code,
-   //        and const is needed so that we can override the operator= and have vector<Nurse>. We need to
-   //        override it because vector members should have some properties (assignable a.o., which implies
-   //        non-const)
-   //
    Nurse(int id, std::string name, int nbSkills, std::vector<int> skills, PConstContract contract);
    ~Nurse();
-
 
    // the constant attributes of the nurses are public
 public:
@@ -286,7 +280,7 @@ public:
 	Preferences(int nbNurses, int nbDays, int nbShifts);
 
 	// Initialization with a map corresponding to the input nurses and no wished Shift-Off.
-	Preferences(std::vector<Nurse>& pNurses, int nbDays, int nbShifts);
+	Preferences(const std::vector<PNurse>& pNurses, int nbDays, int nbShifts);
 
 	static int wishLevel(const std::map<int, std::vector<Wish> > &wishes, int day, int shift);
 
@@ -347,18 +341,18 @@ public:
 
 	// add another week preferences at the end of the current one
 	//
-  void push_back(Preferences* pPref);
+  void push_back(PPreferences pPref);
 
 	// Keep the preferences relative to the days in [begin,end)
-  Preferences* keep(int begin, int end);
+  PPreferences keep(int begin, int end);
 
 	// Remove the preferences relative to the nbDays first days
-  Preferences* removeNFirstDays(int nbDays);
+  PPreferences removeNFirstDays(int nbDays);
 
 
 	// Display methods: toString + override operator<< (easier)
 	//
-  std::string toString(Scenario* pScenario = nullptr) const;
+  std::string toString(PScenario pScenario = nullptr) const;
 	friend std::ostream& operator<< (std::ostream& outs, const Preferences& obj) {return outs << obj.toString();}
 };
 

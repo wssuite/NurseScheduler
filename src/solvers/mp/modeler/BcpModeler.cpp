@@ -635,9 +635,12 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 	// otherwise, record the root solution for future use
 	//
 	if(current_index() == 0) {
+    for(MyVar* var: pModel_->getCoreVars())
+      if(((CoinVar*)var)->getCost() >= LARGE_SCORE && pModel_->getVarValue(var) > EPSILON)
+        throw InfeasibleStop("Feasibility core variable is still present in the solution");
 		for(MyVar* col: pModel_->getActiveColumns()){
 			if(((CoinVar*)col)->getCost() >= LARGE_SCORE && pModel_->getVarValue(col) > EPSILON)
-			throw InfeasibleStop("Feasibility columns are still present in the solution");
+			throw InfeasibleStop("Feasibility column is still present in the solution");
 		}
 		pModel_->recordLpSol();
 		if (pModel_->gettimeFirstRoot() < EPSILON) {
@@ -893,60 +896,65 @@ BcpBranchingTree::BcpBranchingTree(BcpModeler* pModel):
 // setting the base
 //Create the core of the problem by filling out the last three arguments.
 void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
-   BCP_vec<BCP_cut_core*>& cuts, BCP_lp_relax*& matrix){
-   // initialize tm parameters
-   set_param(BCP_tm_par::TmVerb_SingleLineInfoFrequency, pModel_->getFrequency());
-   //always dive
-   set_param(BCP_tm_par::UnconditionalDiveProbability, 1);
-   set_param(BCP_tm_par::MaxRunTime, LARGE_TIME);//pModel_->getParameters().maxSolvingTimeSeconds_);
-   for(pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
-      set_param(entry.first, entry.second);
+   BCP_vec<BCP_cut_core*>& cuts, BCP_lp_relax*& matrix) {
+  // initialize tm parameters
+  set_param(BCP_tm_par::TmVerb_SingleLineInfoFrequency, pModel_->getFrequency());
+  //always dive
+  set_param(BCP_tm_par::UnconditionalDiveProbability, 1);
+  set_param(BCP_tm_par::MaxRunTime, LARGE_TIME);//pModel_->getParameters().maxSolvingTimeSeconds_);
+  for (pair<BCP_tm_par::chr_params, bool> entry: pModel_->getTmParameters())
+    set_param(entry.first, entry.second);
 
-   //define nb rows and col
-   const int rownum = pModel_->getCons().size();
-   const int colnum = pModel_->getCoreVars().size();
+  //define nb rows and col
+  const int rownum = pModel_->getCons().size();
+  const int colnum = pModel_->getCoreVars().size();
 
-   // bounds and objective
-   double* lb, *ub, *obj, *rhs, *lhs;
-   lb = (double*) malloc(colnum*sizeof(double));
-   ub = (double*) malloc(colnum*sizeof(double));
-   obj = (double*) malloc(colnum*sizeof(double));
-   rhs = (double*) malloc(rownum*sizeof(double));
-   lhs = (double*) malloc(rownum*sizeof(double));
+  // bounds and objective
+  std::vector<double> lb(colnum), ub(colnum), obj(colnum), rhs(rownum), lhs(rownum);
 
-   //copy of the core variables
-   vars.reserve(colnum);
-   for(int i=0; i<colnum; ++i){
-      BcpCoreVar* var = dynamic_cast<BcpCoreVar*>(pModel_->getCoreVars()[i]);
-      if(!var)
-         Tools::throwError("Bad variable casting.");
-      //create a new BcpCoreVar which will be deleted by BCP
-      vars.push_back(new BcpCoreVar(*var));
-      lb[i] = var->getLB();
-      ub[i] = var->getUB();
-      obj[i] = var->getCost();
-   }
+  //copy of the core variables
+  vars.reserve(colnum);
+  for (int i = 0; i < colnum; ++i) {
+    BcpCoreVar *var = dynamic_cast<BcpCoreVar *>(pModel_->getCoreVars()[i]);
+    if (!var)
+      Tools::throwError("Bad variable casting.");
+    //create a new BcpCoreVar which will be deleted by BCP
+    vars.push_back(new BcpCoreVar(*var));
+    lb[i] = var->getLB();
+    ub[i] = var->getUB();
+    obj[i] = var->getCost();
+  }
 
-   //copy of the core cuts
-   cuts.reserve(rownum);
-   for(int i=0; i<rownum; ++i){
-      BcpCoreCons* cut = dynamic_cast<BcpCoreCons*>(pModel_->getCons()[i]);
-      if(!cut)
-         Tools::throwError("Bad constraint casting.");
-      //create a new BcpCoreCons which will be deleted by BCP
-      cuts.push_back(new BcpCoreCons(*cut));
-      lhs[i] = cut->getLhs();
-      rhs[i] = cut->getRhs();
-   }
+  //copy of the core cuts
+  cuts.reserve(rownum);
+  for (int i = 0; i < rownum; ++i) {
+    BcpCoreCons *cut = dynamic_cast<BcpCoreCons *>(pModel_->getCons()[i]);
+    if (!cut)
+      Tools::throwError("Bad constraint casting.");
+    //create a new BcpCoreCons which will be deleted by BCP
+    cuts.push_back(new BcpCoreCons(*cut));
+    lhs[i] = cut->getLhs();
+    rhs[i] = cut->getRhs();
+  }
 
-   matrix = new BCP_lp_relax;
-   matrix->copyOf(pModel_->buildCoinMatrix(), obj, lb, ub, lhs, rhs);
+  // build matrix
+  CoinPackedMatrix m = pModel_->buildCoinMatrix();
+  // check columns size
+  if (m.getNumCols() != colnum) {
+    std::cerr << "Number of columns for CoinPackedMatrix=" << m.getNumCols()
+              << " and for the modeler=" << colnum << std::endl;
+    Tools::throwError("CoinPackedMatrix does not have the same number of columns than the modeler. ");
+  }
+  // check rows size
+  if (m.getNumRows() != rownum) {
+    std::cerr << "Number of rows for CoinPackedMatrix=" << m.getNumRows()
+              << " and for the modeler=" << rownum << std::endl;
+    Tools::throwError("CoinPackedMatrix does not have the same number of rows than the modeler. ");
+  }
 
-   if (lb) free(lb);
-   if (ub) free(ub);
-   if (obj) free(obj);
-   if (lhs) free(lhs);
-   if (rhs) free(rhs);
+  // copy matrix to the matrix of the solver
+  matrix = new BCP_lp_relax;
+  matrix->copyOf(m, &obj[0], &lb[0], &ub[0], &lhs[0], &rhs[0]);
 }
 
 // create the root node
@@ -1054,7 +1062,9 @@ int BcpModeler::solve(bool relaxation){
 	}catch(TimeoutStop& e) {
 		getMaster()->setStatus(TIME_LIMIT);
 	}catch (const std::exception &e) {
-	  std::cerr << e.what() << std::endl;
+    std::cerr << e.what() << std::endl;
+    if(bcpSolutions_.empty()) getMaster()->setStatus(INFEASIBLE);
+    else getMaster()->setStatus(FEASIBLE);
 	}
 
 	// retrieve the statistics of the solution

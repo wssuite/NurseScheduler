@@ -19,7 +19,7 @@ using std::set;
 //
 //////////////////////////////////////////////////////////////
 
-RestTree::RestTree(Scenario* pScenario, Demand* pDemand):
+RestTree::RestTree(PScenario pScenario, PDemand pDemand):
 MyTree(), pScenario_(pScenario), pDemand_(pDemand),
 statsRestByDay_(pDemand_->nbDays_), statsWorkByDay_(pDemand_->nbDays_),
 statsRestByNurse_(pScenario->nbNurses()), statsWorkByNurse_(pScenario->nbNurses()) { }
@@ -28,7 +28,7 @@ statsRestByNurse_(pScenario->nbNurses()), statsWorkByNurse_(pScenario->nbNurses(
 // of new rotations
 // This method is useful only for the rotation pricer
 //
-void RestTree::addForbiddenShifts(LiveNurse* pNurse, set<pair<int,int> >& forbidenShifts) {
+void RestTree::addForbiddenShifts(PLiveNurse pNurse, set<pair<int,int> >& forbidenShifts) {
 	MyNode* node = currentNode_;
 	vector<MyVar*> arcs;
 	while(node->pParent_){
@@ -148,8 +148,8 @@ string RestTree::writeBranchStats() const {
 	rep << "Stats by Nurse" << std::endl;
 	rep << "\t\t  ";
 	for (int n = 0; n < nbNurses; n++){
-		if(n<10) rep << "|" << pScenario_->theNurses_[n].name_ << " ";
-		else rep << "|" << pScenario_->theNurses_[n].name_;
+		if(n<10) rep << "|" << pScenario_->theNurses_[n]->name_ << " ";
+		else rep << "|" << pScenario_->theNurses_[n]->name_;
 	}
 	rep << "|" << std::endl;
 	rep << writeOneStat("Rest", statsRestByNurse_);
@@ -338,10 +338,10 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 	//set of rest variable closest to .5
 	int bestDay = -1;
 	double advantage = .2;
-	LiveNurse* pBestNurse(0);
+	PLiveNurse pBestNurse(0);
 	double lowestScore = DBL_MAX;
 
-	for(LiveNurse* pNurse: pMaster_->getLiveNurses()) {
+	for(PLiveNurse pNurse: pMaster_->getLiveNurses()) {
 
 		// ROLLING/LNS: do not branch on a nurse whose rotations are fixed
 		//
@@ -440,7 +440,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	//set of rest variable closest to .5
 	int bestDay = -1;
 	double advantage = .1;
-	LiveNurse* pBestNurse(0);
+	PLiveNurse pBestNurse(0);
 	double lowestScore = DBL_MAX;
 	vector<int> forbiddenShifts;
 
@@ -448,7 +448,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	vector3D<double> fractionalRoster = pMaster_->getFractionalRoster();
 
 	//search for the best branching decision (set of shifts the closest to .5)
-	for(LiveNurse* pNurse: pMaster_->getLiveNurses()) {
+	for(PLiveNurse pNurse: pMaster_->getLiveNurses()) {
 
 		// LNS: do not branch on a nurse whose rotations are fixed
 		//

@@ -30,7 +30,7 @@ void solveDeterministic(InputPaths inputPaths, double timeout) {
 	// set the scenario
 	//
 	std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
-	Scenario* pScenario;
+	PScenario pScenario;
 	if (inputPaths.nbWeeks() > 1) {
 		pScenario = initializeMultipleWeeks(inputPaths);
 	}
@@ -79,7 +79,6 @@ void solveDeterministic(InputPaths inputPaths, double timeout) {
 
 	//  release memory
 	delete pSolver;
-	delete pScenario;
 	statStream.close();
 }
 

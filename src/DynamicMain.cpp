@@ -35,7 +35,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 
 	// set the scenario
 	logStream << "# Initialize the scenario" << std::endl;
-	Scenario* pScen = initializeScenario(scenPath,demandPath,historyPath);
+	PScenario pScen = initializeScenario(scenPath,demandPath,historyPath);
 
 	// set the options of the stochastic solver
 	// (the corresponding method needs to be change manually for tests)
@@ -66,8 +66,8 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 
 	// get history demands by reading the custom file
 	//
-	vector<Demand*> demandHistory;
-	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+	vector<PDemand> demandHistory;
+	demandHistory.push_back(pScen->pWeekDemand());
 	if (!customInputFile.empty()) {
 		// int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
 	 ReadWrite::readCustom(customInputFile, pScen, demandHistory);
@@ -84,12 +84,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	solStream << pSolver->solutionToString() << std::endl;
 
 	//  release memory
-	delete pScen;
 	delete pSolver;
-	while (!demandHistory.empty()) {
-		delete demandHistory.back();
-		demandHistory.pop_back();
-	}
 	logStream.close();
 }
 
@@ -106,14 +101,14 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
 
 	// initialize the scenario object of the first week
-	Scenario* pScen = initializeScenario(inputPaths.scenario(),inputPaths.week(0),inputPaths.history(),"");
+	PScenario pScen = initializeScenario(inputPaths.scenario(),inputPaths.week(0),inputPaths.history(),"");
 
 	// solve the problem for each week and store the solution in the vector below
 	vector<Roster> solution;
 	int nbWeeks = weekIndices.size();
 	Status solutionStatus;
 
-	vector<Demand*> demandHistory;
+	vector<PDemand> demandHistory;
 	double currentCost = 0;
 	int nbSched = 0;
 
@@ -126,7 +121,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 	      seeds.push_back(std::rand());
 	   std::srand(seeds[week]);
 
-		demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+		demandHistory.push_back(pScen->pWeekDemand());
 
 		StochasticSolver* pSolver = new StochasticSolver(pScen, stochasticSolverOptions, demandHistory, currentCost);
 
@@ -157,8 +152,8 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 		if (week < nbWeeks-1) {
 
 			// Initialize demand and preferences
-			Demand* pDemand(nullptr);
-			Preferences* pPref(nullptr);
+			PDemand pDemand(nullptr);
+			PPreferences pPref(nullptr);
 
 			// Read the demand and preferences and link them with the scenario
 			ReadWrite::readWeek(inputPaths.week(week+1), pScen, &pDemand, &pPref);
@@ -192,9 +187,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 	// Display the solution
 	// displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
-	delete pScen;
-
-	return pair<double, int>(currentCost, nbSched);
+	return {currentCost, nbSched};
 }
 
 

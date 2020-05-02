@@ -61,12 +61,12 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 	// count and store the nurses whose subproblems produced rotations.
 	// DBG: why minDualCost? Isn't it more a reduced cost?
 	double minDualCost = 0;
-	vector<LiveNurse*> nursesSolved, nursesIncreasedStrategy;
+	vector<PLiveNurse> nursesSolved, nursesIncreasedStrategy;
 
 	for(auto it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();){
 
 		// RETRIEVE THE NURSE AND CHECK THAT HE/SHE IS NOT FORBIDDEN
-		LiveNurse* pNurse = *it0;
+		PLiveNurse pNurse = *it0;
 
     // try next nurse if forbidden
 		if(isNurseForbidden(pNurse->id_)) {
@@ -188,7 +188,7 @@ void RCPricer::addForbiddenShifts(){
 }
 
 // Returns a pointer to the right subproblem
-SubProblem* RCPricer::retriveSubproblem(LiveNurse* pNurse){
+SubProblem* RCPricer::retriveSubproblem(PLiveNurse pNurse){
 	SubProblem* subProblem;
 	auto it = subProblems_.find(pNurse->pContract_);
 	// Each contract has one subproblem. If it has not already been created, create it.

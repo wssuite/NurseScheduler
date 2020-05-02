@@ -40,10 +40,10 @@ protected:
    // DATA - instance-related data
    //
    MasterProblem* pMaster_;
-   Scenario* pScenario_;
+   PScenario pScenario_;
    int nbDays_;
    Modeler* pModel_;
-    std::vector<LiveNurse*> nursesToSolve_;
+    std::vector<PLiveNurse> nursesToSolve_;
    // One subproblem per contract because the consecutive same shift constraints vary by contract.
    std::map<PConstContract, SubProblem*> subProblems_;
 
@@ -135,16 +135,16 @@ protected:
 
    //get the duals values per day and per shift for a nurse
    //
-   vector2D<double> getShiftsDualValues(LiveNurse*  pNurse);
-    std::vector<double> getStartWorkDualValues(LiveNurse* pNurse);
-    std::vector<double> getEndWorkDualValues(LiveNurse* pNurse);
-   double getWorkedWeekendDualValue(LiveNurse* pNurse);
+   vector2D<double> getShiftsDualValues(PLiveNurse  pNurse);
+    std::vector<double> getStartWorkDualValues(PLiveNurse pNurse);
+    std::vector<double> getEndWorkDualValues(PLiveNurse pNurse);
+   double getWorkedWeekendDualValue(PLiveNurse pNurse);
 
    //compute some forbidden shifts from the lasts rotations and forbidden shifts
    void addForbiddenShifts();
 
    // Retrieve the right subproblem
-   SubProblem* retriveSubproblem(LiveNurse* pNurse);
+   SubProblem* retriveSubproblem(PLiveNurse pNurse);
 
    // Add the rotations to the master problem
    int addColumnsToMaster(int nurseId);

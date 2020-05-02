@@ -645,7 +645,7 @@ struct MyTree {
 		--nb_nodes_since_dive_;
 	}
 
-	virtual void addForbiddenShifts(LiveNurse* pNurse, std::set<std::pair<int,int> >& forbidenShifts) { return; }
+	virtual void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int,int> >& forbidenShifts) { return; }
 
 	/*
 	 * Stats
@@ -724,7 +724,7 @@ public:
 		return 1;
 	}
 
-	virtual void addForbiddenShifts(LiveNurse* pNurse, std::set<std::pair<int,int> >& forbidenShifts) {
+	virtual void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int,int> >& forbidenShifts) {
 		pTree_->addForbiddenShifts(pNurse, forbidenShifts);
 	}
 

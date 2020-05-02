@@ -183,9 +183,9 @@ public:
 		//define a matrix as a vector of tuples (row_index, col_index, coeff)
     std::vector<int> row_indices, col_indices;
     std::vector<double> coeffs;
-
+    int index_max = 0;
 		for(int i=0; i<colnum; ++i){
-			CoinVar* var(0);
+			CoinVar* var;
 			//copy of the core variables
 			if(i<corenum)
 			var = (CoinVar*) coreVars_[i];
@@ -195,12 +195,18 @@ public:
 
 			//build the tuples of the matrix
 			int col_index = var->getIndex();
+			if(col_index > index_max) index_max = col_index;
 			for(int j=0; j<var->getNbRows(); ++j){
 				row_indices.push_back(var->getIndexRow(j));
 				col_indices.push_back(col_index);
 				coeffs.push_back(var->getCoeffRow(j));
 			}
 		}
+
+		if(index_max != (colnum - 1)) {
+		  std::cerr << "There are " << colnum << " columns, but the maximum index is " << index_max << std::endl;
+      Tools::throwError("The indices of the variables are not forming a sequence 0..N");
+    }
 
 		//initialize the matrix
 		CoinPackedMatrix matrix(false, &(row_indices[0]), &(col_indices[0]), &(coeffs[0]), row_indices.size());

@@ -25,12 +25,12 @@ using std::endl;
 //
 //-----------------------------------------------------------------------------
 
-void Rotation::computeCost(Scenario* pScenario, const vector<LiveNurse*>& liveNurses, int horizon){
+void Rotation::computeCost(PScenario pScenario, const vector<PLiveNurse>& liveNurses, int horizon){
   //check if pNurse points to a nurse
   if(nurseId_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
-  LiveNurse* pNurse = liveNurses[nurseId_];
+  PLiveNurse pNurse = liveNurses[nurseId_];
 
   /************************************************
    * Compute all the costs of a rotation:
@@ -275,7 +275,7 @@ bool Rotation::compareDualCost(const Rotation& rot1, const Rotation& rot2){
 //
 //-----------------------------------------------------------------------------
 
-RotationMP::RotationMP(Scenario* pScenario, Demand* pDemand, Preferences* pPreferences,
+RotationMP::RotationMP(PScenario pScenario, PDemand pDemand, PPreferences pPreferences,
     std::vector<State> *pInitState, MySolverType solver) :
      MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
      restsPerDay_(pScenario->nbNurses_), restingVars_(pScenario->nbNurses_),
@@ -370,7 +370,7 @@ void RotationMP::initializeSolution(const vector<Roster>& solution) {
   }
 }
 
-vector<double> RotationMP::getStartWorkDualValues(LiveNurse* pNurse) const {
+vector<double> RotationMP::getStartWorkDualValues(PLiveNurse pNurse) const {
   int i = pNurse->id_;
   vector<double> dualValues(pDemand_->nbDays_);
 
@@ -384,7 +384,7 @@ vector<double> RotationMP::getStartWorkDualValues(LiveNurse* pNurse) const {
   return dualValues;
 }
 
-vector<double> RotationMP::getEndWorkDualValues(LiveNurse* pNurse) const {
+vector<double> RotationMP::getEndWorkDualValues(PLiveNurse pNurse) const {
   int i = pNurse->id_;
   vector<double> dualValues(pDemand_->nbDays_);
 
@@ -813,7 +813,7 @@ double RotationMP::getColumnsCost(CostType costType, const vector<MyVar*>& vars)
   return cost;
 }
 
-Rotation RotationMP::computeInitStateRotation(LiveNurse* pNurse){
+Rotation RotationMP::computeInitStateRotation(PLiveNurse pNurse){
   //initialize rotation
   Rotation rot = Rotation(map<int,int>(), pNurse->id_);
 

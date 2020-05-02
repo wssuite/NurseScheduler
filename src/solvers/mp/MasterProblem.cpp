@@ -47,8 +47,8 @@ using std::endl;
 //-----------------------------------------------------------------------------
 
 // Default constructor
-MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
-		Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType):
+MasterProblem::MasterProblem(PScenario pScenario, PDemand pDemand,
+		PPreferences pPreferences, vector<State>* pInitState, MySolverType solverType):
 
 								   Solver(pScenario, pDemand, pPreferences, pInitState), PrintSolution(),
 								   pModel_(0), positionsPerSkill_(pScenario->nbSkills_),
@@ -210,7 +210,7 @@ void MasterProblem::solveWithCatch(){
 
 //Resolve the problem with another demand and keep the same preferences
 //
-double MasterProblem::resolve(Demand* pDemand, const SolverParam& param, vector<Roster> solution){
+double MasterProblem::resolve(PDemand pDemand, const SolverParam& param, vector<Roster> solution){
 	updateDemand(pDemand);
 	pModel_->setParameters(param, this);
 	return solve(solution, false);
@@ -332,7 +332,7 @@ void MasterProblem::fixNurses(vector<bool> isFix){
 	}
 	// set the list of fixed day
 	// + forbid the generation of rotations of the input nurses
-	for (LiveNurse* pNurse: theLiveNurses_){
+	for (PLiveNurse pNurse: theLiveNurses_){
 		int n = pNurse->id_;
 		isFixNurse_[n] = isFixNurse_[n]?true:isFix[n];
 		if (isFixNurse_[n]) pPricer_->forbidNurse(n);
@@ -350,7 +350,7 @@ void MasterProblem::unfixNurses(vector<bool> isUnfix){
 	else {
 		// set the list of unfixed nurses
 		// + authorize the generation of rotations for the input nurses
-	for (LiveNurse* pNurse: theLiveNurses_){
+	for (PLiveNurse pNurse: theLiveNurses_){
 			int n = pNurse->id_;
 			isFixNurse_[n]= isFixNurse_[n]?!isUnfix[n]:false;
 			if (!isFixNurse_[n]) pPricer_->authorizeNurse(n);
@@ -436,13 +436,13 @@ void MasterProblem::storeSolution(){
 				skillsAllocation[k][s][sk] = pModel_->getVarValues(skillsAllocVars_[k][s][sk]);
 
 	//build the rosters
-	for(LiveNurse* pNurse: theLiveNurses_)
+	for(PLiveNurse pNurse: theLiveNurses_)
 		pNurse->roster_.reset();
 
 	for(MyVar* var: pModel_->getActiveColumns()){
 		if(pModel_->getVarValue(var) > EPSILON){
 		  PPattern pat = getPattern(var->getPattern());
-			LiveNurse* pNurse = theLiveNurses_[pat->nurseId_];
+			PLiveNurse pNurse = theLiveNurses_[pat->nurseId_];
 			for(int k=pat->firstDay_; k<pat->firstDay_+pat->length_; ++k){
         int s = pat->getShift(k);
         if(s == 0) continue; // nothing to do
@@ -466,7 +466,7 @@ void MasterProblem::storeSolution(){
 
 	//build the states of each nurse
 	solution_.clear();
-	for(LiveNurse* pNurse: theLiveNurses_){
+	for(PLiveNurse pNurse: theLiveNurses_){
 		pNurse->buildStates();
 		solution_.push_back(pNurse->roster_);
 	}
@@ -538,12 +538,12 @@ void MasterProblem::printCurrentSol(){
  * Get the duals values per day for a nurse
  ******************************************************/
 // build a DualCosts structure
-DualCosts MasterProblem::buildDualCosts(LiveNurse*  pNurse) const {
+DualCosts MasterProblem::buildDualCosts(PLiveNurse  pNurse) const {
   return DualCosts(getShiftsDualValues(pNurse), getStartWorkDualValues(pNurse),
       getEndWorkDualValues(pNurse), getWorkedWeekendDualValue(pNurse));
 }
 
-vector2D<double> MasterProblem::getShiftsDualValues(LiveNurse*  pNurse) const {
+vector2D<double> MasterProblem::getShiftsDualValues(PLiveNurse  pNurse) const {
   vector2D<double> dualValues(pDemand_->nbDays_);
   int i = pNurse->id_;
   int p = pNurse->pContract_->id_;
@@ -586,15 +586,15 @@ vector2D<double> MasterProblem::getShiftsDualValues(LiveNurse*  pNurse) const {
 }
 
 
-vector<double> MasterProblem::getStartWorkDualValues(LiveNurse* pNurse) const {
+vector<double> MasterProblem::getStartWorkDualValues(PLiveNurse pNurse) const {
   return vector<double>(pDemand_->nbDays_);
 }
 
-vector<double> MasterProblem::getEndWorkDualValues(LiveNurse* pNurse) const {
+vector<double> MasterProblem::getEndWorkDualValues(PLiveNurse pNurse) const {
   return vector<double>(pDemand_->nbDays_);
 }
 
-double MasterProblem::getWorkedWeekendDualValue(LiveNurse* pNurse) const{
+double MasterProblem::getWorkedWeekendDualValue(PLiveNurse pNurse) const{
   int id = pNurse->id_;
   double dualVal = pModel_->getDual(maxWorkedWeekendCons_[id], true);
   if (isMaxWorkedWeekendAvgCons_[id]) {
@@ -928,7 +928,7 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons*>& cons, vector<doub
 	return nbCons;
 }
 
-void MasterProblem::updateDemand(Demand* pDemand){
+void MasterProblem::updateDemand(PDemand pDemand){
 	if(pDemand->nbDays_ != pDemand_->nbDays_)
 		Tools::throwError("The new demand must have the same size than the old one, so that's ");
 
@@ -1001,7 +1001,7 @@ string MasterProblem::allocationToString(bool printInteger){
 
   vector3D<double> fractionalRoster = getFractionalRoster();
 	for (int n = 0; n < nbNurses; n ++) {
-		LiveNurse* pNurse = theLiveNurses_[n];
+		PLiveNurse pNurse = theLiveNurses_[n];
 		const vector2D<double>& fnurseFractionalRoster = fractionalRoster[n];
 		rep << pNurse->name_ << "\t";
 		for(int s=1; s<nbShifts; ++s){

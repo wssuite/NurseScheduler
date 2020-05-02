@@ -70,11 +70,11 @@ Position::Position(int index, int nbSkills, std::vector<int> skills):
 
 // Set positions above and below
 //
-void Position::addBelow(Position* pPosition) {
+void Position::addBelow(PPosition pPosition) {
 	positionsBelow_.push_back(pPosition);
 	nbBelow_++;
 }
-void Position::addAbove(Position* pPosition) {
+void Position::addAbove(PPosition pPosition) {
 	positionsAbove_.push_back(pPosition);
 	nbAbove_++;
 }
@@ -212,12 +212,12 @@ Preferences::Preferences(int nbNurses, int nbDays, int nbShifts) :
 }
 
 // Initialization with a map corresponding to the input nurses and no wished Shift-Off.
-Preferences::Preferences(vector<Nurse>& nurses, int nbDays, int nbShifts) :
+Preferences::Preferences(const vector<PNurse>& nurses, int nbDays, int nbShifts) :
 				nbNurses_(nurses.size()), nbDays_(nbDays), nbShifts_(nbShifts){
 	// Wish lists are initialized to empty
-	for(Nurse nurse: nurses){
-    wishesOff_[nurse.id_];
-    wishesOn_[nurse.id_];
+	for(PNurse pNurse: nurses){
+    wishesOff_[pNurse->id_];
+    wishesOn_[pNurse->id_];
 	}
 }
 
@@ -363,7 +363,7 @@ int Preferences::howManyDaysOn(int nurseId, int dayMin, int dayMax) const {
 
 // add another week preferences at the end of the current one
 //
-void Preferences::push_back(Preferences* pPref){
+void Preferences::push_back(PPreferences pPref){
   // check if same scenario
   if( (nbShifts_ != pPref->nbShifts_) || (nbNurses_ != pPref->nbNurses_) ){
     string error = "Preferences are not compatible";
@@ -389,9 +389,9 @@ void Preferences::push_back(Preferences* pPref){
 }
 
 // K the preferences relative to the nbDays first days
-Preferences* Preferences::keep(int begin, int end) {
+PPreferences Preferences::keep(int begin, int end) {
 
-   Preferences* pPref = new Preferences();
+   PPreferences pPref = std::make_shared<Preferences>();
 
    for (int i=0; i < nbNurses_; i++) {
      for(pair<int,std::vector<Wish> > pair1: wishesOff_[i]){
@@ -413,9 +413,9 @@ Preferences* Preferences::keep(int begin, int end) {
 }
 
 // Remove the preferences relative to the nbDays first days
-Preferences* Preferences::removeNFirstDays(int nbDays) {
+PPreferences Preferences::removeNFirstDays(int nbDays) {
 
-	Preferences* pPref = new Preferences();
+	PPreferences pPref = std::make_shared<Preferences>();
 
 	for (int i=0; i < nbNurses_; i++) {
     for(pair<int,std::vector<Wish> > pair1: wishesOff_[i]){
@@ -438,7 +438,7 @@ Preferences* Preferences::removeNFirstDays(int nbDays) {
 
 // Display method: toString()
 //
-string Preferences::toString(Scenario* pScenario) const{
+string Preferences::toString(PScenario pScenario) const{
 	std::stringstream rep;
   rep << "# Preferences:" << std::endl;
   rep << "# Wishes off:" << std::endl;

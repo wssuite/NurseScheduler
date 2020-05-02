@@ -19,7 +19,7 @@ using std::map;
 // Constructors and destructor
 SubProblemShort::SubProblemShort() {}
 
-SubProblemShort::SubProblemShort(Scenario* scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
+SubProblemShort::SubProblemShort(PScenario scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
     SubProblem(scenario, nbDays, contract,  pInitState) {
 
   daysMin_ = contract->minConsDaysWork_;

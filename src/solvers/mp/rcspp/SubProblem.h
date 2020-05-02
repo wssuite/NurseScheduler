@@ -20,12 +20,12 @@ static int MAX_COST = 99999;
 struct SubproblemParam{
 
 	SubproblemParam(){}
-	SubproblemParam(int strategy, LiveNurse* pNurse){
+	SubproblemParam(int strategy, PLiveNurse pNurse){
 		initSubprobemParam(strategy, pNurse);
 	}
 	~SubproblemParam(){};
 
-	void initSubprobemParam(int strategy, LiveNurse*   pNurse){
+	void initSubprobemParam(int strategy, PLiveNurse   pNurse){
 		maxRotationLength_ = pNurse->maxConsDaysWork();
 		switch(strategy){
 
@@ -101,7 +101,7 @@ class SubProblem {
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    SubProblem(Scenario* scenario, int nbDays, PConstContract contract, std::vector<State> *pInitState);
+    SubProblem(PScenario scenario, int nbDays, PConstContract contract, std::vector<State> *pInitState);
 
     // Initialization function for all global variables (not those of the rcspp)
     //
@@ -109,7 +109,7 @@ class SubProblem {
 
     // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
     //
-    virtual bool solve(LiveNurse*  nurse,
+    virtual bool solve(PLiveNurse  nurse,
                        DualCosts *costs,
                        SubproblemParam param,
                        std::set<std::pair<int, int> > forbiddenDayShifts = {},
@@ -125,11 +125,11 @@ class SubProblem {
 
     // Some getters
     //
-    inline Scenario* scenario() const { return pScenario_; }
+    inline PScenario scenario() const { return pScenario_; }
 
     inline PConstContract contract() const { return pContract_; }
 
-    inline const LiveNurse*  liveNurse() const { return pLiveNurse_; }
+    inline const PLiveNurse  liveNurse() const { return pLiveNurse_; }
 
     inline int nDays() const { return nDays_; }
 
@@ -190,7 +190,7 @@ class SubProblem {
 
     // Pointer to the scenario considered
     //
-    Scenario* pScenario_;
+    PScenario pScenario_;
 
     // Number of days of the scenario (usually a multiple of 7)
     //
@@ -206,7 +206,7 @@ class SubProblem {
 
     // Current live nurse considered
     //
-    LiveNurse*  pLiveNurse_;
+    PLiveNurse  pLiveNurse_;
 
     // All costs from Master Problem
     //

@@ -28,7 +28,7 @@ using std::pair;
 //
 //-----------------------------------------------------------------------------
 
-DeterministicSolver::DeterministicSolver(Scenario* pScenario,InputPaths inputPaths):
+DeterministicSolver::DeterministicSolver(PScenario pScenario,InputPaths inputPaths):
 Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
 pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 
@@ -475,11 +475,11 @@ double DeterministicSolver::treatResults(Solver* pSolver) {
 double DeterministicSolver::solveByConnexPositions() {
 
 	// DIVIDE THE SCENARIO INTO CONNEX COMPONENTS AND PRINT THE RESULT
-	vector<Scenario*> scenariosPerComponent = divideScenarioIntoConnexPositions(pScenario_);
+	vector<PScenario> scenariosPerComponent = divideScenarioIntoConnexPositions(pScenario_);
 
 	// SOLVE THE PROBLEM COMPONENT-WISE
 	int i = 0;
-	for (Scenario* pScenario: scenariosPerComponent) {
+	for (PScenario pScenario: scenariosPerComponent) {
 		std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
 		std::cout << pScenario->toString() << std::endl;
 
@@ -503,7 +503,7 @@ double DeterministicSolver::solveByConnexPositions() {
 		// STORE THE SOLUTION
 		// Be particularly cautious that the nurse indices are not the same in the
 		// initial scenario and in the solvers per component
-		for (LiveNurse *pNurse: solver->theLiveNurses_)
+		for (PLiveNurse pNurse: solver->theLiveNurses_)
 			theLiveNurses_[pNurse->originalNurseId_]->roster_ = solver->getSolution()[pNurse->id_];
 
 		// Consolidate the global state of the solver
@@ -527,7 +527,6 @@ double DeterministicSolver::solveByConnexPositions() {
     // release memory
 		// the solver and scenario of the component can be deleted at this stage
 		delete solver;
-    delete pScenario;
 	}
 
 	// update nurses' states
@@ -900,17 +899,17 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp, DaysS
 //
 void DeterministicSolver::organizeTheLiveNursesByPosition() {
 	nbPositions_=0;
-	std::vector<LiveNurse*> copyTheLiveNurses = theLiveNurses_;
+	std::vector<PLiveNurse> copyTheLiveNurses = theLiveNurses_;
 
 	// Transfer the nurses with same positions from the copy vector of live nurse
 	// to the organized vector of live nurses
 	while (!copyTheLiveNurses.empty()) {
 		nbPositions_++;
-		std::vector<LiveNurse*> theLiveNursesAtPosition;
+		std::vector<PLiveNurse> theLiveNursesAtPosition;
 
 		// initialize with the first nurse
 		theLiveNursesAtPosition.push_back(copyTheLiveNurses[0]);
-		const Position* thisPosition = copyTheLiveNurses[0]->pPosition_;
+		const PPosition thisPosition = copyTheLiveNurses[0]->pPosition_;
 		copyTheLiveNurses.erase(copyTheLiveNurses.begin());
 
 		// search for the nurses with same position in the remaining nurses
@@ -934,13 +933,13 @@ void DeterministicSolver::organizeTheLiveNursesByPosition() {
 
 void DeterministicSolver::organizeTheLiveNursesByContract() {
 	nbContracts_=0;
-	std::vector<LiveNurse*> copyTheLiveNurses = theLiveNurses_;
+	std::vector<PLiveNurse> copyTheLiveNurses = theLiveNurses_;
 
 	// Transfer the nurses with same contract from the copy vector of live nurse
 	// to the organized vector of live nurses
 	while (!copyTheLiveNurses.empty()) {
 		nbContracts_++;
-		std::vector<LiveNurse*> theLiveNursesWithContract;
+		std::vector<PLiveNurse> theLiveNursesWithContract;
 
 		// initialize with the first nurse
 		theLiveNursesWithContract.push_back(copyTheLiveNurses[0]);
@@ -974,7 +973,7 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 //----------------------------------------------------------------------------
 
 // Return a solver with the algorithm specified for resolution
-Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand) {
+Solver * DeterministicSolver::setSolverWithInputAlgorithm(PDemand pDemand) {
 	switch(options_.solutionAlgorithm_){
 		case GENCOL:
 		return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
@@ -986,7 +985,7 @@ Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand) {
 }
 
 // Return a solver with the input algorithm
-Solver* DeterministicSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm) {
+Solver* DeterministicSolver::setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm) {
 	switch(algorithm){
 		case GENCOL:
 		return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);

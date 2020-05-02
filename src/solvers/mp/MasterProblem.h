@@ -131,8 +131,8 @@ struct Pattern {
 class MasterProblem : public Solver, public PrintSolution{
   public:
     // Specific constructor and destructor
-    MasterProblem(Scenario* pScenario, Demand* pDemand,
-      Preferences* pPreferences, std::vector<State>* pInitState, MySolverType solver);
+    MasterProblem(PScenario pScenario, PDemand pDemand,
+      PPreferences pPreferences, std::vector<State>* pInitState, MySolverType solver);
     ~MasterProblem();
 
     //solve the rostering problem
@@ -146,7 +146,7 @@ class MasterProblem : public Solver, public PrintSolution{
 
     //Resolve the problem with another demand and keep the same preferences
     //
-    double resolve(Demand* pDemand, const SolverParam& parameters, std::vector<Roster> solution = {});
+    double resolve(PDemand pDemand, const SolverParam& parameters, std::vector<Roster> solution = {});
 
     // needs to be specialized: add a colum  to the master from a solution of the subproblem
     virtual MyVar* addColumn(int nurseId, const RCSolution& solution) = 0;
@@ -157,7 +157,7 @@ class MasterProblem : public Solver, public PrintSolution{
     // throw an error if pattern is already present as an active column
     void checkIfPatternAlreadyPresent(const std::vector<double>& pattern) const;
 
-    virtual const std::vector<MyVar*>& getRestVarsPerDay(LiveNurse* pNurse, int day) const = 0;
+    virtual const std::vector<MyVar*>& getRestVarsPerDay(PLiveNurse pNurse, int day) const = 0;
 
     //get the pointer to the model
     Modeler* getModel(){
@@ -173,7 +173,7 @@ class MasterProblem : public Solver, public PrintSolution{
     vector3D<double> getFractionalRoster() ;
 
     // build a DualCosts structure
-    DualCosts buildDualCosts(LiveNurse* pNurse) const;
+    DualCosts buildDualCosts(PLiveNurse pNurse) const;
 
     //------------------------------------------------
     // Solution with rolling horizon process
@@ -358,7 +358,7 @@ class MasterProblem : public Solver, public PrintSolution{
 
     //update the demand with a new one of the same size
     //change the rhs of the constraints minDemandCons_ and optDemandCons_
-    void updateDemand(Demand* pDemand);
+    void updateDemand(PDemand pDemand);
 
     /* Build each set of constraints - Add also the coefficient of a column for each set */
     void buildMinMaxCons(const SolverParam& parameters);
@@ -367,10 +367,10 @@ class MasterProblem : public Solver, public PrintSolution{
     int addSkillsCoverageConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i, int k, int s=-1);
 
     /* retrieve the dual values */
-    virtual vector2D<double> getShiftsDualValues(LiveNurse*  pNurse) const;
-    virtual std::vector<double> getStartWorkDualValues(LiveNurse* pNurse) const;
-    virtual std::vector<double> getEndWorkDualValues(LiveNurse* pNurse) const;
-    virtual double getWorkedWeekendDualValue(LiveNurse* pNurse) const;
+    virtual vector2D<double> getShiftsDualValues(PLiveNurse  pNurse) const;
+    virtual std::vector<double> getStartWorkDualValues(PLiveNurse pNurse) const;
+    virtual std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const;
+    virtual double getWorkedWeekendDualValue(PLiveNurse pNurse) const;
 
     /* Display functions */
     std::string costsConstrainstsToString();

@@ -125,16 +125,18 @@ private:
 // with no get or set method
 //
 //-----------------------------------------------------------------------------
+class LiveNurse;
+typedef std::shared_ptr<LiveNurse> PLiveNurse;
 class LiveNurse : public Nurse {
 
 public:
 
 	// Constructor and destructor
 	//
-	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni, Preferences* pPreferences);
-	LiveNurse(const Nurse& nurse, Scenario* pScenario, int nbDays, int firstDay,
-			State* pStateIni, Preferences* pPreferences, int nurseId);
+	LiveNurse(const Nurse& nurse, PScenario pScenario, int nbDays, int firstDay,
+			State* pStateIni, PPreferences pPreferences);
+	LiveNurse(const Nurse& nurse, PScenario pScenario, int nbDays, int firstDay,
+			State* pStateIni, PPreferences pPreferences, int nurseId);
 	~LiveNurse();
 
 	//----------------------------------------------------------------------------
@@ -142,7 +144,7 @@ public:
 	//----------------------------------------------------------------------------
 
 	// Scenario under consideration
-	Scenario* pScenario_;
+	PScenario pScenario_;
 
 	//----------------------------------------------------------------------------
 	// Data of the the particular period the live nurse is going to work
@@ -154,7 +156,7 @@ public:
 	State* pStateIni_;
 
 	// Wishes of days off
-	Preferences* pPreferences_;
+	PPreferences pPreferences_;
 
 	//----------------------------------------------------------------------------
 	// Planning data
@@ -178,7 +180,7 @@ public:
 
 	// position of the nurse: this field is deduced from the list of skills
 	//
-	Position* pPosition_;
+	PPosition pPosition_;
 
 	//----------------------------------------------------------------------------
 	// Informative data
@@ -204,7 +206,7 @@ public:
 
 	// basic getters
 	//
-	Position* pPosition() const {return pPosition_;}
+	PPosition pPosition() const {return pPosition_;}
 	State state(int day) {return states_[day];}
 
 	// advanced getters
@@ -278,7 +280,7 @@ public:
 	void buildStates();
 
   // Print the contract type + preferences
-  void printContractAndPreferences(Scenario *pScenario) const;
+  void printContractAndPreferences(PScenario pScenario) const;
 
 };
 
@@ -290,7 +292,7 @@ public:
 // or the largest number of skills
 // 3) the first position to be treated is that with the smaller rank
 //
-bool comparePositions(Position* p1, Position* p2);
+bool comparePositions(PPosition p1, PPosition p2);
 
 // Compare two nurses based on their position
 // the function is used to sort the nurses in ascending rank of their
@@ -298,7 +300,7 @@ bool comparePositions(Position* p1, Position* p2);
 // if their positions have the same rank, then the smaller nurse is found
 // by a lexicographic comparison of the rarity of the skills of the nurses
 //
-bool compareNurses(LiveNurse* n1, LiveNurse* n2);
+bool compareNurses(PLiveNurse n1, PLiveNurse n2);
 
 
 //-----------------------------------------------------------------------------
@@ -466,8 +468,8 @@ public:
 	virtual ~Solver();
 
 	// Specific constructor
-	Solver(Scenario* pScenario, Demand* pDemand,
-		Preferences* pPreferences, std::vector<State>* pInitState);
+	Solver(PScenario pScenario, PDemand pDemand,
+		PPreferences pPreferences, std::vector<State>* pInitState);
 
 
 	// Main method to solve the rostering problem for a given input and an initial solution
@@ -481,7 +483,7 @@ public:
 
 	//Resolve the problem with another demand and keep the same preferences
 	//
-	virtual double resolve(Demand* pDemand, const SolverParam& parameters, std::vector<Roster> solution = {}){
+	virtual double resolve(PDemand pDemand, const SolverParam& parameters, std::vector<Roster> solution = {}){
 		pDemand_ = pDemand;
 		return solve(parameters, solution);
 	}
@@ -495,16 +497,16 @@ protected:
 
 	// Recall the "const" attributes as pointers : Scenario informations
 	//
-	Scenario* pScenario_;
+	PScenario pScenario_;
 
 	// Minimum and optimum demand for each day, shift and skill
 	//
-	Demand* pDemand_;
+	PDemand pDemand_;
 
 	// Preferences of the nurses (that vector must be of same length and in the
 	// same order as the nurses)
 	//
-	Preferences* pPreferences_;
+	PPreferences pPreferences_;
 
 	// pointer to the state of each nurse at the beginning of the time horizon
 	//
@@ -520,7 +522,7 @@ protected:
 	// vector of LiveNurses. Initially a copy of the scenario nurses, they may
 	// then be preprocessed and get enw attributes
 	//
-	std::vector<LiveNurse*> theLiveNurses_;
+	std::vector<PLiveNurse> theLiveNurses_;
 
 	// Preprocessed minimum and maximum number of working days on all the weeks
 	//
@@ -586,7 +588,7 @@ protected:
 	// vectors of nurses, skills and shifts that shall be sorted before running
 	// the greedy algorithms
 	//
-	std::vector<LiveNurse*> theNursesSorted_;
+	std::vector<PLiveNurse> theNursesSorted_;
 	std::vector<int> shiftsSorted_;
 	std::vector<int> skillsSorted_;
 
@@ -738,7 +740,7 @@ public:
 //  // Return a solver with the algorithm specified in the options_
 //  //
 //  virtual Solver* setSolverWithInputAlgorithm(Algorithm algorithm, MySolverType type) const;
-//  virtual Solver* setSolverWithInputAlgorithm(Scenario* pScenario, std::vector<State> * stateEndOfSchedule, Algorithm algorithm, MySolverType type) const;
+//  virtual Solver* setSolverWithInputAlgorithm(PScenario pScenario, std::vector<State> * stateEndOfSchedule, Algorithm algorithm, MySolverType type) const;
 
 	// build the, possibly fractional, roster corresponding to the solution
 	// currently stored in the model
@@ -815,10 +817,10 @@ public:
 	//
 	std::string solutionToLogString();
 
-	Scenario* getScenario() const { return pScenario_; }
+	PScenario getScenario() const { return pScenario_; }
 
-  const std::vector<LiveNurse*>& getLiveNurses() const { return theLiveNurses_; }
-	const std::vector<LiveNurse*>& getSortedLiveNurses() const { return theNursesSorted_; }
+  const std::vector<PLiveNurse>& getLiveNurses() const { return theLiveNurses_; }
+	const std::vector<PLiveNurse>& getSortedLiveNurses() const { return theNursesSorted_; }
 
 	std::vector<State>* pInitialStates() const { return pInitState_; }
 

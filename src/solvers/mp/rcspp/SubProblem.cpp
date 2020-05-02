@@ -32,7 +32,7 @@ using std::set;
 // Constructors and destructor
 SubProblem::SubProblem() {}
 
-SubProblem::SubProblem(Scenario* scenario, int nDays, PConstContract contract, vector<State>* pInitState):
+SubProblem::SubProblem(PScenario scenario, int nDays, PConstContract contract, vector<State>* pInitState):
 					pScenario_(scenario), nDays_(nDays), pContract_ (contract),
 					CDMin_(contract->minConsDaysWork_), daysMin_(1), nLabels_(2),
 					maxRotationLength_(nDays) {
@@ -84,7 +84,7 @@ void SubProblem::build() {
 //--------------------------------------------
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
-bool SubProblem::solve(LiveNurse* nurse, DualCosts * costs, SubproblemParam param, set<pair<int,int> > forbiddenDayShifts,
+bool SubProblem::solve(PLiveNurse nurse, DualCosts * costs, SubproblemParam param, set<pair<int,int> > forbiddenDayShifts,
 		set<int> forbiddenStartingDays, bool optimality, double redCostBound) {
 
 
