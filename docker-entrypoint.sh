@@ -6,7 +6,7 @@ function printBashUsage {
   echo "-h | --help: display this message"
   echo "-d | --dynamic: Add this flag if you'd like to run the dynamic version."
   echo "-i | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: n005w4_1-2-3-3_0"
-  echo "-sc | --solver-config: config file for the solver parameters. Default: default or none if dynamic"
+  echo "-p, -sc | --param, --solver-config: config file for the solver parameters. Default: none"
   echo "-gc | --generation-config: config file for the generation parameters. Default: none"
   echo "-ec | --evaluation-config: config file for the evaluation parameters. Default: none"
   echo "-s | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: random."
@@ -14,12 +14,14 @@ function printBashUsage {
   echo "-o | --output: directory for the output. Default: outfiles/{instance}/{timestamp} or outfiles/{instance}/{seeds}_{timestamp} if dynamic"
   echo "-g | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
   echo "-v | --valgrind: use valgrind to run the code. Default: false."
+  echo "-e | --evaluate: use the validator to evaluate thee solution. Default: true."
 }
 
 # load config arguments
 echo "$@"
 valgrindCMD="valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes "
 instance_description="n005w4_1-2-3-3_0"
+eval="1"
 dynamic_args=""
 other_args=""
 while [ ! -z $1 ]; do
@@ -30,12 +32,14 @@ while [ ! -z $1 ]; do
    -s | --seeds) seeds=$2; dynamic_args="$dynamic_args -s $2"; shift 2;;
    -t | --timeout) timeout=$2; dynamic_args="$dynamic_args -t $2"; shift 2;;
     # add config files
+   -p | --param) param=$2; shift 2;;
    -sc | --solver-config) param=$2; shift 2;;
    -gc | --generation-config) genParam=$2; shift 2;;
    -ec | --evaluation-config) evalParam=$2; shift 2;;
    -g | --goal) goal=$2; shift 2;;
    -d | --dynamic) dynamic="1"; shift 1;;
    -v | -valgrind) valgrind="1"; shift 1;;
+   -e | --evaluate) eval=$2; shift 2;;
    -*|--*) echo "Option unknown: $1. It will be passed to the scheduler."
       other_args="$other_args $1 $2"; shift 2;;
    *) echo "Cannot parse this argument: $1"
@@ -59,28 +63,39 @@ if [ -z $dynamic ]; then
 	outputDir="outfiles/$instance_description/$currenttime"
 	echo "Create output directory: ${outputDir}"
 	mkdir -p "${outputDir}"
+	
+	# base output
+	sCMD="./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --sol $outputDir"
 
 	# set default timeout
 	if [ -z $timeout ]; then
 		timeout=30
 	fi
+	sCMD="${sCMD} --timeout $timeout"
 
-	# set default param file
-	if [ -z param ]; then
-		param="paramfiles/default.txt"
+	# set param file
+	if [ ! -z param ]; then
+		# param="paramfiles/default.txt"
+		sCMD="${sCMD} --param paramfiles/$param"
 	fi
+	
+	# add others args
+	sCMD="${sCMD} $other_args"
 
   if [ -z $valgrind ]; then
   	# run the scheduler
-  	echo "Run: ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param $param --sol $outputDir --timeout $timeout $other_args"
-  	./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param paramfiles/$param --sol $outputDir --timeout $timeout $other_args
+  	echo "Run: $sCMD"
+  	$sCMD | tee ${outputDir}/output.txt
+    ret="$?"
 
   	# run the validator
-  	./validator.sh $instance $weeks $hist $outputDir
+  	if [ $ret -eq 0 -a $eval -eq 1 ]; then
+  	    ./validator.sh $instance $weeks $hist $outputDir --verbose
+  	fi
   else
     # run the scheduler with valgrind
-  	echo "Run: $valgrindCMD ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param $param --sol $outputDir --timeout $timeout $other_args"
-  	$valgrindCMD ./bin/staticscheduler --dir datasets/ --instance $instance --weeks $weeks --his $hist --param paramfiles/$param --sol $outputDir --timeout $timeout $other_args
+  	echo "Run: $valgrindCMD $sCMD"
+  	$valgrindCMD $sCMD
 
     exit 0
   fi
@@ -105,11 +120,14 @@ else
 	chmod +x *.jar
 	cp validator.jar ./bin
 	./${scriptfile}
-  rm -f ${scriptfile}
+	ret="$?"
+    rm -f ${scriptfile}
 fi
 
 # display the solution
-cat ${outputDir}/validator.txt
+if [ $ret -eq 0 -a $eval -eq 1 ]; then
+    cat ${outputDir}/validator.txt
+fi
 
 # if a goal is defined, test the total cost
 if [ -z "$goal" ]
@@ -122,13 +140,27 @@ bounds=(`echo $goal | tr '-' ' ' `)
 lb=${bounds[0]}
 ub=${bounds[${#bounds[@]}-1]}
 echo "lb=$lb; ub=$ub"
-if [ $lb -gt $ub ]
-then
+
+# check if should return an error (lb=-1)
+if [ $lb == "E" ]; then
+    if [ $ret -eq 0 ]; then
+        exit 1
+    fi
+    exit 0
+fi
+
+# check bounds
+if [ $lb -gt $ub ]; then
   echo "error: lb > ub"
   exit 1
 fi
 
-result=$(cat ${outputDir}/validator.txt | grep "Total cost:")
+if [ $eval -eq 1 ]; then
+    result=$(cat ${outputDir}/validator.txt | grep "Total cost:")
+else
+    result=$(cat ${outputDir}/output.txt | grep "Objective value")
+fi
+echo $result
 if [ -z "$result" ]
 then
   echo "error: total cost not found"

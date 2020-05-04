@@ -392,7 +392,6 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
         *pPref = std::make_shared<Preferences>(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
 			string nurseName, shift, day, strLevel;
-			bool levelDefined = true;
 			int nbShifts, nurseId, dayId;
 			PREF_LEVEL level = WEAK;
 			file >> nbShifts;
@@ -405,14 +404,11 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
 				file >> day;
         dayId = Tools::dayToInt(day);
 				// in case there is no level defined for the preferences
-				if(levelDefined) {
-          file >> strLevel;
-          try {
-            level = (PREF_LEVEL) std::stoi(strLevel);
-          } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
-            nurseName = strLevel;
-            levelDefined = false;
-          }
+        file >> strLevel;
+        try {
+          level = (PREF_LEVEL) std::stoi(strLevel);
+        } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
+          nurseName = strLevel;
         }
 
 				if(shift == "Any")
@@ -432,27 +428,23 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
 			  *pPref = std::make_shared<Preferences>(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
       string nurseName, shift, day, strLevel;
-      bool levelDefined = true;
       int nbShifts, nurseId, dayId;
       PREF_LEVEL level = WEAK;
       file >> nbShifts;
       for (int i=0; i<nbShifts; i++){
         if(nurseName.empty())
           file >> nurseName;
-        nurseName.clear();
         nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        nurseName.clear();
         file >> shift;
         file >> day;
         dayId = Tools::dayToInt(day);
         // in case there is no level defined for the preferences
-        if(levelDefined) {
-          file >> strLevel;
-          try {
-            level = (PREF_LEVEL) std::stoi(strLevel);
-          } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
-            nurseName = strLevel;
-            levelDefined = false;
-          }
+        file >> strLevel;
+        try {
+          level = (PREF_LEVEL) std::stoi(strLevel);
+        } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
+          nurseName = strLevel;
         }
 
 				if(shift == "Any")

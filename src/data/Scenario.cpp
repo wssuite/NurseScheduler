@@ -74,7 +74,6 @@ void State::addDayToState(const State& prevState, int newShiftType, int newShift
   //  int  timeWorked = timeDurationToWork_[newShift];      // hours worked
   
 	// Total shifts worked if it is a worked day
-	// totalTimeWorked_ = prevState.totalTimeWorked_+(newShiftType > 0 ? 1 : 0);
 	totalTimeWorked_ = prevState.totalTimeWorked_+(newShiftType > 0 ? timeWorked : 0);
 
 	// index of the previous shift
@@ -113,7 +112,6 @@ void State::addDayToState(const State& prevState, int newShiftType, int newShift
 	}
 	else { // the previous shift was not assigned but this one is
 	  if (newShiftType >0) {
-		 // totalTimeWorked_ = prevState.totalTimeWorked_+1+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);
 	    totalTimeWorked_ = prevState.totalTimeWorked_+timeWorked+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);  // SERGEB ??????
 		 totalWeekendsWorked_ = Tools::isSunday(dayId_) ? prevState.totalWeekendsWorked_+1:prevState.totalWeekendsWorked_;
 		 consDaysWorked_ = (prevState.consDaysWorked_ > 0)  ? (prevState.consDaysWorked_ + 1 - prevShiftType) : 1;

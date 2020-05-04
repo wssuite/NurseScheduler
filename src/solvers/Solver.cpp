@@ -283,9 +283,11 @@ void LiveNurse::checkConstraints(const Roster& roster,
 		//
 		stat.costPref_[day-1] = 0;
 		int l = wishesOffLevel(day-1, shift);
-		if(l>=0) stat.costPref_[day-1] += WEIGHT_PREFERENCES_OFF[l];
+		if(l>=0)
+		  stat.costPref_[day-1] += WEIGHT_PREFERENCES_OFF[l];
     l = wishesOnLevel(day-1, shift);
-    if(l>=0) stat.costPref_[day-1] += WEIGHT_PREFERENCES_OFF[l];
+    if(l>=0)
+      stat.costPref_[day-1] += WEIGHT_PREFERENCES_ON[l];
 
 		// check the complete week-end (only if the nurse requires them)
 		// this cost is only assigned to the sundays
