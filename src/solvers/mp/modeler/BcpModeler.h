@@ -171,6 +171,30 @@ struct BcpColumn: public CoinVar, public BCP_var_algo{
 		buf.pack(last_active_);
 	}
 
+	static BcpColumn* unpack(BCP_buffer& buf) {
+	  char * name;
+    buf.unpack(name);
+    int index;
+    buf.unpack(index);
+    VarType type;
+    buf.unpack(type);
+    double cost, lb, ub, dualCost;
+    buf.unpack(cost);
+    buf.unpack(lb);
+    buf.unpack(ub);
+    buf.unpack(dualCost);
+    std::vector<int> indexRows;
+    buf.unpack(indexRows);
+    std::vector<double> coeffs, pattern;
+    buf.unpack(coeffs);
+    buf.unpack(pattern);
+    BcpColumn* col = new BcpColumn(name, index, cost, pattern, dualCost, type, lb, ub, indexRows, coeffs);
+    buf.unpack(col->iteration_creation_);
+    buf.unpack(col->active_count_);
+    buf.unpack(col->last_active_);
+    return col;
+  }
+
 	//use BCP bounds
 	double getLB() const {
 		return std::max(lb_,lb());
@@ -178,6 +202,12 @@ struct BcpColumn: public CoinVar, public BCP_var_algo{
 
 	double getUB() const {
 		return std::min(ub_,ub());
+	}
+
+	// use original bounds to set BCP_var_algo bounds
+  void resetBounds() {
+	  set_lb(lb_);
+	  set_ub(ub_);
 	}
 };
 
@@ -201,7 +231,7 @@ struct BcpCoreCons: public CoinCons, public BCP_cut_core{
 //these constraints are not generated, they are always in the LP problem
 struct BcpBranchCons: public CoinCons, public BCP_cut_algo{
 	BcpBranchCons(const char* name, int index, double lhs, double rhs,
-                std::vector<int>& indexCols, std::vector<double>& coeffs):
+                const std::vector<int>& indexCols, const std::vector<double>& coeffs):
 				CoinCons(name, index, lhs, rhs),
 				BCP_cut_algo(lhs, rhs),
 				indexCols_(indexCols), coeffs_(coeffs)
@@ -211,7 +241,30 @@ struct BcpBranchCons: public CoinCons, public BCP_cut_algo{
 		CoinCons(cons), BCP_cut_algo(lhs_, rhs_), indexCols_(cons.indexCols_), coeffs_(cons.coeffs_)
 	{ }
 
-	~BcpBranchCons(){ }
+    void pack(BCP_buffer& buf){
+      buf.pack(name_);
+      buf.pack(index_);
+      buf.pack(lhs_);
+      buf.pack(rhs_);
+      buf.pack(indexCols_);
+      buf.pack(coeffs_);
+    }
+
+    static BcpBranchCons* unpack(BCP_buffer& buf) {
+      char *name;
+      buf.unpack(name);
+      int index;
+      buf.unpack(index);
+      double lhs, rhs;
+      buf.unpack(lhs);
+      buf.unpack(rhs);
+      std::vector<int> indexCols;
+      buf.unpack(indexCols);
+      std::vector<double> coeffs;
+      buf.unpack(coeffs);
+
+      return new BcpBranchCons(name, index, lhs, rhs, indexCols, coeffs);
+    }
 
     std::vector<int>& getIndexCols() { return indexCols_; }
 
@@ -250,7 +303,7 @@ public:
 	int solve(bool relaxation = false);
 
 	//Reset and clear solving parameters
-	void reset(bool rollingHorizon=false);
+	void reset();
 
 	void addActiveColumn(MyVar* var, int index=-1){
 		BcpColumn* col = dynamic_cast<BcpColumn*>(var);
@@ -259,6 +312,9 @@ public:
 		Modeler::addActiveColumn(var, index);
 		if(index>=0) columnsToIndex_[col->getIndex()] = index;
 	}
+
+	// Delete all the objects owned by this modeler and then call the parent function
+  void clear();
 
 	void clearActiveColumns() {
     Modeler::clearActiveColumns();
@@ -273,9 +329,11 @@ protected:
 	 *    lhs, rhs are the lower and upper bound of the variable
 	 *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
 	 */
-	int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const std::vector<double>& pattern = DEFAULT_PATTERN);
+  int createVar(MyVar** var, const char* var_name, int index, double objCoeff,
+                double lb, double ub, VarType vartype, const std::vector<double>& pattern, double score) override;
 
-	int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub);
+  int createColumnVar(MyVar** var, const char* var_name, int index, double objCoeff,
+        const std::vector<double>& pattern, double dualObj, double lb, double ub, VarType vartype, double score) override ;
 
 	/*
 	 * Create linear constraint:
@@ -285,9 +343,15 @@ protected:
 	 *    nonZeroVars is the number of non-zero coefficients to add to the constraint
 	 */
 
-	int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs);
+	int createCoinConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs);
+
+  int createCoinCutLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
+                                    const std::vector<int>& indexVars, const std::vector<double>& coeffs);
 
 	MyVar* copyColumn(MyVar* var) const;
+
+  //  Delete all the objects owned by this modeler
+  void deleteSolutions();
 
 public:
 	/*
@@ -358,7 +422,7 @@ public:
 
 	// Clear the active column, set the active columns with those in the input
 	// solution and set the primal values accordingly
-	void loadInputSol(BCP_solution_generic& sol);
+	void loadInputSol(const BCP_solution_generic& sol);
 
 	inline void setPrimal(const std::vector<double>& primal){ primalValues_ = primal; }
 
@@ -415,18 +479,9 @@ public:
 	}
 
 	inline MyNode* getNode(const CoinTreeSiblings* s) {
-		int nodeIndex = s->size() - s->toProcess();
-		return treeMapping_[s][nodeIndex];
-	}
-
-	inline void createCutLinear(MyCons** cons, const char* con_name, double lhs, double rhs,
-			std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {});
-
-	inline std::vector<MyCons*>& getBranchingCons(){ return branchingCons_; }
-
-	inline void addBranchingCons(MyCons* cons){
-		return branchingCons_.push_back( new BcpBranchCons( *(dynamic_cast<BcpBranchCons*>(cons)) ) );
-	}
+    int nodeIndex = s->size() - s->toProcess();
+    return treeMapping_[s][nodeIndex];
+  }
 
 	/*
 	 * Parameters getters
@@ -505,11 +560,8 @@ protected:
     std::vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
     std::map<int,int> columnsToIndex_;
 	bool solHasChanged_ = false; //reload solution ?
-	//bcp branching cons
-  std::vector<MyCons*> branchingCons_;
 	//bcp solution
   std::vector<BCP_solution_generic> bcpSolutions_;
-    std::vector<MyVar*> columnsInSolutions_;
 	// bcp solution of the root node
 	BcpLpSol rootSolution_;
 
@@ -766,6 +818,11 @@ public:
 			const bool before_fathom,
 			BCP_vec<int>& deletable);
 
+    int writeLP(std::string fileName) {
+      getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
+      return 0;
+    }
+
 	// STAB
 	// Update the bounds and/or costs of the stabilization variables
 	bool stabUpdateBoundAndCost(bool isStall, bool isImproveQuality) ;
@@ -775,7 +832,11 @@ public:
 	double max_activity_rate = .1;
 
 	// getters/setters
-	int getNbLpIterations() {return lpIteration_;}
+  BCP_lp_statistics getTimeStats() {
+    return getLpProblemPointer()->stat;
+  }
+
+	int getNbLpIterations() const {return lpIteration_;}
 
 protected:
 	BcpModeler* pModel_;
@@ -949,48 +1010,21 @@ public:
 	BcpPacker(BcpModeler* pModel): pModel_(pModel){}
 	~BcpPacker() {}
 
-	void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf) { ((BcpColumn*)var)->pack(buf); }
+	void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf) {
+	  ((BcpColumn*)var)->pack(buf);
+	}
 
 	BCP_var_algo* unpack_var_algo(BCP_buffer& buf) {
-		char* name;
-		buf.unpack(name);
-		int index;
-		buf.unpack(index);
-		VarType type;
-		buf.unpack(type);
-		double cost, lb, ub, dualCost;
-		buf.unpack(cost);
-		buf.unpack(lb);
-		buf.unpack(ub);
-		buf.unpack(dualCost);
-    std::vector<int> indexRows;
-		buf.unpack(indexRows);
-    std::vector<double> coeffs;
-		buf.unpack(coeffs);
-    std::vector<double> pattern;
-		buf.unpack(pattern);
-		BcpColumn* col = new BcpColumn(name, index, cost, pattern, dualCost, type, lb, ub, indexRows, coeffs);
+    return BcpColumn::unpack(buf);
+  }
 
-		int iteration_creation, active_count, last_active;
-		buf.unpack(iteration_creation);
-		buf.unpack(active_count);
-		buf.unpack(last_active);
-		col->setActiveCounters(iteration_creation, active_count, last_active);
+  void pack_cut_algo(const BCP_cut_algo* cons, BCP_buffer& buf) {
+    ((BcpBranchCons*)cons)->pack(buf);
+  }
 
-		return col;
-	}
-
-	void pack_cut_algo(const BCP_cut_algo* cons, BCP_buffer& buf) { buf.pack(((BcpBranchCons*)cons)->getIndex()); }
-
-	BCP_cut_algo* unpack_cut_algo(BCP_buffer& buf) {
-		int index = 0;
-		buf.unpack(index);
-		int i = index - pModel_->getCons().size();
-		BcpBranchCons* cons = dynamic_cast<BcpBranchCons*>(pModel_->getBranchingCons()[i]);
-		if(index != cons->getIndex())
-			Tools::throwError("Bad cons unpacked or packed.");
-		return new BcpBranchCons(*cons);
-	}
+  BCP_cut_algo* unpack_cut_algo(BCP_buffer& buf) {
+    return BcpBranchCons::unpack(buf);
+  }
 
 protected:
 	BcpModeler* pModel_;
@@ -1028,7 +1062,19 @@ public:
 		return pPacker_;
 	}
 
-	BcpLpModel* getBcpLpModel() {return pLpModel_;}
+	BCP_lp_statistics getTimeStats() {
+    return pLpModel_->getTimeStats();
+	}
+
+	int getNbLpIterations() const {
+	  return pLpModel_->getNbLpIterations();
+	}
+
+  int writeLP(std::string fileName) const{
+    if(pLpModel_) return pLpModel_->writeLP(fileName);
+    std::cout << "WARNING: BCP cannot write the model as the LP solver has not been initialized." << std::endl;
+    return 1;
+  }
 
 // protected:
 	BcpModeler* pModel_;

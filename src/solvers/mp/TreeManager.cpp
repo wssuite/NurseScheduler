@@ -388,7 +388,7 @@ bool DiveBranchingRule::branchOnRestingArcs(MyBranchingCandidate& candidate){
 		}
 		//create a new cons
 		MyCons* cons;
-		pModel_->createCutLinear(&cons, name, 0, 0, restingArcs, coeffs);
+		pModel_->createEQCutLinear(&cons, name, 0, restingArcs, coeffs);
 
 		/* update candidate */
 		int index = candidate.addNewBranchingCons(cons);
@@ -490,25 +490,25 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 			//look for the balance between the shifts:
 			// the sum of the weight in currentShifts should be as close as possible to 0.5
       // scoreNode1 is the sum of the weights of the shifts in currentShifts
-      // nbShifts is the number of shifts in currentShitfs
+      // nbShifts is the number of shifts in currentshifts
       // scoreNode2, nbSbhifts2 are the same for the shifts not in currentShifts
 			double scoreNode1 = 0, scoreNode2 = 0;
-			int nbShitfs1 = 0, nbShitfs2 = 0;
+			int nbshifts1 = 0, nbshifts2 = 0;
 			vector<int> currentShifts;
 			for(pair<int,double>& p: fractionalNurseDay){
 				if(p.second < EPSILON)
-					if(nbShitfs1 >= nbShitfs2) ++ nbShitfs2;
+					if(nbshifts1 >= nbshifts2) ++ nbshifts2;
 					else{
-						++ nbShitfs1;
+						++ nbshifts1;
 						currentShifts.push_back(p.first);
 					}
 				else
 					if(scoreNode1 > scoreNode2){
-						++ nbShitfs2;
+						++ nbshifts2;
 						scoreNode2 += -p.second;
 					}
 					else{
-						++ nbShitfs1;
+						++ nbshifts1;
 						scoreNode1 += -p.second;
 						currentShifts.push_back(p.first);
 					}
@@ -538,7 +538,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 		}
 		//create a new cons
 		MyCons* cons;
-		pModel_->createCutLinear(&cons, name, 0, 1, restingArcs, coeffs);
+		pModel_->createLECutLinear(&cons, name, 1, restingArcs, coeffs);
 
 		//compute the forbidden shifts
 		vector<int> complementaryShifts;

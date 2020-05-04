@@ -298,74 +298,73 @@ void RotationMP::build(const SolverParam& param){
 
   /* build the rest of the model */
   MasterProblem::build(param);
+
+  /* We add initial rotations to be always feasible */
+  std::string baseName("feasibilityRotation");
+  //We add a column with 1 everywhere for each nurse to be always feasible
+  //build a map of shift -1 everywhere
+  map<int,int> shifts;
+  for(int k=0; k<pDemand_->nbDays_; ++k)
+    shifts.insert(pair<int,int>( k , -1 ));
+
+  for(int i=0; i<pScenario_->nbNurses_; ++i){
+    // DBG: Compute the cost of artificial variables in accordance to the soft
+    // constraints
+    double artificialCost = WEIGHT_TOTAL_SHIFTS*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxTotalShiftsOf(i));
+    artificialCost += WEIGHT_CONS_DAYS_WORK*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxConsDaysWorkOf(i));
+    for (int s = 1; s < pScenario_->nbShifts_; s++) {
+      artificialCost += WEIGHT_CONS_SHIFTS*(getNbDays()-pScenario_->maxConsShiftsOfTypeOf(s));
+    }
+    Rotation rotation(shifts, i, LARGE_SCORE);// artificialCost);//
+    addRotation(rotation, baseName.c_str(), true);
+  }
 }
 
-//initialize the rostering problem with one column to be feasible if there is no initial solution
-//otherwise build the columns corresponding to the initial solution
+// Build the columns corresponding to the initial solution
 void RotationMP::initializeSolution(const vector<Roster>& solution) {
-  string baseName("initialRotation");
-  //rotations are added for each nurse of the initial solution
-  if (solution.size() != 0) {
-    //build the rotations of each nurse
-    for (int i = 0; i < pScenario_->nbNurses_; ++i) {
-      //load the roster of nurse i
-      Roster roster = solution[i];
+  if (solution.empty()) return;
 
-      bool workedLastDay = false;
-      int lastShift = 0;
-      map<int, int> shifts;
-      //build all the successive rotation of this nurse
-      for (int k = 0; k < pDemand_->nbDays_; ++k) {
-        //shift=0 => rest
-        int shift = roster.shift(k);
-        //if work, insert the shift in the map
-        if (shift > 0) {
-          shifts.insert(pair<int, int>(k, shift));
-          lastShift = shift;
-          workedLastDay = true;
-        } else if (shift < 0 && lastShift > 0) {
-          shifts.insert(pair<int, int>(k, lastShift));
-          workedLastDay = true;
-        }
-          //if stop to work, build the rotation
-        else if (workedLastDay) {
-          Rotation rotation(shifts, i);
-          rotation.computeCost(pScenario_, theLiveNurses_, pDemand_->nbDays_);
-          rotation.computeTimeDuration(pScenario_);
-          pModel_->addActiveColumn(addRotation(rotation, baseName.c_str()));
-          shifts.clear();
-          lastShift = shift;
-          workedLastDay = false;
-        }
+  //rotations are added for each nurse of the initial solution
+  string baseName("initialRotation");
+  //build the rotations of each nurse
+  for (int i = 0; i < pScenario_->nbNurses_; ++i) {
+    //load the roster of nurse i
+    Roster roster = solution[i];
+
+    bool workedLastDay = false;
+    int lastShift = 0;
+    map<int, int> shifts;
+    //build all the successive rotation of this nurse
+    for (int k = 0; k < pDemand_->nbDays_; ++k) {
+      //shift=0 => rest
+      int shift = roster.shift(k);
+      //if work, insert the shift in the map
+      if (shift > 0) {
+        shifts[k] = shift;
+        lastShift = shift;
+        workedLastDay = true;
+      } else if (shift < 0 && lastShift > 0) {
+        shifts[k] = lastShift;
+        workedLastDay = true;
       }
-      //if work on the last day, build the rotation
-      if (workedLastDay) {
+      //if stop to work, build the rotation
+      else if (workedLastDay) {
         Rotation rotation(shifts, i);
         rotation.computeCost(pScenario_, theLiveNurses_, pDemand_->nbDays_);
         rotation.computeTimeDuration(pScenario_);
-        pModel_->addActiveColumn(addRotation(rotation, baseName.c_str()));
+        pModel_->addInitialColumn(addRotation(rotation, baseName.c_str()));
         shifts.clear();
+        lastShift = shift;
+        workedLastDay = false;
       }
     }
-  } else {
-    /* We add initial rotations to be always feasible */
-    std::string baseName("feasibilityRotation");
-    //We add a column with 1 everywhere for each nurse to be always feasible
-    //build a map of shift -1 everywhere
-    map<int,int> shifts;
-    for(int k=0; k<pDemand_->nbDays_; ++k)
-      shifts.insert(pair<int,int>( k , -1 ));
-
-    for(int i=0; i<pScenario_->nbNurses_; ++i){
-      // DBG: Compute the cost of artificial variables in accordance to the soft
-      // constraints
-      double artificialCost = WEIGHT_TOTAL_SHIFTS*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxTotalShiftsOf(i));
-      artificialCost += WEIGHT_CONS_DAYS_WORK*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxConsDaysWorkOf(i));
-      for (int s = 1; s < pScenario_->nbShifts_; s++) {
-        artificialCost += WEIGHT_CONS_SHIFTS*(getNbDays()-pScenario_->maxConsShiftsOfTypeOf(s));
-      }
-      Rotation rotation(shifts, i, LARGE_SCORE);// artificialCost);//
-      addRotation(rotation, baseName.c_str(), true);
+    //if work on the last day, build the rotation
+    if (workedLastDay) {
+      Rotation rotation(shifts, i);
+      rotation.computeCost(pScenario_, theLiveNurses_, pDemand_->nbDays_);
+      rotation.computeTimeDuration(pScenario_);
+      pModel_->addInitialColumn(addRotation(rotation, baseName.c_str()));
+      shifts.clear();
     }
   }
 }
@@ -627,7 +626,7 @@ void RotationMP::buildRotationCons(const SolverParam& param){
         coeffs[l] = 1;
       sprintf(name, "restingNodes_N%d_%d", i, k);
       //Create flow constraints. out flow = 1 if source node (k=0)
-      pModel_->createEQConsLinear(&restFlowCons2[k], name, (k==0) ? 1 : 0,
+      pModel_->createEQConsLinear(&restFlowCons2[k], name, (k == 0) ? 1 : 0,
                                   longRestingVars2[k], coeffs);
 
       // STAB:Add stabilization variables
@@ -689,7 +688,7 @@ void RotationMP::buildRotationCons(const SolverParam& param){
       }
       sprintf(name, "workingNodes_N%d_%d", i, k);
       //Create flow constraints. in flow = 1 if sink node (k==pDemand_->nbDays_)
-      pModel_->createEQConsLinear(&workFlowCons2[k-1], name, (k==pDemand_->nbDays_) ? 1 : 0,
+      pModel_->createEQConsLinear(&workFlowCons2[k - 1], name, (k == pDemand_->nbDays_) ? 1 : 0,
                                   vars, coeffs);
 
       // STAB:Add stabilization variables

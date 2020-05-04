@@ -87,7 +87,7 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
   double inf = -1;
 	switch(solverType){
 	case S_CLP:
-    pModel_ = new BcpModeler(this,PB_NAME, CLP);
+    pModel_ = new BcpModeler(this, PB_NAME, CLP);
     inf = OsiClpSolverInterface().getInfinity();
 		break;
 	case S_Gurobi:
@@ -167,41 +167,42 @@ double MasterProblem::solve(const SolverParam& param, vector<Roster> solution){
 }
 
 //solve the rostering problem
-double MasterProblem::solve(vector<Roster> solution, bool rebuild){
+double MasterProblem::solve(vector<Roster> solution, bool rebuild) {
 
-	// build the model first
-	if(rebuild)
-		this->build(pModel_->getParameters());
-	else
-		pModel_->reset();
+  // build the model first
+  if (rebuild) {
+    pModel_->clear();
+    this->build(pModel_->getParameters());
+  } else
+    pModel_->reset();
 
-	// input an initial solution
-	this->initializeSolution(solution);
+  // input an initial solution
+  this->initializeSolution(solution);
 
-	// DBG
+  // DBG
 #ifdef  DBG
-	pModel_->writeProblem("model.lp");
+  pModel_->writeProblem("master_model");
 #endif
 
-	// RqJO: warning, it would be better to define an enumerate type of verbosity
-	// levels and create the matching in the Modeler subclasses
-	if (solverType_ != S_CBC ) {
-		pModel_->setVerbosity(1);
-	}
-	this->solveWithCatch();
+  // RqJO: warning, it would be better to define an enumerate type of verbosity
+  // levels and create the matching in the Modeler subclasses
+  if (solverType_ != S_CBC) {
+    pModel_->setVerbosity(1);
+  }
+  this->solveWithCatch();
 
-	if (pModel_->getParameters().printBranchStats_ ) {
-		pModel_->printStats();
-	}
+  if (pModel_->getParameters().printBranchStats_) {
+    pModel_->printStats();
+  }
 
-	if(!pModel_->printBestSol()) {
-		return pModel_->getRelaxedObjective();
-	}
+  if (!pModel_->printBestSol()) {
+    return pModel_->getRelaxedObjective();
+  }
 
-	storeSolution();
-	costsConstrainstsToString();
+  storeSolution();
+  costsConstrainstsToString();
 
-	return pModel_->getObjective();
+  return pModel_->getObjective();
 }
 
 void MasterProblem::solveWithCatch(){
@@ -370,9 +371,16 @@ double MasterProblem::rollingSolve(const SolverParam& param, int firstDay) {
 	if(firstDay == 0) {
 		initialize(param);
 	}
+	// otherwise reset the solution but keep the best solution
 	else {
-		pModel_->reset(true);
+	  // load and store the best solution
+	  pModel_->loadBestSol();
+	  storeSolution();
+	  // reset the model
+		pModel_->reset();
 		pModel_->setParameters(param, this);
+    // add the best solution  back in the model
+		initializeSolution(solution_);
 	}
 
 	// solve the problem
@@ -397,11 +405,14 @@ double MasterProblem::rollingSolve(const SolverParam& param, int firstDay) {
 // of LNS
 //------------------------------------------------------------------------------
 double MasterProblem::LNSSolve(const SolverParam& param) {
-
-	// in lns, we always re-optimize, and we assume that the best solution until
-	// there is already loaded
-	pModel_->reset(true);
-	pModel_->setParameters(param, this);
+  // load and store the best solution
+  pModel_->loadBestSol();
+  storeSolution();
+  // reset the model
+  pModel_->reset();
+  pModel_->setParameters(param, this);
+  // add the best solution  back in the model
+  initializeSolution(solution_);
 
 	// solve the problem
 	pModel_->setVerbosity(1);
@@ -622,7 +633,7 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 		sprintf(name, "minWorkedDaysCons_N%d", i);
 		vector<MyVar*> vars1 = {minWorkedDaysVars_[i]};
 		vector<double> coeffs1 = {1};
-		pModel_->createGEConsLinear(&minWorkedDaysCons_[i], name, minTotalShifts_[i], vars1, coeffs1);
+    pModel_->createGEConsLinear(&minWorkedDaysCons_[i], name, minTotalShifts_[i], vars1, coeffs1);
 
 		// STAB:Add stabilization variable
 		//
@@ -635,7 +646,7 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 		sprintf(name, "maxWorkedDaysCons_N%d", i);
 		vector<MyVar*> vars2 = {maxWorkedDaysVars_[i]};
 		vector<double> coeffs2 = {-1};
-		pModel_->createLEConsLinear(&maxWorkedDaysCons_[i], name, maxTotalShifts_[i], vars2, coeffs2);
+    pModel_->createLEConsLinear(&maxWorkedDaysCons_[i], name, maxTotalShifts_[i], vars2, coeffs2);
 
 		// STAB:Add stabilization variable
 		//
@@ -659,7 +670,7 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 				sprintf(name, "minWorkedDaysAvgCons_N%d", i);
 				vector<MyVar*> varsAvg1 = {minWorkedDaysVars_[i], minWorkedDaysAvgVars_[i]};
 				vector<double> coeffsAvg1 = {1,1};
-				pModel_->createGEConsLinear(&minWorkedDaysAvgCons_[i], name, minTotalShiftsAvg_[i], varsAvg1, coeffsAvg1);
+        pModel_->createGEConsLinear(&minWorkedDaysAvgCons_[i], name, minTotalShiftsAvg_[i], varsAvg1, coeffsAvg1);
 
 				isMinWorkedDaysAvgCons_[i] = true;
 			}
@@ -671,7 +682,7 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 				sprintf(name, "maxWorkedDaysAvgCons_N%d", i);
 				vector<MyVar*> varsAvg2 = {maxWorkedDaysVars_[i],maxWorkedDaysAvgVars_[i]};
 				vector<double> coeffsAvg2 = {-1,-1};
-				pModel_->createLEConsLinear(&maxWorkedDaysAvgCons_[i], name, maxTotalShiftsAvg_[i], varsAvg2, coeffsAvg2);
+        pModel_->createLEConsLinear(&maxWorkedDaysAvgCons_[i], name, maxTotalShiftsAvg_[i], varsAvg2, coeffsAvg2);
 
 				isMaxWorkedDaysAvgCons_[i] = true;
 			}
@@ -683,8 +694,8 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 		sprintf(name, "maxWorkedWeekendCons_N%d", i);
 		vector<MyVar*> vars3 = {maxWorkedWeekendVars_[i]};
 		vector<double> coeffs3 = {-1};
-		pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, maxTotalWeekends_[i],
-				vars3, coeffs3);
+    pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i], name, maxTotalWeekends_[i],
+                                vars3, coeffs3);
 
 		// STAB:Add stabilization variable
 		//
@@ -704,8 +715,9 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 			sprintf(name, "maxWorkedWeekendAvgCons_N%d", i);
 			vector<MyVar*> varsAvg3 = {maxWorkedWeekendVars_[i],maxWorkedWeekendAvgVars_[i]};
 			vector<double> coeffsAvg3 = {-1,-1};
-			pModel_->createLEConsLinear(&maxWorkedWeekendAvgCons_[i], name, maxTotalWeekendsAvg_[i]- theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
-					varsAvg3, coeffsAvg3);
+      pModel_->createLEConsLinear(&maxWorkedWeekendAvgCons_[i], name,
+                                  maxTotalWeekendsAvg_[i] - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
+                                  varsAvg3, coeffsAvg3);
 
 			isMaxWorkedWeekendAvgCons_[i] = true;
 
@@ -724,12 +736,14 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 			sprintf(name, "minWorkedDaysContractAvgCons_P%d", p);
 			vector<MyVar*> vars1 = {minWorkedDaysContractAvgVars_[p]};
 			vector<double> coeffs1 = {1};
-			pModel_->createGEConsLinear(&minWorkedDaysContractAvgCons_[p], name, minTotalShiftsContractAvg_[p], vars1, coeffs1);
+      pModel_->createGEConsLinear(&minWorkedDaysContractAvgCons_[p], name, minTotalShiftsContractAvg_[p], vars1,
+                                  coeffs1);
 
 			sprintf(name, "maxWorkedDaysContractAvgCons_P%d", p);
 			vector<MyVar*> vars2 = {maxWorkedDaysContractAvgVars_[p]};
 			vector<double> coeffs2 = {-1};
-			pModel_->createLEConsLinear(&maxWorkedDaysContractAvgCons_[p], name, maxTotalShiftsContractAvg_[p], vars2, coeffs2);
+      pModel_->createLEConsLinear(&maxWorkedDaysContractAvgCons_[p], name, maxTotalShiftsContractAvg_[p], vars2,
+                                  coeffs2);
 
 			isMinWorkedDaysContractAvgCons_[p] = true;
 			isMaxWorkedDaysContractAvgCons_[p] = true;
@@ -742,8 +756,8 @@ void MasterProblem::buildMinMaxCons(const SolverParam& param){
 			sprintf(name, "maxWorkedWeekendContractAvgCons_C%d", p);
 			vector<MyVar*> varsAvg3 = {maxWorkedWeekendContractAvgVars_[p]};
 			vector<double> coeffsAvg3 = {-1 };
-			pModel_->createLEConsLinear(&maxWorkedWeekendContractAvgCons_[p], name, maxTotalWeekendsContractAvg_[p],
-					varsAvg3, coeffsAvg3);
+      pModel_->createLEConsLinear(&maxWorkedWeekendContractAvgCons_[p], name, maxTotalWeekendsContractAvg_[p],
+                                  varsAvg3, coeffsAvg3);
 
 			isMaxWorkedWeekendContractAvgCons_[p] = true;
 		}
@@ -850,8 +864,8 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 					coeffs1[p] = 1;
 				}
 				sprintf(name, "minDemandCons_%d_%d_%d", k, s, sk);
-				pModel_->createFinalGEConsLinear(&minDemandCons_[k][s-1][sk], name, pDemand_->minDemand_[k][s][sk],
-						vars1, coeffs1);
+        pModel_->createGEConsLinear(&minDemandCons_[k][s - 1][sk], name, pDemand_->minDemand_[k][s][sk],
+                                    vars1, coeffs1);
 
 				// STAB:Add stabilization variable
 				if (param.isStabilization_) {
@@ -864,8 +878,8 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 				vars1.push_back(optDemandVars_[k][s-1][sk]);
 				coeffs1.push_back(1);
 				sprintf(name, "optDemandCons_%d_%d_%d", k, s, sk);
-				pModel_->createFinalGEConsLinear(&optDemandCons_[k][s-1][sk], name, pDemand_->optDemand_[k][s][sk],
-						vars1, coeffs1);
+        pModel_->createGEConsLinear(&optDemandCons_[k][s - 1][sk], name, pDemand_->optDemand_[k][s][sk],
+                                    vars1, coeffs1);
 
 				// STAB:Add stabilization variable
 				if (param.isStabilization_) {
@@ -887,8 +901,8 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 				vars3.push_back(numberOfNursesByPositionVars_[k][s-1][p]);
 				coeff3.push_back(-1);
 				sprintf(name, "nursesNumberCons_%d_%d_%d", k, s, p);
-				pModel_->createEQConsLinear(&numberOfNursesByPositionCons_[k][s-1][p], name, 0,
-						vars3, coeff3);
+        pModel_->createEQConsLinear(&numberOfNursesByPositionCons_[k][s - 1][p], name, 0,
+                                    vars3, coeff3);
 
 				//adding variables and building skills allocation constraints
 				int const nonZeroVars4(1+skillsPerPosition_[p].size());
@@ -901,8 +915,8 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 					coeff4[sk] =-1;
 				}
 				sprintf(name, "feasibleSkillsAllocCons_%d_%d_%d", k, s, p);
-				pModel_->createEQConsLinear(&feasibleSkillsAllocCons_[k][s-1][p], name, 0,
-						vars4, coeff4);
+        pModel_->createEQConsLinear(&feasibleSkillsAllocCons_[k][s - 1][p], name, 0,
+                                    vars4, coeff4);
 			}
 		}
 	}

@@ -79,7 +79,7 @@ struct MyVar: public MyObject{
 		iteration_creation_(var.iteration_creation_), active_count_(var.active_count_), last_active_(var.last_active_)
 	{ }
 
-	virtual ~MyVar(){ }
+    virtual ~MyVar(){ }
 
 	int getIndex() const { return index_; }
 
@@ -688,460 +688,641 @@ protected:
 
 
 class Modeler {
-public:
-
-	Modeler(): pPricer_(0), pBranchingRule_(0), pTree_(new MyTree()) { }
-
-	virtual ~Modeler(){
-		for(MyObject* object: objects_)
-			delete object;
-		objects_.clear();
-	}
-
-	//solve the model
-	virtual int solve(bool relaxation = false)=0;
-
-	//Reset and clear solving parameters
-	virtual void reset(bool rollingHorizon=false) { pTree_->reset(); }
-
-	//Add a pricer
-	virtual int addObjPricer(MyPricer* pPricer){
-		pPricer_ = pPricer;
-		return 1;
-	}
-
-	//Add a branching rule
-	virtual int addBranchingRule(MyBranchingRule* pBranchingRule){
-		pBranchingRule_ = pBranchingRule;
-		pBranchingRule_->set_search_strategy(searchStrategy_);
-		return 1;
-	}
-
-	//Add a tree
-	virtual int addTree(MyTree* pTree){
-		if(pTree_) delete pTree_;
-		pTree_ = pTree;
-		return 1;
-	}
-
-	virtual void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int,int> >& forbidenShifts) {
-		pTree_->addForbiddenShifts(pNurse, forbidenShifts);
-	}
-
-
-	/*
-	 * Class methods for pricer and branching rule
-	 */
-
-	//return true if optimal
-	inline std::vector<MyVar*> pricing(double bound=0, bool before_fathom = false, bool after_fathom = false, bool backtracked=false){
-		if(pPricer_)
-			return pPricer_->pricing(bound, before_fathom, after_fathom, backtracked);
-		return EMPTY_VARS;
-	}
-
-	inline bool branching_candidates(MyBranchingCandidate& candidate){
-		if(pBranchingRule_)
-			return pBranchingRule_->branching_candidates(candidate);
-		return false;
-	}
-
-	//remove all bad candidates from fixingCandidates
-	inline bool column_candidates(MyBranchingCandidate& candidate){
-		if(pBranchingRule_)
-			return pBranchingRule_->column_candidates(candidate);
-		return false;
-	}
-	//Set search strategy
-	inline void set_search_strategy(SearchStrategy searchStrategy){
-		if(pBranchingRule_)
-			pBranchingRule_->set_search_strategy(searchStrategy);
-	}
-
-	/*
-	 * Create variable:
-	 *    var is a pointer to the pointer of the variable
-	 *    var_name is the name of the variable
-	 *    lhs, rhs are the lower and upper bound of the variable
-	 *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
-	 */
-
-protected:
-	virtual int createVar(MyVar** var, const char* var_name, int index, double objCoeff,
-			double lb, double ub, VarType vartype, const std::vector<double>& pattern, double score)=0;
-
-public:
-	inline void createPositiveVar(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern = DEFAULT_PATTERN, double score = 0, double ub = DBL_MAX){
-		ub = (ub==DBL_MAX)? infinity_:ub;
-		createVar(var, var_name, ++var_count, objCoeff, 0.0, ub, VARTYPE_CONTINUOUS, pattern, score);
-	}
-
-	inline void createIntVar(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern = DEFAULT_PATTERN, double score = 0, double ub = DBL_MAX){
-		ub = (ub==DBL_MAX)? infinity_:ub;
-		createVar(var, var_name, ++var_count, objCoeff, 0, ub, VARTYPE_INTEGER, pattern, score);
-		integerCoreVars_.push_back(*var);
-	}
-
-	inline void createBinaryVar(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern = DEFAULT_PATTERN, double score = 0){
-		createVar(var, var_name, ++var_count, objCoeff, 0.0, 1.0, VARTYPE_BINARY, pattern, score);
-		binaryCoreVars_.push_back(*var);
-	}
-
-protected:
-	virtual int createColumnVar(MyVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj,
-			double lb, double ub, VarType vartype, double score)=0;
-
-public:
-	inline void createPositiveColumnVar(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern, double dualObj = 99999, double score = 0, double ub = DBL_MAX){
-		ub = (ub==DBL_MAX)? infinity_:ub;
-		createColumnVar(var, var_name, ++var_count, objCoeff, pattern, dualObj, 0.0, ub, VARTYPE_CONTINUOUS, score);
-	}
-
-	inline void createIntColumnVar(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern, double dualObj = 99999, double score = 0, double ub = DBL_MAX){
-		ub = (ub==DBL_MAX)? infinity_:ub;
-		createColumnVar(var, var_name, ++var_count, objCoeff, pattern, dualObj, 0, ub, VARTYPE_INTEGER, score);
-	}
-
-	inline void createBinaryColumnVar(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern, double dualObj = 99999, double score = 0){
-		createColumnVar(var, var_name, ++var_count, objCoeff, pattern, dualObj, 0.0, 1.0, VARTYPE_BINARY, score);
-	}
-
-	/*
-	 * Create linear constraint:
-	 *    con is a pointer to the pointer of the constraint
-	 *    con_name is the name of the constraint
-	 *    lhs, rhs are the lower and upper bound of the constraint
-	 *    nonZeroVars is the number of non-zero coefficients to add to the constraint
-	 *    vars is an array of pointers to the variables to add to the constraints (with non-zero coefficient)
-	 *    coeffs is the array of coefficient to add to the constraints
-	 */
-
-protected:
-	virtual int createConsLinear(MyCons** cons, const char* con_name, int index, double lhs, double rhs,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {})=0;
-
-public:
-	//Add a lower or equal constraint
-	inline void createLEConsLinear(MyCons** cons, const char* con_name, double rhs,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
-		createConsLinear(cons, con_name, ++cons_count, -infinity_, rhs, vars, coeffs);
-	}
-
-	//Add a greater or equal constraint
-	inline void createGEConsLinear(MyCons** cons, const char* con_name, double lhs,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
-		createConsLinear(cons, con_name, ++cons_count, lhs, infinity_, vars, coeffs);
-	}
-
-	//Add an equality constraint
-	inline void createEQConsLinear(MyCons** cons, const char* con_name, double eq,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
-		createConsLinear(cons, con_name, ++cons_count, eq, eq, vars, coeffs);
-	}
-
-	//Add final linear constraints
-protected:
-	virtual int createFinalConsLinear(MyCons** cons, const char* con_name, int index, double lhs, double rhs,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {})=0;
-
-public:
-	inline void createFinalLEConsLinear(MyCons** cons, const char* con_name, double rhs,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
-		createFinalConsLinear(cons, con_name, ++cons_count, -infinity_, rhs, vars, coeffs);
-	}
-
-	inline void createFinalGEConsLinear(MyCons** cons, const char* con_name, double lhs,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
-		createFinalConsLinear(cons, con_name, ++cons_count, lhs, infinity_, vars, coeffs);
-	}
-
-	inline void createFinalEQConsLinear(MyCons** cons, const char* con_name, double eq,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
-		createFinalConsLinear(cons, con_name, ++cons_count, eq, eq, vars, coeffs);
-	}
-
-	virtual void createCutLinear(MyCons** cons, const char* con_name, double lhs, double rhs,
-		 	std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {})=0;
-
-	/*
-	 * Add variables to constraints
-	 */
-
-	virtual int addCoefLinear(MyCons* cons, MyVar* var, double coeff, bool transformed=false)=0;
-
-	/*
-	 * Add new Column to the problem
-	 */
-
-	inline void createColumn(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern, double dualObj,  VarType vartype,
-		 	std::vector<MyCons*> cons = {}, std::vector<double> coeffs = {}, bool transformed = false, double score = 0){
-		switch(vartype){
-		case VARTYPE_BINARY:
-			createBinaryColumnVar(var, var_name, objCoeff, pattern, dualObj, score);
-			break;
-		case VARTYPE_INTEGER:
-			createIntColumnVar(var, var_name, objCoeff, pattern, dualObj, score);
-			break;
-		default:
-			createPositiveColumnVar(var, var_name, objCoeff, pattern, dualObj, score);
-			break;
-		}
-
-		for(unsigned int i=0; i<cons.size(); i++)
-			addCoefLinear(cons[i], *var, coeffs[i], transformed);
-	}
-
-	inline void createPositiveColumn(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern, double dualObj,
-		 	std::vector<MyCons*> cons = {}, std::vector<double> coeffs = {}, bool transformed = false, double score = 0){
-		createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_CONTINUOUS, cons, coeffs, transformed, score);
-	}
-
-	inline void createBinaryColumn(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern, double dualObj,
-		 	std::vector<MyCons*> cons = {}, std::vector<double> coeffs = {}, bool transformed = false, double score = 0){
-		createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_BINARY, cons, coeffs, transformed, score);
-	}
-
-	inline void createIntColumn(MyVar** var, const char* var_name, double objCoeff, const std::vector<double>& pattern, double dualObj,
-		 	std::vector<MyCons*> cons = {}, std::vector<double> coeffs = {}, bool transformed = false, double score = 0){
-		createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_INTEGER, cons, coeffs, transformed, score);
-	}
-
-	/*
-	 * get the primal values
-	 */
-
-	virtual bool isInteger(MyVar* var) const {
-		double value = getVarValue(var);
-		double fractionalPart = round(value) - value;
-		if( abs(fractionalPart) < EPSILON )
-			return true;
-		return false;
-	}
-
-	virtual double getVarValue(MyVar* var) const =0;
-
-	//compute the total cost of a multiple vectors of MyObject* in the solution
-	template<typename V> inline double getVarValue(const std::vector<V>& vector) const {
-		double value = 0 ;
-		for(const V& vect: vector)
-			value += getVarValue(vect);
-		return value;
-	}
-
-	inline std::vector<double> getVarValues(const std::vector<MyVar*>& vars) const {
-	 	std::vector<double> values(vars.size());
-		for(unsigned int i=0; i<vars.size(); ++i)
-			values[i] = getVarValue(vars[i]);
-		return values;
-	}
-
-	/*
-	 * Get the dual variables
-	 */
-
-	virtual double getDual(MyCons* cons, bool transformed = false) const=0;
-
-	inline std::vector<double> getDuals(const std::vector<MyCons*>& cons, bool transformed = false) const {
-	 	std::vector<double> dualValues(cons.size());
-		for(unsigned int i=0; i<cons.size(); ++i)
-			dualValues[i] = getDual(cons[i], transformed);
-		return dualValues;
-	}
-
-	/*
-	 * Get the reduced cost
-	 */
-
-	virtual double getReducedCost(MyVar* var) const=0;
-
-	/*
-	 * Getters and setters
-	 */
-
-	//compute the total cost of MyObject* in the solution
-	virtual double getTotalCost(MyVar* var, bool print = false) const=0;
-
-	//compute the total cost of a vector of MyObject* in the solution
-	template<typename T>  inline double getTotalCost(const std::map<MyVar*, T>& map0, bool print = false) const {
-		double value = 0 ;
-		for(const std::pair<MyObject*, T>& var: map0)
-			value += getTotalCost(var.first, print);
-		return value;
-	}
-
-	//compute the total cost of a multiple vectors of MyObject* in the solution
-	template<typename V> inline double getTotalCost(const std::vector<V>& vector, bool print = false) const {
-		double value = 0 ;
-		for(const V& vect: vector)
-			value += getTotalCost(vect, print);
-		return value;
-	}
-
-	/**************
-	 * Parameters *
-	 *************/
-	virtual int setVerbosity(int v)=0;
-
-	/**************
-	 * Outputs *
-	 *************/
-
-	virtual int printStats() const { pTree_->printStats(); return 1; };
-
-	virtual int printBestSol()=0;
-
-	virtual int writeProblem(std::string fileName) const =0;
-
-	virtual int writeLP(std::string fileName) const =0;
-
-	virtual void toString(MyObject* obj) const { std::cout << obj->name_ << std::endl; }
-
-	/**************
-	 * Getters *
-	 *************/
-
-	template<typename M> M getModel() const {
-    std::string error = "This template has not been implemented.";
-		Tools::throwError(error.c_str());
-	}
-
-	inline const std::vector<MyVar*>& getBinaryCoreVars() const { return binaryCoreVars_; }
-
-	inline const std::vector<MyVar*>& getIntegerCoreVars() const { return integerCoreVars_; }
-
-	inline const std::vector<MyVar*>& getPositiveCoreVars() const { return positiveCoreVars_; }
-
-	inline int getVerbosity() const { return verbosity_; }
-
-	inline virtual void setBestUB(double ub) { pTree_->setBestUB(ub); }
-
-	inline virtual double getObjective() const { return pTree_->getBestUB(); }
-	virtual double getObjective(int index) const { return LARGE_SCORE; }
-
-
-	inline virtual double getRelaxedObjective() const { return pTree_->getRootLB(); }
-
-	inline double getCurrentLB() const { return pTree_->getCurrentLB(); }
-
-	inline void updateNodeLB(double lb) { pTree_->updateNodeLB(lb); }
-
-	// STAB
-	inline double getNodeBestLagLB() {return pTree_->getNodeBestLagLB();}
-	inline double getNodeLastLagLB() {return pTree_->getNodeLastLagLB();}
-	inline bool updateNodeLagLB(double lb) {return pTree_->updateNodeLagLB(lb);}
-
-	inline double getRootLB() const { return pTree_->getRootLB(); }
-
-	inline double computeBestLB() { return pTree_->computeBestLB(); }
-	inline double get_best_lb() const { return pTree_->get_best_lb(); }
-
-	inline int getTreeSize() const { return pTree_->getTreeSize(); }
-
-	inline std::string writeCurrentNode() const { return pTree_->writeCurrentNode(); }
-
-	inline bool is_columns_node() const { return pTree_->is_columns_node(); }
-
-	inline void updateDive() { return pTree_->updateDive(); }
-
-	inline bool continueDiving() { return pTree_->continueDiving(); }
-
-	inline void addCurrentNodeToStack() { pTree_->addCurrentNodeToStack(); }
-
-	inline int getNbDives() const { return pTree_->getNbDives(); }
-
-	inline void resetNbNodesSinceLastDive() { pTree_->resetNbNodesSinceLastDive(); }
-
-	inline virtual int nbSolutions() const { return 0; }
-
-	inline void setSearchStrategy(SearchStrategy searchStrategy){
-		searchStrategy_ = searchStrategy;
-		set_search_strategy(searchStrategy);
-	}
-
-	inline SearchStrategy getSearchStrategy() const { return searchStrategy_; }
-
-	inline virtual void setParameters(const SolverParam& parameters, PrintSolution* func){
-		parameters_ = parameters;
-		parameters_.saveFunction_ = func;
-		setVerbosity(parameters_.verbose_);
-		logfile_ = parameters.logfile_;
-	}
-	inline std::string logfile() const {return logfile_;}
-
-	inline const SolverParam& getParameters() const { return parameters_; }
-
-	inline void setLogFile(std::string fileName) {logfile_ = fileName;}
-
-	inline void setInfinity(double inf) {infinity_=inf;}
-
-	//get the variables that are generating during the resolution (columns)
-	const std::vector<MyVar*>& getActiveColumns() const {
-    return activeColumnVars_;
-  }
-
-	void addActiveColumn(MyVar* var, int index=-1) {
-		activeColumnVars_.push_back(var);
-	}
-
-	virtual void clearActiveColumns() {
-		activeColumnVars_.clear();
-	}
-
-	// Fix every rotation to one : this is useful only when the active columns
-	// are only the rotations included in a provided initial solution
-	virtual void fixEveryRotation() {}
-
-	// fix/unfix all the rotations variables starting from the input vector of days
-	virtual void fixRotationsStartingFromDays(const std::vector<bool>& isFixDay) {}
-	virtual void unfixRotationsStartingFromDays(const std::vector<bool>& isUnfixDay){}
-
-	// fix/unfix all the rotations variables of the input nurses
-	virtual void fixRotationsOfNurses(const std::vector<bool>& isFixNurse) {}
-	virtual void unfixRotationsOfNurses(const std::vector<bool>& isUnfixNurse){}
-
-	// relax/unrelax the integrality of all the rotations variables starting from the input vector of days
-	virtual void relaxRotationsStartingFromDays(const std::vector<bool>& isRelaxDay){}
-	virtual void unrelaxRotationsStartingFromDays(const std::vector<bool>& isUnRelaxDay){}
-
-	// Set the value of the active columns with those in the best solution
-	virtual void setActiveColumnsValuesWithBestSol() {}
-
-	// Clear the active column, set the active columns with those in the best solution,
-	// and set the primal values accordingly
-	virtual bool loadBestSol() {return true;}
-
-	// Get te current level in the branch and bound tree
-	//
-	virtual int getCurrentTreeLevel() const {return 0;};
-
-	// get the current number of objects
-	//
-	int getNbObjectsInMemory() const {return objects_.size();}
-
-
-protected:
-	//store all MyObject*
- 	std::vector<MyObject*> objects_;
- 	std::vector<MyVar*> binaryCoreVars_;
- 	std::vector<MyVar*> integerCoreVars_;
- 	std::vector<MyVar*> positiveCoreVars_;
- 	std::vector<MyVar*> activeColumnVars_;
-	int var_count = -1, cons_count = -1;
-
-	MyPricer* pPricer_;
-	MyBranchingRule* pBranchingRule_;
-	MyTree* pTree_;
-
-	int verbosity_ = 0;
-	SearchStrategy searchStrategy_ = BestFirstSearch;
-
-	SolverParam parameters_;
-
-	// log file where outputs must be written
-  std::string logfile_="";
-
-	//Coin data
-	double infinity_=1.2343423E23;
+  public:
+
+    Modeler() : pPricer_(0), pBranchingRule_(0), pTree_(new MyTree()) {}
+
+    virtual ~Modeler() {
+      for (MyObject *object: objects_)
+        delete object;
+      objects_.clear();
+    }
+
+    //solve the model
+    virtual int solve(bool relaxation = false) = 0;
+
+    //Reset and clear solving parameters and objects
+    virtual void reset() {
+      // reset tree
+      pTree_->reset();
+      // clear active columns
+      clearActiveColumns();
+      // reset counters and flags
+      var_count = coreVars_.size();
+      column_added =false;
+      cons_count = coreCons_.size();
+      cut_added = false;
+      // check it's an ordered sequence
+      if (coreVars_.back()->getIndex() != (var_count - 1))
+        Tools::throwError("coreVars_ is not an ordered sequence: the last variable does not have the right index.");
+      if (coreCons_.back()->getIndex() != (cons_count - 1))
+        Tools::throwError("coreCons_ is not an ordered sequence: the last constraint does not have the right index.");
+    }
+
+    //Add a pricer
+    virtual int addObjPricer(MyPricer *pPricer) {
+      pPricer_ = pPricer;
+      return 1;
+    }
+
+    //Add a branching rule
+    virtual int addBranchingRule(MyBranchingRule *pBranchingRule) {
+      pBranchingRule_ = pBranchingRule;
+      pBranchingRule_->set_search_strategy(searchStrategy_);
+      return 1;
+    }
+
+    //Add a tree
+    virtual int addTree(MyTree *pTree) {
+      if (pTree_) delete pTree_;
+      pTree_ = pTree;
+      return 1;
+    }
+
+    virtual void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int, int> > &forbidenShifts) {
+      pTree_->addForbiddenShifts(pNurse, forbidenShifts);
+    }
+
+
+    /*
+     * Class methods for pricer and branching rule
+     */
+
+    //return true if optimal
+    inline std::vector<MyVar *>
+    pricing(double bound = 0, bool before_fathom = false, bool after_fathom = false, bool backtracked = false) {
+      if (pPricer_)
+        return pPricer_->pricing(bound, before_fathom, after_fathom, backtracked);
+      return EMPTY_VARS;
+    }
+
+    inline bool branching_candidates(MyBranchingCandidate &candidate) {
+      if (pBranchingRule_)
+        return pBranchingRule_->branching_candidates(candidate);
+      return false;
+    }
+
+    //remove all bad candidates from fixingCandidates
+    inline bool column_candidates(MyBranchingCandidate &candidate) {
+      if (pBranchingRule_)
+        return pBranchingRule_->column_candidates(candidate);
+      return false;
+    }
+
+    //Set search strategy
+    inline void set_search_strategy(SearchStrategy searchStrategy) {
+      if (pBranchingRule_)
+        pBranchingRule_->set_search_strategy(searchStrategy);
+    }
+
+    /*
+     * Create variable:
+     *    var is a pointer to the pointer of the variable
+     *    var_name is the name of the variable
+     *    lhs, rhs are the lower and upper bound of the variable
+     *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
+     */
+
+  protected:
+    void createVar(MyVar **var, const char *var_name, double objCoeff,
+                   double lb, double ub, VarType vartype, const std::vector<double> &pattern, double score) {
+      // check flag column_added
+      if(column_added)
+        Tools::throwError("Cannot create variable "+std::string(var_name)+", as some columns have already been generated.");
+      createVar(var, var_name, var_count++, objCoeff, lb, ub, vartype, pattern, score);
+      coreVars_.push_back(*var);
+      objects_.push_back(*var);
+    }
+
+    virtual int createVar(MyVar **var, const char *var_name, int index, double objCoeff,
+                          double lb, double ub, VarType vartype, const std::vector<double> &pattern, double score) = 0;
+
+  public:
+    inline void createPositiveVar(MyVar **var, const char *var_name, double objCoeff,
+                                  const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0,
+                                  double ub = DBL_MAX) {
+      ub = (ub == DBL_MAX) ? infinity_ : ub;
+      createVar(var, var_name, objCoeff, 0.0, ub, VARTYPE_CONTINUOUS, pattern, score);
+      positiveCoreVars_.push_back(*var);
+    }
+
+    inline void createIntVar(MyVar **var, const char *var_name, double objCoeff,
+                             const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0,
+                             double ub = DBL_MAX) {
+      ub = (ub == DBL_MAX) ? infinity_ : ub;
+      createVar(var, var_name, objCoeff, 0, ub, VARTYPE_INTEGER, pattern, score);
+      integerCoreVars_.push_back(*var);
+    }
+
+    inline void createBinaryVar(MyVar **var, const char *var_name, double objCoeff,
+                                const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0) {
+      createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, pattern, score);
+      binaryCoreVars_.push_back(*var);
+    }
+
+  protected:
+    void createColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+                         double dualObj,
+                         double lb, double ub, VarType vartype, double score) {
+      // set flag column_added to true
+      column_added = true;
+      createColumnVar(var, var_name, var_count++, objCoeff, pattern, dualObj, lb, ub, vartype, score);
+    }
+
+    virtual int
+    createColumnVar(MyVar **var, const char *var_name, int index, double objCoeff, const std::vector<double> &pattern,
+                    double dualObj,
+                    double lb, double ub, VarType vartype, double score) = 0;
+
+  public:
+    inline void
+    createPositiveColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+                            double dualObj = LARGE_SCORE, double score = 0, double ub = DBL_MAX) {
+      ub = (ub == DBL_MAX) ? infinity_ : ub;
+      createColumnVar(var, var_name, objCoeff, pattern, dualObj, 0.0, ub, VARTYPE_CONTINUOUS, score);
+    }
+
+    inline void
+    createIntColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+                       double dualObj = LARGE_SCORE, double score = 0, double ub = DBL_MAX) {
+      ub = (ub == DBL_MAX) ? infinity_ : ub;
+      createColumnVar(var, var_name, objCoeff, pattern, dualObj, 0, ub, VARTYPE_INTEGER, score);
+    }
+
+    inline void
+    createBinaryColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+                          double dualObj = LARGE_SCORE, double score = 0) {
+      createColumnVar(var, var_name, objCoeff, pattern, dualObj, 0.0, 1.0, VARTYPE_BINARY, score);
+    }
+
+    /*
+     * Create linear constraint present at the beginning) and cut (generated):
+     *    con is a pointer to the pointer of the constraint
+     *    con_name is the name of the constraint
+     *    lhs, rhs are the lower and upper bound of the constraint
+     *    nonZeroVars is the number of non-zero coefficients to add to the constraint
+     *    vars is an array of pointers to the variables to add to the constraints (with non-zero coefficient)
+     *    coeffs is the array of coefficient to add to the constraints
+     */
+
+    //Add linear constraints
+  protected:
+    void createConsLinear(MyCons **cons, const char *con_name, double lhs, double rhs,
+                          std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      // check flag cut_added
+      if(cut_added)
+        Tools::throwError("Cannot create constraint "+std::string(con_name)+", as some cuts have already been generated.");
+      createConsLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
+      coreCons_.push_back(*cons);
+      objects_.push_back(*cons);
+    }
+
+    virtual int createConsLinear(MyCons **cons, const char *con_name, int index, double lhs, double rhs,
+                                 std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) = 0;
+
+  public:
+    inline void createLEConsLinear(MyCons **cons, const char *con_name, double rhs,
+                                   std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      createConsLinear(cons, con_name, -infinity_, rhs, vars, coeffs);
+    }
+
+    inline void createGEConsLinear(MyCons **cons, const char *con_name, double lhs,
+                                   std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      createConsLinear(cons, con_name, lhs, infinity_, vars, coeffs);
+    }
+
+    inline void createEQConsLinear(MyCons **cons, const char *con_name, double eq,
+                                   std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      createConsLinear(cons, con_name, eq, eq, vars, coeffs);
+    }
+
+  protected:
+
+    void createCutLinear(MyCons **cons, const char *con_name, double lhs, double rhs,
+                         std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      // set flag cut_added to true
+      cut_added = true;
+      createCutLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
+    }
+
+    virtual int createCutLinear(MyCons **cons, const char *con_name, int index, double lhs, double rhs,
+                                std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) = 0;
+
+  public:
+    //Add a lower or equal constraint
+    inline void createLECutLinear(MyCons **cons, const char *con_name, double rhs,
+                                  std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      createCutLinear(cons, con_name, -infinity_, rhs, vars, coeffs);
+    }
+
+    //Add a greater or equal constraint
+    inline void createGECutLinear(MyCons **cons, const char *con_name, double lhs,
+                                  std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      createCutLinear(cons, con_name, lhs, infinity_, vars, coeffs);
+    }
+
+    //Add an equality constraint
+    inline void createEQCutLinear(MyCons **cons, const char *con_name, double eq,
+                                  std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
+      createCutLinear(cons, con_name, eq, eq, vars, coeffs);
+    }
+
+    /*
+     * Add variables to constraints
+     */
+
+    virtual int addCoefLinear(MyCons *cons, MyVar *var, double coeff, bool transformed = false) = 0;
+
+    /*
+     * Add new Column to the problem
+     */
+
+    inline void
+    createColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern, double dualObj,
+                 VarType vartype,
+                 std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {}, bool transformed = false,
+                 double score = 0) {
+      switch (vartype) {
+        case VARTYPE_BINARY:
+          createBinaryColumnVar(var, var_name, objCoeff, pattern, dualObj, score);
+          break;
+        case VARTYPE_INTEGER:
+          createIntColumnVar(var, var_name, objCoeff, pattern, dualObj, score);
+          break;
+        default:
+          createPositiveColumnVar(var, var_name, objCoeff, pattern, dualObj, score);
+          break;
+      }
+
+      for (unsigned int i = 0; i < cons.size(); i++)
+        addCoefLinear(cons[i], *var, coeffs[i], transformed);
+    }
+
+    inline void
+    createPositiveColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+                         double dualObj,
+                         std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {}, bool transformed = false,
+                         double score = 0) {
+      createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_CONTINUOUS, cons, coeffs, transformed, score);
+    }
+
+    inline void
+    createBinaryColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+                       double dualObj,
+                       std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {}, bool transformed = false,
+                       double score = 0) {
+      createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_BINARY, cons, coeffs, transformed, score);
+    }
+
+    inline void createIntColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+                                double dualObj,
+                                std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {},
+                                bool transformed = false, double score = 0) {
+      createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_INTEGER, cons, coeffs, transformed, score);
+    }
+
+    /*
+     * get the primal values
+     */
+
+    virtual bool isInteger(MyVar *var) const {
+      double value = getVarValue(var);
+      double fractionalPart = round(value) - value;
+      if (abs(fractionalPart) < EPSILON)
+        return true;
+      return false;
+    }
+
+    virtual double getVarValue(MyVar *var) const = 0;
+
+    //compute the total cost of a multiple vectors of MyObject* in the solution
+    template<typename V>
+    inline double getVarValue(const std::vector<V> &vector) const {
+      double value = 0;
+      for (const V &vect: vector)
+        value += getVarValue(vect);
+      return value;
+    }
+
+    inline std::vector<double> getVarValues(const std::vector<MyVar *> &vars) const {
+      std::vector<double> values(vars.size());
+      for (unsigned int i = 0; i < vars.size(); ++i)
+        values[i] = getVarValue(vars[i]);
+      return values;
+    }
+
+    /*
+     * Get the dual variables
+     */
+
+    virtual double getDual(MyCons *cons, bool transformed = false) const = 0;
+
+    inline std::vector<double> getDuals(const std::vector<MyCons *> &cons, bool transformed = false) const {
+      std::vector<double> dualValues(cons.size());
+      for (unsigned int i = 0; i < cons.size(); ++i)
+        dualValues[i] = getDual(cons[i], transformed);
+      return dualValues;
+    }
+
+    /*
+     * Get the reduced cost
+     */
+
+    virtual double getReducedCost(MyVar *var) const = 0;
+
+    /*
+     * Getters and setters
+     */
+
+    //compute the total cost of MyObject* in the solution
+    virtual double getTotalCost(MyVar *var, bool print = false) const = 0;
+
+    //compute the total cost of a vector of MyObject* in the solution
+    template<typename T>
+    inline double getTotalCost(const std::map<MyVar *, T> &map0, bool print = false) const {
+      double value = 0;
+      for (const std::pair<MyObject *, T> &var: map0)
+        value += getTotalCost(var.first, print);
+      return value;
+    }
+
+    //compute the total cost of a multiple vectors of MyObject* in the solution
+    template<typename V>
+    inline double getTotalCost(const std::vector<V> &vector, bool print = false) const {
+      double value = 0;
+      for (const V &vect: vector)
+        value += getTotalCost(vect, print);
+      return value;
+    }
+
+    /**************
+     * Parameters *
+     *************/
+    virtual int setVerbosity(int v) = 0;
+
+    /**************
+     * Outputs *
+     *************/
+
+    virtual int printStats() const {
+      pTree_->printStats();
+      return 1;
+    };
+
+    virtual int printBestSol() {
+      FILE *pFile;
+      pFile = logfile_.empty() ? stdout : fopen(logfile_.c_str(), "a");
+      //print the value of the relaxation
+      fprintf(pFile, "%-30s %4.2f \n", "Relaxation:", getRelaxedObjective());
+
+      if (!loadBestSol())
+        return 0;
+
+      //print the objective value
+      fprintf(pFile, "%-30s %4.2f \n", "Objective:", Modeler::getObjective());
+
+      //display all objective solution found
+      fprintf(pFile, "%-30s \n", "All Objective:");
+      for (int n = 0; n < nbSolutions(); ++n)
+        fprintf(pFile, "Solution number: %-5d: %4.2f \n", n, getObjective(n));
+
+      if (verbosity_ >= 2) {
+        //print the value of the positive variables
+        fprintf(pFile, "%-30s \n", "Variables:");
+        double tolerance = pow(.1, DECIMALS);
+        //iterate on core variables
+        for (MyVar *var: coreVars_) {
+          double value = getVarValue(var);
+          if (value > tolerance)
+            fprintf(pFile, "%-30s %4.2f (%6.0f) \n", var->name_, value, var->getCost());
+        }
+        //iterate on column variables
+        for (MyVar *var: activeColumnVars_) {
+          double value = getVarValue(var);
+          if (value > tolerance)
+            fprintf(pFile, "%-30s %4.2f (%6.0f) \n", var->name_, value, var->getCost());
+        }
+
+        fprintf(pFile, "\n");
+      }
+      if (!logfile_.empty()) fclose(pFile);
+
+      return 1;
+    }
+
+    virtual int writeProblem(std::string fileName) const = 0;
+
+    virtual int writeLP(std::string fileName) const = 0;
+
+    virtual void toString(MyObject *obj) const { std::cout << obj->name_ << std::endl; }
+
+    /**************
+     * Getters *
+     *************/
+
+    template<typename M>
+    M getModel() const {
+      std::string error = "This template has not been implemented.";
+      Tools::throwError(error.c_str());
+    }
+
+    inline const std::vector<MyVar *> &getBinaryCoreVars() const { return binaryCoreVars_; }
+
+    inline const std::vector<MyVar *> &getIntegerCoreVars() const { return integerCoreVars_; }
+
+    inline const std::vector<MyVar *> &getPositiveCoreVars() const { return positiveCoreVars_; }
+
+    inline int getVerbosity() const { return verbosity_; }
+
+    inline virtual void setBestUB(double ub) { pTree_->setBestUB(ub); }
+
+    inline virtual double getObjective() const { return pTree_->getBestUB(); }
+
+    virtual double getObjective(int index) const { return LARGE_SCORE; }
+
+
+    inline virtual double getRelaxedObjective() const { return pTree_->getRootLB(); }
+
+    inline double getCurrentLB() const { return pTree_->getCurrentLB(); }
+
+    inline void updateNodeLB(double lb) { pTree_->updateNodeLB(lb); }
+
+    // STAB
+    inline double getNodeBestLagLB() { return pTree_->getNodeBestLagLB(); }
+
+    inline double getNodeLastLagLB() { return pTree_->getNodeLastLagLB(); }
+
+    inline bool updateNodeLagLB(double lb) { return pTree_->updateNodeLagLB(lb); }
+
+    inline double getRootLB() const { return pTree_->getRootLB(); }
+
+    inline double computeBestLB() { return pTree_->computeBestLB(); }
+
+    inline double get_best_lb() const { return pTree_->get_best_lb(); }
+
+    inline int getTreeSize() const { return pTree_->getTreeSize(); }
+
+    inline std::string writeCurrentNode() const { return pTree_->writeCurrentNode(); }
+
+    inline bool is_columns_node() const { return pTree_->is_columns_node(); }
+
+    inline void updateDive() { return pTree_->updateDive(); }
+
+    inline bool continueDiving() { return pTree_->continueDiving(); }
+
+    inline void addCurrentNodeToStack() { pTree_->addCurrentNodeToStack(); }
+
+    inline int getNbDives() const { return pTree_->getNbDives(); }
+
+    inline void resetNbNodesSinceLastDive() { pTree_->resetNbNodesSinceLastDive(); }
+
+    inline virtual int nbSolutions() const { return 0; }
+
+    inline void setSearchStrategy(SearchStrategy searchStrategy) {
+      searchStrategy_ = searchStrategy;
+      set_search_strategy(searchStrategy);
+    }
+
+    inline SearchStrategy getSearchStrategy() const { return searchStrategy_; }
+
+    inline virtual void setParameters(const SolverParam &parameters, PrintSolution *func) {
+      parameters_ = parameters;
+      parameters_.saveFunction_ = func;
+      setVerbosity(parameters_.verbose_);
+      logfile_ = parameters.logfile_;
+    }
+
+    inline std::string logfile() const { return logfile_; }
+
+    inline const SolverParam &getParameters() const { return parameters_; }
+
+    inline void setLogFile(std::string fileName) { logfile_ = fileName; }
+
+    inline void setInfinity(double inf) { infinity_ = inf; }
+
+    // get the variables that are always present in the model
+    const std::vector<MyVar *> &getCoreVars() const { return coreVars_; }
+
+    const std::vector<MyCons *> &getCoreCons() const { return coreCons_; }
+
+    // get the variables that are generating during the resolution (columns)
+    // and currently active (i.e. have a positive value in the current solution)
+    const std::vector<MyVar *> &getActiveColumns() const {
+      return activeColumnVars_;
+    }
+
+    // get the variables that are generating during the resolution (columns)
+    // and currently active (i.e. have a positive value in the current solution)
+    const std::vector<MyVar *> &getInitialColumns() const {
+      return initialColumnVars_;
+    }
+
+    // add the column and mark it owned by the modeler
+    void addInitialColumn(MyVar *var) {
+      initialColumnVars_.push_back(var);
+    }
+
+    virtual void clear() {
+      // clear and delete columns
+      clearActiveColumns();
+      // clear and delete core vars and cons
+      coreVars_.clear();
+      binaryCoreVars_.clear();
+      integerCoreVars_.clear();
+      positiveCoreVars_.clear();
+      coreCons_.clear();
+      for (MyObject *obj: objects_)
+        delete obj;
+      objects_.clear();
+    }
+
+    virtual void clearActiveColumns() {
+      activeColumnVars_.clear();
+    }
+
+    virtual void clearInitialColumns() {
+      initialColumnVars_.clear();
+    }
+
+    // Fix every rotation to one : this is useful only when the active columns
+    // are only the rotations included in a provided initial solution
+    virtual void fixEveryRotation() {}
+
+    // fix/unfix all the rotations variables starting from the input vector of days
+    virtual void fixRotationsStartingFromDays(const std::vector<bool> &isFixDay) {}
+
+    virtual void unfixRotationsStartingFromDays(const std::vector<bool> &isUnfixDay) {}
+
+    // fix/unfix all the rotations variables of the input nurses
+    virtual void fixRotationsOfNurses(const std::vector<bool> &isFixNurse) {}
+
+    virtual void unfixRotationsOfNurses(const std::vector<bool> &isUnfixNurse) {}
+
+    // relax/unrelax the integrality of all the rotations variables starting from the input vector of days
+    virtual void relaxRotationsStartingFromDays(const std::vector<bool> &isRelaxDay) {}
+
+    virtual void unrelaxRotationsStartingFromDays(const std::vector<bool> &isUnRelaxDay) {}
+
+    // Set the value of the active columns with those in the best solution
+    virtual void setActiveColumnsValuesWithBestSol() {}
+
+    // Clear the active column, set the active columns with those in the best solution,
+    // and set the primal values accordingly
+    virtual bool loadBestSol() { return true; }
+
+    // Get te current level in the branch and bound tree
+    //
+    virtual int getCurrentTreeLevel() const { return 0; };
+
+    // get the current number of objects
+    //
+    int getNbObjectsInMemory() const { return objects_.size(); }
+
+
+  protected:
+    void addActiveColumn(MyVar *var, int index = -1) {
+      activeColumnVars_.push_back(var);
+    }
+
+    //store all MyObject*
+    std::vector<MyObject *> objects_; // store the objects owned by modeler
+    // store the variables and the constraints that belongs to the core of the model (the one that are not generated).
+    std::vector<MyVar *> coreVars_;
+    std::vector<MyVar *> binaryCoreVars_;
+    std::vector<MyVar *> integerCoreVars_;
+    std::vector<MyVar *> positiveCoreVars_;
+    std::vector<MyCons *> coreCons_;
+    int var_count = 0, cons_count = 0;
+    // as soon as columns are added, core variables cannot be added anymore
+    // as soon as cut are added, core constraints cannot be added anymore
+    // The reason why we implement such a mecanism is that core variables and constraints
+    // need to be indexed in a sequence from 0 to N.
+    // If columns or cuts are generated in the middle, it breaks the sequence.
+    // Even more, it goes against the logic that core variables and constraints are instantiated
+    // at the beginning of the problem.
+    bool column_added = false, cut_added = false;
+
+    // store the active columns (the one that has a positive value)
+    std::vector<MyVar *> activeColumnVars_;
+
+    // When starting a new solve, the columns present in this vector will be added back to the model
+    // the vector will also be cleared
+    std::vector<MyVar *> initialColumnVars_;
+
+    MyPricer *pPricer_;
+    MyBranchingRule *pBranchingRule_;
+    MyTree *pTree_;
+
+    int verbosity_ = 0;
+    SearchStrategy searchStrategy_ = BestFirstSearch;
+
+    SolverParam parameters_;
+
+    // log file where outputs must be written
+    std::string logfile_ = "";
+
+    //Coin data
+    double infinity_ = 1.2343423E23;
 };
 
 

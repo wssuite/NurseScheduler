@@ -45,7 +45,7 @@ struct CoinVar: public MyVar {
 	MyVar(var), dualCost_(var.dualCost_), indexRows_(var.indexRows_), coeffs_(var.coeffs_)
 	{ }
 
-	virtual ~CoinVar(){ }
+    virtual ~CoinVar(){ }
 
 	/*
 	* Setters and Getters
@@ -56,7 +56,7 @@ struct CoinVar: public MyVar {
 		coeffs_.push_back(coeff);
 	}
 
-	void toString(const std::vector<CoinCons*>& cons) const {
+	void toString(const std::vector<MyCons*>& cons) const {
     std::cout << name_ << ":";
 		for(unsigned int i=0; i<indexRows_.size(); ++i)
       std::cout << " " << cons[indexRows_[i]]->name_ << ":" << coeffs_[i];
@@ -90,40 +90,6 @@ public:
 	virtual int solve(bool relaxation = false)=0;
 
 	/*
-	* Create variable:
-	*    var is a pointer to the pointer of the variable
-	*    var_name is the name of the variable
-	*    lhs, rhs are the lower and upper bound of the variable
-	*    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
-	*/
-
-protected:
-	//has to be implement to create the good var according to the coin modeler chosen (BCP, CBC ...)
-	//WARNING: core vars have to all be created before creating column vars
-	virtual int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const std::vector<double>& pattern = DEFAULT_PATTERN)=0;
-
-	virtual int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub)=0;
-
-	int createVar(MyVar** var, const char* var_name, int index, double objCoeff, double lb, double ub, VarType vartype, const std::vector<double>& pattern, double score){
-
-		CoinVar* var2;
-		createCoinVar(&var2, var_name, index, objCoeff, vartype, lb, ub, pattern);
-		coreVars_.push_back(var2);
-		*var = var2;
-
-		return 1;
-	}
-
-	int createColumnVar(MyVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj, double lb, double ub, VarType vartype, double score){
-
-		CoinVar* var2;
-		createColumnCoinVar(&var2, var_name, index, objCoeff, pattern, dualObj, vartype, lb, ub);
-		*var = var2;
-
-		return 1;
-	}
-
-	/*
 	* Create linear constraint:
 	*    con is a pointer to the pointer of the constraint
 	*    con_name is the name of the constraint
@@ -134,28 +100,31 @@ protected:
 	*    coeffs is the array of coefficient to add to the constraints
 	*/
 	//has to be implement to create the good cons according to the coin modeler chosen (BCP, CBC ...)
-	virtual int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs)=0;
+	// They do not store the coefficients of the variables (the variables store their own coefficients)
+	virtual int createCoinConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs)=0;
 
-	int createConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
-                       std::vector<MyVar*> vars, std::vector<double> coeffs){
+	virtual int createConsLinear(MyCons **con, const char *con_name, int index, double lhs, double rhs,
+                               std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}){
+    createCoinConsLinear(con, con_name, index, lhs, rhs);
 
-		CoinCons* con2;
-		createCoinConsLinear(&con2, con_name, index, lhs, rhs);
+    for(unsigned int i=0; i<vars.size(); ++i)
+      addCoefLinear(*con, vars[i], coeffs[i]);
 
-		for(unsigned int i=0; i<vars.size(); ++i)
-		addCoefLinear(con2, vars[i], coeffs[i]);
-
-		cons_.push_back(con2);
-		*con = con2;
-
-		return 1;
+    return 1;
 	}
 
-	//Add there is no final linear constraints for BCP
-	virtual int createFinalConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
-                                    std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {}){
-		return createConsLinear(con, con_name, index, lhs, rhs, vars, coeffs);
-	}
+	// the cut stores the coefficients and indices of the variables contained within the cut
+	// Indeed, the cuts can be removed and it's much easier this way
+    virtual int createCoinCutLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
+        const std::vector<int>& indexVars, const std::vector<double>& coeffs)=0;
+
+    int createCutLinear(MyCons **con, const char *con_name, int index, double lhs, double rhs,
+                        std::vector<MyVar *> vars, std::vector<double> coeffs){
+      std::vector<int> indexes;
+      for(MyVar* var: vars)
+        indexes.push_back(var->getIndex());
+      return createCoinCutLinear(con, con_name, index,	lhs, rhs, indexes, coeffs);
+    }
 
 public:
 	/*
@@ -173,25 +142,19 @@ public:
 
 	/*
 	* Build the CoinedPackMatrix corresponding to the problem
-	* If justCore = true, add just the core variables
+	* The indices need to be a sequence from 0 to N without any hole.
 	*/
 
 	/* build the problem */
-	CoinPackedMatrix buildCoinMatrix(const std::vector<MyVar*>& columns = EMPTY_VARS){
+	CoinPackedMatrix buildCoinMatrix(){
 		//define nb rows and col
-		const int corenum = coreVars_.size(), colnum = corenum+columns.size();
+		const int corenum = coreVars_.size();
 		//define a matrix as a vector of tuples (row_index, col_index, coeff)
     std::vector<int> row_indices, col_indices;
     std::vector<double> coeffs;
     int index_max = 0;
-		for(int i=0; i<colnum; ++i){
-			CoinVar* var;
-			//copy of the core variables
-			if(i<corenum)
-			var = (CoinVar*) coreVars_[i];
-			//copy of the column variables
-			else
-			var = (CoinVar*) columns[i-corenum];
+		for(int i=0; i<corenum; ++i){
+			CoinVar* var = (CoinVar*) coreVars_[i];
 
 			//build the tuples of the matrix
 			int col_index = var->getIndex();
@@ -203,8 +166,8 @@ public:
 			}
 		}
 
-		if(index_max != (colnum - 1)) {
-		  std::cerr << "There are " << colnum << " columns, but the maximum index is " << index_max << std::endl;
+		if(index_max != (corenum - 1)) {
+		  std::cerr << "There are " << corenum << " core variables, but the maximum index is " << index_max << std::endl;
       Tools::throwError("The indices of the variables are not forming a sequence 0..N");
     }
 
@@ -256,47 +219,6 @@ public:
 	inline virtual double getObjective() const { return pTree_->getBestUB(); }
 	virtual double getObjective(int index) const { return LARGE_SCORE; }
 
-	virtual int printBestSol() {
-		FILE * pFile;
-		pFile = logfile_.empty() ? stdout : fopen (logfile_.c_str(),"a");
-		//print the value of the relaxation
-		fprintf(pFile,"%-30s %4.2f \n", "Relaxation:" , getRelaxedObjective());
-
-		if(!loadBestSol())
-		return 0;
-
-		//print the objective value
-		fprintf(pFile,"%-30s %4.2f \n", "Objective:" , Modeler::getObjective());
-
-		//display all objective solution found
-		fprintf(pFile,"%-30s \n", "All Objective:");
-		for(int n=0; n<nbSolutions(); ++n)
-		fprintf(pFile,"Solution number: %-5d: %4.2f \n", n , getObjective(n));
-
-		if(verbosity_>=2){
-			//print the value of the positive variables
-			fprintf(pFile,"%-30s \n", "Variables:");
-			double tolerance = pow(.1, DECIMALS);
-			//iterate on core variables
-			for(CoinVar* var: coreVars_){
-				double value = getVarValue(var);
-				if( value > tolerance)
-				fprintf(pFile,"%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
-			}
-			//iterate on column variables
-			for(MyVar* var: activeColumnVars_){
-				double value = getVarValue(var);
-				if( value > tolerance)
-				fprintf(pFile,"%-30s %4.2f (%6.0f) \n", var->name_ , value, var->getCost());
-			}
-
-			fprintf(pFile,"\n");
-		}
-		if (!logfile_.empty()) fclose(pFile);
-
-		return 1;
-	}
-
 	virtual bool loadBestSol() { return false; }
 
 	virtual int writeProblem(std::string fileName) const { return 0; }
@@ -305,19 +227,9 @@ public:
 
 	virtual void toString(MyObject* obj) const {
 		CoinVar* var = dynamic_cast<CoinVar*>(obj);
-		if(var) var->toString(cons_);
+		if(var) var->toString(coreCons_);
 		else Modeler::toString(obj);
 	}
-
-	//get the variables that are always present in the model
-  const std::vector<CoinVar*>& getCoreVars() const { return coreVars_; }
-
-  const std::vector<CoinCons*>& getCons() const { return cons_; }
-
-protected:
-
-    std::vector<CoinVar*> coreVars_;
-    std::vector<CoinCons*> cons_;
 };
 
 #endif /* SRC_COINMODELER_H_ */

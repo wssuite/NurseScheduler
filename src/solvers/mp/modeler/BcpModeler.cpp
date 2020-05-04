@@ -256,7 +256,7 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 		// set the cost and upper bounds of every core variables back to their
 		// values at the time of solution
 		if (pModel_->getParameters().isStabilization_) {
-			for (CoinVar* pVar:pModel_->getCoreVars()) {
+			for (MyVar* pVar: pModel_->getCoreVars()) {
 				int varind = pVar->getIndex();
 				double cost = lp->getObjCoefficients()[varind];
 				double ub = lp->getColUpper()[varind];
@@ -434,7 +434,7 @@ void BcpLpModel::TransformVarsToColumns(BCP_vec<BCP_var*>& vars, BCP_vec<BCP_col
 // 	static int  cpt = 0;
 // 	char  nom[1024];
 // 	sprintf(nom, "/tmp/kkk%03d", cpt++);
-// pModel_->pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(nom);
+//  writeLP(nom);
 //  cout << "LP WRITE: " << nom << endl;
 
 }
@@ -536,7 +536,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 	new_vars.reserve(nbGeneratedColumns_); //reserve the memory for the new columns
 	for(MyVar* var: generatedColumns){
 		BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-		//create a new BcpColumn which will be deleted by BCP
+		// the BcpColumn which will be deleted by BCP (needs to be owned by BCP)
 		new_vars.unchecked_push_back(col);
 		col->addActiveIteration(lpIteration_); //initialize the counter of active iteration for this new variable
 	}
@@ -551,7 +551,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 // 	static int  cpt = 0;
 // 	char  nom[1024];
 // 	sprintf(nom, "/tmp/fff%03d", cpt++);
-// pModel_->pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(nom);
+//  writeLP(nom);
 //  cout << "LP WRITE: " << nom << endl;
 
 	//	//debug
@@ -906,7 +906,7 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
     set_param(entry.first, entry.second);
 
   //define nb rows and col
-  const int rownum = pModel_->getCons().size();
+  const int rownum = pModel_->getCoreCons().size();
   const int colnum = pModel_->getCoreVars().size();
 
   // bounds and objective
@@ -928,7 +928,7 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core*>& vars,
   //copy of the core cuts
   cuts.reserve(rownum);
   for (int i = 0; i < rownum; ++i) {
-    BcpCoreCons *cut = dynamic_cast<BcpCoreCons *>(pModel_->getCons()[i]);
+    BcpCoreCons *cut = dynamic_cast<BcpCoreCons *>(pModel_->getCoreCons()[i]);
     if (!cut)
       Tools::throwError("Bad constraint casting.");
     //create a new BcpCoreCons which will be deleted by BCP
@@ -964,15 +964,15 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var*>& added_vars,
    BCP_vec<BCP_cut*>& added_cuts,
    BCP_user_data*& user_data){
 
-   added_vars.reserve(pModel_->getActiveColumns().size());
-   for(MyVar* col: pModel_->getActiveColumns()){
+   added_vars.reserve(pModel_->getInitialColumns().size());
+   for(MyVar* col: pModel_->getInitialColumns()){
 		 BcpColumn* var = dynamic_cast<BcpColumn*>(col);
 		 if(!var)
 			 Tools::throwError("Bad variable casting.");
-		 // add BcpColumn which will be deleted by BCP - the variables in activeColumns need to be owned by no other model
+		 // add BcpColumn which will be deleted by BCP
 		 added_vars.unchecked_push_back(var);
    }
-	pModel_->clearActiveColumns();
+	pModel_->clearInitialColumns();
 }
 
 void BcpBranchingTree::display_feasible_solution(const BCP_solution* sol){
@@ -1023,22 +1023,21 @@ lastNbSubProblemsSolved_(0), lastMinDualCost_(0), nbNodes_(0), LPSolverType_(typ
 
 //destroy all the column in the solutions
 BcpModeler::~BcpModeler() {
-   for(BCP_solution_generic& sol: bcpSolutions_){
-      int size = sol._vars.size();
-      for(int i=coreVars_.size(); i<size; ++i) delete sol._vars[i];
-   }
-   for(MyCons* cons: branchingCons_)
-      if(cons){
-         delete cons;
-         cons = 0;
-      }
-   branchingCons_.clear();
-   for(MyVar* var: columnsInSolutions_)
-      if(var){
-         delete var;
-         var = 0;
-      }
-  delete  pBcp_;
+  clear();
+  delete pBcp_;
+}
+
+void BcpModeler::clear() {
+  deleteSolutions();
+  CoinModeler::clear();
+}
+
+void BcpModeler::deleteSolutions() {
+  for(BCP_solution_generic& sol: bcpSolutions_){
+    int size = sol._vars.size();
+    for(int i=coreVars_.size(); i<size; ++i) delete sol._vars[i];
+  }
+  bcpSolutions_.clear();
 }
 
 //solve the model
@@ -1068,13 +1067,15 @@ int BcpModeler::solve(bool relaxation){
 	}
 
 	// retrieve the statistics of the solution
-	timeStats_.add(pBcp_->getBcpLpModel()->getLpProblemPointer()->stat);
-	nbLpIterations_ = pBcp_->getBcpLpModel()->getNbLpIterations();
+	timeStats_.add(pBcp_->getTimeStats());
+	nbLpIterations_ = pBcp_->getNbLpIterations();
 
+#ifdef DBG
 	static int  cpt = 0;
 	char  nom[1024];
 	sprintf(nom, "ccc%03d", cpt++);
-pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(nom);
+  writeLP(nom);
+#endif
 
    // clear tree
    pTree_->clear();
@@ -1083,32 +1084,23 @@ pBcp_->getBcpLpModel()->getLpProblemPointer()->lp_solver->writeLp(nom);
 }
 
 //reinitialize all parameters and clear vectors
-void BcpModeler::reset(bool rollingHorizon) {
-   pTree_->reset();
-   lastNbSubProblemsSolved_=0;
-   lastMinDualCost_=0;
-   solHasChanged_ = false;
+void BcpModeler::reset() {
+  // reset parent model
+  CoinModeler::reset();
 
-   obj_history_.clear();
-   primalValues_.clear();
-   dualValues_.clear();
-   reducedCosts_.clear();
-   lhsValues_.clear();
+  // reset all solutions related objects
+  lastNbSubProblemsSolved_ = 0;
+  lastMinDualCost_ = 0;
+  solHasChanged_ = false;
 
-	// delete the best solutions that were if solving with rolling horizon
-   if (rollingHorizon) {
-		unsigned int index = getBestSolIndex();
-		for(unsigned int ind = 0; ind < bcpSolutions_.size(); ind++){
-			if (ind == index) continue;
-			BCP_solution_generic sol = bcpSolutions_[ind];
-			int size = sol._vars.size();
-			for(int i=coreVars_.size(); i<size; ++i) delete sol._vars[i];
-		}
-      bcpSolutions_.clear();
-   }
+  obj_history_.clear();
+  primalValues_.clear();
+  dualValues_.clear();
+  reducedCosts_.clear();
+  lhsValues_.clear();
 
-   //create the root
-   pTree_->pushBackNewNode();
+  // delete them
+  deleteSolutions();
 }
 
 
@@ -1120,13 +1112,15 @@ void BcpModeler::reset(bool rollingHorizon) {
  *    lb, ub are the lower and upper bound of the variable
  *    vartype is the type of the variable: SCIP_VARTYPE_CONTINUOUS, SCIP_VARTYPE_INTEGER, SCIP_VARTYPE_BINARY
  */
-int BcpModeler::createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const vector<double>& pattern){
+int BcpModeler::createVar(MyVar** var, const char* var_name, int index, double objCoeff,
+                          double lb, double ub, VarType vartype, const std::vector<double>& pattern, double score){
    *var = new BcpCoreVar(var_name, index, objCoeff, vartype, lb, ub, pattern);
-   objects_.push_back(*var);
    return 1;
 }
 
-int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub){
+int BcpModeler::createColumnVar(MyVar** var, const char* var_name, int index, double objCoeff,
+                                const std::vector<double>& pattern, double dualObj, double lb, double ub,
+                                VarType vartype, double score){
    *var = new BcpColumn(var_name, index, objCoeff, pattern, dualObj, vartype, lb, ub);
    return 1;
 }
@@ -1140,20 +1134,15 @@ int BcpModeler::createColumnCoinVar(CoinVar** var, const char* var_name, int ind
  *    nonZeroVars is the number of non-zero coefficients to add to the constraint
  */
 
-int BcpModeler::createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs){
+int BcpModeler::createCoinConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs){
    *con = new BcpCoreCons(con_name, index, lhs, rhs);
-   objects_.push_back(*con);
-   return 0;
+   return 1;
 }
 
-void BcpModeler::createCutLinear(MyCons** cons, const char* con_name, double lhs, double rhs,
-   vector<MyVar*> vars, vector<double> coeffs){
-   vector<int> indexes;
-   for(MyVar* var: vars)
-      indexes.push_back(var->getIndex());
-   BcpBranchCons* cons2 = new BcpBranchCons(con_name, cons_.size()+branchingCons_.size(),	lhs, rhs, indexes, coeffs);
-   branchingCons_.push_back(cons2);
-   *cons = new BcpBranchCons(*cons2);
+int BcpModeler::createCoinCutLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
+                                const std::vector<int>& indexVars, const std::vector<double>& coeffs) {
+  *con = new BcpBranchCons(con_name, index,	lhs, rhs, indexVars, coeffs);
+  return 1;
 }
 
 /*
@@ -1167,7 +1156,7 @@ void BcpModeler::createCutLinear(MyCons** cons, const char* con_name, double lhs
 	 //copy the new arrays in the vectors for the core vars
 	 const int nbCoreVar = coreVars_.size();
 	 const int nbVar = vars.size();
-	 const int nbCons = cons_.size();
+	 const int nbCons = coreCons_.size();
 
 	 //clear all
 	 primalValues_.clear();
@@ -1232,7 +1221,6 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
 			// }
          col = new BcpColumn(*col);
          mySol.add_entry(col, sol2->_values[i]);
-         columnsInSolutions_.push_back(col);
       }
       else {
 			mySol.add_entry((BcpCoreVar*)coreVars_[sol2->_vars[i]->bcpind()], sol2->_values[i]);
@@ -1286,21 +1274,19 @@ bool BcpModeler::loadBestSol(){
    if(index == -1)
       return false;
 
-	this->loadInputSol(bcpSolutions_[index]);
+	this->loadBcpSol(index);
 
-   return true;
+  return true;
 }
 
 void BcpModeler::loadBcpSol(int index){
-	BCP_solution_generic& sol = bcpSolutions_[index];
-
-	this->loadInputSol(sol);
+	this->loadInputSol(bcpSolutions_[index]);
 }
 
 // Clear the active column, set the active columns with those in the input
 // solution and set the primal values accordingly
 //
-void BcpModeler::loadInputSol(BCP_solution_generic& sol){
+void BcpModeler::loadInputSol(const BCP_solution_generic& sol){
 	const int size = sol._vars.size(), core_size = coreVars_.size();
 	vector<double> primal(core_size);
 
@@ -1474,7 +1460,7 @@ void BcpModeler::unrelaxRotationsStartingFromDays(const vector<bool>& isUnrelaxD
  */
 
 double BcpModeler::getVarValue(MyVar* var) const {
-   if(primalValues_.size() ==0 )
+   if(primalValues_.empty())
       Tools::throwError("Primal solution has not been initialized.");
 
    unsigned int index = ((CoinVar*) var)->getIndex();
@@ -1488,7 +1474,7 @@ double BcpModeler::getVarValue(MyVar* var) const {
 }
 
 void BcpModeler::setVarValue(MyVar* var, double value){
-   if(primalValues_.size() ==0 )
+   if(primalValues_.empty())
       Tools::throwError("Primal solution has not been initialized.");
 
    unsigned int index = ((CoinVar*) var)->getIndex();
@@ -1543,10 +1529,10 @@ int BcpModeler::setVerbosity(int v){
       tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolutionValue] = 1;
       tm_parameters[BCP_tm_par::TmVerb_NewPhaseStart] = 0;
       tm_parameters[BCP_tm_par::TmVerb_Last] = 1;
-		tm_parameters[BCP_tm_par::DebugLpProcesses] =1;
+		  tm_parameters[BCP_tm_par::DebugLpProcesses] =1;
 
       lp_parameters[BCP_lp_par::LpVerb_Last] = 1; // Just a marker for the last LpVerb
-		lp_parameters[BCP_lp_par::LpVerb_FathomInfo] = 1; // Print information related to fathoming. (BCP_lp_main_loop, BCP_lp_perform_fathom, BCP_lp_branch) (BCP_lp_fathom)
+		  lp_parameters[BCP_lp_par::LpVerb_FathomInfo] = 1; // Print information related to fathoming. (BCP_lp_main_loop, BCP_lp_perform_fathom, BCP_lp_branch) (BCP_lp_fathom)
    }
 
    if(v>=2){
@@ -1653,12 +1639,10 @@ bool BcpModeler::doStop() const {
  * Outputs *
  *************/
 
-int BcpModeler::writeProblem(string fileName) const{
+int BcpModeler::writeProblem(string fileName) const {
   return  writeLP(fileName);
 }
 
-int BcpModeler::writeLP(string fileName) const{
-  BcpLpModel* lpModel = pBcp_->getBcpLpModel();
-  if(lpModel) lpModel->getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
-  return 0;
+int BcpModeler::writeLP(string fileName) const {
+  return pBcp_->writeLP(fileName);
 }

@@ -369,7 +369,7 @@ double DeterministicSolver::solve(vector<Roster> initialSolution){
 		options_.divideIntoConnexPositions_ = false;
 		objValue_ = this->solveByConnexPositions();
 	}
-	// If the the scenarion is divided into connex positions, the solution
+	// If the the scenario is divided into connex positions, the solution
 	// of the subproblems goes in the "else" below
 	//
 	else {

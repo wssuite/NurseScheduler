@@ -122,7 +122,7 @@ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions
 
 StochasticSolver::StochasticSolver(PScenario pScenario, StochasticSolverOptions options, vector<PDemand> demandHistory, double costPreviousWeeks):
       Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
-      options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0), costPreviousWeeks_(costPreviousWeeks){
+      options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(nullptr), costPreviousWeeks_(costPreviousWeeks){
    std::cout << "# New stochastic solver created!" << std::endl;
 
    int remainingDays = ( pScenario_->nbWeeks_ - pScenario_->thisWeek() -1 ) * 7;
@@ -222,6 +222,8 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
    }
 
    /* update nurse States */
+   if (solution_.empty())
+     Tools::throwError("No feasible schedule has been found in the available computational time.");
    for(int n=0; n<pScenario_->nbNurses_; ++n){
       theLiveNurses_[n]->roster_ = solution_[n];
       theLiveNurses_[n]->buildStates();
@@ -840,11 +842,6 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
    (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Update of the scores and ranking done!" << std::endl;
 
 }
-
-
-
-
-
 
 Solver* StochasticSolver::setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm) {
 
