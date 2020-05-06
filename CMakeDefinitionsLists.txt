@@ -1,2 +1,3 @@
 set(BCPDIROPT /Users/legraina/local/Bcp-1.4/build)
 set(BCPDIRDBG /Users/legraina/local/Bcp-1.4/build-dbg)
+#set(BOOST_DIR /home/x86_64-unknown-linux_ol7-gnu/boost-1.57.0)

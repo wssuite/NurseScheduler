@@ -1,13 +1,16 @@
 FROM legraina/bcp
 
+# install valgrind
+
 # create a user
 RUN useradd -ms /bin/bash poly
 
 # Change user
 USER poly
 
-# Copy everything
-COPY --chown=poly . /home/poly/ns/
+# Copy sources
+COPY --chown=poly ./CMakeLists.txt /home/poly/ns/CMakeLists.txt
+COPY --chown=poly ./src/ /home/poly/ns/src/
 
 # Set the working directory
 WORKDIR /home/poly/ns/
@@ -19,6 +22,9 @@ RUN echo "set(BCPDIROPT /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt &
     cd build && \
     cmake .. && \
     make
+
+# Copy everything
+COPY --chown=poly . /home/poly/ns/
 
 # Entrypoint for the nurse scheduler
 ENTRYPOINT [ "./docker-entrypoint.sh" ]

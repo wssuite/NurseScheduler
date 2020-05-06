@@ -6,11 +6,10 @@
 //  Copyright (c) 2016 Jeremy Omer. All rights reserved.
 //
 
-#include "InitializeSolver.h"
-#include "ReadWrite.h"
-#include "MasterProblem.h"
-#include "DeterministicSolver.h"
-#include "MyTools.h"
+#include "solvers/InitializeSolver.h"
+#include "tools/ReadWrite.h"
+#include "solvers/DeterministicSolver.h"
+#include "tools/MyTools.h"
 
 // some include files to go through the files of an input directory
 #include <dirent.h>
@@ -18,6 +17,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+using std::string;
+using std::vector;
+using std::map;
+using std::pair;
 
 // Test the result of the method that divides the scenario according to the connex components of positions
 //
@@ -35,7 +38,7 @@ bool testDivideIntoConnexComponents() {
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
 
 	// set the scenario
-	Scenario* pScenarioInitial;
+	PScenario pScenarioInitial;
 	pScenarioInitial = initializeMultipleWeeks(inputPaths);
 
 	std::cout << "INITIAL SCENARIO" << std::endl;
@@ -49,9 +52,7 @@ bool testDivideIntoConnexComponents() {
 	// Display the complete solution
 	pSolverInitial->displaySolutionMultipleWeeks(inputPaths);
 
-
-	//  release memory
-	if (pScenarioInitial) delete pScenarioInitial;
+	delete pSolverInitial;
 
 	return true;
 }

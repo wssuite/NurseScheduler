@@ -41,6 +41,7 @@ src/MyMain.cpp
 # binaries and compilation files
 bin/*
 obj/*
+build/*
 
 # ouput and log files
 bashfiles/*
