@@ -95,7 +95,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 ******************************************************************************/
 
 pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceName, int historyIndex,
-		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, int seed) {
+		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, std::vector<int> seeds) {
 
 	// build the paths of the input files
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
@@ -112,12 +112,8 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 	double currentCost = 0;
 	int nbSched = 0;
 
-	vector<int> seeds;
-
 	for (int week = 0; week < nbWeeks; week++) {
-	   if(week==0 and seed != -1)
-	      seeds.push_back(seed);
-	   else
+	   if(week >= seeds.size())
 	      seeds.push_back(std::rand());
 	   std::srand(seeds[week]);
 
@@ -214,14 +210,14 @@ int main(int argc, char** argv)
      std::cout << "Running the default method..."<< std::endl;
      string dataDir = "datasets/";
      string instanceName = "n030w4";
-     int historyIndex = 0;
-     vector<int> weekIndices = {3, 5, 0, 2};
+     int historyIndex = 1;
+     vector<int> weekIndices = {6,7,5,3};
      StochasticSolverOptions stochasticSolverOptions;
      stochasticSolverOptions.totalTimeLimitSeconds_ = 40;
      string outdir = "outfiles/" + instanceName + "/";
-     int seed = 1;
+     std::vector<int> seeds = {50,35,70,80};
      testMultipleWeeksStochastic(dataDir, instanceName, historyIndex,
-     		weekIndices, stochasticSolverOptions, outdir, seed);
+     		weekIndices, stochasticSolverOptions, outdir, seeds);
   }
   // Nominal behavior of the executable, as required by INRCII
   //

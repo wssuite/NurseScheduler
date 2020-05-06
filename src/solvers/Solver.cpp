@@ -1410,6 +1410,9 @@ double Solver::computeSolutionCost(int nbDays) {
 	for(int day = 0; day < nbDays; day++) {
 		for (int sh = 1; sh < nbShifts ; sh++) {
 			for (int sk = 0; sk < nbSkills; sk++) {
+			  // infeasible
+			  if(satisfiedDemand_[day][sh][sk] < pDemand_->minDemand_[day][sh][sk])
+			    return LARGE_SCORE;
 				int missingStaff;
 				missingStaff = std::max(0, pDemand_->optDemand_[day][sh][sk] - satisfiedDemand_[day][sh][sk]);
 				totalCost += WEIGHT_OPTIMAL_DEMAND * missingStaff;
@@ -1716,7 +1719,7 @@ string Solver::solutionToLogString() {
 // When a solution of multiple consecutive weeks is available, display the complete
 // solution in the log and write the solution of the weeks separately
 //
-void Solver::displaySolutionMultipleWeeks(InputPaths inputPaths) {
+bool Solver::displaySolutionMultipleWeeks(InputPaths inputPaths) {
 
 	// create the directory name of outputs
 	std::string outDir;
@@ -1736,7 +1739,8 @@ void Solver::displaySolutionMultipleWeeks(InputPaths inputPaths) {
 
 	// treat the case where the solver was unable to find a feasible solution
 	if (status_ == INFEASIBLE) {
-		Tools::throwError("Solver::displaySolutionMultipleWeeks: The solver was not able to find a solution");
+		std::cerr << "Solver::displaySolutionMultipleWeeks: The solver was not able to find a solution" << std::endl;
+		return false;
 	}
 
 	// write separately the solutions of each week in the required output format
@@ -1746,4 +1750,6 @@ void Solver::displaySolutionMultipleWeeks(InputPaths inputPaths) {
 		Tools::LogOutput solutionStream(solutionFile);
 		solutionStream << solutions[w];
 	}
+
+	return true;
 }

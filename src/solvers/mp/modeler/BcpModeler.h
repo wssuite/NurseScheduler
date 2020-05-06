@@ -860,6 +860,10 @@ protected:
 
 	//build the candidate from my candidate
 	void buildCandidate(const MyBranchingCandidate& candidate, const BCP_vec<BCP_var*>&  vars, const BCP_vec< BCP_cut*> &  cuts, BCP_vec<BCP_lp_branching_object*>&  cands);
+
+	// rerun the code use to test the integer feasibility of a solution and find why a solution is not feasible
+  void find_infeasibility(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
+                          const BCP_vec<BCP_var*> &  vars);
 };
 
 /*

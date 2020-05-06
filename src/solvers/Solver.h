@@ -843,7 +843,7 @@ public:
 	// When a solution of multiple consecutive weeks is available, display the complete
 	// solution in the log and write the solution of the weeks separately
 	//
-	void displaySolutionMultipleWeeks(InputPaths inputPaths);
+	bool displaySolutionMultipleWeeks(InputPaths inputPaths);
 
 };
 

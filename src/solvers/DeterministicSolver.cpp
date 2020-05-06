@@ -131,7 +131,7 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 	OptimalityLevel lnsOptimalityLevel=UNTIL_FEASIBLE;
 	OptimalityLevel rollingOptimalityLevel=UNTIL_FEASIBLE;
 	while(file.good()){
-		Tools::readUntilChar(&file, '=', &title);
+		Tools::readUntilChar(file, '=', title);
 
 		// Read the name of the scenario
 		//

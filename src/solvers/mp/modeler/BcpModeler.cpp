@@ -211,6 +211,7 @@ bool BcpLpModel::compareCol(const pair<int,double>& p1, const pair<int,double>& 
 //The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 //Default: empty method.
 void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching){
+
 	if(current_index() != last_node){
 		last_node = current_index();
 
@@ -598,6 +599,7 @@ bool BcpLpModel::stabUpdateBoundAndCost(bool isStall,bool isImproveQuality) {
  * BCP_DoBranch: branch on one of the candidates cands
  *
  */
+
 BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
    const BCP_vec<BCP_var*> &  vars, //the variables in the current formulation.
    const BCP_vec< BCP_cut*> &  cuts, //the cuts in the current formulation.
@@ -701,6 +703,11 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 
 	//branching candidates: numberOfNursesByPosition_, rest on a day, ...
 	bool generate = pModel_->branching_candidates(candidate);
+  // throw an error here. Should never happened
+	if(!generate) {
+    find_infeasibility(lpres, vars);
+    Tools::throwError("Solution should be fractional as no branching candidate has been found.");
+	}
 
 	//after a given number of nodes since last dive, prepare to go fro a new dive
 	if(pModel_->getNbDives() >= nb_dives_to_wait_before_branching_on_columns_.front()){
@@ -803,6 +810,82 @@ void BcpLpModel::buildCandidate(const MyBranchingCandidate& candidate, const BCP
    cands.push_back(new  BCP_lp_branching_object(candidate.getChildren().size(), &new_vars, &new_cuts, /* vars/cuts_to_add */
       &vpos, &cpos, &vbd, &cbd, /* forced parts */
       0, 0, 0, 0 /* implied parts */));
+}
+
+// rerun the code use to test the integer feasibility of a solution and find why a solution is not feasible
+void BcpLpModel::find_infeasibility(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
+                                    const BCP_vec<BCP_var*> &  vars) {
+  // check if the solution is feasible for BCP in case of exception
+  auto p = getLpProblemPointer();
+  // Do anything only if the termination code is sensible
+  const int tc = lpres.termcode();
+  if (! (tc & BCP_ProvenOptimal)) {
+    std::cout << "Termination code: " << tc << " & " << BCP_ProvenOptimal << std::endl;
+    return;
+  }
+
+  const double etol = p->param(BCP_lp_par::IntegerTolerance);
+  std::cout << "Tolerance: " << etol <<std::endl;
+  std::cout << "-----------------------------------------------------------" << std::endl;
+  const double * x = lpres.x();
+  const int varnum = vars.size();
+  const double etol1 = 1 - etol;
+  int i;
+  for (i = 0 ; i < varnum; ++i)
+    switch (vars[i]->var_type()){
+      case BCP_BinaryVar:
+      {
+        const double val = x[i];
+        if (val > etol && val < etol1) {
+          std::cout << "Binary var " << i << ", bcp value=" << val << std::endl;
+          MyVar *var = dynamic_cast<MyVar *>(vars[i]);
+          if (i < (int)pModel_->getCoreVars().size()) std::cout << "Core variable: ";
+          else std::cout << "Column variable: ";
+          std::cout << i << ", " << var->name_ << "model value=" << pModel_->getVarValue(var) << ", pattern :";
+          for(int j: var->getPattern()) std::cout << " " << j;
+          std::cout << std::endl;
+          std::cout << "-----------------------------------------------------------" << std::endl;
+        }
+      }
+        break;
+      case BCP_IntegerVar:
+      {
+        const double val = x[i] - floor(x[i]);
+        if (val > etol && val < etol1) {
+          std::cout << "Integer var " << i << ": " << val << std::endl;
+          MyVar *var = dynamic_cast<MyVar *>(vars[i]);
+          if (i < (int)pModel_->getCoreVars().size()) std::cout << "Core variable: ";
+          else std::cout << "Column variable: ";
+          std::cout << i << ", " << var->name_ << " = " << pModel_->getVarValue(var) << ", pattern :";
+          for(int j: var->getPattern()) std::cout << " " << j;
+          std::cout << std::endl;
+          std::cout << "-----------------------------------------------------------" << std::endl;
+        }
+      }
+        break;
+      case BCP_ContinuousVar:
+        break;
+    }
+
+  // print roster
+  auto roster = pModel_->getMaster()->getFractionalRoster();
+  for(int n=0; n<roster.size(); n++) {
+    std::cout << "N" << n << ":";
+    for(int k=0; k<roster[n].size(); k++) {
+      std::cout << " " << k << "(";
+      double vLeft = 1;
+      for(int s=0; s<roster[n][k].size(); s++){
+        double v = roster[n][k][s];
+        if(v<EPSILON) continue;
+        vLeft-=v;
+        std::cout<<s<<":"<<v<<",";
+      }
+      if(vLeft>EPSILON)
+        std::cout<<"0:"<<vLeft;
+      std::cout<<")";
+    }
+    std::cout<<std::endl;
+  }
 }
 
 //Decide what to do with the children of the selected branching object.
@@ -1071,10 +1154,10 @@ int BcpModeler::solve(bool relaxation){
 	nbLpIterations_ = pBcp_->getNbLpIterations();
 
 #ifdef DBG
-	static int  cpt = 0;
-	char  nom[1024];
-	sprintf(nom, "ccc%03d", cpt++);
-  writeLP(nom);
+//	static int  cpt = 0;
+//	char  nom[1024];
+//	sprintf(nom, "ccc%03d", cpt++);
+//  writeLP(nom);
 #endif
 
    // clear tree

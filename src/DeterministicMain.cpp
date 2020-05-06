@@ -25,7 +25,7 @@ using std::pair;
 * Solve the complete planning horizon with the deterministic solver
 ******************************************************************************/
 
-void solveDeterministic(InputPaths inputPaths, double timeout) {
+int solveDeterministic(InputPaths inputPaths, double timeout) {
 
 	// set the scenario
 	//
@@ -59,9 +59,13 @@ void solveDeterministic(InputPaths inputPaths, double timeout) {
 	//
 	std::cout << "# FINAL SOLUTION" << std::endl;
 	std::string solutionStatus = statusToString[pSolver->getStatus()];
-	std::cout << "# Solution status = " << solutionStatus <<  std::endl;
-	std::cout << "# Objective value = " << objValue <<  std::endl;
-	pSolver->displaySolutionMultipleWeeks(inputPaths);
+  std::cout << "# Solution status = " << solutionStatus <<  std::endl;
+  std::cout << "# Objective value = ";
+  if(objValue >= LARGE_SCORE) std::cout << "  -  ";
+  else std::cout << objValue;
+  std::cout <<  std::endl;
+  pSolver->displaySolutionMultipleWeeks(inputPaths);
+
 
 	// Write the final statistics
 	//
@@ -77,9 +81,13 @@ void solveDeterministic(InputPaths inputPaths, double timeout) {
 	}
 
 
+	int returncode = pSolver->getStatus() == INFEASIBLE; // 1 if INFEASIBLE, 0 otherwise
+
 	//  release memory
 	delete pSolver;
 	statStream.close();
+
+	return returncode;
 }
 
 
@@ -135,10 +143,11 @@ int main(int argc, char** argv)
 
 	// Solve the problem
 	//
-	solveDeterministic(*pInputPaths, timeout);
+	int r = solveDeterministic(*pInputPaths, timeout);
 
 	// Release memory
 	//
 	delete pInputPaths;
 
+  return r;
 }

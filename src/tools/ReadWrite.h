@@ -101,8 +101,8 @@ public:
 	// Read a file stream until the separating character (or one of them) is met
 	// Store the characters read until the separating character in pStrRead
 	//
-	static bool readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead);
-	static bool readUntilOneOfTwoChar(std::fstream *pFile, char separater1, char separater2, std::string *pStrRead);
+	static bool readUntilChar(std::fstream &pFile, char separater, std::string &pStrRead);
+	static bool readUntilOneOfTwoChar(std::fstream &pFile, char separater1, char separater2, std::string &pStrRead);
 
 	// Checks if the string (sentence) ends with the given substring (word)
 	//

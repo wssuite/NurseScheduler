@@ -74,8 +74,20 @@ private:
 
 // Throw an exception with the input message
 //
+struct NSException: std::exception {
+    NSException(const char* what): std::exception(), what_(what) {}
+    const char* what() const throw() {
+      return what_;
+    }
+
+  private:
+    const char* what_;
+};
+
+void throwException(const char* exceptionMsg);
+void throwException(const std::string& str);
 void throwError(const char* exceptionMsg);
-	void throwError(const std::string& str);
+void throwError(const std::string& str);
 
 // Display a debug message
 //
@@ -83,7 +95,7 @@ void debugMsg(const char* debugMsg, int debugLevel);
 
 // Read a file stream until the separating character is met
 //
-bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
+bool readUntilChar(std::fstream& file, char separateur, std::string& pTitle);
 
 // Checks if the string (sentence) ends with the given substring (word)
 //

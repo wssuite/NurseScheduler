@@ -11,6 +11,7 @@
 
 #include "solvers/Solver.h"
 
+
 enum RankingStrategy {RK_MEAN, RK_SCORE, RK_NONE};
 
 class StochasticSolverOptions{

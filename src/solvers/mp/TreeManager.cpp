@@ -63,7 +63,7 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse, set<pair<int,int> >& forbid
 		// rotation, so the shifts can also be forbidden on these two days (if
 		// the rotation is not at an extremity of the horizon)
 		ColumnsNode* columnsNode = dynamic_cast<ColumnsNode*>(node);
-		if(columnsNode == 0 )
+		if(columnsNode == nullptr )
 		  Tools::throwError("Type of node not recognized.");
 
 		for(PPattern pat: columnsNode->patterns_)
@@ -473,7 +473,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 			for(int s=1; s<pMaster_->getNbShifts(); ++s){
 			  double val = fractionalRoster[pNurse->id_][k][s];
 			  // check if solution is fractional
-			  if(abs(val-round(val)) > EPSILON)
+			  if(EPSILON < val && val < 1-EPSILON)
           isFractional = true;
 				valueLeft -= val;
 				fractionalNurseDay.emplace_back(pair<int,double>(s,-val));
@@ -481,9 +481,10 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 			// if not fractional, continue
 			if(!isFractional)
         continue;
+
       // put the value left in the rest shift (if any left)
 			fractionalNurseDay.emplace_back(
-			    pair<int,double>(0,-fractionalRoster[pNurse->id_][k][s]-valueLeft));
+			    pair<int,double>(0,-fractionalRoster[pNurse->id_][k][0]-valueLeft));
 
 			sort(fractionalNurseDay.begin(), fractionalNurseDay.end(), compareObject<double>);
 
@@ -513,6 +514,13 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 						currentShifts.push_back(p.first);
 					}
 			}
+
+//      std::cout << "Fractional roster for nurse " << pNurse->id_ << " on day " << k << ':';
+//      for(auto p: fractionalNurseDay) std::cout << " " << p.first << "=" << -p.second;
+//      std::cout <<std::endl;
+//      std::cout << "Node 1 with a score of " << scoreNode1 << " contains shifts:";
+//      for(int s: currentShifts) std::cout << " " << s;
+//      std::cout << std::endl;
 
 			//look for the value the closest to .5
 			double currentScore = abs(0.5-scoreNode1);
@@ -581,16 +589,6 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 		}
 		return true;
 	}
-
-	// throw an error here. Should never happened
-	for(MyVar* v: pModel_->getActiveColumns()) {
-	  double value = pModel_->getVarValue(v);
-	  if(abs(value-round(value)) < EPSILON) continue;
-    std::cout << v->getIndex() << ": " << pModel_->getVarValue(v) << " -> pattern:";
-    for(double s: v->getPattern()) std::cout << " " << s;
-    std::cout << std::endl;
-  }
-  Tools::throwError("Solution should be fractional if trying to branch on shifts.");
 
 	return false;
 }

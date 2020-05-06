@@ -71,7 +71,7 @@ PScenario ReadWrite::readScenario(string fileName) {
 	// fill the attributes of the scenario structure
 	//
 	while(file.good()){
-		readUntilChar(&file, '=', &title);
+		readUntilChar(file, '=', title);
 
 		// Read the name of the scenario
 		//
@@ -119,15 +119,15 @@ PScenario ReadWrite::readScenario(string fileName) {
 				file >> strTmp;
 				intToShiftType.push_back(strTmp);
 				shiftTypeToInt.insert(pair<string,int>(strTmp,i));
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				// Min consecutive
 				file >> intTmp;
 				minConsShiftType.push_back(intTmp);
-				readUntilChar(&file, ',', &strTmp);
+				readUntilChar(file, ',', strTmp);
 				// Max consecutive
 				file >> intTmp;
 				maxConsShiftType.push_back(intTmp);
-				readUntilChar(&file,'\n',&strTmp);
+				readUntilChar(file,'\n',strTmp);
 			}
 
 
@@ -154,7 +154,7 @@ PScenario ReadWrite::readScenario(string fileName) {
 					file >> strTmp;
 					forbiddenSuccessors[currentShiftTypeId].push_back(shiftTypeToInt.at(strTmp));
 				}
-				readUntilChar(&file,'\n',&strTmp);
+				readUntilChar(file,'\n',strTmp);
 
 			}
 		}
@@ -210,23 +210,23 @@ PScenario ReadWrite::readScenario(string fileName) {
 				string contractName;
 				int minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend;
 				file >> contractName;
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				file >> minDays;
-				readUntilChar(&file,',',&strTmp);
+				readUntilChar(file,',',strTmp);
 				file >> maxDays;
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				file >> minConsWork;
-				readUntilChar(&file,',',&strTmp);
+				readUntilChar(file,',',strTmp);
 				file >> maxConsWork;
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				file >> minConsRest;
-				readUntilChar(&file,',',&strTmp);
+				readUntilChar(file,',',strTmp);
 				file >> maxConsRest;
-				readUntilChar(&file,' ',&strTmp);
+				readUntilChar(file,' ',strTmp);
 				file >> maxWeekends;
-				readUntilChar(&file,' ',&strTmp);
+				readUntilChar(file,' ',strTmp);
 				file >> isTotalWeekend;
-				readUntilChar(&file,'\n',&strTmp);
+				readUntilChar(file,'\n',strTmp);
 
         PConstContract pContract =
             std::make_shared<Contract>(i, contractName, minDays, maxDays, minConsWork, maxConsWork,
@@ -346,7 +346,7 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
 	// fill the attributes when reading the week file
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		// Read the name of the week
 		//
@@ -373,14 +373,14 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
 					skillId = pScenario->skillToInt_.at(skillName);
 					// For every day in the week, read min and opt values
 					for (int day = 0; day<7; day++){
-						readUntilChar(&file,'(',&strTmp);
+						readUntilChar(file,'(',strTmp);
 						file >> intTmp;
 						minWeekDemand[day][shiftId][skillId] = intTmp;
-						readUntilChar(&file,',',&strTmp);
+						readUntilChar(file,',',strTmp);
 						file >> intTmp;
 						optWeekDemand[day][shiftId][skillId] = intTmp;
 					}
-					readUntilChar(&file,')',&strTmp);
+					readUntilChar(file,')',strTmp);
 				}
 			}
 		}
@@ -497,7 +497,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario){
 	// fill the attributes of the week structure
 	//
 	while(file.good()){
-		readUntilChar(&file,'\n', &title);
+		readUntilChar(file,'\n', title);
 
 		// Read the index and name of the week
 		//
@@ -564,7 +564,7 @@ int ReadWrite::readCustom(string strCustomInputFile, PScenario pScenario, vector
 	// get the custom information
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		// Read the file names of the past demand
 		//
@@ -612,7 +612,7 @@ void ReadWrite::writeCustom(string strCustomOutputFile, string strWeekFile, stri
 	// fill the attributes of the week structure
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		// Read the file names of the past demand
 		//
@@ -651,7 +651,7 @@ std::string ReadWrite::readStochasticSolverOptions(string strOptionFile, Stochas
 	// fill the attributes of the options structure
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		if(!strcmp(title.c_str(), "withEvaluation")){
 			file >> options.withEvaluation_;
@@ -717,7 +717,7 @@ std::string ReadWrite::readSolverOptions(string strOptionFile, SolverParam& opti
 	// fill the attributes of the options structure
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		if(!strcmp(title.c_str(), "maxSolvingTimeSeconds")){
 			file >> options.maxSolvingTimeSeconds_;
@@ -798,13 +798,13 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(vector<std::string> strWeekS
 		// parse the file until reaching the number of assignments
 		std::size_t found = title.find("ASSIGNMENTS");
 		while (found!=std::string::npos) {
-			readUntilOneOfTwoChar(&file, '\n', '=', &title);
+			readUntilOneOfTwoChar(file, '\n', '=', title);
 			found = title.find("ASSIGNMENTS");
 			if (!file.good()) {
 				Tools::throwError("The solution file is not formatted as it should!");
 			}
 		}
-		readUntilOneOfTwoChar(&file, '\n', '\n', &title);
+		readUntilOneOfTwoChar(file, '\n', '\n', title);
 
 		// parse the assignments
 		while (file.good()) {
@@ -1088,25 +1088,25 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
 // Read a file stream until the separating character is met
 // Store the characters read until the separating character in pStrRead
 //
-bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead) {
+bool ReadWrite::readUntilChar(std::fstream &pFile, char separater, std::string &pStrRead) {
 	char cTmp = 'A';
 
 	// empty the title string if it is not
 	//
-	if (!pStrRead->empty())
-		pStrRead->erase();
+	if (!pStrRead.empty())
+		pStrRead.erase();
 
 	// go through the file until the delimiter is met
 	//
-	if (pFile->good()) {
-		cTmp = pFile->get();
+	if (pFile.good()) {
+		cTmp = pFile.get();
 	}
-	while (cTmp != separater && pFile->good() )  {
-		pStrRead->push_back(cTmp);
-		cTmp = pFile->get();
+	while (cTmp != separater && pFile.good() )  {
+		pStrRead.push_back(cTmp);
+		cTmp = pFile.get();
 	}
 
-	if (!pFile->good())
+	if (!pFile.good())
 		return false;
 
 	return true;
@@ -1115,25 +1115,25 @@ bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *
 // Read a file stream until the separating character is met
 // Store the characters read until the separating character in pStrRead
 //
-bool ReadWrite::readUntilOneOfTwoChar(std::fstream *pFile, char separater1, char separater2, std::string *pStrRead) {
+bool ReadWrite::readUntilOneOfTwoChar(std::fstream &pFile, char separater1, char separater2, std::string &pStrRead) {
 	char cTmp = 'A';
 
 	// empty the title string if it is not
 	//
-	if (!pStrRead->empty())
-		pStrRead->erase();
+	if (!pStrRead.empty())
+		pStrRead.erase();
 
 	// go through the file until the delimiter is met
 	//
-	if (pFile->good()) {
-		cTmp = pFile->get();
+	if (pFile.good()) {
+		cTmp = pFile.get();
 	}
-	while (cTmp != separater1 && cTmp != separater2 && pFile->good() )  {
-		pStrRead->push_back(cTmp);
-		cTmp = pFile->get();
+	while (cTmp != separater1 && cTmp != separater2 && pFile.good() )  {
+		pStrRead.push_back(cTmp);
+		cTmp = pFile.get();
 	}
 
-	if (!pFile->good())
+	if (!pFile.good())
 		return false;
 
 	return true;

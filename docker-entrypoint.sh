@@ -86,9 +86,10 @@ if [ -z $dynamic ]; then
   	# run the scheduler
   	echo "Run: $sCMD"
   	$sCMD | tee ${outputDir}/output.txt
-    ret="$?"
+    ret=${PIPESTATUS[0]}
 
   	# run the validator
+  	echo $ret
   	if [ $ret -eq 0 -a $eval -eq 1 ]; then
   	    ./validator.sh $instance $weeks $hist $outputDir --verbose
   	fi
@@ -120,7 +121,7 @@ else
 	chmod +x *.jar
 	cp validator.jar ./bin
 	./${scriptfile}
-	ret="$?"
+	ret=${PIPESTATUS[0]}
     rm -f ${scriptfile}
 fi
 
