@@ -553,26 +553,13 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
   // It can also be used in general to fathom nodes when the the Lagrangian
   // bound is larger than the best UB
   //
-  bool isImproveQuality = false;
-  if ( (current_index() > 0 && pModel_->getParameters().isLagrangianFathom_)
-       || pModel_->getParameters().isStabilization_) {
-    double lagLb = pModel_->computeBestLB();
-
-    if (pModel_->getParameters().isStabilization_) {
-      lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
-    }
-    else if (pModel_->getParameters().isLagrangianFathom_) {
-      //&& pModel_->getLastNbSubProblemsSolved() >= pMaster->getNbNurses()) {
-      lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
-    }
-    isImproveQuality = pModel_->updateNodeLagLB(lagLb);
-
-    // LAGLB: fathom if Lagrangian bound greater than current upper bound
-    if(pModel_->getParameters().isLagrangianFathom_
-       && pModel_->getObjective() - pModel_->getNodeLastLagLB() < pModel_->getParameters().absoluteGap_ - EPSILON){
-      std::cout << "Forcibly fathom, because Lagrangian bound is exceeded." << std::endl;
-      return BCP_DoNotBranch_Fathomed;
-    }
+  double lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
+  bool isImproveQuality = pModel_->updateNodeLagLB(lagLb);
+  // fathom only if column generation would continue (otherwise would be fathom later in this function)
+  if(column_generated && pModel_->getParameters().isLagrangianFathom_
+     && pModel_->getObjective() - lagLb < pModel_->getParameters().absoluteGap_ - EPSILON){
+    std::cout << "Forcibly fathom, because Lagrangian bound is exceeded." << std::endl;
+    return BCP_DoNotBranch_Fathomed;
   }
 
   // STAB
@@ -598,18 +585,15 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 
   // we have an opportunity to update the costs and bounds
   // of the stabilization variables
-  if (pModel_->getParameters().isStabilization_) {
+  if (pModel_->getParameters().isStabilization_)
     this->stabUpdateBoundAndCost(isStalling, isImproveQuality);
-  }
 
   // check if continue column generation
-	if(column_generated) {
+	if(column_generated)
 		return BCP_DoNotBranch;
-	}
 	// STAB: Do not branch if some stabilization variables are positive
-	if (!pModel_->getMaster()->stabCheckStoppingCriterion()) {
+	if (!pModel_->getMaster()->stabCheckStoppingCriterion())
 		return BCP_DoNotBranch;
-	}
 
 	// update LB
 	double lb = lpres.objval();
