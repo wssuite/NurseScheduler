@@ -437,6 +437,11 @@ public:
 
 	inline double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
 
+	inline double getObjImprovement() const {
+    return obj_history_.size() <= 1 ? infinity_ :
+           obj_history_[obj_history_.size() - 2] - obj_history_.back();
+  }
+
 	// Set every rotation to one : this is useful only when the active columns
 	// are only the rotations included in a provided initial solution
 	//

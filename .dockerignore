@@ -19,4 +19,3 @@ cmake-build-debug/
 cmake-build-release/
 
 docker-compose.yml
-Dockerfile

@@ -448,34 +448,10 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 	if(doStop())
 	  return;
 
-	// STAB
-	// Detect when the coluln generation is stalling
-	// If stabilization is used this will determine when the stabilization costs
-	// are updated
-	// Otherwise, an option can be set on to stop column generation after a given
-	// number of degenerate iterations
-	//
-	bool isStall = (lpres.objval() >= pModel_->getLastObj()-EPSILON) && (lpres.objval() <= pModel_->getLastObj()+EPSILON);
-	if (isStall) {
-		pModel_->incrementNbDegenerateIt();
-		if (current_index() > 0
-		&& lpres.objval() <= pModel_->getObjective()-pModel_->getParameters().absoluteGap_+EPSILON
-		&& pModel_->getNbDegenerateIt() == pModel_->getParameters().stopAfterXDegenerateIt_ ) {
-			// DBG
-			std::cout << "BRANCH BECAUSE COLUMN GENERATION IS STALLING" << std::endl;
-			return;
-		}
-	}
-	else {
-		pModel_->setNbDegenerateIt(0);
-	}
-
-	// DBG: not sure to understand, what if the last objective value of the
-	// relaxation is exactly equal to current LB?-> I changed +EPSION to -EPSILON
 	// Stop the algorithm if the last objective value of the relaxation is
-	// smaller than current LB
+	// close enough to the current LB
 	//
-	if(current_index() > 0 && lpres.objval() < pModel_->getCurrentLB() - EPSILON) {
+	if(current_index() > 0 && lpres.objval() < pModel_->getCurrentLB() + EPSILON) {
 		return;
 	}
 
@@ -497,40 +473,6 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 		printSummaryLine(vars);
 	}
 
-	// STAB: compute the Lagrangian bound
-	// It can also be used in general to fathom nodes when the the Lagrangian
-	// bound is larger than the best UB
-	//
-	double lagLb = -LARGE_SCORE;
-	bool isImproveQuality = false;
-	MasterProblem* pMaster = pModel_->getMaster();
-	if ( (current_index() > 0 && pModel_->getParameters().isLagrangianFathom_)
-		|| pModel_->getParameters().isStabilization_) {
-		lagLb = pModel_->computeBestLB();
-
-		if (pModel_->getParameters().isStabilization_) {
-			lagLb=pMaster->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
-		}
-		else if (pModel_->getParameters().isLagrangianFathom_) {
-			//&& pModel_->getLastNbSubProblemsSolved() >= pMaster->getNbNurses()) {
-			lagLb=pMaster->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
-		}
-
-		isImproveQuality = pModel_->updateNodeLagLB(lagLb);
-
-		// LAGLB: fathom if Lagrangian bound greater than current upper bound
-		if(pModel_->getParameters().isLagrangianFathom_
-		&& pModel_->getObjective() - pModel_->getNodeLastLagLB() < pModel_->getParameters().absoluteGap_ - EPSILON){
-			nbGeneratedColumns_ = 0;
-			for(MyVar* var: generatedColumns){
-				BcpColumn* col = dynamic_cast<BcpColumn*>(var);
-				delete col;
-			}
-			generatedColumns.clear();
-			std::cout << "Forcibly fathom, because Lagrangian bound is exceeded." << std::endl;
-			return;
-		}
-	}
 	//check if new columns add been added since the last time
 	//if there are some, add all of them in new_vars
 	//
@@ -540,12 +482,6 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 		// the BcpColumn which will be deleted by BCP (needs to be owned by BCP)
 		new_vars.unchecked_push_back(col);
 		col->addActiveIteration(lpIteration_); //initialize the counter of active iteration for this new variable
-	}
-
-	// STAB: this is where we have an opportunity to update the costs and bounds
-	// of the stabilization variables
-	if (pModel_->getParameters().isStabilization_) {
-		this->stabUpdateBoundAndCost(isStall,isImproveQuality);
 	}
 
 
@@ -611,27 +547,86 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
 	//if some variables have been generated, do not branch
-	if(local_var_pool.size() > 0 ) {
+	bool column_generated = !local_var_pool.empty();
+
+  // STAB: compute the Lagrangian bound
+  // It can also be used in general to fathom nodes when the the Lagrangian
+  // bound is larger than the best UB
+  //
+  bool isImproveQuality = false;
+  if ( (current_index() > 0 && pModel_->getParameters().isLagrangianFathom_)
+       || pModel_->getParameters().isStabilization_) {
+    double lagLb = pModel_->computeBestLB();
+
+    if (pModel_->getParameters().isStabilization_) {
+      lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
+    }
+    else if (pModel_->getParameters().isLagrangianFathom_) {
+      //&& pModel_->getLastNbSubProblemsSolved() >= pMaster->getNbNurses()) {
+      lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
+    }
+    isImproveQuality = pModel_->updateNodeLagLB(lagLb);
+
+    // LAGLB: fathom if Lagrangian bound greater than current upper bound
+    if(pModel_->getParameters().isLagrangianFathom_
+       && pModel_->getObjective() - pModel_->getNodeLastLagLB() < pModel_->getParameters().absoluteGap_ - EPSILON){
+      std::cout << "Forcibly fathom, because Lagrangian bound is exceeded." << std::endl;
+      return BCP_DoNotBranch_Fathomed;
+    }
+  }
+
+  // STAB
+  // Detect when the column generation is stalling
+  // If stabilization is used this will determine when the stabilization costs
+  // are updated
+  // Otherwise, an option can be set on to stop column generation and branch after a given
+  // number of degenerate iterations
+  //
+  double isStalling = false;
+  if (column_generated && pModel_->getObjImprovement() < EPSILON) {
+    isStalling = true;
+    pModel_->incrementNbDegenerateIt();
+    // stop column generation if not root node and too many iteration
+    if (current_index() > 0
+        && pModel_->getNbDegenerateIt() == pModel_->getParameters().stopAfterXDegenerateIt_ ) {
+      std::cout << "Branch with column generation stalling (stop column generation)" << std::endl;
+      column_generated = false;
+    }
+  }
+  // reset counter to 0 as soon as a significant step has been made
+  else pModel_->setNbDegenerateIt(0);
+
+  // we have an opportunity to update the costs and bounds
+  // of the stabilization variables
+  if (pModel_->getParameters().isStabilization_) {
+    this->stabUpdateBoundAndCost(isStalling, isImproveQuality);
+  }
+
+  // check if continue column generation
+	if(column_generated) {
 		return BCP_DoNotBranch;
 	}
-
 	// STAB: Do not branch if some stabilization variables are positive
 	if (!pModel_->getMaster()->stabCheckStoppingCriterion()) {
 		return BCP_DoNotBranch;
 	}
 
+	// update LB
+	double lb = lpres.objval();
+	// if column generation has been stopped because of stalling, use LB of parent (as current LB is meaningless)
+	if(isStalling) lb = pModel_->getCurrentNode()->pParent_->getBestLB();
 	//update node
-	pModel_->updateNodeLB(lpres.objval());
-
+	pModel_->updateNodeLB(lb);
 	//update true_lower_bound, as we reach the end of the column generation
-	getLpProblemPointer()->node->true_lower_bound = lpres.objval();
+	getLpProblemPointer()->node->true_lower_bound = lb;
+
 	heuristicHasBeenRun_ = true;
 	nbNodesSinceLastHeuristic_++;
 	// increase the number of nodes and reset currentNodelpIteration_
 	pModel_->incrementNbNodes();
   currentNodelpIteration_ = 0;
-  // store current solution
-  pModel_->setLPSol(lpres, vars, lpIteration_);
+//  // store current solution
+//  pModel_->setLPSol(lpres, vars, lpIteration_);
 
 	//if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
 	// otherwise, record the root solution for future use
