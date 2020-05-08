@@ -1,4 +1,4 @@
-FROM gcc:6
+FROM gcc:7
 
 ENV cmake_version=3.15
 
