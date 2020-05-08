@@ -1,5 +1,4 @@
-#FROM legraina/bcp
-FROM bcp
+FROM legraina/bcp
 
 # create a user
 RUN useradd -ms /bin/bash poly
