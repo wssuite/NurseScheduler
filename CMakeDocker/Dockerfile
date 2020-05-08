@@ -1,6 +1,6 @@
-FROM gcc:5.4
+FROM gcc:6
 
-ENV cmake_version=3.5
+ENV cmake_version=3.15
 
 # Install wget
 RUN apt-get update && \
