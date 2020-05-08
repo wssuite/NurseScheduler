@@ -570,7 +570,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
   // number of degenerate iterations
   //
   double isStalling = false;
-  if (column_generated && pModel_->getObjImprovement() < EPSILON) {
+  if (column_generated && getObjImprovement() < EPSILON) {
     isStalling = true;
     pModel_->incrementNbDegenerateIt();
     // stop column generation if not root node and too many iteration
@@ -595,14 +595,17 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 	if (!pModel_->getMaster()->stabCheckStoppingCriterion())
 		return BCP_DoNotBranch;
 
-	// update LB
-	double lb = lpres.objval();
-	// if column generation has been stopped because of stalling, use LB of parent (as current LB is meaningless)
-	if(isStalling) lb = pModel_->getCurrentNode()->pParent_->getBestLB();
-	//update node
-	pModel_->updateNodeLB(lb);
-	//update true_lower_bound, as we reach the end of the column generation
-	getLpProblemPointer()->node->true_lower_bound = lb;
+	// update LB (as either branching or fathoming) only if column generation has been solved until optimality
+	if(!isStalling) {
+    double lb = lpres.objval();
+    //update node
+    pModel_->updateNodeLB(lb);
+    //update true_lower_bound, as we reach the end of the column generation
+    getLpProblemPointer()->node->true_lower_bound = lb;
+	}
+
+	// reset degeneration counter to 0
+  pModel_->setNbDegenerateIt(0);
 
 	heuristicHasBeenRun_ = true;
 	nbNodesSinceLastHeuristic_++;
@@ -1095,11 +1098,10 @@ void BcpModeler::clear() {
 }
 
 void BcpModeler::deleteSolutions() {
-  for(BCP_solution_generic& sol: bcpSolutions_){
-    int size = sol._vars.size();
-    for(int i=coreVars_.size(); i<size; ++i) delete sol._vars[i];
-  }
   bcpSolutions_.clear();
+  for(MyVar* v: columnsInSolutions_)
+    delete v;
+  columnsInSolutions_.clear();
 }
 
 //solve the model
@@ -1282,6 +1284,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
 			// 	continue;
 			// }
          col = new BcpColumn(*col);
+         columnsInSolutions_.push_back(col); // strore pointers to be able to delete them
          mySol.add_entry(col, sol2->_values[i]);
       }
       else {

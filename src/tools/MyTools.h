@@ -157,7 +157,13 @@ std::string itoa(T num){
 static std::vector<int> EMPTY_INT_VECTOR;
 static std::vector<double> EMPTY_DOUBLE_VECTOR;
 
-// Returns an integer with random value (uniform) within [minVal, maxVal]
+// return the object at position i (support negative index)
+template<class T> const T& get(const std::vector<T>& v, int i) {
+  if(i>=0) return v[i];
+  return v[v.size()-i];
+}
+
+  // Returns an integer with random value (uniform) within [minVal, maxVal]
 //
 int randomInt(int minVal, int maxVal);
 
