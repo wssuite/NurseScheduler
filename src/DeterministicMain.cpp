@@ -15,7 +15,6 @@
 #include "solvers/DeterministicSolver.h"
 #include "DeterministicMain_test.h"
 
-
 using std::string;
 using std::vector;
 using std::map;
