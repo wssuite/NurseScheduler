@@ -445,33 +445,29 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 	const BCP_vec<BCP_var*>& vars, const BCP_vec<BCP_cut*>& cuts, const bool before_fathom,
 	BCP_vec<BCP_var*>& new_vars, BCP_vec<BCP_col*>& new_cols)
 {
+  // update the total number of LP solutions (from the beginning)
+  ++currentNodelpIteration_;
+  ++lpIteration_;
+
+  // update LP solution
+  pModel_->setLPSol(lpres, vars, lpIteration_);
+
+  // if must stop, return immediatelly
 	if(doStop())
 	  return;
 
 	// Stop the algorithm if the last objective value of the relaxation is
 	// close enough to the current LB
 	//
-	if(current_index() > 0 && lpres.objval() < pModel_->getCurrentLB() + EPSILON) {
+	if(current_index() > 0 && lpres.objval() < pModel_->getCurrentLB() + EPSILON)
 		return;
-	}
-
-	// update the total number of LP solutions (from the beginning)
-  ++currentNodelpIteration_;
-	++lpIteration_;
 
 	// call the rotation pricer to find columns that should be added to the LP
 	//
-	pModel_->setLPSol(lpres, vars, lpIteration_);
 	bool after_fathom = (currentNodelpIteration_ == 1);
 	double maxReducedCost = pModel_->getParameters().sp_max_reduced_cost_bound_; // max reduced cost of a rotation that would be added to MP (a tolerance is substracted in the SP)
 	vector<MyVar*> generatedColumns = pModel_->pricing(maxReducedCost, before_fathom, after_fathom, backtracked_);
 	nbGeneratedColumns_ = generatedColumns.size();
-
-	// Print a line summary of the solver state
-	pModel_->setCurrentTreeLevel(current_level());
-	if (pModel_->getParameters().printBcpSummary_) {
-		printSummaryLine(vars);
-	}
 
 	//check if new columns add been added since the last time
 	//if there are some, add all of them in new_vars
@@ -546,6 +542,12 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
    BCP_vec<BCP_lp_branching_object*>&  cands, //the generated branching candidates.
    bool force_branch) //indicate whether to force branching regardless of the size of the local cut/var pools{
 {
+  // Print a line summary of the solver state
+  pModel_->setCurrentTreeLevel(current_level());
+  if (pModel_->getParameters().printBcpSummary_) {
+    printSummaryLine(vars);
+  }
+
 	//if some variables have been generated, do not branch
 	bool column_generated = !local_var_pool.empty();
 
