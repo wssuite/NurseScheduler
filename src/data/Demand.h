@@ -13,6 +13,9 @@
 #include "tools/MyTools.h"
 
 
+class Demand;
+typedef std::shared_ptr<Demand> PDemand;
+
 //-----------------------------------------------------------------------------
 //
 //	C l a s s  D e m a n d
@@ -108,10 +111,10 @@ public:
 
   // add another week demand at the end of the current one
   // update all the parameters
-  void push_back(Demand* pDemand);
+  void push_back(PDemand pDemand);
 
   // Returns a new demand that appends pDemand to the current one
-  Demand* append(Demand* pDemand);
+  PDemand append(PDemand pDemand);
 
   // display the demand, and include the preprocessed information if the input
   // boolean is set to true
@@ -120,11 +123,11 @@ public:
 
   // copy the input demand and apply a perturbation to generate random demand
   //
-  Demand* randomPerturbation();
+  PDemand randomPerturbation();
 
   // shorten the demand by keeping only the nbDays in [begin, end)
   // return a new demand
-  Demand* keep(int begin, int end);
+  PDemand keep(int begin, int end);
 
   // shorten the demand by keeping only the nbDays first days
   //

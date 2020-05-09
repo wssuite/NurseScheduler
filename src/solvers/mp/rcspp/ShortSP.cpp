@@ -19,7 +19,7 @@ using std::map;
 // Constructors and destructor
 ShortSP::ShortSP() {}
 
-ShortSP::ShortSP(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState):
+ShortSP::ShortSP(PScenario scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
     SubProblem(scenario, nbDays, contract,  pInitState) {
 
   minConsDays_ = contract->minConsDaysWork_;

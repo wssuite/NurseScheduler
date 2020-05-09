@@ -81,11 +81,11 @@ struct RosterPattern: Pattern {
 
     //Compute the cost of a rotation
     //
-    void computeCost(Scenario* pScenario, Preferences* pPreferences, const std::vector<LiveNurse*>& liveNurses);
+    void computeCost(PScenario pScenario, const std::vector<PLiveNurse>& liveNurses);
 
     //Compute the dual cost of a rotation
     //
-    void checkDualCost(DualCosts& costs, Scenario* Scenario);
+    void checkDualCost(DualCosts& costs, PScenario Scenario);
 
     // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest) !!
     bool isDisjointWith(PPattern pat, bool needRest=true) const override {
@@ -136,7 +136,7 @@ struct RosterPattern: Pattern {
 //-----------------------------------------------------------------------------
 class RosterMP: public MasterProblem {
   public:
-    RosterMP(Scenario* pScenario, Demand* pDemand, Preferences* pPreferences, std::vector<State> *pInitState,
+    RosterMP(PScenario pScenario, PDemand pDemand, PPreferences pPreferences, std::vector<State> *pInitState,
                MySolverType solver);
     virtual ~RosterMP();
 
@@ -145,7 +145,7 @@ class RosterMP: public MasterProblem {
     MyVar* addColumn(int nurseId, const RCSolution& solution) override;
 
     //get a reference to the restsPerDay_ for a Nurse
-    inline const std::vector<MyVar*>& getRestVarsPerDay(LiveNurse* pNurse, int day) const override {
+    inline const std::vector<MyVar*>& getRestVarsPerDay(PLiveNurse pNurse, int day) const override {
       return restsPerDay_[pNurse->id_][day];
     }
 
@@ -182,7 +182,7 @@ class RosterMP: public MasterProblem {
     double getMaxWeekendCost() const override;
 
     /* retrieve the dual values */
-    double getConstantDualvalue(LiveNurse* pNurse) const override;
+    double getConstantDualvalue(PLiveNurse pNurse) const override;
 
     /*
     * Variables

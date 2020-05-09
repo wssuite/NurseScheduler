@@ -17,7 +17,7 @@ class ShortSP : public SubProblem {
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    ShortSP(Scenario* scenario, int nbDays, const Contract* contract, std::vector<State>* pInitState);
+    ShortSP(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
 
     double startWorkCost(int a) const override;
 

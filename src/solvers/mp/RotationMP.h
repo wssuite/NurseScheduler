@@ -88,7 +88,7 @@ struct RotationPattern: Pattern {
 
     //Compute the cost of a rotation
     //
-    void computeCost(Scenario* pScenario, Preferences* pPreferences, const std::vector<LiveNurse*>& liveNurses, int horizon);
+    void computeCost(PScenario pScenario, const std::vector<PLiveNurse>& liveNurses, int horizon);
 
     //Compute the dual cost of a rotation
     //
@@ -97,8 +97,8 @@ struct RotationPattern: Pattern {
     std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const override;
 
   private:
-    // compute the time duration of the rotation (number of days, cumulative number of hours, etc)
-    void computeTimeDuration(Scenario* pScenario) {
+    // compute the time duration of the rotation (number of days, cumulative number of hours, etc
+    void computeTimeDuration(PScenario pScenario) {
       timeDuration_ = 0;
       for (std::pair<int, int> p: shifts_) {
         timeDuration_ += pScenario->timeDurationToWork_[p.second];
@@ -115,7 +115,7 @@ struct RotationPattern: Pattern {
 //-----------------------------------------------------------------------------
 class RotationMP: public MasterProblem {
   public:
-    RotationMP(Scenario* pScenario, Demand* pDemand, Preferences* pPreferences, std::vector<State> *pInitState,
+    RotationMP(PScenario pScenario, PDemand pDemand, PPreferences pPreferences, std::vector<State> *pInitState,
                MySolverType solver);
     virtual ~RotationMP();
 
@@ -140,9 +140,9 @@ class RotationMP: public MasterProblem {
     // variables are non zero
     bool stabCheckStoppingCriterion() const override ;
 
-    // STAB: compute the lagrangian bound
-    //
-    double computeLagrangianBound(double objVal,double sumRedCost) const override ;
+//    // STAB: compute the lagrangian bound
+//    //
+//    double computeLagrangianBound(double objVal,double sumRedCost) const override ;
 
     // STAB: reset the costs and bounds of the stabilization variables
     //
@@ -150,7 +150,7 @@ class RotationMP: public MasterProblem {
                                const SolverParam& parameters) override ;
 
     //get a reference to the restsPerDay_ for a Nurse
-    inline const std::vector<MyVar*>& getRestVarsPerDay(LiveNurse* pNurse, int day) const override {
+    inline const std::vector<MyVar*>& getRestVarsPerDay(PLiveNurse pNurse, int day) const override {
       return restsPerDay_[pNurse->id_][day];
     }
 
@@ -171,7 +171,7 @@ class RotationMP: public MasterProblem {
     MyVar* addRotation(const RotationPattern& rotation, const char* baseName, bool coreVar = false);
 
     //compute and add the last rotation finishing on the day just before the first one
-    RotationPattern computeInitStateRotation(LiveNurse* pNurse);
+    RotationPattern computeInitStateRotation(PLiveNurse pNurse);
 
     /* Build each set of constraints - Add also the coefficient of a column for each set */
     void buildRotationCons(const SolverParam& parameters);
@@ -190,10 +190,10 @@ class RotationMP: public MasterProblem {
     double getMaxWeekendCost() const override;
 
     /* retrieve the dual values */
-    vector2D<double> getShiftsDualValues(LiveNurse*  pNurse) const override;
-    std::vector<double> getStartWorkDualValues(LiveNurse* pNurse) const override ;
-    std::vector<double> getEndWorkDualValues(LiveNurse* pNurse) const override ;
-    double getWorkedWeekendDualValue(LiveNurse* pNurse) const override;
+    vector2D<double> getShiftsDualValues(PLiveNurse  pNurse) const override;
+    std::vector<double> getStartWorkDualValues(PLiveNurse pNurse) const override ;
+    std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const override ;
+    double getWorkedWeekendDualValue(PLiveNurse pNurse) const override;
 
     /*
     * Variables

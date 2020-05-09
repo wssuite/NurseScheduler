@@ -26,8 +26,6 @@ using std::vector;
 using std::map;
 using std::pair;
 
-std::map<std::string, Algorithm> stringToAlgorithm =
-	boost::assign::map_list_of("GREEDY", GREEDY)("GENCOL", GENCOL)("STOCHASTIC_GREEDY",STOCHASTIC_GREEDY)("STOCHASTIC_GENCOL",STOCHASTIC_GENCOL)("NONE",NONE);
 std::map<std::string, WeightStrategy> stringToWeightStrategy =
 	boost::assign::map_list_of("MAX", MAX)("MEAN", MEAN)("RANDOMMEANMAX",RANDOMMEANMAX)("BOUNDRATIO",BOUNDRATIO)("NO_STRAT",NO_STRAT);
 std::map<std::string, RankingStrategy> stringToRankingStrategy =
@@ -41,7 +39,7 @@ std::map<std::string, RankingStrategy> stringToRankingStrategy =
 
 // Read the scenario file and store the content in a Scenario instance
 //
-Scenario* ReadWrite::readScenario(string fileName) {
+PScenario ReadWrite::readScenario(string fileName) {
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << fileName << std::endl;
@@ -65,15 +63,15 @@ Scenario* ReadWrite::readScenario(string fileName) {
 	vector<int> minConsShiftType, maxConsShiftType, nbForbiddenSuccessors, hoursInShift, shiftIDToShiftTypeID;
         vector2D<int> shiftTypeIDToShiftID;
 	vector2D<int> forbiddenSuccessors;
-	map<string,Contract*> contracts;
-	vector<Nurse> theNurses;
+	map<string,PConstContract> contracts;
+	vector<PNurse> theNurses;
 
 	bool  foundShift = false;
 
 	// fill the attributes of the scenario structure
 	//
 	while(file.good()){
-		readUntilChar(&file, '=', &title);
+		readUntilChar(file, '=', title);
 
 		// Read the name of the scenario
 		//
@@ -121,15 +119,15 @@ Scenario* ReadWrite::readScenario(string fileName) {
 				file >> strTmp;
 				intToShiftType.push_back(strTmp);
 				shiftTypeToInt.insert(pair<string,int>(strTmp,i));
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				// Min consecutive
 				file >> intTmp;
 				minConsShiftType.push_back(intTmp);
-				readUntilChar(&file, ',', &strTmp);
+				readUntilChar(file, ',', strTmp);
 				// Max consecutive
 				file >> intTmp;
 				maxConsShiftType.push_back(intTmp);
-				readUntilChar(&file,'\n',&strTmp);
+				readUntilChar(file,'\n',strTmp);
 			}
 
 
@@ -156,7 +154,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 					file >> strTmp;
 					forbiddenSuccessors[currentShiftTypeId].push_back(shiftTypeToInt.at(strTmp));
 				}
-				readUntilChar(&file,'\n',&strTmp);
+				readUntilChar(file,'\n',strTmp);
 
 			}
 		}
@@ -212,26 +210,28 @@ Scenario* ReadWrite::readScenario(string fileName) {
 				string contractName;
 				int minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend;
 				file >> contractName;
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				file >> minDays;
-				readUntilChar(&file,',',&strTmp);
+				readUntilChar(file,',',strTmp);
 				file >> maxDays;
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				file >> minConsWork;
-				readUntilChar(&file,',',&strTmp);
+				readUntilChar(file,',',strTmp);
 				file >> maxConsWork;
-				readUntilChar(&file,'(',&strTmp);
+				readUntilChar(file,'(',strTmp);
 				file >> minConsRest;
-				readUntilChar(&file,',',&strTmp);
+				readUntilChar(file,',',strTmp);
 				file >> maxConsRest;
-				readUntilChar(&file,' ',&strTmp);
+				readUntilChar(file,' ',strTmp);
 				file >> maxWeekends;
-				readUntilChar(&file,' ',&strTmp);
+				readUntilChar(file,' ',strTmp);
 				file >> isTotalWeekend;
-				readUntilChar(&file,'\n',&strTmp);
+				readUntilChar(file,'\n',strTmp);
 
-				Contract * pContract = new Contract (i, contractName, minDays, maxDays, minConsWork, maxConsWork, minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
-				contracts.insert(pair<string,Contract*>(contractName,pContract));
+        PConstContract pContract =
+            std::make_shared<Contract>(i, contractName, minDays, maxDays, minConsWork, maxConsWork,
+                minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
+				contracts[contractName] = pContract;
 				intToContract.push_back(contractName);
 			}
 		}
@@ -255,8 +255,7 @@ Scenario* ReadWrite::readScenario(string fileName) {
 				// sort the skill indices before initializing the nurse
 				std::sort (skills.begin(), skills.end());
 
-				Nurse nurse (i, nurseName, nbSkills, skills, contracts.at(contractName));
-				theNurses.push_back(nurse);
+				theNurses.emplace_back(std::make_shared<Nurse>(i, nurseName, nbSkills, skills, contracts.at(contractName)));
 				nurseNameToInt.insert(pair<string,int>(nurseName,i));
 			}
 
@@ -284,38 +283,32 @@ Scenario* ReadWrite::readScenario(string fileName) {
 		Tools::throwError("In readScenario: missing fields in the initialization");
 	}
 
-	return new Scenario(name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts,
+	return std::make_shared<Scenario>(name, nbWeeks, nbSkills, intToSkill, skillToInt, nbShifts,
 			    intToShift, shiftToInt, hoursInShift, shiftIDToShiftTypeID,
 			    nbShiftsType, intToShiftType, shiftTypeToInt, shiftTypeIDToShiftID, 
 			    minConsShiftType, maxConsShiftType, nbForbiddenSuccessors,forbiddenSuccessors,
 			    nbContracts, intToContract, contracts, nbNurses, theNurses, nurseNameToInt) ;
 }
 
-Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario)
+PDemand ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, PScenario pScenario)
 {
 	//initialize pDemand
-	Demand* pDemand(nullptr);
-	Preferences* pPref(nullptr);
+	PDemand pDemand;
+	PPreferences pPref;
 
 	for(string strWeekFile: strWeekFiles)
-		if(pDemand == 0){
+		if(!pDemand){
 			ReadWrite::readWeek(strWeekFile, pScenario,&pDemand,&pPref);
-      std::cout << pPref->toString(pScenario) << std::endl;
 		}
 		else{
 			//load the next week
-			Demand* nextDemand(nullptr);
-			Preferences* nextPref(nullptr);
+			PDemand nextDemand;
+			PPreferences nextPref;
 			ReadWrite::readWeek(strWeekFile, pScenario, &nextDemand, &nextPref);
-      std::cout << nextPref->toString(pScenario) << std::endl;
 			//update the current weeks
 			pDemand->push_back(nextDemand);
 			pPref->push_back(nextPref);
 			pScenario->addAWeek();
-      std::cout << pPref->toString(pScenario) << std::endl;
-			//delete the demand and the preferences which we have created
-			delete nextDemand;
-			delete nextPref;
 		}
 
 	//link the scenario to the current demand and preferences
@@ -327,8 +320,8 @@ Demand* ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, Scenario* pS
 
 // Read the Week file and store the content in a Scenario instance
 //
-void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
-  Demand** pDemand, Preferences** pPref){
+void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
+  PDemand* pDemand, PPreferences* pPref){
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << strWeekFile << std::endl;
@@ -343,19 +336,17 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 	string strTmp;
 	int intTmp;
 
-	// declare the attributes to be updated in the Scenario*
+	// declare the attributes to be updated in the PScenario
 	//
 	string weekName;
 	vector3D<int> minWeekDemand;
 	vector3D<int> optWeekDemand;
-	if (*pPref) delete *pPref;
-	if (*pDemand) delete *pDemand;
 
 
 	// fill the attributes when reading the week file
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		// Read the name of the week
 		//
@@ -382,14 +373,14 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 					skillId = pScenario->skillToInt_.at(skillName);
 					// For every day in the week, read min and opt values
 					for (int day = 0; day<7; day++){
-						readUntilChar(&file,'(',&strTmp);
+						readUntilChar(file,'(',strTmp);
 						file >> intTmp;
 						minWeekDemand[day][shiftId][skillId] = intTmp;
-						readUntilChar(&file,',',&strTmp);
+						readUntilChar(file,',',strTmp);
 						file >> intTmp;
 						optWeekDemand[day][shiftId][skillId] = intTmp;
 					}
-					readUntilChar(&file,')',&strTmp);
+					readUntilChar(file,')',strTmp);
 				}
 			}
 		}
@@ -398,24 +389,33 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 		//
 		else if(strEndsWith(title,"SHIFT_OFF_REQUESTS ")){
       if(!*pPref)
-        *pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
+        *pPref = std::make_shared<Preferences>(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
-			string nurseName, shift, day;
-			int nbShiftOffRequests, nurseId, shiftId, dayId, level;
-			file >> nbShiftOffRequests;
-			for (int i=0; i<nbShiftOffRequests; i++){
-				file >> nurseName;
+			string nurseName, shift, day, strLevel;
+			int nbShifts, nurseId, dayId;
+			PREF_LEVEL level = WEAK;
+			file >> nbShifts;
+			for (int i=0; i<nbShifts; i++){
+				if(nurseName.empty())
+				  file >> nurseName;
+        nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        nurseName.clear();
 				file >> shift;
 				file >> day;
-				file >> level;
-				nurseId = pScenario->nurseNameToInt_.at(nurseName);
-				dayId = Tools::dayToInt(day);
+        dayId = Tools::dayToInt(day);
+				// in case there is no level defined for the preferences
+        file >> strLevel;
+        try {
+          level = (PREF_LEVEL) std::stoi(strLevel);
+        } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
+          nurseName = strLevel;
+        }
 
 				if(shift == "Any")
 				  (*pPref)->addDayOff(nurseId, dayId, level);
 				else {
 					// shiftId = pScenario->shiftTypeToInt_.at(shift);
-					shiftId = pScenario->shiftToInt_.at(shift);
+					int shiftId = pScenario->shiftToInt_.at(shift);
 					(*pPref)->addShiftOff(nurseId, dayId, shiftId, level);
 				}
 			}
@@ -425,24 +425,33 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 		//
 		else if(strEndsWith(title,"SHIFT_ON_REQUESTS ")){
 			if(!*pPref)
-			  *pPref = new Preferences(pScenario->nbNurses_, 7, pScenario->nbShifts_);
+			  *pPref = std::make_shared<Preferences>(pScenario->nbNurses_, 7, pScenario->nbShifts_);
 			// Temporary vars
-			string nurseName, shift, day;
-			int nbShiftOnRequests, nurseId, shiftId, dayId, level;
-			file >> nbShiftOnRequests;
-			for (int i=0; i<nbShiftOnRequests; i++){
-				file >> nurseName;
-				file >> shift;
-				file >> day;
-				file >> level;
-				nurseId = pScenario->nurseNameToInt_.at(nurseName);
-				dayId = Tools::dayToInt(day);
+      string nurseName, shift, day, strLevel;
+      int nbShifts, nurseId, dayId;
+      PREF_LEVEL level = WEAK;
+      file >> nbShifts;
+      for (int i=0; i<nbShifts; i++){
+        if(nurseName.empty())
+          file >> nurseName;
+        nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        nurseName.clear();
+        file >> shift;
+        file >> day;
+        dayId = Tools::dayToInt(day);
+        // in case there is no level defined for the preferences
+        file >> strLevel;
+        try {
+          level = (PREF_LEVEL) std::stoi(strLevel);
+        } catch (std::invalid_argument) { // has read the next line: strLevel contains the next nurse name
+          nurseName = strLevel;
+        }
 
 				if(shift == "Any")
 				  (*pPref)->addDayOn(nurseId, dayId, level);
 				else {
 					// shiftId = pScenario->shiftTypeToInt_.at(shift);
-					shiftId = pScenario->shiftToInt_.at(shift);
+					int shiftId = pScenario->shiftToInt_.at(shift);
 					(*pPref)->addShiftOn(nurseId, dayId, shiftId, level);
 				}
 			}
@@ -450,7 +459,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 	}
 
 	// Define a new instance of demand
-	*pDemand = new Demand(7, 0, pScenario->nbShifts_,pScenario->nbSkills_, weekName,
+	*pDemand = std::make_shared<Demand>(7, 0, pScenario->nbShifts_,pScenario->nbSkills_, weekName,
 		minWeekDemand, optWeekDemand);
   std::cout << "Demand created" << std::endl;
 
@@ -465,7 +474,7 @@ void ReadWrite::readWeek(std::string strWeekFile, Scenario* pScenario,
 
 // Read the history file
 //
-void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
+void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario){
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << strHistoryFile << std::endl;
@@ -478,7 +487,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 	string title;
 	string strTmp;
 
-	// declare the attributes to be updated in the Scenario*
+	// declare the attributes to be updated in the PScenario
 	//
 	int thisWeek;
 	string weekName;
@@ -488,7 +497,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 	// fill the attributes of the week structure
 	//
 	while(file.good()){
-		readUntilChar(&file,'\n', &title);
+		readUntilChar(file,'\n', title);
 
 		// Read the index and name of the week
 		//
@@ -539,7 +548,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, Scenario* pScenario){
 // Read the input custom file
 // Store the result in a vector of historical demands and return the number of treated weeks
 //
-int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector<Demand*>& demandHistory) {
+int ReadWrite::readCustom(string strCustomInputFile, PScenario pScenario, vector<PDemand>& demandHistory) {
 	// open the file
 	std::fstream file;
 	std::cout << "Reading " << strCustomInputFile << std::endl;
@@ -555,7 +564,7 @@ int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector
 	// get the custom information
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		// Read the file names of the past demand
 		//
@@ -566,8 +575,8 @@ int ReadWrite::readCustom(string strCustomInputFile, Scenario* pScenario, vector
 			string strDemandFile;
 			for (int i = 0; i < nbWeeks; i++) {
 				file >> strDemandFile;
-				Demand* pDemand = nullptr;
-				Preferences* pPref = nullptr;
+				PDemand pDemand;
+				PPreferences pPref;
 				readWeek(strDemandFile,pScenario,&pDemand,&pPref);
 				demandHistory.push_back(pDemand);
 			}
@@ -603,7 +612,7 @@ void ReadWrite::writeCustom(string strCustomOutputFile, string strWeekFile, stri
 	// fill the attributes of the week structure
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		// Read the file names of the past demand
 		//
@@ -642,7 +651,7 @@ std::string ReadWrite::readStochasticSolverOptions(string strOptionFile, Stochas
 	// fill the attributes of the options structure
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		if(!strcmp(title.c_str(), "withEvaluation")){
 			file >> options.withEvaluation_;
@@ -659,12 +668,12 @@ std::string ReadWrite::readStochasticSolverOptions(string strOptionFile, Stochas
 		if(!strcmp(title.c_str(), "generationAlgorithm")){
 			string strtmp;
 			file >> strtmp;
-			options.generationAlgorithm_ = stringToAlgorithm[strtmp];
+			options.generationAlgorithm_ = AlgorithmsByName.at(strtmp);
 		}
 		if(!strcmp(title.c_str(), "evaluationAlgorithm")){
 			string strtmp;
 			file >> strtmp;
-			options.evaluationAlgorithm_ = stringToAlgorithm[strtmp];
+			options.evaluationAlgorithm_ = AlgorithmsByName.at(strtmp);
 		}
 		if(!strcmp(title.c_str(), "rankingStrategy")){
 			string strtmp;
@@ -708,7 +717,7 @@ std::string ReadWrite::readSolverOptions(string strOptionFile, SolverParam& opti
 	// fill the attributes of the options structure
 	//
 	while(file.good()){
-		readUntilOneOfTwoChar(&file, '\n', '=', &title);
+		readUntilOneOfTwoChar(file, '\n', '=', title);
 
 		if(!strcmp(title.c_str(), "maxSolvingTimeSeconds")){
 			file >> options.maxSolvingTimeSeconds_;
@@ -754,7 +763,7 @@ std::string ReadWrite::readSolverOptions(string strOptionFile, SolverParam& opti
 
 // Read the solution from multiple week solution files
 //
-vector<Roster> ReadWrite::readSolutionMultipleWeeks(vector<std::string> strWeekSolFiles, Scenario* pScenario){
+vector<Roster> ReadWrite::readSolutionMultipleWeeks(vector<std::string> strWeekSolFiles, PScenario pScenario){
 
 	int nbWeeks = strWeekSolFiles.size();
 	string  strNurse, strDay, strShift, strSkill;
@@ -789,13 +798,13 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(vector<std::string> strWeekS
 		// parse the file until reaching the number of assignments
 		std::size_t found = title.find("ASSIGNMENTS");
 		while (found!=std::string::npos) {
-			readUntilOneOfTwoChar(&file, '\n', '=', &title);
+			readUntilOneOfTwoChar(file, '\n', '=', title);
 			found = title.find("ASSIGNMENTS");
 			if (!file.good()) {
 				Tools::throwError("The solution file is not formatted as it should!");
 			}
 		}
-		readUntilOneOfTwoChar(&file, '\n', '\n', &title);
+		readUntilOneOfTwoChar(file, '\n', '\n', title);
 
 		// parse the assignments
 		while (file.good()) {
@@ -819,266 +828,257 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(vector<std::string> strWeekS
 
 void ReadWrite::compareDemands(string inputDir, string logFile) {
 
-	struct dirent *dirp;
-	Tools::LogOutput logStream(logFile,8);
+  struct dirent *dirp;
+  Tools::LogOutput logStream(logFile, 8);
 
-	vector2D<int> minPerShift, optPerShift, minPerSkill,optPerSkill;
-	vector2D<int> minHighestPerSkill, optHighestPerSkill;
+  vector2D<int> minPerShift, optPerShift, minPerSkill, optPerSkill;
+  vector2D<int> minHighestPerSkill, optHighestPerSkill;
   vector<int> minTotal, optTotal;
 
-	// Open the input directory
-	DIR* dp = opendir( inputDir.c_str() );
-	if (dp == NULL) {
-		Tools::throwError("Error while opening ");
-	}
-	else{
-		std::cout << "Reading from directory " << inputDir << std::endl;
-	}
+  // Open the input directory
+  DIR *dp = opendir(inputDir.c_str());
+  if (dp == NULL) {
+    Tools::throwError("Error while opening ");
+  } else {
+    std::cout << "Reading from directory " << inputDir << std::endl;
+  }
 
-	// Read the scenario that appears in the directory
-	unsigned found = inputDir.find_last_of("/");
-  string instanceName = inputDir.substr(found+1);
-	string scenFile = inputDir+"/Sc-"+instanceName+".txt";
-  string historyFile = inputDir+"/H0-"+instanceName+"-0.txt";
+  // Read the scenario that appears in the directory
+  unsigned found = inputDir.find_last_of("/");
+  string instanceName = inputDir.substr(found + 1);
+  string scenFile = inputDir + "/Sc-" + instanceName + ".txt";
+  string historyFile = inputDir + "/H0-" + instanceName + "-0.txt";
 
-	Scenario* pScen = ReadWrite::readScenario(scenFile);
+  PScenario pScen = ReadWrite::readScenario(scenFile);
 
-	// Go through all the demand files of the directory
+  // Go through all the demand files of the directory
   int coDemand = 0;
-	while ((dirp = readdir( dp )))
-	{
-		std::string filename(dirp->d_name);
+  while ((dirp = readdir(dp))) {
+    std::string filename(dirp->d_name);
 
-		// The file names of week demands start with "WD"
-		std::size_t found= filename.find("WD");
-		if (found > 0) continue;
+    // The file names of week demands start with "WD"
+    std::size_t found = filename.find("WD");
+    if (found > 0) continue;
 
-		string filepath = inputDir + "/" + filename;
+    string filepath = inputDir + "/" + filename;
 
-		Demand* pDemand(nullptr);
-		Preferences* pPref(nullptr);
-		ReadWrite::readWeek(filepath, pScen, &pDemand, &pPref);
+    PDemand pDemand;
+    PPreferences pPref;
+    ReadWrite::readWeek(filepath, pScen, &pDemand, &pPref);
 
-		logStream << "#####################################\n";
-		logStream << "# DEMAND FILE: " << filepath << std::endl;
-		logStream << "#####################################\n\n";
-		logStream << pDemand->toString(true) << std::endl << std::endl;
+    logStream << "#####################################\n";
+    logStream << "# DEMAND FILE: " << filepath << std::endl;
+    logStream << "#####################################\n\n";
+    logStream << pDemand->toString(true) << std::endl << std::endl;
 
-		// record the advanced data on the demand
-	 minTotal.push_back(pDemand->minTotal_);
-	 optTotal.push_back(pDemand->optTotal_);
-		minPerShift.push_back(pDemand->minPerShift_);
-		optPerShift.push_back(pDemand->optPerShift_);
-		minPerSkill.push_back(pDemand->minPerSkill_);
-		optPerSkill.push_back(pDemand->optPerSkill_);
-		minHighestPerSkill.push_back(pDemand->minHighestPerSkill_);
-		optHighestPerSkill.push_back(pDemand->optHighestPerSkill_);
+    // record the advanced data on the demand
+    minTotal.push_back(pDemand->minTotal_);
+    optTotal.push_back(pDemand->optTotal_);
+    minPerShift.push_back(pDemand->minPerShift_);
+    optPerShift.push_back(pDemand->optPerShift_);
+    minPerSkill.push_back(pDemand->minPerSkill_);
+    optPerSkill.push_back(pDemand->optPerSkill_);
+    minHighestPerSkill.push_back(pDemand->minHighestPerSkill_);
+    optHighestPerSkill.push_back(pDemand->optHighestPerSkill_);
 
-	 // link the scenario with the first demand and preferences to be able to
-	 // retrieve information about the nurses
-	 if (!coDemand) {
-		pScen->linkWithDemand(pDemand);
-		pScen->linkWithPreferences(pPref);
-	 }
-	 else {
-		delete pDemand;
-		delete pPref;
-		coDemand++;
-	 }
-	}
+    // link the scenario with the first demand and preferences to be able to
+    // retrieve information about the nurses
+    if (!coDemand) {
+      pScen->linkWithDemand(pDemand);
+      pScen->linkWithPreferences(pPref);
+    } else {
+      coDemand++;
+    }
+  }
 
   // Also preprocess the nurses to get statistics on the capacity of the nurses
   // to cover the demand
   //
   ReadWrite::readHistory(historyFile, pScen);
-  Solver* pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
+  Solver *pSolver = new Solver(pScen, pScen->pWeekDemand(), pScen->pWeekPreferences(), pScen->pInitialState());
   pSolver->preprocessTheNurses();
 
-	// Write a summary  of the advanced data computed for the demands
-	logStream << "#####################################" << std::endl;
-	logStream << "# SUMMARY OF THE STATISTICS" << std::endl;
-	logStream << "#####################################\n\n";
+  // Write a summary  of the advanced data computed for the demands
+  logStream << "#####################################" << std::endl;
+  logStream << "# SUMMARY OF THE STATISTICS" << std::endl;
+  logStream << "#####################################\n\n";
 
-  logStream  << "# Total capacity of the nurses (without unavoidable penalty/with average work): ";
-  logStream << Tools::itoa(pSolver->maxTotalStaffNoPenalty_)+"/"+Tools::itoa(pSolver->maxTotalStaffAvgWork_);
+  logStream << "# Total capacity of the nurses (without unavoidable penalty/with average work): ";
+  logStream << Tools::itoa(pSolver->maxTotalStaffNoPenalty_) + "/" + Tools::itoa(pSolver->maxTotalStaffAvgWork_);
   logStream.endl();
   logStream.endl();
 
 
-  logStream  << "# Total capacity of the nurses per skill (without unavoidable penalty/with average work):\n";
-  for (int i = 0; i < pScen->nbSkills_; i++)	{
-	 logStream << "# SK"+Tools::itoa(i)+":";
-	 logStream << Tools::itoa(pSolver->maxStaffPerSkillNoPenalty_[i]) +"/"+Tools::itoa(pSolver->maxStaffPerSkillAvgWork_[i]);
-	 logStream.endl();
+  logStream << "# Total capacity of the nurses per skill (without unavoidable penalty/with average work):\n";
+  for (int i = 0; i < pScen->nbSkills_; i++) {
+    logStream << "# SK" + Tools::itoa(i) + ":";
+    logStream << Tools::itoa(pSolver->maxStaffPerSkillNoPenalty_[i]) + "/" +
+                 Tools::itoa(pSolver->maxStaffPerSkillAvgWork_[i]);
+    logStream.endl();
   }
   logStream.endl();
 
-  logStream  << "# Total demand (min/opt): \n" ;
+  logStream << "# Total demand (min/opt): \n";
   logStream << "#";
   for (unsigned int d = 0; d < minPerShift.size(); d++) {
-	 logStream << "WD"+Tools::itoa(d);
+    logStream << "WD" + Tools::itoa(d);
   }
   logStream.endl();
   logStream << "#";
   for (unsigned int d = 0; d < minPerShift.size(); d++) {
-	 logStream << Tools::itoa(minTotal[d])+"/"+Tools::itoa(optTotal[d]);
+    logStream << Tools::itoa(minTotal[d]) + "/" + Tools::itoa(optTotal[d]);
   }
   logStream.endl();
   logStream.endl();
 
 
-	logStream  << "# Demand per shift\n";
-	logStream << "#";
-	for (unsigned int d = 0; d < minPerShift.size(); d++) {
-	 logStream << "WD"+Tools::itoa(d);
-	}
-	logStream.endl();
-	for (int i = 1; i < pScen->nbShifts_; i++)	{
-		logStream << "# SH"+Tools::itoa(i)+":";
-		for (unsigned int d = 0; d < minPerShift.size(); d++) {
-			logStream << Tools::itoa(minPerShift[d][i])+"/"+Tools::itoa(optPerShift[d][i]);
-		}
-		logStream.endl();
-	}
-  logStream.endl();
-
-
-	logStream  << "# Demand per skill\n";
+  logStream << "# Demand per shift\n";
   logStream << "#";
-	for (unsigned int d = 0; d < minPerSkill.size(); d++) {
-	 logStream << "WD"+Tools::itoa(d);
-	}
-	logStream.endl();
-	for (int i = 0; i < pScen->nbSkills_; i++)	{
-	 logStream.setWidth(12);
-	 logStream << "# " + pScen->intToSkill_[i] +":";
-	 logStream.setWidth(10);
-	 for (unsigned int d = 0; d < minPerShift.size(); d++) {
-			logStream << Tools::itoa(minPerSkill[d][i])+"/"+Tools::itoa(optPerSkill[d][i]);
-		}
-		logStream.endl();
-	}
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
+    logStream << "WD" + Tools::itoa(d);
+  }
+  logStream.endl();
+  for (int i = 1; i < pScen->nbShifts_; i++) {
+    logStream << "# SH" + Tools::itoa(i) + ":";
+    for (unsigned int d = 0; d < minPerShift.size(); d++) {
+      logStream << Tools::itoa(minPerShift[d][i]) + "/" + Tools::itoa(optPerShift[d][i]);
+    }
+    logStream.endl();
+  }
   logStream.endl();
 
 
-	logStream <<  "# Highest demand per skill for one shift" << std::endl;
+  logStream << "# Demand per skill\n";
   logStream << "#";
-	for (unsigned int d = 0; d < minPerSkill.size(); d++) {
-	 logStream << "WD"+Tools::itoa(d);
-	}
-	logStream.endl();
-	for (int i = 0; i < pScen->nbSkills_; i++)	{
-	 logStream << "# SK"+Tools::itoa(i)+":";
-		for (unsigned int d = 0; d < minPerShift.size(); d++) {
-			logStream << Tools::itoa(minHighestPerSkill[d][i])+"/"+Tools::itoa(optHighestPerSkill[d][i]);
-		}
-		logStream.endl();
-	}
-  logStream.endl();
-
-logStream.setWidth(12);
-logStream <<  "# Agregate indicators" << std::endl;
-logStream <<  "# Total understaffing without unavoidable penalty" << std::endl;
-logStream << "#";
-for (unsigned int d = 0; d < minPerShift.size(); d++) {
-  logStream << "WD"+Tools::itoa(d);
-}
-logStream << "Average" << "Std dev" << std::endl;
-logStream << "#";
-double averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-for (unsigned int d = 0; d < minPerShift.size(); d++) {
-  logStream << Tools::itoa(minTotal[d]-pSolver->maxTotalStaffNoPenalty_)+"/"+Tools::itoa(optTotal[d]-pSolver->maxTotalStaffNoPenalty_);
-  averageMin += (minTotal[d]-pSolver->maxTotalStaffNoPenalty_)/(double)minPerShift.size();
-  averageOpt += (optTotal[d]-pSolver->maxTotalStaffNoPenalty_)/(double)minPerShift.size();
-  stdDevMin += pow(minTotal[d]-pSolver->maxTotalStaffNoPenalty_,2);
-  stdDevOpt += pow(optTotal[d]-pSolver->maxTotalStaffNoPenalty_,2);
-}
-stdDevMin = sqrt(stdDevMin/(double)minPerShift.size()-pow(averageMin,2));
-stdDevOpt = sqrt(stdDevOpt/(double)minPerShift.size()-pow(averageOpt,2));
-logStream << Tools::itoa(averageMin)+"/"+Tools::itoa(averageOpt);
-logStream << Tools::itoa(stdDevMin)+"/"+Tools::itoa(stdDevOpt);
-logStream.endl();
-logStream.endl();
-
-logStream <<  "# Total understaffing with average work" << std::endl;
-logStream << "#";
-for (unsigned int d = 0; d < minPerShift.size(); d++) {
-  logStream << "WD"+Tools::itoa(d);
-}
-logStream << "Average" << "Std dev" << std::endl;
-logStream << "#";
-averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-for (unsigned int d = 0; d < minPerShift.size(); d++) {
-  logStream << Tools::itoa(minTotal[d]-pSolver->maxTotalStaffAvgWork_)+"/"+Tools::itoa(optTotal[d]-pSolver->maxTotalStaffAvgWork_);
-  averageMin += (minTotal[d]-pSolver->maxTotalStaffAvgWork_)/(double)minPerShift.size();
-  averageOpt += (optTotal[d]-pSolver->maxTotalStaffAvgWork_)/(double)minPerShift.size();
-  stdDevMin += pow(minTotal[d]-pSolver->maxTotalStaffAvgWork_,2);
-  stdDevOpt += pow(optTotal[d]-pSolver->maxTotalStaffAvgWork_,2);
-}
-stdDevMin = sqrt(stdDevMin/(double)minPerShift.size()-pow(averageMin,2));
-stdDevOpt = sqrt(stdDevOpt/(double)minPerShift.size()-pow(averageOpt,2));
-logStream << Tools::itoa(averageMin)+"/"+Tools::itoa(averageOpt);
-logStream << Tools::itoa(stdDevMin)+"/"+Tools::itoa(stdDevOpt);
-logStream.endl();
-logStream.endl();
-
-logStream.setPrecision(1);
-logStream <<  "# Understaffing per skill without unavoidable penalty" << std::endl;
-logStream << "#";
-for (unsigned int d = 0; d < minPerSkill.size(); d++) {
-  logStream << "WD"+Tools::itoa(d);
-}
-logStream << "Average" << "Std dev" << std::endl;
-for (int i = 0; i < pScen->nbSkills_; i++)	{
-  logStream << "# " + pScen->intToSkill_[i] +":";
-  averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-  for (unsigned int d = 0; d < minPerShift.size(); d++) {
-	 logStream << Tools::itoa(minPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i])+"/"
-		+Tools::itoa(optPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i]);
-	 averageMin += (minPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i])/(double)minPerShift.size();
-	 averageOpt += (optPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i])/(double)minPerShift.size();
-	 stdDevMin += pow(minPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i],2);
-	 stdDevOpt += pow(optPerSkill[d][i]-pSolver->maxStaffPerSkillNoPenalty_[i],2);
+  for (unsigned int d = 0; d < minPerSkill.size(); d++) {
+    logStream << "WD" + Tools::itoa(d);
   }
-  stdDevMin = sqrt(stdDevMin/(double)minPerShift.size()-pow(averageMin,2));
-  stdDevOpt = sqrt(stdDevOpt/(double)minPerShift.size()-pow(averageOpt,2));
-  logStream << Tools::itoa(averageMin)+"/"+Tools::itoa(averageOpt);
-  logStream << Tools::itoa(stdDevMin)+"/"+Tools::itoa(stdDevOpt);
   logStream.endl();
-}
-logStream.endl();
-
-logStream <<  "# Understaffing per skill with average work" << std::endl;
-logStream << "#";
-for (unsigned int d = 0; d < minPerSkill.size(); d++) {
-  logStream << "WD"+Tools::itoa(d);
-}
-logStream << "Average" << "Std dev" << std::endl;
-for (int i = 0; i < pScen->nbSkills_; i++)	{
-  logStream << "# " + pScen->intToSkill_[i] +":";
-  averageMin=0, averageOpt=0, stdDevMin=0, stdDevOpt=0;
-  for (unsigned int d = 0; d < minPerShift.size(); d++) {
-	 logStream << Tools::itoa(minPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i])+"/"
-		+Tools::itoa(optPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i]);
-	 averageMin += (minPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i])/(double)minPerShift.size();
-	 averageOpt += (optPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i])/(double)minPerShift.size();
-	 stdDevMin += pow(minPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i],2);
-	 stdDevOpt += pow(optPerSkill[d][i]-pSolver->maxStaffPerSkillAvgWork_[i],2);
+  for (int i = 0; i < pScen->nbSkills_; i++) {
+    logStream.setWidth(12);
+    logStream << "# " + pScen->intToSkill_[i] + ":";
+    logStream.setWidth(10);
+    for (unsigned int d = 0; d < minPerShift.size(); d++) {
+      logStream << Tools::itoa(minPerSkill[d][i]) + "/" + Tools::itoa(optPerSkill[d][i]);
+    }
+    logStream.endl();
   }
-  stdDevMin = sqrt(stdDevMin/(double)minPerShift.size()-pow(averageMin,2));
-  stdDevOpt = sqrt(stdDevOpt/(double)minPerShift.size()-pow(averageOpt,2));
-  logStream << Tools::itoa(averageMin)+"/"+Tools::itoa(averageOpt);
-  logStream << Tools::itoa(stdDevMin)+"/"+Tools::itoa(stdDevOpt);
   logStream.endl();
-}
-logStream.endl();
 
 
+  logStream << "# Highest demand per skill for one shift" << std::endl;
+  logStream << "#";
+  for (unsigned int d = 0; d < minPerSkill.size(); d++) {
+    logStream << "WD" + Tools::itoa(d);
+  }
+  logStream.endl();
+  for (int i = 0; i < pScen->nbSkills_; i++) {
+    logStream << "# SK" + Tools::itoa(i) + ":";
+    for (unsigned int d = 0; d < minPerShift.size(); d++) {
+      logStream << Tools::itoa(minHighestPerSkill[d][i]) + "/" + Tools::itoa(optHighestPerSkill[d][i]);
+    }
+    logStream.endl();
+  }
+  logStream.endl();
 
+  logStream.setWidth(12);
+  logStream << "# Agregate indicators" << std::endl;
+  logStream << "# Total understaffing without unavoidable penalty" << std::endl;
+  logStream << "#";
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
+    logStream << "WD" + Tools::itoa(d);
+  }
+  logStream << "Average" << "Std dev" << std::endl;
+  logStream << "#";
+  double averageMin = 0, averageOpt = 0, stdDevMin = 0, stdDevOpt = 0;
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
+    logStream << Tools::itoa(minTotal[d] - pSolver->maxTotalStaffNoPenalty_) + "/" +
+                 Tools::itoa(optTotal[d] - pSolver->maxTotalStaffNoPenalty_);
+    averageMin += (minTotal[d] - pSolver->maxTotalStaffNoPenalty_) / (double) minPerShift.size();
+    averageOpt += (optTotal[d] - pSolver->maxTotalStaffNoPenalty_) / (double) minPerShift.size();
+    stdDevMin += pow(minTotal[d] - pSolver->maxTotalStaffNoPenalty_, 2);
+    stdDevOpt += pow(optTotal[d] - pSolver->maxTotalStaffNoPenalty_, 2);
+  }
+  stdDevMin = sqrt(stdDevMin / (double) minPerShift.size() - pow(averageMin, 2));
+  stdDevOpt = sqrt(stdDevOpt / (double) minPerShift.size() - pow(averageOpt, 2));
+  logStream << Tools::itoa(averageMin) + "/" + Tools::itoa(averageOpt);
+  logStream << Tools::itoa(stdDevMin) + "/" + Tools::itoa(stdDevOpt);
+  logStream.endl();
+  logStream.endl();
 
+  logStream << "# Total understaffing with average work" << std::endl;
+  logStream << "#";
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
+    logStream << "WD" + Tools::itoa(d);
+  }
+  logStream << "Average" << "Std dev" << std::endl;
+  logStream << "#";
+  averageMin = 0, averageOpt = 0, stdDevMin = 0, stdDevOpt = 0;
+  for (unsigned int d = 0; d < minPerShift.size(); d++) {
+    logStream << Tools::itoa(minTotal[d] - pSolver->maxTotalStaffAvgWork_) + "/" +
+                 Tools::itoa(optTotal[d] - pSolver->maxTotalStaffAvgWork_);
+    averageMin += (minTotal[d] - pSolver->maxTotalStaffAvgWork_) / (double) minPerShift.size();
+    averageOpt += (optTotal[d] - pSolver->maxTotalStaffAvgWork_) / (double) minPerShift.size();
+    stdDevMin += pow(minTotal[d] - pSolver->maxTotalStaffAvgWork_, 2);
+    stdDevOpt += pow(optTotal[d] - pSolver->maxTotalStaffAvgWork_, 2);
+  }
+  stdDevMin = sqrt(stdDevMin / (double) minPerShift.size() - pow(averageMin, 2));
+  stdDevOpt = sqrt(stdDevOpt / (double) minPerShift.size() - pow(averageOpt, 2));
+  logStream << Tools::itoa(averageMin) + "/" + Tools::itoa(averageOpt);
+  logStream << Tools::itoa(stdDevMin) + "/" + Tools::itoa(stdDevOpt);
+  logStream.endl();
+  logStream.endl();
 
-	delete pScen;
+  logStream.setPrecision(1);
+  logStream << "# Understaffing per skill without unavoidable penalty" << std::endl;
+  logStream << "#";
+  for (unsigned int d = 0; d < minPerSkill.size(); d++) {
+    logStream << "WD" + Tools::itoa(d);
+  }
+  logStream << "Average" << "Std dev" << std::endl;
+  for (int i = 0; i < pScen->nbSkills_; i++) {
+    logStream << "# " + pScen->intToSkill_[i] + ":";
+    averageMin = 0, averageOpt = 0, stdDevMin = 0, stdDevOpt = 0;
+    for (unsigned int d = 0; d < minPerShift.size(); d++) {
+      logStream << Tools::itoa(minPerSkill[d][i] - pSolver->maxStaffPerSkillNoPenalty_[i]) + "/"
+                   + Tools::itoa(optPerSkill[d][i] - pSolver->maxStaffPerSkillNoPenalty_[i]);
+      averageMin += (minPerSkill[d][i] - pSolver->maxStaffPerSkillNoPenalty_[i]) / (double) minPerShift.size();
+      averageOpt += (optPerSkill[d][i] - pSolver->maxStaffPerSkillNoPenalty_[i]) / (double) minPerShift.size();
+      stdDevMin += pow(minPerSkill[d][i] - pSolver->maxStaffPerSkillNoPenalty_[i], 2);
+      stdDevOpt += pow(optPerSkill[d][i] - pSolver->maxStaffPerSkillNoPenalty_[i], 2);
+    }
+    stdDevMin = sqrt(stdDevMin / (double) minPerShift.size() - pow(averageMin, 2));
+    stdDevOpt = sqrt(stdDevOpt / (double) minPerShift.size() - pow(averageOpt, 2));
+    logStream << Tools::itoa(averageMin) + "/" + Tools::itoa(averageOpt);
+    logStream << Tools::itoa(stdDevMin) + "/" + Tools::itoa(stdDevOpt);
+    logStream.endl();
+  }
+  logStream.endl();
 
+  logStream << "# Understaffing per skill with average work" << std::endl;
+  logStream << "#";
+  for (unsigned int d = 0; d < minPerSkill.size(); d++) {
+    logStream << "WD" + Tools::itoa(d);
+  }
+  logStream << "Average" << "Std dev" << std::endl;
+  for (int i = 0; i < pScen->nbSkills_; i++) {
+    logStream << "# " + pScen->intToSkill_[i] + ":";
+    averageMin = 0, averageOpt = 0, stdDevMin = 0, stdDevOpt = 0;
+    for (unsigned int d = 0; d < minPerShift.size(); d++) {
+      logStream << Tools::itoa(minPerSkill[d][i] - pSolver->maxStaffPerSkillAvgWork_[i]) + "/"
+                   + Tools::itoa(optPerSkill[d][i] - pSolver->maxStaffPerSkillAvgWork_[i]);
+      averageMin += (minPerSkill[d][i] - pSolver->maxStaffPerSkillAvgWork_[i]) / (double) minPerShift.size();
+      averageOpt += (optPerSkill[d][i] - pSolver->maxStaffPerSkillAvgWork_[i]) / (double) minPerShift.size();
+      stdDevMin += pow(minPerSkill[d][i] - pSolver->maxStaffPerSkillAvgWork_[i], 2);
+      stdDevOpt += pow(optPerSkill[d][i] - pSolver->maxStaffPerSkillAvgWork_[i], 2);
+    }
+    stdDevMin = sqrt(stdDevMin / (double) minPerShift.size() - pow(averageMin, 2));
+    stdDevOpt = sqrt(stdDevOpt / (double) minPerShift.size() - pow(averageOpt, 2));
+    logStream << Tools::itoa(averageMin) + "/" + Tools::itoa(averageOpt);
+    logStream << Tools::itoa(stdDevMin) + "/" + Tools::itoa(stdDevOpt);
+    logStream.endl();
+  }
+  logStream.endl();
 }
 
 //--------------------------------------------------------------------------
@@ -1088,25 +1088,25 @@ logStream.endl();
 // Read a file stream until the separating character is met
 // Store the characters read until the separating character in pStrRead
 //
-bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead) {
+bool ReadWrite::readUntilChar(std::fstream &pFile, char separater, std::string &pStrRead) {
 	char cTmp = 'A';
 
 	// empty the title string if it is not
 	//
-	if (!pStrRead->empty())
-		pStrRead->erase();
+	if (!pStrRead.empty())
+		pStrRead.erase();
 
 	// go through the file until the delimiter is met
 	//
-	if (pFile->good()) {
-		cTmp = pFile->get();
+	if (pFile.good()) {
+		cTmp = pFile.get();
 	}
-	while (cTmp != separater && pFile->good() )  {
-		pStrRead->push_back(cTmp);
-		cTmp = pFile->get();
+	while (cTmp != separater && pFile.good() )  {
+		pStrRead.push_back(cTmp);
+		cTmp = pFile.get();
 	}
 
-	if (!pFile->good())
+	if (!pFile.good())
 		return false;
 
 	return true;
@@ -1115,25 +1115,25 @@ bool ReadWrite::readUntilChar(std::fstream *pFile, char separater, std::string *
 // Read a file stream until the separating character is met
 // Store the characters read until the separating character in pStrRead
 //
-bool ReadWrite::readUntilOneOfTwoChar(std::fstream *pFile, char separater1, char separater2, std::string *pStrRead) {
+bool ReadWrite::readUntilOneOfTwoChar(std::fstream &pFile, char separater1, char separater2, std::string &pStrRead) {
 	char cTmp = 'A';
 
 	// empty the title string if it is not
 	//
-	if (!pStrRead->empty())
-		pStrRead->erase();
+	if (!pStrRead.empty())
+		pStrRead.erase();
 
 	// go through the file until the delimiter is met
 	//
-	if (pFile->good()) {
-		cTmp = pFile->get();
+	if (pFile.good()) {
+		cTmp = pFile.get();
 	}
-	while (cTmp != separater1 && cTmp != separater2 && pFile->good() )  {
-		pStrRead->push_back(cTmp);
-		cTmp = pFile->get();
+	while (cTmp != separater1 && cTmp != separater2 && pFile.good() )  {
+		pStrRead.push_back(cTmp);
+		cTmp = pFile.get();
 	}
 
-	if (!pFile->good())
+	if (!pFile.good())
 		return false;
 
 	return true;

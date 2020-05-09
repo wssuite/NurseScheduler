@@ -8,6 +8,7 @@
 #ifndef __MyTools__
 #define __MyTools__
 
+#include <memory>
 #include <iostream>
 #include <iomanip>      // std::setprecision
 #include <sstream>
@@ -73,8 +74,20 @@ private:
 
 // Throw an exception with the input message
 //
+struct NSException: std::exception {
+    NSException(const char* what): std::exception(), what_(what) {}
+    const char* what() const throw() {
+      return what_;
+    }
+
+  private:
+    const char* what_;
+};
+
+void throwException(const char* exceptionMsg);
+void throwException(const std::string& str);
 void throwError(const char* exceptionMsg);
-	void throwError(const std::string& str);
+void throwError(const std::string& str);
 
 // Display a debug message
 //
@@ -82,7 +95,7 @@ void debugMsg(const char* debugMsg, int debugLevel);
 
 // Read a file stream until the separating character is met
 //
-bool readUntilChar(std::fstream *file, char separateur, std::string *pTitle);
+bool readUntilChar(std::fstream& file, char separateur, std::string& pTitle);
 
 // Checks if the string (sentence) ends with the given substring (word)
 //
@@ -144,7 +157,13 @@ std::string itoa(T num){
 static std::vector<int> EMPTY_INT_VECTOR;
 static std::vector<double> EMPTY_DOUBLE_VECTOR;
 
-// Returns an integer with random value (uniform) within [minVal, maxVal]
+// return the object at position i (support negative index)
+template<class T> const T& get(const std::vector<T>& v, int i) {
+  if(i>=0) return v[i];
+  return v[v.size()-i];
+}
+
+  // Returns an integer with random value (uniform) within [minVal, maxVal]
 //
 int randomInt(int minVal, int maxVal);
 

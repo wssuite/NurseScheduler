@@ -1,0 +1,29 @@
+FROM legraina/bcp
+
+# install valgrind
+RUN apt-get update; exit 0
+RUN apt-get install -y --force-yes --fix-missing valgrind; exit 0
+
+# create a user
+RUN useradd -ms /bin/bash poly
+
+# Change user
+USER poly
+
+# Copy everything
+COPY --chown=poly . /home/poly/ns/
+
+# Set the working directory
+WORKDIR /home/poly/ns/
+
+# Compile the nurse scheduler
+RUN echo "set(BCPDIRDBG /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt && \
+    echo "set(BOOST_DIR /usr/local/include)" >> CMakeDefinitionsLists.txt && \
+    mkdir build && \
+    cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Debug .. && \
+    make
+
+# Entrypoint for the nurse scheduler
+ENTRYPOINT [ "./docker-entrypoint.sh" ]
+CMD [ "-h" ]

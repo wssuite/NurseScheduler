@@ -15,7 +15,7 @@ class RosterSP : public SubProblem {
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    RosterSP(Scenario* scenario, int nbDays, const Contract* contract, std::vector<State>* pInitState);
+    RosterSP(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
 
 //    double startWorkCost(int a) const override;
 

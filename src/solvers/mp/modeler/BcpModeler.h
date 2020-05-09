@@ -171,6 +171,30 @@ struct BcpColumn: public CoinVar, public BCP_var_algo{
 		buf.pack(last_active_);
 	}
 
+	static BcpColumn* unpack(BCP_buffer& buf) {
+	  char * name;
+    buf.unpack(name);
+    int index;
+    buf.unpack(index);
+    VarType type;
+    buf.unpack(type);
+    double cost, lb, ub, dualCost;
+    buf.unpack(cost);
+    buf.unpack(lb);
+    buf.unpack(ub);
+    buf.unpack(dualCost);
+    std::vector<int> indexRows;
+    buf.unpack(indexRows);
+    std::vector<double> coeffs, pattern;
+    buf.unpack(coeffs);
+    buf.unpack(pattern);
+    BcpColumn* col = new BcpColumn(name, index, cost, pattern, dualCost, type, lb, ub, indexRows, coeffs);
+    buf.unpack(col->iteration_creation_);
+    buf.unpack(col->active_count_);
+    buf.unpack(col->last_active_);
+    return col;
+  }
+
 	//use BCP bounds
 	double getLB() const {
 		return std::max(lb_,lb());
@@ -178,6 +202,12 @@ struct BcpColumn: public CoinVar, public BCP_var_algo{
 
 	double getUB() const {
 		return std::min(ub_,ub());
+	}
+
+	// use original bounds to set BCP_var_algo bounds
+  void resetBounds() {
+	  set_lb(lb_);
+	  set_ub(ub_);
 	}
 };
 
@@ -201,7 +231,7 @@ struct BcpCoreCons: public CoinCons, public BCP_cut_core{
 //these constraints are not generated, they are always in the LP problem
 struct BcpBranchCons: public CoinCons, public BCP_cut_algo{
 	BcpBranchCons(const char* name, int index, double lhs, double rhs,
-                std::vector<int>& indexCols, std::vector<double>& coeffs):
+                const std::vector<int>& indexCols, const std::vector<double>& coeffs):
 				CoinCons(name, index, lhs, rhs),
 				BCP_cut_algo(lhs, rhs),
 				indexCols_(indexCols), coeffs_(coeffs)
@@ -211,7 +241,30 @@ struct BcpBranchCons: public CoinCons, public BCP_cut_algo{
 		CoinCons(cons), BCP_cut_algo(lhs_, rhs_), indexCols_(cons.indexCols_), coeffs_(cons.coeffs_)
 	{ }
 
-	~BcpBranchCons(){ }
+    void pack(BCP_buffer& buf){
+      buf.pack(name_);
+      buf.pack(index_);
+      buf.pack(lhs_);
+      buf.pack(rhs_);
+      buf.pack(indexCols_);
+      buf.pack(coeffs_);
+    }
+
+    static BcpBranchCons* unpack(BCP_buffer& buf) {
+      char *name;
+      buf.unpack(name);
+      int index;
+      buf.unpack(index);
+      double lhs, rhs;
+      buf.unpack(lhs);
+      buf.unpack(rhs);
+      std::vector<int> indexCols;
+      buf.unpack(indexCols);
+      std::vector<double> coeffs;
+      buf.unpack(coeffs);
+
+      return new BcpBranchCons(name, index, lhs, rhs, indexCols, coeffs);
+    }
 
     std::vector<int>& getIndexCols() { return indexCols_; }
 
@@ -247,10 +300,10 @@ public:
 	~BcpModeler();
 
 	//solve the model
-	int solve(bool relaxation = false);
+	int solve(bool relaxation = false) override;
 
 	//Reset and clear solving parameters
-	void reset(bool rollingHorizon=false);
+	void reset() override;
 
 	void addActiveColumn(MyVar* var, int index=-1){
 		BcpColumn* col = dynamic_cast<BcpColumn*>(var);
@@ -260,7 +313,10 @@ public:
 		if(index>=0) columnsToIndex_[col->getIndex()] = index;
 	}
 
-	void clearActiveColumns() {
+	// Delete all the objects owned by this modeler and then call the parent function
+  void clear() override;
+
+	void clearActiveColumns() override {
     Modeler::clearActiveColumns();
     columnsToIndex_.clear();
 	}
@@ -273,9 +329,11 @@ protected:
 	 *    lhs, rhs are the lower and upper bound of the variable
 	 *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
 	 */
-	int createCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, VarType vartype, double lb, double ub, const std::vector<double>& pattern = DEFAULT_PATTERN);
+  int createVar(MyVar** var, const char* var_name, int index, double objCoeff,
+                double lb, double ub, VarType vartype, const std::vector<double>& pattern, double score) override;
 
-	int createColumnCoinVar(CoinVar** var, const char* var_name, int index, double objCoeff, const std::vector<double>& pattern, double dualObj, VarType vartype, double lb, double ub);
+  int createColumnVar(MyVar** var, const char* var_name, int index, double objCoeff,
+        const std::vector<double>& pattern, double dualObj, double lb, double ub, VarType vartype, double score) override ;
 
 	/*
 	 * Create linear constraint:
@@ -285,35 +343,41 @@ protected:
 	 *    nonZeroVars is the number of non-zero coefficients to add to the constraint
 	 */
 
-	int createCoinConsLinear(CoinCons** con, const char* con_name, int index, double lhs, double rhs);
+	int createCoinConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs) override;
+
+  int createCoinCutLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
+                                    const std::vector<int>& indexVars, const std::vector<double>& coeffs) override;
 
 	MyVar* copyColumn(MyVar* var) const;
+
+  //  Delete all the objects owned by this modeler
+  void deleteSolutions();
 
 public:
 	/*
 	 * Get/set the primal value
 	 */
 
-	double getVarValue(MyVar* var) const;
+	double getVarValue(MyVar* var) const override;
 	void setVarValue(MyVar* var, double value);
 
 	/*
 	 * Get the dual variables
 	 */
 
-	double getDual(MyCons* cons, bool transformed = false) const;
+	double getDual(MyCons* cons, bool transformed = false) const override;
 
 	/*
 	 * Get the reduced cost
 	 */
 
-	double getReducedCost(MyVar* var) const;
+	double getReducedCost(MyVar* var) const override;
 
 	/**************
 	 * Parameters *
 	 *************/
-	int setVerbosity(int v);
-	inline void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr){
+	int setVerbosity(int v) override;
+	inline void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr) override {
 		Modeler::setParameters(parameters, func);
 		if (pPricer_) {
 			pPricer_->initPricerParameters(parameters);
@@ -324,9 +388,9 @@ public:
 	 * Outputs *
 	 *************/
 
-	int writeProblem(std::string fileName) const;
+	int writeProblem(std::string fileName) const override;
 
-	int writeLP(std::string fileName) const;
+	int writeLP(std::string fileName) const override;
 
 	/*
 	 * Class own methods and parameters
@@ -347,10 +411,10 @@ public:
 
 	// Clear the active column, set the active columns with those in the best solution,
 	// and set the primal values accordingly
-	bool loadBestSol();
+	bool loadBestSol() override;
 
 	// Set the value of the active columns with those in the best solution
-	void setActiveColumnsValuesWithBestSol();
+	void setActiveColumnsValuesWithBestSol() override;
 
 	// Clear the active column, set the active columns with those in the solution with input index
 	// and set the primal values accordingly
@@ -358,7 +422,7 @@ public:
 
 	// Clear the active column, set the active columns with those in the input
 	// solution and set the primal values accordingly
-	void loadInputSol(BCP_solution_generic& sol);
+	void loadInputSol(const BCP_solution_generic& sol);
 
 	inline void setPrimal(const std::vector<double>& primal){ primalValues_ = primal; }
 
@@ -372,6 +436,7 @@ public:
 	inline void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
 
 	inline double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
+	inline double getObj(int index) const { return Tools::get(obj_history_, index); }
 
 	// Set every rotation to one : this is useful only when the active columns
 	// are only the rotations included in a provided initial solution
@@ -379,16 +444,16 @@ public:
 	void setEveryRotationToOne();
 
 	// fix/unfix all the rotations variables starting from the input vector of days
-	void fixRotationsStartingFromDays(const std::vector<bool>& isFixDay);
-	void unfixRotationsStartingFromDays(const std::vector<bool>& isUnfixDay);
+	void fixRotationsStartingFromDays(const std::vector<bool>& isFixDay) override;
+	void unfixRotationsStartingFromDays(const std::vector<bool>& isUnfixDay) override;
 
 	// fix/unfix all the rotations variables of the input nurses
-	void fixRotationsOfNurses(const std::vector<bool>& isFixNurse);
-	void unfixRotationsOfNurses(const std::vector<bool>& isUnfixNurse);
+	void fixRotationsOfNurses(const std::vector<bool>& isFixNurse) override;
+	void unfixRotationsOfNurses(const std::vector<bool>& isUnfixNurse) override;
 
 	// relax/unrelax the integrality of all the rotations variables starting from the input vector of days
-	void relaxRotationsStartingFromDays(const std::vector<bool>& isRelaxDay);
-	void unrelaxRotationsStartingFromDays(const std::vector<bool>& isUnRelaxDay);
+	void relaxRotationsStartingFromDays(const std::vector<bool>& isRelaxDay) override;
+	void unrelaxRotationsStartingFromDays(const std::vector<bool>& isUnRelaxDay) override;
 
 	/*
 	 * Manage the storage of our own tree
@@ -415,18 +480,9 @@ public:
 	}
 
 	inline MyNode* getNode(const CoinTreeSiblings* s) {
-		int nodeIndex = s->size() - s->toProcess();
-		return treeMapping_[s][nodeIndex];
-	}
-
-	inline void createCutLinear(MyCons** cons, const char* con_name, double lhs, double rhs,
-			std::vector<MyVar*> vars = {}, std::vector<double> coeffs = {});
-
-	inline std::vector<MyCons*>& getBranchingCons(){ return branchingCons_; }
-
-	inline void addBranchingCons(MyCons* cons){
-		return branchingCons_.push_back( new BcpBranchCons( *(dynamic_cast<BcpBranchCons*>(cons)) ) );
-	}
+    int nodeIndex = s->size() - s->toProcess();
+    return treeMapping_[s][nodeIndex];
+  }
 
 	/*
 	 * Parameters getters
@@ -440,11 +496,11 @@ public:
 
 	inline bool is_solution_changed() { return solHasChanged_; }
 
-	inline int nbSolutions() const { return bcpSolutions_.size(); }
+	inline int nbSolutions() const override { return bcpSolutions_.size(); }
 
-	inline double getObjective() const {return Modeler::getObjective(); }
+	inline double getObjective() const override {return Modeler::getObjective(); }
 
-	inline double getObjective(int index) const { return bcpSolutions_[index].objective_value(); }
+	inline double getObjective(int index) const override { return Tools::get(bcpSolutions_, index).objective_value(); }
 
 	inline MasterProblem* getMaster() const {return pMaster_;}
 
@@ -458,7 +514,7 @@ public:
 
 	// Get/set the value of the current level in the branch and bound tree
 	//
-	int getCurrentTreeLevel() const {return currentTreeLevel_;}
+	int getCurrentTreeLevel() const override {return currentTreeLevel_;}
 	void setCurrentTreeLevel(int level) {currentTreeLevel_ = level;}
 
 	// STAB
@@ -505,11 +561,9 @@ protected:
     std::vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
     std::map<int,int> columnsToIndex_;
 	bool solHasChanged_ = false; //reload solution ?
-	//bcp branching cons
-  std::vector<MyCons*> branchingCons_;
 	//bcp solution
   std::vector<BCP_solution_generic> bcpSolutions_;
-    std::vector<MyVar*> columnsInSolutions_;
+  std::vector<MyVar*> columnsInSolutions_;
 	// bcp solution of the root node
 	BcpLpSol rootSolution_;
 
@@ -766,6 +820,11 @@ public:
 			const bool before_fathom,
 			BCP_vec<int>& deletable);
 
+    int writeLP(std::string fileName) {
+      getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
+      return 0;
+    }
+
 	// STAB
 	// Update the bounds and/or costs of the stabilization variables
 	bool stabUpdateBoundAndCost(bool isStall, bool isImproveQuality) ;
@@ -775,14 +834,26 @@ public:
 	double max_activity_rate = .1;
 
 	// getters/setters
-	int getNbLpIterations() {return lpIteration_;}
+  BCP_lp_statistics getTimeStats() {
+    return getLpProblemPointer()->stat;
+  }
+
+	int getNbLpIterations() const {return lpIteration_;}
+  int getNbCurrentNodeLpIterations() const {return currentNodelpIteration_;}
+
+    double getObjImprovement() const {
+      return currentNodelpIteration_ < 2 ? pModel_->getInfinity():
+      pModel_->getObj(-2) -  pModel_->getObj(-1);
+    }
 
 protected:
 	BcpModeler* pModel_;
 	//count the iteration
-	int lpIteration_;
+	int currentNodelpIteration_, lpIteration_;
 	//count the nodes
 	int last_node;
+	// stored if the current node corresponds to a backtracking
+	bool backtracked_;
 	//if heuristic has been run. To be sure to run the heuristic no more than one time per node
 	bool heuristicHasBeenRun_;
 	int nbNodesSinceLastHeuristic_;
@@ -797,6 +868,10 @@ protected:
 
 	//build the candidate from my candidate
 	void buildCandidate(const MyBranchingCandidate& candidate, const BCP_vec<BCP_var*>&  vars, const BCP_vec< BCP_cut*> &  cuts, BCP_vec<BCP_lp_branching_object*>&  cands);
+
+	// rerun the code use to test the integer feasibility of a solution and find why a solution is not feasible
+  void find_infeasibility(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
+                          const BCP_vec<BCP_var*> &  vars);
 };
 
 /*
@@ -947,48 +1022,21 @@ public:
 	BcpPacker(BcpModeler* pModel): pModel_(pModel){}
 	~BcpPacker() {}
 
-	void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf) { ((BcpColumn*)var)->pack(buf); }
+	void pack_var_algo(const BCP_var_algo* var, BCP_buffer& buf) {
+	  ((BcpColumn*)var)->pack(buf);
+	}
 
 	BCP_var_algo* unpack_var_algo(BCP_buffer& buf) {
-		char* name;
-		buf.unpack(name);
-		int index;
-		buf.unpack(index);
-		VarType type;
-		buf.unpack(type);
-		double cost, lb, ub, dualCost;
-		buf.unpack(cost);
-		buf.unpack(lb);
-		buf.unpack(ub);
-		buf.unpack(dualCost);
-    std::vector<int> indexRows;
-		buf.unpack(indexRows);
-    std::vector<double> coeffs;
-		buf.unpack(coeffs);
-    std::vector<double> pattern;
-		buf.unpack(pattern);
-		BcpColumn* col = new BcpColumn(name, index, cost, pattern, dualCost, type, lb, ub, indexRows, coeffs);
+    return BcpColumn::unpack(buf);
+  }
 
-		int iteration_creation, active_count, last_active;
-		buf.unpack(iteration_creation);
-		buf.unpack(active_count);
-		buf.unpack(last_active);
-		col->setActiveCounters(iteration_creation, active_count, last_active);
+  void pack_cut_algo(const BCP_cut_algo* cons, BCP_buffer& buf) {
+    ((BcpBranchCons*)cons)->pack(buf);
+  }
 
-		return col;
-	}
-
-	void pack_cut_algo(const BCP_cut_algo* cons, BCP_buffer& buf) { buf.pack(((BcpBranchCons*)cons)->getIndex()); }
-
-	BCP_cut_algo* unpack_cut_algo(BCP_buffer& buf) {
-		int index = 0;
-		buf.unpack(index);
-		int i = index - pModel_->getCons().size();
-		BcpBranchCons* cons = dynamic_cast<BcpBranchCons*>(pModel_->getBranchingCons()[i]);
-		if(index != cons->getIndex())
-			Tools::throwError("Bad cons unpacked or packed.");
-		return new BcpBranchCons(*cons);
-	}
+  BCP_cut_algo* unpack_cut_algo(BCP_buffer& buf) {
+    return BcpBranchCons::unpack(buf);
+  }
 
 protected:
 	BcpModeler* pModel_;
@@ -1026,7 +1074,19 @@ public:
 		return pPacker_;
 	}
 
-	BcpLpModel* getBcpLpModel() {return pLpModel_;}
+	BCP_lp_statistics getTimeStats() {
+    return pLpModel_->getTimeStats();
+	}
+
+	int getNbLpIterations() const {
+	  return pLpModel_->getNbLpIterations();
+	}
+
+  int writeLP(std::string fileName) const{
+    if(pLpModel_) return pLpModel_->writeLP(fileName);
+    std::cout << "WARNING: BCP cannot write the model as the LP solver has not been initialized." << std::endl;
+    return 1;
+  }
 
 // protected:
 	BcpModeler* pModel_;

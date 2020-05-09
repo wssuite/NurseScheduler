@@ -57,7 +57,7 @@ State::~State(){}
 //    // Function that appends a new day worked on a given shift to an input state
 //    //
 
-// void State::addDayToState(const State& prevState, int newShift, const Scenario* pScenario)   {
+// void State::addDayToState(const State& prevState, int newShift, const PScenario pScenario)   {
 //   int newShiftType = pScenario->shiftIDToShiftTypeID_[newShift];
 
 //   addDayToState(prevState, newShiftType);
@@ -74,7 +74,6 @@ void State::addDayToState(const State& prevState, int newShiftType, int newShift
   //  int  timeWorked = timeDurationToWork_[newShift];      // hours worked
   
 	// Total shifts worked if it is a worked day
-	// totalTimeWorked_ = prevState.totalTimeWorked_+(newShiftType > 0 ? 1 : 0);
 	totalTimeWorked_ = prevState.totalTimeWorked_+(newShiftType > 0 ? timeWorked : 0);
 
 	// index of the previous shift
@@ -113,7 +112,6 @@ void State::addDayToState(const State& prevState, int newShiftType, int newShift
 	}
 	else { // the previous shift was not assigned but this one is
 	  if (newShiftType >0) {
-		 // totalTimeWorked_ = prevState.totalTimeWorked_+1+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);
 	    totalTimeWorked_ = prevState.totalTimeWorked_+timeWorked+(prevState.consDaysWorked_ > 0 ? (-prevShiftType):0);  // SERGEB ??????
 		 totalWeekendsWorked_ = Tools::isSunday(dayId_) ? prevState.totalWeekendsWorked_+1:prevState.totalWeekendsWorked_;
 		 consDaysWorked_ = (prevState.consDaysWorked_ > 0)  ? (prevState.consDaysWorked_ + 1 - prevShiftType) : 1;
@@ -167,8 +165,8 @@ Scenario::Scenario(string name, int nbWeeks,
 		   int nbShiftsType, vector<string> intToShiftType, map<string,int> shiftTypeToInt,
 		   vector2D<int> shiftTypeIDToShiftID, vector<int> minConsShiftType, vector<int> maxConsShiftType,
 		   vector<int> nbForbiddenSuccessors, vector2D<int> forbiddenSuccessors,
-		   int nbContracts, vector<string> intToContract, map<string,Contract*> contracts,
-		   int nbNurses, vector<Nurse>& theNurses, map<string,int> nurseNameToInt) :
+		   int nbContracts, vector<string> intToContract, map<string,PConstContract> contracts,
+		   int nbNurses, vector<PNurse>& theNurses, map<string,int> nurseNameToInt) :
   name_(name), nbWeeks_(nbWeeks),
   nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
   nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
@@ -195,7 +193,7 @@ Scenario::Scenario(string name, int nbWeeks,
 // Hybrid copy constructor : this is only called when constructing a new scenario that copies most parameters
 // from the input scenario but for only a subgroup of nurses
 //
-Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDemand, Preferences* pWeekPreferences):
+Scenario::Scenario(PScenario pScenario, const vector<PNurse>& theNurses, PDemand pDemand, PPreferences pWeekPreferences):
   name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
   nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
   nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
@@ -206,9 +204,9 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
   nbNurses_(theNurses.size()), theNurses_(theNurses), nurseNameToInt_(pScenario->nurseNameToInt_),
   minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
   nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
-  pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
+  pWeekDemand_(nullptr), nbShiftOffRequests_(0), nbShiftOnRequests_(0), pWeekPreferences_(nullptr), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
   nbPositions_(0), nursesPerPosition_(0){
-  
+
 	// Preprocess the vector of nurses
 	// This creates the positions
 	//
@@ -222,43 +220,9 @@ Scenario::Scenario(Scenario* pScenario,  vector<Nurse>& theNurses, Demand* pDema
 	this->linkWithPreferences(pWeekPreferences);
 }
 
-Scenario::Scenario(Scenario* pScenario):name_(pScenario->name_), nbWeeks_(pScenario->nbWeeks_),
-nbSkills_(pScenario->nbSkills_), intToSkill_(pScenario->intToSkill_), skillToInt_(pScenario->skillToInt_),
-nbShifts_(pScenario->nbShifts_), intToShift_(pScenario->intToShift_), shiftToInt_(pScenario->shiftToInt_),
-timeDurationToWork_(pScenario->timeDurationToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
-nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
-shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
-nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
-nbNurses_(pScenario->nbNurses()), theNurses_(pScenario->theNurses_), nurseNameToInt_(pScenario->nurseNameToInt_),
-minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
-nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
-pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
-nbPositions_(0), nursesPerPosition_(0){
+Scenario::~Scenario(){}
 
-        // Preprocess the vector of nurses
-	// This creates the positions
-	//
-	this->preprocessTheNurses();
-
-}
-
-Scenario::~Scenario(){
-	// delete the contracts
-	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
-		delete (itC->second);
-	}
-  //delete pPositions_;
-	while (!pPositions_.empty()){
-		if (pPositions_.back()) delete pPositions_.back();
-		pPositions_.pop_back();
-	}
-
-	delete pWeekPreferences_;
-	delete pWeekDemand_;
-}
-
-void Scenario::setWeekPreferences(Preferences* weekPreferences){
-  delete pWeekPreferences_;
+void Scenario::setWeekPreferences(PPreferences weekPreferences){
   pWeekPreferences_ = weekPreferences;
 }
 
@@ -320,28 +284,28 @@ bool Scenario::isForbiddenSuccessorShiftType_ShiftType(int shTypeNext, int shTyp
 }
 
 const int Scenario::minTotalShiftsOf(int whichNurse) const {
-  return theNurses_[whichNurse].minTotalShifts();
+  return theNurses_[whichNurse]->minTotalShifts();
 }
 int Scenario::maxTotalShiftsOf(int whichNurse) const {
-  return theNurses_[whichNurse].maxTotalShifts();
+  return theNurses_[whichNurse]->maxTotalShifts();
 }
 int Scenario::minConsDaysWorkOf(int whichNurse) const {
-  return theNurses_[whichNurse].minConsDaysWork();
+  return theNurses_[whichNurse]->minConsDaysWork();
 }
 int Scenario::maxConsDaysWorkOf(int whichNurse) const {
-  return theNurses_[whichNurse].maxConsDaysWork();
+  return theNurses_[whichNurse]->maxConsDaysWork();
 }
 int Scenario::minConsDaysOffOf(int whichNurse) const {
-  return theNurses_[whichNurse].maxConsDaysOff();
+  return theNurses_[whichNurse]->maxConsDaysOff();
 }
 int Scenario::maxConsDaysOffOf(int whichNurse) const {
-  return theNurses_[whichNurse].maxConsDaysOff();
+  return theNurses_[whichNurse]->maxConsDaysOff();
 }
 int Scenario::maxTotalWeekendsOf(int whichNurse) const {
-  return theNurses_[whichNurse].maxTotalWeekends();
+  return theNurses_[whichNurse]->maxTotalWeekends();
 }
 bool Scenario::isCompleteWeekendsOf(int whichNurse) const {
-  return theNurses_[whichNurse].needCompleteWeekends();
+  return theNurses_[whichNurse]->needCompleteWeekends();
 }
 
 // return the min/max consecutive shifts of the same type as the argument
@@ -372,7 +336,7 @@ int Scenario::maxConsShiftsOf(int whichShiftType) {
 
 // update the scenario to treat a new week
 //
-void Scenario::updateNewWeek(Demand* pDemand, Preferences* pPreferences, vector<State> &initialStates) {
+void Scenario::updateNewWeek(PDemand pDemand, PPreferences pPreferences, vector<State> &initialStates) {
 
 	// set the demand, preferences and initial states
 	this->linkWithDemand(pDemand);
@@ -383,16 +347,15 @@ void Scenario::updateNewWeek(Demand* pDemand, Preferences* pPreferences, vector<
 	thisWeek_++;
 }
 
-inline void Scenario::linkWithPreferences(Preferences* pPreferences) {
-  delete pWeekPreferences_;
+inline void Scenario::linkWithPreferences(PPreferences pPreferences) {
   pWeekPreferences_ = pPreferences;
   nbShiftOffRequests_ = 0;
-  for (Nurse nurse:theNurses_) {
-    nbShiftOffRequests_ += pWeekPreferences_->howManyShiftsOff(nurse.id_);
+  for (PNurse nurse:theNurses_) {
+    nbShiftOffRequests_ += pWeekPreferences_->howManyShiftsOff(nurse->id_);
   }
   nbShiftOnRequests_ = 0;
-  for (Nurse nurse:theNurses_) {
-    nbShiftOnRequests_ += pWeekPreferences_->howManyShiftsOn(nurse.id_);
+  for (PNurse nurse:theNurses_) {
+    nbShiftOnRequests_ += pWeekPreferences_->howManyShiftsOn(nurse->id_);
   }
 }
 
@@ -431,13 +394,13 @@ string Scenario::toString(){
 		rep << std::endl;
 	}
 	rep << "# CONTRACTS        " << std::endl;
-	for(map<string,Contract*>::const_iterator itC = contracts_.begin(); itC != contracts_.end(); ++itC){
-		rep << "#\t\t\t" << *(itC->second) << std::endl;
+	for(const auto& contract: contracts_){
+		rep << "#\t\t\t" << *(contract.second) << std::endl;
 	}
 	rep << "# " << std::endl;
 	rep << "# NURSES           \t= " << nbNurses_ << std::endl;
 	for(int i=0; i<nbNurses_; i++){
-		rep << "#\t\t\t" << theNurses_[i].toString() << std::endl;
+		rep << "#\t\t\t" << theNurses_[i]->toString() << std::endl;
 	}
 	rep << "# " << std::endl;
 	rep << "# POSITIONS        \t= " << nbPositions_ << std::endl;
@@ -454,40 +417,38 @@ string Scenario::toString(){
 		//
 		rep << "# " << std::endl;
 		rep << "# WISHED SHIFTS OFF" << std::endl;
-		for(Nurse nurse:theNurses_){
+		for(PNurse nurse:theNurses_){
 			// Display only if the nurse has preferences
-			map<int,vector<Wish> >* prefNurse = pWeekPreferences_->nurseWishesOff(nurse.id_);
-			if(!prefNurse->empty()){
-				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
-				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
-					rep << Tools::intToDay(itWishlist->first) << ": ";
-					vector<Wish> dayList = itWishlist->second;
+			const map<int,vector<Wish> >& prefNurse = pWeekPreferences_->nurseWishesOff(nurse->id_);
+			if(!prefNurse.empty()){
+				rep << "#\t\t\t" << nurse->id_ << "\t" << nurse->name_ << "\t";
+				for(const auto &itWishlist: prefNurse){
+					rep << Tools::intToDay(itWishlist.first) << ": ";
 					bool first = true;
-					for(vector<Wish>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
+					for(const auto& itShift: itWishlist.second){
 						if(first) first = false; else rep << ",";
-						rep << intToShift_[itShift->shift];
+						rep << intToShift_[itShift.shift];
 					}
 					rep << "    ";
 				}
 				rep << std::endl;
 			}
 		}
-		for(Nurse nurse:theNurses_){
+		for(PNurse nurse:theNurses_){
 			// Display only if the nurse has preferences
-			map<int,vector<Wish> >* prefNurse = pWeekPreferences_->nurseWishesOn(nurse.id_);
-			if(!prefNurse->empty()){
-				rep << "#\t\t\t" << nurse.id_ << "\t" << nurse.name_ << "\t";
-				for(map<int,vector<Wish> >::iterator itWishlist = prefNurse->begin(); itWishlist != prefNurse->end(); ++itWishlist){
-					rep << Tools::intToDay(itWishlist->first) << ": ";
-					vector<Wish> dayList = itWishlist->second;
-					bool first = true;
-					for(vector<Wish>::iterator itShift = dayList.begin(); itShift != dayList.end(); ++itShift){
-						if(first) first = false; else rep << ",";
-						rep << intToShift_[itShift->shift];
-					}
-					rep << "    ";
-				}
-				rep << std::endl;
+			const map<int,vector<Wish> >& prefNurse = pWeekPreferences_->nurseWishesOn(nurse->id_);
+			if(!prefNurse.empty()){
+        rep << "#\t\t\t" << nurse->id_ << "\t" << nurse->name_ << "\t";
+        for(const auto &itWishlist: prefNurse){
+          rep << Tools::intToDay(itWishlist.first) << ": ";
+          bool first = true;
+          for(const auto& itShift: itWishlist.second){
+            if(first) first = false; else rep << ",";
+            rep << intToShift_[itShift.shift];
+          }
+          rep << "    ";
+        }
+        rep << std::endl;
 			}
 		}
 	}
@@ -495,7 +456,7 @@ string Scenario::toString(){
 		rep << "# " << std::endl;
 		rep << "# INITIAL STATE    \t= WEEK Nb " << thisWeek_ << std::endl;
 		for(int n=0; n<nbNurses_; n++){
-			rep << "#\t\t\t" << theNurses_[n].name_ << " ";
+			rep << "#\t\t\t" << theNurses_[n]->name_ << " ";
 			State s = initialState_[n];
 			rep << s.totalTimeWorked_ << " " << s.totalWeekendsWorked_ << " " << intToShiftType_[s.shiftType_] << " ";
 			if(s.shiftType_) rep << s.consShifts_ << " " << s.consDaysWorked_; else	rep << "0 0";
@@ -523,19 +484,18 @@ void Scenario::preprocessTheNurses() {
 	// Go through the nurses, and create their positions when it has not already
 	// been done
 	//
-	for (Nurse nurse: theNurses_)	{
+	for (PNurse nurse: theNurses_)	{
 		bool positionExists = nbPositions_ != 0;
-		int nbSkills = nurse.nbSkills_;
-		vector<int> skills = nurse.skills_;
-		vector<Position*>::iterator itPos = pPositions_.begin();
+		int nbSkills = nurse->nbSkills_;
+		vector<int> skills = nurse->skills_;
 
 		// go through every existing position to see if the position of this nurse
 		// has already been created
-		for (itPos = pPositions_.begin(); itPos != pPositions_.end(); itPos++)	{
+		for (PPosition pos: pPositions_)	{
 			positionExists = true;
-			if ((*itPos)->nbSkills_ == nbSkills) {
+			if (pos->nbSkills_ == nbSkills) {
 				for (int i = 0; i < nbSkills; i++) {
-					if (skills[i] != (*itPos)->skills_[i])	{
+					if (skills[i] != pos->skills_[i])	{
 						positionExists = false;
 						break;
 					}
@@ -547,7 +507,7 @@ void Scenario::preprocessTheNurses() {
 
 		// create the position if if doesn't exist
 		if (!positionExists) {
-			pPositions_.push_back(new Position(nbPositions_, nbSkills, skills));
+			pPositions_.emplace_back(std::make_shared<Position>(nbPositions_, nbSkills, skills));
 			nbPositions_++;
 		}
 	}
@@ -607,19 +567,19 @@ void Scenario::preprocessTheNurses() {
 
 	// Organize the nurses by position
 	for (int i = 0; i < nbPositions(); i++) {
-		vector<Nurse> nursesInThisPosition;
+		vector<PNurse> nursesInThisPosition;
 		nursesPerPosition_.push_back(nursesInThisPosition);
 	}
-	for (Nurse nurse: theNurses_) {
+	for (PNurse nurse: theNurses_) {
 		// the skills of the nurse need to be compared to the skills of each
 		// existing position to determine the position of the nurse
 		bool isPosition = true;
 		for (int i = 0; i < nbPositions() ; i++)	{
-			Position* pPosition = pPositions_[i];
+			PPosition pPosition = pPositions_[i];
 			isPosition = true;
-			if (pPosition->nbSkills_ == nurse.nbSkills_) {
-				for (int i = 0; i < nurse.nbSkills_; i++) {
-					if (nurse.skills_[i] != pPosition->skills_[i])	{
+			if (pPosition->nbSkills_ == nurse->nbSkills_) {
+				for (int i = 0; i < nurse->nbSkills_; i++) {
+					if (nurse->skills_[i] != pPosition->skills_[i])	{
 						isPosition = false;
 						break;
 					}
@@ -640,7 +600,7 @@ void Scenario::preprocessTheNurses() {
 
 // Compare nurses in ascending order of their ideas
 //
-bool compareNursesById(Nurse* n1, Nurse* n2) {
+bool compareNursesById(PNurse n1, PNurse n2) {
 	return (n1->id_ < n2->id_);
 }
 
@@ -654,18 +614,18 @@ bool comparePairSecond(pair<int,int> p1, pair<int,int> p2) {
 //
 void Scenario::computeConnexPositions() {
 
-	vector<Position*> pRemainingPositions(pPositions_);
+	vector<PPosition> pRemainingPositions(pPositions_);
 
-	Position* pPos = pRemainingPositions.back();
+	PPosition pPos = pRemainingPositions.back();
 	pRemainingPositions.pop_back();
 
 
 	// First build the connex components of positions
 	while (!pRemainingPositions.empty()) {
-		vector<Position*> connexPositions;
+		vector<PPosition> connexPositions;
 		connexPositions.push_back(pPos);
 
-		vector<Position*> nextPositions;
+		vector<PPosition> nextPositions;
 		nextPositions.push_back(pPos);
 
 		while (!nextPositions.empty()) {
@@ -702,32 +662,14 @@ void Scenario::computeConnexPositions() {
 
 	// Get the nurses that belong to each component
 	for (unsigned int c = 0; c < componentsOfConnexPositions_.size(); c++) {
-		vector<Nurse> nursesInThisComponent;
-		vector<Nurse*> pNursesInThisComponent;
+		vector<PNurse> pNursesInThisComponent;
 
-
-		for (Position* p:componentsOfConnexPositions_[c]) {
-			for (unsigned int i=0; i<nursesPerPosition_[p->id()].size(); i++) {
+		for (PPosition p:componentsOfConnexPositions_[c])
+			for (unsigned int i=0; i<nursesPerPosition_[p->id()].size(); i++)
 				// nursesInThisComponent.push_back(nursesPerPosition_[p->id()][i]);
-				pNursesInThisComponent.push_back(&(nursesPerPosition_[p->id()][i]));
-			}
-		}
-		// vector<pair<int,int>> vIdPos;
-		// for (int i = 0; i <nursesInThisComponent.size(); i++) {
-		// 	vIdPos.push_back(pair<int,int>(i,nursesInThisComponent[i].id_));
-		// }
-		// std::sort(vIdPos.begin(), vIdPos.end(),comparePairSecond);
-		// vector<Nurse> nursesInThisComponentSorted;
-		// for (int i = 0; i <nursesInThisComponent.size(); i++) {
-		// 	nursesInThisComponentSorted.push_back(nursesInThisComponent[vIdPos[i].first]);
-		// }
+				pNursesInThisComponent.push_back(nursesPerPosition_[p->id()][i]);
 
 		std::stable_sort(pNursesInThisComponent.begin(),pNursesInThisComponent.end(),compareNursesById);
-		for (Nurse* pNurse:pNursesInThisComponent) {
-			nursesInThisComponent.push_back(*pNurse);
-		}
-
-
-		nursesPerConnexComponentOfPositions_.push_back(nursesInThisComponent);
+		nursesPerConnexComponentOfPositions_.push_back(pNursesInThisComponent);
 	}
 }

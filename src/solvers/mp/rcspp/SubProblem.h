@@ -21,12 +21,12 @@ static int MAX_COST = 99999;
 struct SubproblemParam{
 
 	SubproblemParam(){}
-	SubproblemParam(int strategy, LiveNurse* pNurse){
+	SubproblemParam(int strategy, PLiveNurse pNurse){
 		initSubprobemParam(strategy, pNurse);
 	}
 	~SubproblemParam(){};
 
-	void initSubprobemParam(int strategy, LiveNurse*   pNurse){
+	void initSubprobemParam(int strategy, PLiveNurse   pNurse){
 		maxRotationLength_ = pNurse->maxConsDaysWork();
 		switch(strategy){
 
@@ -35,28 +35,15 @@ struct SubproblemParam{
 		//		max   = CD_max
 		//		sink  = one / last day
 		//
-		case 0: shortRotationsStrategy_=2; maxRotationLength_+=0; oneSinkNodePerLastDay_ = true; break;
+		case 0: shortRotationsStrategy_=2; maxRotationLength_+=1; oneSinkNodePerLastDay_ = true; break;
 
-		// 1 -> [Exhaustive search]
+		// 3 -> [Exhaustive search]
 		//		short = true,
 		// 		max   = LARGE
 		//		sink  = one / last day
 		//
-		case 1:	shortRotationsStrategy_=1;	maxRotationLength_=pNurse->pStateIni_->consDaysWorked_+pNurse->nbDays_; oneSinkNodePerLastDay_ = true; break;
+		case 1:	shortRotationsStrategy_=3;	maxRotationLength_=pNurse->pStateIni_->consDaysWorked_+pNurse->nbDays_; oneSinkNodePerLastDay_ = true; break;
 
-		// 2 -> [Short + not too long]
-		//		short = true,
-		//		max   = CD_max+3
-		//		sink  = one / last day
-		//
-		case 2: shortRotationsStrategy_=1; maxRotationLength_+=3; oneSinkNodePerLastDay_ = true; break;
-
-		// 3 -> [No short + barely above legal]
-		//		short = false,
-		//		max   = CD_max+1
-		//		sink  = one / last day
-		//
-		case 3: shortRotationsStrategy_=2; maxRotationLength_+=1; oneSinkNodePerLastDay_ = true; break;
 
 		// UNKNOWN STRATEGY
 		default:
@@ -66,12 +53,12 @@ struct SubproblemParam{
 	}
 
 	// *** PARAMETERS ***
+  static const int maxSubproblemStrategyLevel_ = 1;
 
 	// 0 -> no short rotations
-	// 1 -> all short rotations
+	// 1 -> day-0 short rotations only
 	// 2 -> day-0 and last-day short rotations only
-	// 3 -> day-0 short rotations only
-	// 4 -> last-day short rotations only
+	// 3 -> all short rotations
 	int shortRotationsStrategy_ = 0;
 
 	// maximal length for a rotation
@@ -115,7 +102,7 @@ class SubProblem {
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    SubProblem(Scenario* scenario, int nbDays, const Contract* contract, std::vector<State> *pInitState);
+    SubProblem(PScenario scenario, int nbDays, PConstContract contract, std::vector<State> *pInitState);
 
     // Initialization function for all global variables (not those of the rcspp)
     //
@@ -123,7 +110,7 @@ class SubProblem {
 
     // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
     //
-    virtual bool solve(LiveNurse*  nurse,
+    virtual bool solve(PLiveNurse  nurse,
                        DualCosts *costs,
                        SubproblemParam param,
                        std::set<std::pair<int, int> > forbiddenDayShifts = {},
@@ -139,11 +126,11 @@ class SubProblem {
 
     // Some getters
     //
-    inline Scenario* scenario() const { return pScenario_; }
+    inline PScenario scenario() const { return pScenario_; }
 
-    inline const Contract* contract() const { return pContract_; }
+    inline PConstContract contract() const { return pContract_; }
 
-    inline const LiveNurse* liveNurse() const { return pLiveNurse_; }
+    inline const PLiveNurse  liveNurse() const { return pLiveNurse_; }
 
     inline int nDays() const { return nDays_; }
 
@@ -223,7 +210,7 @@ class SubProblem {
 
     // Pointer to the scenario considered
     //
-    Scenario* pScenario_;
+    PScenario pScenario_;
 
     // Number of days of the scenario (usually a multiple of 7)
     //
@@ -231,7 +218,7 @@ class SubProblem {
 
     // Contract type
     //
-    const Contract* pContract_;
+    PConstContract pContract_;
 
     // (Minimum) number of paths to return to the MP
     //
@@ -239,7 +226,7 @@ class SubProblem {
 
     // Current live nurse considered
     //
-    LiveNurse*  pLiveNurse_;
+    PLiveNurse  pLiveNurse_;
 
     // All costs from Master Problem
     //
@@ -338,8 +325,6 @@ class SubProblem {
 
     // Function called when optimal=true in the arguments of solve
     virtual bool solveRCGraphOptimal();
-
-    virtual bool solveRCGraphHeuristic();
 
     // return a function that will post process any path found by the RC graph
     virtual std::function<void (spp_res_cont&)> postProcessResCont() const;

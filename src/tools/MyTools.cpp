@@ -29,19 +29,32 @@ namespace Tools{
 // Compare functions to sort
 bool compareDecreasing (int i,int j) { return (i>j);}
 
+
 // Throw an exception with the input message
 //
-void throwError(const char* exceptionMsg)  {
-	try {
-		throw std::string(exceptionMsg);
-	} catch (const std::string& str) {
-		throwError(str);
-	}
+  void throwException(const char* exceptionMsg) {
+    try {
+      throw NSException(exceptionMsg);
+    } catch (std::exception& e) {
+      printf("Exception caught: %s\n", e.what());
+      throw e;
+    }
+  }
+  void throwException(const std::string& str) {
+    throwException(str.c_str());
+  }
+
+void throwError(const char* exceptionMsg) {
+  throwError(std::string(exceptionMsg));
 }
-	void throwError(const std::string& str) {
-		printf("Exception caught: %s\n", str.c_str());
-		throw;
-	}
+void throwError(const std::string& exceptionMsg) {
+  try {
+    throw exceptionMsg;
+  } catch (std::string& m) {
+    printf("Error caught: %s\n", m.c_str());
+    throw m;
+  }
+}
 
 // Display a debug message
 //
@@ -53,25 +66,25 @@ void debugMsg(const char* debugMsg, int debugLevel)	{
 
 // Read a file stream until the separating character is met
 //
-bool readUntilChar(fstream *file, char separateur, string *pTitle) {
+bool readUntilChar(fstream &file, char separateur, string &pTitle) {
 	char cTmp = 'A';
 
 	// empty the title string if it is not
 	//
-	if (!pTitle->empty())
-		pTitle->erase();
+	if (!pTitle.empty())
+		pTitle.erase();
 
 	// go through the file until the delimiter is met
 	//
-	if (file->good()) {
-		cTmp = file->get();
+	if (file.good()) {
+		cTmp = file.get();
 	}
-	while (cTmp != separateur && file->good() )  {
-		pTitle->push_back(cTmp);
-		cTmp = file->get();
+	while (cTmp != separateur && file.good() )  {
+		pTitle.push_back(cTmp);
+		cTmp = file.get();
 	}
 
-	if (!file->good())
+	if (!file.good())
 		return false;
 
 	return true;

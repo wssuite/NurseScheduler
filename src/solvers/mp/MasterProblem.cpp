@@ -73,8 +73,8 @@ bool Pattern::compareDualCost(Pattern* pat1, Pattern* pat2){
 //-----------------------------------------------------------------------------
 
 // Default constructor
-MasterProblem::MasterProblem(Scenario* pScenario, Demand* pDemand,
-		Preferences* pPreferences, vector<State>* pInitState, MySolverType solverType):
+MasterProblem::MasterProblem(PScenario pScenario, PDemand pDemand,
+		PPreferences pPreferences, vector<State>* pInitState, MySolverType solverType):
 
 								   Solver(pScenario, pDemand, pPreferences, pInitState), PrintSolution(),
 								   pModel_(0), positionsPerSkill_(pScenario->nbSkills_),
@@ -102,44 +102,38 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
 
 	// This OSI interface is created only to retrieve the proper value of
 	// infinity for the solver
-	OsiSolverInterface* solver=NULL;
-
+  double inf = -1;
 	switch(solverType){
 	case S_CLP:
-    pModel_ = new BcpModeler(this,PB_NAME, CLP);
-		solver = new OsiClpSolverInterface();
+    pModel_ = new BcpModeler(this, PB_NAME, CLP);
+    inf = OsiClpSolverInterface().getInfinity();
 		break;
 	case S_Gurobi:
 #ifdef USE_GUROBI
 		pModel_ = new BcpModeler(this,PB_NAME, Gurobi);
-		solver = new OsiGrbSolverInterface();
+		inf = OsiGrbSolverInterface().getInfinity();
 #else
 	  Tools::throwError("BCP has not been built with Gurobi.");
 #endif
 		break;
 	case S_Cplex:
 #ifdef USE_CPLEX
-		pModel_ = new BcpModeler(this,PB_NAME, Cplex);
-		solver = new OsiCpxSolverInterface();
+		pModel_ = new BcpModeler(this,PB_NAME, Cplex);\
+		inf = OsiCpxSolverInterface().getInfinity();
 #else
 	  Tools::throwError("BCP has not been built with Cplex.");
 #endif
 		break;
 	case S_CBC:
     pModel_ = new BcpModeler(this,PB_NAME);
-		solver = new OsiClpSolverInterface();
+    inf = OsiClpSolverInterface().getInfinity();
 		break;
 	default:
 		Tools::throwError("MasterProblem::initializeSolver: the requested solver is not supported presently.");
 		break;
 	}
 
-	pModel_->setInfinity(solver->getInfinity());
-	// DBG : QUESTION
-	// DBG : REPONSE, cet Osi n'est pas celui qui sera utilise pour resoudre les
-	// LPs, il ne sert qu'a recuperer la valeur infinity. Il est donc necessaire
-	// de le supprimer  pour eviter les fuites
-	delete solver;
+//  pModel_->setInfinity(inf);
 
 	this->preprocessData();
 
@@ -178,39 +172,42 @@ double MasterProblem::solve(const SolverParam& param, vector<Roster> solution){
 }
 
 //solve the rostering problem
-double MasterProblem::solve(vector<Roster> solution, bool rebuild){
+double MasterProblem::solve(vector<Roster> solution, bool rebuild) {
 
-	// build the model first
-	if(rebuild)
-		this->build(pModel_->getParameters());
-	else
-		pModel_->reset();
+  // build the model first
+  if (rebuild) {
+    pModel_->clear();
+    this->build(pModel_->getParameters());
+  } else
+    pModel_->reset();
 
-	// input an initial solution
-	this->initializeSolution(solution);
+  // input an initial solution
+  this->initializeSolution(solution);
 
-	// DBG
-	pModel_->writeProblem("model.lp");
+  // DBG
+#ifdef  DBG
+  pModel_->writeProblem("master_model");
+#endif
 
-	// RqJO: warning, it would be better to define an enumerate type of verbosity
-	// levels and create the matching in the Modeler subclasses
-	if (solverType_ != S_CBC ) {
-		pModel_->setVerbosity(1);
-	}
-	this->solveWithCatch();
+  // RqJO: warning, it would be better to define an enumerate type of verbosity
+  // levels and create the matching in the Modeler subclasses
+  if (solverType_ != S_CBC) {
+    pModel_->setVerbosity(1);
+  }
+  this->solveWithCatch();
 
-	if (pModel_->getParameters().printBranchStats_ ) {
-		pModel_->printStats();
-	}
+  if (pModel_->getParameters().printBranchStats_) {
+    pModel_->printStats();
+  }
 
-	if(!pModel_->printBestSol()) {
-		return pModel_->getRelaxedObjective();
-	}
+  if (!pModel_->printBestSol()) {
+    return pModel_->getRelaxedObjective();
+  }
 
-	storeSolution();
-	costsConstrainstsToString();
+  storeSolution();
+  costsConstrainstsToString();
 
-	return pModel_->getObjective();
+  return pModel_->getObjective();
 }
 
 void MasterProblem::solveWithCatch(){
@@ -219,7 +216,7 @@ void MasterProblem::solveWithCatch(){
 
 //Resolve the problem with another demand and keep the same preferences
 //
-double MasterProblem::resolve(Demand* pDemand, const SolverParam& param, vector<Roster> solution){
+double MasterProblem::resolve(PDemand pDemand, const SolverParam& param, vector<Roster> solution){
 	updateDemand(pDemand);
 	pModel_->setParameters(param, this);
 	return solve(solution, false);
@@ -338,7 +335,7 @@ void MasterProblem::fixNurses(vector<bool> isFix){
 	}
 	// set the list of fixed day
 	// + forbid the generation of rotations of the input nurses
-	for (LiveNurse* pNurse: theLiveNurses_){
+	for (PLiveNurse pNurse: theLiveNurses_){
 		int n = pNurse->id_;
 		isFixNurse_[n] = isFixNurse_[n]?true:isFix[n];
 		if (isFixNurse_[n]) pPricer_->forbidNurse(n);
@@ -356,7 +353,7 @@ void MasterProblem::unfixNurses(vector<bool> isUnfix){
 	else {
 		// set the list of unfixed nurses
 		// + authorize the generation of rotations for the input nurses
-	for (LiveNurse* pNurse: theLiveNurses_){
+	for (PLiveNurse pNurse: theLiveNurses_){
 			int n = pNurse->id_;
 			isFixNurse_[n]= isFixNurse_[n]?!isUnfix[n]:false;
 			if (!isFixNurse_[n]) pPricer_->authorizeNurse(n);
@@ -376,9 +373,16 @@ double MasterProblem::rollingSolve(const SolverParam& param, int firstDay) {
 	if(firstDay == 0) {
 		initialize(param);
 	}
+	// otherwise reset the solution but keep the best solution
 	else {
-		pModel_->reset(true);
+	  // load and store the best solution
+	  pModel_->loadBestSol();
+	  storeSolution();
+	  // reset the model
+		pModel_->reset();
 		pModel_->setParameters(param, this);
+    // add the best solution  back in the model
+		initializeSolution(solution_);
 	}
 
 	// solve the problem
@@ -403,11 +407,14 @@ double MasterProblem::rollingSolve(const SolverParam& param, int firstDay) {
 // of LNS
 //------------------------------------------------------------------------------
 double MasterProblem::LNSSolve(const SolverParam& param) {
-
-	// in lns, we always re-optimize, and we assume that the best solution until
-	// there is already loaded
-	pModel_->reset(true);
-	pModel_->setParameters(param, this);
+  // load and store the best solution
+  pModel_->loadBestSol();
+  storeSolution();
+  // reset the model
+  pModel_->reset();
+  pModel_->setParameters(param, this);
+  // add the best solution  back in the model
+  initializeSolution(solution_);
 
 	// solve the problem
 	pModel_->setVerbosity(1);
@@ -442,13 +449,13 @@ void MasterProblem::storeSolution(){
 				skillsAllocation[k][s][sk] = pModel_->getVarValues(skillsAllocVars_[k][s][sk]);
 
 	//build the rosters
-	for(LiveNurse* pNurse: theLiveNurses_)
+	for(PLiveNurse pNurse: theLiveNurses_)
 		pNurse->roster_.reset();
 
 	for(MyVar* var: pModel_->getActiveColumns()){
 		if(pModel_->getVarValue(var) > EPSILON){
 		  PPattern pat = getPattern(var->getPattern());
-			LiveNurse* pNurse = theLiveNurses_[pat->nurseId_];
+			PLiveNurse pNurse = theLiveNurses_[pat->nurseId_];
 			for(int k=pat->firstDay_; k<pat->firstDay_+pat->length_; ++k){
         int s = pat->getShift(k);
         if(s == 0) continue; // nothing to do
@@ -472,7 +479,7 @@ void MasterProblem::storeSolution(){
 
 	//build the states of each nurse
 	solution_.clear();
-	for(LiveNurse* pNurse: theLiveNurses_){
+	for(PLiveNurse pNurse: theLiveNurses_){
 		pNurse->buildStates();
 		solution_.push_back(pNurse->roster_);
 	}
@@ -522,11 +529,16 @@ vector3D<double> MasterProblem::getFractionalRoster() {
 
 void MasterProblem::checkIfPatternAlreadyPresent(const std::vector<double>& pattern) const {
   for(MyVar* var: pModel_->getActiveColumns()) {
+    bool equal = true;
     for (int j = 0; j < pattern.size(); ++j)
-      if (abs(pattern[j] - var->getPattern()[j]) > EPSILON)
-        return;
+      if (abs(pattern[j] - var->getPattern()[j]) > EPSILON) {
+        equal = false;
+        break;
+      }
+    if(equal) {
       string name = var->name_;
-      Tools::throwError("Pattern already present as column: "+name);
+      Tools::throwError("Pattern already present as column: " + name);
+    }
   }
 }
 
@@ -546,14 +558,14 @@ void MasterProblem::printCurrentSol() {
  * Get the duals values per day for a nurse
  ******************************************************/
 // build a DualCosts structure
-DualCosts MasterProblem::buildDualCosts(LiveNurse*  pNurse) const {
+DualCosts MasterProblem::buildDualCosts(PLiveNurse  pNurse) const {
   return DualCosts(getShiftsDualValues(pNurse), getStartWorkDualValues(pNurse),
       getEndWorkDualValues(pNurse), getWorkedWeekendDualValue(pNurse),
       getConstantDualvalue(pNurse));
 }
 
-vector2D<double> MasterProblem::getShiftsDualValues(LiveNurse*  pNurse) const {
   // return the dual values associated to the demand
+vector2D<double> MasterProblem::getShiftsDualValues(PLiveNurse  pNurse) const {
   vector2D<double> dualValues(pDemand_->nbDays_);
   for(int k=0; k<pDemand_->nbDays_; ++k)
     dualValues[k] = pModel_->getDuals(
@@ -562,19 +574,19 @@ vector2D<double> MasterProblem::getShiftsDualValues(LiveNurse*  pNurse) const {
 }
 
 
-vector<double> MasterProblem::getStartWorkDualValues(LiveNurse* pNurse) const {
+vector<double> MasterProblem::getStartWorkDualValues(PLiveNurse pNurse) const {
   return vector<double>(pDemand_->nbDays_);
 }
 
-vector<double> MasterProblem::getEndWorkDualValues(LiveNurse* pNurse) const {
+vector<double> MasterProblem::getEndWorkDualValues(PLiveNurse pNurse) const {
   return vector<double>(pDemand_->nbDays_);
 }
 
-double MasterProblem::getWorkedWeekendDualValue(LiveNurse* pNurse) const{
+double MasterProblem::getWorkedWeekendDualValue(PLiveNurse pNurse) const{
   return 0;
 }
 
-double MasterProblem::getConstantDualvalue(LiveNurse* pNurse) const{
+double MasterProblem::getConstantDualvalue(PLiveNurse pNurse) const{
   return 0;
 }
 
@@ -624,8 +636,8 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 					coeffs1[p] = 1;
 				}
 				sprintf(name, "minDemandCons_%d_%d_%d", k, s, sk);
-				pModel_->createFinalGEConsLinear(&minDemandCons_[k][s-1][sk], name, pDemand_->minDemand_[k][s][sk],
-						vars1, coeffs1);
+        pModel_->createGEConsLinear(&minDemandCons_[k][s - 1][sk], name, pDemand_->minDemand_[k][s][sk],
+                                    vars1, coeffs1);
 
 				// STAB:Add stabilization variable
 				if (param.isStabilization_) {
@@ -638,8 +650,8 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 				vars1.push_back(optDemandVars_[k][s-1][sk]);
 				coeffs1.push_back(1);
 				sprintf(name, "optDemandCons_%d_%d_%d", k, s, sk);
-				pModel_->createFinalGEConsLinear(&optDemandCons_[k][s-1][sk], name, pDemand_->optDemand_[k][s][sk],
-						vars1, coeffs1);
+        pModel_->createGEConsLinear(&optDemandCons_[k][s - 1][sk], name, pDemand_->optDemand_[k][s][sk],
+                                    vars1, coeffs1);
 
 				// STAB:Add stabilization variable
 				if (param.isStabilization_) {
@@ -675,8 +687,8 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 					coeff4[sk] =-1;
 				}
 				sprintf(name, "feasibleSkillsAllocCons_%d_%d_%d", k, s, p);
-				pModel_->createEQConsLinear(&feasibleSkillsAllocCons_[k][s-1][p], name, 0,
-						vars4, coeff4);
+        pModel_->createEQConsLinear(&feasibleSkillsAllocCons_[k][s - 1][p], name, 0,
+                                    vars4, coeff4);
 			}
 		}
 	}
@@ -705,7 +717,7 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons*>& cons, vector<doub
 	return nbCons;
 }
 
-void MasterProblem::updateDemand(Demand* pDemand){
+void MasterProblem::updateDemand(PDemand pDemand){
 	if(pDemand->nbDays_ != pDemand_->nbDays_)
 		Tools::throwError("The new demand must have the same size than the old one, so that's ");
 
@@ -778,7 +790,7 @@ string MasterProblem::allocationToString(bool printInteger){
 
   vector3D<double> fractionalRoster = getFractionalRoster();
 	for (int n = 0; n < nbNurses; n ++) {
-		LiveNurse* pNurse = theLiveNurses_[n];
+		PLiveNurse pNurse = theLiveNurses_[n];
 		const vector2D<double>& fnurseFractionalRoster = fractionalRoster[n];
 		rep << pNurse->name_ << "\t";
 		for(int s=1; s<nbShifts; ++s){
@@ -854,10 +866,6 @@ string MasterProblem::coverageToString(bool printInteger){
 	cout << rep.str();
 
 	return rep.str();
-}
-
-string MasterProblem::workedWeekendsToString(bool printInteger){
-	return "";
 }
 
 //---------------------------------------------------------------------------
@@ -963,22 +971,23 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
 // STAB: compute the lagrangian bound
 //
 double MasterProblem::computeLagrangianBound(double objVal,double sumRedCost) const {
-	double stabSumCostValue = 0.0;
-	if (!pModel_->getParameters().isStabilization_) {
-		return objVal+sumRedCost;
-	}
-	else {
-		// stabilization variables corresponding to the cover constraints
-		for(int k=0; k<pDemand_->nbDays_; k++){
-			for(int s=1; s<pScenario_->nbShifts_; s++){
-				for(int sk=0; sk<pScenario_->nbSkills_; sk++){
-					stabSumCostValue += stabMinDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]);
-					stabSumCostValue += stabOptDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]);
-				}
-			}
-		}
-	}
-	return objVal+sumRedCost-stabSumCostValue;
+  return -LARGE_SCORE;
+//	double stabSumCostValue = 0.0;
+//	if (!pModel_->getParameters().isStabilization_) {
+//		return objVal+sumRedCost;
+//	}
+//	else {
+//		// stabilization variables corresponding to the cover constraints
+//		for(int k=0; k<pDemand_->nbDays_; k++){
+//			for(int s=1; s<pScenario_->nbShifts_; s++){
+//				for(int sk=0; sk<pScenario_->nbSkills_; sk++){
+//					stabSumCostValue += stabMinDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]);
+//					stabSumCostValue += stabOptDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]);
+//				}
+//			}
+//		}
+//	}
+//	return objVal+sumRedCost-stabSumCostValue;
 }
 
 // STAB: reset the costs and bounds of the stabilization variables

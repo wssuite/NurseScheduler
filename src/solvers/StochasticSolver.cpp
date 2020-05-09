@@ -7,7 +7,6 @@
 
 #include "solvers/StochasticSolver.h"
 #include "tools/DemandGenerator.h"
-#include "solvers/Greedy.h"
 #include "solvers/mp/RotationMP.h"
 #include "tools/ReadWrite.h"
 
@@ -26,7 +25,7 @@ using std::set;
  * The solution time depends on the number of nurses
  ******************************************************************************/
 
-void setStochasticSolverOptions(StochasticSolverOptions& options, Scenario* pScenario, string solPath, string logPathIni, double timeout) {
+void setStochasticSolverOptions(StochasticSolverOptions& options, PScenario pScenario, string solPath, string logPathIni, double timeout) {
    // #ifdef __MACH__
    // double cpuMaxFor30Nurses = 60.0;
    // double cpuMaxPer10Nurses = 45.0;
@@ -121,9 +120,9 @@ void setStochasticSolverOptions(StochasticSolverOptions& stochasticSolverOptions
 //
 //-----------------------------------------------------------------------------
 
-StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions options, vector<Demand*> demandHistory, double costPreviousWeeks):
+StochasticSolver::StochasticSolver(PScenario pScenario, StochasticSolverOptions options, vector<PDemand> demandHistory, double costPreviousWeeks):
       Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
-      options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(0), costPreviousWeeks_(costPreviousWeeks){
+      options_(options), demandHistory_(demandHistory), pReusableGenerationSolver_(nullptr), costPreviousWeeks_(costPreviousWeeks){
    std::cout << "# New stochastic solver created!" << std::endl;
 
    int remainingDays = ( pScenario_->nbWeeks_ - pScenario_->thisWeek() -1 ) * 7;
@@ -156,41 +155,22 @@ StochasticSolver::StochasticSolver(Scenario * pScenario, StochasticSolverOptions
 
 StochasticSolver::~StochasticSolver(){
 
-   // Delete the output
+   // Delete the o(utput
    delete pLogStream_;
 
-   // delete the demands used for generation
-   while (!pGenerationDemands_.empty()) {
-      if (pGenerationDemands_.back()) delete pGenerationDemands_.back();
-      pGenerationDemands_.pop_back();
-   }
-
-   // delete the demands used for evaluation
-   while (!pEvaluationDemands_.empty()) {
-      if (pEvaluationDemands_.back()) delete pEvaluationDemands_.back();
-      pEvaluationDemands_.pop_back();
-   }
-
    // delete the solvers used for generation
-   while (!pGenerationSolvers_.empty()) {
-      if (pGenerationSolvers_.back()) delete pGenerationSolvers_.back();
-      pGenerationSolvers_.pop_back();
-   }
+   for(Solver* pSolver: pGenerationSolvers_)
+      delete pSolver;
 
    // delete the solvers used for evaluation
-   for(unsigned int n=0; n<pEvaluationSolvers_.size(); n++){
-      while (!pEvaluationSolvers_[n].empty()) {
-         if (pEvaluationSolvers_[n].back()) delete pEvaluationSolvers_[n].back();
-         pEvaluationSolvers_[n].pop_back();
-      }
-   }
+   for(unsigned int n=0; n<pEvaluationSolvers_.size(); n++)
+     for(Solver* pSolver: pEvaluationSolvers_[n])
+       delete pSolver;
 
    // delete also the reusable solvers
-   if(pReusableGenerationSolver_) delete pReusableGenerationSolver_;
-   for(unsigned int n=0; n<pReusableEvaluationSolvers_.size(); n++){
-      if(pReusableEvaluationSolvers_.back()) delete pReusableEvaluationSolvers_.back();
-      pReusableEvaluationSolvers_.pop_back();
-   }
+   delete pReusableGenerationSolver_;
+   for(Solver* pSolver: pReusableEvaluationSolvers_)
+     delete pSolver;
 }
 
 
@@ -242,6 +222,8 @@ double StochasticSolver::solve(vector<Roster> initialSolution){
    }
 
    /* update nurse States */
+   if (solution_.empty())
+     Tools::throwError("No feasible schedule has been found in the available computational time.");
    for(int n=0; n<pScenario_->nbNurses_; ++n){
       theLiveNurses_[n]->roster_ = solution_[n];
       theLiveNurses_[n]->buildStates();
@@ -430,7 +412,6 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
          }
 
          // Delete and popback the last generation demand to be consistent with the implementation of solveOneWeekNoGenerationEvaluation
-         delete pGenerationDemands_.back();
          pGenerationDemands_.pop_back();
          nGenerationDemands_--;
       }
@@ -485,32 +466,31 @@ void StochasticSolver::generateSingleGenerationDemand(){
 
    int nDaysInDemand = options_.nExtraDaysGenerationDemands_;
    bool isFeasible = false;
-   Demand * pCompleteDemand;
+   PDemand pCompleteDemand;
 
    (*pLogStream_) << "# Generating new generation demand..." << std::endl;
 
    //use the real demand instead of genrating a random one
    if(options_.withRealDemand_){
-      pCompleteDemand = new Demand(*(pScenario_->pWeekDemand()));
-      Demand* pFutureDemand = new Demand(*(demandHistory_[0]));
+      pCompleteDemand = std::make_shared<Demand>(*(pScenario_->pWeekDemand()));
+      PDemand pFutureDemand = std::make_shared<Demand>(*(demandHistory_[0]));
       pFutureDemand->keepFirstNDays(nDaysInDemand);
       pCompleteDemand = pCompleteDemand->append(pFutureDemand);
-      delete pFutureDemand;
    }
    else{
-      Demand * pSingleDemand;
+      PDemand pSingleDemand;
       while(!isFeasible){
          DemandGenerator dg (1, nDaysInDemand, demandHistory_ , pScenario_);
          pSingleDemand = dg.generateSinglePerturbatedDemand(false); // no feasibility check here
          pCompleteDemand = pScenario_->pWeekDemand()->append(pSingleDemand);
-         isFeasible = dg.checkDemandFeasibility(pCompleteDemand);
-         if(!isFeasible){
-            (*pLogStream_) << "# Demand has been deleted because it was infeasible." << std::endl;
-            delete pCompleteDemand;
-            delete pSingleDemand;
-         }
+         isFeasible = true;
+//         isFeasible = dg.checkDemandFeasibility(pCompleteDemand);
+//         if(!isFeasible){
+//            (*pLogStream_) << "# Demand has been deleted because it was infeasible." << std::endl;
+//            delete pCompleteDemand;
+//            delete pSingleDemand;
+//         }
       }
-      delete pSingleDemand;
    }
 
    pGenerationDemands_.push_back( pCompleteDemand );
@@ -555,20 +535,15 @@ void StochasticSolver::generateAllEvaluationDemands(){
 //----------------------------------------------------------------------------
 
 // Return a solver with the algorithm specified for schedule GENERATION
-Solver* StochasticSolver::setGenerationSolverWithInputAlgorithm(Demand* pDemand){
-   Solver* pSolver(nullptr);
+Solver* StochasticSolver::setGenerationSolverWithInputAlgorithm(PDemand pDemand){
    switch(options_.generationAlgorithm_){
-   case GREEDY:
-      pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-      break;
    case GENCOL:
-      pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
-      break;
+      return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
    default:
       Tools::throwError("The algorithm is not handled yet");
       break;
    }
-   return pSolver;
+   return nullptr;
 }
 
 // Generate a new schedule
@@ -580,7 +555,7 @@ void StochasticSolver::generateNewSchedule(){
       // A. Generate a demand that will be the origin of the scenario generation
       //
       generateSingleGenerationDemand();
-      Demand * newDemand = pGenerationDemands_[nGenerationDemands_-1];
+      PDemand newDemand = pGenerationDemands_[nGenerationDemands_-1];
 
       // B. Solve this schedule (in a way that should be defined) so as to have a schedule
       //
@@ -605,7 +580,6 @@ void StochasticSolver::generateNewSchedule(){
          hasFoundFeasible = true;
       } else {
          nGenerationDemands_ --;
-         delete pGenerationDemands_.back();
          pGenerationDemands_.pop_back();
       }
 
@@ -634,19 +608,16 @@ void StochasticSolver::generateNewSchedule(){
 //----------------------------------------------------------------------------
 
 // Return a solver with the algorithm specified for schedule EVALUATION
-Solver* StochasticSolver::setEvaluationWithInputAlgorithm(Demand* pDemand, vector<State> * stateEndOfSchedule){
+Solver* StochasticSolver::setEvaluationWithInputAlgorithm(PDemand pDemand, vector<State> * stateEndOfSchedule){
    Solver* pSolver(nullptr);
-   Scenario * pScen = new Scenario (*pScenario_);
-   pScen->linkWithDemand(new Demand ());
+   PScenario pScen = std::make_shared<Scenario>(*pScenario_);
 
    // update the scenario to treat next week
-   Preferences * pEmptyPref = new Preferences(pScenario_->nbNurses(), options_.nDaysEvaluation_, pScenario_->nbShifts());
+   PPreferences pEmptyPref = std::make_shared<Preferences>(
+       pScenario_->nbNurses(), options_.nDaysEvaluation_, pScenario_->nbShifts());
    pScen->updateNewWeek(pDemand, pEmptyPref, *stateEndOfSchedule);
 
    switch(options_.evaluationAlgorithm_){
-   case GREEDY:
-      pSolver = new Greedy(pScen, pDemand, pEmptyPref, stateEndOfSchedule);
-      break;
    case GENCOL:
       pSolver = new RotationMP(pScen, pDemand, pEmptyPref, stateEndOfSchedule, S_CLP);
       break;
@@ -872,18 +843,10 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy){
 
 }
 
-
-
-
-
-
-Solver* StochasticSolver::setSubSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm) {
+Solver* StochasticSolver::setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm) {
 
    Solver* pSolver(nullptr);
    switch(algorithm){
-   case GREEDY:
-      pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
-      break;
    case GENCOL:
       pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), S_CLP);
       break;

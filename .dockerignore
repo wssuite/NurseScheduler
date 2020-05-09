@@ -4,15 +4,14 @@ BCPDocker/
 CMakeDocker/
 bin/
 obj/
+lib/
 
 .git/
 .gitignore
 .travis.yml
 
-README.md
-INSTALL.md
+*.md
 INSTALL.sh
-DOCKER.md
 
 CMakeDefinitionsLists.txt
 build/
@@ -20,4 +19,3 @@ cmake-build-debug/
 cmake-build-release/
 
 docker-compose.yml
-Dockerfile

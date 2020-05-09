@@ -70,7 +70,7 @@ void Roster::reset(){
 // get a vector of consecutive states that will result from applying the
 // the roster from a given initial state
 //
-vector<State> Roster::getStates(const State& stateIni, Scenario* pScenario) {
+vector<State> Roster::getStates(const State& stateIni, PScenario pScenario) {
 
   vector<State> states;
 

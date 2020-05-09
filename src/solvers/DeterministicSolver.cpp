@@ -6,7 +6,6 @@
 */
 
 #include "solvers/DeterministicSolver.h"
-//#include "solvers/Greedy.h"
 #include "solvers/mp/RotationMP.h"
 #include "solvers/mp/RosterMP.h"
 #include "solvers/InitializeSolver.h"
@@ -30,7 +29,7 @@ using std::pair;
 //
 //-----------------------------------------------------------------------------
 
-DeterministicSolver::DeterministicSolver(Scenario* pScenario,InputPaths inputPaths):
+DeterministicSolver::DeterministicSolver(PScenario pScenario,InputPaths inputPaths):
 Solver(pScenario,pScenario->pWeekDemand(),pScenario->pWeekPreferences(), pScenario->pInitialState()),
 pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 
@@ -61,8 +60,8 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 
 DeterministicSolver::~DeterministicSolver(){
 	// delete also the reusable solvers
-	if(pCompleteSolver_) delete pCompleteSolver_;
-	if(pRollingSolver_) delete pRollingSolver_;
+	delete pCompleteSolver_;
+	delete pRollingSolver_;
 	// DBG if (pLNSSolver_) delete pLNSSolver_;
 }
 
@@ -135,7 +134,7 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 	OptimalityLevel lnsOptimalityLevel=UNTIL_FEASIBLE;
 	OptimalityLevel rollingOptimalityLevel=UNTIL_FEASIBLE;
 	while(file.good()){
-		Tools::readUntilChar(&file, '=', &title);
+		Tools::readUntilChar(file, '=', title);
 
 		// Read the name of the scenario
 		//
@@ -248,17 +247,11 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 		else if (Tools::strEndsWith(title, "spDefaultStrategy")) {
 			file >> param.sp_default_strategy_;
 		}
-		else if (Tools::strEndsWith(title, "spSecondChanceStrategy")) {
-			file >> param.sp_secondchance_strategy_;
-		}
 		else if (Tools::strEndsWith(title, "spNbRotationsPerNurse")) {
 			file >> param.sp_nbrotationspernurse_;
 		}
 		else if (Tools::strEndsWith(title, "spNbNursesToPrice")) {
 			file >> param.sp_nbnursestoprice_;
-		}
-		else if (Tools::strEndsWith(title, "spWithSecondChance")) {
-			file >> param.sp_withsecondchance_;
 		}
 		else if (Tools::strEndsWith(title, "spMaxReducedCostBound")) {
 			file >> param.sp_max_reduced_cost_bound_;
@@ -379,7 +372,7 @@ double DeterministicSolver::solve(vector<Roster> initialSolution){
 		options_.divideIntoConnexPositions_ = false;
 		objValue_ = this->solveByConnexPositions();
 	}
-	// If the the scenarion is divided into connex positions, the solution
+	// If the the scenario is divided into connex positions, the solution
 	// of the subproblems goes in the "else" below
 	//
 	else {
@@ -485,43 +478,40 @@ double DeterministicSolver::treatResults(Solver* pSolver) {
 double DeterministicSolver::solveByConnexPositions() {
 
 	// DIVIDE THE SCENARIO INTO CONNEX COMPONENTS AND PRINT THE RESULT
-	vector<Scenario*> scenariosPerComponent;
-	scenariosPerComponent = divideScenarioIntoConnexPositions(pScenario_);
+	vector<PScenario> scenariosPerComponent = divideScenarioIntoConnexPositions(pScenario_);
 
 	// SOLVE THE PROBLEM COMPONENT-WISE
-	vector<DeterministicSolver*> solverPerComponent;
-	for (Scenario* pScenario: scenariosPerComponent) {
+	int i = 0;
+	for (PScenario pScenario: scenariosPerComponent) {
 		std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
 		std::cout << pScenario->toString() << std::endl;
 
 		// SET THE SOLVER AND SOLVE THE SUBPROBLEM
 		InputPaths inputPaths;
-		solverPerComponent.push_back(new DeterministicSolver(pScenario,inputPaths));
-		solverPerComponent.back()->copyParameters(this);
+    DeterministicSolver* solver = new DeterministicSolver(pScenario,inputPaths);
+		solver->copyParameters(this);
 
 		// set allowed time proportionnally to the number of nurses in each
 		// component
 		double allowedTime = options_.totalTimeLimitSeconds_*(double)pScenario->nbNurses()/(double)pScenario_->nbNurses();
 		// if solving the last component, leave it all the time left
-		if (solverPerComponent.size() == scenariosPerComponent.size()) {
+		if (i++ == scenariosPerComponent.size()) {
 			allowedTime = std::max(allowedTime,options_.totalTimeLimitSeconds_-pTimerTotal_->dSinceStart());
 		}
-		solverPerComponent.back()->setTotalTimeLimit(allowedTime);
+		solver->setTotalTimeLimit(allowedTime);
 
 		// solve the component
-		solverPerComponent.back()->solve();
+		solver->solve();
 
 		// STORE THE SOLUTION
 		// Be particularly cautious that the nurse indices are not the same in the
 		// initial scenario and in the solvers per component
-		for (int n=0; n<pScenario->nbNurses_; ++n) {
-			int idNurse = pScenario->theNurses_[n].id_;
-			theLiveNurses_[idNurse]->roster_ = solverPerComponent.back()->getSolution()[n];
-		}
+		for (PLiveNurse pNurse: solver->theLiveNurses_)
+			theLiveNurses_[pNurse->originalNurseId_]->roster_ = solver->getSolution()[pNurse->id_];
 
 		// Consolidate the global state of the solver
-		stats_.add(solverPerComponent.back()->getGlobalStat());
-		Status lastStatus = solverPerComponent.back()->getStatus();
+		stats_.add(solver->getGlobalStat());
+		Status lastStatus = solver->getStatus();
 
 		// in several cases, the new status is the status of the last solver solved
 		if (status_ == UNSOLVED || status_ == OPTIMAL ||
@@ -537,21 +527,15 @@ double DeterministicSolver::solveByConnexPositions() {
 			return -1;
 		}
 
-		// the solver of the component can be deleted at this stage
-		delete solverPerComponent.back();
-		solverPerComponent.back()=0;
+    // release memory
+		// the solver and scenario of the component can be deleted at this stage
+		delete solver;
 	}
 
 	// update nurses' states
 	for(int n=0; n<pScenario_->nbNurses_; ++n){
 		solution_.push_back(theLiveNurses_[n]->roster_);
 		theLiveNurses_[n]->buildStates();
-	}
-
-	//  release memory
-	for (Scenario* pScenario: scenariosPerComponent) {
-		if (pScenario->pWeekDemand()) delete pScenario->pWeekDemand();
-		pScenario->setWeekDemand(0);
 	}
 
 	return computeSolutionCost();
@@ -918,17 +902,17 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp, DaysS
 //
 void DeterministicSolver::organizeTheLiveNursesByPosition() {
 	nbPositions_=0;
-	std::vector<LiveNurse*> copyTheLiveNurses = theLiveNurses_;
+	std::vector<PLiveNurse> copyTheLiveNurses = theLiveNurses_;
 
 	// Transfer the nurses with same positions from the copy vector of live nurse
 	// to the organized vector of live nurses
 	while (!copyTheLiveNurses.empty()) {
 		nbPositions_++;
-		std::vector<LiveNurse*> theLiveNursesAtPosition;
+		std::vector<PLiveNurse> theLiveNursesAtPosition;
 
 		// initialize with the first nurse
 		theLiveNursesAtPosition.push_back(copyTheLiveNurses[0]);
-		const Position* thisPosition = copyTheLiveNurses[0]->pPosition_;
+		const PPosition thisPosition = copyTheLiveNurses[0]->pPosition_;
 		copyTheLiveNurses.erase(copyTheLiveNurses.begin());
 
 		// search for the nurses with same position in the remaining nurses
@@ -952,17 +936,17 @@ void DeterministicSolver::organizeTheLiveNursesByPosition() {
 
 void DeterministicSolver::organizeTheLiveNursesByContract() {
 	nbContracts_=0;
-	std::vector<LiveNurse*> copyTheLiveNurses = theLiveNurses_;
+	std::vector<PLiveNurse> copyTheLiveNurses = theLiveNurses_;
 
 	// Transfer the nurses with same contract from the copy vector of live nurse
 	// to the organized vector of live nurses
 	while (!copyTheLiveNurses.empty()) {
 		nbContracts_++;
-		std::vector<LiveNurse*> theLiveNursesWithContract;
+		std::vector<PLiveNurse> theLiveNursesWithContract;
 
 		// initialize with the first nurse
 		theLiveNursesWithContract.push_back(copyTheLiveNurses[0]);
-		const Contract* thisContract = copyTheLiveNurses[0]->pContract_;
+    PConstContract thisContract = copyTheLiveNurses[0]->pContract_;
 		copyTheLiveNurses.erase(copyTheLiveNurses.begin());
 
 		// search for the nurses with same contract in the remaining nurses
@@ -992,12 +976,12 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 //----------------------------------------------------------------------------
 
 // Return a solver with the algorithm specified for resolution
-Solver * DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, SolverParam& param) {
+ Solver * DeterministicSolver::setSolverWithInputAlgorithm(PDemand pDemand, SolverParam& param) {
 	return setSolverWithInputAlgorithm(pDemand, options_.solutionAlgorithm_, param);
 }
 
 // Return a solver with the input algorithm
-Solver* DeterministicSolver::setSolverWithInputAlgorithm(Demand* pDemand, Algorithm algorithm, SolverParam& param) {
+Solver* DeterministicSolver::setSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm, SolverParam& param) {
   Solver* pSolver= nullptr;
   switch(algorithm){
     //case GREEDY:

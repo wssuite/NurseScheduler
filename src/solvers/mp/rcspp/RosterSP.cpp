@@ -11,7 +11,7 @@ using std::map;
 // Constructors and destructor
 RosterSP::RosterSP(): SubProblem() {}
 
-RosterSP::RosterSP(Scenario* scenario, int nbDays, const Contract* contract, vector<State>* pInitState):
+RosterSP::RosterSP(PScenario scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
     SubProblem(scenario, nbDays, contract,  pInitState) {
 
   nLabels_ = 5;

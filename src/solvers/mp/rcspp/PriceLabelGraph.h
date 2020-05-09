@@ -11,6 +11,11 @@
 
 class SubProblem;
 
+// Subgraph to price a label based on its value
+// A node is created for every label value possibility between the minimum and maximum levels.
+// For example, for MAX_CONS_DAYS, a node is created for each value from maxConsDays (lb) to ub.
+// For MIN_CONS_DAYS, a node is created for each value from 0 (lb) to ub.
+// Then, the arcs price correctly each node
 class PriceLabelGraph: public SubGraph {
   public:
     PriceLabelGraph(int day, int lb, int ub, LABEL label,

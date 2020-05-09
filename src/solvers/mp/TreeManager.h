@@ -31,7 +31,7 @@ struct ColumnsNode: public MyNode{
 // Node that correspond to branching on a resting day
 //
 struct RestNode: public MyNode{
-	RestNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool rest):
+	RestNode(int index, MyNode* pParent, PLiveNurse pNurse, int day, bool rest):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), rest_(rest) {}
 
     std::string write() const {
@@ -44,7 +44,7 @@ struct RestNode: public MyNode{
 	}
 
 	//nurse and day on which we have branched for rest or work. pNurse_ can be 0
-	const LiveNurse* pNurse_;
+	const PLiveNurse pNurse_;
 	const int day_;
 	const bool rest_;
 };
@@ -53,7 +53,7 @@ struct RestNode: public MyNode{
 // Node that correspond to branching on working shifts
 //
 struct ShiftNode: public MyNode{
-	ShiftNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
+	ShiftNode(int index, MyNode* pParent, PLiveNurse pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), work_(work), forbiddenShifts_(forbiddenShifts) {}
 
     std::string write() const {
@@ -68,7 +68,7 @@ struct ShiftNode: public MyNode{
 	}
 
 	//nurse and day on which we have branched for rest or work. pNurse_ can be 0
-	const LiveNurse* pNurse_;
+	const PLiveNurse pNurse_;
 	const int day_;
 	const bool work_;
     std::vector<int> forbiddenShifts_;
@@ -78,7 +78,7 @@ struct ShiftNode: public MyNode{
 // The variable can relate to cover constraints, total shifts or total week-ends
 //
 struct PenaltyNode: public MyNode{
-	PenaltyNode(int index, MyNode* pParent, LiveNurse* pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
+	PenaltyNode(int index, MyNode* pParent, PLiveNurse pNurse, int day, bool work, std::vector<int>& forbiddenShifts):
 		MyNode(index, pParent), pNurse_(pNurse), day_(day), work_(work), forbiddenShifts_(forbiddenShifts) {}
 
     std::string write() const {
@@ -93,7 +93,7 @@ struct PenaltyNode: public MyNode{
 	}
 
 	//nurse and day on which we have branched for rest or work. pNurse_ can be 0
-	const LiveNurse* pNurse_;
+	const PLiveNurse pNurse_;
 	const int day_;
 	const bool work_;
     std::vector<int> forbiddenShifts_;
@@ -117,11 +117,11 @@ struct NursesNumberNode: public MyNode{
 };
 
 struct RestTree: public MyTree{
-	RestTree(Scenario* pScenario, Demand* pDemand);
+	RestTree(PScenario pScenario, PDemand pDemand);
 
 	void logical_fixing();
 
-	void addForbiddenShifts(LiveNurse* pNurse, std::set<std::pair<int,int> >& forbidenShifts);
+	void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int,int> >& forbidenShifts);
 
 	inline void pushBackNewNursesNumberNode(MyVar* var, double lb, double ub){
 		NursesNumberNode* node = new NursesNumberNode(tree_.size(), currentNode_, var, lb, ub);
@@ -133,12 +133,12 @@ struct RestTree: public MyTree{
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewRestNode(LiveNurse* pNurse, int day, bool rest){
+	inline void pushBackNewRestNode(PLiveNurse pNurse, int day, bool rest){
 		RestNode* node = new RestNode(tree_.size(), currentNode_, pNurse, day, rest);
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewShiftNode(LiveNurse* pNurse, int day, bool work, std::vector<int>& shifts){
+	inline void pushBackNewShiftNode(PLiveNurse pNurse, int day, bool work, std::vector<int>& shifts){
 		ShiftNode* node = new ShiftNode(tree_.size(), currentNode_, pNurse, day, work, shifts);
 		pushBackNode(node);
 	}
@@ -159,8 +159,8 @@ struct RestTree: public MyTree{
     std::string writeOneStat(std::string name, const std::vector<std::pair<int,double>>& stats) const;
 
 protected:
-	Scenario* pScenario_;
-	Demand* pDemand_;
+	PScenario pScenario_;
+	PDemand pDemand_;
 	//Tree statistics
 	//each pair represents first the number of times of the branching and second the increase of the LB
   std::vector<std::pair<int,double>> statsRestByDay_, statsWorkByDay_, statsRestByNurse_, statsWorkByNurse_;
@@ -194,9 +194,6 @@ public:
    /* branch on a set of shifts */
    bool branchOnShifts(MyBranchingCandidate& candidate);
 
-	/* branch on a set of original penalty variables */
-   bool branchOnPenalty(MyBranchingCandidate& candidate);
-
    /* compute fixing decisions */
    bool column_candidates(MyBranchingCandidate& candidate);
 
@@ -222,31 +219,14 @@ protected:
    //
    Modeler* pModel_;
 
-  virtual void buildRestNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day,
+  virtual void buildRestNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
       MyBranchingNode &restNode, MyBranchingNode &workNode) const;
 
-  virtual void buildShiftsNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day, bool work,
+  virtual void buildShiftsNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool work,
       MyBranchingNode &restNode, MyBranchingNode &workNode) const;
 
   void deactivateColumns(MyBranchingCandidate &candidate, int nurseId, int day,
-      std::vector<int> forbiddenShifts, MyBranchingNode &forbiddenNode, MyBranchingNode &complementaryNode) const {
-    // Find the columns to deactivate
-    for (MyVar *var: pModel_->getActiveColumns()) {
-      if (var->getUB() == 0)
-        continue;
-      PPattern pat = pMaster_->getPattern(var->getPattern());
-      if (pat->nurseId_ == nurseId && pat->firstDay_ <= day && pat->firstDay_ + pat->length_ > day) {
-        //add the variable to the candidate
-        int index = candidate.addBranchingVar(var);
-
-        //check if the shift is present in shifts
-        //set the UB to 0 for the non-possible rotations
-        if (find(forbiddenShifts.begin(), forbiddenShifts.end(), pat->getShift(day)) != forbiddenShifts.end())
-          forbiddenNode.setUb(index, 0);
-        else complementaryNode.setUb(index, 0);
-      }
-    }
-  }
+      std::vector<int> forbiddenShifts, MyBranchingNode &forbiddenNode, MyBranchingNode &complementaryNode) const;
 };
 
 class RosterBranchingRule: public DiveBranchingRule {
@@ -257,10 +237,10 @@ class RosterBranchingRule: public DiveBranchingRule {
     virtual ~RosterBranchingRule() {}
 
   protected:
-    void buildRestNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day,
+    void buildRestNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
                         MyBranchingNode &restNode, MyBranchingNode &workNode) const override ;
 
-    void buildShiftsNodes(MyBranchingCandidate &candidate, LiveNurse* pNurse, int day, bool work,
+    void buildShiftsNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool work,
                                   MyBranchingNode &restNode, MyBranchingNode &workNode) const override {}
 };
 

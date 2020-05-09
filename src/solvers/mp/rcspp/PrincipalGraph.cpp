@@ -25,7 +25,7 @@ PrincipalGraph::PrincipalGraph(int shift_type,  SubProblem* sp):
 PrincipalGraph::~PrincipalGraph() {}
 
 void PrincipalGraph::build() {
-  Scenario* pScenario = pSP_->scenario();
+  PScenario pScenario = pSP_->scenario();
   int nDays = pSP_->nDays();
 
   // CREATE THE NODES

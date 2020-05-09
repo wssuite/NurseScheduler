@@ -14,12 +14,12 @@
 //
 //-----------------------------------------------------------------------------
 
-void RosterPattern::computeCost(Scenario* pScenario, Preferences* pPreferences, const std::vector<LiveNurse*>& liveNurses){
+void RosterPattern::computeCost(PScenario pScenario, const std::vector<PLiveNurse>& liveNurses){
   //check if pNurse points to a nurse
   if(nurseId_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
-  LiveNurse* pNurse = liveNurses[nurseId_];
+  PLiveNurse pNurse = liveNurses[nurseId_];
 
   /************************************************
    * Compute all the costs of a roster:
@@ -120,13 +120,13 @@ void RosterPattern::computeCost(Scenario* pScenario, Preferences* pPreferences, 
    */
 
   for(int k=0; k<length_; ++k) {
-    int  level = pPreferences->wantsTheShiftOffLevel(nurseId_, k, shifts_[k]);
+    int  level = pNurse->wishesOffLevel(k, shifts_[k]);
     if (level != -1)
       preferenceCost_ += WEIGHT_PREFERENCES_OFF[level];
   }
 
   for(int k=firstDay_; k<firstDay_+length_; ++k) {
-    int  level = pPreferences->wantsTheShiftOnLevel(nurseId_, k, shifts_[k]);
+    int  level = pNurse->wishesOnLevel(k, shifts_[k]);
     if (level != -1)
       preferenceCost_ += WEIGHT_PREFERENCES_ON[level];
   }
@@ -178,7 +178,7 @@ void RosterPattern::computeCost(Scenario* pScenario, Preferences* pPreferences, 
 }
 
 
-void RosterPattern::checkDualCost(DualCosts& costs, Scenario* pScenario){
+void RosterPattern::checkDualCost(DualCosts& costs, PScenario pScenario){
   //check if pNurse points to a nurse
   if(nurseId_ == -1)
     Tools::throwError("LiveNurse = NULL");
@@ -281,7 +281,7 @@ std::string RosterPattern::toString(int nbDays, std::vector<int> shiftIDToShiftT
 //
 //-----------------------------------------------------------------------------
 
-RosterMP::RosterMP(Scenario* pScenario, Demand* pDemand, Preferences* pPreferences, std::vector<State> *pInitState,
+RosterMP::RosterMP(PScenario pScenario, PDemand pDemand, PPreferences pPreferences, std::vector<State> *pInitState,
     MySolverType solver):
     MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
     assignmentCons_(pScenario->nbNurses_) {
@@ -321,8 +321,8 @@ void RosterMP::initializeSolution(const std::vector<Roster>& solution) {
       for (int k = 0; k < getNbDays(); ++k)
         shifts[k] = roster.shift(k);
       RosterPattern pat(shifts, i);
-      pat.computeCost(pScenario_, pPreferences_, theLiveNurses_);
-      pModel_->addActiveColumn(addRoster(pat, baseName));
+      pat.computeCost(pScenario_, theLiveNurses_);
+      pModel_->addInitialColumn(addRoster(pat, baseName));
     }
   }
   // Else, add roster to always be feasible
@@ -343,7 +343,7 @@ void RosterMP::initializeSolution(const std::vector<Roster>& solution) {
 MyVar* RosterMP::addColumn(int nurseId, const RCSolution& solution) {
   // Build rotation from RCSolution
   RosterPattern pat(solution.shifts, nurseId, DBL_MAX, solution.cost);
-  pat.computeCost(pScenario_, pPreferences_, theLiveNurses_);
+  pat.computeCost(pScenario_, theLiveNurses_);
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
   DualCosts costs = buildDualCosts(theLiveNurses_[nurseId]);
@@ -446,7 +446,7 @@ double RosterMP::getColumnsCost(CostType costType, const std::vector<MyVar*>& va
     double value = pModel_->getVarValue(var);
     if(value > EPSILON){
       RosterPattern ros(var->getPattern());
-      ros.computeCost(pScenario_, pPreferences_, theLiveNurses_);
+      ros.computeCost(pScenario_, theLiveNurses_);
       double c = 0;
       switch(costType){
         case CONS_SHIFTS_COST: c += ros.consShiftsCost_;
@@ -489,6 +489,6 @@ double RosterMP::getMaxWeekendCost() const {
 }
 
 /* retrieve the dual values */
-double RosterMP::getConstantDualvalue(LiveNurse* pNurse) const {
+double RosterMP::getConstantDualvalue(PLiveNurse pNurse) const {
   return pModel_->getDual(assignmentCons_[pNurse->id_]);
 }

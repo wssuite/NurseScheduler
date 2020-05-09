@@ -9,7 +9,6 @@
 #include "tools/ReadWrite.h"
 #include "tools/MyTools.h"
 #include "data/Nurse.h"
-#include "solvers/Greedy.h"
 
 
 using std::string;
@@ -30,27 +29,23 @@ DemandGenerator::~DemandGenerator() {
 // Check the feasibility of a demand scenario
 //----------------------------------------------------------------------------
 
-bool DemandGenerator::checkDemandFeasibility(Demand* pDemand) {
+bool DemandGenerator::checkDemandFeasibility(PDemand pDemand) {
 
-	// Create empty preferences and initial states (this represents the most favorable situation)
+  // Todo: build empty preferences and empty initial state to test the feasibility
+  // Create empty preferences and initial states (this represents the most favorable situation)
 	// They are needed to run the greedy algorithm.
 	// We prefer take empty objects than arbitrary values, because the optimization of the current week
 	// is likely to find a favorable situation
-	Preferences* pPref = new Preferences(pScenario_->nbNurses_,pScenario_->nbDays(),pScenario_->nbShifts_);
-	vector<State> emptyStates;
-	for (int i = 0; i < pScenario_->nbNurses_; i++) {
-		State state;
-		emptyStates.push_back(state);
-	}
+//	PPreferences pPref = new Preferences(pScenario_->nbNurses_,pScenario_->nbDays(),pScenario_->nbShifts_);
+//	vector<State> emptyStates;
+//	for (int i = 0; i < pScenario_->nbNurses_; i++) {
+//		State state;
+//		emptyStates.push_back(state);
+//	}
 
+//  Tools::throwError("checkDemandFeasibility is not implemented.");
 
-	// Todo: build empty preferences and empty initial state to test the feasibility
-	Greedy* pGreedy = new Greedy(pScenario_, pDemand, pPref, &emptyStates);
-	bool ans = pGreedy->constructiveGreedy();
-	if(ans){
-		std::cout << "# Demand has been checked and is valid" << std::endl;
-	}
-	return ans;
+	return true;
 
 }
 
@@ -60,10 +55,10 @@ bool DemandGenerator::checkDemandFeasibility(Demand* pDemand) {
 // Each demand must consider nbDays_ days
 //----------------------------------------------------------------------------
 
-vector<Demand*> DemandGenerator::generatePerturbedDemands() {
+vector<PDemand> DemandGenerator::generatePerturbedDemands() {
 
 	// number of demands generated until now
-	vector<Demand*> generatedDemands;
+	vector<PDemand> generatedDemands;
 
 	// Generate the demands
 	for(int coDemand = 0; coDemand < nbDemandsToGenerate_; coDemand++) {
@@ -74,7 +69,7 @@ vector<Demand*> DemandGenerator::generatePerturbedDemands() {
 
 
 // generate 1 demand through perturbations of the demand history
-Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility){
+PDemand DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility){
 
 	// number of demands in the history
 	int nbPastDemands = demandHistory_.size();
@@ -96,17 +91,12 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility)
 		}
 
 		// create the first week
-		Demand* pCompleteDemand = demandHistory_[indexInHistory[0]]->randomPerturbation();
-
-		// int t = demandHistory_.size();
-		// int i = indexInHistory[0];
-
+		PDemand pCompleteDemand = demandHistory_[indexInHistory[0]]->randomPerturbation();
 
 		// create the following weeks append them to the complete demand
 		for (int i = 0; i < nbWeeksInGeneratedDemands-1; i++) {
-			Demand* pWeekDemand = demandHistory_[indexInHistory[i]]->randomPerturbation();
+			PDemand pWeekDemand = demandHistory_[indexInHistory[i]]->randomPerturbation();
 			pCompleteDemand->push_back(pWeekDemand);
-			delete pWeekDemand;
 		}
 
 		// keep only the required number of days
@@ -114,17 +104,12 @@ Demand * DemandGenerator::generateSinglePerturbatedDemand(bool checkFeasibility)
 
 		// keep the generated demand only if it is feasible
 		if (checkFeasibility){
-			if(checkDemandFeasibility(pCompleteDemand)) {
+			if(checkDemandFeasibility(pCompleteDemand))
 				return pCompleteDemand;
-			}
-			else {
-				delete pCompleteDemand;
-			}
 		} else {
 			return pCompleteDemand;
 		}
 	}
-	return 0;
 }
 
 

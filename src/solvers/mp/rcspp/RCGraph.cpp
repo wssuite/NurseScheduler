@@ -305,14 +305,6 @@ int RCGraph::addSingleArc(int o, int d, double baseCost, std::vector<int> consum
   edge e = (add_edge( o, d, Arc_Properties( nArcs_, o, d, type, baseCost, consumptions, day, shifts ), g_ )).first;
   arcsDescriptors_.push_back(e);
   return nArcs_++;
-
-//  if(nodeType(o) == PRINCIPAL_NETWORK
-//     and nodeType(d) == PRINCIPAL_NETWORK
-//     and principalToDay_[o] < principalToDay_[d]-1){
-//    printArc(nArcs_-1);
-//    //		getchar();
-//  }
-
 }
 
 void RCGraph::resetAuthorizations() {

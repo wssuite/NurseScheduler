@@ -64,7 +64,7 @@ private:
   // terms of days off
   // (the key of the map is the day and the value is the set of wishes)
   //
-  const Scenario* pScenario_;
+  PScenario pScenario_;
 
   // vector containing for each day the shift assigned to the nurse
   // the vector contains exactly one element per day
@@ -97,7 +97,7 @@ public:
   // get a vector of consecutive states that will result from applying the
   // the roster from a given initial state
   //
-  std::vector<State> getStates(const State& pStateIni, Scenario* pScenario);
+  std::vector<State> getStates(const State& pStateIni, PScenario pScenario);
 
   // assign a task at on a given day
   //

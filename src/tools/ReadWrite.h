@@ -47,23 +47,23 @@ public:
 	//
 	// Read the scenario file and store the content in a Scenario instance
 	//
-	static Scenario* readScenario(std::string strScenarioFile);
+	static PScenario readScenario(std::string strScenarioFile);
 
 	//Read several week files and strore the content in one demand and one preference
 	//
-   static Demand* readWeeks(std::vector<std::string> strWeekFiles, Scenario* pScenario);
+   static PDemand readWeeks(std::vector<std::string> strWeekFiles, PScenario pScenario);
 	// Read the Week file and store the content in a Scenario instance
 	//
-	static void readWeek(std::string strWeekFile, Scenario* pScenario, Demand** pDemand, Preferences** pPref);
+	static void readWeek(std::string strWeekFile, PScenario pScenario, PDemand* pDemand, PPreferences* pPref);
 
 	// Read the history file
 	//
-	static void readHistory(std::string strHistoryFile, Scenario* pScenario);
+	static void readHistory(std::string strHistoryFile, PScenario pScenario);
 
 	// Read the input custom file
 	// Store the result in a vector of historical demands and return the number of treated weeks
 	//
-	static int readCustom(std::string strCustomInputFile, Scenario* pScenario, std::vector<Demand*>& demandHistory);
+	static int readCustom(std::string strCustomInputFile, PScenario pScenario, std::vector<PDemand>& demandHistory);
 
 	// Read the options of the stochastic and ot the other solvers
 	//
@@ -72,7 +72,7 @@ public:
 
 	// Read the solution from multiple week solution files
 	//
-	static std::vector<Roster> readSolutionMultipleWeeks(std::vector<std::string> strWeekSolFiles, Scenario* pScenario);
+	static std::vector<Roster> readSolutionMultipleWeeks(std::vector<std::string> strWeekSolFiles, PScenario pScenario);
 
 	// Print the main characteristics of all the demands of an input directory
 	// This is done to find some invariant properties among demands
@@ -101,8 +101,8 @@ public:
 	// Read a file stream until the separating character (or one of them) is met
 	// Store the characters read until the separating character in pStrRead
 	//
-	static bool readUntilChar(std::fstream *pFile, char separater, std::string *pStrRead);
-	static bool readUntilOneOfTwoChar(std::fstream *pFile, char separater1, char separater2, std::string *pStrRead);
+	static bool readUntilChar(std::fstream &pFile, char separater, std::string &pStrRead);
+	static bool readUntilOneOfTwoChar(std::fstream &pFile, char separater1, char separater2, std::string &pStrRead);
 
 	// Checks if the string (sentence) ends with the given substring (word)
 	//

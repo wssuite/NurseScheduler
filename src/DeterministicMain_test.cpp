@@ -38,7 +38,7 @@ bool testDivideIntoConnexComponents() {
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
 
 	// set the scenario
-	Scenario* pScenarioInitial;
+	PScenario pScenarioInitial;
 	pScenarioInitial = initializeMultipleWeeks(inputPaths);
 
 	std::cout << "INITIAL SCENARIO" << std::endl;
@@ -52,9 +52,7 @@ bool testDivideIntoConnexComponents() {
 	// Display the complete solution
 	pSolverInitial->displaySolutionMultipleWeeks(inputPaths);
 
-
-	//  release memory
-	if (pScenarioInitial) delete pScenarioInitial;
+	delete pSolverInitial;
 
 	return true;
 }
