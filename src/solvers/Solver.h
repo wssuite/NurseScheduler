@@ -425,8 +425,14 @@ public:
 	int stopAfterXDegenerateIt_ = 9999;
 
 	// fathom a node is upper bound is smaller than the lagrangian bound
-	bool isLagrangianFathom_=false;
+	bool isLagrangianFathom_=true;
 
+  // Parameters to remove a column from the master (both should be violated)
+  // max number of consecutive iterations that a column can stay outside of the basis
+  int max_inactive_iteration_ = 50;
+  // min activity rate (frequency of presence in the basis since creation)
+  // that a column must have to remain in the master
+  double min_activity_rate_ = .1;
 
 	/* PARAMETERS OF THE PRICER */
 
@@ -611,17 +617,17 @@ public:
 	// list of starting days for which the rotations will be relaxed
 	bool isPartialRelaxDays_=false;
 	std::vector<bool> isRelaxDay_;
-	inline bool isRelaxDay(int day)  const  {return !isPartialRelaxDays_?false:isRelaxDay_[day];}
+	bool isRelaxDay(int day)  const  {return !isPartialRelaxDays_?false:isRelaxDay_[day];}
 
 	// list of starting days for which the rotations will be fixed
 	bool isPartialFixDays_=false;
 	std::vector<bool> isFixDay_;
-	inline bool isFixDay(int day) const {return !isPartialFixDays_?false:isFixDay_[day];}
+	bool isFixDay(int day) const {return !isPartialFixDays_?false:isFixDay_[day];}
 
 	// list of nurses whose roster is fixed in cirrent resolution
 	bool isPartialFixNurses_=false;
 	std::vector<bool> isFixNurse_;
-	inline bool isFixNurse(int n) const {return !isPartialFixNurses_?false:isFixNurse_[n];}
+	bool isFixNurse(int n) const {return !isPartialFixNurses_?false:isFixNurse_[n];}
 
 	// relax/unrelax the integrality constraints of the variables corresponding to input days
 	virtual void relaxDays(std::vector<bool> isRelax) {}
@@ -787,8 +793,8 @@ public:
 	// return/set solution_
 	//
 	std::vector<Roster> getSolution() { return solution_; }
-	inline void addRosterToSolution(Roster& roster) {solution_.push_back(roster);}
-	inline void setSolution(std::vector<Roster>& solution) {solution_=solution;}
+	void addRosterToSolution(Roster& roster) {solution_.push_back(roster);}
+	void setSolution(std::vector<Roster>& solution) {solution_=solution;}
 
 	// get the timer
 	//

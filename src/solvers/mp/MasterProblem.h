@@ -37,15 +37,15 @@ public:
 
   // GETTERS
   //
-  inline int nDays() const { return startWorkCosts_.size(); }
-  inline double workedDayShiftCost(int day, int shift) const{
+  int nDays() const { return startWorkCosts_.size(); }
+  double workedDayShiftCost(int day, int shift) const{
     if(!shift) return 0;
     return (workedShiftsCosts_[day][shift-1]);
   }
-  inline double startWorkCost(int day) const{return (startWorkCosts_[day]);}
-  inline double endWorkCost(int day) const{return (endWorkCosts_[day]);}
-  inline double workedWeekendCost() const{return workedWeekendCost_;}
-  inline double constant() const { return constant_; }
+  double startWorkCost(int day) const{return (startWorkCosts_[day]);}
+  double endWorkCost(int day) const{return (endWorkCosts_[day]);}
+  double workedWeekendCost() const{return workedWeekendCost_;}
+  double constant() const { return constant_; }
 
 
 protected:
@@ -204,7 +204,7 @@ class MasterProblem : public Solver, public PrintSolution{
     // throw an error if pattern is already present as an active column
     void checkIfPatternAlreadyPresent(const std::vector<double>& pattern) const;
 
-    virtual const std::vector<MyVar*>& getRestVarsPerDay(PLiveNurse pNurse, int day) const = 0;
+    virtual std::vector<MyVar*> getRestVarsPerDay(PLiveNurse pNurse, int day) const = 0;
 
     //get the pointer to the model
     Modeler* getModel(){

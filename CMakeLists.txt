@@ -47,7 +47,7 @@ add_subdirectory(src)
 
 # exec
 add_executable(staticscheduler src/DeterministicMain.cpp)
-target_link_libraries(staticscheduler ${NURSE_SCHEDULER_LIB} ${LIBS})
+target_link_libraries(staticscheduler ${NURSE_SCHEDULER_LIB})
 
 add_executable(dynamicscheduler src/DynamicMain.cpp)
-target_link_libraries(dynamicscheduler ${NURSE_SCHEDULER_LIB} ${LIBS})
+target_link_libraries(dynamicscheduler ${NURSE_SCHEDULER_LIB})

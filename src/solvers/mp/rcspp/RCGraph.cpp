@@ -668,12 +668,12 @@ void r_c_shortest_paths_dispatch(const Graph& g,
 
   std::vector<Splabel> label_trash;
 #ifdef DBG
-  int iter = 0;
+//  int iter = 0;
 #endif
   while (!unprocessed_labels.empty() && vis.on_enter_loop(unprocessed_labels, g)) {
 #ifdef DBG
-    if(iter++ % 1000 == 0)
-      std::cout << "RC SPP iteration " << iter << ": number of labels to process = " << unprocessed_labels.size() << std::endl;
+//    if(iter++ % 1000 == 0)
+//      std::cout << "RC SPP iteration " << iter << ": number of labels to process = " << unprocessed_labels.size() << std::endl;
 #endif
     Splabel cur_label = unprocessed_labels.top();
     assert (cur_label->b_is_valid);

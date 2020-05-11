@@ -377,7 +377,7 @@ public:
 	 * Parameters *
 	 *************/
 	int setVerbosity(int v) override;
-	inline void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr) override {
+	void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr) override {
 		Modeler::setParameters(parameters, func);
 		if (pPricer_) {
 			pPricer_->initPricerParameters(parameters);
@@ -424,19 +424,19 @@ public:
 	// solution and set the primal values accordingly
 	void loadInputSol(const BCP_solution_generic& sol);
 
-	inline void setPrimal(const std::vector<double>& primal){ primalValues_ = primal; }
+	void setPrimal(const std::vector<double>& primal){ primalValues_ = primal; }
 
-	inline int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
+	int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
 
-	inline void setLastNbSubProblemsSolved(int lastNbSubProblemsSolved){ lastNbSubProblemsSolved_ = lastNbSubProblemsSolved; }
+	void setLastNbSubProblemsSolved(int lastNbSubProblemsSolved){ lastNbSubProblemsSolved_ = lastNbSubProblemsSolved; }
 
-	inline int getLastNbSubProblemsSolved(){ return lastNbSubProblemsSolved_; }
+	int getLastNbSubProblemsSolved(){ return lastNbSubProblemsSolved_; }
 
-	inline double getLastMinDualCost(){ return lastMinDualCost_; }
-	inline void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
+	double getLastMinDualCost(){ return lastMinDualCost_; }
+	void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
 
-	inline double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
-	inline double getObj(int index) const { return Tools::get(obj_history_, index); }
+	double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
+	double getObj(int index) const { return Tools::get(obj_history_, index); }
 
 	// Set every rotation to one : this is useful only when the active columns
 	// are only the rotations included in a provided initial solution
@@ -459,7 +459,7 @@ public:
 	 * Manage the storage of our own tree
 	 */
 
-	inline void setCurrentNode(const CoinTreeSiblings* s) {
+	void setCurrentNode(const CoinTreeSiblings* s) {
 		/* the current node of this siblings is already taken as processed */
 		int nodeIndex = s->size() - s->toProcess() - 1;
 		pTree_->setCurrentNode(treeMapping_[s][nodeIndex]);
@@ -471,15 +471,15 @@ public:
 		}
 	}
 
-	inline MyNode* getCurrentNode() {return pTree_->getCurrentNode();}
+	MyNode* getCurrentNode() {return pTree_->getCurrentNode();}
 
 
-	inline void addToMapping(const CoinTreeSiblings* s) {
+	void addToMapping(const CoinTreeSiblings* s) {
 		const int nbLeaves = s->size();
     treeMapping_[s] = pTree_->addToMapping(nbLeaves, s->currentNode()->getDepth());
 	}
 
-	inline MyNode* getNode(const CoinTreeSiblings* s) {
+	MyNode* getNode(const CoinTreeSiblings* s) {
     int nodeIndex = s->size() - s->toProcess();
     return treeMapping_[s][nodeIndex];
   }
@@ -488,21 +488,21 @@ public:
 	 * Parameters getters
 	 */
 
-	inline LPSolverType getLPSolverType() { return LPSolverType_; };
+	LPSolverType getLPSolverType() { return LPSolverType_; };
 
-	inline  std::map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
+	 std::map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
-	inline  std::map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
+	 std::map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
 
-	inline bool is_solution_changed() { return solHasChanged_; }
+	bool is_solution_changed() { return solHasChanged_; }
 
-	inline int nbSolutions() const override { return bcpSolutions_.size(); }
+	int nbSolutions() const override { return bcpSolutions_.size(); }
 
-	inline double getObjective() const override {return Modeler::getObjective(); }
+	double getObjective() const override {return Modeler::getObjective(); }
 
-	inline double getObjective(int index) const override { return Tools::get(bcpSolutions_, index).objective_value(); }
+	double getObjective(int index) const override { return Tools::get(bcpSolutions_, index).objective_value(); }
 
-	inline MasterProblem* getMaster() const {return pMaster_;}
+	MasterProblem* getMaster() const {return pMaster_;}
 
 	//check if Bcp stops
 	bool doStop() const;
@@ -828,10 +828,6 @@ public:
 	// STAB
 	// Update the bounds and/or costs of the stabilization variables
 	bool stabUpdateBoundAndCost(bool isStall, bool isImproveQuality) ;
-
-	//Parameters to be deleted
-	int min_inactive_iteration = 50;
-	double max_activity_rate = .1;
 
 	// getters/setters
   BCP_lp_statistics getTimeStats() {

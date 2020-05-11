@@ -19,7 +19,7 @@ function printBashUsage {
 
 # load config arguments
 echo "$@"
-valgrindCMD="valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v"
+valgrindCMD="valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes"
 instance_description="n005w4_0_1-2-3-3"
 eval="1"
 dynamic_args=""

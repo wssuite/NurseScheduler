@@ -214,7 +214,7 @@ public:
 
 	virtual int nbSolutions() const { return 0; }
 
-	inline virtual double getObjective() const { return pTree_->getBestUB(); }
+	virtual double getObjective() const { return pTree_->getBestUB(); }
 	virtual double getObjective(int index) const { return LARGE_SCORE; }
 
 	virtual bool loadBestSol() { return false; }

@@ -160,7 +160,7 @@ static std::vector<double> EMPTY_DOUBLE_VECTOR;
 // return the object at position i (support negative index)
 template<class T> const T& get(const std::vector<T>& v, int i) {
   if(i>=0) return v[i];
-  return v[v.size()-i];
+  return v[v.size()+i];
 }
 
   // Returns an integer with random value (uniform) within [minVal, maxVal]
@@ -234,7 +234,7 @@ public:
 	bool isInit() {return isInit_;}
 	void start();
 	void stop();
-	inline void reset() {
+	void reset() {
 		stop();
 		start();
 	}

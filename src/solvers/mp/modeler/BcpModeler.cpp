@@ -452,7 +452,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
   // update LP solution
   pModel_->setLPSol(lpres, vars, lpIteration_);
 
-  // if must stop, return immediatelly
+  // if must stop, return immediately
 	if(doStop())
 	  return;
 
@@ -618,8 +618,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 	// increase the number of nodes and reset currentNodelpIteration_
 	pModel_->incrementNbNodes();
   currentNodelpIteration_ = 0;
-//  // store current solution
-//  pModel_->setLPSol(lpres, vars, lpIteration_);
 
 	//if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
 	// otherwise, record the root solution for future use
@@ -924,36 +922,34 @@ void BcpLpModel::select_vars_to_delete(const BCP_lp_result& lpres,
 
 
 	if (before_fathom && getLpProblemPointer()->param(BCP_lp_par::NoCompressionAtFathom))
-	return;
+	  return;
+
 	const int varnum = vars.size();
 	deletable.reserve(varnum);
 	for (int i = getLpProblemPointer()->core->varnum(); i < varnum; ++i) {
 		BCP_var *var = vars[i];
-		if (var->is_to_be_removed()
-		||	(! var->is_non_removable() && var->lb() == 0 && var->ub() == 0))
-		{
-			deletable.unchecked_push_back(i);
-		}
+		if (var->is_to_be_removed() ||
+		  (! var->is_non_removable() && var->lb() == 0 && var->ub() == 0))
+		  deletable.unchecked_push_back(i);
 	}
 
 	if(pModel_->getParameters().printBranchStats_ && before_fathom){
 		std::cout << "ABOUT TO FATHOM CURRENT NODE" << std::endl;
 		pModel_->printStats();
 	}
-	// DBG
-			for (unsigned int i = pModel_->getCoreVars().size(); i < vars.size(); ++i) {
-				BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
 
-				if (var->lb() == 0 && var->ub() == 0) {
-					deletable.unchecked_push_back(i);
-					continue;
-				}
+  for (unsigned int i = pModel_->getCoreVars().size(); i < vars.size(); ++i) {
+    BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
 
-				int inactive_iteration = lpIteration_ - var->getLastActive();
-				double activity_rate = var->getActiveCount() * 1.0 / (lpIteration_ - var->getIterationCreation());
-				if(inactive_iteration > min_inactive_iteration && activity_rate < max_activity_rate)
-					deletable.unchecked_push_back(i);
-			}
+    if (var->lb() == 0 && var->ub() == 0) {
+      deletable.unchecked_push_back(i);
+      continue;
+    }
+
+    if(var->getNbConsInactiveIteration(lpIteration_) > pModel_->getParameters().max_inactive_iteration_ &&
+        var->getActivityRate(lpIteration_) <  pModel_->getParameters().min_activity_rate_)
+      deletable.unchecked_push_back(i);
+  }
 }
 
 /*

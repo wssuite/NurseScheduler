@@ -120,42 +120,42 @@ class SubProblem {
 
     // Returns all rotations saved during the process of solving the SPPRC
     //
-    inline const std::vector<RCSolution>& getSolutions() const { return theSolutions_; }
+    const std::vector<RCSolution>& getSolutions() const { return theSolutions_; }
 
     virtual void build();
 
     // Some getters
     //
-    inline PScenario scenario() const { return pScenario_; }
+    PScenario scenario() const { return pScenario_; }
 
-    inline PConstContract contract() const { return pContract_; }
+    PConstContract contract() const { return pContract_; }
 
-    inline const PLiveNurse  liveNurse() const { return pLiveNurse_; }
+    const PLiveNurse  liveNurse() const { return pLiveNurse_; }
 
-    inline int nDays() const { return nDays_; }
+    int nDays() const { return nDays_; }
 
-    inline RCGraph &g() { return g_; }
+    RCGraph &g() { return g_; }
 
-    inline int maxRotationLength() const { return maxRotationLength_; }
+    int maxRotationLength() const { return maxRotationLength_; }
 
-    inline int nPaths() const { return nPaths_; }
+    int nPaths() const { return nPaths_; }
 
-    inline int nFound() const { return nFound_; }
+    int nFound() const { return nFound_; }
 
     // Returns true if the corresponding shift has no maximum limit of consecutive worked days
     //
-    inline bool isUnlimited(int shift_type) const {
+    bool isUnlimited(int shift_type) const {
       int maxCons = shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
       return maxCons >= std::min(nDays_ + maxOngoingDaysWorked_, NB_SHIFT_UNLIMITED);
     }
 
-    inline int maxCons(int shift_type) const {
+    int maxCons(int shift_type) const {
       if (isUnlimited(shift_type))
         return shift_type ? pScenario_->minConsShiftsOf(shift_type) : pContract_->minConsDaysOff_;
       return shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
     }
 
-    inline int addSingleNode(NodeType type, std::vector<int> lbs = {}, std::vector<int> ubs = {}, bool hard_lbs = false) {
+    int addSingleNode(NodeType type, std::vector<int> lbs = {}, std::vector<int> ubs = {}, bool hard_lbs = false) {
       if (lbs.empty())
         lbs = defaultLBs();
       if (ubs.empty())
@@ -163,12 +163,12 @@ class SubProblem {
       return g_.addSingleNode(type, lbs, ubs, hard_lbs);
     }
 
-    inline int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
+    int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
                             ArcType type, int day, int shift) {
       return g_.addSingleArc(origin, destination, baseCost, consumptions, type, day, {shift});
     }
 
-    inline int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
+    int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
                             ArcType type, int day = -1, std::vector<int> shifts = {}) {
       return g_.addSingleArc(origin, destination, baseCost, consumptions, type, day, shifts);
     }
@@ -362,9 +362,9 @@ class SubProblem {
     void authorizeStartingDays(const std::set<int>& forbiddenStartingDays);
 
     // Know if node
-    inline bool isDayShiftForbidden(int k, int s) const { return !dayShiftStatus_[k][s]; }
+    bool isDayShiftForbidden(int k, int s) const { return !dayShiftStatus_[k][s]; }
 
-    inline bool isStartingDayforbidden(int k) const { return !startingDayStatus_[k]; }
+    bool isStartingDayforbidden(int k) const { return !startingDayStatus_[k]; }
 
     // Forbid a node / arc
     void forbidDayShift(int k, int s);

@@ -347,7 +347,7 @@ void Scenario::updateNewWeek(PDemand pDemand, PPreferences pPreferences, vector<
 	thisWeek_++;
 }
 
-inline void Scenario::linkWithPreferences(PPreferences pPreferences) {
+void Scenario::linkWithPreferences(PPreferences pPreferences) {
   pWeekPreferences_ = pPreferences;
   nbShiftOffRequests_ = 0;
   for (PNurse nurse:theNurses_) {

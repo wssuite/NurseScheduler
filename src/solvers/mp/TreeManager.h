@@ -123,29 +123,29 @@ struct RestTree: public MyTree{
 
 	void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int,int> >& forbidenShifts);
 
-	inline void pushBackNewNursesNumberNode(MyVar* var, double lb, double ub){
+	void pushBackNewNursesNumberNode(MyVar* var, double lb, double ub){
 		NursesNumberNode* node = new NursesNumberNode(tree_.size(), currentNode_, var, lb, ub);
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewColumnsNode(std::vector<PPattern>& patterns){
+	void pushBackNewColumnsNode(std::vector<PPattern>& patterns){
 		ColumnsNode* node = new ColumnsNode(tree_.size(), currentNode_, patterns);
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewRestNode(PLiveNurse pNurse, int day, bool rest){
+	void pushBackNewRestNode(PLiveNurse pNurse, int day, bool rest){
 		RestNode* node = new RestNode(tree_.size(), currentNode_, pNurse, day, rest);
 		pushBackNode(node);
 	}
 
-	inline void pushBackNewShiftNode(PLiveNurse pNurse, int day, bool work, std::vector<int>& shifts){
+	void pushBackNewShiftNode(PLiveNurse pNurse, int day, bool work, std::vector<int>& shifts){
 		ShiftNode* node = new ShiftNode(tree_.size(), currentNode_, pNurse, day, work, shifts);
 		pushBackNode(node);
 	}
 
-	inline bool is_columns_node() const { return dynamic_cast<ColumnsNode*>(currentNode_)!=0; }
+	bool is_columns_node() const { return dynamic_cast<ColumnsNode*>(currentNode_)!=0; }
 
-	inline bool continueDiving() const {
+	bool continueDiving() const {
 		if(is_columns_node()) return true;
 		return (diveDepth_ <= std::max(min_depth_+10, diveLength_));
 	}
@@ -219,11 +219,8 @@ protected:
    //
    Modeler* pModel_;
 
-  virtual void buildRestNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
-      MyBranchingNode &restNode, MyBranchingNode &workNode) const;
-
-  virtual void buildShiftsNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool work,
-      MyBranchingNode &restNode, MyBranchingNode &workNode) const;
+  virtual void buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
+      MyBranchingNode &restNode, MyBranchingNode &workNode, bool forceRest) const;
 
   void deactivateColumns(MyBranchingCandidate &candidate, int nurseId, int day,
       std::vector<int> forbiddenShifts, MyBranchingNode &forbiddenNode, MyBranchingNode &complementaryNode) const;
@@ -237,11 +234,8 @@ class RosterBranchingRule: public DiveBranchingRule {
     virtual ~RosterBranchingRule() {}
 
   protected:
-    void buildRestNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
-                        MyBranchingNode &restNode, MyBranchingNode &workNode) const override ;
-
-    void buildShiftsNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool work,
-                                  MyBranchingNode &restNode, MyBranchingNode &workNode) const override {}
+    void buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
+                           MyBranchingNode &restNode, MyBranchingNode &workNode, bool forceRest) const override {};
 };
 
 #endif /* SRC_TREEMANAGER_H_ */

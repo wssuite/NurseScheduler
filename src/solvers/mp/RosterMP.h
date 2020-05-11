@@ -145,9 +145,7 @@ class RosterMP: public MasterProblem {
     MyVar* addColumn(int nurseId, const RCSolution& solution) override;
 
     //get a reference to the restsPerDay_ for a Nurse
-    inline const std::vector<MyVar*>& getRestVarsPerDay(PLiveNurse pNurse, int day) const override {
-      return restsPerDay_[pNurse->id_][day];
-    }
+    std::vector<MyVar*> getRestVarsPerDay(PLiveNurse pNurse, int day) const override;
 
     // return the value V used to choose the number of columns on which to branch.
     // Choose as many columns as possible such that: sum (1 - value(column)) < V
@@ -171,8 +169,6 @@ class RosterMP: public MasterProblem {
     void buildAssignmentCons(const SolverParam &parameters);
     int addRosterConsToCol(std::vector<MyCons*>& cons, std::vector<double>& coeffs, int i);
 
-    int addRosterToRestVars(MyVar* var, const RosterPattern& roster);
-
     // return the costs of all active columns associated to the type
     double getColumnsCost(CostType costType, bool historicalCosts) const override ;
     double getColumnsCost(CostType costType, const std::vector<MyVar*>& vars, bool historicalCosts) const;
@@ -183,11 +179,6 @@ class RosterMP: public MasterProblem {
 
     /* retrieve the dual values */
     double getConstantDualvalue(PLiveNurse pNurse) const override;
-
-    /*
-    * Variables
-    */
-    vector3D<MyVar*> restsPerDay_; //stores all the arcs that are resting on a day for each nurse
 
     /*
     * Constraints

@@ -150,7 +150,7 @@ class RotationMP: public MasterProblem {
                                const SolverParam& parameters) override ;
 
     //get a reference to the restsPerDay_ for a Nurse
-    inline const std::vector<MyVar*>& getRestVarsPerDay(PLiveNurse pNurse, int day) const override {
+    std::vector<MyVar*> getRestVarsPerDay(PLiveNurse pNurse, int day) const override {
       return restsPerDay_[pNurse->id_][day];
     }
 

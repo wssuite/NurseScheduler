@@ -29,16 +29,16 @@ class PrincipalGraph: public SubGraph {
     void authorizeDayShift(int k, int s);
     bool checkIfShiftBelongsHere(int s, bool print_err =  false) const;
 
-    inline int shiftType() const { return shift_type_; }
+    int shiftType() const { return shift_type_; }
 
-    inline int maxCons() const { return max_cons_; }
+    int maxCons() const { return max_cons_; }
 
-    inline int getNode(int k, int n) const {
+    int getNode(int k, int n) const {
       if(!pSP_) return -1;
       return principalNetworkNodes_[k][n];
     }
 
-    inline const std::vector<int>& getDayNodes(int k) const {
+    const std::vector<int>& getDayNodes(int k) const {
       if(pSP_) return principalNetworkNodes_[k];
       return Tools::EMPTY_INT_VECTOR;
     }
@@ -54,13 +54,13 @@ class PrincipalGraph: public SubGraph {
     void linkOutSubGraph(SubGraph& outSubGraph, int day=-1) override;
 
 
-    inline int entrance(int day=-1) const override {
+    int entrance(int day=-1) const override {
       if(!pSP_) return -1;
       if(inSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
       return getNode(day, 0);
     }
 
-    inline int exit(int day=-1) const override {
+    int exit(int day=-1) const override {
       if(!pSP_) return -1;
       if(outSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
       return getNode(day, max_cons_);

@@ -284,9 +284,7 @@ std::string RosterPattern::toString(int nbDays, std::vector<int> shiftIDToShiftT
 RosterMP::RosterMP(PScenario pScenario, PDemand pDemand, PPreferences pPreferences, std::vector<State> *pInitState,
     MySolverType solver):
     MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
-    assignmentCons_(pScenario->nbNurses_) {
-  Tools::initVector3D(restsPerDay_, pScenario->nbNurses_, getNbDays(), 0, (MyVar*) nullptr);
-}
+    assignmentCons_(pScenario->nbNurses_) {}
 
 RosterMP::~RosterMP() {}
 
@@ -395,9 +393,6 @@ MyVar* RosterMP::addRoster(const RosterPattern& roster, const char* baseName, bo
     }
     if(!relaxed)
       pModel_->createIntColumn(&var, name, roster.cost_, roster.getCompactPattern(), roster.dualCost_, cons, coeffs);
-
-    // add the var to the restsPerDay vector
-    addRosterToRestVars(var, roster);
   }
   return var;
 }
@@ -421,14 +416,15 @@ int RosterMP::addRosterConsToCol(std::vector<MyCons*>& cons, std::vector<double>
   return 1;
 }
 
-int RosterMP::addRosterToRestVars(MyVar* var, const RosterPattern& roster) {
-  int nRest = 0;
-  for(int k=0; k<getNbDays(); k++)
-    if(pScenario_->isRestShift(roster.getShift(k))) {
-      restsPerDay_[roster.nurseId_][k].push_back(var);
-      ++nRest;
-    }
-  return nRest;
+//get a reference to the restsPerDay_ for a Nurse
+std::vector<MyVar*> RosterMP::getRestVarsPerDay(PLiveNurse pNurse, int day) const {
+  std::vector<MyVar*> restRosters;
+  for(MyVar* var: pModel_->getActiveColumns()) {
+    RosterPattern pat(var->getPattern());
+    if(pat.nurseId_ == pNurse->id_ && pScenario_->isRestShift(pat.getShift(day)))
+      restRosters.push_back(var);
+  }
+  return restRosters;
 }
 
 // return the costs of all active columns associated to the type

@@ -34,13 +34,13 @@ class PriceLabelGraph: public SubGraph {
     // 2. the exit method should now returns the exit of the outSubGraph
     void linkOutSubGraph(SubGraph& outSubGraph, int day=-1) override;
 
-    inline int entrance(int day=-1) const override {
+    int entrance(int day=-1) const override {
       if(!pSP_) return -1;
       if(inSubGraph_) return inSubGraph_->entrance(day);
       return entrance_;
     }
 
-    inline int exit(int day=-1) const override {
+    int exit(int day=-1) const override {
       if(!pSP_) return -1;
       if(outSubGraph_) return outSubGraph_->exit(day);
       return exit_;

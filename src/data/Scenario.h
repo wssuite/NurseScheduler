@@ -297,7 +297,7 @@ public:
 
 	// getter for the maximum number of consecutive worked days before the planning horizon
 	//
-	inline int maxConDaysWorkedInHistory(){
+	int maxConDaysWorkedInHistory(){
 		int ANS = 0;
 		for(auto p : initialState_){
 			if((p.consDaysWorked_ > ANS) && (p.shiftType_ > 0))
@@ -348,19 +348,19 @@ public:
 
 	// when reading the week file (Demand and preferences)
 	//
-	inline void setWeekName(std::string weekName){ weekName_ = weekName;}
-	inline void setWeekDemand(PDemand pDemand) {
+	void setWeekName(std::string weekName){ weekName_ = weekName;}
+	void setWeekDemand(PDemand pDemand) {
     pWeekDemand_ = pDemand;
   }
-	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
-	inline void setTNbShiftOnRequests(int nbShiftOnRequests){ nbShiftOnRequests_ = nbShiftOnRequests; }
+	void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
+	void setTNbShiftOnRequests(int nbShiftOnRequests){ nbShiftOnRequests_ = nbShiftOnRequests; }
 	void setWeekPreferences(PPreferences weekPreferences);
 
 	// when reading the history file
 	//
-	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
-   inline void addAWeek(){ ++nbWeeksLoaded_; }
-	inline void setInitialState(std::vector<State> initialState){ initialState_ = initialState;}
+	void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
+   void addAWeek(){ ++nbWeeksLoaded_; }
+	void setInitialState(std::vector<State> initialState){ initialState_ = initialState;}
 
 	// return true if the shift shNext is a forbidden successor of shLast
 	//
@@ -375,7 +375,7 @@ public:
 
 	// Link the scenario with the Demand and the Preferences
 	//
-	inline void linkWithDemand(PDemand pDemand){
+	void linkWithDemand(PDemand pDemand){
 	   weekName_ = pDemand->name_;
 	   pWeekDemand_ = pDemand;
 	}

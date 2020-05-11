@@ -208,7 +208,7 @@ struct spp_res_cont{
 // Resources extension model (arc has cost + label consumptions)
 class ref_spp{
   public:
-    inline bool operator()( const Graph& g,
+    bool operator()( const Graph& g,
                             spp_res_cont& new_cont,
                             const spp_res_cont& old_cont,
                             boost::graph_traits<Graph>::edge_descriptor ed ) const;
@@ -219,7 +219,7 @@ class dominance_spp{
   public:
     dominance_spp(const std::vector<bool>& labelOrder, const std::vector<int>& labelsMinLevel):
       labelsOrder_(labelOrder), labelsMinLevel_(labelsMinLevel) {}
-    inline bool operator()( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) const;
+    bool operator()( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) const;
   private:
     std::vector<bool> labelsOrder_;
     // if label value is below (or above based on order) this level, label cannot be dominated
@@ -363,21 +363,21 @@ class RCGraph {
     const std::vector<vertex>& sinks() const { return sinks_; }
 
     // Get info from the node ID
-    inline int nodesSize() const { return nNodes_; }
-    inline const Vertex_Properties & node(int v) const {
+    int nodesSize() const { return nNodes_; }
+    const Vertex_Properties & node(int v) const {
       if(v == -1) Tools::throwError("Cannot retrieve a node for index -1;");
       return get( boost::vertex_bundle, g_ )[v]; }
-    inline NodeType nodeType(int v) const {return get( &Vertex_Properties::type, g_)[v];}
-    inline const std::vector<int> & nodeLBs(int v) const {return get( &Vertex_Properties::lbs, g_)[v];}
-    inline const std::vector<int> & nodeUBs(int v) const {return get( &Vertex_Properties::ubs, g_)[v];}
-    inline bool nodeForbidden(int v) const {return forbiddenNodes_.find(v) != forbiddenNodes_.end();}
+    NodeType nodeType(int v) const {return get( &Vertex_Properties::type, g_)[v];}
+    const std::vector<int> & nodeLBs(int v) const {return get( &Vertex_Properties::lbs, g_)[v];}
+    const std::vector<int> & nodeUBs(int v) const {return get( &Vertex_Properties::ubs, g_)[v];}
+    bool nodeForbidden(int v) const {return forbiddenNodes_.find(v) != forbiddenNodes_.end();}
 
-    inline void updateUBs(int v, const std::vector<int>& ubs){boost::put( &Vertex_Properties::ubs, g_, v, ubs);}
-    inline void forbidNode(int v) {
+    void updateUBs(int v, const std::vector<int>& ubs){boost::put( &Vertex_Properties::ubs, g_, v, ubs);}
+    void forbidNode(int v) {
       boost::put( &Vertex_Properties::forbidden, g_, v, true);
       forbiddenNodes_.insert(v);
     }
-    inline void authorizeNode(int v) {
+    void authorizeNode(int v) {
       boost::put( &Vertex_Properties::forbidden, g_, v, false);
       forbiddenNodes_.erase(v);
     }
@@ -391,37 +391,37 @@ class RCGraph {
         ArcType type, int day = -1, std::vector<int> shifts = {});
 
     // Get info with the arc ID
-    inline int arcsSize() const { return nArcs_; }
-    inline const Arc_Properties & arc(int a) const {
+    int arcsSize() const { return nArcs_; }
+    const Arc_Properties & arc(int a) const {
       if(a == -1) Tools::throwError("Cannot retrieve an arc for index -1;");
       return get( boost::edge_bundle, g_ )[arcsDescriptors_[a]];
     }
-    inline ArcType arcType(int a) const {return get( &Arc_Properties::type, g_, arcsDescriptors_[a]);}
-    inline int arcOrigin(int a) const {return boost::source(arcsDescriptors_[a], g_);}
-    inline int arcDestination(int a) const {return target(arcsDescriptors_[a], g_);}
-    inline const std::vector<int> & arcConsumptions(int a) const {
+    ArcType arcType(int a) const {return get( &Arc_Properties::type, g_, arcsDescriptors_[a]);}
+    int arcOrigin(int a) const {return boost::source(arcsDescriptors_[a], g_);}
+    int arcDestination(int a) const {return target(arcsDescriptors_[a], g_);}
+    const std::vector<int> & arcConsumptions(int a) const {
       return get( &Arc_Properties::consumptions, g_, arcsDescriptors_[a]);
     }
-    inline double arcCost(int a) const {return get( &Arc_Properties::cost, g_, arcsDescriptors_[a]);}
-    inline double arcInitialCost(int a) const {return get( &Arc_Properties::initialCost, g_, arcsDescriptors_[a]);}
-    inline const std::vector<int>& arcShifts(int a) const {return get( &Arc_Properties::shifts, g_, arcsDescriptors_[a]);}
-    inline int arcDay(int a) const {return get( &Arc_Properties::day, g_, arcsDescriptors_[a]);}
-    inline bool arcForbidden(int a) const {return get( &Arc_Properties::forbidden, g_, arcsDescriptors_[a]);}
+    double arcCost(int a) const {return get( &Arc_Properties::cost, g_, arcsDescriptors_[a]);}
+    double arcInitialCost(int a) const {return get( &Arc_Properties::initialCost, g_, arcsDescriptors_[a]);}
+    const std::vector<int>& arcShifts(int a) const {return get( &Arc_Properties::shifts, g_, arcsDescriptors_[a]);}
+    int arcDay(int a) const {return get( &Arc_Properties::day, g_, arcsDescriptors_[a]);}
+    bool arcForbidden(int a) const {return get( &Arc_Properties::forbidden, g_, arcsDescriptors_[a]);}
 
-    inline void updateConsumptions(int a, const std::vector<int>& consumptions){
+    void updateConsumptions(int a, const std::vector<int>& consumptions){
       boost::put( &Arc_Properties::consumptions, g_, arcsDescriptors_[a], consumptions );
     }
-    inline void updateShifts(int a, const std::vector<int>& shifts){
+    void updateShifts(int a, const std::vector<int>& shifts){
       boost::put( &Arc_Properties::shifts, g_, arcsDescriptors_[a], shifts );
     }
-    inline void updateCost(int a, double cost){
+    void updateCost(int a, double cost){
       boost::put( &Arc_Properties::cost, g_, arcsDescriptors_[a], cost );
     }
-    inline void forbidArc(int a) {
+    void forbidArc(int a) {
       boost::put( &Arc_Properties::forbidden, g_, arcsDescriptors_[a], true);
       forbiddenArcs_.insert(a);
     }
-    inline void authorizeArc(int a) {
+    void authorizeArc(int a) {
       boost::put( &Arc_Properties::forbidden, g_, arcsDescriptors_[a], false);
       forbiddenArcs_.erase(a);
     }

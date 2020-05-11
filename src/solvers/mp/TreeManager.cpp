@@ -382,9 +382,10 @@ bool DiveBranchingRule::branchOnRestDay(MyBranchingCandidate &candidate){
 	if(pBestNurse != nullptr) {
     int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
     MyBranchingNode &restNode = candidate.getChild(index1), &workNode = candidate.getChild(index2);
-    buildRestNodes(candidate, pBestNurse, bestDay, restNode, workNode);
+    buildRestNodesCut(candidate, pBestNurse, bestDay, restNode, workNode, true);
+    deactivateColumns(candidate, pBestNurse->id_, bestDay, {0}, workNode, restNode);
 
-		// Here : random choice to decide the order of the siblings
+    // Here : random choice to decide the order of the siblings
 		if(Tools::randomInt(0, 1) == 0){
 			tree_->pushBackNewRestNode(pBestNurse, bestDay, true);
 			tree_->pushBackNewRestNode(pBestNurse, bestDay , false);
@@ -399,29 +400,6 @@ bool DiveBranchingRule::branchOnRestDay(MyBranchingCandidate &candidate){
 	}
 
 	return branchOnShifts(candidate);
-}
-
-void DiveBranchingRule::buildRestNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
-    MyBranchingNode &restNode, MyBranchingNode &workNode) const {
-  //creating the branching cut
-  char name[50];
-  sprintf(name, "RestBranchingCons_N%d_%d", pNurse->id_, day);
-  vector<double> coeffs;
-  vector<MyVar *> restingArcs;
-  for (MyVar *var: pMaster_->getRestVarsPerDay(pNurse, day)) {
-    restingArcs.push_back(var);
-    coeffs.push_back(1);
-  }
-  //create a new cons
-  MyCons *cons;
-  pModel_->createEQCutLinear(&cons, name, 0, restingArcs, coeffs);
-
-  /* update candidate */
-  int index = candidate.addNewBranchingCons(cons);
-  restNode.setLhs(index, 1);
-  restNode.setRhs(index, 1);
-  workNode.setLhs(index, 0);
-  workNode.setRhs(index, 0);
 }
 
 
@@ -541,7 +519,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
     // create and build the nodes
     int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
     MyBranchingNode &node1 = candidate.getChild(index1), &node2 = candidate.getChild(index2);
-    buildShiftsNodes(candidate, pBestNurse, bestDay, work, node1, node2);
+    buildRestNodesCut(candidate, pBestNurse, bestDay, work? node2: node1, work? node1: node2, false);
 
     // Find the columns to deactivate
     deactivateColumns(candidate, pBestNurse->id_, bestDay, forbiddenShifts, node1, node2);
@@ -556,11 +534,13 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	return false;
 }
 
-void DiveBranchingRule::buildShiftsNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool work,
-                                         MyBranchingNode &node1, MyBranchingNode &node2) const {
+
+void DiveBranchingRule::buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
+                                          MyBranchingNode &restNode, MyBranchingNode &workNode,
+                                          bool forceRest) const {
   //creating the branching cut
   char name[50];
-  sprintf(name, "ShiftBranchingCons_N%d_%d", pNurse->id_, day);
+  sprintf(name, "RestBranchingCons_N%d_%d", pNurse->id_, day);
   vector<double> coeffs;
   vector<MyVar *> restingArcs;
   for (MyVar *var: pMaster_->getRestVarsPerDay(pNurse, day)) {
@@ -569,12 +549,16 @@ void DiveBranchingRule::buildShiftsNodes(MyBranchingCandidate &candidate, PLiveN
   }
   //create a new cons
   MyCons *cons;
-  pModel_->createLECutLinear(&cons, name, 1, restingArcs, coeffs);
-  int index = candidate.addNewBranchingCons(cons);
+  pModel_->createEQCutLinear(&cons, name, 0, restingArcs, coeffs);
 
-  // forbid to rest for the node where there are only working shifts
-  if (work) node1.setRhs(index, 0);
-  else node2.setRhs(index, 0);
+  /* update candidate */
+  int index = candidate.addNewBranchingCons(cons);
+  if(forceRest) {
+    restNode.setLhs(index, 1);
+    restNode.setRhs(index, 1);
+  }
+  workNode.setLhs(index, 0);
+  workNode.setRhs(index, 0);
 }
 
 void DiveBranchingRule::deactivateColumns(MyBranchingCandidate &candidate, int nurseId, int day,
@@ -643,11 +627,4 @@ bool DiveBranchingRule::compareColumnCloseTo5(pair<MyVar*, double> obj1, pair<My
 	double frac1 = obj1.second - floor(obj1.second), frac2 = obj2.second - floor(obj2.second);
 	double closeTo5_1 = abs(0.5-frac1), closeTo5_2 = abs(0.5-frac2);
 	return (closeTo5_1 < closeTo5_2);
-}
-
-
-void RosterBranchingRule::buildRestNodes(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
-                    MyBranchingNode &restNode, MyBranchingNode &workNode) const {
-  // Find the columns to deactivate
-    deactivateColumns(candidate, pNurse->id_, day, {0}, workNode, restNode);
 }

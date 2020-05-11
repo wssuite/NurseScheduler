@@ -93,7 +93,7 @@ class ShortSP : public SubProblem {
 
     // // Some getters
     // //
-    inline int nVeryShortFound() const {return nVeryShortFound_;}
+    int nVeryShortFound() const {return nVeryShortFound_;}
 
     // Print functions.
     //
