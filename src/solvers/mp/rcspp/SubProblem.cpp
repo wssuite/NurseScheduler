@@ -39,7 +39,10 @@ SubProblem::SubProblem(PScenario scenario, int nDays, PConstContract contract, v
   if(pInitState) init(*pInitState);
 }
 
-SubProblem::~SubProblem(){}
+SubProblem::~SubProblem(){
+  delete timeInS_;
+  delete timeInNL_;
+}
 
 // Initialization function
 void SubProblem::init(const vector<State>& initStates){

@@ -177,9 +177,9 @@ class RotationMP: public MasterProblem {
     // variables are non zero
     bool stabCheckStoppingCriterion() const override ;
 
-    // STAB: compute the lagrangian bound
-    //
-    double computeLagrangianBound(double objVal,double sumRedCost) const override ;
+//    // STAB: compute the lagrangian bound
+//    //
+//    double computeLagrangianBound(double objVal,double sumRedCost) const override ;
 
     // STAB: reset the costs and bounds of the stabilization variables
     //

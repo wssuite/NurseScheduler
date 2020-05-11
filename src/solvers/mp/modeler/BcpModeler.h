@@ -436,11 +436,7 @@ public:
 	inline void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
 
 	inline double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
-
-	inline double getObjImprovement() const {
-    return obj_history_.size() <= 1 ? infinity_ :
-           obj_history_[obj_history_.size() - 2] - obj_history_.back();
-  }
+	inline double getObj(int index) const { Tools::get(obj_history_, index); }
 
 	// Set every rotation to one : this is useful only when the active columns
 	// are only the rotations included in a provided initial solution
@@ -504,7 +500,7 @@ public:
 
 	inline double getObjective() const {return Modeler::getObjective(); }
 
-	inline double getObjective(int index) const { return bcpSolutions_[index].objective_value(); }
+	inline double getObjective(int index) const { return Tools::get(bcpSolutions_, index).objective_value(); }
 
 	inline MasterProblem* getMaster() const {return pMaster_;}
 
@@ -567,6 +563,7 @@ protected:
 	bool solHasChanged_ = false; //reload solution ?
 	//bcp solution
   std::vector<BCP_solution_generic> bcpSolutions_;
+  std::vector<MyVar*> columnsInSolutions_;
 	// bcp solution of the root node
 	BcpLpSol rootSolution_;
 
@@ -842,6 +839,12 @@ public:
   }
 
 	int getNbLpIterations() const {return lpIteration_;}
+  int getNbCurrentNodeLpIterations() const {return currentNodelpIteration_;}
+
+    double getObjImprovement() const {
+      return currentNodelpIteration_ < 2 ? pModel_->getInfinity():
+      pModel_->getObj(-2) -  pModel_->getObj(-1);
+    }
 
 protected:
 	BcpModeler* pModel_;
