@@ -147,6 +147,10 @@ class RosterMP: public MasterProblem {
     //get a reference to the restsPerDay_ for a Nurse
     std::vector<MyVar*> getRestVarsPerDay(PLiveNurse pNurse, int day) const override;
 
+    // STAB: compute the lagrangian bound
+    //
+    virtual double computeLagrangianBound(double objVal) const override;
+
     // return the value V used to choose the number of columns on which to branch.
     // Choose as many columns as possible such that: sum (1 - value(column)) < V
     double getBranchColumnValueMax() const override {

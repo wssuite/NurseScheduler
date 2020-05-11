@@ -36,6 +36,10 @@ public:
    // Initialize parameters
    void initPricerParameters(const SolverParam& param) override;
 
+   std::vector<double> getLastMinOptimalReducedCost() const override {
+     return minReducedCosts_;
+   }
+
 protected:
 
    // DATA - instance-related data
@@ -76,6 +80,10 @@ protected:
    //
    int nbMaxColumnsToAdd_ = 0;
    int nbSubProblemsToSolve_ = 0;
+
+   // store the min reduced cost find for each subproblem solved
+   std::vector<double> minReducedCosts_;
+   double minDualCost_;
 
 public:
 

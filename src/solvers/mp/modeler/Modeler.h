@@ -204,7 +204,9 @@ struct MyPricer{
 	// set pricer parameters
 	virtual void initPricerParameters(const SolverParam& parameters) {}
 
-	   // METHODS - Forbidden shifts, nurses, starting days, etc.
+	virtual std::vector<double> getLastMinOptimalReducedCost() const=0;
+
+	 // METHODS - Forbidden shifts, nurses, starting days, etc.
    //
    // !!! WARNING !!! : SOME METHODS ARE NOT YET IMPLEMENTED IN THE SUBPROBLEM (ALTHOUGH THE NECESSARY STRUCTURES MAY
    //                   ALREADY BE THERE !!!

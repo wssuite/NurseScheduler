@@ -286,7 +286,7 @@ class MasterProblem : public Solver, public PrintSolution{
 
     // STAB: compute the lagrangian bound
     //
-    virtual double computeLagrangianBound(double objVal,double sumRedCost) const;
+    virtual double computeLagrangianBound(double objVal) const;
 
     // STAB: reset the costs and bounds of the stabilization variables
     //

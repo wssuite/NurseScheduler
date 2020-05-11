@@ -427,6 +427,14 @@ std::vector<MyVar*> RosterMP::getRestVarsPerDay(PLiveNurse pNurse, int day) cons
   return restRosters;
 }
 
+// compute the lagrangian bound
+double RosterMP::computeLagrangianBound(double objVal) const {
+  double sumRedCost = 0;
+  for(double v: pPricer_->getLastMinOptimalReducedCost())
+    sumRedCost += v;
+  return objVal + sumRedCost;
+}
+
 // return the costs of all active columns associated to the type
 double RosterMP::getColumnsCost(CostType costType, bool justHistoricalCosts) const {
   return getColumnsCost(costType, pModel_->getActiveColumns(), justHistoricalCosts);

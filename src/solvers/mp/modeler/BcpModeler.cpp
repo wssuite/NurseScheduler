@@ -555,10 +555,10 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
   // It can also be used in general to fathom nodes when the the Lagrangian
   // bound is larger than the best UB
   //
-  double lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval(),pModel_->getLastMinDualCost());
+  double lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval());
   bool isImproveQuality = pModel_->updateNodeLagLB(lagLb);
   // fathom only if column generation would continue (otherwise would be fathom later in this function)
-  if(column_generated && pModel_->getParameters().isLagrangianFathom_
+  if(column_generated && current_index() > 0 && pModel_->getParameters().isLagrangianFathom_
      && pModel_->getObjective() - lagLb < pModel_->getParameters().absoluteGap_ - EPSILON){
     std::cout << "Forcibly fathom, because Lagrangian bound is exceeded." << std::endl;
     return BCP_DoNotBranch_Fathomed;

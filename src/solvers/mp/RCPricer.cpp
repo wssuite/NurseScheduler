@@ -26,7 +26,7 @@ RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& p
   MyPricer(name), pMaster_(master), pScenario_(master->getScenario()), nbDays_(master->getNbDays()),
   pModel_(master->getModel()), nursesToSolve_(master->getSortedLiveNurses()),
   nbMaxColumnsToAdd_(param.nbMaxColumnsToAdd_), nbSubProblemsToSolve_(param.nbSubProblemsToSolve_),
-  nb_int_solutions_(0), rand_(Tools::getANewRandomGenerator())
+  minDualCost_(0), nb_int_solutions_(0), rand_(Tools::getANewRandomGenerator())
 {
 	// Initialize the parameters
 	initPricerParameters(param);
@@ -66,8 +66,9 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 
 	// count and store the nurses whose subproblems produced rotations.
 	// DBG: why minDualCost? Isn't it more a reduced cost?
-	double minDualCost = 0;
-	vector<PLiveNurse> nursesSolved, nursesIncreasedStrategy;
+  Tools::initVector(minReducedCosts_, pMaster_->getNbNurses(), (double)-LARGE_SCORE);
+  minDualCost_ = 0;
+	vector<PLiveNurse> nursesSolved, nursesIncreasedStrategyAndNoSolution;
 
 	for(auto it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();) {
 
@@ -124,12 +125,22 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 //        int bb = 1;
 #endif
 
+    // update reduced cost if solved at optimality
+    if(currentSubproblemStrategy_[pNurse->id_] == SubproblemParam::maxSubproblemStrategyLevel_) {
+      if(newSolutionsForNurse_.empty()) minReducedCosts_[pNurse->id_] = 0;
+      else minReducedCosts_[pNurse->id_] = newSolutionsForNurse_.front().cost;
+    }
+
 		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
 		// If yes, store the nures
-		if(!newSolutionsForNurse_.empty()){
+		if(!newSolutionsForNurse_.empty()) {
 			++nbSPSolvedWithSuccess_;
-			if(newSolutionsForNurse_.front().cost < minDualCost)
-				minDualCost = newSolutionsForNurse_.front().cost;
+      if(newSolutionsForNurse_.front().cost < minDualCost_)
+        minDualCost_ = newSolutionsForNurse_.front().cost;
+      // if hasn't generated the max number of seeked columns, increase strategy
+      if (newSolutionsForNurse_.size() < nbMaxColumnsToAdd_ &&
+          currentSubproblemStrategy_[pNurse->id_]  <  SubproblemParam::maxSubproblemStrategyLevel_)
+        currentSubproblemStrategy_[pNurse->id_]++;
 
 			// erase the  current nurse (and thus try next one in the loop)
 			nursesToSolve_.erase(it0);
@@ -147,8 +158,8 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
     // if not the most exaustive, increase the strategy for next round
     else if (currentSubproblemStrategy_[pNurse->id_]  <  SubproblemParam::maxSubproblemStrategyLevel_) {
       currentSubproblemStrategy_[pNurse->id_]++;
-      nursesIncreasedStrategy.push_back(pNurse);
-      // try next nurse
+      nursesIncreasedStrategyAndNoSolution.push_back(pNurse);
+      // try next nurse (erase update the iterator)
       nursesToSolve_.erase(it0);
     }
     // just try next nurse
@@ -156,19 +167,19 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 
     // If it was the last nurse to search AND no improving column was found AND we have increased strategy level
     // try to solve for these nurses
-    if( it0 == nursesToSolve_.end() && allNewColumns_.empty() && !nursesIncreasedStrategy.empty()){
+    if( it0 == nursesToSolve_.end() && allNewColumns_.empty() && !nursesIncreasedStrategyAndNoSolution.empty()){
       // add the nurses left at the beginning of the nursesSolved vector for next loop
       nursesSolved.insert(nursesSolved.begin(), nursesToSolve_.begin(), nursesToSolve_.end());
       // then update the nurse to solve and restart loop
-      nursesToSolve_ = nursesIncreasedStrategy;
+      nursesToSolve_ = nursesIncreasedStrategyAndNoSolution;
       it0 = nursesToSolve_.begin();
       // remove all the nurses that have just been added back
-      nursesIncreasedStrategy.clear();
+      nursesIncreasedStrategyAndNoSolution.clear();
     }
 	}
 
-  //Add the nurse in nursesIncreasedStrategy at the beginning (first to be tried next round)
-  nursesToSolve_.insert(nursesToSolve_.begin(), nursesIncreasedStrategy.begin(), nursesIncreasedStrategy.end());
+  //Add the nurse in nursesIncreasedStrategyAndNoSolution at the beginning (first to be tried next round)
+  nursesToSolve_.insert(nursesToSolve_.begin(), nursesIncreasedStrategyAndNoSolution.begin(), nursesIncreasedStrategyAndNoSolution.end());
 
   /* sort the nurses solved - useful when doing column disjoint */
 //  auto  rdm = rand_;
@@ -183,7 +194,7 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 	//set statistics
 	BcpModeler* model = static_cast<BcpModeler*>(pModel_);
 	model->setLastNbSubProblemsSolved(nbSPTried_);
-	model->setLastMinDualCost(minDualCost);
+	model->setLastMinDualCost(minDualCost_);
 
 	if(allNewColumns_.empty())
 		print_current_solution_();
