@@ -37,7 +37,7 @@ public:
    void initPricerParameters(const SolverParam& param) override;
 
    std::vector<double> getLastMinOptimalReducedCost() const override {
-     return minReducedCosts_;
+     return minOptimalReducedCosts_;
    }
 
 protected:
@@ -82,8 +82,8 @@ protected:
    int nbSubProblemsToSolve_ = 0;
 
    // store the min reduced cost find for each subproblem solved
-   std::vector<double> minReducedCosts_;
-   double minDualCost_;
+   std::vector<double> minOptimalReducedCosts_;
+   double minReducedCost_;
 
 public:
 

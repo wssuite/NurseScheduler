@@ -26,7 +26,7 @@ RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& p
   MyPricer(name), pMaster_(master), pScenario_(master->getScenario()), nbDays_(master->getNbDays()),
   pModel_(master->getModel()), nursesToSolve_(master->getSortedLiveNurses()),
   nbMaxColumnsToAdd_(param.nbMaxColumnsToAdd_), nbSubProblemsToSolve_(param.nbSubProblemsToSolve_),
-  minDualCost_(0), nb_int_solutions_(0), rand_(Tools::getANewRandomGenerator())
+  minReducedCost_(0), nb_int_solutions_(0), rand_(Tools::getANewRandomGenerator())
 {
 	// Initialize the parameters
 	initPricerParameters(param);
@@ -66,8 +66,8 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 
 	// count and store the nurses whose subproblems produced rotations.
 	// DBG: why minDualCost? Isn't it more a reduced cost?
-  Tools::initVector(minReducedCosts_, pMaster_->getNbNurses(), (double)-LARGE_SCORE);
-  minDualCost_ = 0;
+  Tools::initVector(minOptimalReducedCosts_, pMaster_->getNbNurses(), (double)-LARGE_SCORE);
+  minReducedCost_ = 0;
 	vector<PLiveNurse> nursesSolved, nursesIncreasedStrategyAndNoSolution;
 
 	for(auto it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();) {
@@ -139,16 +139,16 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 
     // update reduced cost if solved at optimality
     if(currentSubproblemStrategy_[pNurse->id_] == SubproblemParam::maxSubproblemStrategyLevel_) {
-      if(newSolutionsForNurse_.empty()) minReducedCosts_[pNurse->id_] = 0;
-      else minReducedCosts_[pNurse->id_] = newSolutionsForNurse_.front().cost;
+      if(newSolutionsForNurse_.empty()) minOptimalReducedCosts_[pNurse->id_] = 0;
+      else minOptimalReducedCosts_[pNurse->id_] = newSolutionsForNurse_.front().cost;
     }
 
 		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
 		// If yes, store the nures
 		if(!newSolutionsForNurse_.empty()) {
 			++nbSPSolvedWithSuccess_;
-      if(newSolutionsForNurse_.front().cost < minDualCost_)
-        minDualCost_ = newSolutionsForNurse_.front().cost;
+      if(newSolutionsForNurse_.front().cost < minReducedCost_)
+        minReducedCost_ = newSolutionsForNurse_.front().cost;
       // if hasn't generated the max number of seeked columns, increase strategy
       if (newSolutionsForNurse_.size() < nbMaxColumnsToAdd_ &&
           currentSubproblemStrategy_[pNurse->id_]  <  SubproblemParam::maxSubproblemStrategyLevel_)
@@ -206,7 +206,7 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 	//set statistics
 	BcpModeler* model = static_cast<BcpModeler*>(pModel_);
 	model->setLastNbSubProblemsSolved(nbSPTried_);
-	model->setLastMinDualCost(minDualCost_);
+	model->setLastMinDualCost(minReducedCost_);
 
 	if(allNewColumns_.empty())
 		print_current_solution_();
