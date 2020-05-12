@@ -286,6 +286,7 @@ class MasterProblem : public Solver, public PrintSolution{
 
     // STAB: compute the lagrangian bound
     //
+    bool lagrangianBoundAvailable() const { return lagrangianBoundAvail_; }
     virtual double computeLagrangianBound(double objVal) const;
 
     // STAB: reset the costs and bounds of the stabilization variables
@@ -311,6 +312,7 @@ class MasterProblem : public Solver, public PrintSolution{
     MyTree* pTree_;//store the tree information
     MyBranchingRule* pRule_; //choose the variables on which we should branch
     MySolverType solverType_; //which solver is used
+    bool lagrangianBoundAvail_=false;
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //

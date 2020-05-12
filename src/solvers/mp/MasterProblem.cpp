@@ -971,7 +971,7 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
 // STAB: compute the lagrangian bound
 //
 double MasterProblem::computeLagrangianBound(double objVal) const {
-  return -LARGE_SCORE;
+  Tools::throwError("Lagrangian bound not implemented for this master problem.");
 //	double stabSumCostValue = 0.0;
 //	if (!pModel_->getParameters().isStabilization_) {
 //		return objVal+sumRedCost;

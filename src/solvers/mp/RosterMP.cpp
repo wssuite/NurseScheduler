@@ -284,7 +284,9 @@ std::string RosterPattern::toString(int nbDays, std::vector<int> shiftIDToShiftT
 RosterMP::RosterMP(PScenario pScenario, PDemand pDemand, PPreferences pPreferences, std::vector<State> *pInitState,
     MySolverType solver):
     MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
-    assignmentCons_(pScenario->nbNurses_) {}
+    assignmentCons_(pScenario->nbNurses_) {
+  lagrangianBoundAvail_ = true;
+}
 
 RosterMP::~RosterMP() {}
 
