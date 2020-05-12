@@ -91,21 +91,9 @@ struct RosterPattern: Pattern {
     bool isDisjointWith(PPattern pat, bool needRest=true) const override {
       if(pat->nurseId_ == nurseId_) return false; // cannot be disjoint if same nurse
 
-      int last_day1 = -1, last_day2 = -1;
-      for(int k=0; k<shifts_.size(); k++) {
-        int s1 = getShift(k), s2 = pat->getShift(k);
-        if(s1 > 0 && s2 >0) // work both
+      for(int k=0; k<shifts_.size(); k++)
+        if(getShift(k) > 0 && pat->getShift(k) >0) // work both
           return false;
-        if(s1 > 0) {
-          if(last_day2>=k-needRest) // 1 work and 2 was resting on previous days if needed
-            return false;
-          last_day1 = k;
-        } else if(s2 > 0) {
-          if(last_day1>=k-needRest) // 2 work and 1 was resting on previous days if needed
-            return false;
-          last_day2 = k;
-        }
-      }
       return true;
     };
 
