@@ -420,7 +420,7 @@ double DeterministicSolver::solveCompleteHorizon() {
 
 	// Initialize solver and solve
 	//
-	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_, completeParameters_);
+	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_, options_.solutionAlgorithm_, completeParameters_);
 	pCompleteSolver_->solve(completeParameters_);
 	pCompleteSolver_->printCurrentSol();
 	std::cout << pCompleteSolver_->solutionToString() << std::endl;
@@ -557,7 +557,7 @@ double DeterministicSolver::solveWithRollingHorizon() {
 	// Initialize the solver that will handle the iterative solution of the
 	// receeding horizon
 	//
-	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_, rollingParameters_);
+	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_, options_.solutionAlgorithm_, rollingParameters_);
 
 	// Solve the instance iteratively with a rolling horizon
 	//
@@ -670,7 +670,7 @@ double DeterministicSolver::solveWithLNS() {
 	double timeSinceStart = pTimerTotal_->dSinceStart();
 	lnsParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_ - timeSinceStart;
 
-	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_, lnsParameters_);
+	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_, options_.solutionAlgorithm_, lnsParameters_);
 	// pLNSSolver_->initialize(options_.lnsParameters_,this->solution_);
 
 	// Perform destroy/repair iterations until a given number of iterations
@@ -974,11 +974,6 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 // Construct solvers that will be used to really make the job
 //
 //----------------------------------------------------------------------------
-
-// Return a solver with the algorithm specified for resolution
- Solver * DeterministicSolver::setSolverWithInputAlgorithm(PDemand pDemand, SolverParam& param) {
-	return setSolverWithInputAlgorithm(pDemand, options_.solutionAlgorithm_, param);
-}
 
 // Return a solver with the input algorithm
 Solver* DeterministicSolver::setSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm, SolverParam& param) {
