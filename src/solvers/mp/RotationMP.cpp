@@ -170,7 +170,7 @@ void RotationPattern::computeCost(PScenario pScenario, const vector<PLiveNurse>&
 }
 
 
-void RotationPattern::checkDualCost(DualCosts& costs){
+void RotationPattern::checkReducedCost(DualCosts &costs){
   //check if pNurse points to a nurse
   if(nurseId_ == -1)
     Tools::throwError("LiveNurse = NULL");

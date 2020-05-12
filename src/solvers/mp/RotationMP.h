@@ -92,7 +92,7 @@ struct RotationPattern: Pattern {
 
     //Compute the dual cost of a rotation
     //
-    void checkDualCost(DualCosts& costs);
+    void checkReducedCost(DualCosts &costs);
 
     std::string toString(int nbDays = -1, std::vector<int> shiftIDToShiftTypeID={}) const override;
 

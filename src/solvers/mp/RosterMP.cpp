@@ -178,13 +178,13 @@ void RosterPattern::computeCost(PScenario pScenario, const std::vector<PLiveNurs
 }
 
 
-void RosterPattern::checkDualCost(DualCosts& costs, PScenario pScenario){
+void RosterPattern::checkReducedCost(DualCosts &costs, PScenario Scenario){
   //check if pNurse points to a nurse
   if(nurseId_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
   /************************************************
-   * Compute all the dual costs of a rotation:
+   * Compute all the dual costs of the roster:
    ************************************************/
 
   double dualCost(cost_);
@@ -193,7 +193,7 @@ void RosterPattern::checkDualCost(DualCosts& costs, PScenario pScenario){
   dualCost -= costs.constant();
   for(int k=0; k<length_; ++k) {
     int s = shifts_[k];// if working
-    if(pScenario->isWorkShift(s)) {
+    if(Scenario->isWorkShift(s)) {
       /* Working dual cost */
       dualCost -= costs.workedDayShiftCost(k, s);
       /* Start working dual cost */
@@ -228,9 +228,9 @@ void RosterPattern::checkDualCost(DualCosts& costs, PScenario pScenario){
 
     std::cout << "#   | Constant: - " << costs.constant() << std::endl;
     for(int k=0; k<length_; ++k)
-      if(pScenario->isWorkShift(shifts_[k]))
+      if(Scenario->isWorkShift(shifts_[k]))
         std::cout << "#   | Work day-shift " << k << ": - " << costs.workedDayShiftCost(k, shifts_[k]) << std::endl;
-    std::cout << toString(costs.nDays(), pScenario->shiftIDToShiftTypeID_);
+    std::cout << toString(costs.nDays(), Scenario->shiftIDToShiftTypeID_);
     std::cout << "# " << std::endl;
 
   }

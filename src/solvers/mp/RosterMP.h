@@ -79,13 +79,13 @@ struct RosterPattern: Pattern {
       return pattern;
     }
 
-    //Compute the cost of a rotation
+    //Compute the cost of a roster
     //
     void computeCost(PScenario pScenario, const std::vector<PLiveNurse>& liveNurses);
 
-    //Compute the dual cost of a rotation
+    //Compute the reduced cost of a roster and compare it to the one found by the subproblem
     //
-    void checkDualCost(DualCosts& costs, PScenario Scenario);
+    void checkReducedCost(DualCosts &costs, PScenario Scenario);
 
     // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest) !!
     bool isDisjointWith(PPattern pat, bool needRest=true) const override {
