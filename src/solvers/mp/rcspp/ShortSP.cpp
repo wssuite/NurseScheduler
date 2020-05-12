@@ -183,32 +183,26 @@ bool ShortSP::preprocess() {
 bool ShortSP::solveShortRotations() {
   nVeryShortFound_ = 0;
   bool ANS = false;
-
+  // 0 -> no short rotations
+  // 1 -> day-0 short rotations only
+  // 2 -> day-0 and last-day short rotations only
+  // 3 -> all short rotations
   // SOLVE_SHORT_NONE
   if (param_.shortRotationsStrategy_ == 0) {}
-
-    // SOLVE_SHORT_ALL
+  // SOLVE_SHORT_DAY_0_ONLY
   else if (param_.shortRotationsStrategy_ == 1) {
-    bool tmp_ANS = priceVeryShortRotations();
+    bool tmp_ANS = priceVeryShortRotationsFirstDay();
     ANS = ANS or tmp_ANS;
   }
-
-    // SOLVE_SHORT_DAY_0_AND_LAST_ONLY
+  // SOLVE_SHORT_DAY_0_AND_LAST_ONLY
   else if (param_.shortRotationsStrategy_ == 2) {
     bool tmp_ANS = priceVeryShortRotationsFirstDay();
     bool tmp_ANS2 = priceVeryShortRotationsLastDay();
     ANS = tmp_ANS2 or ANS or tmp_ANS;
   }
-
-    // SOLVE_SHORT_DAY_0_ONLY
+  // SOLVE_SHORT_ALL
   else if (param_.shortRotationsStrategy_ == 3) {
-    bool tmp_ANS = priceVeryShortRotationsFirstDay();
-    ANS = ANS or tmp_ANS;
-  }
-
-    // SOLVE_SHORT_DAY_0_ONLY
-  else if (param_.shortRotationsStrategy_ == 4) {
-    bool tmp_ANS = priceVeryShortRotationsLastDay();
+    bool tmp_ANS = priceVeryShortRotations();
     ANS = ANS or tmp_ANS;
   } else {
     std::cout << "# INVALID / OBSOLETE OPTION FOR SHORT ROTATIONS" << std::endl;

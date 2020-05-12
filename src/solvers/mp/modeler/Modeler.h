@@ -483,8 +483,9 @@ protected:
 };
 
 struct MyTree {
-	MyTree(): tree_size_(1), nb_nodes_last_incumbent_(-2), diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0),
-		  nb_nodes_since_dive_(-2),currentNode_(0),
+	MyTree(): tree_size_(0), nb_nodes_processed_(0), nb_nodes_last_incumbent_(0),
+	    diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0), nb_nodes_since_dive_(0),
+	    currentNode_(nullptr),
 		  best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE), best_ub(LARGE_SCORE) {}
 	virtual ~MyTree() {}
 
@@ -493,12 +494,17 @@ struct MyTree {
 	double getRootLB() const { return best_lb_in_root; }
 
 	void setCurrentNode(MyNode* currentNode, bool diving=false) {
-		currentNode_ = currentNode;
 		// update tree size
     --tree_size_;
-		//one more node without new incumbent and since last dive
-		++nb_nodes_last_incumbent_;
-		++nb_nodes_since_dive_;
+    // update this parameters only if current nore exists (i.e., currentNode is not the root node)
+    if(currentNode_) {
+      ++nb_nodes_processed_;
+      //one more node without new incumbent and since last dive
+      ++nb_nodes_last_incumbent_;
+      ++nb_nodes_since_dive_;
+    }
+		// update current node
+    currentNode_ = currentNode;
     //if dive length has not been updated and we are not diving
     // this would be called once at the end of the first dive
     if(!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
@@ -528,10 +534,9 @@ struct MyTree {
 			leaves[i]->setDepth(diveDepth + 1);
 		}
 		activeTreeMapping_.insert(std::pair<MyNode*, std::vector<MyNode*> >(currentNode_, leaves));
-		//finally update the current node for the moment.
-		//Will not change for the first node as diving
 		tree_size_ += nbLeaves;
-		setCurrentNode(leaves[0], true);
+    //finally update the current node for the moment as diving (only true if not root node)
+		if(currentNode_) setCurrentNode(leaves[0], true);
 		// set dive depth
 		diveDepth_ = diveDepth;
 
@@ -587,8 +592,9 @@ struct MyTree {
 	virtual void reset() {
 		clear();
 		best_ub = LARGE_SCORE;
-		currentNode_=0;
-		tree_size_ = 1;
+		currentNode_= nullptr;
+		tree_size_ = 0;
+    nb_nodes_processed_ = 0;
 		nb_nodes_last_incumbent_=0;
 		nb_nodes_since_dive_=0;
 		diveDepth_=0;
@@ -598,6 +604,8 @@ struct MyTree {
 	}
 
 	int getTreeSize() const { return tree_size_; }
+
+	int getNbNodesProcessed() const { return nb_nodes_processed_; }
 
 	int getNbNodesSinceLastIncumbent() const { return nb_nodes_last_incumbent_; }
 
@@ -630,15 +638,14 @@ struct MyTree {
 
 	double getRelaxedObjective() const { return best_lb_in_root; }
 
-	void pushBackNewNode(){
-		pushBackNode(new MyNode);
+	void createRootNode(){
+    tree_.push_back(new MyNode);
+    ++tree_size_;
 	}
 
 	void pushBackNode(MyNode* node){
 		tree_.push_back(node);
-		//just for pushing root
-		if(currentNode_)
-			currentNode_->pushBackChild(node);
+		currentNode_->pushBackChild(node);
 	}
 
 	MyNode* getCurrentNode() const { return currentNode_; }
@@ -673,7 +680,7 @@ protected:
 	//branching tree
  	std::vector<MyNode*> tree_;
 	//tree size, number of nodes since last incumbent, depth of the current dive, length of a dive
-	int tree_size_, nb_nodes_last_incumbent_, diveDepth_, diveLength_, min_depth_, nb_nodes_since_dive_;
+	int tree_size_, nb_nodes_processed_, nb_nodes_last_incumbent_, diveDepth_, diveLength_, min_depth_, nb_nodes_since_dive_;
 	//current node
 	MyNode* currentNode_;
 
@@ -1170,6 +1177,8 @@ class Modeler {
     double get_best_lb() const { return pTree_->get_best_lb(); }
 
     int getTreeSize() const { return pTree_->getTreeSize(); }
+
+    int getNbNodesProcessed() const { return pTree_->getNbNodesProcessed(); }
 
     std::string writeCurrentNode() const { return pTree_->writeCurrentNode(); }
 

@@ -116,13 +116,25 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 //      std::vector<RCSolution> sols = sub2->getSolutions();
 //      std::stable_sort(sols.begin(), sols.end(),
 //                       [](const RCSolution& sol1, const RCSolution& sol2) { return sol1.cost < sol2.cost; });
-//      for(int i=0; i<std::min(nbMaxColumnsToAdd_, (int)sols.size()); ++i)
-//        std::cout << sols[i].toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
-//      std::cout << "**********************************************************" << std::endl;
+////      for(int i=0; i<std::min(nbMaxColumnsToAdd_, (int)sols.size()); ++i)
+////        std::cout << sols[i].toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+////      std::cout << "**********************************************************" << std::endl;
 //      delete sub2;
 //
-//      if(sols.empty() && !newSolutionsForNurse_.empty())
-//        int bb = 1;
+//    if(!sols.empty() || !newSolutionsForNurse_.empty()) {
+//      if (sols.empty() ^ newSolutionsForNurse_.empty()) {
+//        if (!newSolutionsForNurse_.empty())
+//          std::cout << newSolutionsForNurse_.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//        else std::cout << sols.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//        Tools::throwError("One of the subproblem has found a solution and the other not.");
+//      }
+//      double diff = sols.front().cost - newSolutionsForNurse_.front().cost;
+//      if (diff > EPSILON || diff < -EPSILON) {
+//        std::cout << newSolutionsForNurse_.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//        std::cout << sols.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//        Tools::throwError("The subproblems haven't find solutions of same cost.");
+//      }
+//    }
 #endif
 
     // update reduced cost if solved at optimality

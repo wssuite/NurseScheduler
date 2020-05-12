@@ -38,4 +38,4 @@ if __name__ == "__main__":
     if(args.docker):
         run_travis()
     else:
-        run_travis(False, 'ns', './docker-entrypoint.sh', None)
+        run_travis(False, 'ns', './docker-entrypoint.sh')

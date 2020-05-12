@@ -710,10 +710,13 @@ public:
 	//This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
 	//The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 	//Default: empty method.
-	void modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching);
+	void modify_lp_parameters(OsiSolverInterface* lp, const int changeType, bool in_strong_branching);
 
 	//print in cout a line summary of the current solver state
-	void printSummaryLine(const BCP_vec<BCP_var*>& vars = {});
+	void printSummaryLine(const BCP_vec<BCP_var*>& vars = {}) const;
+
+  //print in cout a line summary of the current node state
+  void printNodeSummaryLine(int nbChildren=0) const;
 
 	//stop this node or BCP
 	bool doStop();
@@ -846,6 +849,8 @@ protected:
 	BcpModeler* pModel_;
 	//count the iteration
 	int currentNodelpIteration_, lpIteration_;
+	// current node start time
+	double currentNodeStartTime_;
 	//count the nodes
 	int last_node;
 	// stored if the current node corresponds to a backtracking
@@ -854,7 +859,8 @@ protected:
 	bool heuristicHasBeenRun_;
 	int nbNodesSinceLastHeuristic_;
 	//number of generated columns
-	int nbGeneratedColumns_;
+	int nbCurrentNodeGeneratedColumns_, nbGeneratedColumns_;
+	int nbCurrentNodeSPSolved_;
 	// Number of dives to wait before branching on columns again
   std::list<int> nb_dives_to_wait_before_branching_on_columns_;
 
@@ -868,6 +874,16 @@ protected:
 	// rerun the code use to test the integer feasibility of a solution and find why a solution is not feasible
   void find_infeasibility(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
                           const BCP_vec<BCP_var*> &  vars);
+
+    BCP_branching_decision selectBranchingDecision(
+        const BCP_lp_result &lpres, //the result of the most recent LP optimization.
+        const BCP_vec<BCP_var *> &vars, //the variables in the current formulation.
+        const BCP_vec<BCP_cut *> &cuts, //the cuts in the current formulation.
+        const BCP_lp_var_pool &local_var_pool, //the local pool that holds variables with negative reduced cost.
+        //In case of continuing with the node the best so many variables will be added to the formulation (those with the most negative reduced cost).
+        const BCP_lp_cut_pool &local_cut_pool, //the local pool that holds violated cuts.
+        //In case of continuing with the node the best so many cuts will be added to the formulation (the most violated ones).
+        BCP_vec<BCP_lp_branching_object *> &cands); //the generated branching candidates.
 };
 
 /*
@@ -974,17 +990,17 @@ protected:
 
 	void realpop() {
 		/* update the current node of the modeler */
-		pModel_->setCurrentNode(this->candidateList_[0]);
+		pModel_->setCurrentNode(this->candidateList_.front());
 		/* the siblings is now empty -> choose the next one */
 		//copy the best candidate at the first place
-		candidateList_[0] = candidateList_.back();
+		candidateList_.front() = candidateList_.back();
 		//and remove the last item
 		candidateList_.pop_back();
 	}
 
 	void fixTop() {
 		/* update the current node of the modeler */
-		pModel_->setCurrentNode(this->candidateList_[0]);
+		pModel_->setCurrentNode(this->candidateList_.front());
 	}
 
 	void realpush(CoinTreeSiblings* s) {
