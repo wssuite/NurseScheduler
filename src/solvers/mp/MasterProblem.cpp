@@ -700,7 +700,7 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons*>& cons, vector<doub
 	int p = theLiveNurses_[pat.nurseId_]->pPosition()->id_;
   for(int k=pat.firstDay_; k<pat.firstDay_+pat.length_; ++k) {
     int s = pat.getShift(k);
-    if(s==-1){
+    if(pScenario_->isAnyShift(s)){
       for(int s0=1; s0<pScenario_->nbShifts_; ++s0){
         ++nbCons;
         cons.push_back(numberOfNursesByPositionCons_[p][k][s0-1]);

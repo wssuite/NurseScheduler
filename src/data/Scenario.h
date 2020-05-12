@@ -169,6 +169,8 @@ public:
 
   bool isRestShift(int shift) const { return shiftIDToShiftTypeID_[shift] == 0; }
   bool isWorkShift(int shift) const { return !isRestShift(shift); }
+  bool isAnyShift(int shift) const { return shift==-1; }
+
 
 	// number of typeshifts, a std::map and a std::vector matching the name of each type shift to an
 	// index and reversely
