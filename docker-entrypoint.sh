@@ -59,7 +59,7 @@ if [ -z ${dynamic} ]; then
 	weeks=${parse[2]}
 
 	# create the root of output directory if it does not exist
-	printf -v currenttime '%(%s)T' -1
+	currenttime=$( date +%s )
 	outputDir="outfiles/${instance_description}/${currenttime}"
 	echo "Create output directory: ${outputDir}"
 	mkdir -p "${outputDir}"
