@@ -14,6 +14,16 @@
 //
 //-----------------------------------------------------------------------------
 
+// when branching on this pattern, this method add the corresponding forbidden shifts to the set.
+// It will forbid any shifts on any days as the nurse already has a roster.
+void RosterPattern::addForbiddenShifts(std::set<std::pair<int,int> >& forbidenShifts,
+                                         int nbShifts, PDemand pDemand) const {
+  // from the previous day to the day after the end of the rotation, forbid any work shifts
+  for (int day = firstDay_; day < length_; day++)
+    for (int i = 1; i < nbShifts; ++i)
+      forbidenShifts.insert(std::pair<int, int>(day, i));
+}
+
 void RosterPattern::computeCost(PScenario pScenario, const std::vector<PLiveNurse>& liveNurses){
   //check if pNurse points to a nurse
   if(nurseId_ == -1)
@@ -50,9 +60,11 @@ void RosterPattern::computeCost(PScenario pScenario, const std::vector<PLiveNurs
   // 1. if the initial shift has already exceeded the max, substract now the cost that will be readd later
   if(lastShiftType) { // was working
     if (nbConsShifts > pScenario->maxConsShiftsOf(lastShiftType))
-      consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShiftsOf(lastShiftType))*WEIGHT_CONS_SHIFTS;
+      consShiftsCost_ -= (nbConsShifts-pScenario->maxConsShiftsOf(lastShiftType))
+          * pScenario->weights().WEIGHT_CONS_SHIFTS;
   } else if(nbConsShifts > pNurse->maxConsDaysOff()) {
-    consDaysOffCost_ -= (nbConsDaysOff-pNurse->maxConsDaysOff())*WEIGHT_CONS_DAYS_OFF;
+    consDaysOffCost_ -= (nbConsDaysOff-pNurse->maxConsDaysOff())
+        * pScenario->weights().WEIGHT_CONS_DAYS_OFF;
   }
 
   // 2. compute the cost
@@ -122,13 +134,13 @@ void RosterPattern::computeCost(PScenario pScenario, const std::vector<PLiveNurs
   for(int k=0; k<length_; ++k) {
     int  level = pNurse->wishesOffLevel(k, shifts_[k]);
     if (level != -1)
-      preferenceCost_ += WEIGHT_PREFERENCES_OFF[level];
+      preferenceCost_ += pScenario->weights().WEIGHT_PREFERENCES_OFF[level];
   }
 
   for(int k=firstDay_; k<firstDay_+length_; ++k) {
     int  level = pNurse->wishesOnLevel(k, shifts_[k]);
     if (level != -1)
-      preferenceCost_ += WEIGHT_PREFERENCES_ON[level];
+      preferenceCost_ += pScenario->weights().WEIGHT_PREFERENCES_ON[level];
   }
 
   /*
@@ -146,21 +158,21 @@ void RosterPattern::computeCost(PScenario pScenario, const std::vector<PLiveNurs
       else if (rest && Tools::isSunday(k)) {
         nbWeekends_ ++;
         if (pNurse->needCompleteWeekends())
-          completeWeekendCost_ += WEIGHT_COMPLETE_WEEKEND;
+          completeWeekendCost_ += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
       }
       rest = false;
     } else {
       if (pNurse->needCompleteWeekends() && !rest && Tools::isSunday(k))
-        completeWeekendCost_ += WEIGHT_COMPLETE_WEEKEND;
+        completeWeekendCost_ += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
       rest = true;
     }
     k++;
   }
 
   if(pNurse->minTotalShifts() - timeDuration_ > 0)
-    minDaysCost_ = WEIGHT_TOTAL_SHIFTS * (pNurse->minTotalShifts() - timeDuration_);
+    minDaysCost_ = pScenario->weights().WEIGHT_TOTAL_SHIFTS * (pNurse->minTotalShifts() - timeDuration_);
   if(timeDuration_ - pNurse->maxTotalShifts() > 0)
-    maxDaysCost_ = WEIGHT_TOTAL_SHIFTS * (timeDuration_ - pNurse->maxTotalShifts());
+    maxDaysCost_ = pScenario->weights().WEIGHT_TOTAL_SHIFTS * (timeDuration_ - pNurse->maxTotalShifts());
   maxWeekendCost_ = pNurse->totalWeekendCost(nbWeekends_);
 
 
@@ -217,7 +229,7 @@ void RosterPattern::checkReducedCost(DualCosts &costs, PScenario Scenario){
 
   // Display: set to true if you want to display the details of the cost
 
-  if(abs(dualCost_ - dualCost) / (1 - dualCost)  > EPSILON ){
+  if(abs(dualCost_ - dualCost) / (1 - dualCost)  > 1e-3 ){
     std::cout << "# " << std::endl;
     std::cout << "# " << std::endl;
     std::cout << "Bad dual cost: " << dualCost_ << " != " << dualCost << std::endl;
@@ -347,7 +359,7 @@ MyVar* RosterMP::addColumn(int nurseId, const RCSolution& solution) {
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
   DualCosts costs = buildDualCosts(theLiveNurses_[nurseId]);
-  pat.checkDualCost(costs, pScenario_);
+  pat.checkReducedCost(costs, pScenario_);
   std::vector<double> pattern = pat.getCompactPattern();
   checkIfPatternAlreadyPresent(pattern);
 #endif
@@ -450,7 +462,7 @@ double RosterMP::getColumnsCost(CostType costType, const std::vector<MyVar*>& va
   double cost = 0;
   for(MyVar* var: vars){
     double value = pModel_->getVarValue(var);
-    if(value > EPSILON){
+    if(value > epsilon()){
       RosterPattern ros(var->getPattern());
       ros.computeCost(pScenario_, theLiveNurses_);
       double c = 0;

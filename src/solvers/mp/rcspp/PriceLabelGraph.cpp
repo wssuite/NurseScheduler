@@ -50,7 +50,7 @@ void PriceLabelGraph::build() {
   int l = lb_;
   for (int v: checkNodes_) {
     // min cost is decreasing with l, and max cost is increasing with l
-    int c = minLabel() ? getLabelCost(ub_ - l) : getLabelCost(l);
+    double c = minLabel() ? getLabelCost(ub_ - l) : getLabelCost(l);
     in_arcs_.emplace_back(pSP_->addSingleArc(entrance_, v, c, in_consumptions, PRICE_LABEL_IN_TO_PRICE_LABEL, day_));
     if (reset_labels_after_pricing_) {
       if(minLabel()) out_consumptions[label_] = ub_ - l;
@@ -65,7 +65,7 @@ void PriceLabelGraph::updateArcCosts() {
 
 }
 
-int PriceLabelGraph::getLabelCost(int l) const {
+double PriceLabelGraph::getLabelCost(int l) const {
   switch (label_) {
     case MAX_CONS_DAYS:
     case MIN_CONS_DAYS:

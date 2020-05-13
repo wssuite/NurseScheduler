@@ -483,7 +483,7 @@ protected:
 };
 
 struct MyTree {
-	MyTree(): tree_size_(0), nb_nodes_processed_(0), nb_nodes_last_incumbent_(0),
+	MyTree(double epsilon): epsilon_(epsilon), tree_size_(0), nb_nodes_processed_(0), nb_nodes_last_incumbent_(0),
 	    diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0), nb_nodes_since_dive_(0),
 	    currentNode_(nullptr),
 		  best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE), best_ub(LARGE_SCORE) {}
@@ -627,7 +627,7 @@ struct MyTree {
 	double getNodeLastLagLB() const {return currentNode_->getLastLagLB();}
 	bool updateNodeLagLB(double lb){
 		currentNode_->setLastLagLB(lb);
-		if (lb > currentNode_->getBestLagLB()+EPSILON) {
+		if (lb > currentNode_->getBestLagLB()+epsilon_) {
 			currentNode_->setBestLagLB(lb);
 			return true;
 		}
@@ -674,6 +674,7 @@ struct MyTree {
 	void printStats() const { std::cout << writeBranchStats(); }
 
 protected:
+  double epsilon_;
 	//mapping between the Siblings and MyNode*
 	//a sibblings contains a list of all its leaves MyNode
   std::map<MyNode*, std::vector<MyNode*>> activeTreeMapping_;
@@ -706,7 +707,7 @@ protected:
 class Modeler {
   public:
 
-    Modeler() : pPricer_(0), pBranchingRule_(0), pTree_(new MyTree()) {}
+    Modeler() : pPricer_(nullptr), pBranchingRule_(nullptr), pTree_(nullptr) {}
 
     virtual ~Modeler() {
       for (MyObject *object: objects_)
@@ -789,6 +790,10 @@ class Modeler {
     void set_search_strategy(SearchStrategy searchStrategy) {
       if (pBranchingRule_)
         pBranchingRule_->set_search_strategy(searchStrategy);
+    }
+
+    double epsilon() const {
+      return parameters_.epsilon_;
     }
 
     /*
@@ -1004,7 +1009,7 @@ class Modeler {
     virtual bool isInteger(MyVar *var) const {
       double value = getVarValue(var);
       double fractionalPart = round(value) - value;
-      if (abs(fractionalPart) < EPSILON)
+      if (abs(fractionalPart) < epsilon())
         return true;
       return false;
     }

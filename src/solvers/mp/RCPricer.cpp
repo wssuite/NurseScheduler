@@ -95,7 +95,7 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
     pModel_->addForbiddenShifts(pNurse, nurseForbiddenShifts);
 
     // SET SOLVING OPTIONS
-    SubproblemParam sp_param(currentSubproblemStrategy_[pNurse->id_], pNurse);
+    SubproblemParam sp_param(currentSubproblemStrategy_[pNurse->id_], pNurse, pMaster_);
 
     // SOLVE THE PROBLEM
     ++nbSPTried_;
@@ -129,7 +129,7 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 //        Tools::throwError("One of the subproblem has found a solution and the other not.");
 //      }
 //      double diff = sols.front().cost - newSolutionsForNurse_.front().cost;
-//      if (diff > EPSILON || diff < -EPSILON) {
+//      if (diff > pMaster_->getModel()->epsilon() || diff < -pMaster_->getModel()->epsilon()) {
 //        std::cout << newSolutionsForNurse_.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
 //        std::cout << sols.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
 //        Tools::throwError("The subproblems haven't find solutions of same cost.");

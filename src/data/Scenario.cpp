@@ -166,15 +166,16 @@ Scenario::Scenario(string name, int nbWeeks,
 		   vector2D<int> shiftTypeIDToShiftID, vector<int> minConsShiftType, vector<int> maxConsShiftType,
 		   vector<int> nbForbiddenSuccessors, vector2D<int> forbiddenSuccessors,
 		   int nbContracts, vector<string> intToContract, map<string,PConstContract> contracts,
-		   int nbNurses, vector<PNurse>& theNurses, map<string,int> nurseNameToInt) :
+		   int nbNurses, vector<PNurse>& theNurses, map<string,int> nurseNameToInt,
+       PWeights weights) :
   name_(name), nbWeeks_(nbWeeks),
   nbSkills_(nbSkills), intToSkill_(intToSkill), skillToInt_(skillToInt),
   nbShifts_(nbShifts), intToShift_(intToShift), shiftToInt_(shiftToInt),
   timeDurationToWork_(hoursToWork), shiftIDToShiftTypeID_(shiftIDToShiftTypeID),
   nbShiftsType_(nbShiftsType), intToShiftType_(intToShiftType), shiftTypeToInt_(shiftTypeToInt),
   shiftTypeIDToShiftID_(shiftTypeIDToShiftID), 
-  nbContracts_(nbContracts), intToContract_(intToContract), contracts_(contracts),
-  nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt),
+  nbContracts_(nbContracts), intToContract_(intToContract), pContracts_(contracts),
+  nbNurses_(nbNurses), theNurses_(theNurses), nurseNameToInt_(nurseNameToInt), pWeights_(weights),
   minConsShiftType_(minConsShiftType), maxConsShiftType_(maxConsShiftType),
   nbForbiddenSuccessors_(nbForbiddenSuccessors), forbiddenSuccessors_(forbiddenSuccessors),
   pWeekDemand_(0), nbShiftOffRequests_(0), nbShiftOnRequests_(0), nbPositions_(0) {
@@ -200,8 +201,9 @@ Scenario::Scenario(PScenario pScenario, const vector<PNurse>& theNurses, PDemand
   timeDurationToWork_(pScenario->timeDurationToWork_), shiftIDToShiftTypeID_(pScenario->shiftIDToShiftTypeID_),
   nbShiftsType_(pScenario->nbShiftsType_), intToShiftType_(pScenario->intToShiftType_), shiftTypeToInt_(pScenario->shiftTypeToInt_),
   shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
-  nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), contracts_(pScenario->contracts_),
+  nbContracts_(pScenario->nbContracts_), intToContract_(pScenario->intToContract_), pContracts_(pScenario->pContracts_),
   nbNurses_(theNurses.size()), theNurses_(theNurses), nurseNameToInt_(pScenario->nurseNameToInt_),
+  pWeights_(pScenario->pWeights_),
   minConsShiftType_(pScenario->minConsShiftType_), maxConsShiftType_(pScenario->maxConsShiftType_),
   nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_), forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
   pWeekDemand_(nullptr), nbShiftOffRequests_(0), nbShiftOnRequests_(0), pWeekPreferences_(nullptr), thisWeek_(pScenario->thisWeek()), nbWeeksLoaded_(pScenario->nbWeeksLoaded()),
@@ -394,7 +396,7 @@ string Scenario::toString(){
 		rep << std::endl;
 	}
 	rep << "# CONTRACTS        " << std::endl;
-	for(const auto& contract: contracts_){
+	for(const auto& contract: pContracts_){
 		rep << "#\t\t\t" << *(contract.second) << std::endl;
 	}
 	rep << "# " << std::endl;

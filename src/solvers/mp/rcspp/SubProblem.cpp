@@ -99,7 +99,7 @@ bool SubProblem::solve(PLiveNurse nurse, DualCosts * costs, SubproblemParam para
 	bestReducedCost_ = 0;
   nFound_=0;
 	param_ = param;
-  maxReducedCostBound_ = - redCostBound - EPSILON;			// Cost bound
+  maxReducedCostBound_ = - redCostBound - param.epsilon;			// Cost bound
   pLiveNurse_ = nurse;									// Store the new nurse
   pCosts_ = costs;										// Store the new cost
 
@@ -166,7 +166,7 @@ bool SubProblem::solveRCGraphOptimal(){
       pLiveNurse_->minTotalShifts(), // cannot be reach (UB)
       pLiveNurse_->maxTotalWeekends()
   };
-	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_,
+	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_, param_.epsilon,
 	    labelsMinLevel, sinks, postProcessResCont());
 
   for(const RCSolution& sol: solutions) {
@@ -336,8 +336,8 @@ void SubProblem::initStructuresForSolve(){
 	Tools::initVector(endWeekendCosts_,nDays_,.0);
 	if(pLiveNurse_->needCompleteWeekends()){
 		for(int k=0; k<nDays_; k++){
-			if(Tools::isSaturday(k)) endWeekendCosts_[k] = WEIGHT_COMPLETE_WEEKEND;
-			else if(Tools::isSunday(k)) startWeekendCosts_[k] = WEIGHT_COMPLETE_WEEKEND;
+			if(Tools::isSaturday(k)) endWeekendCosts_[k] = pScenario_->weights().WEIGHT_COMPLETE_WEEKEND;
+			else if(Tools::isSunday(k)) startWeekendCosts_[k] =  pScenario_->weights().WEIGHT_COMPLETE_WEEKEND;
 		}
 	}
 
@@ -346,10 +346,10 @@ void SubProblem::initStructuresForSolve(){
   Tools::initVector2D(preferencesCosts_, nDays_, pScenario_->nbShifts_, .0);
   for(const auto &p: pLiveNurse_->wishesOff())
 		for(const Wish& s : p.second)
-      preferencesCosts_[p.first][s.shift] = WEIGHT_PREFERENCES_OFF[s.level];
+      preferencesCosts_[p.first][s.shift] = pScenario_->weights().WEIGHT_PREFERENCES_OFF[s.level];
   for(const auto &p: pLiveNurse_->wishesOn())
     for(const Wish& s: p.second)
-      preferencesCosts_[p.first][s.shift] = WEIGHT_PREFERENCES_ON[s.level];
+      preferencesCosts_[p.first][s.shift] = pScenario_->weights().WEIGHT_PREFERENCES_ON[s.level];
 }
 
 double SubProblem::startWorkCost(int a) const {
@@ -382,16 +382,16 @@ double SubProblem::startWorkCost(int a) const {
         // remove the cost, that will be added latter
         // (as we do not count the max penalty from previous week)
         int diffRest = pLiveNurse_->pStateIni_->consDaysOff_ - pLiveNurse_->maxConsDaysOff();
-        cost += std::max(0, diffRest * WEIGHT_CONS_DAYS_OFF);
+        cost += std::max(.0, diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF);
       }
       // 2. The nurse was working
       else {
         // pay just penalty for min
         int diff = pLiveNurse_->minConsDaysWork() - nConsWorkIni;
-        cost += std::max(0, diff * WEIGHT_CONS_DAYS_WORK);
+        cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
 
         int diff2 = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-        cost += std::max(0, diff2 * WEIGHT_CONS_SHIFTS);
+        cost += std::max(.0, diff2 * pScenario_->weights().WEIGHT_CONS_SHIFTS);
       }
     }
     // otherwise, currently working
@@ -399,19 +399,19 @@ double SubProblem::startWorkCost(int a) const {
       // 1. The nurse was resting: pay more only if the rest is too short
       if (shiftTypeIni == 0) {
         int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
-        cost += std::max(0, diffRest * WEIGHT_CONS_DAYS_OFF);
+        cost += std::max(.0, diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF);
       }
       // 2. The nurse was working
       else {
         // a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be added later
         int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
-        cost -= std::max(0, diffWork * WEIGHT_CONS_DAYS_WORK);
+        cost -= std::max(.0, diffWork * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
 
         // b.   The nurse was working on a different shift: if too short, add the corresponding cost
         int shiftType = pScenario_->shiftIDToShiftTypeID_[currentShift];
         if (shiftTypeIni != shiftType) {
           int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-          cost += std::max(0, diff * (WEIGHT_CONS_SHIFTS));
+          cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_SHIFTS);
         }
 //        // c. If working on the same shift type, need to update the consecutive shift cost
 //        else {

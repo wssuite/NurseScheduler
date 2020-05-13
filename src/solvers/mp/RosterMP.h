@@ -51,7 +51,9 @@ struct RosterPattern: Pattern {
       return shifts_[day];
     }
 
-
+    // when branching on this pattern, this method add the corresponding forbidden shifts to the set.
+    // It will forbid any shifts on any days as the nurse already has a roster.
+    void addForbiddenShifts(std::set<std::pair<int,int> >& forbidenShifts, int nbShifts, PDemand pDemand) const override;
 
     // Shifts to be performed
     //
@@ -142,7 +144,7 @@ class RosterMP: public MasterProblem {
     // return the value V used to choose the number of columns on which to branch.
     // Choose as many columns as possible such that: sum (1 - value(column)) < V
     double getBranchColumnValueMax() const override {
-      return 1-EPSILON;
+      return 1-pModel_->epsilon();
     }
 
   protected:

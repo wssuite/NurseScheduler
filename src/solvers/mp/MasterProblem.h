@@ -123,6 +123,9 @@ struct Pattern {
 
     virtual int getShift(int day) const = 0;
 
+    // when branching on this pattern, this method add the corresponding forbidden shifts to the set
+    virtual void addForbiddenShifts(std::set<std::pair<int,int> >& forbidenShifts, int nbShifts, PDemand pDemand) const = 0;
+
     // need to be able to write the pattern as a vector and to create a new one from it
     virtual std::vector<double> getCompactPattern() const {
       std::vector<double> compact;
@@ -365,6 +368,12 @@ class MasterProblem : public Solver, public PrintSolution{
 
     //solve a solution in the output
     void storeSolution();
+
+    // set parameters and update printFuntion pointer with this
+    void setParameters(const SolverParam& param) {
+      pModel_->setParameters(param, this);
+      param_ = pModel_->getParameters();
+    }
 
     // return the costs of all active columns associated to the type
     virtual double getColumnsCost(CostType costType, bool justHistoricalCosts) const = 0;

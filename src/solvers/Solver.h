@@ -362,13 +362,16 @@ public:
 	//maximal solving time in s
 	int maxSolvingTimeSeconds_ = LARGE_TIME;
 
+	// tolerance
+	double epsilon_ = 1e-5; // precision for the solver
+
 	//print parameters
 	int verbose_ = 0;
 	bool printEverySolution_ = false;
     std::string outfile_ = "outfiles/";
     std::string logfile_ = "";
 	std::vector<int> weekIndices_ = {};
-	PrintSolution* saveFunction_ = 0;
+	PrintSolution* saveFunction_ = nullptr;
 
 	bool printRelaxationSol_ = false;
 	bool printIntermediarySol_ = false;
@@ -425,7 +428,7 @@ public:
 	int stopAfterXDegenerateIt_ = 9999;
 
 	// fathom a node is upper bound is smaller than the lagrangian bound
-	bool isLagrangianFathom_=true;
+	bool isLagrangianFathomRootNode_ = false;
 
   // Parameters to remove a column from the master (both should be violated)
   // max number of consecutive iterations that a column can stay outside of the basis
@@ -494,6 +497,7 @@ public:
 
 	// Main method to solve the rostering problem for a given input and an initial solution and parameters
 	virtual double solve(const SolverParam& parameters, std::vector<Roster> solution = {}){
+	  param_ = parameters;
 		return solve(solution);
 	}
 
@@ -531,6 +535,9 @@ protected:
 
 	// Timer started at the creation of the solver and stopped at destruction
 	Tools::Timer* pTimerTotal_;
+
+	// current parameters of the solver (change with each solve)
+	SolverParam param_;
 
 	//-----------------------------------------------------------------------------
 	// Manipulated data
@@ -610,6 +617,8 @@ protected:
 	std::vector<int> skillsSorted_;
 
 public:
+    double epsilon() const { return param_.epsilon_; }
+
 	//------------------------------------------------
 	// Solution with rolling horizon process
 	//------------------------------------------------

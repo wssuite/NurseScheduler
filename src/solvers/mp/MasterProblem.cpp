@@ -167,7 +167,7 @@ double MasterProblem::solve(vector<Roster> solution){
 // Solve the rostering problem with parameters
 
 double MasterProblem::solve(const SolverParam& param, vector<Roster> solution){
-	pModel_->setParameters(param, this);
+	setParameters(param);
 	return  solve(solution, true);
 }
 
@@ -177,7 +177,7 @@ double MasterProblem::solve(vector<Roster> solution, bool rebuild) {
   // build the model first
   if (rebuild) {
     pModel_->clear();
-    this->build(pModel_->getParameters());
+    this->build(param_);
   } else
     pModel_->reset();
 
@@ -218,15 +218,15 @@ void MasterProblem::solveWithCatch(){
 //
 double MasterProblem::resolve(PDemand pDemand, const SolverParam& param, vector<Roster> solution){
 	updateDemand(pDemand);
-	pModel_->setParameters(param, this);
+	setParameters(param);
 	return solve(solution, false);
 }
 
 // Initialization of the master problem with/without solution
 void MasterProblem::initialize(const SolverParam& param, vector<Roster> solution) {
-	this->build(param);
-	this->initializeSolution(solution);
-	pModel_->setParameters(param, this);
+	build(param);
+	initializeSolution(solution);
+  setParameters(param);
 
 	// in case the initial solution is not empty, fix the corresponding rotations
 	// to one and solve the problem to get the solution properly
@@ -249,7 +249,7 @@ void MasterProblem::build(const SolverParam& param){
     pModel_->addObjPricer(pPricer_);
 
     /* Tree */
-    RestTree* pTree =new RestTree(pScenario_, pDemand_);
+    RestTree* pTree =new RestTree(pScenario_, pDemand_, param.epsilon_);
     pTree_ = pTree;
     pModel_->addTree(pTree_);
 
@@ -380,7 +380,7 @@ double MasterProblem::rollingSolve(const SolverParam& param, int firstDay) {
 	  storeSolution();
 	  // reset the model
 		pModel_->reset();
-		pModel_->setParameters(param, this);
+    setParameters(param);
     // add the best solution  back in the model
 		initializeSolution(solution_);
 	}
@@ -412,7 +412,7 @@ double MasterProblem::LNSSolve(const SolverParam& param) {
   storeSolution();
   // reset the model
   pModel_->reset();
-  pModel_->setParameters(param, this);
+  setParameters(param);
   // add the best solution  back in the model
   initializeSolution(solution_);
 
@@ -453,7 +453,7 @@ void MasterProblem::storeSolution(){
 		pNurse->roster_.reset();
 
 	for(MyVar* var: pModel_->getActiveColumns()){
-		if(pModel_->getVarValue(var) > EPSILON){
+		if(pModel_->getVarValue(var) > epsilon()){
 		  PPattern pat = getPattern(var->getPattern());
 			PLiveNurse pNurse = theLiveNurses_[pat->nurseId_];
 			for(int k=pat->firstDay_; k<pat->firstDay_+pat->length_; ++k){
@@ -462,7 +462,7 @@ void MasterProblem::storeSolution(){
         // assign a skill to the nurse for the shift
 				bool assigned = false;
 				for(int sk=0; sk<pScenario_->nbSkills_; ++sk)
-					if(skillsAllocation[k][s-1][sk][pNurse->pPosition_->id_] > EPSILON){
+					if(skillsAllocation[k][s-1][sk][pNurse->pPosition_->id_] > epsilon()){
 						pNurse->roster_.assignTask(k,s,sk);
 						skillsAllocation[k][s-1][sk][pNurse->pPosition_->id_] --;
 						assigned = true;
@@ -517,7 +517,7 @@ vector3D<double> MasterProblem::getFractionalRoster() {
 	for(MyVar* var : pModel_->getActiveColumns()){
 		if (var->getPattern().empty()) continue;
     double value = pModel_->getVarValue(var);
-		if(value < EPSILON) continue;
+		if(value < epsilon()) continue;
 		PPattern pat = getPattern(var->getPattern());
     vector2D<double>& fractionalRoster2 = fractionalRoster[pat->nurseId_];
 		for(int k=pat->firstDay_; k<pat->firstDay_+pat->length_; ++k)
@@ -531,7 +531,7 @@ void MasterProblem::checkIfPatternAlreadyPresent(const std::vector<double>& patt
   for(MyVar* var: pModel_->getActiveColumns()) {
     bool equal = true;
     for (int j = 0; j < pattern.size(); ++j)
-      if (abs(pattern[j] - var->getPattern()[j]) > EPSILON) {
+      if (abs(pattern[j] - var->getPattern()[j]) > epsilon()) {
         equal = false;
         break;
       }
@@ -547,7 +547,7 @@ void MasterProblem::printCurrentSol() {
   coverageToString();
   for (MyVar *var: pModel_->getActiveColumns()) {
     double v  = pModel_->getVarValue(var);
-    if(v < EPSILON) continue;
+    if(v < epsilon()) continue;
     std::cout << var->name_ << ": " << v << std::endl;
     PPattern pat = getPattern(var->getPattern());
     std::cout << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_) << std::endl;
@@ -621,7 +621,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 		  for(int sk=0; sk<pScenario_->nbSkills_; sk++){
 				//create variables
 				sprintf(name, "optDemandVar_%d_%d_%d", k, s, sk);
-				pModel_->createPositiveVar(&optDemandVars_[k][s-1][sk], name, WEIGHT_OPTIMAL_DEMAND);
+				pModel_->createPositiveVar(&optDemandVars_[k][s-1][sk], name, pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
 				for(int p=0; p<pScenario_->nbPositions(); p++){
 					sprintf(name, "skillsAllocVar_%d_%d_%d_%d", k, s, sk,p);
 					// DBG
@@ -798,9 +798,9 @@ string MasterProblem::allocationToString(bool printInteger){
 			rep << pScenario_->intToShift_[s] << "\t";
 			for (int day = firstDay; day < firstDay+nbDays; day++){
 				double shiftValue = fnurseFractionalRoster[day][s];
-				if(shiftValue > 1-EPSILON){
+				if(shiftValue > 1-epsilon()){
 					rep << "|  1 ";
-				} else if(shiftValue > EPSILON){
+				} else if(shiftValue > epsilon()){
 					char buffer[100];
 					sprintf(buffer, "|%1.2f", shiftValue);
 					rep << buffer;
@@ -851,7 +851,7 @@ string MasterProblem::coverageToString(bool printInteger){
 			for (int day = firstDay; day < firstDay+nbDays; day++){
 				double shiftValue = pModel_->getVarValue(skillsAllocVars_[day][s-1][sk]);
 				char buffer[100];
-				if(abs(shiftValue - round(shiftValue)) < EPSILON)
+				if(abs(shiftValue - round(shiftValue)) < epsilon())
 					sprintf(buffer, "|%4d", (int) round(shiftValue));
 				else sprintf(buffer, "|%2.2f", shiftValue);
 				rep << buffer;
@@ -961,8 +961,8 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
   for(int k=0; k<pDemand_->nbDays_; k++)
     for(int s=1; s<pScenario_->nbShifts_; s++)
       for(int sk=0; sk<pScenario_->nbSkills_; sk++)
-        if (pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]) > EPSILON ||
-          pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]) > EPSILON)
+        if (pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]) > epsilon() ||
+          pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]) > epsilon())
           return false;
 
 	return true;

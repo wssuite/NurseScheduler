@@ -289,7 +289,7 @@ void DeterministicSolver::updateInitialStats(MasterProblem* pMaster) {
 	stats_.bestUBInitial_= pMaster->computeSolutionCost();
 	stats_.bestUB_= pMaster->computeSolutionCost();
 	stats_.rootLB_ = pModel->getRootLB();
-	stats_.bestLB_ = std::min(stats_.bestUB_, 5.0*ceil( (pModel->get_best_lb()-EPSILON)/5.0));
+	stats_.bestLB_ = std::min(stats_.bestUB_, 5.0 * ceil( (pModel->get_best_lb()-pModel->epsilon())/5.0) );
 	stats_.timeInitialSol_= pMaster->getTimerTotal()->dSinceStart();
 	pMaster->getTimerTotal()->reset();
 
@@ -717,7 +717,7 @@ double DeterministicSolver::solveWithLNS() {
 
 		// update the weight of adaptive lns
 		//
-		if (currentObjVal < bestObjVal-EPSILON) {
+		if (currentObjVal < bestObjVal-lnsParameters_.epsilon_) {
 			// update stats
 			stats_.lnsImprovementValueTotal_+=bestObjVal-currentObjVal;
 			stats_.lnsNbIterationsWithImprovement_++;

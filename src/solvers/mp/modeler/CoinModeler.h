@@ -207,7 +207,7 @@ public:
 		CoinVar* var2 = (CoinVar*) var;
 
 		double value = getVarValue(var);
-		if(print && value>EPSILON)
+		if(print && value>epsilon())
       std::cout << var->name_ << ": " << value << "*" << var2->getCost() << std::endl;
 		return value *  var2->getCost();
 	}

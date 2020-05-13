@@ -344,7 +344,7 @@ double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
     // 1. The nurse was resting: pay more only if the rest is too short
     if (shiftTypeIni == 0) {
       int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
-      if(diffRest>0) ANS += diffRest * WEIGHT_CONS_DAYS_OFF;
+      if(diffRest>0) ANS += diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
     }
 
     // 2. The nurse was working
@@ -352,7 +352,7 @@ double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
       // a. (i)   The nurse was working on a different shift: if too short, add the corresponding cost
       if (shiftTypeIni != firstShiftType) {
         int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-        if(diff>0) ANS += diff * WEIGHT_CONS_SHIFTS;
+        if(diff>0) ANS += diff * pScenario_->weights().WEIGHT_CONS_SHIFTS;
       }
       // a. (ii)  The nurse was working on the same shift AND the short rotation contains other shifts (easy case for add/subtract)
       //            - Subtract the cost due to the consecutive beginning if > max
@@ -360,7 +360,7 @@ double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
       //            - Add the consecutive cost for all shifts
       else if (nConsFirstShift < size) {
         int diffShift = nConsShiftIni - pScenario_->maxConsShiftsOf(shiftTypeIni);
-        if(diffShift>0) ANS -= diffShift * WEIGHT_CONS_SHIFTS; // max penalty paid in the previous week that will be repaid
+        if(diffShift>0) ANS -= diffShift * pScenario_->weights().WEIGHT_CONS_SHIFTS; // max penalty paid in the previous week that will be repaid
         ANS -= pScenario_->consShiftTypeCost(firstShiftType, nConsFirstShift); // penalty contained in the base cost
         ANS += pScenario_->consShiftTypeCost(firstShiftType, (nConsFirstShift + nConsShiftIni));
       }
@@ -374,7 +374,7 @@ double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
 
       // b. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be readd later
       int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
-      if(diffWork>0) ANS -= diffWork * WEIGHT_CONS_DAYS_WORK;
+      if(diffWork>0) ANS -= diffWork * pScenario_->weights().WEIGHT_CONS_DAYS_WORK;
     }
   }
 
@@ -486,13 +486,16 @@ double ShortSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) 
       consShifts = pLiveNurse_->pStateIni_->consShifts_;
       consDays += pLiveNurse_->pStateIni_->consDaysWorked_;
       // If worked too much, subtract the already counted surplus
-      consDaysRegCost -= std::max(0, pLiveNurse_->pStateIni_->consDaysWorked_ - pContract_->maxConsDaysWork_) * WEIGHT_CONS_DAYS_WORK;
-      consShiftsRegCost -= std::max(0, pLiveNurse_->pStateIni_->consShifts_ - pScenario_->maxConsShiftsOfTypeOf(shift)) * WEIGHT_CONS_SHIFTS;
+      consDaysRegCost -= std::max(0, pLiveNurse_->pStateIni_->consDaysWorked_ - pContract_->maxConsDaysWork_)
+          * pScenario_->weights().WEIGHT_CONS_DAYS_WORK;
+      consShiftsRegCost -= std::max(0, pLiveNurse_->pStateIni_->consShifts_ - pScenario_->maxConsShiftsOfTypeOf(shift))
+          * pScenario_->weights().WEIGHT_CONS_SHIFTS;
     }
       // The nurse was resting
     else {
       // Cost of a too short rest
-      shortRestRegCost += std::max(0, pContract_->minConsDaysOff_ - pLiveNurse_->pStateIni_->consDaysOff_) * WEIGHT_CONS_DAYS_OFF;
+      shortRestRegCost += std::max(0, pContract_->minConsDaysOff_ - pLiveNurse_->pStateIni_->consDaysOff_)
+          * pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
     }
   }
 

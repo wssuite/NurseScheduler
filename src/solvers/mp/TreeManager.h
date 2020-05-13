@@ -117,9 +117,7 @@ struct NursesNumberNode: public MyNode{
 };
 
 struct RestTree: public MyTree{
-	RestTree(PScenario pScenario, PDemand pDemand);
-
-	void logical_fixing();
+	RestTree(PScenario pScenario, PDemand pDemand, double epsilon);
 
 	void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int,int> >& forbidenShifts);
 

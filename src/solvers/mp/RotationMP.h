@@ -62,6 +62,12 @@ struct RotationPattern: Pattern {
       return shifts_.at(day);
     }
 
+    // when branching on this pattern, this method add the corresponding forbidden shifts to the set.
+    // It will forbid all the shifts that would be worked on a day that is already covered by this pattern.
+    // Moreover, there needs to be a resting day before and after each rotation,
+    // so the shifts can also be forbidden on these two days (if the rotation is not at an extremity of the horizon).
+    void addForbiddenShifts(std::set<std::pair<int,int> >& forbidenShifts, int nbShifts, PDemand pDemand) const override;
+
     // Shifts to be performed
     //
     std::map<int,int> shifts_;

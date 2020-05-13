@@ -21,12 +21,13 @@ static int MAX_COST = 99999;
 struct SubproblemParam{
 
 	SubproblemParam(){}
-	SubproblemParam(int strategy, PLiveNurse pNurse){
-		initSubprobemParam(strategy, pNurse);
+	SubproblemParam(int strategy, PLiveNurse pNurse, MasterProblem* pMaster){
+		initSubprobemParam(strategy, pNurse, pMaster);
 	}
 	~SubproblemParam(){};
 
-	void initSubprobemParam(int strategy, PLiveNurse   pNurse){
+	void initSubprobemParam(int strategy, PLiveNurse pNurse, MasterProblem* pMaster){
+	  epsilon = pMaster->getModel()->epsilon();
 		maxRotationLength_ = pNurse->maxConsDaysWork();
 		switch(strategy){
 
@@ -53,6 +54,8 @@ struct SubproblemParam{
 	}
 
 	// *** PARAMETERS ***
+	double epsilon = 1e-5;
+
   static const int maxSubproblemStrategyLevel_ = 1;
 
 	// 0 -> no short rotations
@@ -116,7 +119,7 @@ class SubProblem {
                        std::set<std::pair<int, int> > forbiddenDayShifts = {},
                        std::set<int> forbiddenStartingDays = {},
                        bool optimality = false,
-                       double redCostBound = -1e-9);
+                       double redCostBound = 0);
 
     // Returns all rotations saved during the process of solving the SPPRC
     //

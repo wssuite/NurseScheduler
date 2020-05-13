@@ -68,7 +68,7 @@ class PriceLabelGraph: public SubGraph {
       return label_ == MIN_CONS_DAYS || label_ == MIN_DAYS;
     }
 
-    int getLabelCost(int l) const;
+    double getLabelCost(int l) const;
 };
 
 

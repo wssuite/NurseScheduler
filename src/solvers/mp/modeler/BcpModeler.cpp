@@ -150,7 +150,7 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
       vector<pair<int,double>> candidates;
       for(int i=coreSize; i<size; ++i){
          double value = solver->getColSolution()[i];
-         if(value < EPSILON || solver->getColLower()[i]==1) // value > 1 - EPSILON)
+         if(value < pModel_->epsilon() || solver->getColLower()[i]==1) // value > 1 - pModel_->epsilon())
              continue;
          candidates.push_back(pair<int,double>(i, 1-value));
       }
@@ -174,7 +174,7 @@ BCP_solution* BcpLpModel::generate_heuristic_solution(const BCP_lp_result& lpres
       else{
          sol = new BCP_solution_generic();
          for(int i=0; i<size; ++i)
-            if(solver->getColSolution()[i] > EPSILON){
+            if(solver->getColSolution()[i] > pModel_->epsilon()){
                //create new var that will be deleted by the solution sol
                if(i<coreSize){
                   BcpCoreVar* var0 = dynamic_cast<BcpCoreVar*>(pModel_->getCoreVars()[i]);
@@ -228,7 +228,7 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 		}
 
 		// modify dual tolerance // DBG
-		// double dualTol = std::min(0.1,-pModel_->getParameters().sp_max_reduced_cost_bound_+EPSILON);
+		// double dualTol = std::min(0.1,-pModel_->getParameters().sp_max_reduced_cost_bound_+pModel_->epsilon());
 		// lp->setDblParam( OsiDualTolerance,dualTol);
 		if (pModel_->getLPSolverType() == Cplex) {
 #ifdef USE_CPLEX
@@ -269,7 +269,7 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 	}
 	else {
 		// DBG
-		// double dualTol = std::min(0.1,-pModel_->getParameters().sp_max_reduced_cost_bound_+EPSILON);
+		// double dualTol = std::min(0.1,-pModel_->getParameters().sp_max_reduced_cost_bound_+pModel_->epsilon());
 		// lp->setDblParam( OsiDualTolerance,dualTol);
 	}
 }
@@ -301,10 +301,10 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars) const {
          int non_zero = 0;
          for(MyVar* var: pModel_->getActiveColumns()){
             double value = pModel_->getVarValue(var);
-            if(value < EPSILON)
+            if(value < pModel_->epsilon())
                continue;
             non_zero ++;
-            if(value < 1 - EPSILON)
+            if(value < 1 - pModel_->epsilon())
                frac++;
          }
 
@@ -339,7 +339,7 @@ bool BcpLpModel::doStop(){
 
    //fathom if the true lower bound greater than current upper bound
    if(pModel_->getObjective() - getLpProblemPointer()->node->true_lower_bound <
-      pModel_->getParameters().absoluteGap_ - EPSILON)
+      pModel_->getParameters().absoluteGap_ - pModel_->epsilon())
       return true;
 
    return false;
@@ -471,7 +471,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result& lpres,
 	// Stop the algorithm if the last objective value of the relaxation is
 	// close enough to the current LB
 	//
-	if(current_index() > 0 && lpres.objval() < pModel_->getCurrentLB() + EPSILON)
+	if(current_index() > 0 && lpres.objval() < pModel_->getCurrentLB() + pModel_->epsilon())
 		return;
 
 	// call the rotation pricer to find columns that should be added to the LP
@@ -622,8 +622,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     double lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval());
     isImproveQuality = pModel_->updateNodeLagLB(lagLb);
     // fathom only if column generation would continue (otherwise would be fathom later in this function)
-    if(column_generated && current_index() > 0 && pModel_->getParameters().isLagrangianFathom_
-       && pModel_->getObjective() - lagLb < pModel_->getParameters().absoluteGap_ - EPSILON){
+    if(column_generated && (pModel_->getParameters().isLagrangianFathomRootNode_ || current_index() > 0)
+       && pModel_->getObjective() - lagLb < pModel_->getParameters().absoluteGap_ - pModel_->epsilon()){
       std::cout << "Forcibly fathom, because Lagrangian bound is exceeded." << std::endl;
       return BCP_DoNotBranch_Fathomed;
     }
@@ -637,7 +637,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // number of degenerate iterations
   //
   double isStalling = false;
-  if (column_generated && getObjImprovement() < EPSILON) {
+  if (column_generated && getObjImprovement() < pModel_->epsilon()) {
     isStalling = true;
     pModel_->incrementNbDegenerateIt();
     // stop column generation if not root node and too many iteration
@@ -680,14 +680,14 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
 	//
 	if(current_index() == 0) {
     for(MyVar* var: pModel_->getCoreVars())
-      if(((CoinVar*)var)->getCost() >= LARGE_SCORE && pModel_->getVarValue(var) > EPSILON)
+      if(((CoinVar*)var)->getCost() >= LARGE_SCORE && pModel_->getVarValue(var) > pModel_->epsilon())
         throw InfeasibleStop("Feasibility core variable is still present in the solution");
 		for(MyVar* col: pModel_->getActiveColumns()){
-			if(((CoinVar*)col)->getCost() >= LARGE_SCORE && pModel_->getVarValue(col) > EPSILON)
+			if(((CoinVar*)col)->getCost() >= LARGE_SCORE && pModel_->getVarValue(col) > pModel_->epsilon())
 			throw InfeasibleStop("Feasibility column is still present in the solution");
 		}
 		pModel_->recordLpSol();
-		if (pModel_->gettimeFirstRoot() < EPSILON) {
+		if (pModel_->gettimeFirstRoot() < pModel_->epsilon()) {
 			pModel_->settimeFirstRoot(CoinWallclockTime()-start_time());
 		}
 	}
@@ -697,7 +697,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
 		return BCP_DoNotBranch_Fathomed;
 
 	//fathom if greater than current upper bound
-	if(pModel_->getObjective() - lpres.objval() < pModel_->getParameters().absoluteGap_ - EPSILON)
+	if(pModel_->getObjective() - lpres.objval() < pModel_->getParameters().absoluteGap_ - pModel_->epsilon())
 		return BCP_DoNotBranch_Fathomed;
 
 	// if not currently diving with the same rule as in the heuristic,
@@ -897,11 +897,11 @@ void BcpLpModel::find_infeasibility(const BCP_lp_result& lpres, //the result of 
       double vLeft = 1;
       for(int s=0; s<roster[n][k].size(); s++){
         double v = roster[n][k][s];
-        if(v<EPSILON) continue;
+        if(v<pModel_->epsilon()) continue;
         vLeft-=v;
         std::cout<<s<<":"<<v<<",";
       }
-      if(vLeft>EPSILON)
+      if(vLeft>pModel_->epsilon())
         std::cout<<"0:"<<vLeft;
       std::cout<<")";
     }
@@ -1274,7 +1274,7 @@ int BcpModeler::createCoinCutLinear(MyCons** con, const char* con_name, int inde
 	clearActiveColumns();
 	 for(int i=nbCoreVar; i<nbVar; ++i){
 		 BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
-		 if(primalValues_[i] > EPSILON)
+		 if(primalValues_[i] > epsilon())
 		   var->addActiveIteration(lpIteration); //update the different counters
 		 addActiveColumn(var, i);
 	 }
@@ -1315,7 +1315,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
    for(unsigned int i=0; i<sol2->_vars.size(); ++i){
       BcpColumn* col = dynamic_cast<BcpColumn*>(sol2->_vars[i]);
       if(col){
-			// if ( (col->is_integer() && sol2->_values[i] < 1-EPSILON) || (sol2->_values[i] < EPSILON) )  {
+			// if ( (col->is_integer() && sol2->_values[i] < 1-epsilon()) || (sol2->_values[i] < epsilon()) )  {
 			// 	std::cout << "Var type continuous = " << col->getVarType() << std::endl;
 			// 	std::cout << "Column " << i << " has value " << sol2->_values[i] << std::endl;
 			// 	continue;
@@ -1327,7 +1327,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
       else {
 			mySol.add_entry((BcpCoreVar*)coreVars_[sol2->_vars[i]->bcpind()], sol2->_values[i]);
 			if (((BcpCoreVar*)coreVars_[sol2->_vars[i]->bcpind()])->getCost()  >= LARGE_SCORE) {
-				if (sol2->_values[i] > EPSILON) isArtificialSol = true;
+				if (sol2->_values[i] > epsilon()) isArtificialSol = true;
 			}
 		}
    }
@@ -1337,7 +1337,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
 	}
 
    // if the solution improves the upper bound, record the new upper bound and load the integer solution
-   if(pTree_->getBestUB() > sol->objective_value() + EPSILON){
+   if(pTree_->getBestUB() > sol->objective_value() + epsilon()){
       pTree_->setBestUB(sol->objective_value());
 
       // print the solution in a text file
@@ -1348,7 +1348,7 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
       }
    }
 
-	if(pTree_->computeBestLB()<1.0e5 && pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - EPSILON){
+	if(pTree_->computeBestLB()<1.0e5 && pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - epsilon()){
 		char error[100];
 		sprintf(error, "Stopped: absolute gap < %.2f.", parameters_.absoluteGap_);
 		throw OptimalStop(error);
@@ -1461,7 +1461,7 @@ void BcpModeler::fixRotationsStartingFromDays(const vector<bool>& isFixDay) {
       if(col){
          double value = sol._values[i];
          if (isFixDay[col->getFirstDay()]) {
-            if(value >= EPSILON && value <= 1 - EPSILON)
+            if(value >= epsilon() && value <= 1 - epsilon())
                Tools::throwError("BcpModeler::fixRotationsStartingFromDays: the value to be fixed is not integer!");
             col->setLB(1.0);
             col->setUB(1.0);
@@ -1502,7 +1502,7 @@ void BcpModeler::fixRotationsOfNurses(const vector<bool>& isFixNurse) {
 	      if(col){
 	         double value = sol._values[i];
 	         if (isFixNurse[col->getNurseId()]) {
-	            if(value >= EPSILON && value <= 1 - EPSILON)
+	            if(value >= epsilon() && value <= 1 - epsilon())
 	               Tools::throwError("BcpModeler::fixRotationsStartingFromDays: the value to be fixed is not integer!");
 	            col->setLB(value);
 	            col->setUB(value);
@@ -1687,7 +1687,7 @@ bool BcpModeler::doStop() const {
       return false;
 
    //check relative gap
-	if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - EPSILON){
+	if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - epsilon()){
 	    pBcp_->pLpModel_->printNodeSummaryLine();
       char error[100];
       sprintf(error, "Stopped: absolute gap < %.2f.", parameters_.absoluteGap_);
@@ -1711,13 +1711,13 @@ bool BcpModeler::doStop() const {
 		sprintf(error, "Stopped: %d solutions have been founded", nbSolutions());
 		throw FeasibleStop(error);
 	}
-	else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.minRelativeGap_ * pTree_->get_best_lb() - EPSILON){
+	else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.minRelativeGap_ * pTree_->get_best_lb() - epsilon()){
     pBcp_->pLpModel_->printNodeSummaryLine();
 		char error[100];
 		sprintf(error, "Stopped: relative gap < %.2f.", parameters_.minRelativeGap_);
 		throw FeasibleStop(error);
 	}
-   else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.relativeGap_ * pTree_->get_best_lb() - EPSILON){
+   else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.relativeGap_ * pTree_->get_best_lb() - epsilon()){
       //if the relative gap is small enough and if same incumbent since the last dive, stop
       if(pTree_->getNbNodesSinceLastIncumbent() > parameters_.nbDiveIfMinGap_*pTree_->getDiveLength()){
         pBcp_->pLpModel_->printNodeSummaryLine();

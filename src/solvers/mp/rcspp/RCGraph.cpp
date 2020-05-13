@@ -69,7 +69,7 @@ void spp_res_cont::print() const {
 bool dominance_spp::operator()( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) const {
   // must be "<=" here!!!
   // must NOT be "<"!!!
-  if (res_cont_1.cost > res_cont_2.cost + EPSILON) return false;
+  if (res_cont_1.cost > res_cont_2.cost + epsilon_) return false;
 
   /* Dominance:
    * if label is increasing -> can dominate after a certain level:
@@ -83,7 +83,7 @@ bool dominance_spp::operator()( const spp_res_cont& res_cont_1, const spp_res_co
    * c- res_cont_1 == res_cont_2
    */
 
-  bool dominate = (res_cont_1.cost < res_cont_2.cost - EPSILON),
+  bool dominate = (res_cont_1.cost < res_cont_2.cost - epsilon_),
       biggerThanMinLevel = false,
       equal = !dominate;
   for (int l = 0; l < res_cont_1.size(); ++l) {
@@ -173,7 +173,7 @@ bool SpplabelComparator::operator()(const Spplabel& splabel1, const Spplabel& sp
 RCGraph::RCGraph(int nDays): nDays_(nDays), nNodes_(0), nArcs_(0) {}
 RCGraph::~RCGraph() {}
 
-std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
+std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound, double epsilon,
                                        const std::vector<int>& labelsMinLevel,
                                        std::vector<vertex> sinks,
                                        std::function<void (spp_res_cont&)> post_process_rc) {
@@ -194,7 +194,7 @@ std::vector<RCSolution> RCGraph::solve(int nLabels, double maxReducedCostBound,
   // 1 - solve the resource constraints shortest path problem
   //
   if(sinks.empty()) sinks = sinks_;
-  dominance_spp dominance(labelsOrder, labelsMinLevel);
+  dominance_spp dominance(labelsOrder, labelsMinLevel, epsilon);
   vector2D<edge> opt_solutions_spp;
   std::vector<spp_res_cont> pareto_opt_rcs_spp;
   SpplabelComparator comp;

@@ -23,27 +23,27 @@ using std::pair;
 
 // Cost function for consecutive identical shifts
 //
-int Contract::consDaysCost(int n) const {
-  if(minConsDaysWork_ - n > 0) return (WEIGHT_CONS_DAYS_WORK * ( minConsDaysWork_ - n ) );
-  if(n - maxConsDaysWork_ > 0) return (WEIGHT_CONS_DAYS_WORK * ( n - maxConsDaysWork_ ) );
+double Contract::consDaysCost(int n) const {
+  if(minConsDaysWork_ - n > 0) return (weights_->WEIGHT_CONS_DAYS_WORK * ( minConsDaysWork_ - n ) );
+  if(n - maxConsDaysWork_ > 0) return (weights_->WEIGHT_CONS_DAYS_WORK * ( n - maxConsDaysWork_ ) );
   return 0;
 }
 
-int Contract::consDaysOffCost(int n) const {
-  if(minConsDaysOff_ - n > 0) return (WEIGHT_CONS_DAYS_OFF * ( minConsDaysOff_ - n ) );
-  if(n - maxConsDaysOff_ > 0) return (WEIGHT_CONS_DAYS_OFF * ( n - maxConsDaysOff_ ) );
+double Contract::consDaysOffCost(int n) const {
+  if(minConsDaysOff_ - n > 0) return (weights_->WEIGHT_CONS_DAYS_OFF * ( minConsDaysOff_ - n ) );
+  if(n - maxConsDaysOff_ > 0) return (weights_->WEIGHT_CONS_DAYS_OFF * ( n - maxConsDaysOff_ ) );
   return 0;
 }
 
-int Contract::totalShiftCost(int n) const {
-  if(minTotalShifts_ - n > 0) return (WEIGHT_TOTAL_SHIFTS * ( minTotalShifts_ - n ) );
-  if(n - maxTotalShifts_ > 0) return (WEIGHT_TOTAL_SHIFTS * ( n - maxTotalShifts_ ) );
+double Contract::totalShiftCost(int n) const {
+  if(minTotalShifts_ - n > 0) return (weights_->WEIGHT_TOTAL_SHIFTS * ( minTotalShifts_ - n ) );
+  if(n - maxTotalShifts_ > 0) return (weights_->WEIGHT_TOTAL_SHIFTS * ( n - maxTotalShifts_ ) );
   return 0;
 }
 
-int Contract::totalWeekendCost(int n) const {
-//  if(minTotalWeekends_ - n > 0) return (WEIGHT_TOTAL_WEEKENDS * ( minTotalWeekends_ - n ) );
-  if(n - maxTotalWeekends_ > 0) return (WEIGHT_TOTAL_WEEKENDS * ( n - maxTotalWeekends_ ) );
+double Contract::totalWeekendCost(int n) const {
+//  if(minTotalWeekends_ - n > 0) return (weights_->WEIGHT_TOTAL_WEEKENDS * ( minTotalWeekends_ - n ) );
+  if(n - maxTotalWeekends_ > 0) return (weights_->WEIGHT_TOTAL_WEEKENDS * ( n - maxTotalWeekends_ ) );
   return 0;
 }
 

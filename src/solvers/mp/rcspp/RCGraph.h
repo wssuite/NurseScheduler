@@ -217,14 +217,16 @@ class ref_spp{
 // Dominance function model
 class dominance_spp{
   public:
-    dominance_spp(const std::vector<bool>& labelOrder, const std::vector<int>& labelsMinLevel):
-      labelsOrder_(labelOrder), labelsMinLevel_(labelsMinLevel) {}
+    dominance_spp(const std::vector<bool>& labelOrder, const std::vector<int>& labelsMinLevel, double epsilon):
+      labelsOrder_(labelOrder), labelsMinLevel_(labelsMinLevel), epsilon_(epsilon) {}
     bool operator()( const spp_res_cont& res_cont_1, const spp_res_cont& res_cont_2 ) const;
   private:
     std::vector<bool> labelsOrder_;
     // if label value is below (or above based on order) this level, label cannot be dominated
     // this is necessary as labels pricing could be even 0 for dominated label and label  could be reseted
     std::vector<int> labelsMinLevel_;
+
+    double epsilon_;
 };
 
 
@@ -342,7 +344,7 @@ class RCGraph {
     RCGraph(int nDays=0);
     virtual ~RCGraph();
 
-    std::vector<RCSolution> solve(int nLabels, double maxReducedCostBound,
+    std::vector<RCSolution> solve(int nLabels, double maxReducedCostBound, double epsilon,
                                   const std::vector<int>& labelsMinLevel,
                                   std::vector<vertex> sinks={},
                                   std::function<void (spp_res_cont&)> post_process_rc=nullptr);
