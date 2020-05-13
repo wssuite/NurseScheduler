@@ -57,14 +57,13 @@ int solveDeterministic(InputPaths inputPaths, double timeout) {
 	// Display the solution and write the files for the validator
 	//
 	std::cout << "# FINAL SOLUTION" << std::endl;
-	std::string solutionStatus = statusToString[pSolver->getStatus()];
+	std::string solutionStatus = statusToString.at(pSolver->getStatus());
   std::cout << "# Solution status = " << solutionStatus <<  std::endl;
   std::cout << "# Objective value = ";
   if(objValue >= LARGE_SCORE) std::cout << "  -  ";
   else std::cout << objValue;
   std::cout <<  std::endl;
   pSolver->displaySolutionMultipleWeeks(inputPaths);
-
 
 	// Write the final statistics
 	//

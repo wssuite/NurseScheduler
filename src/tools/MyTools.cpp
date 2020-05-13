@@ -137,10 +137,7 @@ void initializeRandomGenerator(int rdmSeed){
 //the objective is to be sure to have always the same sequence of number
 //
 minstd_rand getANewRandomGenerator(){
-	int rdmSeed = rand();
-	std::cout << "The new random seed of random generator is " << rdmSeed << std::endl;
-   minstd_rand rdm(rand());
-   return rdm;
+   return getANewRandomGenerator(rdm0());
 }
 minstd_rand getANewRandomGenerator(int rdmSeed){
 	std::cout << "The new random seed of random generator is " << rdmSeed << std::endl;

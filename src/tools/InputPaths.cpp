@@ -20,10 +20,10 @@ InputPaths::InputPaths() {
 
 InputPaths::InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices,
 		       std::string solutionPath,std::string logPath, std::string paramFile, double timeOut, int randSeed,
-		       bool shortSP):
+                       std::string SPType):
 	instance_(instanceName), historyIndex_(historyIndex), weekIndices_(weekIndices),
 	solutionPath_(solutionPath), logPath_(logPath), paramFile_(paramFile), randSeed_(randSeed), timeOut_(timeOut),
-  shortSP_(shortSP) {
+  SPType_(SPType) {
 
 	// int nbWeeks = weekIndices.size();
 

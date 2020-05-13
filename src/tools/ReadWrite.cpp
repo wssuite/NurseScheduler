@@ -68,6 +68,9 @@ PScenario ReadWrite::readScenario(string fileName) {
 
 	bool  foundShift = false;
 
+	// default weights
+	PWeights pWeights = std::make_shared<Weights>();
+
 	// fill the attributes of the scenario structure
 	//
 	while(file.good()){
@@ -230,7 +233,7 @@ PScenario ReadWrite::readScenario(string fileName) {
 
         PConstContract pContract =
             std::make_shared<Contract>(i, contractName, minDays, maxDays, minConsWork, maxConsWork,
-                minConsRest, maxConsRest, maxWeekends, isTotalWeekend);
+                minConsRest, maxConsRest, maxWeekends, isTotalWeekend, pWeights);
 				contracts[contractName] = pContract;
 				intToContract.push_back(contractName);
 			}
@@ -271,7 +274,7 @@ PScenario ReadWrite::readScenario(string fileName) {
     shiftToInt = shiftTypeToInt;
     shiftTypeIDToShiftID.resize(nbShiftsType);
     for(int i=0; i<nbShiftsType; i++){
-	    hoursInShift.push_back(1); // 1 as default (could be days, hours, ...)
+	    hoursInShift.push_back(i>0); // 1 as default (could be days, hours, ...) for non rest shift (>0)
 	    shiftIDToShiftTypeID.push_back(i);
       shiftTypeIDToShiftID[i].push_back(i);
 	  }
@@ -287,7 +290,7 @@ PScenario ReadWrite::readScenario(string fileName) {
 			    intToShift, shiftToInt, hoursInShift, shiftIDToShiftTypeID,
 			    nbShiftsType, intToShiftType, shiftTypeToInt, shiftTypeIDToShiftID, 
 			    minConsShiftType, maxConsShiftType, nbForbiddenSuccessors,forbiddenSuccessors,
-			    nbContracts, intToContract, contracts, nbNurses, theNurses, nurseNameToInt) ;
+			    nbContracts, intToContract, contracts, nbNurses, theNurses, nurseNameToInt, pWeights) ;
 }
 
 PDemand ReadWrite::readWeeks(std::vector<std::string> strWeekFiles, PScenario pScenario)

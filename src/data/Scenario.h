@@ -18,18 +18,35 @@
 enum PREF_LEVEL {WEAK=0, MODERATE=1, STRONG=2, COMPULSORY=3};
 const std::map<PREF_LEVEL,std::string> levelsToString = {{WEAK, "WEAK"}, {MODERATE, "MODERATE"},
                                                          {STRONG, "STRONG"}, {COMPULSORY, "COMPULSORY"}};
-static const int NB_LEVEL = 4;
-static const int WEIGHT_OPTIMAL_DEMAND    = 30;
-static const int WEIGHT_CONS_SHIFTS       = 15;
-static const int WEIGHT_CONS_DAYS_WORK    = 30;
-static const int WEIGHT_CONS_DAYS_OFF     = 30;
-static const int WEIGHT_PREFERENCES_OFF[NB_LEVEL]       = {10, 20, 50, 1000};
-static const int WEIGHT_PREFERENCES_ON [NB_LEVEL]       = {-10, -20, -50, 1000};
-static const int WEIGHT_COMPLETE_WEEKEND  = 30;
-static const int WEIGHT_TOTAL_SHIFTS      = 20;
-static const int WEIGHT_TOTAL_WEEKENDS    = 30;
+struct Weights {
+    Weights() {}
+    Weights(double weightOptimalDemand, double weightConsShifts,
+            const double weightConsDaysWork, const double weightConsDaysOff,
+            const std::vector<double> &weightPreferencesOff, const std::vector<double> &weightPreferencesOn,
+            const double weightCompleteWeekend, const double weightTotalShifts,
+            const double weightTotalWeekends) : WEIGHT_OPTIMAL_DEMAND(weightOptimalDemand),
+                                                WEIGHT_CONS_SHIFTS(weightConsShifts),
+                                                WEIGHT_CONS_DAYS_WORK(weightConsDaysWork),
+                                                WEIGHT_CONS_DAYS_OFF(weightConsDaysOff),
+                                                WEIGHT_PREFERENCES_OFF(weightPreferencesOff),
+                                                WEIGHT_PREFERENCES_ON(weightPreferencesOn),
+                                                WEIGHT_COMPLETE_WEEKEND(weightCompleteWeekend),
+                                                WEIGHT_TOTAL_SHIFTS(weightTotalShifts),
+                                                WEIGHT_TOTAL_WEEKENDS(weightTotalWeekends) {}
+
+    const double WEIGHT_OPTIMAL_DEMAND    = 30;
+    const double WEIGHT_CONS_SHIFTS       = 15;
+    const double WEIGHT_CONS_DAYS_WORK    = 30;
+    const double WEIGHT_CONS_DAYS_OFF     = 30;
+    const std::vector<double> WEIGHT_PREFERENCES_OFF = {10, 20, 50, 1000};
+    const std::vector<double> WEIGHT_PREFERENCES_ON = {-10, -20, -50, 1000};
+    const double WEIGHT_COMPLETE_WEEKEND  = 30;
+    const double WEIGHT_TOTAL_SHIFTS      = 20;
+    const double WEIGHT_TOTAL_WEEKENDS    = 30;
+};
 
 
+typedef std::shared_ptr<Weights> PWeights;
 class Scenario;
 typedef std::shared_ptr<Scenario> PScenario;
 class Nurse;
@@ -131,7 +148,8 @@ public:
 		 std::vector<std::vector<int> > shiftTypeIDToShiftID, std::vector<int> minConsShiftsType, std::vector<int> maxConsShiftsType,
 		 std::vector<int> nbForbiddenSuccessors, vector2D<int> forbiddenSuccessors,
 		 int nbContracts, std::vector<std::string> intToContract, std::map<std::string,PConstContract> contracts,
-		 int nbNurses, std::vector<PNurse>& theNurses, std::map<std::string,int> nurseNameToInt);
+		 int nbNurses, std::vector<PNurse>& theNurses, std::map<std::string,int> nurseNameToInt,
+		 PWeights weights);
 
 	// Hybrid copy constructor : this is only called when constructing a new scenario that copies most parameters
 	// from the input scenario but for only a subgroup of nurses
@@ -167,6 +185,11 @@ public:
 	const std::map<std::string,int> shiftToInt_;
   const std::vector<int> timeDurationToWork_, shiftIDToShiftTypeID_;
 
+  bool isRestShift(int shift) const { return shiftIDToShiftTypeID_[shift] == 0; }
+  bool isWorkShift(int shift) const { return !isRestShift(shift); }
+  bool isAnyShift(int shift) const { return shift==-1; }
+
+
 	// number of typeshifts, a std::map and a std::vector matching the name of each type shift to an
 	// index and reversely
 	// minimum and maximum number consecutive assignments for each shift,
@@ -181,7 +204,7 @@ public:
 	//
 	const int nbContracts_;
 	const std::vector<std::string> intToContract_;
-	const std::map<std::string, PConstContract> contracts_;
+	const std::map<std::string, PConstContract> pContracts_;
 
 	// number of nurses, and std::vector of all the nurses
 	//
@@ -189,6 +212,8 @@ public:
 	const std::vector<PNurse> theNurses_;
 	std::map<std::string,int> nurseNameToInt_;
 
+  // weights of the cost functions
+  const PWeights pWeights_;
 
 private:
 
@@ -278,6 +303,7 @@ public:
 	int nbOfConnexComponentsOfPositions() {return componentsOfConnexPositions_.size();}
 	const std::vector<PPosition>& componentOfConnexPositions(int c) const {return componentsOfConnexPositions_[c];}
 	const std::vector<PNurse>& nursesInConnexComponentOfPositions(int c) const {return nursesPerConnexComponentOfPositions_[c];}
+	const Weights & weights() const { return  *pWeights_; }
 
   int nbForbiddenSuccessorsShift(int shift) {
     int  shiftType = shiftIDToShiftTypeID_[shift];
@@ -294,7 +320,7 @@ public:
 
 	// getter for the maximum number of consecutive worked days before the planning horizon
 	//
-	inline int maxConDaysWorkedInHistory(){
+	int maxConDaysWorkedInHistory(){
 		int ANS = 0;
 		for(auto p : initialState_){
 			if((p.consDaysWorked_ > ANS) && (p.shiftType_ > 0))
@@ -325,14 +351,14 @@ public:
   // Cost function for consecutive identical shifts
   //
   double consShiftCost(int sh, int n){
-    if(minConsShiftsOfTypeOf(sh) - n > 0) return (WEIGHT_CONS_SHIFTS * ( minConsShiftsOfTypeOf(sh) - n ) );
-    if(n - maxConsShiftsOfTypeOf(sh) > 0) return (WEIGHT_CONS_SHIFTS * ( n - maxConsShiftsOfTypeOf(sh) ) );
+    if(minConsShiftsOfTypeOf(sh) - n > 0) return (pWeights_->WEIGHT_CONS_SHIFTS * ( minConsShiftsOfTypeOf(sh) - n ) );
+    if(n - maxConsShiftsOfTypeOf(sh) > 0) return (pWeights_->WEIGHT_CONS_SHIFTS * ( n - maxConsShiftsOfTypeOf(sh) ) );
     return 0;
   }
 
   double consShiftTypeCost(int sh, int n){
-    if(minConsShiftsOf(sh) - n > 0) return (WEIGHT_CONS_SHIFTS * ( minConsShiftsOf(sh) - n ) );
-    if(n - maxConsShiftsOf(sh) > 0) return (WEIGHT_CONS_SHIFTS * ( n - maxConsShiftsOf(sh) ) );
+    if(minConsShiftsOf(sh) - n > 0) return (pWeights_->WEIGHT_CONS_SHIFTS * ( minConsShiftsOf(sh) - n ) );
+    if(n - maxConsShiftsOf(sh) > 0) return (pWeights_->WEIGHT_CONS_SHIFTS * ( n - maxConsShiftsOf(sh) ) );
     return 0;
   }
 
@@ -345,19 +371,19 @@ public:
 
 	// when reading the week file (Demand and preferences)
 	//
-	inline void setWeekName(std::string weekName){ weekName_ = weekName;}
-	inline void setWeekDemand(PDemand pDemand) {
+	void setWeekName(std::string weekName){ weekName_ = weekName;}
+	void setWeekDemand(PDemand pDemand) {
     pWeekDemand_ = pDemand;
   }
-	inline void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
-	inline void setTNbShiftOnRequests(int nbShiftOnRequests){ nbShiftOnRequests_ = nbShiftOnRequests; }
+	void setTNbShiftOffRequests(int nbShiftOffRequests){ nbShiftOffRequests_ = nbShiftOffRequests; }
+	void setTNbShiftOnRequests(int nbShiftOnRequests){ nbShiftOnRequests_ = nbShiftOnRequests; }
 	void setWeekPreferences(PPreferences weekPreferences);
 
 	// when reading the history file
 	//
-	inline void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
-   inline void addAWeek(){ ++nbWeeksLoaded_; }
-	inline void setInitialState(std::vector<State> initialState){ initialState_ = initialState;}
+	void setThisWeek(int thisWeek){ thisWeek_ = thisWeek; }
+   void addAWeek(){ ++nbWeeksLoaded_; }
+	void setInitialState(std::vector<State> initialState){ initialState_ = initialState;}
 
 	// return true if the shift shNext is a forbidden successor of shLast
 	//
@@ -372,7 +398,7 @@ public:
 
 	// Link the scenario with the Demand and the Preferences
 	//
-	inline void linkWithDemand(PDemand pDemand){
+	void linkWithDemand(PDemand pDemand){
 	   weekName_ = pDemand->name_;
 	   pWeekDemand_ = pDemand;
 	}

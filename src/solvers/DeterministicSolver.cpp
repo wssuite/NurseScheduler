@@ -7,6 +7,7 @@
 
 #include "solvers/DeterministicSolver.h"
 #include "solvers/mp/RotationMP.h"
+#include "solvers/mp/RosterMP.h"
 #include "solvers/InitializeSolver.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 
@@ -48,10 +49,6 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 		this->readOptionsFromFile(inputPaths);
 	}
 	std::cout << std::endl;
-
-  completeParameters_.sp_short_ = inputPaths.shortSP();
-  rollingParameters_.sp_short_ = inputPaths.shortSP();
-  lnsParameters_.sp_short_ = inputPaths.shortSP();
 
 	if (!options_.logfile_.empty()) {
 		FILE * pFile;
@@ -100,6 +97,11 @@ void DeterministicSolver::setOptionsToDefault(InputPaths& inputPaths) {
 	// parameters of the solution in the large neighborhood search
 	SolverParam lnsParameters(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
 	lnsParameters_ = lnsParameters;
+
+  SPType t = SPTypesByName.at(inputPaths.SPType());
+  completeParameters_.sp_type_ = t;
+  rollingParameters_.sp_type_ = t;
+  lnsParameters_.sp_type_ = t;
 }
 
 // Read deterministic options from a file
@@ -127,6 +129,7 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 	// go through all the lines of the parameter file
 	std::string title;
 	SolverParam param;
+  param.sp_type_ = SPTypesByName.at(inputPaths.SPType());
 	OptimalityLevel completeOptimalityLevel=UNTIL_FEASIBLE;
 	OptimalityLevel lnsOptimalityLevel=UNTIL_FEASIBLE;
 	OptimalityLevel rollingOptimalityLevel=UNTIL_FEASIBLE;
@@ -186,7 +189,7 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 		else if (Tools::strEndsWith(title, "solutionAlgorithm")) {
 			std::string algoName;
 			file >> algoName;
-			options_.solutionAlgorithm_ = AlgorithmsByName[algoName];
+			options_.solutionAlgorithm_ = AlgorithmsByName.at(algoName);
 		}
 		else if (Tools::strEndsWith(title, "solverType")) {
 			std::string solverName;
@@ -286,7 +289,7 @@ void DeterministicSolver::updateInitialStats(MasterProblem* pMaster) {
 	stats_.bestUBInitial_= pMaster->computeSolutionCost();
 	stats_.bestUB_= pMaster->computeSolutionCost();
 	stats_.rootLB_ = pModel->getRootLB();
-	stats_.bestLB_ = std::min(stats_.bestUB_, 5.0*ceil( (pModel->get_best_lb()-EPSILON)/5.0));
+	stats_.bestLB_ = std::min(stats_.bestUB_, 5.0 * ceil( (pModel->get_best_lb()-pModel->epsilon())/5.0) );
 	stats_.timeInitialSol_= pMaster->getTimerTotal()->dSinceStart();
 	pMaster->getTimerTotal()->reset();
 
@@ -417,7 +420,7 @@ double DeterministicSolver::solveCompleteHorizon() {
 
 	// Initialize solver and solve
 	//
-	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_);
+	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_, options_.solutionAlgorithm_, completeParameters_);
 	pCompleteSolver_->solve(completeParameters_);
 	pCompleteSolver_->printCurrentSol();
 	std::cout << pCompleteSolver_->solutionToString() << std::endl;
@@ -554,7 +557,7 @@ double DeterministicSolver::solveWithRollingHorizon() {
 	// Initialize the solver that will handle the iterative solution of the
 	// receeding horizon
 	//
-	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_);
+	pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_, options_.solutionAlgorithm_, rollingParameters_);
 
 	// Solve the instance iteratively with a rolling horizon
 	//
@@ -667,7 +670,7 @@ double DeterministicSolver::solveWithLNS() {
 	double timeSinceStart = pTimerTotal_->dSinceStart();
 	lnsParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_ - timeSinceStart;
 
-	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_);
+	// pLNSSolver_ = setSolverWithInputAlgorithm(pDemand_, options_.solutionAlgorithm_, lnsParameters_);
 	// pLNSSolver_->initialize(options_.lnsParameters_,this->solution_);
 
 	// Perform destroy/repair iterations until a given number of iterations
@@ -714,7 +717,7 @@ double DeterministicSolver::solveWithLNS() {
 
 		// update the weight of adaptive lns
 		//
-		if (currentObjVal < bestObjVal-EPSILON) {
+		if (currentObjVal < bestObjVal-lnsParameters_.epsilon_) {
 			// update stats
 			stats_.lnsImprovementValueTotal_+=bestObjVal-currentObjVal;
 			stats_.lnsNbIterationsWithImprovement_++;
@@ -972,26 +975,31 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 //
 //----------------------------------------------------------------------------
 
-// Return a solver with the algorithm specified for resolution
-Solver * DeterministicSolver::setSolverWithInputAlgorithm(PDemand pDemand) {
-	switch(options_.solutionAlgorithm_){
-		case GENCOL:
-		return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
-		default:
-		Tools::throwError("The algorithm is not handled yet");
-		break;
-	}
-	return nullptr;
-}
-
 // Return a solver with the input algorithm
-Solver* DeterministicSolver::setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm) {
-	switch(algorithm){
-		case GENCOL:
-		return new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
-		default:
-		Tools::throwError("The algorithm is not handled yet");
-		break;
-	}
-	return nullptr;
+Solver* DeterministicSolver::setSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm, SolverParam& param) {
+  Solver* pSolver= nullptr;
+  switch(algorithm){
+    //case GREEDY:
+    //pSolver = new Greedy(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState());
+    //break;
+    case GENCOL:
+      switch(param.sp_type_) {
+        case LONG_ROTATION:
+        case ALL_ROTATION:
+          pSolver = new RotationMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+          break;
+        case ROSTER:
+          pSolver = new RosterMP(pScenario_, pDemand, pScenario_->pWeekPreferences(), pScenario_->pInitialState(), options_.MySolverType_);
+          param.isColumnDisjoint_ = true;
+          param.nbMaxColumnsToAdd_ = 40;
+          break;
+        default:
+          Tools::throwError("The subproblem type is not handled yet");
+      }
+      break;
+    default:
+      Tools::throwError("The algorithm is not handled yet");
+      break;
+  }
+  return pSolver;
 }

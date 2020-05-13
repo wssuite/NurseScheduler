@@ -2,7 +2,7 @@
 // Created by antoine legrain on 2020-04-12.
 //
 
-#include "SubProblemShort.h"
+#include "ShortSP.h"
 
 using std::string;
 using std::vector;
@@ -17,21 +17,21 @@ using std::map;
 //---------------------------------------------------------------------------
 
 // Constructors and destructor
-SubProblemShort::SubProblemShort() {}
+ShortSP::ShortSP() {}
 
-SubProblemShort::SubProblemShort(PScenario scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
+ShortSP::ShortSP(PScenario scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
     SubProblem(scenario, nbDays, contract,  pInitState) {
 
-  daysMin_ = contract->minConsDaysWork_;
+  minConsDays_ = contract->minConsDaysWork_;
   nLabels_ = 1;
 
   initShortSuccessions();
 }
 
-SubProblemShort::~SubProblemShort(){}
+ShortSP::~ShortSP(){}
 
 // Initializes the short successions. Should only be used ONCE (when creating the SubProblem).
-void SubProblemShort::initShortSuccessions() {
+void ShortSP::initShortSuccessions() {
 
   // Primary information needed
   //
@@ -171,7 +171,7 @@ void SubProblemShort::initShortSuccessions() {
 //--------------------------------------------
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
-bool SubProblemShort::preprocess() {
+bool ShortSP::preprocess() {
   // find best start of rotation
   priceShortSucc();
   // find short rotations
@@ -180,35 +180,29 @@ bool SubProblemShort::preprocess() {
 
 
 // For the short rotations, depends on the chosen option + on whether we want optimality (more important)
-bool SubProblemShort::solveShortRotations() {
+bool ShortSP::solveShortRotations() {
   nVeryShortFound_ = 0;
   bool ANS = false;
-
+  // 0 -> no short rotations
+  // 1 -> day-0 short rotations only
+  // 2 -> day-0 and last-day short rotations only
+  // 3 -> all short rotations
   // SOLVE_SHORT_NONE
   if (param_.shortRotationsStrategy_ == 0) {}
-
-    // SOLVE_SHORT_ALL
+  // SOLVE_SHORT_DAY_0_ONLY
   else if (param_.shortRotationsStrategy_ == 1) {
-    bool tmp_ANS = priceVeryShortRotations();
+    bool tmp_ANS = priceVeryShortRotationsFirstDay();
     ANS = ANS or tmp_ANS;
   }
-
-    // SOLVE_SHORT_DAY_0_AND_LAST_ONLY
+  // SOLVE_SHORT_DAY_0_AND_LAST_ONLY
   else if (param_.shortRotationsStrategy_ == 2) {
     bool tmp_ANS = priceVeryShortRotationsFirstDay();
     bool tmp_ANS2 = priceVeryShortRotationsLastDay();
     ANS = tmp_ANS2 or ANS or tmp_ANS;
   }
-
-    // SOLVE_SHORT_DAY_0_ONLY
+  // SOLVE_SHORT_ALL
   else if (param_.shortRotationsStrategy_ == 3) {
-    bool tmp_ANS = priceVeryShortRotationsFirstDay();
-    ANS = ANS or tmp_ANS;
-  }
-
-    // SOLVE_SHORT_DAY_0_ONLY
-  else if (param_.shortRotationsStrategy_ == 4) {
-    bool tmp_ANS = priceVeryShortRotationsLastDay();
+    bool tmp_ANS = priceVeryShortRotations();
     ANS = ANS or tmp_ANS;
   } else {
     std::cout << "# INVALID / OBSOLETE OPTION FOR SHORT ROTATIONS" << std::endl;
@@ -219,31 +213,36 @@ bool SubProblemShort::solveShortRotations() {
 }
 
 // Create all arcs whose origin is the source nodes (all go to short rotations nodes)
-void SubProblemShort::createArcsSourceToPrincipal() {
+void ShortSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
-  for (PrincipalGraph &pg: principalGraphs_)
+  for (PrincipalGraph &pg: principalGraphs_) {
+    int s = pScenario_->shiftTypeIDToShiftID_[pg.shiftType()].front(); // any shift with the right shit type
+    std::vector<int> shifts;
+    Tools::initVector(shifts, minConsDays_, s);
     for (int k = CDMin_ - 1; k < nDays_; k++)
       for(int dest : pg.getDayNodes(k))
-        // add one arc consume all the minimum cons days available
+        // add one arc for each cons days available
         // the shifts will be updated based on their dual costs
         arcsFromSource_[pg.shiftType()][k].push_back(
-            {addSingleArc(origin, dest, 0, {CDMin_, 0}, SOURCE_TO_PRINCIPAL, k - CDMin_ + 1, {})});
+            {addSingleArc(origin, dest, 0, startConsumption(k, shifts),
+                          SOURCE_TO_PRINCIPAL, k - CDMin_ + 1)});
+      }
 }
 
-double SubProblemShort::startWorkCost(int a) const {
+double ShortSP::startWorkCost(int a) const {
   return g_.arcCost(a); // cost already updated;
 }
 
 
 // Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
 //
-void SubProblemShort::priceShortSucc() {
+void ShortSP::priceShortSucc() {
 
   map<int, int> specialArcsSuccId;
   map<int, double> specialArcsCost;
 
   for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
-    for (int k = daysMin_ - 1; k < nDays_; k++) {
+    for (int k = minConsDays_ - 1; k < nDays_; k++) {
       int max_cons = principalGraphs_[s].maxCons();
       for (int n = 0; n <= max_cons; n++) {
 
@@ -289,8 +288,6 @@ void SubProblemShort::priceShortSucc() {
         int a = arcsFromSource_[s][k][n].front();
         if (best_id >= 0) {
           g_.updateCost(a, best_cost);
-          if(allowedShortSuccBySize_[CDMin_][best_id].empty())
-            std::cout << "F";
           g_.updateShifts(a, allowedShortSuccBySize_[CDMin_][best_id]);
         }
           // otherwise, forbid it
@@ -313,7 +310,7 @@ void SubProblemShort::priceShortSucc() {
 
 // Given a short succession and a start date, returns the cost of the corresponding arc
 //
-double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
+double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
   double ANS = 0;
   const vector<int>& succ = allowedShortSuccBySize_[size][succId];
 
@@ -347,7 +344,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
     // 1. The nurse was resting: pay more only if the rest is too short
     if (shiftTypeIni == 0) {
       int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
-      if(diffRest>0) ANS += diffRest * WEIGHT_CONS_DAYS_OFF;
+      if(diffRest>0) ANS += diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
     }
 
     // 2. The nurse was working
@@ -355,7 +352,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
       // a. (i)   The nurse was working on a different shift: if too short, add the corresponding cost
       if (shiftTypeIni != firstShiftType) {
         int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-        if(diff>0) ANS += diff * WEIGHT_CONS_SHIFTS;
+        if(diff>0) ANS += diff * pScenario_->weights().WEIGHT_CONS_SHIFTS;
       }
       // a. (ii)  The nurse was working on the same shift AND the short rotation contains other shifts (easy case for add/subtract)
       //            - Subtract the cost due to the consecutive beginning if > max
@@ -363,7 +360,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
       //            - Add the consecutive cost for all shifts
       else if (nConsFirstShift < size) {
         int diffShift = nConsShiftIni - pScenario_->maxConsShiftsOf(shiftTypeIni);
-        if(diffShift>0) ANS -= diffShift * WEIGHT_CONS_SHIFTS; // max penalty paid in the previous week that will be repaid
+        if(diffShift>0) ANS -= diffShift * pScenario_->weights().WEIGHT_CONS_SHIFTS; // max penalty paid in the previous week that will be repaid
         ANS -= pScenario_->consShiftTypeCost(firstShiftType, nConsFirstShift); // penalty contained in the base cost
         ANS += pScenario_->consShiftTypeCost(firstShiftType, (nConsFirstShift + nConsShiftIni));
       }
@@ -377,7 +374,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
 
       // b. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be readd later
       int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
-      if(diffWork>0) ANS -= diffWork * WEIGHT_CONS_DAYS_WORK;
+      if(diffWork>0) ANS -= diffWork * pScenario_->weights().WEIGHT_CONS_DAYS_WORK;
     }
   }
 
@@ -413,7 +410,7 @@ double SubProblemShort::costArcShortSucc(int size, int succId, int startDate) {
 //----------------------------------------------------------------
 
 // Brutally try all possible short rotations from the very first day
-bool SubProblemShort::priceVeryShortRotationsFirstDay(){
+bool ShortSP::priceVeryShortRotationsFirstDay(){
   int nFound = 0;
   for(int c=1; c<CDMin_; c++)
     nFound += priceVeryShortSameSizeRotations(0, allowedShortSuccBySize_[c]);
@@ -421,7 +418,7 @@ bool SubProblemShort::priceVeryShortRotationsFirstDay(){
 }
 
 // Brutally try all possible short rotations that end on the last day
-bool SubProblemShort::priceVeryShortRotationsLastDay(){
+bool ShortSP::priceVeryShortRotationsLastDay(){
   int nFound = 0;
   for(int c=1; c<CDMin_; c++)
       nFound += priceVeryShortSameSizeRotations(nDays_-c, allowedShortSuccBySize_[c]);
@@ -429,7 +426,7 @@ bool SubProblemShort::priceVeryShortRotationsLastDay(){
 }
 
 // Brutally try all possible short rotations from every first day
-bool SubProblemShort::priceVeryShortRotations() {
+bool ShortSP::priceVeryShortRotations() {
   int nFound = 0;
   for (int c = 1; c < CDMin_; c++) {
     const vector2D<int> &succs = allowedShortSuccBySize_[c];
@@ -439,7 +436,7 @@ bool SubProblemShort::priceVeryShortRotations() {
   return nFound > 0;
 }
 
-int SubProblemShort::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs) {
+int ShortSP::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs) {
   int nFound = 0;
   if (startingDayStatus_[k])
     for (const vector<int> &succ: succs) {
@@ -457,7 +454,7 @@ int SubProblemShort::priceVeryShortSameSizeRotations(int k,  const vector2D<int>
 
 
 // Compute the cost of a single short rotation
-double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>& succ) {
+double ShortSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) {
 
   int endDate = startDate + succ.size() - 1;
 
@@ -489,13 +486,16 @@ double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>
       consShifts = pLiveNurse_->pStateIni_->consShifts_;
       consDays += pLiveNurse_->pStateIni_->consDaysWorked_;
       // If worked too much, subtract the already counted surplus
-      consDaysRegCost -= std::max(0, pLiveNurse_->pStateIni_->consDaysWorked_ - pContract_->maxConsDaysWork_) * WEIGHT_CONS_DAYS_WORK;
-      consShiftsRegCost -= std::max(0, pLiveNurse_->pStateIni_->consShifts_ - pScenario_->maxConsShiftsOfTypeOf(shift)) * WEIGHT_CONS_SHIFTS;
+      consDaysRegCost -= std::max(0, pLiveNurse_->pStateIni_->consDaysWorked_ - pContract_->maxConsDaysWork_)
+          * pScenario_->weights().WEIGHT_CONS_DAYS_WORK;
+      consShiftsRegCost -= std::max(0, pLiveNurse_->pStateIni_->consShifts_ - pScenario_->maxConsShiftsOfTypeOf(shift))
+          * pScenario_->weights().WEIGHT_CONS_SHIFTS;
     }
       // The nurse was resting
     else {
       // Cost of a too short rest
-      shortRestRegCost += std::max(0, pContract_->minConsDaysOff_ - pLiveNurse_->pStateIni_->consDaysOff_) * WEIGHT_CONS_DAYS_OFF;
+      shortRestRegCost += std::max(0, pContract_->minConsDaysOff_ - pLiveNurse_->pStateIni_->consDaysOff_)
+          * pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
     }
   }
 
@@ -515,7 +515,8 @@ double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>
     if(newShiftType == shiftType){
       consShifts ++;
     } else {
-      consShiftsRegCost += pScenario_->consShiftCost(shift,consShifts);
+      if(shiftType>0)
+        consShiftsRegCost += pScenario_->consShiftCost(shift,consShifts);
       consShifts = 1;
       shift = newShift;
     }
@@ -591,7 +592,7 @@ double SubProblemShort::costOfVeryShortRotation(int startDate, const vector<int>
 }
 
 // Summary of the short successions generated
-void SubProblemShort::printShortSucc() const {
+void ShortSP::printShortSucc() const {
   std::cout << "#   +------------+" << std::endl;
   std::cout << "#   | CD_min = " << CDMin_ << std::endl;
   std::cout << "#   +------------+" << std::endl;
@@ -610,9 +611,9 @@ void SubProblemShort::printShortSucc() const {
 }
 
 // Prints all active pairs ( arcFromSource - corresponding short successions )
-void SubProblemShort::printShortArcs() const {
+void ShortSP::printShortArcs() const {
   for(int s=1; s<pScenario_->nbShiftsType_; s++){
-    for(int k=daysMin_-1; k<nDays_; k++){
+    for(int k=minConsDays_-1; k<nDays_; k++){
       for(int n=1; n<=principalGraphs_[s].maxCons(); n++){
         const Arc_Properties& arc_prop = arcsFromSource_[s][k][n].front();
         if(!arc_prop.forbidden){

@@ -55,21 +55,26 @@ public:
    const int maxTotalWeekends_;
    const int needCompleteWeekends_;
 
+   // weights
+   const PWeights weights_;
+
    // Constructor and Destructor
    //
    Contract(int id, std::string name, int minTotalShifts, int maxTotalShifts,
       int minConsDaysWork, int maxConsDaysWork,
       int minConsDaysOff, int maxConsDaysOff,
-      int maxTotalWeekends, int needCompleteWeekends) :
+      int maxTotalWeekends, int needCompleteWeekends, PWeights weights) :
          id_(id), name_(name), minTotalShifts_(minTotalShifts), maxTotalShifts_(maxTotalShifts),
          minConsDaysWork_(minConsDaysWork), maxConsDaysWork_(maxConsDaysWork),
          minConsDaysOff_(minConsDaysOff), maxConsDaysOff_(maxConsDaysOff),
-         maxTotalWeekends_(maxTotalWeekends), needCompleteWeekends_(needCompleteWeekends) {
-   };
+         maxTotalWeekends_(maxTotalWeekends), needCompleteWeekends_(needCompleteWeekends), weights_(weights) {};
 
     // Cost function for consecutive identical shifts
     //
     double consDaysCost(int n) const;
+    double consDaysOffCost(int n) const;
+    double totalShiftCost(int n) const;
+    double totalWeekendCost(int n) const;
 
    // Display methods: toString + override operator<< (easier)
    //
@@ -242,6 +247,11 @@ public:
    int maxConsDaysOff() const {return pContract_->maxConsDaysOff_;}
    int maxTotalWeekends() const {return pContract_->maxTotalWeekends_;}
    int needCompleteWeekends() const {return pContract_->needCompleteWeekends_;}
+
+    double consDaysCost(int n) const { return pContract_->consDaysCost(n); }
+    double consDaysOffCost(int n) const { return pContract_->consDaysOffCost(n); }
+    double totalShiftCost(int n) const { return pContract_->totalShiftCost(n); }
+    double totalWeekendCost(int n) const { return pContract_->totalWeekendCost(n); }
 
    // Avanced getters
    //

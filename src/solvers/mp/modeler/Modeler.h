@@ -109,6 +109,13 @@ struct MyVar: public MyObject{
 
 	int getLastActive() const { return last_active_; }
 
+	int getNbConsInactiveIteration(int currentLPIteration) const {
+	  return currentLPIteration - last_active_;
+	}
+	double getActivityRate(int currentLPIteration) const {
+    return active_count_ * 1.0 / (currentLPIteration - iteration_creation_);
+	}
+
 	void addActiveIteration(int iteration) {
 		if(last_active_!=iteration){
 			last_active_=iteration;
@@ -197,7 +204,9 @@ struct MyPricer{
 	// set pricer parameters
 	virtual void initPricerParameters(const SolverParam& parameters) {}
 
-	   // METHODS - Forbidden shifts, nurses, starting days, etc.
+	virtual std::vector<double> getLastMinOptimalReducedCost() const=0;
+
+	 // METHODS - Forbidden shifts, nurses, starting days, etc.
    //
    // !!! WARNING !!! : SOME METHODS ARE NOT YET IMPLEMENTED IN THE SUBPROBLEM (ALTHOUGH THE NECESSARY STRUCTURES MAY
    //                   ALREADY BE THERE !!!
@@ -404,11 +413,11 @@ struct MyNode{
 	//parent
 	MyNode* pParent_;
 
-	inline void pushBackChild(MyNode* child){
+	void pushBackChild(MyNode* child){
 		children_.push_back(child);
 	}
 
-	inline void updateBestLB(double newLB){
+	void updateBestLB(double newLB){
 		bestLB_ = newLB;
 		//if not root
 		if(pParent_){
@@ -417,7 +426,7 @@ struct MyNode{
 		}
 	}
 
-	inline double getHighestGap() const {
+	double getHighestGap() const {
 		//if root, it is the best
 		if(!pParent_)
 			return LARGE_SCORE;
@@ -428,7 +437,7 @@ struct MyNode{
 
 	// The quality of a node is used to sort the candidate list (siblings of the branching tree)
 	// They are sorted in ascending order
-	inline double getQuality() const {
+	double getQuality() const {
 		//if root, does not apply
 		if(!pParent_)
 			return LARGE_SCORE;
@@ -436,20 +445,20 @@ struct MyNode{
 		return pParent_->getBestLB() ;
 	}
 
-	inline double getBestLB() const { return bestLB_; }
+	double getBestLB() const { return bestLB_; }
 
 	// STAB
-	inline double getBestLagLB() const { return bestLagLB_; }
-	inline void setBestLagLB(double bestLagLB) {bestLagLB_ = bestLagLB;}
+	double getBestLagLB() const { return bestLagLB_; }
+	void setBestLagLB(double bestLagLB) {bestLagLB_ = bestLagLB;}
 
 	// LAGLB
-	inline double getLastLagLB() const {return lastLagLB_;}
-	inline void setLastLagLB(double lb) {lastLagLB_ = lb;}
+	double getLastLagLB() const {return lastLagLB_;}
+	void setLastLagLB(double lb) {lastLagLB_ = lb;}
 
 
-	inline void setDepth(int depth) { depth_ = depth; }
+	void setDepth(int depth) { depth_ = depth; }
 
-	inline double getDepth() const { return depth_; }
+	double getDepth() const { return depth_; }
 
 	virtual std::string write() const {
     std::stringstream out;
@@ -474,22 +483,28 @@ protected:
 };
 
 struct MyTree {
-	MyTree(): tree_size_(1), nb_nodes_last_incumbent_(-2), diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0),
-		  nb_nodes_since_dive_(-2),currentNode_(0),
+	MyTree(double epsilon): epsilon_(epsilon), tree_size_(0), nb_nodes_processed_(0), nb_nodes_last_incumbent_(0),
+	    diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0), nb_nodes_since_dive_(0),
+	    currentNode_(nullptr),
 		  best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE), best_ub(LARGE_SCORE) {}
 	virtual ~MyTree() {}
 
-	inline void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
+	void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
 
-	inline double getRootLB() const { return best_lb_in_root; }
+	double getRootLB() const { return best_lb_in_root; }
 
-	inline void setCurrentNode(MyNode* currentNode, bool diving=false) {
-		currentNode_ = currentNode;
+	void setCurrentNode(MyNode* currentNode, bool diving=false) {
 		// update tree size
     --tree_size_;
-		//one more node without new incumbent and since last dive
-		++nb_nodes_last_incumbent_;
-		++nb_nodes_since_dive_;
+    // update this parameters only if current nore exists (i.e., currentNode is not the root node)
+    if(currentNode_) {
+      ++nb_nodes_processed_;
+      //one more node without new incumbent and since last dive
+      ++nb_nodes_last_incumbent_;
+      ++nb_nodes_since_dive_;
+    }
+		// update current node
+    currentNode_ = currentNode;
     //if dive length has not been updated and we are not diving
     // this would be called once at the end of the first dive
     if(!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
@@ -507,11 +522,11 @@ struct MyTree {
 		activeTreeMapping_.clear();
 	}
 
-	inline std::string writeCurrentNode() {
+	std::string writeCurrentNode() {
 		if(currentNode_) return currentNode_->write();
 		else return "";
 	}
-	inline std::vector<MyNode*> addToMapping(const int nbLeaves, const int diveDepth) {
+	std::vector<MyNode*> addToMapping(const int nbLeaves, const int diveDepth) {
 		const int size = tree_.size();
 	 	std::vector<MyNode*> leaves(nbLeaves);
 		for(int i=0; i<nbLeaves; ++i){
@@ -519,10 +534,9 @@ struct MyTree {
 			leaves[i]->setDepth(diveDepth + 1);
 		}
 		activeTreeMapping_.insert(std::pair<MyNode*, std::vector<MyNode*> >(currentNode_, leaves));
-		//finally update the current node for the moment.
-		//Will not change for the first node as diving
 		tree_size_ += nbLeaves;
-		setCurrentNode(leaves[0], true);
+    //finally update the current node for the moment as diving (only true if not root node)
+		if(currentNode_) setCurrentNode(leaves[0], true);
 		// set dive depth
 		diveDepth_ = diveDepth;
 
@@ -530,7 +544,7 @@ struct MyTree {
 	}
 
 	//when diving with just one node
-	inline void updateDive(){
+	void updateDive(){
 	  // add one node
     tree_size_++;
     // set new node
@@ -539,7 +553,7 @@ struct MyTree {
     ++diveDepth_;
 	}
 
-	inline void eraseCurrentSibblings(){
+	void eraseCurrentSibblings(){
 		activeTreeMapping_.erase(currentNode_->pParent_);
 		//update min_depth_
 		min_depth_ = LARGE_SCORE;
@@ -547,11 +561,11 @@ struct MyTree {
 			if(p.first->getDepth() < min_depth_) min_depth_ = p.first->getDepth();
 	}
 
-	inline MyNode* getNode(const int nodeIndex) const {
+	MyNode* getNode(const int nodeIndex) const {
 		return tree_[nodeIndex];
 	}
 
-	inline double computeBestLB() {
+	double computeBestLB() {
 		best_lb = currentNode_->getBestLB();
 		for(std::pair<MyNode*, std::vector<MyNode*> > p: activeTreeMapping_)
 			for(MyNode* node: p.second)
@@ -562,24 +576,25 @@ struct MyTree {
 		return best_lb;
 	}
 
-	inline double get_best_lb() const {return best_lb; }
+	double get_best_lb() const {return best_lb; }
 
-	inline void setBestUB(double ub) {
+	void setBestUB(double ub) {
 		/* reinitialize nb_nodes_last_incumbent_ */
 		if(ub + 1 < best_ub) nb_nodes_last_incumbent_=0;
 		if(ub < best_ub) best_ub = ub;
 	}
 
-	inline double getBestUB() const { return best_ub; }
+	double getBestUB() const { return best_ub; }
 
-	inline double getCurrentLB() const {return currentNode_->getBestLB();}
+	double getCurrentLB() const {return currentNode_->getBestLB();}
 
 	//Reset and clear solving parameters
 	virtual void reset() {
 		clear();
 		best_ub = LARGE_SCORE;
-		currentNode_=0;
-		tree_size_ = 1;
+		currentNode_= nullptr;
+		tree_size_ = 0;
+    nb_nodes_processed_ = 0;
 		nb_nodes_last_incumbent_=0;
 		nb_nodes_since_dive_=0;
 		diveDepth_=0;
@@ -588,17 +603,19 @@ struct MyTree {
 		best_lb = LARGE_SCORE;
 	}
 
-	inline int getTreeSize() const { return tree_size_; }
+	int getTreeSize() const { return tree_size_; }
 
-	inline int getNbNodesSinceLastIncumbent() const { return nb_nodes_last_incumbent_; }
+	int getNbNodesProcessed() const { return nb_nodes_processed_; }
 
-	inline void resetNbNodesSinceLastDive(){ nb_nodes_since_dive_ = 0; }
+	int getNbNodesSinceLastIncumbent() const { return nb_nodes_last_incumbent_; }
 
-	inline int getDiveLength() const { return diveLength_; }
+	void resetNbNodesSinceLastDive(){ nb_nodes_since_dive_ = 0; }
 
-	inline int getNbDives() const { return nb_nodes_since_dive_ / diveLength_; } //nb_nodes_last_incumbent_
+	int getDiveLength() const { return diveLength_; }
 
-	inline void updateNodeLB(double lb){
+	int getNbDives() const { return nb_nodes_since_dive_ / diveLength_; } //nb_nodes_last_incumbent_
+
+	void updateNodeLB(double lb){
 		if(best_lb_in_root > lb)
 			best_lb_in_root = lb;
 		currentNode_->updateBestLB(lb);
@@ -606,11 +623,11 @@ struct MyTree {
 	}
 
 	// STAB: getter and setter for lagrangian bound
-	inline double getNodeBestLagLB() const {return currentNode_->getBestLagLB();}
-	inline double getNodeLastLagLB() const {return currentNode_->getLastLagLB();}
-	inline bool updateNodeLagLB(double lb){
+	double getNodeBestLagLB() const {return currentNode_->getBestLagLB();}
+	double getNodeLastLagLB() const {return currentNode_->getLastLagLB();}
+	bool updateNodeLagLB(double lb){
 		currentNode_->setLastLagLB(lb);
-		if (lb > currentNode_->getBestLagLB()+EPSILON) {
+		if (lb > currentNode_->getBestLagLB()+epsilon_) {
 			currentNode_->setBestLagLB(lb);
 			return true;
 		}
@@ -621,15 +638,14 @@ struct MyTree {
 
 	double getRelaxedObjective() const { return best_lb_in_root; }
 
-	inline void pushBackNewNode(){
-		pushBackNode(new MyNode);
+	void createRootNode(){
+    tree_.push_back(new MyNode);
+    ++tree_size_;
 	}
 
-	inline void pushBackNode(MyNode* node){
+	void pushBackNode(MyNode* node){
 		tree_.push_back(node);
-		//just for pushing root
-		if(currentNode_)
-			currentNode_->pushBackChild(node);
+		currentNode_->pushBackChild(node);
 	}
 
 	MyNode* getCurrentNode() const { return currentNode_; }
@@ -638,7 +654,7 @@ struct MyTree {
 
 	virtual bool continueDiving() const {return false;}
 
-	inline void addCurrentNodeToStack() {
+	void addCurrentNodeToStack() {
 		//currentNode_ is finally
 		tree_size_ ++;
 		--nb_nodes_last_incumbent_;
@@ -658,13 +674,14 @@ struct MyTree {
 	void printStats() const { std::cout << writeBranchStats(); }
 
 protected:
+  double epsilon_;
 	//mapping between the Siblings and MyNode*
 	//a sibblings contains a list of all its leaves MyNode
   std::map<MyNode*, std::vector<MyNode*>> activeTreeMapping_;
 	//branching tree
  	std::vector<MyNode*> tree_;
 	//tree size, number of nodes since last incumbent, depth of the current dive, length of a dive
-	int tree_size_, nb_nodes_last_incumbent_, diveDepth_, diveLength_, min_depth_, nb_nodes_since_dive_;
+	int tree_size_, nb_nodes_processed_, nb_nodes_last_incumbent_, diveDepth_, diveLength_, min_depth_, nb_nodes_since_dive_;
 	//current node
 	MyNode* currentNode_;
 
@@ -690,7 +707,7 @@ protected:
 class Modeler {
   public:
 
-    Modeler() : pPricer_(0), pBranchingRule_(0), pTree_(new MyTree()) {}
+    Modeler() : pPricer_(nullptr), pBranchingRule_(nullptr), pTree_(nullptr) {}
 
     virtual ~Modeler() {
       for (MyObject *object: objects_)
@@ -749,30 +766,34 @@ class Modeler {
      */
 
     //return true if optimal
-    inline std::vector<MyVar *>
+    std::vector<MyVar *>
     pricing(double bound = 0, bool before_fathom = false, bool after_fathom = false, bool backtracked = false) {
       if (pPricer_)
         return pPricer_->pricing(bound, before_fathom, after_fathom, backtracked);
       return EMPTY_VARS;
     }
 
-    inline bool branching_candidates(MyBranchingCandidate &candidate) {
+    bool branching_candidates(MyBranchingCandidate &candidate) {
       if (pBranchingRule_)
         return pBranchingRule_->branching_candidates(candidate);
       return false;
     }
 
     //remove all bad candidates from fixingCandidates
-    inline bool column_candidates(MyBranchingCandidate &candidate) {
+    bool column_candidates(MyBranchingCandidate &candidate) {
       if (pBranchingRule_)
         return pBranchingRule_->column_candidates(candidate);
       return false;
     }
 
     //Set search strategy
-    inline void set_search_strategy(SearchStrategy searchStrategy) {
+    void set_search_strategy(SearchStrategy searchStrategy) {
       if (pBranchingRule_)
         pBranchingRule_->set_search_strategy(searchStrategy);
+    }
+
+    double epsilon() const {
+      return parameters_.epsilon_;
     }
 
     /*
@@ -798,7 +819,7 @@ class Modeler {
                           double lb, double ub, VarType vartype, const std::vector<double> &pattern, double score) = 0;
 
   public:
-    inline void createPositiveVar(MyVar **var, const char *var_name, double objCoeff,
+    void createPositiveVar(MyVar **var, const char *var_name, double objCoeff,
                                   const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0,
                                   double ub = DBL_MAX) {
       ub = (ub == DBL_MAX) ? infinity_ : ub;
@@ -806,7 +827,7 @@ class Modeler {
       positiveCoreVars_.push_back(*var);
     }
 
-    inline void createIntVar(MyVar **var, const char *var_name, double objCoeff,
+    void createIntVar(MyVar **var, const char *var_name, double objCoeff,
                              const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0,
                              double ub = DBL_MAX) {
       ub = (ub == DBL_MAX) ? infinity_ : ub;
@@ -814,7 +835,7 @@ class Modeler {
       integerCoreVars_.push_back(*var);
     }
 
-    inline void createBinaryVar(MyVar **var, const char *var_name, double objCoeff,
+    void createBinaryVar(MyVar **var, const char *var_name, double objCoeff,
                                 const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0) {
       createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, pattern, score);
       binaryCoreVars_.push_back(*var);
@@ -835,21 +856,21 @@ class Modeler {
                     double lb, double ub, VarType vartype, double score) = 0;
 
   public:
-    inline void
+    void
     createPositiveColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                             double dualObj = LARGE_SCORE, double score = 0, double ub = DBL_MAX) {
       ub = (ub == DBL_MAX) ? infinity_ : ub;
       createColumnVar(var, var_name, objCoeff, pattern, dualObj, 0.0, ub, VARTYPE_CONTINUOUS, score);
     }
 
-    inline void
+    void
     createIntColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                        double dualObj = LARGE_SCORE, double score = 0, double ub = DBL_MAX) {
       ub = (ub == DBL_MAX) ? infinity_ : ub;
       createColumnVar(var, var_name, objCoeff, pattern, dualObj, 0, ub, VARTYPE_INTEGER, score);
     }
 
-    inline void
+    void
     createBinaryColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                           double dualObj = LARGE_SCORE, double score = 0) {
       createColumnVar(var, var_name, objCoeff, pattern, dualObj, 0.0, 1.0, VARTYPE_BINARY, score);
@@ -881,17 +902,17 @@ class Modeler {
                                  std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) = 0;
 
   public:
-    inline void createLEConsLinear(MyCons **cons, const char *con_name, double rhs,
+    void createLEConsLinear(MyCons **cons, const char *con_name, double rhs,
                                    std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       createConsLinear(cons, con_name, -infinity_, rhs, vars, coeffs);
     }
 
-    inline void createGEConsLinear(MyCons **cons, const char *con_name, double lhs,
+    void createGEConsLinear(MyCons **cons, const char *con_name, double lhs,
                                    std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       createConsLinear(cons, con_name, lhs, infinity_, vars, coeffs);
     }
 
-    inline void createEQConsLinear(MyCons **cons, const char *con_name, double eq,
+    void createEQConsLinear(MyCons **cons, const char *con_name, double eq,
                                    std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       createConsLinear(cons, con_name, eq, eq, vars, coeffs);
     }
@@ -910,19 +931,19 @@ class Modeler {
 
   public:
     //Add a lower or equal constraint
-    inline void createLECutLinear(MyCons **cons, const char *con_name, double rhs,
+    void createLECutLinear(MyCons **cons, const char *con_name, double rhs,
                                   std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       createCutLinear(cons, con_name, -infinity_, rhs, vars, coeffs);
     }
 
     //Add a greater or equal constraint
-    inline void createGECutLinear(MyCons **cons, const char *con_name, double lhs,
+    void createGECutLinear(MyCons **cons, const char *con_name, double lhs,
                                   std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       createCutLinear(cons, con_name, lhs, infinity_, vars, coeffs);
     }
 
     //Add an equality constraint
-    inline void createEQCutLinear(MyCons **cons, const char *con_name, double eq,
+    void createEQCutLinear(MyCons **cons, const char *con_name, double eq,
                                   std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       createCutLinear(cons, con_name, eq, eq, vars, coeffs);
     }
@@ -937,7 +958,7 @@ class Modeler {
      * Add new Column to the problem
      */
 
-    inline void
+    void
     createColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern, double dualObj,
                  VarType vartype,
                  std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {}, bool transformed = false,
@@ -958,7 +979,7 @@ class Modeler {
         addCoefLinear(cons[i], *var, coeffs[i], transformed);
     }
 
-    inline void
+    void
     createPositiveColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                          double dualObj,
                          std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {}, bool transformed = false,
@@ -966,7 +987,7 @@ class Modeler {
       createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_CONTINUOUS, cons, coeffs, transformed, score);
     }
 
-    inline void
+    void
     createBinaryColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                        double dualObj,
                        std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {}, bool transformed = false,
@@ -974,7 +995,7 @@ class Modeler {
       createColumn(var, var_name, objCoeff, pattern, dualObj, VARTYPE_BINARY, cons, coeffs, transformed, score);
     }
 
-    inline void createIntColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
+    void createIntColumn(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                                 double dualObj,
                                 std::vector<MyCons *> cons = {}, std::vector<double> coeffs = {},
                                 bool transformed = false, double score = 0) {
@@ -988,7 +1009,7 @@ class Modeler {
     virtual bool isInteger(MyVar *var) const {
       double value = getVarValue(var);
       double fractionalPart = round(value) - value;
-      if (abs(fractionalPart) < EPSILON)
+      if (abs(fractionalPart) < epsilon())
         return true;
       return false;
     }
@@ -997,14 +1018,14 @@ class Modeler {
 
     //compute the total cost of a multiple vectors of MyObject* in the solution
     template<typename V>
-    inline double getVarValue(const std::vector<V> &vector) const {
+    double getVarValue(const std::vector<V> &vector) const {
       double value = 0;
       for (const V &vect: vector)
         value += getVarValue(vect);
       return value;
     }
 
-    inline std::vector<double> getVarValues(const std::vector<MyVar *> &vars) const {
+    std::vector<double> getVarValues(const std::vector<MyVar *> &vars) const {
       std::vector<double> values(vars.size());
       for (unsigned int i = 0; i < vars.size(); ++i)
         values[i] = getVarValue(vars[i]);
@@ -1017,7 +1038,7 @@ class Modeler {
 
     virtual double getDual(MyCons *cons, bool transformed = false) const = 0;
 
-    inline std::vector<double> getDuals(const std::vector<MyCons *> &cons, bool transformed = false) const {
+    std::vector<double> getDuals(const std::vector<MyCons *> &cons, bool transformed = false) const {
       std::vector<double> dualValues(cons.size());
       for (unsigned int i = 0; i < cons.size(); ++i)
         dualValues[i] = getDual(cons[i], transformed);
@@ -1039,7 +1060,7 @@ class Modeler {
 
     //compute the total cost of a vector of MyObject* in the solution
     template<typename T>
-    inline double getTotalCost(const std::map<MyVar *, T> &map0, bool print = false) const {
+    double getTotalCost(const std::map<MyVar *, T> &map0, bool print = false) const {
       double value = 0;
       for (const std::pair<MyObject *, T> &var: map0)
         value += getTotalCost(var.first, print);
@@ -1048,7 +1069,7 @@ class Modeler {
 
     //compute the total cost of a multiple vectors of MyObject* in the solution
     template<typename V>
-    inline double getTotalCost(const std::vector<V> &vector, bool print = false) const {
+    double getTotalCost(const std::vector<V> &vector, bool print = false) const {
       double value = 0;
       for (const V &vect: vector)
         value += getTotalCost(vect, print);
@@ -1126,80 +1147,82 @@ class Modeler {
       Tools::throwError(error.c_str());
     }
 
-    inline const std::vector<MyVar *> &getBinaryCoreVars() const { return binaryCoreVars_; }
+    const std::vector<MyVar *> &getBinaryCoreVars() const { return binaryCoreVars_; }
 
-    inline const std::vector<MyVar *> &getIntegerCoreVars() const { return integerCoreVars_; }
+    const std::vector<MyVar *> &getIntegerCoreVars() const { return integerCoreVars_; }
 
-    inline const std::vector<MyVar *> &getPositiveCoreVars() const { return positiveCoreVars_; }
+    const std::vector<MyVar *> &getPositiveCoreVars() const { return positiveCoreVars_; }
 
-    inline int getVerbosity() const { return verbosity_; }
+    int getVerbosity() const { return verbosity_; }
 
-    inline virtual void setBestUB(double ub) { pTree_->setBestUB(ub); }
+    virtual void setBestUB(double ub) { pTree_->setBestUB(ub); }
 
-    inline virtual double getObjective() const { return pTree_->getBestUB(); }
+    virtual double getObjective() const { return pTree_->getBestUB(); }
 
     virtual double getObjective(int index) const { return LARGE_SCORE; }
 
 
-    inline virtual double getRelaxedObjective() const { return pTree_->getRootLB(); }
+    virtual double getRelaxedObjective() const { return pTree_->getRootLB(); }
 
-    inline double getCurrentLB() const { return pTree_->getCurrentLB(); }
+    double getCurrentLB() const { return pTree_->getCurrentLB(); }
 
-    inline void updateNodeLB(double lb) { pTree_->updateNodeLB(lb); }
+    void updateNodeLB(double lb) { pTree_->updateNodeLB(lb); }
 
     // STAB
-    inline double getNodeBestLagLB() { return pTree_->getNodeBestLagLB(); }
+    double getNodeBestLagLB() { return pTree_->getNodeBestLagLB(); }
 
-    inline double getNodeLastLagLB() { return pTree_->getNodeLastLagLB(); }
+    double getNodeLastLagLB() { return pTree_->getNodeLastLagLB(); }
 
-    inline bool updateNodeLagLB(double lb) { return pTree_->updateNodeLagLB(lb); }
+    bool updateNodeLagLB(double lb) { return pTree_->updateNodeLagLB(lb); }
 
-    inline double getRootLB() const { return pTree_->getRootLB(); }
+    double getRootLB() const { return pTree_->getRootLB(); }
 
-    inline double computeBestLB() { return pTree_->computeBestLB(); }
+    double computeBestLB() { return pTree_->computeBestLB(); }
 
-    inline double get_best_lb() const { return pTree_->get_best_lb(); }
+    double get_best_lb() const { return pTree_->get_best_lb(); }
 
-    inline int getTreeSize() const { return pTree_->getTreeSize(); }
+    int getTreeSize() const { return pTree_->getTreeSize(); }
 
-    inline std::string writeCurrentNode() const { return pTree_->writeCurrentNode(); }
+    int getNbNodesProcessed() const { return pTree_->getNbNodesProcessed(); }
 
-    inline bool is_columns_node() const { return pTree_->is_columns_node(); }
+    std::string writeCurrentNode() const { return pTree_->writeCurrentNode(); }
 
-    inline void updateDive() { return pTree_->updateDive(); }
+    bool is_columns_node() const { return pTree_->is_columns_node(); }
 
-    inline bool continueDiving() { return pTree_->continueDiving(); }
+    void updateDive() { return pTree_->updateDive(); }
 
-    inline void addCurrentNodeToStack() { pTree_->addCurrentNodeToStack(); }
+    bool continueDiving() { return pTree_->continueDiving(); }
 
-    inline int getNbDives() const { return pTree_->getNbDives(); }
+    void addCurrentNodeToStack() { pTree_->addCurrentNodeToStack(); }
 
-    inline void resetNbNodesSinceLastDive() { pTree_->resetNbNodesSinceLastDive(); }
+    int getNbDives() const { return pTree_->getNbDives(); }
 
-    inline virtual int nbSolutions() const { return 0; }
+    void resetNbNodesSinceLastDive() { pTree_->resetNbNodesSinceLastDive(); }
 
-    inline void setSearchStrategy(SearchStrategy searchStrategy) {
+    virtual int nbSolutions() const { return 0; }
+
+    void setSearchStrategy(SearchStrategy searchStrategy) {
       searchStrategy_ = searchStrategy;
       set_search_strategy(searchStrategy);
     }
 
-    inline SearchStrategy getSearchStrategy() const { return searchStrategy_; }
+    SearchStrategy getSearchStrategy() const { return searchStrategy_; }
 
-    inline virtual void setParameters(const SolverParam &parameters, PrintSolution *func) {
+    virtual void setParameters(const SolverParam &parameters, PrintSolution *func) {
       parameters_ = parameters;
       parameters_.saveFunction_ = func;
       setVerbosity(parameters_.verbose_);
       logfile_ = parameters.logfile_;
     }
 
-    inline std::string logfile() const { return logfile_; }
+    std::string logfile() const { return logfile_; }
 
-    inline const SolverParam &getParameters() const { return parameters_; }
+    const SolverParam &getParameters() const { return parameters_; }
 
-    inline void setLogFile(std::string fileName) { logfile_ = fileName; }
+    void setLogFile(std::string fileName) { logfile_ = fileName; }
 
-    inline void setInfinity(double inf) { infinity_ = inf; }
-    inline double getInfinity() const { return infinity_; }
+    void setInfinity(double inf) { infinity_ = inf; }
+    double getInfinity() const { return infinity_; }
 
     // get the variables that are always present in the model
     const std::vector<MyVar *> &getCoreVars() const { return coreVars_; }

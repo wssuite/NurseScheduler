@@ -25,7 +25,7 @@ public:
 	InputPaths();
 	InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices,
 		std::string solutionPath="",std::string logPath="", std::string paramFile="" , double timeOut=3600.0,
-		   int randSeed=0, bool shortSP = true);
+		   int randSeed=0, std::string SPType = "LONG");
 
 protected:
 	std::string instance_;
@@ -39,38 +39,38 @@ protected:
 	std::string paramFile_="";
 	int randSeed_=0;
 	double timeOut_=3600;
-	bool  shortSP_ = true;
+	std::string SPType_ = "LONG";
 
 public:
 	// get/set attributes
 	std::string instance() const {return instance_;}
 	std::string scenario() const {return scenario_;}
-	inline void scenario(std::string scenario) {scenario_ = scenario;}
+	void scenario(std::string scenario) {scenario_ = scenario;}
 
 	int historyIndex() const {return historyIndex_;}
 	std::string history() const {return history_;}
-	inline void history(std::string history) {history_ = history;}
+	void history(std::string history) {history_ = history;}
 
 	std::vector<std::string> weeks() const {return weeks_;}
 	std::string week(int w) const {return weeks_[w];}
 	int weekIndex(int w) const {return weekIndices_[w];}
 	int nbWeeks() const {return weeks_.size();}
-	inline void addWeek(std::string week) {weeks_.push_back(week);}
+	void addWeek(std::string week) {weeks_.push_back(week);}
 
 	std::string paramFile() {return paramFile_;}
-	inline void paramFile(std::string file) {paramFile_=file;}
+	void paramFile(std::string file) {paramFile_=file;}
 	std::string solutionPath() {return solutionPath_;}
-	inline void solutionPath(std::string path) {solutionPath_=path;}
+	void solutionPath(std::string path) {solutionPath_=path;}
 	std::string logPath() {return logPath_;}
-	inline void logPath(std::string path) {logPath_=path;}
+	void logPath(std::string path) {logPath_=path;}
 
 	int randSeed() {return randSeed_;}
-	inline void randSeed(int seed) {randSeed_ =  seed;}
+	void randSeed(int seed) {randSeed_ =  seed;}
   double timeOut() {return timeOut_;}
-  inline void timeOut(double t) {timeOut_= t;}
+  void timeOut(double t) {timeOut_= t;}
 
-  bool shortSP() {return shortSP_;}
-  inline void shortSP(bool b) {shortSP_ = b;}
+  std::string SPType() {return SPType_;}
+  void SPType(std::string t) {SPType_ = t;}
 };
 
 #endif

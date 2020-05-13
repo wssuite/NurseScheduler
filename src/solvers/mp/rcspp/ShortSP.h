@@ -2,22 +2,22 @@
 // Created by antoine legrain on 2020-04-12.
 //
 
-#ifndef NURSESCHEDULER_SUBPROBLEMSHORT_H
-#define NURSESCHEDULER_SUBPROBLEMSHORT_H
+#ifndef NURSESCHEDULER_SHORTSP_H
+#define NURSESCHEDULER_SHORTSP_H
 
 #include "SubProblem.h"
 
 
-class SubProblemShort : public SubProblem {
+class ShortSP : public SubProblem {
 
   public:
 
-    SubProblemShort();
-    virtual ~SubProblemShort();
+    ShortSP();
+    virtual ~ShortSP();
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    SubProblemShort(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
+    ShortSP(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
 
     double startWorkCost(int a) const override;
 
@@ -93,7 +93,7 @@ class SubProblemShort : public SubProblem {
 
     // // Some getters
     // //
-    inline int nVeryShortFound() const {return nVeryShortFound_;}
+    int nVeryShortFound() const {return nVeryShortFound_;}
 
     // Print functions.
     //
@@ -103,4 +103,4 @@ class SubProblemShort : public SubProblem {
 };
 
 
-#endif //NURSESCHEDULER_SUBPROBLEMSHORT_H
+#endif //NURSESCHEDULER_SHORTSP_H

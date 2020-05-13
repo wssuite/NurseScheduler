@@ -300,10 +300,10 @@ public:
 	~BcpModeler();
 
 	//solve the model
-	int solve(bool relaxation = false);
+	int solve(bool relaxation = false) override;
 
 	//Reset and clear solving parameters
-	void reset();
+	void reset() override;
 
 	void addActiveColumn(MyVar* var, int index=-1){
 		BcpColumn* col = dynamic_cast<BcpColumn*>(var);
@@ -314,9 +314,9 @@ public:
 	}
 
 	// Delete all the objects owned by this modeler and then call the parent function
-  void clear();
+  void clear() override;
 
-	void clearActiveColumns() {
+	void clearActiveColumns() override {
     Modeler::clearActiveColumns();
     columnsToIndex_.clear();
 	}
@@ -343,10 +343,10 @@ protected:
 	 *    nonZeroVars is the number of non-zero coefficients to add to the constraint
 	 */
 
-	int createCoinConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs);
+	int createCoinConsLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs) override;
 
   int createCoinCutLinear(MyCons** con, const char* con_name, int index, double lhs, double rhs,
-                                    const std::vector<int>& indexVars, const std::vector<double>& coeffs);
+                                    const std::vector<int>& indexVars, const std::vector<double>& coeffs) override;
 
 	MyVar* copyColumn(MyVar* var) const;
 
@@ -358,26 +358,26 @@ public:
 	 * Get/set the primal value
 	 */
 
-	double getVarValue(MyVar* var) const;
+	double getVarValue(MyVar* var) const override;
 	void setVarValue(MyVar* var, double value);
 
 	/*
 	 * Get the dual variables
 	 */
 
-	double getDual(MyCons* cons, bool transformed = false) const;
+	double getDual(MyCons* cons, bool transformed = false) const override;
 
 	/*
 	 * Get the reduced cost
 	 */
 
-	double getReducedCost(MyVar* var) const;
+	double getReducedCost(MyVar* var) const override;
 
 	/**************
 	 * Parameters *
 	 *************/
-	int setVerbosity(int v);
-	inline void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr){
+	int setVerbosity(int v) override;
+	void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr) override {
 		Modeler::setParameters(parameters, func);
 		if (pPricer_) {
 			pPricer_->initPricerParameters(parameters);
@@ -388,9 +388,9 @@ public:
 	 * Outputs *
 	 *************/
 
-	int writeProblem(std::string fileName) const;
+	int writeProblem(std::string fileName) const override;
 
-	int writeLP(std::string fileName) const;
+	int writeLP(std::string fileName) const override;
 
 	/*
 	 * Class own methods and parameters
@@ -411,10 +411,10 @@ public:
 
 	// Clear the active column, set the active columns with those in the best solution,
 	// and set the primal values accordingly
-	bool loadBestSol();
+	bool loadBestSol() override;
 
 	// Set the value of the active columns with those in the best solution
-	void setActiveColumnsValuesWithBestSol();
+	void setActiveColumnsValuesWithBestSol() override;
 
 	// Clear the active column, set the active columns with those in the solution with input index
 	// and set the primal values accordingly
@@ -424,19 +424,19 @@ public:
 	// solution and set the primal values accordingly
 	void loadInputSol(const BCP_solution_generic& sol);
 
-	inline void setPrimal(const std::vector<double>& primal){ primalValues_ = primal; }
+	void setPrimal(const std::vector<double>& primal){ primalValues_ = primal; }
 
-	inline int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
+	int getFrequency() { return TmVerb_SingleLineInfoFrequency; }
 
-	inline void setLastNbSubProblemsSolved(int lastNbSubProblemsSolved){ lastNbSubProblemsSolved_ = lastNbSubProblemsSolved; }
+	void setLastNbSubProblemsSolved(int lastNbSubProblemsSolved){ lastNbSubProblemsSolved_ = lastNbSubProblemsSolved; }
 
-	inline int getLastNbSubProblemsSolved(){ return lastNbSubProblemsSolved_; }
+	int getLastNbSubProblemsSolved(){ return lastNbSubProblemsSolved_; }
 
-	inline double getLastMinDualCost(){ return lastMinDualCost_; }
-	inline void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
+	double getLastMinDualCost(){ return lastMinDualCost_; }
+	void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
 
-	inline double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
-	inline double getObj(int index) const { Tools::get(obj_history_, index); }
+	double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
+	double getObj(int index) const { return Tools::get(obj_history_, index); }
 
 	// Set every rotation to one : this is useful only when the active columns
 	// are only the rotations included in a provided initial solution
@@ -444,22 +444,22 @@ public:
 	void setEveryRotationToOne();
 
 	// fix/unfix all the rotations variables starting from the input vector of days
-	void fixRotationsStartingFromDays(const std::vector<bool>& isFixDay);
-	void unfixRotationsStartingFromDays(const std::vector<bool>& isUnfixDay);
+	void fixRotationsStartingFromDays(const std::vector<bool>& isFixDay) override;
+	void unfixRotationsStartingFromDays(const std::vector<bool>& isUnfixDay) override;
 
 	// fix/unfix all the rotations variables of the input nurses
-	void fixRotationsOfNurses(const std::vector<bool>& isFixNurse);
-	void unfixRotationsOfNurses(const std::vector<bool>& isUnfixNurse);
+	void fixRotationsOfNurses(const std::vector<bool>& isFixNurse) override;
+	void unfixRotationsOfNurses(const std::vector<bool>& isUnfixNurse) override;
 
 	// relax/unrelax the integrality of all the rotations variables starting from the input vector of days
-	void relaxRotationsStartingFromDays(const std::vector<bool>& isRelaxDay);
-	void unrelaxRotationsStartingFromDays(const std::vector<bool>& isUnRelaxDay);
+	void relaxRotationsStartingFromDays(const std::vector<bool>& isRelaxDay) override;
+	void unrelaxRotationsStartingFromDays(const std::vector<bool>& isUnRelaxDay) override;
 
 	/*
 	 * Manage the storage of our own tree
 	 */
 
-	inline void setCurrentNode(const CoinTreeSiblings* s) {
+	void setCurrentNode(const CoinTreeSiblings* s) {
 		/* the current node of this siblings is already taken as processed */
 		int nodeIndex = s->size() - s->toProcess() - 1;
 		pTree_->setCurrentNode(treeMapping_[s][nodeIndex]);
@@ -471,15 +471,15 @@ public:
 		}
 	}
 
-	inline MyNode* getCurrentNode() {return pTree_->getCurrentNode();}
+	MyNode* getCurrentNode() {return pTree_->getCurrentNode();}
 
 
-	inline void addToMapping(const CoinTreeSiblings* s) {
+	void addToMapping(const CoinTreeSiblings* s) {
 		const int nbLeaves = s->size();
     treeMapping_[s] = pTree_->addToMapping(nbLeaves, s->currentNode()->getDepth());
 	}
 
-	inline MyNode* getNode(const CoinTreeSiblings* s) {
+	MyNode* getNode(const CoinTreeSiblings* s) {
     int nodeIndex = s->size() - s->toProcess();
     return treeMapping_[s][nodeIndex];
   }
@@ -488,21 +488,21 @@ public:
 	 * Parameters getters
 	 */
 
-	inline LPSolverType getLPSolverType() { return LPSolverType_; };
+	LPSolverType getLPSolverType() { return LPSolverType_; };
 
-	inline  std::map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
+	 std::map<BCP_tm_par::chr_params, bool>& getTmParameters(){ return tm_parameters; }
 
-	inline  std::map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
+	 std::map<BCP_lp_par::chr_params, bool>& getLpParameters(){ return lp_parameters; }
 
-	inline bool is_solution_changed() { return solHasChanged_; }
+	bool is_solution_changed() { return solHasChanged_; }
 
-	inline int nbSolutions() const { return bcpSolutions_.size(); }
+	int nbSolutions() const override { return bcpSolutions_.size(); }
 
-	inline double getObjective() const {return Modeler::getObjective(); }
+	double getObjective() const override {return Modeler::getObjective(); }
 
-	inline double getObjective(int index) const { return Tools::get(bcpSolutions_, index).objective_value(); }
+	double getObjective(int index) const override { return Tools::get(bcpSolutions_, index).objective_value(); }
 
-	inline MasterProblem* getMaster() const {return pMaster_;}
+	MasterProblem* getMaster() const {return pMaster_;}
 
 	//check if Bcp stops
 	bool doStop() const;
@@ -514,7 +514,7 @@ public:
 
 	// Get/set the value of the current level in the branch and bound tree
 	//
-	int getCurrentTreeLevel() const {return currentTreeLevel_;}
+	int getCurrentTreeLevel() const override {return currentTreeLevel_;}
 	void setCurrentTreeLevel(int level) {currentTreeLevel_ = level;}
 
 	// STAB
@@ -710,10 +710,13 @@ public:
 	//This method provides an opportunity for the user to change parameters of the LP solver before optimization in the LP solver starts.
 	//The second argument indicates whether the optimization is a "regular" optimization or it will take place in strong branching.
 	//Default: empty method.
-	void modify_lp_parameters ( OsiSolverInterface* lp, const int changeType, bool in_strong_branching);
+	void modify_lp_parameters(OsiSolverInterface* lp, const int changeType, bool in_strong_branching);
 
 	//print in cout a line summary of the current solver state
-	void printSummaryLine(const BCP_vec<BCP_var*>& vars = {});
+	void printSummaryLine(const BCP_vec<BCP_var*>& vars = {}) const;
+
+  //print in cout a line summary of the current node state
+  void printNodeSummaryLine(int nbChildren=0) const;
 
 	//stop this node or BCP
 	bool doStop();
@@ -829,10 +832,6 @@ public:
 	// Update the bounds and/or costs of the stabilization variables
 	bool stabUpdateBoundAndCost(bool isStall, bool isImproveQuality) ;
 
-	//Parameters to be deleted
-	int min_inactive_iteration = 50;
-	double max_activity_rate = .1;
-
 	// getters/setters
   BCP_lp_statistics getTimeStats() {
     return getLpProblemPointer()->stat;
@@ -850,6 +849,8 @@ protected:
 	BcpModeler* pModel_;
 	//count the iteration
 	int currentNodelpIteration_, lpIteration_;
+	// current node start time
+	double currentNodeStartTime_;
 	//count the nodes
 	int last_node;
 	// stored if the current node corresponds to a backtracking
@@ -858,7 +859,8 @@ protected:
 	bool heuristicHasBeenRun_;
 	int nbNodesSinceLastHeuristic_;
 	//number of generated columns
-	int nbGeneratedColumns_;
+	int nbCurrentNodeGeneratedColumns_, nbGeneratedColumns_;
+	int nbCurrentNodeSPSolved_;
 	// Number of dives to wait before branching on columns again
   std::list<int> nb_dives_to_wait_before_branching_on_columns_;
 
@@ -872,6 +874,16 @@ protected:
 	// rerun the code use to test the integer feasibility of a solution and find why a solution is not feasible
   void find_infeasibility(const BCP_lp_result& lpres, //the result of the most recent LP optimization.
                           const BCP_vec<BCP_var*> &  vars);
+
+    BCP_branching_decision selectBranchingDecision(
+        const BCP_lp_result &lpres, //the result of the most recent LP optimization.
+        const BCP_vec<BCP_var *> &vars, //the variables in the current formulation.
+        const BCP_vec<BCP_cut *> &cuts, //the cuts in the current formulation.
+        const BCP_lp_var_pool &local_var_pool, //the local pool that holds variables with negative reduced cost.
+        //In case of continuing with the node the best so many variables will be added to the formulation (those with the most negative reduced cost).
+        const BCP_lp_cut_pool &local_cut_pool, //the local pool that holds violated cuts.
+        //In case of continuing with the node the best so many cuts will be added to the formulation (the most violated ones).
+        BCP_vec<BCP_lp_branching_object *> &cands); //the generated branching candidates.
 };
 
 /*
@@ -978,17 +990,17 @@ protected:
 
 	void realpop() {
 		/* update the current node of the modeler */
-		pModel_->setCurrentNode(this->candidateList_[0]);
+		pModel_->setCurrentNode(this->candidateList_.front());
 		/* the siblings is now empty -> choose the next one */
 		//copy the best candidate at the first place
-		candidateList_[0] = candidateList_.back();
+		candidateList_.front() = candidateList_.back();
 		//and remove the last item
 		candidateList_.pop_back();
 	}
 
 	void fixTop() {
 		/* update the current node of the modeler */
-		pModel_->setCurrentNode(this->candidateList_[0]);
+		pModel_->setCurrentNode(this->candidateList_.front());
 	}
 
 	void realpush(CoinTreeSiblings* s) {

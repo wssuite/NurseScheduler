@@ -9,23 +9,25 @@
 #define SUBPROBLEM_H_
 
 #include "solvers/mp/rcspp/RCGraph.h"
-#include "solvers/mp/rcspp/PriceLabelsGraph.h"
+#include "solvers/mp/rcspp/PriceLabelGraph.h"
 #include "solvers/mp/rcspp/PrincipalGraph.h"
 #include "solvers/mp/MasterProblem.h"
 
 static int MAX_COST = 99999;
+
 
 // Parameters (called in the solve function)
 //
 struct SubproblemParam{
 
 	SubproblemParam(){}
-	SubproblemParam(int strategy, PLiveNurse pNurse){
-		initSubprobemParam(strategy, pNurse);
+	SubproblemParam(int strategy, PLiveNurse pNurse, MasterProblem* pMaster){
+		initSubprobemParam(strategy, pNurse, pMaster);
 	}
 	~SubproblemParam(){};
 
-	void initSubprobemParam(int strategy, PLiveNurse   pNurse){
+	void initSubprobemParam(int strategy, PLiveNurse pNurse, MasterProblem* pMaster){
+	  epsilon = pMaster->getModel()->epsilon();
 		maxRotationLength_ = pNurse->maxConsDaysWork();
 		switch(strategy){
 
@@ -52,6 +54,8 @@ struct SubproblemParam{
 	}
 
 	// *** PARAMETERS ***
+	double epsilon = 1e-5;
+
   static const int maxSubproblemStrategyLevel_ = 1;
 
 	// 0 -> no short rotations
@@ -115,52 +119,71 @@ class SubProblem {
                        std::set<std::pair<int, int> > forbiddenDayShifts = {},
                        std::set<int> forbiddenStartingDays = {},
                        bool optimality = false,
-                       double redCostBound = -1e-9);
+                       double redCostBound = 0);
 
     // Returns all rotations saved during the process of solving the SPPRC
     //
-    inline const std::vector<RCSolution>& getSolutions() const { return theSolutions_; }
+    const std::vector<RCSolution>& getSolutions() const { return theSolutions_; }
 
     virtual void build();
 
     // Some getters
     //
-    inline PScenario scenario() const { return pScenario_; }
+    PScenario scenario() const { return pScenario_; }
 
-    inline PConstContract contract() const { return pContract_; }
+    PConstContract contract() const { return pContract_; }
 
-    inline const PLiveNurse  liveNurse() const { return pLiveNurse_; }
+    const PLiveNurse  liveNurse() const { return pLiveNurse_; }
 
-    inline int nDays() const { return nDays_; }
+    int nDays() const { return nDays_; }
 
-    inline RCGraph &g() { return g_; }
+    RCGraph &g() { return g_; }
 
-    inline int nPaths() const { return nPaths_; }
+    int maxRotationLength() const { return maxRotationLength_; }
 
-    inline int nFound() const { return nFound_; }
+    int nPaths() const { return nPaths_; }
+
+    int nFound() const { return nFound_; }
 
     // Returns true if the corresponding shift has no maximum limit of consecutive worked days
     //
-    inline bool isUnlimited(int shift_type) const {
-      return pScenario_->maxConsShiftsOf(shift_type) >= nDays_ + maxOngoingDaysWorked_
-             or pScenario_->maxConsShiftsOf(shift_type) >= NB_SHIFT_UNLIMITED;
+    bool isUnlimited(int shift_type) const {
+      int maxCons = shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
+      return maxCons >= std::min(nDays_ + maxOngoingDaysWorked_, NB_SHIFT_UNLIMITED);
     }
 
-    inline int maxCons(int shift_type) const {
+    int maxCons(int shift_type) const {
       if (isUnlimited(shift_type))
-        return pScenario_->minConsShiftsOf(shift_type);
-      return pScenario_->maxConsShiftsOf(shift_type);
+        return shift_type ? pScenario_->minConsShiftsOf(shift_type) : pContract_->minConsDaysOff_;
+      return shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
     }
 
-    inline int addSingleNode(NodeType type, std::vector<int> lbs = {0, 0}, std::vector<int> ubs = {}) {
+    int addSingleNode(NodeType type, std::vector<int> lbs = {}, std::vector<int> ubs = {}, bool hard_lbs = false) {
+      if (lbs.empty())
+        lbs = defaultLBs();
       if (ubs.empty())
-        ubs = {maxRotationLength_, CDMin_};
-      return g_.addSingleNode(type, lbs, ubs);
+        ubs = defaultUBs();
+      return g_.addSingleNode(type, lbs, ubs, hard_lbs);
     }
 
-    inline int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
+    int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
+                            ArcType type, int day, int shift) {
+      return g_.addSingleArc(origin, destination, baseCost, consumptions, type, day, {shift});
+    }
+
+    int addSingleArc(int origin, int destination, double baseCost, std::vector<int> consumptions,
                             ArcType type, int day = -1, std::vector<int> shifts = {}) {
       return g_.addSingleArc(origin, destination, baseCost, consumptions, type, day, shifts);
+    }
+
+    std::vector<int> defaultLBs() const {
+      return {0,0,0,0,0};
+    }
+
+    std::vector<int> defaultUBs() const {
+      return {maxRotationLength_, CDMin_,
+              maxTotalDuration_, pContract_->minTotalShifts_,
+              pScenario_->nbWeeks()};
     }
 
     virtual double startWorkCost(int a) const;
@@ -261,10 +284,10 @@ class SubProblem {
     vector2D<double> preferencesCosts_;
 
     int CDMin_;  // Minimum number of consecutive days worked for free
-    int daysMin_;      // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwis
+    int minConsDays_;      // principal node network begins at this index-1;  1 if no ShortSucc, CDMin otherwis
     int nLabels_; // Number of labels to use
     int maxRotationLength_;  // MAXIMUM LENGTH OF A ROTATION (in consecutive worked days)
-
+    int maxTotalDuration_;  // Maximum time duration of a roster
 
     //-----------------------
     // THE GRAPH
@@ -273,12 +296,14 @@ class SubProblem {
 
     // Data structures for the nodes and arcs
     std::vector<PrincipalGraph> principalGraphs_;
-    std::vector<PriceLabelsGraph> priceLabelsGraphs_;
+    vector2D<PriceLabelGraph> priceLabelsGraphs_;
     vector4D<int> arcsFromSource_;    // Index: (shiftType, day, n, shift) of destination
+    vector3D<int> principalToPrincipal_; // Index: (shiftType, shiftType, day)
     vector2D<int> arcsPrincipalToPriceLabelsIn_;  // Index: (shiftType, day) of origin
+    std::vector<int> arcsTosink_; // arcs to main sink
 
     // Creates all nodes of the rcspp (including resource window)
-    void createNodes();
+    virtual void createNodes();
 
     // Creates all arcs of the rcspp
     void createArcs();
@@ -304,6 +329,9 @@ class SubProblem {
     // Function called when optimal=true in the arguments of solve
     virtual bool solveRCGraphOptimal();
 
+    // return a function that will post process any path found by the RC graph
+    virtual std::function<void (spp_res_cont&)> postProcessResCont() const;
+
     // Initializes some cost vectors that depend on the nurse
     virtual void initStructuresForSolve();
 
@@ -311,6 +339,8 @@ class SubProblem {
     void resetSolutions();
 
     void updatedMaxRotationLengthOnNodes(int maxRotationLentgh);
+
+    std::vector<int> startConsumption(int day, std::vector<int> shifts) const;
 
     // FORBIDDEN ARCS AND NODES
     //
@@ -335,9 +365,9 @@ class SubProblem {
     void authorizeStartingDays(const std::set<int>& forbiddenStartingDays);
 
     // Know if node
-    inline bool isDayShiftForbidden(int k, int s) const { return !dayShiftStatus_[k][s]; }
+    bool isDayShiftForbidden(int k, int s) const { return !dayShiftStatus_[k][s]; }
 
-    inline bool isStartingDayforbidden(int k) const { return !startingDayStatus_[k]; }
+    bool isStartingDayforbidden(int k) const { return !startingDayStatus_[k]; }
 
     // Forbid a node / arc
     void forbidDayShift(int k, int s);

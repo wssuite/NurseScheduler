@@ -86,8 +86,6 @@ public:
 	{ }
 	virtual ~CoinModeler() {}
 
-	//solve the model
-	virtual int solve(bool relaxation = false)=0;
 
 	/*
 	* Create linear constraint:
@@ -209,14 +207,14 @@ public:
 		CoinVar* var2 = (CoinVar*) var;
 
 		double value = getVarValue(var);
-		if(print && value>EPSILON)
+		if(print && value>epsilon())
       std::cout << var->name_ << ": " << value << "*" << var2->getCost() << std::endl;
 		return value *  var2->getCost();
 	}
 
 	virtual int nbSolutions() const { return 0; }
 
-	inline virtual double getObjective() const { return pTree_->getBestUB(); }
+	virtual double getObjective() const { return pTree_->getBestUB(); }
 	virtual double getObjective(int index) const { return LARGE_SCORE; }
 
 	virtual bool loadBestSol() { return false; }

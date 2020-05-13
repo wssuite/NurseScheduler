@@ -9,12 +9,15 @@ using std::string;
 using std::vector;
 
 PrincipalGraph::PrincipalGraph(int shift_type,  SubProblem* sp):
-  pSP_(sp), shift_type_(shift_type), max_cons_(-1) {
+  SubGraph(), pSP_(sp), shift_type_(shift_type), max_cons_(-1) {
   if(sp) {
     max_cons_ = sp->maxCons(shift_type);
     int i = 0;
     for (int s: sp->scenario()->shiftTypeIDToShiftID_[shift_type_])
       shifts_to_indices_[s] = i++;
+    Tools::initVector(inSubGraphs_, pSP_->nDays(), (SubGraph*) nullptr);
+    Tools::initVector(outSubGraphs_, pSP_->nDays(), (SubGraph*) nullptr);
+
     build();
   }
 }
@@ -45,18 +48,18 @@ void PrincipalGraph::build() {
   // FOR EACH OF THE DAYS
   //
   int origin, destin;
+  double cost = consCost(max_cons_+1);
   for(int k=0; k<nDays-1; k++){
-
     // 1. WORK ONE MORE DAY ON THE SAME SHIFT WHEN MAXIMUM IS NOT REACHED YET
     //
     for(int nCons=0; nCons<max_cons_; nCons ++){
       origin = principalNetworkNodes_[k][nCons];
-      int dest_day = k+(nCons>0);
-      destin = principalNetworkNodes_[dest_day][nCons+1];  // stay on same day for the first level
+      destin = principalNetworkNodes_[k+1][nCons+1];
 
       for (unsigned int s = 0; s < nShifts; s++) {
         int  shiftID = pScenario-> shiftTypeIDToShiftID_[shift_type_][s];
-        int a = pSP_->addSingleArc(origin, destin, 0, {1,-1}, SHIFT_TO_SAMESHIFT, dest_day, {shiftID});
+        int a = pSP_->addSingleArc(origin, destin, 0, getConsumption(k+1, shiftID),
+            SHIFT_TO_SAMESHIFT, k+1, shiftID);
         arcsShiftToSameShift_[k][nCons][s] = a;
       }
     }
@@ -65,11 +68,11 @@ void PrincipalGraph::build() {
     //
     origin = principalNetworkNodes_[k][max_cons_];
     destin = principalNetworkNodes_[k+1][max_cons_];
-    double cost = pSP_->isUnlimited(shift_type_) ? 0 : WEIGHT_CONS_SHIFTS;
 
     for (unsigned int s = 0; s < nShifts; s++) {
       int  shiftID = pScenario-> shiftTypeIDToShiftID_[shift_type_][s];
-      int a = pSP_->addSingleArc(origin, destin, cost, {1,-1}, REPEATSHIFT, k+1, {shiftID});
+      int a = pSP_->addSingleArc(origin, destin, cost, getConsumption(k+1, shiftID),
+          REPEATSHIFT, k+1, shiftID);
       arcsRepeatShift_[k][s] = a;
     }
 
@@ -79,28 +82,30 @@ void PrincipalGraph::build() {
       origin = principalNetworkNodes_[k][nCons];
       destin = principalNetworkNodes_[k][max_cons_];
       arcsShiftToEndsequence_[k][nCons] =
-          pSP_->addSingleArc(origin, destin, pScenario->consShiftTypeCost(shift_type_, nCons),
-              {0,0}, SHIFT_TO_ENDSEQUENCE, k);
+          pSP_->addSingleArc(origin, destin, consCost(nCons),
+                             getConsumption(-1,-1), SHIFT_TO_ENDSEQUENCE, k);
     }
   }
 
   // SPECIAL CASE: LAST DAY
-  // be able to work one shift to reach level 1 from level 0
-  origin = principalNetworkNodes_[nDays-1][0];
-  destin = principalNetworkNodes_[nDays-1][1];
-  std::vector<int> last_arcs;
-  for (unsigned int s = 0; s < nShifts; s++) {
-    int  shiftID = pScenario-> shiftTypeIDToShiftID_[shift_type_][s];
-    last_arcs.emplace_back(pSP_->addSingleArc(origin, destin, 0, {1,-1}, SHIFT_TO_SAMESHIFT, nDays-1, {shiftID}));
-  }
-  arcsShiftToSameShift_.push_back({last_arcs});
   // do not pay any penalty for the minimum
   for(int nCons=1; nCons<max_cons_; nCons++){
     origin = principalNetworkNodes_[nDays-1][nCons];
     destin = principalNetworkNodes_[nDays-1][max_cons_];
     arcsShiftToEndsequence_[nDays-1][nCons] =
-        pSP_->addSingleArc(origin, destin, 0, {0,0}, SHIFT_TO_ENDSEQUENCE, nDays-1);
+        pSP_->addSingleArc(origin, destin, 0, getConsumption(-1,-1),
+            SHIFT_TO_ENDSEQUENCE, nDays-1);
   }
+}
+
+// return the right vector of consumption based on the day (if < 0, not performing any shift)
+std::vector<int> PrincipalGraph::getConsumption(int day, int shift) const {
+  // not performing any shift or the shift type is rest
+  if(day<0 || shift_type_==0) return {0,0,0,0,0};
+
+  // otherwise work => consume one resource of each if needed
+  int t = pSP_->scenario()->timeDurationToWork_[shift];
+  return {1,-1,t,-t,Tools::isSaturday(day)};
 }
 
 
@@ -144,9 +149,22 @@ void PrincipalGraph::updateArcCosts() {
     for(int a: arcsRepeatShift_[k])
       pSP_->g().updateCost(a, pSP_->workCost(a));
   }
+}
 
-  for (int a: arcsShiftToSameShift_[pSP_->nDays()-1][0])
-    pSP_->g().updateCost(a, pSP_->workCost(a));
+double PrincipalGraph::consCost(int n) const {
+  if(shift_type_ == 0)
+    return pSP_->contract()->consDaysOffCost(n);
+  return pSP_->scenario()->consShiftTypeCost(shift_type_, n);
+}
+
+void PrincipalGraph::linkInSubGraph(SubGraph& inSubGraph, int day) {
+  inSubGraphs_[day] = &inSubGraph;
+  pSP_->addSingleArc(inSubGraph.exit(day), getNode(day, 0), 0, {0,0,0,0,0}, NONE_ARC);
+}
+
+void PrincipalGraph::linkOutSubGraph(SubGraph& outSubGraph, int day) {
+  outSubGraphs_[day] = &outSubGraph;
+  pSP_->addSingleArc(getNode(day, max_cons_), outSubGraph.entrance(day), 0, {0, 0, 0, 0, 0}, NONE_ARC);
 }
 
 void PrincipalGraph::forbidDayShift(int k, int s) {
@@ -154,10 +172,9 @@ void PrincipalGraph::forbidDayShift(int k, int s) {
     return;
 
   int i = shifts_to_indices_.at(s);
-  pSP_->g().forbidArc(arcsShiftToSameShift_[k][0][i]); // forbid first cons shift
-  if(k-- > 0) { // if k>0, coninue and do --k
+  if(k-- > 0) { // if k>0, continue and do --k
     // forbid any ingoing arcs using shift s
-    for (int n = 1; n < max_cons_; n++) {
+    for (int n = 0; n < max_cons_; n++) {
 //    pSP_->g().forbidNode(principalNetworkNodes_[k][n]);
       pSP_->g().forbidArc(arcsShiftToSameShift_[k][n][i]);
     }
@@ -169,10 +186,8 @@ void PrincipalGraph::authorizeDayShift(int k, int s){
   if( !checkIfShiftBelongsHere(s, true) )
     return;
 
-  int i = shifts_to_indices_.at(s);
-  pSP_->g().authorizeArc(arcsShiftToSameShift_[k][0][i]); // authorize first cons shift
-  if(k>0) { // authorize any ingoing arcs using shift s
-    for (int n = 1; n < max_cons_; n++) {
+  int i = shifts_to_indices_.at(s);if(k>0) { // authorize any ingoing arcs using shift s
+    for (int n = 0; n < max_cons_; n++) {
 //    pSP_->g().forbidNode(principalNetworkNodes_[k][n]);
       pSP_->g().authorizeArc(arcsShiftToSameShift_[k-1][n][i]);
     }

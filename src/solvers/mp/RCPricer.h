@@ -27,13 +27,18 @@ class RCPricer: public MyPricer
 {
 public:
    RCPricer(MasterProblem* master, const char* name, const SolverParam& param);
+
    virtual ~RCPricer();
 
    /* perform pricing */
    std::vector<MyVar*> pricing(double bound=0, bool before_fathom = false, bool after_fathom = false, bool backtracked=false) override;
 
    // Initialize parameters
-   void initPricerParameters(const SolverParam& param);
+   void initPricerParameters(const SolverParam& param) override;
+
+   std::vector<double> getLastMinOptimalReducedCost() const override {
+     return minOptimalReducedCosts_;
+   }
 
 protected:
 
@@ -67,6 +72,7 @@ protected:
    //            been reached. Here, we could have all the parameters as fields but they would be too many.
    //
    bool shortSubproblem_ = true;
+   bool rosterSubproblem_ = false;
    int defaultSubprobemStrategy_ = 0;
    std::vector<int> currentSubproblemStrategy_;  // by nurse
 
@@ -75,11 +81,15 @@ protected:
    int nbMaxColumnsToAdd_ = 0;
    int nbSubProblemsToSolve_ = 0;
 
+   // store the min reduced cost find for each subproblem solved
+   std::vector<double> minOptimalReducedCosts_;
+   double minReducedCost_;
+
 public:
 
    // METHODS - Solutions, rotations, etc.
    //
-   inline void resetSolutions(){
+   void resetSolutions(){
 	   allNewColumns_.clear();
      newSolutionsForNurse_.clear();
 	   forbiddenShifts_.clear();
@@ -93,31 +103,31 @@ public:
    //                   ALREADY BE THERE !!!
    //
    // Shifts
-   inline void forbidShift(int k, int s){forbiddenShifts_.insert(std::pair<int,int>(k,s));}
-   inline void forbidShifts(const std::set<std::pair<int,int> > &shifts){ for(auto s : shifts) forbidShift(s.first, s.second);}
-   inline void authorizeShift(int k, int s){forbiddenShifts_.erase(std::pair<int,int>(k,s));}
-   inline void clearForbiddenShifts(){forbiddenShifts_.clear();}
+   void forbidShift(int k, int s) override {forbiddenShifts_.insert(std::pair<int,int>(k,s));}
+   void forbidShifts(const std::set<std::pair<int,int> > &shifts){ for(auto s : shifts) forbidShift(s.first, s.second);}
+   void authorizeShift(int k, int s){forbiddenShifts_.erase(std::pair<int,int>(k,s));}
+   void clearForbiddenShifts(){forbiddenShifts_.clear();}
    // Nurses
-   inline void forbidNurse(int nurseId){forbiddenNursesIds_.insert(nurseId);}
-   inline void forbidNurses(const std::set<int>& nurses){ for(auto n : nurses) forbidNurse(n);}
-   inline void authorizeNurse(int nurseId){forbiddenNursesIds_.erase(nurseId);}
-   inline void clearForbiddenNurses(){forbiddenNursesIds_.clear();}
+   void forbidNurse(int nurseId) override {forbiddenNursesIds_.insert(nurseId);}
+   void forbidNurses(const std::set<int>& nurses){ for(auto n : nurses) forbidNurse(n);}
+   void authorizeNurse(int nurseId) override {forbiddenNursesIds_.erase(nurseId);}
+   void clearForbiddenNurses() override {forbiddenNursesIds_.clear();}
    // Starting days
-   inline void forbidStartingDay(int k){forbiddenStartingDays_.insert(k);}
-   inline void forbidStartingDays(const std::set<int>& days){ for(int d : days) forbidStartingDay(d);}
-   inline void authorizeStartingDay(int k){forbiddenStartingDays_.erase(k);}
-   inline void clearForbiddenStartingDays(){forbiddenStartingDays_.clear();}
+   void forbidStartingDay(int k) override {forbiddenStartingDays_.insert(k);}
+   void forbidStartingDays(const std::set<int>& days){ for(int d : days) forbidStartingDay(d);}
+   void authorizeStartingDay(int k) override {forbiddenStartingDays_.erase(k);}
+   void clearForbiddenStartingDays() override {forbiddenStartingDays_.clear();}
    // Ending days
-   inline void forbidEndingDay(int k){forbiddenEndingDays_.insert(k);}
-   inline void forbidEndingDays(const std::set<int> &days){ for(int d : days) forbidEndingDay(d);}
-   inline void authorizeEndingDay(int k){forbiddenEndingDays_.erase(k);}
-   inline void clearForbiddenEndingDays(){forbiddenEndingDays_.clear();}
+   void forbidEndingDay(int k) override {forbiddenEndingDays_.insert(k);}
+   void forbidEndingDays(const std::set<int> &days){ for(int d : days) forbidEndingDay(d);}
+   void authorizeEndingDay(int k){forbiddenEndingDays_.erase(k);}
+   void clearForbiddenEndingDays(){forbiddenEndingDays_.clear();}
 
    // Test functions
-   inline bool isShiftForbidden(int k, int n){ return (forbiddenShifts_.find(std::pair<int,int>(k,n)) != forbiddenShifts_.end()); }
-   inline bool isNurseForbidden(int n){ return (forbiddenNursesIds_.find(n) != forbiddenNursesIds_.end()); }
-   inline bool isStartingDayForbidden(int k){ return (forbiddenStartingDays_.find(k) != forbiddenStartingDays_.end()); }
-   inline bool isEndingDayForbidden(int k){ return (forbiddenEndingDays_.find(k) != forbiddenEndingDays_.end()); }
+   bool isShiftForbidden(int k, int n){ return (forbiddenShifts_.find(std::pair<int,int>(k,n)) != forbiddenShifts_.end()); }
+   bool isNurseForbidden(int n) { return (forbiddenNursesIds_.find(n) != forbiddenNursesIds_.end()); }
+   bool isStartingDayForbidden(int k){ return (forbiddenStartingDays_.find(k) != forbiddenStartingDays_.end()); }
+   bool isEndingDayForbidden(int k){ return (forbiddenEndingDays_.find(k) != forbiddenEndingDays_.end()); }
 
 
 
@@ -128,8 +138,8 @@ protected:
 
    // Methods for the exhaustive / nonexhaustive search strategies
    //
-//   inline void resetSearchParamToOriginal(){ currentPricerParam_ = originalPricerParam_; }
-//   inline void authorizeExhaustiveSearch(){ currentPricerParam_.setToExhaustiveSearch();}
+//   void resetSearchParamToOriginal(){ currentPricerParam_ = originalPricerParam_; }
+//   void authorizeExhaustiveSearch(){ currentPricerParam_.setToExhaustiveSearch();}
 
 
 
@@ -181,6 +191,7 @@ protected:
    int nbS_ = 0;
    int nbN_ = 0;
    int nbNL_ = 0;
+   std::minstd_rand rand_;
    // DBG functions
    void recordSPStats(SubProblem* sp);
    void generateRandomForbiddenStartingDays();

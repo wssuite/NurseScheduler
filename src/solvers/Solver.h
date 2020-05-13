@@ -329,6 +329,28 @@ enum OptimalityLevel {UNTIL_FEASIBLE,TWO_DIVES,REPEATED_DIVES,OPTIMALITY};
 static std::map<std::string,OptimalityLevel> stringToOptimalityLevel=
 	{{"UNTIL_FEASIBLE",UNTIL_FEASIBLE},{"TWO_DIVES",TWO_DIVES},{"REPEATED_DIVES",REPEATED_DIVES},{"OPTIMALITY",OPTIMALITY}};
 
+// Algorithms for the overall solution
+//
+enum Algorithm{GENCOL, STOCHASTIC_GENCOL, NONE};
+static const std::map<std::string,Algorithm> AlgorithmsByName =
+    {{"GENCOL",GENCOL},{"STOCHASTIC_GENCOL",STOCHASTIC_GENCOL},{"NONE",NONE}};
+
+enum MySolverType { S_SCIP, S_CLP, S_Gurobi, S_Cplex, S_CBC };
+static std::map<std::string,MySolverType> MySolverTypesByName =
+    {{"CLP",S_CLP},{"Gurobi",S_Gurobi},{"Cplex",S_Cplex},{"CBC",S_CBC},{"SCIP",S_SCIP}};
+
+// Solution statuses
+//
+enum Status{UNSOLVED,FEASIBLE,INFEASIBLE,OPTIMAL,TIME_LIMIT};
+static const std::map<Status,std::string> statusToString = {{UNSOLVED,"UNSOLVED"},{FEASIBLE,"FEASIBLE"},{INFEASIBLE,"INFEASIBLE"},{OPTIMAL,"OPTIMAL"},{TIME_LIMIT,"TIME_LIMIT"}};
+
+
+// Subproblem (and also master) type
+enum SPType { LONG_ROTATION = 0, ALL_ROTATION = 1, ROSTER = 2};
+static const std::map<std::string,SPType> SPTypesByName =
+    {{"LONG",LONG_ROTATION},{"ALL",ALL_ROTATION},{"ROSTER",ROSTER}};
+
+
 class SolverParam{
 
 public:
@@ -340,13 +362,16 @@ public:
 	//maximal solving time in s
 	int maxSolvingTimeSeconds_ = LARGE_TIME;
 
+	// tolerance
+	double epsilon_ = 1e-5; // precision for the solver
+
 	//print parameters
 	int verbose_ = 0;
 	bool printEverySolution_ = false;
     std::string outfile_ = "outfiles/";
     std::string logfile_ = "";
 	std::vector<int> weekIndices_ = {};
-	PrintSolution* saveFunction_ = 0;
+	PrintSolution* saveFunction_ = nullptr;
 
 	bool printRelaxationSol_ = false;
 	bool printIntermediarySol_ = false;
@@ -403,14 +428,22 @@ public:
 	int stopAfterXDegenerateIt_ = 9999;
 
 	// fathom a node is upper bound is smaller than the lagrangian bound
-	bool isLagrangianFathom_=false;
+	bool isLagrangianFathomRootNode_ = false;
 
+  // Parameters to remove a column from the master (both should be violated)
+  // max number of consecutive iterations that a column can stay outside of the basis
+  int max_inactive_iteration_ = 50;
+  // min activity rate (frequency of presence in the basis since creation)
+  // that a column must have to remain in the master
+  double min_activity_rate_ = .1;
 
 	/* PARAMETERS OF THE PRICER */
 
 	// only add disjoint columns if active
 	//
 	bool isColumnDisjoint_ = false;
+	int nbMaxColumnsToAdd_ = 20;
+  int nbSubProblemsToSolve_ = 15;
 
 	//primal-dual strategy
 	WeightStrategy weightStrategy_ =  NO_STRAT;
@@ -420,8 +453,10 @@ public:
 	int sp_default_strategy_ = 0;
 	int sp_nbrotationspernurse_ = 20;
 	int sp_nbnursestoprice_ = 15;
-  bool sp_short_ = true;
   double sp_max_reduced_cost_bound_ = 0.0;
+
+  // type of the subproblem used
+  SPType sp_type_ = LONG_ROTATION;
 
 public:
 	// Initialize all the parameters according to a small number of options that
@@ -444,21 +479,6 @@ public:
 //
 //-----------------------------------------------------------------------------
 
-// Algorithms for the overall solution
-//
-enum Algorithm{GENCOL, STOCHASTIC_GENCOL, NONE};
-static std::map<std::string,Algorithm> AlgorithmsByName =
-	{{"GENCOL",GENCOL},{"STOCHASTIC_GENCOL",STOCHASTIC_GENCOL},{"NONE",NONE}};
-
-enum MySolverType { S_SCIP, S_CLP, S_Gurobi, S_Cplex, S_CBC };
-static std::map<std::string,MySolverType> MySolverTypesByName =
-    {{"CLP",S_CLP},{"Gurobi",S_Gurobi},{"Cplex",S_Cplex},{"CBC",S_CBC},{"SCIP",S_SCIP}};
-
-// Solution statuses
-//
-enum Status{UNSOLVED,FEASIBLE,INFEASIBLE,OPTIMAL,TIME_LIMIT};
-static std::map<Status,std::string> statusToString = {{UNSOLVED,"UNSOLVED"},{FEASIBLE,"FEASIBLE"},{INFEASIBLE,"INFEASIBLE"},{OPTIMAL,"OPTIMAL"},{TIME_LIMIT,"TIME_LIMIT"}};
-
 class Solver{
 
 public:
@@ -477,6 +497,7 @@ public:
 
 	// Main method to solve the rostering problem for a given input and an initial solution and parameters
 	virtual double solve(const SolverParam& parameters, std::vector<Roster> solution = {}){
+	  param_ = parameters;
 		return solve(solution);
 	}
 
@@ -514,6 +535,9 @@ protected:
 
 	// Timer started at the creation of the solver and stopped at destruction
 	Tools::Timer* pTimerTotal_;
+
+	// current parameters of the solver (change with each solve)
+	SolverParam param_;
 
 	//-----------------------------------------------------------------------------
 	// Manipulated data
@@ -593,6 +617,8 @@ protected:
 	std::vector<int> skillsSorted_;
 
 public:
+    double epsilon() const { return param_.epsilon_; }
+
 	//------------------------------------------------
 	// Solution with rolling horizon process
 	//------------------------------------------------
@@ -600,17 +626,17 @@ public:
 	// list of starting days for which the rotations will be relaxed
 	bool isPartialRelaxDays_=false;
 	std::vector<bool> isRelaxDay_;
-	inline bool isRelaxDay(int day){return !isPartialRelaxDays_?false:isRelaxDay_[day];}
+	bool isRelaxDay(int day)  const  {return !isPartialRelaxDays_?false:isRelaxDay_[day];}
 
 	// list of starting days for which the rotations will be fixed
 	bool isPartialFixDays_=false;
 	std::vector<bool> isFixDay_;
-	inline bool isFixDay(int day){return !isPartialFixDays_?false:isFixDay_[day];}
+	bool isFixDay(int day) const {return !isPartialFixDays_?false:isFixDay_[day];}
 
 	// list of nurses whose roster is fixed in cirrent resolution
 	bool isPartialFixNurses_=false;
 	std::vector<bool> isFixNurse_;
-	inline bool isFixNurse(int n){return !isPartialFixNurses_?false:isFixNurse_[n];}
+	bool isFixNurse(int n) const {return !isPartialFixNurses_?false:isFixNurse_[n];}
 
 	// relax/unrelax the integrality constraints of the variables corresponding to input days
 	virtual void relaxDays(std::vector<bool> isRelax) {}
@@ -770,18 +796,18 @@ public:
 
 	// return the status of the solution
 	//
-	Status getStatus() {return status_;}
+	Status getStatus() const {return status_;}
 	void setStatus(Status status) {status_ = status;}
 
 	// return/set solution_
 	//
 	std::vector<Roster> getSolution() { return solution_; }
-	inline void addRosterToSolution(Roster& roster) {solution_.push_back(roster);}
-	inline void setSolution(std::vector<Roster>& solution) {solution_=solution;}
+	void addRosterToSolution(Roster& roster) {solution_.push_back(roster);}
+	void setSolution(std::vector<Roster>& solution) {solution_=solution;}
 
 	// get the timer
 	//
-	Tools::Timer* getTimerTotal() {return pTimerTotal_;}
+	Tools::Timer* getTimerTotal() const {return pTimerTotal_;}
 
 	// return the solution, but only for the k first days
 	//
@@ -825,14 +851,14 @@ public:
 	std::vector<State>* pInitialStates() const { return pInitState_; }
 
 	// Returns the number of days over which the solver solves the problem
-	int getFirstDay(){return pDemand_->firstDay_;}
-	int getNbDays(){return pDemand_->nbDays_;}
+	int getFirstDay() const {return pDemand_->firstDay_;}
+	int getNbDays() const {return pDemand_->nbDays_;}
 
 	// Returns the number of nurses
-	int getNbNurses() {return theLiveNurses_.size();}
+	int getNbNurses() const {return theLiveNurses_.size();}
 
 	// Returns the number of shifts
-	int getNbShifts() {return pDemand_->nbShifts_;}
+	int getNbShifts() const {return pDemand_->nbShifts_;}
 
 	// Extend the rosters in the solution with the days covered by the input solution
 	void extendSolution(std::vector<Roster> solutionExtension);

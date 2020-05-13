@@ -35,8 +35,6 @@
 static const int DEBUG = 1;
 static const std::string REST_SHIFT = "None";
 static const int DECIMALS = 3; // precision when printing floats
-static const double EPSILON = .00001; // precision for the column generation
-static const double BRANCH_LB = 0.8; //branch on a column, if column > branchLB
 static const int NB_SHIFT_UNLIMITED = 28;
 
 static const int LARGE_SCORE = 9999999;
@@ -160,7 +158,7 @@ static std::vector<double> EMPTY_DOUBLE_VECTOR;
 // return the object at position i (support negative index)
 template<class T> const T& get(const std::vector<T>& v, int i) {
   if(i>=0) return v[i];
-  return v[v.size()-i];
+  return v[v.size()+i];
 }
 
   // Returns an integer with random value (uniform) within [minVal, maxVal]
@@ -234,7 +232,7 @@ public:
 	bool isInit() {return isInit_;}
 	void start();
 	void stop();
-	inline void reset() {
+	void reset() {
 		stop();
 		start();
 	}

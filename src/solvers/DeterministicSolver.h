@@ -303,8 +303,7 @@ protected:
 protected:
 	// Return a solver with the algorithm specified in the options_
 	//
-	Solver * setSolverWithInputAlgorithm(PDemand pDemand);
-	Solver* setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm);
+	Solver* setSolverWithInputAlgorithm(PDemand pDemand, Algorithm algorithm, SolverParam& param);
 
 
 };
