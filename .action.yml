@@ -1,0 +1,15 @@
+name: 'ns'
+description: 'docker container running the nurse scheduler'
+inputs:
+  args:  # id of input
+    description: 'a one-line arguments'
+    required: true
+    default: ''
+outputs:
+  cost: # id of output
+    description: 'The cost of the solution found'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.args }}

@@ -169,6 +169,7 @@ then
 fi
 
 rcost=$(echo ${result} | tr -dc '0-9')
+echo "::set-output name=cost::${rcost}"
 if [ ${rcost} -lt ${lb} ] || [ ${rcost} -gt ${ub} ]
 then
   echo "error: bounds not respected"
