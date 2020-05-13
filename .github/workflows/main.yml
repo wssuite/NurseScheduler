@@ -10,24 +10,15 @@ on:
   pull_request:
     branches: [ master ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  run-docker-tests:
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    name: docker tests
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
-
-    # Runs a single command using the runners shell
-    - name: Run a one-line script
-      run: echo Hello, world!
-
-    # Runs a set of commands using the runners shell
-    - name: Run a multi-line script
-      run: |
-        echo Add other actions to build,
-        echo test, and deploy your project.
+      # To use this repository's private action, you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: n005w4_0_1-2-3-3 LONG
+        uses: ./ # Uses an action in the root directory
+        with:
+          args: '-i n005w4_0_1-2-3-3 -g 1470 --sp-type LONG'
