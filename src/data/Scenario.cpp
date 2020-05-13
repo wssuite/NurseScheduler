@@ -381,8 +381,9 @@ string Scenario::toString(){
 		rep << "#                  \t= " << i << ":" << intToSkill_[i] << std::endl;
 	}
 	rep << "# " << std::endl;
-	rep << "# SHIFTS           \t= " << nbShifts_ << std::endl;
+	rep << "# SHIFTS           \t= " << nbShifts_ - 1 << std::endl;
 	for(int i=0; i<nbShifts_; i++){
+		if (isRestShift(i)) continue;
 		rep << "#                  \t= ";
 		rep << i << ":" << intToShift_[i] << " \t(" << minConsShiftsOfTypeOf(i) << "," << maxConsShiftsOfTypeOf(i) << ")" << std::endl;
 	}

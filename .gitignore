@@ -58,3 +58,6 @@ formatter*
 
 # for mac
 .fuse*
+
+# sublime project files 
+*.sublime-*
