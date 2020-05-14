@@ -15,7 +15,7 @@ script:
   - docker run --rm ns -i n005w4_2_8-3-0-4 -g E
   - docker run --rm ns -i n005w4_0_1-2-3-5 --short-sp 0 -g 1540
   - docker run --rm ns -i n005w4_0_1-2-3-5 --short-sp 1 -g 1540
-  - docker run --rm ns -i n005w4_1_5-6-7-8 -p optimality.txt --short-sp 0 -g 1645 -t 1800
+  - docker run --rm ns -i n005w4_1_5-6-7-8 -p optimality.txt --short-sp 0 -g 1630-1655 -t 1800
   - docker run --rm ns -i n005w4_2_9-0-1-2 -g 1540-1700
   - docker run --rm ns -i n030w4_1_6-2-9-1 -g 1780-1900 -t 120
   - docker run --rm ns -i n030w4_1_6-7-5-3 -g 1950-2150 -t 120
