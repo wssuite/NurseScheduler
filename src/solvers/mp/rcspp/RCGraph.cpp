@@ -45,7 +45,6 @@ void spp_res_cont::print() const {
 #endif
 
 #ifdef DBG
-//  if(new_cont.pred_arc == 368 || new_cont.pred_arc == 68 || new_cont.pred_arc == 524)
     assert(old_cont.size() == new_cont.size());
 #endif
 
@@ -270,7 +269,7 @@ bool RCGraph::processPath(std::vector<edge>& path, spp_res_cont& rc,
 
 RCSolution RCGraph::solution(const std::vector<edge>& path, const spp_res_cont& resource) const {
 #ifdef DBG
-//  printPath(std::cout, path, resource);
+  printPath(std::cout, path, resource);
 #endif
 
   RCSolution sol(resource.cost);

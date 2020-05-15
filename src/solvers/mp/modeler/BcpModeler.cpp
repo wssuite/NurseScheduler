@@ -219,7 +219,8 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 
 		//print a line as it is the first iteration of this node
 		if (pModel_->getParameters().printBcpSummary_|| pModel_->getVerbosity() > 0) {
-      std::cout << "======================================================================================================================================" << std::endl;
+      std::cout << "====================================================================================="
+                   "==============================================================" << std::endl;
 			printSummaryLine();
 		}
 
@@ -227,6 +228,9 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 			lp->writeLp("outfiles/test");
 		}
 
+#if DBG
+		writeLP("model_"+std::to_string(current_index()));
+#endif
 		// modify dual tolerance // DBG
 		// double dualTol = std::min(0.1,-pModel_->getParameters().sp_max_reduced_cost_bound_+pModel_->epsilon());
 		// lp->setDblParam( OsiDualTolerance,dualTol);
@@ -280,40 +284,45 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars) const {
    FILE * pFile;
    pFile = pModel_->logfile().empty() ? stdout : fopen (pModel_->logfile().c_str(),"a");
 
-   if(pModel_->getVerbosity() > 0){
+   if(pModel_->getVerbosity() > 0) {
 
-		// DBG
-      //      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->LARGE_SCORE :
-      //         getLpProblemPointer()->node->true_lower_bound;
+     // DBG
+     //      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->LARGE_SCORE :
+     //         getLpProblemPointer()->node->true_lower_bound;
 
-      if( vars.size() == 0 ){
-         fprintf(pFile,"BCP: %13s %5s | %10s %10s %10s | %8s %12s %12s %10s | %12s %5s %5s \n",
-            "Node", "Lvl", "BestUB", "RootLB", "BestLB","#It",  "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
-         fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8s %12s %12s %10s | %12s %5s %5s \n",
-            current_index(), pModel_->getTreeSize(), current_level(),
-            pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
-            "-", "-", "-", "-", "-", "-", "-");
-      }
-
-      else{
-         /* compute number of fractional columns */
-         int frac = 0;
-         int non_zero = 0;
-         for(MyVar* var: pModel_->getActiveColumns()){
-            double value = pModel_->getVarValue(var);
-            if(value < pModel_->epsilon())
-               continue;
-            non_zero ++;
-            if(value < 1 - pModel_->epsilon())
-               frac++;
-         }
-
-         fprintf(pFile,"BCP: %5d / %5d %5d | %10.0f %10.2f %10.2f | %8d %10.2f %5d / %4d %10ld | %10.2f %5d %5d  \n",
-            current_index(), pModel_->getTreeSize(), current_level(),
-            pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
-            lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
-            pModel_->getLastMinDualCost(), pModel_->getLastNbSubProblemsSolved(), nbGeneratedColumns_);
-      }
+     if (vars.size() == 0) {
+       fprintf(pFile, "BCP: %13s %5s | %10s  %10s  %10s | %8s %14s %13s %10s | %14s %5s %5s \n",
+               "Node", "Lvl", "BestUB", "RootLB", "BestLB", "#It", "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
+       fprintf(pFile, "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | %8s %14s %13s %10s | %14s %5s %5s \n",
+               current_index(), pModel_->getTreeSize(), current_level(),
+               pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
+               "-", "-", "-", "-", "-", "-", "-");
+     } else {
+       /* compute number of fractional columns */
+       int frac = 0;
+       int non_zero = 0;
+       for (MyVar *var: pModel_->getActiveColumns()) {
+         double value = pModel_->getVarValue(var);
+         if (value < pModel_->epsilon())
+           continue;
+         non_zero++;
+         if (value < 1 - pModel_->epsilon())
+           frac++;
+       }
+       // if at least a subproblem has been solved
+       if (pModel_->getLastNbSubProblemsSolved() > 0)
+         fprintf(pFile, "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | %8d %14.2f %5d / %5d %10ld | %14.2f %5d %5d  \n",
+                 current_index(), pModel_->getTreeSize(), current_level(),
+                 pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
+                 lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
+                 pModel_->getLastMinReducedCost(), pModel_->getLastNbSubProblemsSolved(), nbGeneratedColumns_);
+       else
+         fprintf(pFile, "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | %8d %14.2f %5d / %5d %10ld | %14s %5s %5s  \n",
+                 current_index(), pModel_->getTreeSize(), current_level(),
+                 pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
+                 lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
+                 "-", "-", "-");
+     }
    }
 
    if (!pModel_->logfile().empty()) fclose(pFile);
@@ -393,7 +402,8 @@ void BcpLpModel::restore_feasibility(const BCP_lp_result& lpres,
    const BCP_vec<BCP_cut*>& cuts,
    BCP_vec<BCP_var*>& vars_to_add,
    BCP_vec<BCP_col*>& cols_to_add){
-
+   writeLP("infeasible");
+  std::cout << "Infeasible LP: LP model written in infeasible.lp" << std::endl;
    //dive is finished
    // DBG dive_ = false;
    if (pModel_->getParameters().printBranchStats_) {
@@ -558,11 +568,19 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 {
   // Print a line summary of the solver state
   pModel_->setCurrentTreeLevel(current_level());
-  if (pModel_->getParameters().printBcpSummary_) {
+  if (pModel_->getParameters().printBcpSummary_)
     printSummaryLine(vars);
-  }
 
+  // select branching decision
   BCP_branching_decision decision = selectBranchingDecision(lpres, vars, cuts, local_var_pool, local_cut_pool, cands);
+
+  // reset iteration sp data
+  nbGeneratedColumns_ = 0;
+  // WARNING: important to be reset, otherwise selectBranchingDecision could throw an error on the following iteration
+  pModel_->setLastMinReducedCost(0);
+  pModel_->setLastNbSubProblemsSolved(0);
+
+  // if fathoming or branching -> perform other operations
   int nbChildren = 0;
   switch(decision) {
     case BCP_DoNotBranch:
@@ -586,7 +604,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
     pModel_->getParameters().saveFunction_->printCurrentSol();
   }
 
-  // reset nodes counters
+  // reset cg counters
   currentNodelpIteration_ = 0;
   nbCurrentNodeGeneratedColumns_=0;
   nbCurrentNodeSPSolved_=0;
@@ -613,6 +631,11 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
 	//if some variables have been generated, do not branch
 	bool column_generated = !local_var_pool.empty();
 
+  // throw an error if no columns have been generated and the min reduced cost is negative
+  if(!column_generated && pModel_->getLastMinReducedCost() < -pModel_->epsilon())
+    Tools::throwError("Column generation has finished with a negative reduced cost. "
+                      "There is a problem with the pricing.");
+
   // STAB: compute the Lagrangian bound
   // It can also be used in general to fathom nodes when the the Lagrangian
   // bound is larger than the best UB
@@ -622,7 +645,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     double lagLb=pModel_->getMaster()->computeLagrangianBound(lpres.objval());
     isImproveQuality = pModel_->updateNodeLagLB(lagLb);
     // fathom only if column generation would continue (otherwise would be fathom later in this function)
-    if(column_generated && (pModel_->getParameters().isLagrangianFathomRootNode_ || current_index() > 0)
+    if(column_generated && pModel_->getParameters().isLagrangianFathom_ &&
+      (pModel_->getParameters().isLagrangianFathomRootNode_ || current_index() > 0)
        && pModel_->getObjective() - lagLb < pModel_->getParameters().absoluteGap_ - pModel_->epsilon()){
       std::cout << "Forcibly fathom, because Lagrangian bound is exceeded." << std::endl;
       return BCP_DoNotBranch_Fathomed;
@@ -780,22 +804,11 @@ void BcpLpModel::buildCandidate(const MyBranchingCandidate& candidate, const BCP
 
    //bounds
    for(const MyBranchingNode& node: candidate.getChildren()){
-      //		cout << "Node " << ++l << " -- modified bounds:" << endl;
       auto lbIt = node.getLb().begin();
-      auto varIt = candidate.getBranchingVars().begin();
-      int i = 0;
       for(auto ubIt = node.getUb().begin(); ubIt != node.getUb().end(); ++ubIt){
          vbd.push_back(*lbIt);
          vbd.push_back(*ubIt);
-         			//debug
-         			// Rotation rot((*varIt)->getPattern());
-         			// if(*lbIt != (*varIt)->getLB())
-         			// 	cout << "Var " << vpos[i] << "(" << (*varIt)->getIndex() << ")" << ": LB=" << *lbIt << " - " << rot.toString() << endl;
-         			// if(*ubIt != (*varIt)->getUB())
-         			// 	cout << "Var " << vpos[i] << "(" << (*varIt)->getIndex() << ")" << ": UB=" << *ubIt << " - " << rot.toString() << endl;
          ++lbIt;
-         ++varIt;
-         ++i;
       }
    }
 
@@ -1119,7 +1132,7 @@ void BcpBranchingTree::init_new_phase(int phase, BCP_column_generation& colgen, 
 
 BcpModeler::BcpModeler(MasterProblem* pMaster, const char* name, LPSolverType type):
 CoinModeler(), pMaster_(pMaster), pBcp_(0), primalValues_(0), dualValues_(0), reducedCosts_(0), lhsValues_(0),
-lastNbSubProblemsSolved_(0), lastMinDualCost_(0), nbNodes_(0), LPSolverType_(type) {
+lastNbSubProblemsSolved_(0), lastMinReducedCost_(0), nbNodes_(0), LPSolverType_(type) {
   pBcp_ = new BcpInitialize(this);
 }
 
@@ -1191,7 +1204,7 @@ void BcpModeler::reset() {
 
   // reset all solutions related objects
   lastNbSubProblemsSolved_ = 0;
-  lastMinDualCost_ = 0;
+  lastMinReducedCost_ = 0;
   solHasChanged_ = false;
 
   obj_history_.clear();

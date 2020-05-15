@@ -217,8 +217,8 @@ protected:
    //
    Modeler* pModel_;
 
-  virtual void buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
-      MyBranchingNode &restNode, MyBranchingNode &workNode, bool forceRest) const;
+  virtual void buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool forceRest,
+      MyBranchingNode &restNode, MyBranchingNode &workNode) const;
 
   void deactivateColumns(MyBranchingCandidate &candidate, int nurseId, int day,
       std::vector<int> forbiddenShifts, MyBranchingNode &forbiddenNode, MyBranchingNode &complementaryNode) const;
@@ -232,8 +232,8 @@ class RosterBranchingRule: public DiveBranchingRule {
     virtual ~RosterBranchingRule() {}
 
   protected:
-    void buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
-                           MyBranchingNode &restNode, MyBranchingNode &workNode, bool forceRest) const override {};
+    void buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool forceRest,
+                           MyBranchingNode &restNode, MyBranchingNode &workNode) const override {};
 };
 
 #endif /* SRC_TREEMANAGER_H_ */

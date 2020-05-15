@@ -20,7 +20,7 @@ class ShortSP : public SubProblem {
     ShortSP(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
 
     double startWorkCost(int a) const override;
-
+    double historicalCost(int a) const override;
 
   protected:
 

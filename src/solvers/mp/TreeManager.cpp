@@ -372,7 +372,7 @@ bool DiveBranchingRule::branchOnRestDay(MyBranchingCandidate &candidate){
 	if(pBestNurse != nullptr) {
     int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
     MyBranchingNode &restNode = candidate.getChild(index1), &workNode = candidate.getChild(index2);
-    buildRestNodesCut(candidate, pBestNurse, bestDay, restNode, workNode, true);
+    buildRestNodesCut(candidate, pBestNurse, bestDay, true, restNode, workNode);
     deactivateColumns(candidate, pBestNurse->id_, bestDay, {0}, workNode, restNode);
 
     // Here : random choice to decide the order of the siblings
@@ -497,26 +497,26 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 	if(pBestNurse != nullptr){
     //compute the forbidden shifts
     vector<int> complementaryShifts;
-    bool work = true;
+    bool canRest = false;
     for(int i=0; i<pMaster_->getNbShifts(); ++i){
       if(find(forbiddenShifts.begin(), forbiddenShifts.end(), i) == forbiddenShifts.end()){
         complementaryShifts.push_back(i);
         //if the forbidden shift 0 (rest) is in the complementary, it is possible to rest for the first node
-        if(i==0) work = false;
+        if(i==0) canRest = true;
       }
     }
 
     // create and build the nodes
     int index1 = candidate.createNewChild(), index2 = candidate.createNewChild();
     MyBranchingNode &node1 = candidate.getChild(index1), &node2 = candidate.getChild(index2);
-    buildRestNodesCut(candidate, pBestNurse, bestDay, work? node2: node1, work? node1: node2, false);
+    buildRestNodesCut(candidate, pBestNurse, bestDay, false, canRest? node1: node2, canRest? node2: node1);
 
     // Find the columns to deactivate
     deactivateColumns(candidate, pBestNurse->id_, bestDay, forbiddenShifts, node1, node2);
 
     //add the node to the tree
-    tree_->pushBackNewShiftNode(pBestNurse, bestDay, work, forbiddenShifts);
-    tree_->pushBackNewShiftNode(pBestNurse, bestDay , !work, complementaryShifts);
+    tree_->pushBackNewShiftNode(pBestNurse, bestDay, !canRest, forbiddenShifts);
+    tree_->pushBackNewShiftNode(pBestNurse, bestDay , canRest, complementaryShifts);
 
     return true;
 	}
@@ -525,21 +525,17 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate& candidate){
 }
 
 
-void DiveBranchingRule::buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day,
-                                          MyBranchingNode &restNode, MyBranchingNode &workNode,
-                                          bool forceRest) const {
+void DiveBranchingRule::buildRestNodesCut(MyBranchingCandidate &candidate, PLiveNurse pNurse, int day, bool forceRest,
+                                          MyBranchingNode &restNode, MyBranchingNode &workNode) const {
   //creating the branching cut
   char name[50];
   sprintf(name, "RestBranchingCons_N%d_%d", pNurse->id_, day);
+  vector<MyVar *> restingArcs = pMaster_->getRestVarsPerDay(pNurse, day);
   vector<double> coeffs;
-  vector<MyVar *> restingArcs;
-  for (MyVar *var: pMaster_->getRestVarsPerDay(pNurse, day)) {
-    restingArcs.push_back(var);
-    coeffs.push_back(1);
-  }
+  Tools::initVector(coeffs, restingArcs.size(), 1.0);
   //create a new cons
   MyCons *cons;
-  pModel_->createEQCutLinear(&cons, name, 0, restingArcs, coeffs);
+  pModel_->createCutLinear(&cons, name, 0, 1, restingArcs, coeffs);
 
   /* update candidate */
   int index = candidate.addNewBranchingCons(cons);

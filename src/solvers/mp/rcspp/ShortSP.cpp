@@ -233,6 +233,9 @@ double ShortSP::startWorkCost(int a) const {
   return g_.arcCost(a); // cost already updated;
 }
 
+double ShortSP::historicalCost(int) const {
+  return 0; // cost already updated
+}
 
 // Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
 //

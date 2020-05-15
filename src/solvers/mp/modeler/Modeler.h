@@ -293,10 +293,10 @@ protected:
 };
 
 struct MyBranchingCandidate{
-	MyBranchingCandidate() {}
+	MyBranchingCandidate() = default;
 
 	int createNewChild(){
-		children_.push_back(MyBranchingNode());
+		children_.emplace_back(MyBranchingNode());
 		initialize(children_.back());
 		return children_.size()-1;
 	}
@@ -306,9 +306,7 @@ struct MyBranchingCandidate{
 	}
 
 	void swapChildren(int index1, int index2){
-		MyBranchingNode& copyNode = children_[index1];
-		children_[index1] = children_[index2];
-		children_[index2] = copyNode;
+		std::swap(children_[index1],children_[index2]);
 	}
 
 	void initialize(MyBranchingNode& node){
@@ -805,6 +803,10 @@ class Modeler {
      */
 
   protected:
+    virtual int createVar(MyVar **var, const char *var_name, int index, double objCoeff,
+                          double lb, double ub, VarType vartype, const std::vector<double> &pattern, double score) = 0;
+
+  public:
     void createVar(MyVar **var, const char *var_name, double objCoeff,
                    double lb, double ub, VarType vartype, const std::vector<double> &pattern, double score) {
       // check flag column_added
@@ -815,10 +817,6 @@ class Modeler {
       objects_.push_back(*var);
     }
 
-    virtual int createVar(MyVar **var, const char *var_name, int index, double objCoeff,
-                          double lb, double ub, VarType vartype, const std::vector<double> &pattern, double score) = 0;
-
-  public:
     void createPositiveVar(MyVar **var, const char *var_name, double objCoeff,
                                   const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0,
                                   double ub = DBL_MAX) {
@@ -842,6 +840,12 @@ class Modeler {
     }
 
   protected:
+    virtual int
+    createColumnVar(MyVar **var, const char *var_name, int index, double objCoeff, const std::vector<double> &pattern,
+                    double dualObj,
+                    double lb, double ub, VarType vartype, double score) = 0;
+
+  public:
     void createColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                          double dualObj,
                          double lb, double ub, VarType vartype, double score) {
@@ -850,12 +854,6 @@ class Modeler {
       createColumnVar(var, var_name, var_count++, objCoeff, pattern, dualObj, lb, ub, vartype, score);
     }
 
-    virtual int
-    createColumnVar(MyVar **var, const char *var_name, int index, double objCoeff, const std::vector<double> &pattern,
-                    double dualObj,
-                    double lb, double ub, VarType vartype, double score) = 0;
-
-  public:
     void
     createPositiveColumnVar(MyVar **var, const char *var_name, double objCoeff, const std::vector<double> &pattern,
                             double dualObj = LARGE_SCORE, double score = 0, double ub = DBL_MAX) {
@@ -888,6 +886,10 @@ class Modeler {
 
     //Add linear constraints
   protected:
+    virtual int createConsLinear(MyCons **cons, const char *con_name, int index, double lhs, double rhs,
+                                 std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) = 0;
+
+  public:
     void createConsLinear(MyCons **cons, const char *con_name, double lhs, double rhs,
                           std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       // check flag cut_added
@@ -898,10 +900,6 @@ class Modeler {
       objects_.push_back(*cons);
     }
 
-    virtual int createConsLinear(MyCons **cons, const char *con_name, int index, double lhs, double rhs,
-                                 std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) = 0;
-
-  public:
     void createLEConsLinear(MyCons **cons, const char *con_name, double rhs,
                                    std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       createConsLinear(cons, con_name, -infinity_, rhs, vars, coeffs);
@@ -918,7 +916,11 @@ class Modeler {
     }
 
   protected:
+    virtual int createCutLinear(MyCons **cons, const char *con_name, int index, double lhs, double rhs,
+                                std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) = 0;
 
+  public:
+    // set manually lhs and rhs
     void createCutLinear(MyCons **cons, const char *con_name, double lhs, double rhs,
                          std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {
       // set flag cut_added to true
@@ -926,10 +928,6 @@ class Modeler {
       createCutLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
     }
 
-    virtual int createCutLinear(MyCons **cons, const char *con_name, int index, double lhs, double rhs,
-                                std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) = 0;
-
-  public:
     //Add a lower or equal constraint
     void createLECutLinear(MyCons **cons, const char *con_name, double rhs,
                                   std::vector<MyVar *> vars = {}, std::vector<double> coeffs = {}) {

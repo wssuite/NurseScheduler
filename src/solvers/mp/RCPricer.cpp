@@ -206,7 +206,7 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 	//set statistics
 	BcpModeler* model = static_cast<BcpModeler*>(pModel_);
 	model->setLastNbSubProblemsSolved(nbSPTried_);
-	model->setLastMinDualCost(minReducedCost_);
+  model->setLastMinReducedCost(minReducedCost_);
 
 	if(allNewColumns_.empty())
 		print_current_solution_();

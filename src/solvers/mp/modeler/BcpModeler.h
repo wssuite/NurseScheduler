@@ -432,8 +432,8 @@ public:
 
 	int getLastNbSubProblemsSolved(){ return lastNbSubProblemsSolved_; }
 
-	double getLastMinDualCost(){ return lastMinDualCost_; }
-	void setLastMinDualCost(double lastMinDualCost){ lastMinDualCost_ = lastMinDualCost; }
+	double getLastMinReducedCost(){ return lastMinReducedCost_; }
+	void setLastMinReducedCost(double lastMinReducedCost){ lastMinReducedCost_ = lastMinReducedCost; }
 
 	double getLastObj(){ return obj_history_.empty()? infinity_:obj_history_.back(); }
 	double getObj(int index) const { return Tools::get(obj_history_, index); }
@@ -572,7 +572,7 @@ protected:
 	//number of sub problems solved on the last iteration of column generation
 	int lastNbSubProblemsSolved_;
 	//min dual cost for a pattern on the last iteration of column generation
-	double lastMinDualCost_;
+	double lastMinReducedCost_;
 	//all column generation times as computed by BCP
 	BCP_lp_statistics timeStats_;
 	//other important timer

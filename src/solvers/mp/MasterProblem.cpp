@@ -624,9 +624,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 				pModel_->createPositiveVar(&optDemandVars_[k][s-1][sk], name, pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
 				for(int p=0; p<pScenario_->nbPositions(); p++){
 					sprintf(name, "skillsAllocVar_%d_%d_%d_%d", k, s, sk,p);
-					// DBG
 					pModel_->createPositiveVar(&skillsAllocVars_[k][s-1][sk][p], name, 0);
-					//pModel_->createIntVar(&skillsAllocVars3[p], name, 0);
 				}
 				//adding variables and building minimum demand constraints
 				vector<MyVar*> vars1(positionsPerSkill_[sk].size());
@@ -635,6 +633,13 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 					vars1[p] = skillsAllocVars_[k][s-1][sk][positionsPerSkill_[sk][p]];
 					coeffs1[p] = 1;
 				}
+
+				MyVar* vFeasibility;
+        sprintf(name, "minDemandFeasibilityVar_%d_%d_%d", k, s, sk);
+				pModel_->createPositiveVar(&vFeasibility, name, LARGE_SCORE);
+        vars1.push_back(vFeasibility);
+        coeffs1.push_back(1);
+
 				sprintf(name, "minDemandCons_%d_%d_%d", k, s, sk);
         pModel_->createGEConsLinear(&minDemandCons_[k][s - 1][sk], name, pDemand_->minDemand_[k][s][sk],
                                     vars1, coeffs1);
@@ -972,6 +977,7 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
 //
 double MasterProblem::computeLagrangianBound(double objVal) const {
   Tools::throwError("Lagrangian bound not implemented for this master problem.");
+  return - LARGE_SCORE;
 //	double stabSumCostValue = 0.0;
 //	if (!pModel_->getParameters().isStabilization_) {
 //		return objVal+sumRedCost;

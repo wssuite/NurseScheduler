@@ -428,7 +428,8 @@ public:
 	int stopAfterXDegenerateIt_ = 9999;
 
 	// fathom a node is upper bound is smaller than the lagrangian bound
-	bool isLagrangianFathomRootNode_ = false;
+	bool isLagrangianFathom_ = true;
+	bool isLagrangianFathomRootNode_ = false; // fathom also root node
 
   // Parameters to remove a column from the master (both should be violated)
   // max number of consecutive iterations that a column can stay outside of the basis

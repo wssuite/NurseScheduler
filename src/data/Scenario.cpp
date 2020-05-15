@@ -385,7 +385,9 @@ string Scenario::toString(){
 	for(int i=0; i<nbShifts_; i++){
 		if (isRestShift(i)) continue;
 		rep << "#                  \t= ";
-		rep << i << ":" << intToShift_[i] << " \t(" << minConsShiftsOfTypeOf(i) << "," << maxConsShiftsOfTypeOf(i) << ")" << std::endl;
+		rep << i << ":" << intToShift_[i];
+		if(i > 0) rep << " \t(" << minConsShiftsOfTypeOf(i) << "," << maxConsShiftsOfTypeOf(i) << ")";
+		rep << std::endl;
 	}
 	rep << "# " << std::endl;
 	rep << "# FORBIDDEN        " << std::endl;

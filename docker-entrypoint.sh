@@ -15,6 +15,7 @@ function printBashUsage {
   echo "-g | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
   echo "-v | --valgrind: use valgrind to run the code. Default: false."
   echo "-e | --evaluate: use the validator to evaluate thee solution. Default: true."
+  echo "-r | --root-dir-path: set the path where the script should be run. Default: do not move."
 }
 
 # load config arguments
@@ -40,6 +41,7 @@ while [ ! -z $1 ]; do
    -d | --dynamic) dynamic="1"; shift 1;;
    -v | -valgrind) valgrind="1"; shift 1;;
    -e | --evaluate) eval=$2; shift 2;;
+   -r | --root-dir-path) rootDir=$2; shift 2;;
    -*|--*) echo "Option unknown: $1. It will be passed to the scheduler."
       other_args="${other_args} $1 $2"; shift 2;;
    *) echo "Cannot parse this argument: $1"
@@ -48,6 +50,11 @@ while [ ! -z $1 ]; do
   esac
 done
 dynamic_args="${dynamic_args} -i ${instance_description}"
+
+# move to root dir if defined
+if [ ! -z ${rootDir} ]; then
+    cd ${rootDir}
+fi
 
 if [ -z ${dynamic} ]; then
 	# parse inputs
@@ -74,7 +81,7 @@ if [ -z ${dynamic} ]; then
 	sCMD="${sCMD} --timeout ${timeout}"
 
 	# set param file
-	if [ ! -z param ]; then
+	if [ ! -z ${param} ]; then
 		# param="paramfiles/default.txt"
 		sCMD="${sCMD} --param paramfiles/${param}"
 	fi
@@ -131,8 +138,7 @@ if [ ${ret} -eq 0 -a ${eval} -eq 1 ]; then
 fi
 
 # if a goal is defined, test the total cost
-if [ -z "$goal" ]
-then
+if [ -z "$goal" ]; then
 	exit 0
 fi
 

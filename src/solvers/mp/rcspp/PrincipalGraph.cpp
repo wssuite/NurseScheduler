@@ -139,15 +139,15 @@ bool PrincipalGraph::checkFeasibilityEntranceArc(const Arc_Properties& arc_prop,
 
 
 void PrincipalGraph::updateArcCosts() {
-  if(!pSP_) return;
+  if(!pSP_ || shift_type_ == 0) return;
 
   for (int k = 0; k < pSP_->nDays() - 1; k++) {
     for (int n = 0; n < max_cons_; n++)
       for (int a: arcsShiftToSameShift_[k][n])
-        pSP_->g().updateCost(a, pSP_->workCost(a));
+        pSP_->g().updateCost(a, pSP_->shiftCost(a));
 
     for(int a: arcsRepeatShift_[k])
-      pSP_->g().updateCost(a, pSP_->workCost(a));
+      pSP_->g().updateCost(a, pSP_->shiftCost(a));
   }
 }
 

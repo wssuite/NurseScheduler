@@ -354,113 +354,109 @@ void SubProblem::initStructuresForSolve(){
 
 double SubProblem::startWorkCost(int a) const {
   // retrieve the work cost
-  const Arc_Properties& arc_prop = g_.arc(a);
-  double cost = workCost(arc_prop, true);
+  const Arc_Properties &arc_prop = g_.arc(a);
+  double cost = shiftCost(arc_prop, true);
   int start = arc_prop.day;
-  if(arc_prop.shifts.empty())
+  if (arc_prop.shifts.empty())
     ++start; // start work the next day as no shift today
   cost -= pCosts_->startWorkCost(start);
   cost += startWeekendCosts_[start];
 
-  // if first day, take into account historical state depending on current shift
-  if (start == 0) {
-    // WARNING: the following logic is based on the fact that shifts contains only one element
-    if(arc_prop.shifts.size() != 1)
-      Tools::throwError("The initial state handling in startWorkCost "
-                        "is implemented only for a sequence of one shift.");
-
-    int currentShift = arc_prop.shifts.front();
-    int shiftTypeIni = pLiveNurse_->pStateIni_->shiftType_;
-    int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
-    int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
-
-    // if resting
-    if (currentShift == 0) {
-      // 1. The nurse was resting
-      if (shiftTypeIni == 0) {
-        // if the nurse has already exceeded its max amount of rest,
-        // remove the cost, that will be added latter
-        // (as we do not count the max penalty from previous week)
-        int diffRest = pLiveNurse_->pStateIni_->consDaysOff_ - pLiveNurse_->maxConsDaysOff();
-        cost += std::max(.0, diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF);
-      }
-      // 2. The nurse was working
-      else {
-        // pay just penalty for min
-        int diff = pLiveNurse_->minConsDaysWork() - nConsWorkIni;
-        cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
-
-        int diff2 = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-        cost += std::max(.0, diff2 * pScenario_->weights().WEIGHT_CONS_SHIFTS);
-      }
-    }
-    // otherwise, currently working
-    else {
-      // 1. The nurse was resting: pay more only if the rest is too short
-      if (shiftTypeIni == 0) {
-        int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
-        cost += std::max(.0, diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF);
-      }
-      // 2. The nurse was working
-      else {
-        // a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be added later
-        int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
-        cost -= std::max(.0, diffWork * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
-
-        // b.   The nurse was working on a different shift: if too short, add the corresponding cost
-        int shiftType = pScenario_->shiftIDToShiftTypeID_[currentShift];
-        if (shiftTypeIni != shiftType) {
-          int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-          cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_SHIFTS);
-        }
-//        // c. If working on the same shift type, need to update the consecutive shift cost
-//        else {
-//          int nOldConsShift = 0;
-//          for (int s: arc_prop.shifts) {
-//            ++nConsShiftIni;
-//            ++nOldConsShift;
-//            if (pScenario_->shiftIDToShiftTypeID_[s] != shiftType) {
-//              // remove old cost and add new one
-//              cost -= pScenario_->consShiftCost(shiftTypeIni, nOldConsShift);
-//              cost += pScenario_->consShiftCost(shiftTypeIni, nConsShiftIni);
-//              break;
-//            }
-//          }
-//        }
-      }
-    }
-  }
-  
   return cost;
 }
 
 
-double SubProblem::workCost(int a, bool first_day) const {
-  return workCost(g_.arc(a));
+double SubProblem::shiftCost(int a, bool first_day) const {
+  return shiftCost(g_.arc(a), first_day);
 }
 
-double SubProblem::workCost(const Arc_Properties& arc_prop, bool first_day) const {
+double SubProblem::shiftCost(const Arc_Properties &arc_prop, bool first_day) const {
   double cost = arc_prop.initialCost;
   int k = arc_prop.day;
   // iterate through the shift to update the cost
   for(int s: arc_prop.shifts) {
-    cost += preferencesCosts_[k][s] ;
-    cost -= pCosts_->workedDayShiftCost(k, s);
-    // add weekend cost on saturday, except when first day is sunday
-    if(Tools::isSaturday(k) || (first_day && Tools::isSunday(k)))
-      cost -= pCosts_->workedWeekendCost();
+    cost += preferencesCosts_[k][s];
+    if(pScenario_->isWorkShift(s)) {
+      cost -= pCosts_->workedDayShiftCost(k, s);
+      // add weekend cost on saturday, except when first day is sunday
+      if (Tools::isSaturday(k) || (first_day && Tools::isSunday(k)))
+        cost -= pCosts_->workedWeekendCost();
+    }
     ++k;
   }
   return cost;
 }
 
 double SubProblem::endWorkCost(int a) const {
-  const Arc_Properties& arc_prop = g_.arc(a);
-  double cost = workCost(arc_prop);
+  const Arc_Properties &arc_prop = g_.arc(a);
+  double cost = shiftCost(arc_prop);
   int length = arc_prop.shifts.size(), end = arc_prop.day;
-  if(length > 1) end += length-1; // compute the end of the sequence of shifts
+  if (length > 1) end += length - 1; // compute the end of the sequence of shifts
+  if(arc_prop.shifts.empty() || arc_prop.shifts.back())
   cost += endWeekendCosts_[end];
   cost -= pCosts_->endWorkCost(end);
+
+  return cost;
+}
+
+// take into account historical state depending on current shift (should be called wisely)
+double SubProblem::historicalCost(int a) const {
+  const Arc_Properties &arc_prop = g_.arc(a);
+
+  // WARNING: the following logic is based on the fact that shifts contains only one element
+  if (arc_prop.shifts.size() != 1)
+    Tools::throwError("The initial state handling in startWorkCost "
+                      "is implemented only for a sequence of one shift.");
+
+  double cost = 0;
+  int currentShift = arc_prop.shifts.front();
+  int shiftTypeIni = pLiveNurse_->pStateIni_->shiftType_;
+  int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
+  int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
+
+  // if resting
+  if (pScenario_->isRestShift(currentShift)) {
+    // 1. The nurse was resting
+    if (shiftTypeIni == 0) {
+      // if the nurse has already exceeded its max amount of rest,
+      // add one penalty as current shift is already over the max
+      if(pLiveNurse_->pStateIni_->consDaysOff_ >= pLiveNurse_->maxConsDaysOff())
+        cost += pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
+    }
+    // 2. The nurse was working
+    else {
+      // pay just penalty for min
+      int diff = pLiveNurse_->minConsDaysWork() - nConsWorkIni;
+      cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
+
+      int diff2 = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
+      cost += std::max(.0, diff2 * pScenario_->weights().WEIGHT_CONS_SHIFTS);
+    }
+  }
+  // otherwise, currently working
+  else {
+    // 1. The nurse was resting: pay more only if the rest is too short
+    if (shiftTypeIni == 0) {
+      int diffRest = pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
+      cost += std::max(.0, diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF);
+    }
+    // 2. The nurse was working
+    else {
+      // a. If the number of consecutive days worked has already exceeded the max, subtract now the cost that will be added later
+      int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
+      cost -= std::max(.0, diffWork * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
+
+      // b.   The nurse was working on a different shift: if too short, add the corresponding cost
+      int shiftType = pScenario_->shiftIDToShiftTypeID_[currentShift];
+      if (shiftTypeIni != shiftType) {
+        int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
+        cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_SHIFTS);
+      }
+      // c. If working on the same shift type, need to update the consecutive shift cost just if exceeding the max
+      else if(nConsShiftIni >= pScenario_->maxConsShiftsOf(shiftTypeIni))
+        cost += pScenario_->weights().WEIGHT_CONS_SHIFTS;
+    }
+  }
 
   return cost;
 }
@@ -483,7 +479,17 @@ void SubProblem::updateArcCosts() {
           const Arc_Properties &arc_prop = g_.arc(a);
           if (!arc_prop.forbidden && canSuccStartHere(arc_prop) &&
               pg.checkFeasibilityEntranceArc(arc_prop, n)) {
-            g_.updateCost(a, startWorkCost(a));
+            double c = 0;
+            // if first day -> add the historical costs
+            if(k==minConsDays_-1)
+              c += historicalCost(a);
+            // if rest shift, just add shift cost
+            if(pg.shiftType()==0)
+              c += shiftCost(a);
+            // otherwise, call startWorkCost method
+            else
+              c += startWorkCost(a);
+            g_.updateCost(a, c);
             // For an arc that starts on the first day, must update the consumption based on the historical state
             if (k == minConsDays_ - 1)
               g_.updateConsumptions(a, startConsumption(k, arc_prop.shifts));
@@ -552,8 +558,7 @@ std::vector<int> SubProblem::startConsumption(int day, std::vector<int> shifts) 
     if(pScenario_->isRestShift(s)) {
       timeDuration = 0;
       size = 0;
-    }
-    else {
+    } else {
       timeDuration += pScenario_->timeDurationToWork_[s];
       ++ size;
     }
