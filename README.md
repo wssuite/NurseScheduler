@@ -1,7 +1,7 @@
 # Nurse scheduler
 
 [![Build Status](https://travis-ci.org/legraina/NurseScheduler.svg?branch=master)](https://travis-ci.org/legraina/NurseScheduler)
-[![Docker Build Status](https://img.shields.io/docker/build/legraina/nurse-scheduler.svg)](https://hub.docker.com/r/legraina/nurse-scheduler/)
+[![Docker Automated build](https://img.shields.io/docker/automated/legraina/nurse-scheduler)](https://hub.docker.com/repository/docker/legraina/nurse-scheduler/)
 [![DOI](https://zenodo.org/badge/150300357.svg)](https://zenodo.org/badge/latestdoi/150300357)
 
 
