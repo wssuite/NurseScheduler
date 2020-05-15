@@ -1199,6 +1199,7 @@ class Modeler {
     inline void setLogFile(std::string fileName) { logfile_ = fileName; }
 
     inline void setInfinity(double inf) { infinity_ = inf; }
+    inline double getInfinity() const { return infinity_; }
 
     // get the variables that are always present in the model
     const std::vector<MyVar *> &getCoreVars() const { return coreVars_; }

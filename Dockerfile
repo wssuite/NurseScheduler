@@ -1,7 +1,5 @@
 FROM legraina/bcp
 
-# install valgrind
-
 # create a user
 RUN useradd -ms /bin/bash poly
 
@@ -16,11 +14,13 @@ COPY --chown=poly ./src/ /home/poly/ns/src/
 WORKDIR /home/poly/ns/
 
 # Compile the nurse scheduler
+ARG CMAKE_BUILD_TYPE=Release
 RUN echo "set(BCPDIROPT /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt && \
+    echo "set(BCPDIRDBG /usr/local/Bcp-1.4/build)" >> CMakeDefinitionsLists.txt && \
     echo "set(BOOST_DIR /usr/local/include)" >> CMakeDefinitionsLists.txt && \
     mkdir build && \
     cd build && \
-    cmake .. && \
+    cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} .. && \
     make
 
 # Copy everything

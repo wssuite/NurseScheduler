@@ -403,7 +403,7 @@ public:
 	int stopAfterXDegenerateIt_ = 9999;
 
 	// fathom a node is upper bound is smaller than the lagrangian bound
-	bool isLagrangianFathom_=true;
+	bool isLagrangianFathom_=false;
 
 
 	/* PARAMETERS OF THE PRICER */

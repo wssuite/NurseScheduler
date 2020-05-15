@@ -887,24 +887,24 @@ bool RotationMP::stabCheckStoppingCriterion() const {
   return true;
 }
 
-// STAB: compute the lagrangian bound
-//
-double RotationMP::computeLagrangianBound(double objVal,double sumRedCost) const {
-  double bound = MasterProblem::computeLagrangianBound(objVal, sumRedCost);
-  double stabSumCostValue = 0.0;
-  if (pModel_->getParameters().isStabilization_) {
-    for(int i=0; i<pScenario_->nbNurses_; i++){
-      // stabilization variables corresponding to the flow constraints
-      for(int k=0; k<pDemand_->nbDays_; ++k) {
-        stabSumCostValue += stabRestFlowPlus_[i][k]->getCost()*pModel_->getVarValue(stabRestFlowPlus_[i][k]);
-        stabSumCostValue += stabRestFlowMinus_[i][k]->getCost()*pModel_->getVarValue(stabRestFlowMinus_[i][k]);
-        stabSumCostValue += stabWorkFlowPlus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowPlus_[i][k]);
-        stabSumCostValue += stabWorkFlowMinus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowMinus_[i][k]);
-      }
-    }
-  }
-  return bound-stabSumCostValue;
-}
+//// STAB: compute the lagrangian bound
+////
+//double RotationMP::computeLagrangianBound(double objVal,double sumRedCost) const {
+//  double bound = MasterProblem::computeLagrangianBound(objVal, sumRedCost);
+//  double stabSumCostValue = 0.0;
+//  if (pModel_->getParameters().isStabilization_) {
+//    for(int i=0; i<pScenario_->nbNurses_; i++){
+//      // stabilization variables corresponding to the flow constraints
+//      for(int k=0; k<pDemand_->nbDays_; ++k) {
+//        stabSumCostValue += stabRestFlowPlus_[i][k]->getCost()*pModel_->getVarValue(stabRestFlowPlus_[i][k]);
+//        stabSumCostValue += stabRestFlowMinus_[i][k]->getCost()*pModel_->getVarValue(stabRestFlowMinus_[i][k]);
+//        stabSumCostValue += stabWorkFlowPlus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowPlus_[i][k]);
+//        stabSumCostValue += stabWorkFlowMinus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowMinus_[i][k]);
+//      }
+//    }
+//  }
+//  return bound-stabSumCostValue;
+//}
 
 // STAB: reset the costs and bounds of the stabilization variables
 //
