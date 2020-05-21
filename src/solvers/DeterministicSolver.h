@@ -85,6 +85,9 @@ public:
 
 	// Initial random seed for each solution of a new deterministic solver
 	int randomSeed_ = 0;
+
+	// number of available threads
+	int nThreads_ = 1;
 };
 
 
@@ -129,7 +132,7 @@ public:
 
 	// Initialize deterministic options with default values
 	//
-	void setOptionsToDefault(InputPaths& inputPaths);
+	void initializeOptions(InputPaths &inputPaths);
 
 	// Read deterministic options from a file
 	//

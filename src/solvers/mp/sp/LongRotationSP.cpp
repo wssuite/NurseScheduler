@@ -2,7 +2,7 @@
 // Created by antoine legrain on 2020-04-12.
 //
 
-#include "ShortSP.h"
+#include "LongRotationSP.h"
 
 using std::string;
 using std::vector;
@@ -17,10 +17,8 @@ using std::map;
 //---------------------------------------------------------------------------
 
 // Constructors and destructor
-ShortSP::ShortSP() {}
-
-ShortSP::ShortSP(PScenario scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
-    SubProblem(scenario, nbDays, contract,  pInitState) {
+LongRotationSP::LongRotationSP(PScenario scenario, int nbDays, PConstContract contract, vector<State>* pInitState):
+    RotationSP(scenario, nbDays, contract,  pInitState) {
 
   minConsDays_ = contract->minConsDaysWork_;
   nLabels_ = 1;
@@ -28,10 +26,10 @@ ShortSP::ShortSP(PScenario scenario, int nbDays, PConstContract contract, vector
   initShortSuccessions();
 }
 
-ShortSP::~ShortSP(){}
+LongRotationSP::~LongRotationSP(){}
 
 // Initializes the short successions. Should only be used ONCE (when creating the SubProblem).
-void ShortSP::initShortSuccessions() {
+void LongRotationSP::initShortSuccessions() {
 
   // Primary information needed
   //
@@ -171,7 +169,7 @@ void ShortSP::initShortSuccessions() {
 //--------------------------------------------
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
-bool ShortSP::preprocess() {
+bool LongRotationSP::preprocess() {
   // find best start of rotation
   priceShortSucc();
   // find short rotations
@@ -180,40 +178,38 @@ bool ShortSP::preprocess() {
 
 
 // For the short rotations, depends on the chosen option + on whether we want optimality (more important)
-bool ShortSP::solveShortRotations() {
+bool LongRotationSP::solveShortRotations() {
   nVeryShortFound_ = 0;
-  bool ANS = false;
+  bool ANS, ANS2;
   // 0 -> no short rotations
   // 1 -> day-0 short rotations only
   // 2 -> day-0 and last-day short rotations only
   // 3 -> all short rotations
-  // SOLVE_SHORT_NONE
-  if (param_.shortRotationsStrategy_ == 0) {}
-  // SOLVE_SHORT_DAY_0_ONLY
-  else if (param_.shortRotationsStrategy_ == 1) {
-    bool tmp_ANS = priceVeryShortRotationsFirstDay();
-    ANS = ANS or tmp_ANS;
+  switch (param_.shortRotationsStrategy_) {
+    // SOLVE_SHORT_NONE
+    case 0:
+      return false;
+    // SOLVE_SHORT_DAY_0_ONLY
+    case 1:
+      ANS = priceVeryShortRotationsFirstDay();
+      return ANS;
+    // SOLVE_SHORT_DAY_0_AND_LAST_ONLY
+    case 2:
+      ANS = priceVeryShortRotationsFirstDay();
+      ANS2 = priceVeryShortRotationsLastDay();
+      return ANS or ANS2;
+    // SOLVE_SHORT_ALL
+    case 3:
+      ANS = priceVeryShortRotations();
+      return ANS;
+    default:
+      std::cout << "# INVALID / OBSOLETE OPTION FOR SHORT ROTATIONS" << std::endl;
+      return false;
   }
-  // SOLVE_SHORT_DAY_0_AND_LAST_ONLY
-  else if (param_.shortRotationsStrategy_ == 2) {
-    bool tmp_ANS = priceVeryShortRotationsFirstDay();
-    bool tmp_ANS2 = priceVeryShortRotationsLastDay();
-    ANS = tmp_ANS2 or ANS or tmp_ANS;
-  }
-  // SOLVE_SHORT_ALL
-  else if (param_.shortRotationsStrategy_ == 3) {
-    bool tmp_ANS = priceVeryShortRotations();
-    ANS = ANS or tmp_ANS;
-  } else {
-    std::cout << "# INVALID / OBSOLETE OPTION FOR SHORT ROTATIONS" << std::endl;
-    getchar();
-    return false;
-  }
-  return ANS;
 }
 
 // Create all arcs whose origin is the source nodes (all go to short rotations nodes)
-void ShortSP::createArcsSourceToPrincipal() {
+void LongRotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (PrincipalGraph &pg: principalGraphs_) {
     int s = pScenario_->shiftTypeIDToShiftID_[pg.shiftType()].front(); // any shift with the right shit type
@@ -229,17 +225,17 @@ void ShortSP::createArcsSourceToPrincipal() {
       }
 }
 
-double ShortSP::startWorkCost(int a) const {
+double LongRotationSP::startWorkCost(int a) const {
   return g_.arcCost(a); // cost already updated;
 }
 
-double ShortSP::historicalCost(int) const {
+double LongRotationSP::historicalCost(int) const {
   return 0; // cost already updated
 }
 
 // Pricing of the short successions : only keep one of them, and the cost of the corresponding arc
 //
-void ShortSP::priceShortSucc() {
+void LongRotationSP::priceShortSucc() {
 
   map<int, int> specialArcsSuccId;
   map<int, double> specialArcsCost;
@@ -250,7 +246,7 @@ void ShortSP::priceShortSucc() {
       for (int n = 0; n <= max_cons; n++) {
 
         int best_id = -1;
-        double best_cost = MAX_COST;
+        double best_cost = DBL_MAX;
 
         // CHECK THE ROTATIONS ONLY IF THE FIRST DAY IS ALLOWED
         if (startingDayStatus_[k - CDMin_ + 1]) {
@@ -266,20 +262,23 @@ void ShortSP::priceShortSucc() {
               // ONLY CASE WHEN THE DESTINATION NODE MAY HAVE TO CHANGE:
               // 1. Start date is 0
               // 2. Size of short succession is < than the number of levels maxValByShift[s]
-              // 3. Number of last shifts cons in succession is CDMin_
+              // 3. Number of consecutive shifts is CDMin_
               // 4. The shift is the same as the last one worked by the nurse at initial state
+              // -> the nurse has effectively worked more than n consecutive shifts
+              // -> another arc needs to be updated
+              // -> the correct arc is stored and will be updated at the end (as it could be updated again after)
               if (k == CDMin_ - 1 and CDMin_ < max_cons and n == CDMin_ and s == pLiveNurse_->pStateIni_->shiftType_) {
                 // a. Determine the destination of that arc
                 int nConsWithPrev = CDMin_ + pLiveNurse_->pStateIni_->consShifts_;
                 int nDestination = std::min(nConsWithPrev, max_cons);
                 int a = arcsFromSource_[s][k][nDestination].front();
                 // b. Store the succession ID + the special cost for that arc
-                specialArcsSuccId[a] =curSuccId;
+                specialArcsSuccId[a] = curSuccId;
                 specialArcsCost[a] = curCost;
               }
 
                 // OTHER CASES ("REGULAR ONES")
-              else if (curCost < best_cost) {
+              else if (best_id == -1 || curCost < best_cost) {
                 best_id = curSuccId;
                 best_cost = curCost;
               }
@@ -293,8 +292,12 @@ void ShortSP::priceShortSucc() {
           g_.updateCost(a, best_cost);
           g_.updateShifts(a, allowedShortSuccBySize_[CDMin_][best_id]);
         }
-          // otherwise, forbid it
-        else g_.forbidArc(a);
+          // otherwise, forbid it and erase shifts
+        else {
+          g_.forbidArc(a);
+          g_.updateCost(a, g_.arcInitialCost(a));
+          g_.updateShifts(a, {});
+        }
 
 //        if(!startingDayStatus_[k-CDMin_+1] || best_cost >= MAX_COST-1
       }
@@ -313,7 +316,7 @@ void ShortSP::priceShortSucc() {
 
 // Given a short succession and a start date, returns the cost of the corresponding arc
 //
-double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
+double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
   double ANS = 0;
   const vector<int>& succ = allowedShortSuccBySize_[size][succId];
 
@@ -413,7 +416,7 @@ double ShortSP::costArcShortSucc(int size, int succId, int startDate) {
 //----------------------------------------------------------------
 
 // Brutally try all possible short rotations from the very first day
-bool ShortSP::priceVeryShortRotationsFirstDay(){
+bool LongRotationSP::priceVeryShortRotationsFirstDay(){
   int nFound = 0;
   for(int c=1; c<CDMin_; c++)
     nFound += priceVeryShortSameSizeRotations(0, allowedShortSuccBySize_[c]);
@@ -421,7 +424,7 @@ bool ShortSP::priceVeryShortRotationsFirstDay(){
 }
 
 // Brutally try all possible short rotations that end on the last day
-bool ShortSP::priceVeryShortRotationsLastDay(){
+bool LongRotationSP::priceVeryShortRotationsLastDay(){
   int nFound = 0;
   for(int c=1; c<CDMin_; c++)
       nFound += priceVeryShortSameSizeRotations(nDays_-c, allowedShortSuccBySize_[c]);
@@ -429,7 +432,7 @@ bool ShortSP::priceVeryShortRotationsLastDay(){
 }
 
 // Brutally try all possible short rotations from every first day
-bool ShortSP::priceVeryShortRotations() {
+bool LongRotationSP::priceVeryShortRotations() {
   int nFound = 0;
   for (int c = 1; c < CDMin_; c++) {
     const vector2D<int> &succs = allowedShortSuccBySize_[c];
@@ -439,7 +442,7 @@ bool ShortSP::priceVeryShortRotations() {
   return nFound > 0;
 }
 
-int ShortSP::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs) {
+int LongRotationSP::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs) {
   int nFound = 0;
   if (startingDayStatus_[k])
     for (const vector<int> &succ: succs) {
@@ -457,14 +460,14 @@ int ShortSP::priceVeryShortSameSizeRotations(int k,  const vector2D<int>& succs)
 
 
 // Compute the cost of a single short rotation
-double ShortSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) {
+double LongRotationSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) {
 
   int endDate = startDate + succ.size() - 1;
 
   //check if any shift is forbidden
   for(int k=startDate; k<=endDate; k++)
     if(isDayShiftForbidden(k, succ[k-startDate]))
-      return MAX_COST;
+      return DBL_MAX;
 
   // Regular costs
   double consDaysRegCost=0, consShiftsRegCost=0, completeWeekendRegCost=0, preferencesRegCost=0, shortRestRegCost=0;
@@ -480,9 +483,8 @@ double ShortSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) 
     // The nurse was working
     if(pLiveNurse_->pStateIni_->shift_ > 0){
 
-      if(pScenario_->isForbiddenSuccessorShift_Shift( succ[0], pLiveNurse_->pStateIni_->shift_)){
-        return MAX_COST;
-      }
+      if(pScenario_->isForbiddenSuccessorShift_Shift( succ[0], pLiveNurse_->pStateIni_->shift_))
+        return DBL_MAX;
 
       // Change initial values
       shift = pLiveNurse_->pStateIni_->shift_;
@@ -595,7 +597,7 @@ double ShortSP::costOfVeryShortRotation(int startDate, const vector<int>& succ) 
 }
 
 // Summary of the short successions generated
-void ShortSP::printShortSucc() const {
+void LongRotationSP::printShortSucc() const {
   std::cout << "#   +------------+" << std::endl;
   std::cout << "#   | CD_min = " << CDMin_ << std::endl;
   std::cout << "#   +------------+" << std::endl;
@@ -614,7 +616,7 @@ void ShortSP::printShortSucc() const {
 }
 
 // Prints all active pairs ( arcFromSource - corresponding short successions )
-void ShortSP::printShortArcs() const {
+void LongRotationSP::printShortArcs() const {
   for(int s=1; s<pScenario_->nbShiftsType_; s++){
     for(int k=minConsDays_-1; k<nDays_; k++){
       for(int n=1; n<=principalGraphs_[s].maxCons(); n++){

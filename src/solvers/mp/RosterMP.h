@@ -6,7 +6,6 @@
 #define NURSESCHEDULER_ROSTERMP_H
 
 #include "MasterProblem.h"
-#include "solvers/mp/rcspp/RCGraph.h"
 
 //-----------------------------------------------------------------------------
 //

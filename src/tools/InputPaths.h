@@ -25,7 +25,7 @@ public:
 	InputPaths();
 	InputPaths(std::string dataDir, std::string instanceName,int historyIndex, std::vector<int> weekIndices,
 		std::string solutionPath="",std::string logPath="", std::string paramFile="" , double timeOut=3600.0,
-		   int randSeed=0, std::string SPType = "LONG");
+		   int randSeed=0, std::string SPType = "LONG", int SPStrategy=1, int nThreads=1);
 
 protected:
 	std::string instance_;
@@ -40,6 +40,8 @@ protected:
 	int randSeed_=0;
 	double timeOut_=3600;
 	std::string SPType_ = "LONG";
+	int SPStrategy_ = 0;
+	int nThreads_ = 1;
 
 public:
 	// get/set attributes
@@ -71,6 +73,12 @@ public:
 
   std::string SPType() {return SPType_;}
   void SPType(std::string t) {SPType_ = t;}
+
+    int SPStrategy() {return SPStrategy_;}
+    void SPStrategy(int t) {SPStrategy_ = t;}
+
+    int nThreads() {return nThreads_;}
+    void nThreads(int n) {nThreads_ = n;}
 };
 
 #endif

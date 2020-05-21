@@ -58,12 +58,12 @@ jobs:
       - name: n005w4_0_1-2-3-5 ROSTER
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_0_1-2-3-5 -g 1540 --sp-type ROSTER -t 1200'
+          args: '-r /home/poly/ns -i n005w4_0_1-2-3-5 -g 1540 --sp-type ROSTER -t 600'
 
       - name: n005w4_1_5-6-7-8 ALL optimal
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_1_5-6-7-8 --sp-type ALL -g 1630 -t 1800'
+          args: '-r /home/poly/ns -i n005w4_1_5-6-7-8 --sp-type ALL -g 1630'
 
       - name: n005w4_2_9-0-1-2
         uses: ./ # Uses an action in the root directory
@@ -73,33 +73,32 @@ jobs:
       - name: n030w4_1_6-2-9-1
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n030w4_1_6-2-9-1 -g 1670-1900 -t 300'
+          args: '-r /home/poly/ns -i n030w4_1_6-2-9-1 -g 1670-1900 -t 300 --n-threads 4'
 
       - name: n030w4_1_6-7-5-3
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n030w4_1_6-7-5-3 -g 1950-2150 -t 300'
+          args: '-r /home/poly/ns -i n030w4_1_6-7-5-3 -g 1950-2150 -t 300 --n-threads 4'
 
       - name: n035w4_1_1-7-1-8
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n035w4_1_1-7-1-8 -g 1350-1600 -t 300'
+          args: '-r /home/poly/ns -i n035w4_1_1-7-1-8 -g 1350-1600 -t 300 --n-threads 4'
 
       - name: new1_0_0-1 LONG
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i new1_0_0-1 -g 1245 -e 0 --sp-type LONG -t 1800'
+          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type LONG'
 
       - name: new1_0_0-1 ALL
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i new1_0_0-1 -g 1245 -e 0 --sp-type ALL -t 1800'
+          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type ALL'
 
-# take too much time (>2 hours)
-#      - name: new1_0_0-1 ROSTER
-#        uses: ./ # Uses an action in the root directory
-#        with:
-#          args: '-r /home/poly/ns -i new1_0_0-1 -g 1245 -e 0 --sp-type ROSTER -t 1800'
+      - name: new1_0_0-1 ROSTER
+        uses: ./ # Uses an action in the root directory
+        with:
+          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type ROSTER  --n-threads 4'
 
       - name: n030w4_1_6-2-9-1 dynamic
         uses: ./ # Uses an action in the root directory

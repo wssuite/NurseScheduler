@@ -24,8 +24,8 @@ S4 2 Late
 S5 1 Night
 
 CONTRACTS = 2
-FullTime (40,60) (3,5) (2,3) 1 1
-PartTime (20,40) (3,5) (3,5) 1 1
+FullTime (30,50) (3,5) (2,3) 1 1
+PartTime (15,20) (3,5) (3,5) 1 1
 
 NURSES = 7
 Patrick FullTime 2 HeadNurse Nurse 

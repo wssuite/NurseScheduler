@@ -40,7 +40,7 @@ using std::pair;
 
 BcpLpModel::BcpLpModel(BcpModeler* pModel):
 pModel_(pModel), currentNodelpIteration_(0), lpIteration_(0),
-last_node(-1), backtracked_(false), heuristicHasBeenRun_(false),nbNodesSinceLastHeuristic_(0),
+last_node(-1), backtracked_(true), heuristicHasBeenRun_(false),nbNodesSinceLastHeuristic_(0),
 nbCurrentNodeGeneratedColumns_(0), nbGeneratedColumns_(0), nbCurrentNodeSPSolved_(0)
 {
    // Initialization of nb_dives_to_wait_before_branching_on_columns_
@@ -286,11 +286,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars) const {
 
    if(pModel_->getVerbosity() > 0) {
 
-     // DBG
-     //      double lower_bound = (getLpProblemPointer()->node->true_lower_bound < DBL_MIN) ? pModel_->LARGE_SCORE :
-     //         getLpProblemPointer()->node->true_lower_bound;
-
-     if (vars.size() == 0) {
+     if (vars.empty()) {
        fprintf(pFile, "BCP: %13s %5s | %10s  %10s  %10s | %8s %14s %13s %10s | %14s %5s %5s \n",
                "Node", "Lvl", "BestUB", "RootLB", "BestLB", "#It", "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
        fprintf(pFile, "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | %8s %14s %13s %10s | %14s %5s %5s \n",
@@ -586,11 +582,11 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
     case BCP_DoNotBranch:
       return BCP_DoNotBranch;
     case BCP_DoNotBranch_Fathomed:
-      // set backtracked to true
       backtracked_ = true;
       break;
     case BCP_DoBranch:
       nbChildren = cands.front()->child_num;
+      backtracked_ = false;
       break;
     default:
       Tools::throwError("Decision not recognized.");
@@ -703,13 +699,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
 	// otherwise, record the root solution for future use
 	//
 	if(current_index() == 0) {
-    for(MyVar* var: pModel_->getCoreVars())
-      if(((CoinVar*)var)->getCost() >= LARGE_SCORE && pModel_->getVarValue(var) > pModel_->epsilon())
+    if(!pModel_->isFeasible())
         throw InfeasibleStop("Feasibility core variable is still present in the solution");
-		for(MyVar* col: pModel_->getActiveColumns()){
-			if(((CoinVar*)col)->getCost() >= LARGE_SCORE && pModel_->getVarValue(col) > pModel_->epsilon())
-			throw InfeasibleStop("Feasibility column is still present in the solution");
-		}
 		pModel_->recordLpSol();
 		if (pModel_->gettimeFirstRoot() < pModel_->epsilon()) {
 			pModel_->settimeFirstRoot(CoinWallclockTime()-start_time());
@@ -740,7 +731,6 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
 		pModel_->column_candidates(candidate);
 		buildCandidate(candidate, vars, cuts, cands);
 		pModel_->updateDive();
-    backtracked_ = false; // i.e. branch
 		return BCP_DoBranch;
 	}
 
@@ -932,6 +922,8 @@ void BcpLpModel::find_infeasibility(const BCP_lp_result& lpres, //the result of 
 //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
    best->action()[0] = BCP_KeepChild;
+   // tell the tree that diving
+
    //	if(pModel_->continueDiving()) best->action()[0] = BCP_KeepChild;
    //	else pModel_->addCurrentNodeToStack();
 }

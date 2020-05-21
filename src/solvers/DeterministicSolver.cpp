@@ -42,12 +42,7 @@ pCompleteSolver_(0), pRollingSolver_(0), pLNSSolver_(0) {
 	// (the corresponding method needs to be changed manually for tests)
 	//
 	std::cout << "# Set the options" << std::endl;
-	if (inputPaths.paramFile().empty()) {
-		this->setOptionsToDefault(inputPaths);
-	}
-	else {
-		this->readOptionsFromFile(inputPaths);
-	}
+	this->initializeOptions(inputPaths);
 	std::cout << std::endl;
 
 	if (!options_.logfile_.empty()) {
@@ -75,7 +70,7 @@ DeterministicSolver::~DeterministicSolver(){
 
 // Initialize deterministic options with default values
 //
-void DeterministicSolver::setOptionsToDefault(InputPaths& inputPaths) {
+void DeterministicSolver::initializeOptions(InputPaths &inputPaths) {
 
 	// initialize the log files when no path is specified
 	string logDeterministic = inputPaths.logPath().empty() ? "" : inputPaths.logPath()+"LogDeterministic.txt";
@@ -83,56 +78,57 @@ void DeterministicSolver::setOptionsToDefault(InputPaths& inputPaths) {
 
 	// global options are set to default values in the .h
 
-	// random seed is initialized
-	options_.randomSeed_ = inputPaths.randSeed();
+  // random seed is initialized
+  options_.randomSeed_ = inputPaths.randSeed();
 
-	// parameters of the solution to optimality
-	SolverParam completeParameters(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
-	completeParameters_ = completeParameters;
+  // default parameters for the param
+  completeParameters_ = SolverParam(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
+  lnsParameters_ = SolverParam(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
+  rollingParameters_ = SolverParam(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
 
-	// parameters of the solution in the rolling horizon process
-	SolverParam rollingParameters(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
-	rollingParameters_ = rollingParameters;
+	// read any options defined in the param file
+	if(!inputPaths.paramFile().empty())
+    readOptionsFromFile(inputPaths);
 
-	// parameters of the solution in the large neighborhood search
-	SolverParam lnsParameters(options_.verbose_,TWO_DIVES,logDeterministic,logSolver);
-	lnsParameters_ = lnsParameters;
-
+	// override default values with argument values
+  options_.totalTimeLimitSeconds_ = inputPaths.timeOut();
+  options_.nThreads_ = inputPaths.nThreads();
   SPType t = SPTypesByName.at(inputPaths.SPType());
+
+  // parameters of the solution in the complete horizon process
   completeParameters_.sp_type_ = t;
+  completeParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
+  completeParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
+	// parameters of the solution in the rolling horizon process
   rollingParameters_.sp_type_ = t;
+  rollingParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
+  completeParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
+	// parameters of the solution in the large neighborhood search
   lnsParameters_.sp_type_ = t;
+  lnsParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
+  completeParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
+
+  // set the number of threads
+  //
+  Tools::ThreadsPool::setMaxGlobalThreads(options_.nThreads_);
 }
 
 // Read deterministic options from a file
 //
 void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
+  // open the file
+  //
+  std::fstream file;
+  std::string fileName = inputPaths.paramFile();
+  std::cout << "Reading " << fileName << std::endl;
+  file.open(fileName.c_str(), std::fstream::in);
+  if (!file.is_open()) {
+    std::cout << "While trying to read the file " << fileName << std::endl;
+    throw Tools::myException("readOptionsFromFile: The input file was not opened properly!",__LINE__);
+  }
 
-	// initialize the log files when no path is specified
-	string logDeterministic = inputPaths.logPath().empty() ? "" : inputPaths.logPath()+"LogDeterministic.txt";
-	string logSolver = inputPaths.logPath().empty() ? "": inputPaths.logPath()+"LogSolver.txt";
-
-	// random seed is initialized
-	options_.randomSeed_ = inputPaths.randSeed();
-
-	// open the file
-	//
-	std::fstream file;
-	std::string fileName = inputPaths.paramFile();
-	std::cout << "Reading " << fileName << std::endl;
-	file.open(fileName.c_str(), std::fstream::in);
-	if (!file.is_open()) {
-		std::cout << "While trying to read the file " << fileName << std::endl;
-		throw Tools::myException("readOptionsFromFile: The input file was not opened properly!",__LINE__);
-	}
-
-	// go through all the lines of the parameter file
-	std::string title;
-	SolverParam param;
-  param.sp_type_ = SPTypesByName.at(inputPaths.SPType());
-	OptimalityLevel completeOptimalityLevel=UNTIL_FEASIBLE;
-	OptimalityLevel lnsOptimalityLevel=UNTIL_FEASIBLE;
-	OptimalityLevel rollingOptimalityLevel=UNTIL_FEASIBLE;
+  // go through all the lines of the parameter file
+  std::string title;
 	while(file.good()){
 		Tools::readUntilChar(file, '=', title);
 
@@ -205,75 +201,83 @@ void DeterministicSolver::readOptionsFromFile(InputPaths& inputPaths) {
 		// They are not options of the deterministic solver, but they need to be
 		// set at this stage
 		else if (Tools::strEndsWith(title, "isStabilization")) {
-			file >> param.isStabilization_;
+			file >> completeParameters_.isStabilization_;
+      lnsParameters_.isStabilization_ = completeParameters_.isStabilization_;
+      rollingParameters_.isStabilization_ = completeParameters_.isStabilization_;
 		}
 		else if (Tools::strEndsWith(title, "isStabUpdateCost")) {
-			file >> param.isStabUpdateCost_;
+      file >> completeParameters_.isStabUpdateCost_;
+      lnsParameters_.isStabUpdateCost_ = completeParameters_.isStabUpdateCost_;
+      rollingParameters_.isStabUpdateCost_ = completeParameters_.isStabUpdateCost_;
 		}
 		else if (Tools::strEndsWith(title, "isStabUpdateBounds")) {
-			file >> param.isStabUpdateBounds_;
+      file >> completeParameters_.isStabUpdateBounds_;
+      lnsParameters_.isStabUpdateBounds_ = completeParameters_.isStabUpdateBounds_;
+      rollingParameters_.isStabUpdateBounds_ = completeParameters_.isStabUpdateBounds_;
 		}
 		else if (Tools::strEndsWith(title, "branchColumnDisjoint")) {
-			file >> param.branchColumnDisjoint_;
+      file >> completeParameters_.branchColumnDisjoint_;
+      lnsParameters_.branchColumnDisjoint_ = completeParameters_.branchColumnDisjoint_;
+      rollingParameters_.branchColumnDisjoint_ = completeParameters_.branchColumnDisjoint_;
 		}
 		else if (Tools::strEndsWith(title, "branchColumnUntilValue")) {
-			file >> param.branchColumnUntilValue_;
+      file >> completeParameters_.branchColumnUntilValue_;
+      lnsParameters_.branchColumnUntilValue_ = completeParameters_.branchColumnUntilValue_;
+      rollingParameters_.branchColumnUntilValue_ = completeParameters_.branchColumnUntilValue_;
 		}
 		else if (Tools::strEndsWith(title, "stopAfterXDegenerateIt")) {
-			file >> param.stopAfterXDegenerateIt_;
+      file >> completeParameters_.stopAfterXDegenerateIt_;
+      lnsParameters_.stopAfterXDegenerateIt_ = completeParameters_.stopAfterXDegenerateIt_;
+      rollingParameters_.stopAfterXDegenerateIt_ = completeParameters_.stopAfterXDegenerateIt_;
 		}
 		else if (Tools::strEndsWith(title, "heuristicMinIntegerPercent")) {
-			file >> param.heuristicMinIntegerPercent_;
+      file >> completeParameters_.heuristicMinIntegerPercent_;
+      lnsParameters_.heuristicMinIntegerPercent_ = completeParameters_.heuristicMinIntegerPercent_;
+      rollingParameters_.heuristicMinIntegerPercent_ = completeParameters_.heuristicMinIntegerPercent_;
 		}
 		else if (Tools::strEndsWith(title, "performHeuristicAfterXNode")) {
-			file >> param.performHeuristicAfterXNode_;
+      file >> completeParameters_.performHeuristicAfterXNode_;
+      lnsParameters_.performHeuristicAfterXNode_ = completeParameters_.performHeuristicAfterXNode_;
+      rollingParameters_.performHeuristicAfterXNode_ = completeParameters_.performHeuristicAfterXNode_;
 		}
 		else if (Tools::strEndsWith(title, "rollingOptimalityLevel")) {
 			std::string strOpt;
 			file >> strOpt;
-			rollingOptimalityLevel=stringToOptimalityLevel[strOpt];
+      rollingParameters_.setOptimalityLevel(stringToOptimalityLevel[strOpt]);
 		}
 		else if (Tools::strEndsWith(title, "lnsOptimalityLevel")) {
 			std::string strOpt;
 			file >> strOpt;
-			lnsOptimalityLevel=stringToOptimalityLevel[strOpt];
+			lnsParameters_.setOptimalityLevel(stringToOptimalityLevel[strOpt]);
 		}
 		else if (Tools::strEndsWith(title, "completeOptimalityLevel")) {
 			std::string strOpt;
 			file >> strOpt;
-			completeOptimalityLevel=stringToOptimalityLevel[strOpt];		}
+			completeParameters_.setOptimalityLevel(stringToOptimalityLevel[strOpt]);
+		}
 		// Subproblem options
 		//
 		else if (Tools::strEndsWith(title, "spDefaultStrategy")) {
-			file >> param.sp_default_strategy_;
+      file >> completeParameters_.sp_default_strategy_;
+      lnsParameters_.sp_default_strategy_ = completeParameters_.sp_default_strategy_;
+      rollingParameters_.sp_default_strategy_ = completeParameters_.sp_default_strategy_;
 		}
 		else if (Tools::strEndsWith(title, "spNbRotationsPerNurse")) {
-			file >> param.sp_nbrotationspernurse_;
+      file >> completeParameters_.sp_nbrotationspernurse_;
+      lnsParameters_.sp_nbrotationspernurse_ = completeParameters_.sp_nbrotationspernurse_;
+      rollingParameters_.sp_nbrotationspernurse_ = completeParameters_.sp_nbrotationspernurse_;
 		}
 		else if (Tools::strEndsWith(title, "spNbNursesToPrice")) {
-			file >> param.sp_nbnursestoprice_;
+      file >> completeParameters_.sp_nbnursestoprice_;
+      lnsParameters_.sp_nbnursestoprice_ = completeParameters_.sp_nbnursestoprice_;
+      rollingParameters_.sp_nbnursestoprice_ = completeParameters_.sp_nbnursestoprice_;
 		}
 		else if (Tools::strEndsWith(title, "spMaxReducedCostBound")) {
-			file >> param.sp_max_reduced_cost_bound_;
+      file >> completeParameters_.sp_max_reduced_cost_bound_;
+      lnsParameters_.sp_max_reduced_cost_bound_ = completeParameters_.sp_max_reduced_cost_bound_;
+      rollingParameters_.sp_max_reduced_cost_bound_ = completeParameters_.sp_max_reduced_cost_bound_;
 		}
 	}
-	options_.totalTimeLimitSeconds_ = inputPaths.timeOut();
-	param.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
-
-	// parameters of the solution to optimality
-	completeParameters_ = param;
-	completeParameters_.initialize(options_.verbose_,completeOptimalityLevel);
-
-	// parameters of the solution in the rolling horizon process
-	rollingParameters_ = param;
-	rollingParameters_.initialize(options_.verbose_,rollingOptimalityLevel);
-	rollingParameters_.performHeuristicAfterXNode_ = -1;
-
-	// parameters of the solution in the large neighborhood search
-	lnsParameters_ = param;
-	lnsParameters_.initialize(options_.verbose_,lnsOptimalityLevel);
-	lnsParameters_.performHeuristicAfterXNode_ = -1;
-
 }
 
 //----------------------------------------------------------------------------
@@ -483,6 +487,7 @@ double DeterministicSolver::solveByConnexPositions() {
 	// SOLVE THE PROBLEM COMPONENT-WISE
 	int i = 0;
 	for (PScenario pScenario: scenariosPerComponent) {
+//	  if(i++==0) continue;
 		std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
 		std::cout << pScenario->toString() << std::endl;
 
@@ -491,23 +496,17 @@ double DeterministicSolver::solveByConnexPositions() {
     DeterministicSolver* solver = new DeterministicSolver(pScenario,inputPaths);
 		solver->copyParameters(this);
 
-		// set allowed time proportionnally to the number of nurses in each
+		// set allowed time proportionally to the number of nurses in each
 		// component
 		double allowedTime = options_.totalTimeLimitSeconds_*(double)pScenario->nbNurses()/(double)pScenario_->nbNurses();
 		// if solving the last component, leave it all the time left
-		if (i++ == scenariosPerComponent.size()) {
+		if (i++ == (int)scenariosPerComponent.size()) {
 			allowedTime = std::max(allowedTime,options_.totalTimeLimitSeconds_-pTimerTotal_->dSinceStart());
 		}
 		solver->setTotalTimeLimit(allowedTime);
 
 		// solve the component
 		solver->solve();
-
-		// STORE THE SOLUTION
-		// Be particularly cautious that the nurse indices are not the same in the
-		// initial scenario and in the solvers per component
-		for (PLiveNurse pNurse: solver->theLiveNurses_)
-			theLiveNurses_[pNurse->originalNurseId_]->roster_ = solver->getSolution()[pNurse->id_];
 
 		// Consolidate the global state of the solver
 		stats_.add(solver->getGlobalStat());
@@ -526,6 +525,12 @@ double DeterministicSolver::solveByConnexPositions() {
 			std::cout << "Solution process did not terminate normally" << std::endl;
 			return -1;
 		}
+
+    // STORE THE SOLUTION
+    // Be particularly cautious that the nurse indices are not the same in the
+    // initial scenario and in the solvers per component
+    for (PLiveNurse pNurse: solver->theLiveNurses_)
+      theLiveNurses_[pNurse->originalNurseId_]->roster_ = solver->getSolution()[pNurse->id_];
 
     // release memory
 		// the solver and scenario of the component can be deleted at this stage

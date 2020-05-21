@@ -292,7 +292,7 @@ bool Preferences::wantsTheDayOff(int nurseId, int day) const{
 	if(itM == wishesOff_.at(nurseId).end())
 		return false;
   // Set does not repeat its elements. Wants the day off if and only if all shifts off (-1 because REST does not appear)
-	return itM->second.size() == nbShifts_-1;
+	return (int) itM->second.size() == nbShifts_-1;
 }
 
 // Total number of shifts off that the nurse wants
@@ -311,7 +311,7 @@ int Preferences::howManyDaysOff(int nurseId, int dayMin, int dayMax) const {
 	int nbDayOff = 0;
 	// look at every wishes of the nurse
 	for( const auto & dayOff: wishesOff_.at(nurseId)){
-		nbDayOff += ( (dayOff.first >= dayMin) && (dayOff.first <= dayMax) && (dayOff.second.size() == nbShifts_-1));
+		nbDayOff += ( (dayOff.first >= dayMin) && (dayOff.first <= dayMax) && ((int)dayOff.second.size() == nbShifts_-1));
 	}
 	return nbDayOff;
 }
@@ -355,7 +355,7 @@ bool Preferences::wantsTheDayOn(int nurseId, int day) const{
   if(itM == wishesOn_.at(nurseId).end())
     return false;
   // Set does not repeat its elements. Wants the day on if and only if all shifts off (-1 because REST does not appear)
-  return itM->second.size() == nbShifts_-1;
+  return (int)itM->second.size() == nbShifts_-1;
 }
 
 // Total number of shifts on that the nurse wants
@@ -374,7 +374,7 @@ int Preferences::howManyDaysOn(int nurseId, int dayMin, int dayMax) const {
   int nbDayOn = 0;
   // look at every wishes of the nurse
   for( const auto & dayOn: wishesOn_.at(nurseId)){
-    nbDayOn += ( (dayOn.first >= dayMin) && (dayOn.first <= dayMax) && (dayOn.second.size() == nbShifts_-1));
+    nbDayOn += ( (dayOn.first >= dayMin) && (dayOn.first <= dayMax) && ((int)dayOn.second.size() == nbShifts_-1));
   }
   return nbDayOn;
 }

@@ -7,7 +7,6 @@
 
 
 #include "MasterProblem.h"
-#include "solvers/mp/rcspp/RCGraph.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -145,6 +144,10 @@ class RotationMP: public MasterProblem {
     // The point is that current solution can be infeasible if  stabilization
     // variables are non zero
     bool stabCheckStoppingCriterion() const override ;
+
+    // STAB
+    // return the current cost of the stabilization variables
+    double getStabCost() const override;
 
 //    // STAB: compute the lagrangian bound
 //    //

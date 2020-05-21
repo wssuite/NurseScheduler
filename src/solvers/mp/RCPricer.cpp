@@ -7,8 +7,8 @@
 
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/modeler/BcpModeler.h"
-#include "solvers/mp/rcspp/ShortSP.h"
-#include "solvers/mp/rcspp/RosterSP.h"
+#include "solvers/mp/sp/LongRotationSP.h"
+#include "solvers/mp/sp/RosterSP.h"
 #include "solvers/mp/RosterMP.h"
 
 
@@ -25,183 +25,219 @@ using namespace std;
 RCPricer::RCPricer(MasterProblem* master, const char* name, const SolverParam& param):
   MyPricer(name), pMaster_(master), pScenario_(master->getScenario()), nbDays_(master->getNbDays()),
   pModel_(master->getModel()), nursesToSolve_(master->getSortedLiveNurses()),
-  nbMaxColumnsToAdd_(param.nbMaxColumnsToAdd_), nbSubProblemsToSolve_(param.nbSubProblemsToSolve_),
   minReducedCost_(0), nb_int_solutions_(0), rand_(Tools::getANewRandomGenerator())
 {
-	// Initialize the parameters
-	initPricerParameters(param);
-
-	// set rosterSubproblem_
-  rosterSubproblem_ = dynamic_cast<RosterMP*>(master);
-
-	/* sort the nurses */
-	auto  rdm = rand_;
-	random_shuffle( nursesToSolve_.begin(), nursesToSolve_.end(), [&rdm](int i) { return ((int)rdm())%i; });
+  /* sort the nurses */
+	std::shuffle( nursesToSolve_.begin(), nursesToSolve_.end(), rand_);
 }
 
 /* Destructs the pricer object. */
 RCPricer::~RCPricer() {
 	for(auto& p: subProblems_)
-		delete p.second;
-}
-
-void RCPricer::initPricerParameters(const SolverParam& param){
-	nbMaxColumnsToAdd_ = param.sp_nbrotationspernurse_;
-	nbSubProblemsToSolve_ = param.sp_nbnursestoprice_;
-	defaultSubprobemStrategy_ = param.sp_default_strategy_;
-	shortSubproblem_ = (param.sp_type_ == LONG_ROTATION);
-	Tools::initVector(currentSubproblemStrategy_, pMaster_->getNbNurses(), defaultSubprobemStrategy_);
+		for(auto p2: p.second)
+      delete p2;
 }
 
 /******************************************************
  * Perform pricing
  ******************************************************/
+// at root node, after_fathom and backtracked are true
 vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fathom, bool backtracked) {
   // reset the current strategies at the beginning of a node
-  if(after_fathom) // first pricing for a new node
-    Tools::initVector(currentSubproblemStrategy_, pMaster_->getNbNurses(), defaultSubprobemStrategy_);
+  if(after_fathom) { // first pricing for a new node
+    // if backtracking -> restart at 0
+    int diff = SubproblemParam::maxSubproblemStrategyLevel_-pModel_->getParameters().sp_default_strategy_;
+    if(!pModel_->isFeasible() || diff<=0) // was using (backtracked || diff<=0), but seems more efficient
+      Tools::initVector(currentSubproblemStrategy_, pMaster_->getNbNurses(),
+          pModel_->getParameters().sp_default_strategy_);
+    // otherwise, just try previous level if more than 2 levels
+    else if(diff>1)
+      Tools::initVector(currentSubproblemStrategy_, pMaster_->getNbNurses(),
+        SubproblemParam::maxSubproblemStrategyLevel_-1);
+  }
 
 	// Reset all rotations, columns, counters, etc.
 	resetSolutions();
 
 	// count and store the nurses whose subproblems produced rotations.
-	// DBG: why minDualCost? Isn't it more a reduced cost?
-  Tools::initVector(minOptimalReducedCosts_, pMaster_->getNbNurses(), (double)-LARGE_SCORE);
-  minReducedCost_ = 0;
-	vector<PLiveNurse> nursesSolved, nursesIncreasedStrategyAndNoSolution;
+  vector<PLiveNurse> nursesSolved, nursesIncreasedStrategyAndNoSolution, nursesNoSolution;
+  // flag if any shift has been  forbidden because of column disjoint feature
+  bool disjointForbidden = false;
+  // local thread pool (use all available thread)
+	Tools::ThreadsPool pool;
 
-	for(auto it0 = nursesToSolve_.begin(); it0 != nursesToSolve_.end();) {
+	while(!nursesToSolve_.empty()) {
 
     // RETRIEVE THE NURSE AND CHECK THAT HE/SHE IS NOT FORBIDDEN
-    PLiveNurse pNurse = *it0;
+    PLiveNurse pNurse = nursesToSolve_.front();
+    nursesToSolve_.erase(nursesToSolve_.begin());
 
     // try next nurse if forbidden
     if (isNurseForbidden(pNurse->id_)) {
-      ++it0;
+      nursesNoSolution.push_back(pNurse);
       continue;
     }
 
-    // BUILD OR RE-USE THE SUBPROBLEM
-    SubProblem *subProblem = retriveSubproblem(pNurse);
+    // define function to be run by the pool
+    // The Job that is defined below will be run in parallel.
+    // We create a job for each nurse and then run it in the pool
+    /**
+     * Start of the job definition (part run in parallel)
+     */
+    Tools::Job job = [pNurse, &nursesSolved, &nursesIncreasedStrategyAndNoSolution, &nursesNoSolution,
+                      &disjointForbidden, &bound, this]() {
+        // before starting, verify if really need to be processed.
+        // if the maximum number of subproblem solved is reached, return.
+        if (nbSPSolvedWithSuccess_ >= pModel_->getParameters().nbSubProblemsToSolve_) {
+          lock_guard<recursive_mutex> lock(m_subproblem_);
+          nursesToSolve_.insert(nursesToSolve_.begin(), pNurse); // add back the nurse
+          return;
+        }
 
-    // RETRIEVE DUAL VALUES
-    DualCosts dualCosts = pMaster_->buildDualCosts(pNurse);
+        // RETRIEVE DUAL VALUES
+        DualCosts dualCosts = pMaster_->buildDualCosts(pNurse);
 
-    // UPDATE FORBIDDEN SHIFTS
-    if (pModel_->getParameters().isColumnDisjoint_) {
-      addForbiddenShifts();
-    }
-    set<pair<int, int> > nurseForbiddenShifts(forbiddenShifts_);
-    pModel_->addForbiddenShifts(pNurse, nurseForbiddenShifts);
+        // lock the pricer
+        unique_lock<recursive_mutex> lock(m_subproblem_);
 
-    // SET SOLVING OPTIONS
-    SubproblemParam sp_param(currentSubproblemStrategy_[pNurse->id_], pNurse, pMaster_);
+        // BUILD OR RE-USE THE SUBPROBLEM
+        SubProblem *subProblem = retriveSubproblem(pNurse);
 
-    // SOLVE THE PROBLEM
-    ++nbSPTried_;
-    subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true,
-                      bound);
+        // UPDATE NURSE FORBIDDEN SHIFTS
+        bool locDisjointForbidden = disjointForbidden;
+        set<pair<int, int> > nurseForbiddenShifts(forbiddenShifts_);
+        pModel_->addForbiddenShifts(pNurse, nurseForbiddenShifts);
 
-    // RETRIEVE THE GENERATED ROTATIONS
-    newSolutionsForNurse_ = subProblem->getSolutions();
+        // SET SOLVING OPTIONS
+        SubproblemParam sp_param(currentSubproblemStrategy_[pNurse->id_], pNurse, pMaster_);
 
-    // ADD THE ROTATIONS TO THE MASTER PROBLEM
-    addColumnsToMaster(pNurse->id_);
+        // SOLVE THE PROBLEM
+        ++nbSPTried_;
+        lock.unlock(); // unlock before solving
+        subProblem->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, bound);
+
+        // RETRIEVE THE GENERATED ROTATIONS
+        std::vector<RCSolution> solutions = subProblem->getSolutions();
 
 #ifdef DBG
-//      SubProblem* sub2 = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
-//      sub2->build();
-//      sub2->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, true ,
-//                  bound);
-//      std::vector<RCSolution> sols = sub2->getSolutions();
-//      std::stable_sort(sols.begin(), sols.end(),
-//                       [](const RCSolution& sol1, const RCSolution& sol2) { return sol1.cost < sol2.cost; });
-////      for(int i=0; i<std::min(nbMaxColumnsToAdd_, (int)sols.size()); ++i)
-////        std::cout << sols[i].toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
-////      std::cout << "**********************************************************" << std::endl;
-//      delete sub2;
-//
-//    if(!sols.empty() || !newSolutionsForNurse_.empty()) {
-//      if (sols.empty() ^ newSolutionsForNurse_.empty()) {
-//        if (!newSolutionsForNurse_.empty())
-//          std::cout << newSolutionsForNurse_.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
-//        else std::cout << sols.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
-//        Tools::throwError("One of the subproblem has found a solution and the other not.");
-//      }
-//      double diff = sols.front().cost - newSolutionsForNurse_.front().cost;
-//      if (diff > pMaster_->getModel()->epsilon() || diff < -pMaster_->getModel()->epsilon()) {
-//        std::cout << newSolutionsForNurse_.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
-//        std::cout << sols.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
-//        Tools::throwError("The subproblems haven't find solutions of same cost.");
-//      }
-//    }
+        if(currentSubproblemStrategy_[pNurse->id_] == SubproblemParam::maxSubproblemStrategyLevel_) {
+          SubProblem *sub2 = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+          sub2->build();
+          sub2->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, bound);
+          std::vector<RCSolution> sols = sub2->getSolutions();
+          std::stable_sort(sols.begin(), sols.end(),
+                           [](const RCSolution &sol1, const RCSolution &sol2) { return sol1.cost < sol2.cost; });
+          //      for(int i=0; i<std::min(nbMaxColumnsToAdd_, (int)sols.size()); ++i)
+          //        std::cout << sols[i].toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+          //      std::cout << "**********************************************************" << std::endl;
+          delete sub2;
+
+          if (!sols.empty() || !solutions.empty()) {
+            if (sols.empty() ^ solutions.empty()) {
+              if (!solutions.empty())
+                std::cout << solutions.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+              else std::cout << sols.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+              Tools::throwError("One of the subproblem has found a solution and the other not.");
+            }
+            double diff = sols.front().cost - solutions.front().cost;
+            if (diff > pMaster_->getModel()->epsilon() || diff < -pMaster_->getModel()->epsilon()) {
+              std::cout << solutions.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+              std::cout << sols.front().toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+              Tools::throwError("The subproblems haven't find solutions of same cost.");
+            }
+          }
+        }
 #endif
 
-    // update reduced cost if solved at optimality
-    if(currentSubproblemStrategy_[pNurse->id_] == SubproblemParam::maxSubproblemStrategyLevel_) {
-      if(newSolutionsForNurse_.empty()) minOptimalReducedCosts_[pNurse->id_] = 0;
-      else minOptimalReducedCosts_[pNurse->id_] = newSolutionsForNurse_.front().cost;
-    }
+        // Lock the pricer
+        lock.lock();
 
-		// CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
-		// If yes, store the nures
-		if(!newSolutionsForNurse_.empty()) {
-			++nbSPSolvedWithSuccess_;
-      if(newSolutionsForNurse_.front().cost < minReducedCost_)
-        minReducedCost_ = newSolutionsForNurse_.front().cost;
-      // if hasn't generated the max number of seeked columns, increase strategy
-      if (newSolutionsForNurse_.size() < nbMaxColumnsToAdd_ &&
-          currentSubproblemStrategy_[pNurse->id_]  <  SubproblemParam::maxSubproblemStrategyLevel_)
-        currentSubproblemStrategy_[pNurse->id_]++;
+        // release subproblem
+        releaseSubproblem(pNurse, subProblem);
+        subProblem = nullptr;
 
-			// erase the  current nurse (and thus try next one in the loop)
-			nursesToSolve_.erase(it0);
-			nursesSolved.push_back(pNurse);
+        // ADD THE ROTATIONS TO THE MASTER PROBLEM
+        addColumnsToMaster(pNurse->id_, solutions);
 
-      //if the maximum number of subproblem solved is reached, break.
-      if(nbSPSolvedWithSuccess_ == nbSubProblemsToSolve_)
-        break;
-      // otherwise continue
-      else
+        // update the strategy and the reduced costs
+        bool updated = updateCurrentStategyAndRedCost(pNurse, solutions, locDisjointForbidden);
+
+        // CHECK IF THE SUBPROBLEM GENERATED NEW ROTATIONS
+        // If yes, store the nurses
+        if (!solutions.empty()) {
+          ++nbSPSolvedWithSuccess_;
+
+          // UPDATE FORBIDDEN SHIFTS
+          if (pModel_->getParameters().isColumnDisjoint_)
+            // set disjointForbidden to true, if addForbiddenShifts returns true once
+            if (addForbiddenShifts(solutions, dualCosts))
+              disjointForbidden = true;
+
+          // add the nurse to the nurses solved
+          nursesSolved.push_back(pNurse);
+        }
+          // Otherwise (no solution generated),
+          // if strategy has been updated
+        else if (updated)
+          nursesIncreasedStrategyAndNoSolution.push_back(pNurse);
+        else nursesNoSolution.push_back(pNurse);
+    };
+    /**
+     * End of the job definition (part run in parallel)
+     */
+
+    // begin parallel. The job will be run in parallel.
+    // However, if no thread are available, the function run waits (i.e. blocks) until a thread becomes available.
+    pool.run(job);
+
+    //if the maximum number of subproblem solved is reached, break.
+    if (nbSPSolvedWithSuccess_ >= pModel_->getParameters().nbSubProblemsToSolve_)
+      break;
+
+    // all nurses have been processed AND  we have increased strategy level
+    // -> try to solve again for these nurses
+    if (nursesToSolve_.empty()) {
+      // wait for either:
+      // a. have other nurses to try
+      // b. all the threads to be finished
+      // retest every time a thread has finished
+      while (nursesIncreasedStrategyAndNoSolution.empty() && pool.wait(1))
         continue;
-		}
-		// Otherwise (no solution generated),
-    // try next nurse
-    // if not the most exaustive, increase the strategy for next round
-    else if (currentSubproblemStrategy_[pNurse->id_]  <  SubproblemParam::maxSubproblemStrategyLevel_) {
-      currentSubproblemStrategy_[pNurse->id_]++;
-      nursesIncreasedStrategyAndNoSolution.push_back(pNurse);
-      // try next nurse (erase update the iterator)
-      nursesToSolve_.erase(it0);
-    }
-    // just try next nurse
-    else ++it0;
-
-    // If it was the last nurse to search AND no improving column was found AND we have increased strategy level
-    // try to solve for these nurses
-    if( it0 == nursesToSolve_.end() && allNewColumns_.empty() && !nursesIncreasedStrategyAndNoSolution.empty()){
-      // add the nurses left at the beginning of the nursesSolved vector for next loop
-      nursesSolved.insert(nursesSolved.begin(), nursesToSolve_.begin(), nursesToSolve_.end());
-      // then update the nurse to solve and restart loop
+      // lock before copying and clearing
+      lock_guard<recursive_mutex> lock(m_subproblem_);
+      // then update the nurse to solve to continue the loop
       nursesToSolve_ = nursesIncreasedStrategyAndNoSolution;
-      it0 = nursesToSolve_.begin();
       // remove all the nurses that have just been added back
       nursesIncreasedStrategyAndNoSolution.clear();
     }
-	}
+  }
 
-  //Add the nurse in nursesIncreasedStrategyAndNoSolution at the beginning (first to be tried next round)
-  nursesToSolve_.insert(nursesToSolve_.begin(), nursesIncreasedStrategyAndNoSolution.begin(), nursesIncreasedStrategyAndNoSolution.end());
+	// wait for the threads to be finished
+	pool.wait();
 
-  /* sort the nurses solved - useful when doing column disjoint */
-//  auto  rdm = rand_;
-//  random_shuffle( nursesSolved.begin(), nursesSolved.end(), [&rdm](int i) { return ((int)rdm())%i; });
+  /* Add the nurses back into the nursesToSolve_ list
+   * Reverse the vector before putting it back in
+   * */
 
-  // reverse vector
-  std::reverse(nursesSolved.begin(), nursesSolved.end());
+  // 1- Add the nurses in nursesIncreasedStrategyAndNoSolution:
+  // first to be retried on next run as the subproblem will be more effective at generating new columns
+  reversePushBackNurses(nursesIncreasedStrategyAndNoSolution);
 
-	//Add the nurse in nursesSolved at the end
-	nursesToSolve_.insert(nursesToSolve_.end(), nursesSolved.begin(), nursesSolved.end());
+  if (disjointForbidden) {
+    // 2- Add the nurses in nursesNoSolution:
+    // we hope that they will generate columns on next run as
+    // some shifts were forbidden because of the column disjoint feature.
+    reversePushBackNurses(nursesNoSolution);
+
+    // 3- Add the nurses in nursesSolved
+    reversePushBackNurses(nursesSolved);
+  } else {
+    // 2- Add the nurses in nursesSolved (we hope that they will keep generating columns)
+    reversePushBackNurses(nursesSolved);
+
+    // 3- Add the nurses in nursesSolved (we hope that they will keep not generating columns)
+    reversePushBackNurses(nursesNoSolution);
+  }
 
 	//set statistics
 	BcpModeler* model = static_cast<BcpModeler*>(pModel_);
@@ -217,66 +253,122 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 	return allNewColumns_;
 }
 
+bool RCPricer::updateCurrentStategyAndRedCost(PLiveNurse pNurse,
+    const std::vector<RCSolution> &solutions,
+    bool disjointForbidden) {
+  lock_guard<recursive_mutex> lock(m_subproblem_);
+  // update reduced cost if solved at optimality
+  if (currentSubproblemStrategy_[pNurse->id_] == SubproblemParam::maxSubproblemStrategyLevel_) {
+    if (solutions.empty()) minOptimalReducedCosts_[pNurse->id_] = 0;
+    else minOptimalReducedCosts_[pNurse->id_] = solutions.front().cost;
+  }
+
+  // check if enough columns have been generated and no shifts forbidden by disjoint column strtagy,
+  // otherwise, increase strategy
+  bool increased = false;
+  if (!disjointForbidden &&
+  solutions.size() < pModel_->getParameters().nbMaxColumnsToAdd_ *
+                     pModel_->getParameters().sp_min_columns_ratio_for_increase_ &&
+      currentSubproblemStrategy_[pNurse->id_] < SubproblemParam::maxSubproblemStrategyLevel_) {
+    currentSubproblemStrategy_[pNurse->id_]++;
+#ifdef DBG
+//    std::cout << "nurse " << pNurse->id_ << ": lvl " << currentSubproblemStrategy_[pNurse->id_] << std::endl;
+#endif
+    increased = true;
+  }
+
+  // If any solutions, check if red cost needs to be updated
+  if (!solutions.empty())
+    if (solutions.front().cost < minReducedCost_)
+      minReducedCost_ = solutions.front().cost;
+
+  return increased;
+}
+
+// add nurses to nursesToSolve_ in the reverse order
+template<typename T> void RCPricer::reversePushBackNurses(T &array) {
+  std::reverse(array.begin(), array.end()); // reverse array
+  nursesToSolve_.insert(nursesToSolve_.end(), array.begin(), array.end());
+}
+
 /******************************************************
  * add some forbidden shifts
  ******************************************************/
-void RCPricer::addForbiddenShifts(){
-	//search best rotation
-	RCSolution bestSolution;
-	double bestDualcost = DBL_MAX;
-	for(const RCSolution &sol: newSolutionsForNurse_)
-		if(sol.cost < bestDualcost){
-			bestDualcost = sol.cost;
+bool RCPricer::addForbiddenShifts(const std::vector<RCSolution>& solutions, const DualCosts& duals) {
+  //search best rotation
+  RCSolution bestSolution;
+  double bestRedcost = DBL_MAX;
+  for (const RCSolution &sol: solutions)
+    if (sol.cost < bestRedcost) {
+      bestRedcost = sol.cost;
       bestSolution = sol;
-		}
+    }
 
-	//forbid shifts of the best rotation if small enough
-	if(bestDualcost < -1e3) {
-	  int k = bestSolution.firstDay;
-    for (int s: bestSolution.shifts)
-      if(pScenario_->isWorkShift(s))
-        forbiddenShifts_.insert(pair<int,int>(k++,s));
+  //forbid working shifts of the best column if small enough
+  if (bestRedcost > pModel_->getParameters().minReducedCostDisjoint_) return false;
+
+  lock_guard<recursive_mutex> lock(m_subproblem_);
+  bool shiftAdded =false;
+  int k = bestSolution.firstDay;
+  for (int s: bestSolution.shifts) {
+    // work shift with a dual cost high enough (have enough diversity in the solutions generated)
+    if (duals.workedDayShiftCost(k, s) > pModel_->epsilon()) {
+      forbiddenShifts_.insert(pair<int, int>(k, s));
+      shiftAdded = true;
+    }
+    k++;
   }
+  return shiftAdded;
 }
 
 // Returns a pointer to the right subproblem
 SubProblem* RCPricer::retriveSubproblem(PLiveNurse pNurse){
+  unique_lock<recursive_mutex> lock(m_subproblem_); // lock
 	SubProblem* subProblem;
-	auto it = subProblems_.find(pNurse->pContract_);
-	// Each contract has one subproblem. If it has not already been created, create it.
-	if( it == subProblems_.end() ){
-    if(rosterSubproblem_)
-      subProblem = new RosterSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
-	  else if (shortSubproblem_)
-	    subProblem = new ShortSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
-	  else
-	    subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
-//
+	// Each contract has a list of subproblem. If empty, create a new one.
+	if(subProblems_[pNurse->pContract_].empty()) {
+	  switch (pModel_->getParameters().sp_type_) {
+	    case LONG_ROTATION:
+        subProblem = new LongRotationSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+        break;
+	    case ALL_ROTATION:
+        subProblem = new RotationSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+        break;
+	    case ROSTER:
+        subProblem = new RosterSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+        break;
+      default:
+        Tools::throwError("There is no subproblem defined associated to this type");
+	  }
+    lock.unlock();
 	  // then build the rcspp
 	  subProblem->build();
-
-	  //	  subProblem = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitState_, noShort);
-		subProblems_[pNurse->pContract_] = subProblem;
 	} else {
-		subProblem = it->second;
+		subProblem = subProblems_[pNurse->pContract_].front();
+    subProblems_[pNurse->pContract_].pop_front();
 	}
 	return subProblem;
 }
 
+void RCPricer::releaseSubproblem(PLiveNurse pNurse, SubProblem* subProblem){
+  lock_guard<recursive_mutex> lock(m_subproblem_); // lock
+  subProblems_[pNurse->pContract_].push_front(subProblem);
+}
 // Add the rotations to the master problem
-int RCPricer::addColumnsToMaster(int nurseId){
+int RCPricer::addColumnsToMaster(int nurseId, std::vector<RCSolution>& solutions){
 	// SORT THE SOLUTIONS
-  sortNewlyGeneratedSolutions();
+  sortGeneratedSolutions(solutions);
 
 	// SECOND, ADD THE ROTATIONS TO THE MASTER PROBLEM (in the previously computed order)
+	lock_guard<recursive_mutex> lock(m_subproblem_);
 	int nbcolumnsAdded = 0;
-	for(const RCSolution& sol: newSolutionsForNurse_){
+	for(const RCSolution& sol: solutions){
 #ifdef DBG
 //	  std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
 #endif
 		allNewColumns_.emplace_back(pMaster_->addColumn(nurseId, sol));
 		++nbcolumnsAdded;
-		if(nbcolumnsAdded >= nbMaxColumnsToAdd_)
+		if(nbcolumnsAdded >= pModel_->getParameters().nbMaxColumnsToAdd_)
 			break;
 	}
 
@@ -289,10 +381,9 @@ int RCPricer::addColumnsToMaster(int nurseId){
 
 // Sort the rotations that just were generated for a nurse. Default option is sort by increasing reduced cost but we
 // could try something else (involving disjoint columns for ex.)
-void RCPricer::sortNewlyGeneratedSolutions(){
-	std::stable_sort(newSolutionsForNurse_.begin(), newSolutionsForNurse_.end(),
+void RCPricer::sortGeneratedSolutions(std::vector<RCSolution> &solutions) const{
+	std::stable_sort(solutions.begin(), solutions.end(),
 	    [](const RCSolution& sol1, const RCSolution& sol2) { return sol1.cost < sol2.cost; });
-
 }
 
 // Set the subproblem options depending on the parameters

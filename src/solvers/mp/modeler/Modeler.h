@@ -204,7 +204,7 @@ struct MyPricer{
 	// set pricer parameters
 	virtual void initPricerParameters(const SolverParam& parameters) {}
 
-	virtual std::vector<double> getLastMinOptimalReducedCost() const=0;
+	virtual const std::vector<double>& getLastMinOptimalReducedCost() const=0;
 
 	 // METHODS - Forbidden shifts, nurses, starting days, etc.
    //
@@ -416,6 +416,12 @@ struct MyNode{
 	}
 
 	void updateBestLB(double newLB){
+	  // if not root and the LB is decreasing
+    if(pParent_ && bestLB_>newLB+1e-5) {
+//      Tools::throwException("The node lower bound (%.9f) is smaller than its parent one (%.9f).", newLB, bestLB_);
+        std::cerr << "The node lower bound (" << newLB
+                  << ") is smaller than its parent one (" << bestLB_ << ")." << std::endl;
+      }
 		bestLB_ = newLB;
 		//if not root
 		if(pParent_){
@@ -614,7 +620,7 @@ struct MyTree {
 	int getNbDives() const { return nb_nodes_since_dive_ / diveLength_; } //nb_nodes_last_incumbent_
 
 	void updateNodeLB(double lb){
-		if(best_lb_in_root > lb)
+		if(nb_nodes_processed_ == 0)
 			best_lb_in_root = lb;
 		currentNode_->updateBestLB(lb);
 		updateStats(currentNode_);
@@ -837,6 +843,13 @@ class Modeler {
                                 const std::vector<double> &pattern = DEFAULT_PATTERN, double score = 0) {
       createVar(var, var_name, objCoeff, 0.0, 1.0, VARTYPE_BINARY, pattern, score);
       binaryCoreVars_.push_back(*var);
+    }
+
+    void createPositiveFeasibilityVar(MyVar **var, const char *var_name,
+                              const std::vector<double> &pattern = DEFAULT_PATTERN,
+                             double score = 0,  double ub = DBL_MAX) {
+      createPositiveVar(var, var_name, LARGE_SCORE, pattern, score, ub);
+      feasibilityCoreVars_.push_back(*var);
     }
 
   protected:
@@ -1151,6 +1164,17 @@ class Modeler {
 
     const std::vector<MyVar *> &getPositiveCoreVars() const { return positiveCoreVars_; }
 
+    const std::vector<MyVar *> &getFeasibilityCoreVars() const { return feasibilityCoreVars_; }
+
+    bool isFeasible() const {
+      for(MyVar* var: feasibilityCoreVars_) {
+        double v = getVarValue(var);
+        if (v > epsilon() || v < -epsilon())
+          return false;
+      }
+      return true;
+    }
+
     int getVerbosity() const { return verbosity_; }
 
     virtual void setBestUB(double ub) { pTree_->setBestUB(ub); }
@@ -1252,6 +1276,7 @@ class Modeler {
       binaryCoreVars_.clear();
       integerCoreVars_.clear();
       positiveCoreVars_.clear();
+      feasibilityCoreVars_.clear();
       coreCons_.clear();
       for (MyObject *obj: objects_)
         delete obj;
@@ -1313,6 +1338,8 @@ class Modeler {
     std::vector<MyVar *> binaryCoreVars_;
     std::vector<MyVar *> integerCoreVars_;
     std::vector<MyVar *> positiveCoreVars_;
+    // vector of variables that are used to soften some hard constraints to ensure feasibility
+    std::vector<MyVar *> feasibilityCoreVars_;
     std::vector<MyCons *> coreCons_;
     int var_count = 0, cons_count = 0;
     // as soon as columns are added, core variables cannot be added anymore

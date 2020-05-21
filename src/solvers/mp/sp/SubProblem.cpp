@@ -6,6 +6,7 @@
  */
 
 #include "SubProblem.h"
+#include "rcspp/BoostRCSPP.h"
 
 #include <iostream>
 #include <sstream>
@@ -28,6 +29,75 @@ using std::set;
 // Contains the shortest paths with resource constraints
 //
 //---------------------------------------------------------------------------
+
+const int SubproblemParam::maxSubproblemStrategyLevel_ = 3;
+
+void SubproblemParam::initSubprobemParam(int strategy, PLiveNurse pNurse, MasterProblem* pMaster) {
+  epsilon = pMaster->getModel()->epsilon();
+  maxRotationLength_ = pNurse->maxConsDaysWork();
+  int nb_max_path = (int) round(pMaster->getModel()->getParameters().sp_columns_ratio_for_number_paths_ *
+                                pMaster->getModel()->getParameters().nbMaxColumnsToAdd_);
+  switch (strategy) {
+
+    // 0 -> [Heuristic large search]
+    //		short = all,
+    //    min   = 0,
+    //		max   = CD_max+3
+    //
+    case 0:
+      search_strategy_ = SP_BEST_FIRST;
+      nb_max_paths_ = nb_max_path;
+      violateConsecutiveConstraints_ = true;
+      shortRotationsStrategy_ = 3;
+      maxRotationLength_ += 3;
+      break;
+
+    // 1 -> [Exact legal only]
+    //		short = first and last day,
+    //    min   = CD_min,
+    //		max   = CD_max
+    //
+    case 1:
+      search_strategy_ = SP_BREADTH_FIRST;
+      nb_max_paths_ = -1;
+      violateConsecutiveConstraints_ = false;
+      shortRotationsStrategy_ = 2;
+      maxRotationLength_ += 0;
+      break;
+
+      // 2 -> [Exact above legal]
+      //		short = all,
+      //    min   = 0,
+      //		max   = CD_max+2
+      //
+    case 2:
+      search_strategy_ = SP_BREADTH_FIRST;
+      nb_max_paths_ = -1;
+      violateConsecutiveConstraints_ = true;
+      shortRotationsStrategy_ = 3;
+      maxRotationLength_ += 2;
+      break;
+
+      // 3 -> [Exact exhaustive search]
+      //		short = all,
+      //    min   = 0,
+      // 		max   = LARGE
+      //
+    case 3:
+      search_strategy_ = SP_BREADTH_FIRST;
+      nb_max_paths_ = -1;
+      violateConsecutiveConstraints_ = true;
+      shortRotationsStrategy_ = 3;
+      maxRotationLength_ = pNurse->pStateIni_->consDaysWorked_ + pNurse->nbDays_;
+      break;
+
+
+      // UNKNOWN STRATEGY
+    default:
+      std::cout << "# Unknown strategy for the subproblem (" << strategy << ")" << std::endl;
+      break;
+  }
+}
 
 // Constructors and destructor
 SubProblem::SubProblem():
@@ -75,10 +145,6 @@ void SubProblem::build() {
   Tools::initVector(startingDayStatus_, nDays_, true);
   nPathsMin_ = 0;
 
-  //std::cout << "# A new subproblem has been created for contract " << contract->name_ << std::endl;
-
-  //printGraph();
-
   timeInS_ = new Tools::Timer(); timeInS_->init();
   timeInNL_ = new Tools::Timer(); timeInNL_->init();
 }
@@ -93,7 +159,7 @@ void SubProblem::build() {
 
 // Solve : Returns TRUE if negative reduced costs path were found; FALSE otherwise.
 bool SubProblem::solve(PLiveNurse nurse, DualCosts * costs, SubproblemParam param, set<pair<int,int> > forbiddenDayShifts,
-		set<int> forbiddenStartingDays, bool optimality, double redCostBound) {
+		set<int> forbiddenStartingDays, double redCostBound) {
 
 
 	bestReducedCost_ = 0;
@@ -112,6 +178,8 @@ bool SubProblem::solve(PLiveNurse nurse, DualCosts * costs, SubproblemParam para
 	initStructuresForSolve();								// Initialize structures
 	forbid(forbiddenDayShifts);								// Forbid arcs
 	forbidStartingDays(forbiddenStartingDays);				// Forbid starting days
+	if(!param.violateConsecutiveConstraints_)
+    forbidViolationConsecutiveConstraints();
 
 	if(false) pLiveNurse_->printContractAndPreferences(pScenario_);				// Set to true if you want to display contract + preferences (for debug)
 
@@ -120,11 +188,8 @@ bool SubProblem::solve(PLiveNurse nurse, DualCosts * costs, SubproblemParam para
 	 timeInS_->stop();
 	
 	timeInNL_->start();
-	bool ANS = solveRCGraph(optimality);
+	bool ANS = solveRCGraph();
 	timeInNL_->stop();
-
-	// printAllSolutions();
-
 
   // and check that all solution respects forbidden shifts
 #ifdef DBG
@@ -140,17 +205,28 @@ bool SubProblem::preprocess() {
   return true;
 }
 
-// For the long rotations, depends whether we want optimality or not
-bool SubProblem::solveRCGraph(bool optimality){
+// return a function that will post process any label found by the BoostRCSPPSolver
+std::function<void (spp_res_cont&)> postProcessResCont(const DualCosts &costs) {
+  double constant = costs.constant();
+  return [constant](spp_res_cont& res_cont) {
+      res_cont.cost -= constant;
+  };
+}
+RCSPPSolver* SubProblem::initRCSSPSolver() {
+  return new BoostRCSPPSolver(&g_, maxReducedCostBound_,
+      param_.epsilon, param_.search_strategy_, param_.nb_max_paths_, nullptr);
+}
+
+// shortest path problem is to be solved
+bool SubProblem::solveRCGraph(){
+  // update arcs costs
   updateArcCosts();
+
 #ifdef DBG
 //  g_.printGraph(nLabels_, minConsDays_);
 #endif
-	return solveRCGraphOptimal();		// Solve shortest path problem
-}
 
-// Function called when optimal=true in the arguments of solve -> shortest path problem is to be solved
-bool SubProblem::solveRCGraphOptimal(){
+  // solve the RC SPP
   std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks = g_.sinks();
 
   if(param_.oneSinkNodePerLastDay_ && sinks.size()>1) {
@@ -166,8 +242,10 @@ bool SubProblem::solveRCGraphOptimal(){
       pLiveNurse_->minTotalShifts(), // cannot be reach (UB)
       pLiveNurse_->maxTotalWeekends()
   };
-	std::vector<RCSolution> solutions = g_.solve(nLabels_, maxReducedCostBound_, param_.epsilon,
-	    labelsMinLevel, sinks, postProcessResCont());
+
+  RCSPPSolver* solver = initRCSSPSolver();
+	std::vector<RCSolution> solutions = g_.solve(solver, nLabels_, labelsMinLevel, sinks);
+	delete solver;
 
   for(const RCSolution& sol: solutions) {
     theSolutions_.push_back(sol);
@@ -183,69 +261,11 @@ bool SubProblem::solveRCGraphOptimal(){
   return !solutions.empty();
 }
 
-std::function<void (spp_res_cont&)> SubProblem::postProcessResCont() const {
-  double constant = pCosts_->constant();
-  return [constant](spp_res_cont& res_cont) {
-      res_cont.cost -= constant;
-  };
-}
-
 // Resets all solutions data (rotations, number of solutions, etc.)
 //
 void SubProblem::resetSolutions(){
 	theSolutions_.clear();
 	nPaths_ = 0;
-}
-
-
-//--------------------------------------------
-//
-// Functions for the NODES of the rcspp
-//
-//--------------------------------------------
-
-// Function that creates the nodes of the network
-void SubProblem::createNodes(){
-	// INITIALIZATION
-  principalGraphs_.clear();
-  priceLabelsGraphs_.clear();
-
-	// 1. SOURCE NODE
-	//
-	int v = addSingleNode(SOURCE_NODE);
-	g_.setSource(v);
-
-	// 2. PRINCIPAL NETWORK(S) [ONE PER SHIFT TYPE]
-	//
-  principalGraphs_.emplace_back(PrincipalGraph(0,  nullptr)); // just add a dummy rcspp to have the right indices
-	for(int sh=1; sh<pScenario_->nbShiftsType_; sh++)		// For each possible worked shift
-    principalGraphs_.emplace_back(PrincipalGraph(sh, this));
-
-	// 3. ROTATION LENGTH CHECK
-	//
-	// For each of the days, do a rotation-length-checker
-	// Deactivate the min cost for the last day
-	for(int k=0; k<nDays_-1; k++) {
-    priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
-        {PriceLabelGraph(k, pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this),
-         PriceLabelGraph(k, 0, CDMin_, MIN_CONS_DAYS, this) }));
-
-    // link the sub graphs
-    priceLabelsGraphs_.back().front().linkOutSubGraph(priceLabelsGraphs_.back().back());
-
-    // Daily sink node
-    g_.addSink(priceLabelsGraphs_.back().back().exit());
-  }
-	// last day: price just max
-  priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
-      {PriceLabelGraph(nDays_-1, pContract_->maxConsDaysWork_, maxRotationLength_, MAX_CONS_DAYS, this)}));
-  // Daily sink node
-  g_.addSink(priceLabelsGraphs_.back().back().exit());
-
-	// 4. SINK NODE
-	//
-	v = addSingleNode(SINK_NODE);
-  g_.addSink(v);
 }
 
 
@@ -268,20 +288,6 @@ void SubProblem::createArcs(){
   createArcsAllPriceLabels();
 }
 
-// Create all arcs whose origin is the source nodes (all go to short rotations nodes)
-void SubProblem::createArcsSourceToPrincipal() {
-  int origin = g_.source();
-  for (PrincipalGraph &pg: principalGraphs_)
-    for (int k = minConsDays_ - 1; k < nDays_; k++)
-      for (int dest : pg.getDayNodes(k)) {
-        std::vector<int> vec;
-        for (int s: pScenario_->shiftTypeIDToShiftID_[pg.shiftType()])
-          vec.emplace_back(addSingleArc(origin, dest, 0, startConsumption(k, {s}),
-                                        SOURCE_TO_PRINCIPAL, k, s));
-        arcsFromSource_[pg.shiftType()][k].push_back(vec);
-      }
-}
-
 // Create all arcs within the principal network
 void SubProblem::createArcsPrincipalToPrincipal() {
   // CHANGE SUBNETWORK FOR EACH OF THE SUBNETWORKS AND EACH OF THE DAYS
@@ -302,24 +308,6 @@ void SubProblem::createArcsPrincipalToPrincipal() {
           principalToPrincipal_[sh][newSh][k] =
               g_.addSingleArc(origin, destin, 0, {0, 0, 0, 0, weekend}, SHIFT_TO_NEWSHIFT, k);
         }
-}
-
-// Create all arcs that involve the rotation size checking subnetwork (incoming, internal, and exiting that subnetwork)
-void SubProblem::createArcsAllPriceLabels(){
-  for(int k=0; k<nDays_; k++){				// For all days
-    for(int sh=1; sh<pScenario_->nbShiftsType_; sh++){		// For all shifts
-      // incoming  arc
-      int origin = principalGraphs_[sh].exit(k);
-			int destin = priceLabelsGraphs_[k].front().entrance();
-			arcsPrincipalToPriceLabelsIn_[sh][k] =
-			    g_.addSingleArc(origin, destin, 0, {0,0,0,0,0}, PRINCIPAL_TO_PRICE_LABEL, k);	// Allow to stop rotation that day
-		}
-
-    // outgoing  arcs
-    int origin = priceLabelsGraphs_[k].back().exit();
-    int destin = g_.lastSink();
-    arcsTosink_.push_back(g_.addSingleArc(origin, destin, 0, {0,0,0,0,0}, PRICE_LABEL_OUT_TO_SINK, k));
-	}
 }
 
 //--------------------------------------------
@@ -473,7 +461,7 @@ void SubProblem::updateArcCosts() {
 
   //	A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
   for (PrincipalGraph &pg: principalGraphs_)
-    for (int k = minConsDays_ - 1; k < arcsFromSource_[pg.shiftType()].size(); k++)
+    for (unsigned int k = minConsDays_ - 1; k < arcsFromSource_[pg.shiftType()].size(); k++)
       for (int n = 0; n <= pg.maxCons(); ++n)
         for (int a: arcsFromSource_[pg.shiftType()][k][n]) {
           const Arc_Properties &arc_prop = g_.arc(a);
@@ -597,17 +585,17 @@ bool SubProblem::canSuccStartHere(const Arc_Properties& arc_prop) const{
   return canSuccStartHere(arc_prop.day, arc_prop.shifts);
 }
 
-bool SubProblem::canSuccStartHere(int k, const std::vector<int>& shifts) const{
+bool SubProblem::canSuccStartHere(int k, const std::vector<int>& shifts) const {
   // If the starting date is forbidden, return false
-  if(!(startingDayStatus_[k]))
+  if (!startingDayStatus_[k])
     return false;
   // If the succession with the previous shift (day -1) is not allowed
-  if(k==0 and
-     pScenario_->isForbiddenSuccessorShift_Shift(shifts.front(),pLiveNurse_->pStateIni_->shift_))
+  if (k == 0 and
+      pScenario_->isForbiddenSuccessorShift_Shift(shifts.front(), pLiveNurse_->pStateIni_->shift_))
     return false;
   // If some day-shift is forbidden
-  for(int s: shifts)
-    if( ! dayShiftStatus_[k++][s])
+  for (int s: shifts)
+    if (!dayShiftStatus_[k++][s])
       return false;
   return true;
 }
@@ -616,7 +604,7 @@ bool SubProblem::canSuccStartHere(int k, const std::vector<int>& shifts) const{
 //
 void SubProblem::forbid(const set<pair<int,int> >& forbiddenDayShifts){
 	for(const pair<int,int>& p : forbiddenDayShifts){
-		//std::cout << "# Trying to forbid " << p.first << "-" << pScenario_->intToShift_[p.second].at(0) << endl;
+//		std::cout << "# Forbid " << p.first << "-" << pScenario_->intToShift_[p.second] << std::endl;
 		forbidDayShift(p.first,p.second);
 	}
 }
@@ -625,7 +613,6 @@ void SubProblem::forbid(const set<pair<int,int> >& forbiddenDayShifts){
 //
 void SubProblem::authorize(const set<pair<int,int> >& forbiddenDayShifts){
 	for(const pair<int,int> &p : forbiddenDayShifts){
-		//std::cout << "# Trying to forbid " << p.first << "-" << pScenario_->intToShift_[p.second].at(0) << endl;
 		authorizeDayShift(p.first,p.second);
 	}
 }
@@ -663,6 +650,12 @@ void SubProblem::authorizeStartingDays(const set<int>& authorizedStartingDays){
 		authorizeStartingDay(k);
 }
 
+// forbid any arc that authorizes the violation of a consecutive constraint
+void SubProblem::forbidViolationConsecutiveConstraints() {
+  for(PrincipalGraph& pg: principalGraphs_)
+    pg.forbidViolationConsecutiveConstraints();
+}
+
 // Forbids a starting date: no rotation can now start on that day. Gives a prohibitive resource consumption on all short
 // rotation arcs that correspond to rotations starting on that day.
 //
@@ -678,7 +671,7 @@ void SubProblem::authorizeStartingDay(int k){
 	startingDayStatus_[k] = true;
 }
 
-// Reset all authorizations to true
+// Reset all authorizations to true--sp-type LONG --dir datasets/ --instance n005w4 --weeks 1-2-3-3 --his 0
 //
 void SubProblem::resetAuthorizations(){
 	// set all value to true

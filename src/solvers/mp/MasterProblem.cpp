@@ -636,7 +636,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam& param){
 
 				MyVar* vFeasibility;
         sprintf(name, "minDemandFeasibilityVar_%d_%d_%d", k, s, sk);
-				pModel_->createPositiveVar(&vFeasibility, name, LARGE_SCORE);
+				pModel_->createPositiveFeasibilityVar(&vFeasibility, name);
         vars1.push_back(vFeasibility);
         coeffs1.push_back(1);
 
@@ -786,9 +786,12 @@ string MasterProblem::allocationToString(bool printInteger){
 
 	rep << std::endl;
 	rep << "Allocations of the (potentially fractional) current solution:" << std::endl;
-	rep << "\t\t  ";
+	char buff[100];
+	sprintf(buff, "%20s", "");
+	rep << buff;
 	for (int day = firstDay; day < firstDay+nbDays; day++) {
 		rep << "| " << Tools::intToDay(day).at(0) << " ";
+    if(Tools::isSunday(day)) rep << "| ";
 	}
 	rep << "|" << std::endl;
 	rep << "-------------------------------------"<< std::endl;
@@ -797,20 +800,25 @@ string MasterProblem::allocationToString(bool printInteger){
 	for (int n = 0; n < nbNurses; n ++) {
 		PLiveNurse pNurse = theLiveNurses_[n];
 		const vector2D<double>& fnurseFractionalRoster = fractionalRoster[n];
-		rep << pNurse->name_ << "\t";
+    sprintf(buff, "%-12s", pNurse->name_.c_str());
+    rep << buff;
 		for(int s=1; s<nbShifts; ++s){
-			if (s>1) rep << "\t";
-			rep << pScenario_->intToShift_[s] << "\t";
+      if(s>1) {
+        sprintf(buff, "%12s", "");
+        rep << buff;
+      }
+      sprintf(buff, "%-8s", pScenario_->intToShift_[s].c_str());
+      rep << buff;
 			for (int day = firstDay; day < firstDay+nbDays; day++){
 				double shiftValue = fnurseFractionalRoster[day][s];
 				if(shiftValue > 1-epsilon()){
-					rep << "|  1 ";
+					rep << "| 1 ";
 				} else if(shiftValue > epsilon()){
 					char buffer[100];
-					sprintf(buffer, "|%1.2f", shiftValue);
+					sprintf(buffer, "|%3.2f", shiftValue);
 					rep << buffer;
 				} else {
-					rep << "| -- ";
+					rep << "| - ";
 				}
 				if(Tools::isSunday(day)) rep << "| ";
 			}
@@ -834,31 +842,34 @@ string MasterProblem::coverageToString(bool printInteger){
 
 	rep << std::endl;
 	rep << "Coverage of the (potentially fractional) current solution:" << std::endl;
-	rep << "\t\t   ";
+  char buff[20];
+  sprintf(buff, "%20s", "");
+  rep << buff;
 	for (int day = firstDay; day < firstDay+nbDays; day++) {
-		rep << "| " << Tools::intToDay(day).at(0) << " ";
+		rep << "|  " << Tools::intToDay(day).at(0) << " ";
+    if(Tools::isSunday(day)) rep << "| ";
 	}
 	rep << "|" << std::endl;
 	rep << "-------------------------------------"<< std::endl;
 
 	string tab = "\t";
-
 	for(int s=1; s<nbShifts; ++s){
-		rep << pScenario_->intToShift_[s] << "\t";
+    sprintf(buff, "%-8s", pScenario_->intToShift_[s].c_str());
+    rep << buff;
 		for(int sk=0; sk<nbSkills; sk++){
-			if(sk!=0) rep << "\t";
-
-			char buffer0[20];
-			string skill = pScenario_->intToSkill_[sk];
-			sprintf(buffer0, "%-12s", skill.c_str());
-			rep << buffer0;
+      if(sk>0) {
+        sprintf(buff, "%8s", "");
+        rep << buff;
+      }
+			sprintf(buff, "%-12s", pScenario_->intToSkill_[sk].c_str());
+			rep << buff;
 
 			for (int day = firstDay; day < firstDay+nbDays; day++){
 				double shiftValue = pModel_->getVarValue(skillsAllocVars_[day][s-1][sk]);
 				char buffer[100];
 				if(abs(shiftValue - round(shiftValue)) < epsilon())
 					sprintf(buffer, "|%4d", (int) round(shiftValue));
-				else sprintf(buffer, "|%2.2f", shiftValue);
+				else sprintf(buffer, "|%4.2f", shiftValue);
 				rep << buffer;
 				if(Tools::isSunday(day)) rep << "| ";
 			}
@@ -973,27 +984,31 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
 	return true;
 }
 
+// STAB
+// return the current cost of the stabilization variables
+double MasterProblem::getStabCost() const {
+  if (!pModel_->getParameters().isStabilization_)
+    return 0;
+
+  // stabilization variables corresponding to the cover constraints
+  double stabSumCostValue = 0.0;
+  for (int k = 0; k < pDemand_->nbDays_; k++)
+    for (int s = 1; s < pScenario_->nbShifts_; s++)
+      for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+        stabSumCostValue +=
+            stabMinDemandPlus_[k][s-1][sk]->getCost() * pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]);
+        stabSumCostValue +=
+            stabOptDemandPlus_[k][s-1][sk]->getCost() * pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]);
+      }
+  return stabSumCostValue;
+}
+
 // STAB: compute the lagrangian bound
 //
 double MasterProblem::computeLagrangianBound(double objVal) const {
   Tools::throwError("Lagrangian bound not implemented for this master problem.");
   return - LARGE_SCORE;
-//	double stabSumCostValue = 0.0;
-//	if (!pModel_->getParameters().isStabilization_) {
-//		return objVal+sumRedCost;
-//	}
-//	else {
-//		// stabilization variables corresponding to the cover constraints
-//		for(int k=0; k<pDemand_->nbDays_; k++){
-//			for(int s=1; s<pScenario_->nbShifts_; s++){
-//				for(int sk=0; sk<pScenario_->nbSkills_; sk++){
-//					stabSumCostValue += stabMinDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]);
-//					stabSumCostValue += stabOptDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]);
-//				}
-//			}
-//		}
-//	}
-//	return objVal+sumRedCost-stabSumCostValue;
+//	return objVal+sumRedCost-getStabCost();
 }
 
 // STAB: reset the costs and bounds of the stabilization variables

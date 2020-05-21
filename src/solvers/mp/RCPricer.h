@@ -12,7 +12,7 @@
 
 #include "tools/MyTools.h"
 #include "MasterProblem.h"
-#include "solvers/mp/rcspp/SubProblem.h"
+#include "solvers/mp/sp/SubProblem.h"
 #include "solvers/mp/modeler/Modeler.h"
 
 
@@ -31,12 +31,10 @@ public:
    virtual ~RCPricer();
 
    /* perform pricing */
+   // at root node, after_fathom and backtracked are true
    std::vector<MyVar*> pricing(double bound=0, bool before_fathom = false, bool after_fathom = false, bool backtracked=false) override;
 
-   // Initialize parameters
-   void initPricerParameters(const SolverParam& param) override;
-
-   std::vector<double> getLastMinOptimalReducedCost() const override {
+   const std::vector<double>& getLastMinOptimalReducedCost() const override {
      return minOptimalReducedCosts_;
    }
 
@@ -49,13 +47,12 @@ protected:
    int nbDays_;
    Modeler* pModel_;
     std::vector<PLiveNurse> nursesToSolve_;
-   // One subproblem per contract because the consecutive same shift constraints vary by contract.
-   std::map<PConstContract, SubProblem*> subProblems_;
+   // One subproblem list per contract because the consecutive same shift constraints vary by contract.
+   std::map<PConstContract, std::list<SubProblem*>> subProblems_;
 
    // DATA - Solutions, rotations, etc.
    //
    std::vector<MyVar*> allNewColumns_;
-   std::vector<RCSolution> newSolutionsForNurse_;
 
    // Stats on the number of subproblems solved and successfully solved
    int nbSPTried_;
@@ -71,30 +68,25 @@ protected:
    // SETTINGS - Options for the neighborhood. need of an original to reset at the end of each node when optimality has
    //            been reached. Here, we could have all the parameters as fields but they would be too many.
    //
-   bool shortSubproblem_ = true;
-   bool rosterSubproblem_ = false;
-   int defaultSubprobemStrategy_ = 0;
    std::vector<int> currentSubproblemStrategy_;  // by nurse
-
-   // SETTINGS - Settings for the maximum number of problems to solve and of rotations to add to the master problem
-   //
-   int nbMaxColumnsToAdd_ = 0;
-   int nbSubProblemsToSolve_ = 0;
 
    // store the min reduced cost find for each subproblem solved
    std::vector<double> minOptimalReducedCosts_;
    double minReducedCost_;
 
+   // mutex for concurrency (can be locked several times by the same thread)
+   std::recursive_mutex m_subproblem_;
 public:
 
    // METHODS - Solutions, rotations, etc.
    //
    void resetSolutions(){
 	   allNewColumns_.clear();
-     newSolutionsForNurse_.clear();
 	   forbiddenShifts_.clear();
 	   nbSPSolvedWithSuccess_ = 0;
 	   nbSPTried_ = 0;
+     Tools::initVector(minOptimalReducedCosts_, pMaster_->getNbNurses(), (double)-LARGE_SCORE);
+     minReducedCost_ = 0;
    }
 
    // METHODS - Forbidden shifts, nurses, starting days, etc.
@@ -102,6 +94,13 @@ public:
    // !!! WARNING !!! : SOME METHODS ARE NOT YET IMPLEMENTED IN THE SUBPROBLEM (ALTHOUGH THE NECESSARY STRUCTURES MAY
    //                   ALREADY BE THERE !!!
    //
+   //  update current nurse strategy and reduced costs based on the solutions found
+   // return true if the stategy has been updated
+   bool updateCurrentStategyAndRedCost(PLiveNurse pNurse,
+       const std::vector<RCSolution> &solutions,
+       bool disjointForbidden);
+   // add nurses to nursesToSolve_ in the reverse order
+   template<typename T> void reversePushBackNurses(T &array);
    // Shifts
    void forbidShift(int k, int s) override {forbiddenShifts_.insert(std::pair<int,int>(k,s));}
    void forbidShifts(const std::set<std::pair<int,int> > &shifts){ for(auto s : shifts) forbidShift(s.first, s.second);}
@@ -150,18 +149,22 @@ protected:
     std::vector<double> getEndWorkDualValues(PLiveNurse pNurse);
    double getWorkedWeekendDualValue(PLiveNurse pNurse);
 
-   //compute some forbidden shifts from the lasts rotations and forbidden shifts
-   void addForbiddenShifts();
+   //compute some forbidden shifts from the lasts solutions and add them to forbidden shifts.
+   // only the shift from the best solution with a negative dual costs are added to the forbidden shifts.
+   bool addForbiddenShifts(const std::vector<RCSolution>& solutions, const DualCosts& duals);
 
    // Retrieve the right subproblem
    SubProblem* retriveSubproblem(PLiveNurse pNurse);
 
+   // release the subproblem
+    void releaseSubproblem(PLiveNurse pNurse, SubProblem* subProblem);
+
    // Add the rotations to the master problem
-   int addColumnsToMaster(int nurseId);
+   int addColumnsToMaster(int nurseId, std::vector<RCSolution>& solutions);
 
    // Sort the rotations that just were generated for a nurse. Default option is sort by increasing reduced cost but we
    // could try something else (involving disjoint columns for ex.)
-   void sortNewlyGeneratedSolutions();
+   void sortGeneratedSolutions(std::vector<RCSolution> &solutions) const;
 
    // Set the subproblem options depending on the parameters
 //   void setSubproblemOptions(vector<SolveOption>& options, int& maxRotationLengthForSubproblem, pLiveNurse pNurse);

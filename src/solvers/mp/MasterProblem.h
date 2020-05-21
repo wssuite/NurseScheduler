@@ -9,8 +9,7 @@
 #define MASTERPROBLEM_H_
 
 /* Inheritance */
-#include <jmorecfg.h>
-#include <solvers/mp/rcspp/RCGraph.h>
+#include "solvers/mp/sp/rcspp/RCGraph.h"
 #include "solvers/Solver.h"
 
 /* Tools include */
@@ -286,6 +285,10 @@ class MasterProblem : public Solver, public PrintSolution{
     // The point is that current solution can be infeasible if  stabilization
     // variables are non zero
     virtual bool stabCheckStoppingCriterion() const;
+
+    // STAB
+    // return the current cost of the stabilization variables
+    virtual double getStabCost() const;
 
     // STAB: compute the lagrangian bound
     //

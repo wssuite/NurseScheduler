@@ -2,22 +2,22 @@
 // Created by antoine legrain on 2020-04-12.
 //
 
-#ifndef NURSESCHEDULER_SHORTSP_H
-#define NURSESCHEDULER_SHORTSP_H
+#ifndef NURSESCHEDULER_LONGROTATIONSP_H
+#define NURSESCHEDULER_LONGROTATIONSP_H
 
-#include "SubProblem.h"
+#include "RotationSP.h"
 
 
-class ShortSP : public SubProblem {
+class LongRotationSP : public RotationSP {
 
   public:
 
-    ShortSP();
-    virtual ~ShortSP();
+    LongRotationSP() = default;
+    virtual ~LongRotationSP();
 
     // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
     //
-    ShortSP(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
+    LongRotationSP(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
 
     double startWorkCost(int a) const override;
     double historicalCost(int a) const override;
@@ -103,4 +103,4 @@ class ShortSP : public SubProblem {
 };
 
 
-#endif //NURSESCHEDULER_SHORTSP_H
+#endif //NURSESCHEDULER_LONGROTATIONSP_H

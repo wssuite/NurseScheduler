@@ -3,7 +3,7 @@
 //
 
 #include "PriceLabelGraph.h"
-#include "SubProblem.h"
+#include "solvers/mp/sp/SubProblem.h"
 
 
 PriceLabelGraph::PriceLabelGraph(int day, int lb, int ub, LABEL label, SubProblem* sp,
@@ -44,9 +44,6 @@ void PriceLabelGraph::build() {
 
   // CREATE THE ARCS
   std::vector<int> in_consumptions = {0, 0, 0, 0, 0}, out_consumptions = {0, 0, 0, 0, 0};
-  if (reset_labels_after_pricing_ && !minLabel())
-    out_consumptions[label_] = -ubs[label_]; // decrease the label to a negative value -> will be set to 0 by the lb
-
   int l = lb_;
   for (int v: checkNodes_) {
     // min cost is decreasing with l, and max cost is increasing with l

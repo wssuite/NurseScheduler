@@ -318,26 +318,6 @@ void RotationMP::build(const SolverParam& param){
 
   /* build the rest of the model */
   MasterProblem::build(param);
-
-  /* We add initial rotations to be always feasible */
-  std::string baseName("feasibilityRotation");
-  //We add a column with 1 everywhere for each nurse to be always feasible
-  //build a map of shift -1 everywhere
-  map<int,int> shifts;
-  for(int k=0; k<pDemand_->nbDays_; ++k)
-    shifts.insert(pair<int,int>( k , -1 ));
-
-  for(int i=0; i<pScenario_->nbNurses_; ++i){
-    // DBG: Compute the cost of artificial variables in accordance to the soft
-    // constraints
-    double artificialCost = pScenario_->weights().WEIGHT_TOTAL_SHIFTS*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxTotalShiftsOf(i));
-    artificialCost += pScenario_->weights().WEIGHT_CONS_DAYS_WORK*pScenario_->nbShifts_*(getNbDays()-pScenario_->maxConsDaysWorkOf(i));
-    for (int s = 1; s < pScenario_->nbShifts_; s++) {
-      artificialCost += pScenario_->weights().WEIGHT_CONS_SHIFTS*(getNbDays()-pScenario_->maxConsShiftsOfTypeOf(s));
-    }
-    RotationPattern rotation(shifts, i, LARGE_SCORE);// artificialCost);//
-    addRotation(rotation, baseName.c_str(), true);
-  }
 }
 
 // Build the columns corresponding to the initial solution
@@ -1195,29 +1175,37 @@ bool RotationMP::stabCheckStoppingCriterion() const {
   return MasterProblem::stabCheckStoppingCriterion();
 }
 
+// STAB
+// return the current cost of the stabilization variables
+double RotationMP::getStabCost() const {
+  if (!pModel_->getParameters().isStabilization_)
+    return 0;
+
+  // stabilization variables corresponding to the cover constraints
+  double stabSumCostValue = MasterProblem::getStabCost();
+  for (int i = 0; i < pScenario_->nbNurses_; i++) {
+    // stabilization variables corresponding to the flow constraints
+    for (int k = 0; k < getNbDays(); ++k) {
+      stabSumCostValue += stabRestFlowPlus_[i][k]->getCost() * pModel_->getVarValue(stabRestFlowPlus_[i][k]);
+      stabSumCostValue += stabRestFlowMinus_[i][k]->getCost() * pModel_->getVarValue(stabRestFlowMinus_[i][k]);
+      stabSumCostValue += stabWorkFlowPlus_[i][k]->getCost() * pModel_->getVarValue(stabWorkFlowPlus_[i][k]);
+      stabSumCostValue += stabWorkFlowMinus_[i][k]->getCost() * pModel_->getVarValue(stabWorkFlowMinus_[i][k]);
+    }
+
+    // stabilization variables corresponding to the global constraints of
+    // of the nurses
+    stabSumCostValue += stabMinWorkedDaysPlus_[i]->getCost() * pModel_->getVarValue(stabMinWorkedDaysPlus_[i]);
+    stabSumCostValue += stabMaxWorkedDaysMinus_[i]->getCost() * pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]);
+    stabSumCostValue += stabMaxWorkedWeekendMinus_[i]->getCost() * pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]);
+  }
+  return stabSumCostValue;
+}
+
 //// STAB: compute the lagrangian bound
 ////
 //double RotationMP::computeLagrangianBound(double objVal,double sumRedCost) const {
 //  double bound = MasterProblem::computeLagrangianBound(objVal, sumRedCost);
-//  double stabSumCostValue = 0.0;
-//  if (pModel_->getParameters().isStabilization_) {
-//    for(int i=0; i<pScenario_->nbNurses_; i++){
-//      // stabilization variables corresponding to the flow constraints
-//      for(int k=0; k<getNbDays(); ++k) {
-//        stabSumCostValue += stabRestFlowPlus_[i][k]->getCost()*pModel_->getVarValue(stabRestFlowPlus_[i][k]);
-//        stabSumCostValue += stabRestFlowMinus_[i][k]->getCost()*pModel_->getVarValue(stabRestFlowMinus_[i][k]);
-//        stabSumCostValue += stabWorkFlowPlus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowPlus_[i][k]);
-//        stabSumCostValue += stabWorkFlowMinus_[i][k]->getCost()*pModel_->getVarValue(stabWorkFlowMinus_[i][k]);
-//      }
-//
-//      // stabilization variables corresponding to the global constraints of
-//      // of the nurses
-//      stabSumCostValue += stabMinWorkedDaysPlus_[i]->getCost()*pModel_->getVarValue(stabMinWorkedDaysPlus_[i]);
-//      stabSumCostValue += stabMaxWorkedDaysMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]);
-//      stabSumCostValue += stabMaxWorkedWeekendMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]);
-//    }
-//  }
-//  return bound-stabSumCostValue;
+//  return bound - getStabCost();
 //}
 
 // STAB: reset the costs and bounds of the stabilization variables

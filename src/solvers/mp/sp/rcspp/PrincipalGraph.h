@@ -66,6 +66,9 @@ class PrincipalGraph: public SubGraph {
       return getNode(day, max_cons_);
     }
 
+    // forbid any arc that authorizes the violation of a consecutive constraint
+    void forbidViolationConsecutiveConstraints();
+
   protected:
     SubProblem* pSP_;
 

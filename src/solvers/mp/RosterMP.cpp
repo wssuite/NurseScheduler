@@ -322,7 +322,7 @@ void RosterMP::build(const SolverParam& param) {
 // Provide an initial solution to the solver. If empty, add artificial columns
 void RosterMP::initializeSolution(const std::vector<Roster>& solution) {
   // rosters are added for each nurse of the initial solution
-  if (solution.size() != 0) {
+  if (!solution.empty()) {
     const char* baseName("initialRoster");
     //build the roster of each nurse
     for (int i = 0; i < pScenario_->nbNurses_; ++i) {
@@ -335,16 +335,6 @@ void RosterMP::initializeSolution(const std::vector<Roster>& solution) {
       RosterPattern pat(shifts, i);
       pat.computeCost(pScenario_, theLiveNurses_);
       pModel_->addInitialColumn(addRoster(pat, baseName));
-    }
-  }
-  // Else, add roster to always be feasible
-  else {
-    const char* baseName("feasibilityRoster");
-    std::vector<int> shifts;
-    Tools::initVector(shifts, getNbDays(), -1); // -1 = work on all shifts
-    for(int i=0; i<pScenario_->nbNurses_; ++i) {
-      RosterPattern pat(shifts, i, LARGE_SCORE);
-      addRoster(pat, baseName, true);
     }
   }
 }
@@ -417,8 +407,8 @@ void RosterMP::buildAssignmentCons(const SolverParam &parameters) {
   //build the roster assignment constraint for each nurse
   for(int i=0; i<pScenario_->nbNurses_; i++){
     sprintf(name, "feasibilityAssignmentVar_N%d", i);
-    MyVar* feasibilityVar(nullptr);
-    pModel_->createPositiveVar(&feasibilityVar, name, LARGE_SCORE);
+    MyVar* feasibilityVar;
+    pModel_->createPositiveFeasibilityVar(&feasibilityVar, name);
     sprintf(name, "assignmentCons_N%d", i);
     pModel_->createEQConsLinear(&assignmentCons_[i], name, 1, {feasibilityVar}, {1});
   }
@@ -446,7 +436,10 @@ double RosterMP::computeLagrangianBound(double objVal) const {
   double sumRedCost = 0;
   for(double v: pPricer_->getLastMinOptimalReducedCost())
     sumRedCost += v;
-  return objVal + sumRedCost;
+  // Not sure it's true as the stabilization cost are also included in the red cost
+  return objVal + sumRedCost; // remove the stabilization cost from the
+  // TODO: check how to manage stabilization variables
+  return objVal - getStabCost() + sumRedCost; // remove the stabilization cost from the
 }
 
 // return the costs of all active columns associated to the type
@@ -456,7 +449,7 @@ double RosterMP::getColumnsCost(CostType costType, bool justHistoricalCosts) con
 
 double RosterMP::getColumnsCost(CostType costType, const std::vector<MyVar*>& vars, bool justHistoricalCosts) const {
   if(justHistoricalCosts && costType != REST_COST && costType != TOTAL_COST)
-    Tools::throwError("It's not possible to retrive the historical costs for a cost type "
+    Tools::throwError("It's not possible to retrieve the historical costs for a cost type "
                       "different than REST_COST or TOTAL_COST.");
 
   double cost = 0;

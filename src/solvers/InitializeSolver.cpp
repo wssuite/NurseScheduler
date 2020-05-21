@@ -83,6 +83,14 @@ InputPaths* readNonCompactArguments(int argc, char** argv) {
 		    pInputPaths->SPType(str);
 			narg += 2;
 		}
+    else if (!strcmp(argv[narg],"--n-threads")) {
+      pInputPaths->nThreads(std::stoi(str));
+      narg += 2;
+    }
+    else if (!strcmp(argv[narg],"--sp-strategy")) {
+      pInputPaths->SPStrategy(std::stoi(str));
+      narg += 2;
+    }
 		else {
 			Tools::throwError("main: the argument does not match the expected list!");
 		}
@@ -109,7 +117,7 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	//
 	std::string dataDir = "",instanceName = "",solutionPath="",logPath="",paramFile="";
 	std::string SPType = "LONG";
-	int historyIndex = 0, randSeed=0;
+	int historyIndex = 0, randSeed=0, nTreads=1, SPStrategy=0;
 	std::vector<int> weekIndices;
 	double timeOut = LARGE_TIME;
 
@@ -170,6 +178,14 @@ InputPaths* readCompactArguments(int argc, char** argv) {
       SPType = str;
 			narg += 2;
 		}
+    else if (!strcmp(argv[narg],"--n-threads")) {
+      nTreads = std::stoi(str);
+      narg += 2;
+    }
+    else if (!strcmp(argv[narg],"--sp-strategy")) {
+      SPStrategy = std::stoi(str);
+      narg += 2;
+    }
 		else {
 			std::stringstream err_buff;
 			err_buff << "main: the argument (" << arg << ") does not match the expected list!";
@@ -180,7 +196,8 @@ InputPaths* readCompactArguments(int argc, char** argv) {
 	// Initialize the input paths
 	//
 	InputPaths* pInputPaths =
-	  new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,timeOut,randSeed,SPType);
+	  new InputPaths(dataDir, instanceName, historyIndex,weekIndices,solutionPath,logPath,paramFile,
+	      timeOut,randSeed,SPType, SPStrategy, nTreads);
 
 	return pInputPaths;
 }

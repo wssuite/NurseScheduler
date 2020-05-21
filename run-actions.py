@@ -6,7 +6,7 @@ import sys
 import argparse
 
 
-def run_cmd(cmd, i=-1, pipe=subprocess.PIPE):
+def run_cmd(cmd, i=0, pipe=subprocess.PIPE):
     print("Running test {}: {}".format(i, cmd))
     p = subprocess.Popen(cmd.split(), stdout=pipe, stderr=pipe)
     stdout, stderr = p.communicate()
@@ -47,7 +47,7 @@ def run_actions(tag='ns', docker=True, pipe=subprocess.PIPE):
             cmds = [s['with']['args'] for j in d['jobs'].values() for s in j['steps'] if 'with' in s]
             for i, cmd in enumerate(cmds):
                 cmd = "-i "+cmd.split('-i ')[-1]
-                if not run_cmd("{} {}".format(run, cmd), i, pipe):
+                if not run_cmd("{} {}".format(run, cmd), i+1, pipe):
                     break
         except yaml.YAMLError as exc:
             print(exc)

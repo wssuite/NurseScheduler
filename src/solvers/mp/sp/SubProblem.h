@@ -8,12 +8,10 @@
 #ifndef SUBPROBLEM_H_
 #define SUBPROBLEM_H_
 
-#include "solvers/mp/rcspp/RCGraph.h"
-#include "solvers/mp/rcspp/PriceLabelGraph.h"
-#include "solvers/mp/rcspp/PrincipalGraph.h"
+#include "solvers/mp/sp/rcspp/RCGraph.h"
+#include "solvers/mp/sp/rcspp/PriceLabelGraph.h"
+#include "solvers/mp/sp/rcspp/PrincipalGraph.h"
 #include "solvers/mp/MasterProblem.h"
-
-static int MAX_COST = 99999;
 
 
 // Parameters (called in the solve function)
@@ -26,50 +24,32 @@ struct SubproblemParam{
 	}
 	~SubproblemParam(){};
 
-	void initSubprobemParam(int strategy, PLiveNurse pNurse, MasterProblem* pMaster){
-	  epsilon = pMaster->getModel()->epsilon();
-		maxRotationLength_ = pNurse->maxConsDaysWork();
-		switch(strategy){
-
-		// 0 -> [Legal only]
-		//		short = day-0 and last-day,
-		//		max   = CD_max
-		//		sink  = one / last day
-		//
-		case 0: shortRotationsStrategy_=2; maxRotationLength_+=1; oneSinkNodePerLastDay_ = true; break;
-
-		// 3 -> [Exhaustive search]
-		//		short = true,
-		// 		max   = LARGE
-		//		sink  = one / last day
-		//
-		case 1:	shortRotationsStrategy_=3;	maxRotationLength_=pNurse->pStateIni_->consDaysWorked_+pNurse->nbDays_; oneSinkNodePerLastDay_ = true; break;
-
-
-		// UNKNOWN STRATEGY
-		default:
-			std::cout << "# Unknown strategy for the subproblem (" << strategy << ")" << std::endl;
-			break;
-		}
-	}
+	void initSubprobemParam(int strategy, PLiveNurse pNurse, MasterProblem* pMaster);
 
 	// *** PARAMETERS ***
 	double epsilon = 1e-5;
 
-  static const int maxSubproblemStrategyLevel_ = 1;
+  SPSearchStrategy search_strategy_ = SP_BREADTH_FIRST;
+  int nb_max_paths_ = -1; // if positive, the RC SPP stops as soon as it has generated enough non-dominated path
+
+  static const int maxSubproblemStrategyLevel_;
 
 	// 0 -> no short rotations
 	// 1 -> day-0 short rotations only
 	// 2 -> day-0 and last-day short rotations only
 	// 3 -> all short rotations
-	int shortRotationsStrategy_ = 0;
+	int shortRotationsStrategy_ = 3;
 
 	// maximal length for a rotation
 	int maxRotationLength_ = 0;
 
+	// true -> authorize the violation of the consecutive constraints
+	// false -> forbid any arc that authorized to violate the consecutive constraints
+	bool violateConsecutiveConstraints_  = true;
+
 	// true  -> one sink node per day
 	// false -> one single sink node for the network
-	bool oneSinkNodePerLastDay_ = false;
+	bool oneSinkNodePerLastDay_ = true;
 
 	// Getters for the class fields
 	//
@@ -118,7 +98,6 @@ class SubProblem {
                        SubproblemParam param,
                        std::set<std::pair<int, int> > forbiddenDayShifts = {},
                        std::set<int> forbiddenStartingDays = {},
-                       bool optimality = false,
                        double redCostBound = 0);
 
     // Returns all rotations saved during the process of solving the SPPRC
@@ -150,6 +129,10 @@ class SubProblem {
     bool isUnlimited(int shift_type) const {
       int maxCons = shift_type ? pScenario_->maxConsShiftsOf(shift_type) : pContract_->maxConsDaysOff_;
       return maxCons >= std::min(nDays_ + maxOngoingDaysWorked_, NB_SHIFT_UNLIMITED);
+    }
+
+    int minCons(int shift_type) const {
+      return shift_type ? pScenario_->minConsShiftsOf(shift_type) : pContract_->minConsDaysOff_;
     }
 
     int maxCons(int shift_type) const {
@@ -305,17 +288,17 @@ class SubProblem {
     std::vector<int> arcsTosink_; // arcs to main sink
 
     // Creates all nodes of the rcspp (including resource window)
-    virtual void createNodes();
+    virtual void createNodes() = 0;
 
     // Creates all arcs of the rcspp
     void createArcs();
 
     // Create the specific types of arcs
-    virtual void createArcsSourceToPrincipal();
+    virtual void createArcsSourceToPrincipal() = 0;
 
     virtual void createArcsPrincipalToPrincipal();
 
-    virtual void createArcsAllPriceLabels();
+    virtual void createArcsAllPriceLabels() = 0;
 
     // Updates the costs depending on the reduced costs given for the nurse
     virtual void updateArcCosts();
@@ -326,13 +309,10 @@ class SubProblem {
     //
     virtual bool preprocess();
 
-    virtual bool solveRCGraph(bool optimality);
-
-    // Function called when optimal=true in the arguments of solve
-    virtual bool solveRCGraphOptimal();
+    virtual bool solveRCGraph();
 
     // return a function that will post process any path found by the RC graph
-    virtual std::function<void (spp_res_cont&)> postProcessResCont() const;
+    virtual RCSPPSolver* initRCSSPSolver();
 
     // Initializes some cost vectors that depend on the nurse
     virtual void initStructuresForSolve();
@@ -365,6 +345,9 @@ class SubProblem {
 
     // Authorizes some starting days
     void authorizeStartingDays(const std::set<int>& forbiddenStartingDays);
+
+    // forbid any arc that authorizes the violation of a consecutive constraint
+    void forbidViolationConsecutiveConstraints();
 
     // Know if node
     bool isDayShiftForbidden(int k, int s) const { return !dayShiftStatus_[k][s]; }

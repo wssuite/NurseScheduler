@@ -379,9 +379,6 @@ public:
 	int setVerbosity(int v) override;
 	void setParameters(const SolverParam& parameters, PrintSolution* func=nullptr) override {
 		Modeler::setParameters(parameters, func);
-		if (pPricer_) {
-			pPricer_->initPricerParameters(parameters);
-		}
 	}
 
 	/**************

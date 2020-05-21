@@ -4,6 +4,8 @@
 
 #include "RosterSP.h"
 
+#include "rcspp/BoostRCSPP.h"
+
 using std::string;
 using std::vector;
 using std::map;
@@ -19,19 +21,22 @@ RosterSP::RosterSP(PScenario scenario, int nbDays, PConstContract contract, vect
 
 RosterSP::~RosterSP(){}
 
-std::function<void (spp_res_cont&)> RosterSP::postProcessResCont() const {
+RCSPPSolver* RosterSP::initRCSSPSolver() {
   double constant = pCosts_->constant();
   int max_days = pLiveNurse_->maxTotalShifts(),
       max_weekends = pLiveNurse_->maxTotalWeekends();
   const Weights &weights = pScenario_->weights();
-  return [constant, max_days, max_weekends, &weights](spp_res_cont& res_cont) {
-    res_cont.cost -= constant;
-    res_cont.cost += res_cont.label_value(MIN_DAYS) * weights.WEIGHT_TOTAL_SHIFTS;
-    res_cont.cost += std::max(0, res_cont.label_value(MAX_DAYS) - max_days)
-        * weights.WEIGHT_TOTAL_SHIFTS;
-    res_cont.cost += std::max(0, res_cont.label_value(MAX_WEEKEND) - max_weekends)
-        * weights.WEIGHT_TOTAL_WEEKENDS;
+  // lamda expression to post process the solutions found by the RCSPP solver
+  auto postProcess = [constant, max_days, max_weekends, &weights] (spp_res_cont& res_cont) {
+      res_cont.cost -= constant;
+      res_cont.cost += res_cont.label_value(MIN_DAYS) * weights.WEIGHT_TOTAL_SHIFTS;
+      res_cont.cost += std::max(0, res_cont.label_value(MAX_DAYS) - max_days)
+                       * weights.WEIGHT_TOTAL_SHIFTS;
+      res_cont.cost += std::max(0, res_cont.label_value(MAX_WEEKEND) - max_weekends)
+                       * weights.WEIGHT_TOTAL_WEEKENDS;
   };
+  return new BoostRCSPPSolver(&g_, maxReducedCostBound_,
+                              param_.epsilon, param_.search_strategy_, param_.nb_max_paths_, postProcess);
 }
 
 // Function that creates the nodes of the network

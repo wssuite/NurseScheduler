@@ -3,7 +3,7 @@
 //
 
 #include "PrincipalGraph.h"
-#include "SubProblem.h"
+#include "solvers/mp/sp/SubProblem.h"
 
 using std::string;
 using std::vector;
@@ -49,7 +49,7 @@ void PrincipalGraph::build() {
   //
   int origin, destin;
   double cost = consCost(max_cons_+1);
-  for(int k=0; k<nDays-1; k++){
+  for(int k=0; k<nDays-1; k++) {
     // 1. WORK ONE MORE DAY ON THE SAME SHIFT WHEN MAXIMUM IS NOT REACHED YET
     //
     for(int nCons=0; nCons<max_cons_; nCons ++){
@@ -193,6 +193,24 @@ void PrincipalGraph::authorizeDayShift(int k, int s){
     }
     pSP_->g().authorizeArc(arcsRepeatShift_[k-1][i]);
   }
+}
+
+// forbid any arc that authorizes the violation of a consecutive constraint
+void PrincipalGraph::forbidViolationConsecutiveConstraints() {
+  if (!pSP_)
+    return;
+
+  // forbid the arcs that allow to violate the min consecutive constraint
+  int minCons = pSP_->minCons(shift_type_);
+  for (auto &endArcs: arcsShiftToEndsequence_)
+    for (int n = 1; n < minCons; n++)
+      pSP_->g().forbidArc(endArcs[n]);
+
+  // forbid the arcs that allow to violate the max consecutive constraint if not unlimited
+  if (!pSP_->isUnlimited(shift_type_))
+    for (auto &repeatArc: arcsRepeatShift_)
+      for (int a: repeatArc)
+        pSP_->g().forbidArc(a);
 }
 
 bool PrincipalGraph::checkIfShiftBelongsHere(int s, bool print_err) const {
