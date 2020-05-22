@@ -1,0 +1,21 @@
+#action.yml
+name: 'ns'
+description: 'Docker container running the nurse scheduler'
+inputs:
+  root-path:  # id of input
+    description: 'Path to the root of the nurse scheduler project'
+    required: true
+    default: '-r /home/poly/ns'
+  ns-args:  # id of input
+    description: 'One-line arguments for the nurse scheduler'
+    required: true
+    default: '-h'
+outputs:
+  cost: # id of output
+    description: 'The cost of the solution found'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.root-path }}
+    - ${{ inputs.ns-args }}
