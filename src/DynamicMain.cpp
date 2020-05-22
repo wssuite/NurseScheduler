@@ -8,16 +8,18 @@
 
 #include <exception>
 
-#include "MyTools.h"
-#include "ReadWrite.h"
-#include "DemandGenerator.h"
-#include "Greedy.h"
-#include "MasterProblem.h"
-#include "StochasticSolver.h"
-#include "SubProblem.h"
+#include "tools/ReadWrite.h"
+#include "tools/DemandGenerator.h"
+#include "solvers/StochasticSolver.h"
 //#include "CbcModeler.h"
-#include "MyTools.h"
-#include "InitializeSolver.h"
+#include "tools/MyTools.h"
+#include "solvers/InitializeSolver.h"
+
+
+using std::string;
+using std::vector;
+using std::pair;
+
 
 /******************************************************************************
 * Solve one week inside the stochastic process
@@ -33,7 +35,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 
 	// set the scenario
 	logStream << "# Initialize the scenario" << std::endl;
-	Scenario* pScen = initializeScenario(scenPath,demandPath,historyPath);
+	PScenario pScen = initializeScenario(scenPath,demandPath,historyPath);
 
 	// set the options of the stochastic solver
 	// (the corresponding method needs to be change manually for tests)
@@ -50,24 +52,25 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 					generationOptions = pathIni+"generationOptions.txt",
 					evaluationOptions = pathIni+"evaluationOptions.txt";
 	try {
-		logStream << "Stochastic options:" << endl <<
-      ReadWrite::readStochasticSolverOptions(stochasticOptions, options) << endl;
+		logStream << "Stochastic options:" << std::endl <<
+      ReadWrite::readStochasticSolverOptions(stochasticOptions, options) << std::endl;
 	} catch(const std::string& ex) {}
 	try {
-    logStream << "Generation options:" << endl <<
-      ReadWrite::readSolverOptions(generationOptions, options.generationParameters_) << endl;
+    logStream << "Generation options:" << std::endl <<
+      ReadWrite::readSolverOptions(generationOptions, options.generationParameters_) << std::endl;
 	} catch(const std::string& ex) {}
 	try {
-    logStream << "Evaluation options:" << endl <<
-      ReadWrite::readSolverOptions(evaluationOptions, options.evaluationParameters_) << endl;
+    logStream << "Evaluation options:" << std::endl <<
+      ReadWrite::readSolverOptions(evaluationOptions, options.evaluationParameters_) << std::endl;
 	} catch(const std::string& ex) {}
 
 	// get history demands by reading the custom file
 	//
-	vector<Demand*> demandHistory;
-	demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+	vector<PDemand> demandHistory;
+	demandHistory.push_back(pScen->pWeekDemand());
 	if (!customInputFile.empty()) {
-		int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
+		// int coWeek = ReadWrite::readCustom(customInputFile, pScen, demandHistory);
+	 ReadWrite::readCustom(customInputFile, pScen, demandHistory);
 	}
 
 	Solver* pSolver = new StochasticSolver(pScen, options, demandHistory);
@@ -81,12 +84,7 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	solStream << pSolver->solutionToString() << std::endl;
 
 	//  release memory
-	if (pScen) delete pScen;
-	if (pSolver) delete pSolver;
-	while (!demandHistory.empty()) {
-		delete demandHistory.back();
-		demandHistory.pop_back();
-	}
+	delete pSolver;
 	logStream.close();
 }
 
@@ -97,33 +95,29 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 ******************************************************************************/
 
 pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceName, int historyIndex,
-		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, int seed) {
+		vector<int> weekIndices, StochasticSolverOptions stochasticSolverOptions, string outdir, std::vector<int> seeds) {
 
 	// build the paths of the input files
 	InputPaths inputPaths(dataDir, instanceName,historyIndex,weekIndices);
 
 	// initialize the scenario object of the first week
-	Scenario* pScen = initializeScenario(inputPaths.scenario(),inputPaths.week(0),inputPaths.history(),"");
+	PScenario pScen = initializeScenario(inputPaths.scenario(),inputPaths.week(0),inputPaths.history(),"");
 
 	// solve the problem for each week and store the solution in the vector below
 	vector<Roster> solution;
 	int nbWeeks = weekIndices.size();
 	Status solutionStatus;
 
-	vector<Demand*> demandHistory;
+	vector<PDemand> demandHistory;
 	double currentCost = 0;
 	int nbSched = 0;
 
-	vector<int> seeds;
-
 	for (int week = 0; week < nbWeeks; week++) {
-	   if(week==0 and seed != -1)
-	      seeds.push_back(seed);
-	   else
+	   if(week >= seeds.size())
 	      seeds.push_back(std::rand());
 	   std::srand(seeds[week]);
 
-		demandHistory.push_back(new Demand (*(pScen->pWeekDemand())) );
+		demandHistory.push_back(pScen->pWeekDemand());
 
 		StochasticSolver* pSolver = new StochasticSolver(pScen, stochasticSolverOptions, demandHistory, currentCost);
 
@@ -154,8 +148,8 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 		if (week < nbWeeks-1) {
 
 			// Initialize demand and preferences
-			Demand* pDemand(0);
-			Preferences* pPref(0);
+			PDemand pDemand(nullptr);
+			PPreferences pPref(nullptr);
 
 			// Read the demand and preferences and link them with the scenario
 			ReadWrite::readWeek(inputPaths.week(week+1), pScen, &pDemand, &pPref);
@@ -169,7 +163,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 			}
 
 			// update the scenario to treat next week
-			pScen->updateNewWeek(pDemand, *pPref, initialStates);
+			pScen->updateNewWeek(pDemand, pPref, initialStates);
 		}
 
 		delete pSolver;
@@ -189,9 +183,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir, string instanceNam
 	// Display the solution
 	// displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices, solution, solutionStatus, outDir);
 
-	delete pScen;
-
-	return pair<double, int>(currentCost, nbSched);
+	return {currentCost, nbSched};
 }
 
 
@@ -218,14 +210,14 @@ int main(int argc, char** argv)
      std::cout << "Running the default method..."<< std::endl;
      string dataDir = "datasets/";
      string instanceName = "n030w4";
-     int historyIndex = 0;
-     vector<int> weekIndices = {3, 5, 0, 2};
+     int historyIndex = 1;
+     vector<int> weekIndices = {6,7,5,3};
      StochasticSolverOptions stochasticSolverOptions;
      stochasticSolverOptions.totalTimeLimitSeconds_ = 40;
      string outdir = "outfiles/" + instanceName + "/";
-     int seed = 1;
+     std::vector<int> seeds = {50,35,70,80};
      testMultipleWeeksStochastic(dataDir, instanceName, historyIndex,
-     		weekIndices, stochasticSolverOptions, outdir, seed);
+     		weekIndices, stochasticSolverOptions, outdir, seeds);
   }
   // Nominal behavior of the executable, as required by INRCII
   //
@@ -304,7 +296,7 @@ int main(int argc, char** argv)
     if (!customOutputFile.empty()) {
        ReadWrite::writeCustom(customOutputFile,weekDataFile,customInputFile);
     }
-    cout << "Custom output file : " << customOutputFile << endl;
+    std::cout << "Custom output file : " << customOutputFile << std::endl;
     // Todo: the method that writes the history file corresponding to the
     // solution
     // string outputHistoryFile("history-week");

@@ -9,10 +9,16 @@ before_install:
   - docker image build -t ns .
 
 script:
-  - docker run -t ns -i n005w4_0_1-2-3-3 -g 1550
-  - docker run -t ns -i n030w4_1_6-2-9-1 -g 1800-1950 -t 120
-  - docker run -t ns -i n030w4_1_6-7-5-3 -g 1950-2150 -t 120
-  - docker run -t ns -i n035w4_1_1-7-1-8 -g 1350-1500 -t 120
-  - docker run -t ns -d -i n030w4_1_6-2-9-1 -s 68-54-78-98 -g 1800-2000
-  - docker run -t ns -d -i n030w4_1_6-7-5-3 -s 50-35-70-80 -g 2000-2150
-  - docker run -t ns -d -i n035w4_1_1-7-1-8 -s 85-76-52-66 -g 1450-1600
+  - docker run --rm -t ns -i n005w4_0_1-2-3-3 -g 1470
+  - docker run --rm -t ns -i n005w4_1_6-2-9-1 --short-sp 0 -g 1520-1540
+  - docker run --rm -t ns -i n005w4_2_8-3-0-4 -g E
+  - docker run --rm -t ns -i n005w4_0_1-2-3-5 -g 1540
+  - docker run --rm -t ns -i n005w4_1_5-6-7-8 -p optimality.txt --short-sp 0 -g 1645-1655 -t 1800
+  - docker run --rm -t ns -i n005w4_2_9-0-1-2 -g 1540-1700
+  - docker run --rm -t ns -i n030w4_1_6-2-9-1 -g 1780-1900 -t 120
+  - docker run --rm -t ns -i n030w4_1_6-7-5-3 -g 1950-2150 -t 120
+  - docker run --rm -t ns -i n035w4_1_1-7-1-8 -g 1350-1600 -t 120
+  - docker run --rm -t ns -i new1_0_0-1 -g 1240-1300 -e 0
+  - docker run --rm -t ns -d -i n030w4_1_6-2-9-1 -s 68-54-78-98 -g 1800-2000
+  - docker run --rm -t ns -d -i n030w4_1_6-7-5-3 -s 50-35-70-80 -g 2000-2150
+  - docker run --rm -t ns -d -i n035w4_1_1-7-1-8 -s 85-76-52-66 -g 1400-1600
