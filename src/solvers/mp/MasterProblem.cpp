@@ -1223,30 +1223,29 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
 // STAB: compute the lagrangian bound
 //
 double MasterProblem::computeLagrangianBound(double objVal,double sumRedCost) const {
-	double stabSumCostValue = 0.0;
-	if (!pModel_->getParameters().isStabilization_) {
-		return objVal+sumRedCost;
-	}
-	else {
-		for(int i=0; i<pScenario_->nbNurses_; i++){
-			// stabilization variables corresponding to the global constraints of
-			// of the nurses
-			stabSumCostValue += stabMinWorkedDaysPlus_[i]->getCost()*pModel_->getVarValue(stabMinWorkedDaysPlus_[i]);
-			stabSumCostValue += stabMaxWorkedDaysMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]);
-			stabSumCostValue += stabMaxWorkedWeekendMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]);
-		}
-
-		// stabilization variables corresponding to the cover constraints
-		for(int k=0; k<pDemand_->nbDays_; k++){
-			for(int s=1; s<pScenario_->nbShifts_; s++){
-				for(int sk=0; sk<pScenario_->nbSkills_; sk++){
-					stabSumCostValue += stabMinDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]);
-					stabSumCostValue += stabOptDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]);
-				}
-			}
-		}
-	}
-	return objVal+sumRedCost-stabSumCostValue;
+  return -LARGE_SCORE;
+//	double stabSumCostValue = 0.0;
+//	if (!pModel_->getParameters().isStabilization_) {
+//		return objVal+sumRedCost;
+//	}
+//	else {
+//		for(int i=0; i<pScenario_->nbNurses_; i++){
+//			// stabilization variables corresponding to the global constraints of
+//			// of the nurses
+//			stabSumCostValue += stabMinWorkedDaysPlus_[i]->getCost()*pModel_->getVarValue(stabMinWorkedDaysPlus_[i]);
+//			stabSumCostValue += stabMaxWorkedDaysMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]);
+//			stabSumCostValue += stabMaxWorkedWeekendMinus_[i]->getCost()*pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]);
+//		}
+//
+//		// stabilization variables corresponding to the cover constraints
+//		for(int k=0; k<pDemand_->nbDays_; k++)
+//			for(int s=1; s<pScenario_->nbShifts_; s++)
+//				for(int sk=0; sk<pScenario_->nbSkills_; sk++){
+//					stabSumCostValue += stabMinDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabMinDemandPlus_[k][s-1][sk]);
+//					stabSumCostValue += stabOptDemandPlus_[k][s-1][sk]->getCost()*pModel_->getVarValue(stabOptDemandPlus_[k][s-1][sk]);
+//				}
+//	}
+//	return objVal+sumRedCost-stabSumCostValue;
 }
 
 // STAB: reset the costs and bounds of the stabilization variables
