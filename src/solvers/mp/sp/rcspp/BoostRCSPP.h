@@ -76,7 +76,7 @@ struct spp_res_cont {
       return label_values.size();
     }
 
-    void print() const;
+    void print(std::ostream& out = std::cout) const;
 };
 
 // Resources extension model (arc has cost + label consumptions)
@@ -232,7 +232,7 @@ struct rc_spp_visitor {
 
   private:
     int nMaxPaths_;
-    int nFeasible_; // ensure that the exploration doesn't stall
+    int nLoop_; // ensure that the exploration doesn't stall
     std::vector<vertex> sinks_;
     std::map<int, spp_res_cont> paths_;
     std::function<void(spp_res_cont &)> postProcessRc_;

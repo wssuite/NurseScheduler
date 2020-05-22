@@ -313,7 +313,7 @@ struct PrintSolution{
 	PrintSolution() {}
 	virtual ~PrintSolution() {}
 	virtual void save(std::vector<int>& weekIndices, std::string outdir) = 0;
-	virtual void printCurrentSol() = 0;
+	virtual std::string currentSolToString() const = 0;
 };
 
 //-----------------------------------------------------------------------------
@@ -387,14 +387,17 @@ public:
 	bool isConnexComponentOfPositions_ = true;
 
 	/* PARAMETERS OF THE BRANCH AND BOUND */
-	//relative and absolute gap (with the current costs,
-	//the difference between two solution costs is at lest 5
-	//if sol below minRelativeGap_, we stop immediately
-	//if sol below relativeGap_, we stop after nbDiveIfMinGap_*dive without new incumbent
-	//if sol over relativeGap_, we stop after nbDiveIfRelGap_*dive without new incumbent
+	//relative and absolute gap (with the current LB)
+	//if sol below absoluteGap_, we stop immediately (the difference between two solution costs is at least 5);
+	//if sol below minRelativeGap_, we stop after nbDiveIfMinGap_*dive without new incumbent;
+	//if sol over relativeGap_, we stop after nbDiveIfRelGap_*dive without new incumbent.
+	// the two last conditions are respected just for certain strategy.
+	// If we look for optimality, we also use the last feature maxRelativeLPGapToKeepChild_:
+  // if the gap between the tree best lb and the node lb is higher than this gap -> backtrack
 	double absoluteGap_ = 5;
 	double minRelativeGap_ = .05;
 	double relativeGap_ = .1;
+  double maxRelativeLPGapToKeepChild_ = .01;
 
 	int nbDiveIfMinGap_ = 1;
 	int nbDiveIfRelGap_ = 2;
@@ -779,7 +782,7 @@ public:
 
 	// build the, possibly fractional, roster corresponding to the solution
 	// currently stored in the model
-	virtual vector3D<double> getFractionalRoster() {return {};}
+	virtual vector3D<double> getFractionalRoster() const {return {};}
 
 	// count the fraction of current solution that is integer
 	//
@@ -824,7 +827,7 @@ public:
 
 	// convert the internal solution of a solver into a interpretable one
 	virtual void storeSolution() {}
-	virtual std::string costsConstrainstsToString() {return "";}
+	virtual std::string costsConstrainstsToString() const {return "";}
 
 	// return the final states of the nurses
 	//
@@ -873,7 +876,7 @@ public:
 	void extendSolution(std::vector<Roster> solutionExtension);
 
 	// Print the current best solution
-	virtual void printCurrentSol() {};
+	virtual std::string currentSolToString() const { return ""; };
 
 	// When a solution of multiple consecutive weeks is available, display the complete
 	// solution in the log and write the solution of the weeks separately

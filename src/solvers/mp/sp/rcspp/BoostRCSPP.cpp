@@ -5,16 +5,16 @@
 #include "BoostRCSPP.h"
 
 
-void spp_res_cont::print() const {
-  std::cout << "Cost: " << cost << std::endl;
+void spp_res_cont::print(std::ostream& out) const {
+  out << "Cost: " << cost << std::endl;
   for (int l = 0; l < size(); l++) {
-    std::cout << labelName[l].c_str() << "=" << label_value(l) << "  ";
+    out << labelName[l].c_str() << "=" << label_value(l) << "  ";
   }
-  std::cout << std::endl;
+  out << std::endl;
 #ifdef DBG
   RCSolution sol(first_day, shifts_, cost);
-  std::cout << sol.toString();
-  std::cout << "Arc taken: " << pred_arc << std::endl;
+  out << sol.toString();
+  out << "Arc taken: " << pred_arc << std::endl;
 #endif
 }
 
@@ -315,8 +315,8 @@ bool BoostRCSPPSolver::processPath(std::vector<edge> &path,
       if (!b_correctly_extended)
         std::cerr << "Not correctly extended." << std::endl;
       printPath(std::cerr, path, rc);
-      std::cout << "vs" << std::endl;
-      actual_final_resource_levels.print();
+      std::cerr << "vs" << std::endl;
+      actual_final_resource_levels.print(std::cerr);
     }
     return false;
   }
@@ -413,9 +413,7 @@ rc_spp_visitor::rc_spp_visitor(int nPaths, const std::vector<vertex> &sinks,
 
 void rc_spp_visitor::on_label_popped(Label &spplabel, const Graph &) {}
 
-void rc_spp_visitor::on_label_feasible(Label &spplabel, const Graph &) {
-  ++nFeasible_;
-}
+void rc_spp_visitor::on_label_feasible(Label &spplabel, const Graph &) {}
 
 void rc_spp_visitor::on_label_not_feasible(Label &, const Graph &) {}
 
@@ -444,6 +442,5 @@ template<typename Queue>
 bool rc_spp_visitor::on_enter_loop(const Queue &queue, const Graph &graph) {
   if (nMaxPaths_ == -1) return true; // go until optimality
   if ((int) paths_.size() >= nMaxPaths_) return false; // exceed the number of paths searched
-  return nFeasible_ <
-         nMaxPaths_ * num_vertices(graph); // stop if have explored too many feasible nodes (avoid stalling)
+  return nLoop_++ < nMaxPaths_ * num_vertices(graph); // stop if have explored too many feasible nodes (avoid stalling)
 }

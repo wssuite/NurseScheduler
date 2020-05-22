@@ -185,17 +185,17 @@ class MasterProblem : public Solver, public PrintSolution{
     ~MasterProblem();
 
     //solve the rostering problem
-    double solve(std::vector<Roster> solution = {});
+    double solve(std::vector<Roster> solution = {}) override;
 
     //solve the rostering problem or just the relaxation(root node)
     double solve(std::vector<Roster> solution, bool rebuild);
 
     // Solve with parameters
-    double solve(const SolverParam& parameters, std::vector<Roster> solution = {});
+    double solve(const SolverParam& parameters, std::vector<Roster> solution = {}) override;
 
     //Resolve the problem with another demand and keep the same preferences
     //
-    double resolve(PDemand pDemand, const SolverParam& parameters, std::vector<Roster> solution = {});
+    double resolve(PDemand pDemand, const SolverParam& parameters, std::vector<Roster> solution = {}) override;
 
     // needs to be specialized: add a colum  to the master from a solution of the subproblem
     virtual MyVar* addColumn(int nurseId, const RCSolution& solution) = 0;
@@ -213,13 +213,13 @@ class MasterProblem : public Solver, public PrintSolution{
       return pModel_;
     }
 
-    //override PrintSolution virtual method
-    void save(std::vector<int>& weekIndices, std::string outdir);
-    void printCurrentSol();
+    //override save and currentSolToString virtual method fom printFunction
+    void save(std::vector<int>& weekIndices, std::string outdir) override;
+    std::string currentSolToString() const override;
 
     // build the, possibly fractional, roster corresponding to the solution
     // currently stored in the model
-    vector3D<double> getFractionalRoster() ;
+    vector3D<double> getFractionalRoster() const override;
 
     // build a DualCosts structure
     DualCosts buildDualCosts(PLiveNurse pNurse) const;
@@ -235,23 +235,23 @@ class MasterProblem : public Solver, public PrintSolution{
     //------------------------------------------------
 
     // relax/unrelax the integrality constraints of the variables corresponding to input days
-    void relaxDays(std::vector<bool> isRelax);
-    void unrelaxDays(std::vector<bool> isUnrelax);
+    void relaxDays(std::vector<bool> isRelax) override;
+    void unrelaxDays(std::vector<bool> isUnrelax) override;
 
     // fix/unfix all the variables corresponding to the input vector of days
-    void fixDays(std::vector<bool> isFixDay);
-    void unfixDays(std::vector<bool> isUnfixDay);
+    void fixDays(std::vector<bool> isFixDay) override;
+    void unfixDays(std::vector<bool> isUnfixDay) override;
 
     // fix/unfix all the variables corresponding to the input vector of nurses
-    void fixNurses(std::vector<bool> isFixNurse);
-    void unfixNurses(std::vector<bool> isUnfixNurse);
+    void fixNurses(std::vector<bool> isFixNurse) override;
+    void unfixNurses(std::vector<bool> isUnfixNurse) override;
 
     // Solve the problem with a method that allows for a warm start
-    double rollingSolve(const SolverParam& parameters, int firstDay);
+    double rollingSolve(const SolverParam& parameters, int firstDay) override;
 
     // Special solve function for LNS
     // It is a priori the same as a regular, but it might be modified if needed
-    double LNSSolve(const SolverParam& parameters);
+    double LNSSolve(const SolverParam& parameters) override;
 
     //---------------------------------------------------------------------------
     //
@@ -361,7 +361,7 @@ class MasterProblem : public Solver, public PrintSolution{
     virtual void build(const SolverParam& parameters);
 
     // Initialization of the master problem with/without solution
-    void initialize(const SolverParam& parameters, std::vector<Roster> solution={});
+    void initialize(const SolverParam& parameters, std::vector<Roster> solution={}) override;
 
     // Provide an initial solution to the solver
     virtual void initializeSolution(const std::vector<Roster>& solution) = 0;
@@ -370,7 +370,7 @@ class MasterProblem : public Solver, public PrintSolution{
     void solveWithCatch();
 
     //solve a solution in the output
-    void storeSolution();
+    void storeSolution() override;
 
     // set parameters and update printFuntion pointer with this
     void setParameters(const SolverParam& param) {
@@ -401,9 +401,9 @@ class MasterProblem : public Solver, public PrintSolution{
     virtual double getConstantDualvalue(PLiveNurse pNurse) const;
 
     /* Display functions */
-    std::string costsConstrainstsToString();
-    std::string allocationToString(bool printInteger = true);
-    std::string coverageToString(bool printInteger = true);
+    std::string costsConstrainstsToString() const override;
+    std::string allocationToString(bool printInteger = true) const;
+    std::string coverageToString(bool printInteger = true) const;
 };
 
 #endif /* MASTERPROBLEM_H_ */

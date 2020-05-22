@@ -229,7 +229,7 @@ void BcpLpModel::modify_lp_parameters ( OsiSolverInterface* lp, const int change
 		}
 
 #if DBG
-		writeLP("model_"+std::to_string(current_index()));
+//		writeLP("model_"+std::to_string(current_index()));
 #endif
 		// modify dual tolerance // DBG
 		// double dualTol = std::min(0.1,-pModel_->getParameters().sp_max_reduced_cost_bound_+pModel_->epsilon());
@@ -291,7 +291,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars) const {
                "Node", "Lvl", "BestUB", "RootLB", "BestLB", "#It", "Obj", "#Frac", "#Active", "ObjSP", "#SP", "#Col");
        fprintf(pFile, "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | %8s %14s %13s %10s | %14s %5s %5s \n",
                current_index(), pModel_->getTreeSize(), current_level(),
-               pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
+               pModel_->getObjective(), pModel_->getRootLB(), pModel_->getBestLB(),
                "-", "-", "-", "-", "-", "-", "-");
      } else {
        /* compute number of fractional columns */
@@ -309,13 +309,13 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var*>& vars) const {
        if (pModel_->getLastNbSubProblemsSolved() > 0)
          fprintf(pFile, "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | %8d %14.2f %5d / %5d %10ld | %14.2f %5d %5d  \n",
                  current_index(), pModel_->getTreeSize(), current_level(),
-                 pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
+                 pModel_->getObjective(), pModel_->getRootLB(), pModel_->getBestLB(),
                  lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
                  pModel_->getLastMinReducedCost(), pModel_->getLastNbSubProblemsSolved(), nbGeneratedColumns_);
        else
          fprintf(pFile, "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | %8d %14.2f %5d / %5d %10ld | %14s %5s %5s  \n",
                  current_index(), pModel_->getTreeSize(), current_level(),
-                 pModel_->getObjective(), pModel_->getRootLB(), pModel_->computeBestLB(),
+                 pModel_->getObjective(), pModel_->getRootLB(), pModel_->getBestLB(),
                  lpIteration_, pModel_->getLastObj(), frac, non_zero, vars.size() - pModel_->getCoreVars().size(),
                  "-", "-", "-");
      }
@@ -597,7 +597,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(const BCP_lp_resu
 
   //print the current solution
   if (pModel_->getParameters().printRelaxationSol_) {
-    pModel_->getParameters().saveFunction_->printCurrentSol();
+    std::cout << pModel_->getParameters().saveFunction_->currentSolToString() << std::endl;
   }
 
   // reset cg counters
@@ -685,14 +685,15 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
 	// update LB (as either branching or fathoming) only if column generation has been solved until optimality
 	if(!isStalling) {
     double lb = lpres.objval();
-    //update node
-    pModel_->updateNodeLB(lb);
+    //update node. If return false, the lb has  decreased ! Bug needs to be find
+    if(!pModel_->updateNodeLB(lb))
+      writeLP("model_"+std::to_string(current_index()));
     //update true_lower_bound, as we reach the end of the column generation
     getLpProblemPointer()->node->true_lower_bound = lb;
 	}
 
 #ifdef DBG
-//	pModel_->pMaster_->printCurrentSol();
+//	pModel_->pMaster_->printCurrentSolToString();
 #endif
 
 	//if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
@@ -730,7 +731,6 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
 	if(pModel_->is_columns_node()){
 		pModel_->column_candidates(candidate);
 		buildCandidate(candidate, vars, cuts, cands);
-		pModel_->updateDive();
 		return BCP_DoBranch;
 	}
 
@@ -921,8 +921,15 @@ void BcpLpModel::find_infeasibility(const BCP_lp_result& lpres, //the result of 
 //However, if BCP dives then one child will be mark with BCP_KeepChild. The decision which child to keep is based on the ChildPreference parameter in BCP_lp_par.
 //Also, if a child has a presolved lower bound that is higher than the current upper bound then that child is mark as BCP_FathomChild.
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj* best){
-   best->action()[0] = BCP_KeepChild;
-   // tell the tree that diving
+  // if only one child -> keep child as dicing
+  // if the gap is less than the min relative gap and
+  // the node's LP gap is less than maxRelativeLPGapToKeepChild_ -> keep child
+  if(best->action().size() == 1 ||
+      pModel_->getCurrentNode()->getLPGap() < pModel_->getParameters().maxRelativeLPGapToKeepChild_) {
+    best->action()[0] = BCP_KeepChild;
+    // tell the tree that the first child if kept
+    pModel_->keepFirstChild(best->action().size());
+  }
 
    //	if(pModel_->continueDiving()) best->action()[0] = BCP_KeepChild;
    //	else pModel_->addCurrentNodeToStack();
@@ -958,37 +965,30 @@ void BcpLpModel::select_vars_to_delete(const BCP_lp_result& lpres,
    const bool before_fathom,
    BCP_vec<int>& deletable)
 {
-	// BCP_lp_user::select_vars_to_delete(lpres, vars, cuts, before_fathom, deletable);
+  if (before_fathom && getLpProblemPointer()->param(BCP_lp_par::NoCompressionAtFathom))
+    return;
 
-
-	if (before_fathom && getLpProblemPointer()->param(BCP_lp_par::NoCompressionAtFathom))
-	  return;
-
+	// code from BCP_lp_user::select_vars_to_delete(lpres, vars, cuts, before_fathom, deletable)
 	const int varnum = vars.size();
 	deletable.reserve(varnum);
 	for (int i = getLpProblemPointer()->core->varnum(); i < varnum; ++i) {
-		BCP_var *var = vars[i];
-		if (var->is_to_be_removed() ||
-		  (! var->is_non_removable() && var->lb() == 0 && var->ub() == 0))
-		  deletable.unchecked_push_back(i);
-	}
-
-	if(pModel_->getParameters().printBranchStats_ && before_fathom){
-		std::cout << "ABOUT TO FATHOM CURRENT NODE" << std::endl;
-		pModel_->printStats();
-	}
-
-  for (unsigned int i = pModel_->getCoreVars().size(); i < vars.size(); ++i) {
-    BcpColumn* var = dynamic_cast<BcpColumn*>(vars[i]);
-
-    if (var->lb() == 0 && var->ub() == 0) {
+    BCP_var *var = vars[i];
+//		if (var->is_to_be_removed() ||
+//		  (! var->is_non_removable() && var->lb() == 0 && var->ub() == 0))
+    if (var->is_to_be_removed()) {
       deletable.unchecked_push_back(i);
       continue;
     }
 
-    if(var->getNbConsInactiveIteration(lpIteration_) > pModel_->getParameters().max_inactive_iteration_ &&
-        var->getActivityRate(lpIteration_) <  pModel_->getParameters().min_activity_rate_)
+    BcpColumn *col = dynamic_cast<BcpColumn *>(vars[i]);
+    if (col->getNbConsInactiveIteration(lpIteration_) > pModel_->getParameters().max_inactive_iteration_ &&
+        col->getActivityRate(lpIteration_) < pModel_->getParameters().min_activity_rate_)
       deletable.unchecked_push_back(i);
+  }
+
+  if(pModel_->getParameters().printBranchStats_ && before_fathom){
+    std::cout << "ABOUT TO FATHOM CURRENT NODE" << std::endl;
+    pModel_->printStats();
   }
 }
 
@@ -1167,9 +1167,13 @@ int BcpModeler::solve(bool relaxation){
 	}catch(TimeoutStop& e) {
 		getMaster()->setStatus(TIME_LIMIT);
 	}catch (const std::exception &e) {
+	  std::cerr << "Current LP solution:" << std::endl;
+    std::cerr << pMaster_->currentSolToString() << std::endl;
+    writeLP("model");
     std::cerr << e.what() << std::endl;
     if(bcpSolutions_.empty()) getMaster()->setStatus(INFEASIBLE);
     else getMaster()->setStatus(FEASIBLE);
+    throw e;
 	}
 
 	// retrieve the statistics of the solution
@@ -1353,7 +1357,8 @@ void BcpModeler::addBcpSol(const BCP_solution* sol){
       }
    }
 
-	if(pTree_->computeBestLB()<1.0e5 && pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - epsilon()){
+	if(pTree_->getBestLB()<LARGE_SCORE-epsilon() &&
+	   pTree_->getBestUB() - pTree_->getBestLB() < parameters_.absoluteGap_ - epsilon()){
 		char error[100];
 		sprintf(error, "Stopped: absolute gap < %.2f.", parameters_.absoluteGap_);
 		throw OptimalStop(error);
@@ -1688,11 +1693,11 @@ int BcpModeler::setVerbosity(int v){
 //Check if BCP must stop
 bool BcpModeler::doStop() const {
    //continue if doesn't have a lb
-   if(pTree_->computeBestLB() >= LARGE_SCORE)
+   if(pTree_->getBestLB() >= LARGE_SCORE-epsilon())
       return false;
 
    //check relative gap
-	if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.absoluteGap_ - epsilon()){
+	if(pTree_->getBestUB() - pTree_->getBestLB() < parameters_.absoluteGap_ - epsilon()){
 	    pBcp_->pLpModel_->printNodeSummaryLine();
       char error[100];
       sprintf(error, "Stopped: absolute gap < %.2f.", parameters_.absoluteGap_);
@@ -1716,13 +1721,13 @@ bool BcpModeler::doStop() const {
 		sprintf(error, "Stopped: %d solutions have been founded", nbSolutions());
 		throw FeasibleStop(error);
 	}
-	else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.minRelativeGap_ * pTree_->get_best_lb() - epsilon()){
+	else if(pTree_->getBestUB() - pTree_->getBestLB() < parameters_.minRelativeGap_ * pTree_->getBestLB() - epsilon()){
     pBcp_->pLpModel_->printNodeSummaryLine();
 		char error[100];
 		sprintf(error, "Stopped: relative gap < %.2f.", parameters_.minRelativeGap_);
 		throw FeasibleStop(error);
 	}
-   else if(pTree_->getBestUB() - pTree_->get_best_lb() < parameters_.relativeGap_ * pTree_->get_best_lb() - epsilon()){
+   else if(pTree_->getBestUB() - pTree_->getBestLB() < parameters_.relativeGap_ * pTree_->getBestLB() - epsilon()){
       //if the relative gap is small enough and if same incumbent since the last dive, stop
       if(pTree_->getNbNodesSinceLastIncumbent() > parameters_.nbDiveIfMinGap_*pTree_->getDiveLength()){
         pBcp_->pLpModel_->printNodeSummaryLine();

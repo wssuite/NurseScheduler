@@ -505,11 +505,25 @@ void MasterProblem::save(vector<int>& weekIndices, string outfile){
 	}
 }
 
+std::string MasterProblem::currentSolToString() const {
+  std::stringstream rep;
+//  rep << allocationToString();
+//  rep << coverageToString();
+  for (MyVar *var: pModel_->getActiveColumns()) {
+    double v  = pModel_->getVarValue(var);
+    if(v < epsilon()) continue;
+    rep << var->name_ << ": " << v << std::endl;
+    PPattern pat = getPattern(var->getPattern());
+    rep << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_) << std::endl;
+  }
+  return rep.str();
+}
+
 //------------------------------------------------------------------------------
 // Build the, possibly fractional, roster corresponding to the solution
 // currently stored in the model
 //------------------------------------------------------------------------------
-vector3D<double> MasterProblem::getFractionalRoster() {
+vector3D<double> MasterProblem::getFractionalRoster() const {
 	vector3D<double> fractionalRoster;
   Tools::initVector3D(fractionalRoster, getNbNurses(), getNbDays(), pDemand_->nbShifts_, .0);
 
@@ -539,18 +553,6 @@ void MasterProblem::checkIfPatternAlreadyPresent(const std::vector<double>& patt
       string name = var->name_;
       Tools::throwError("Pattern already present as column: " + name);
     }
-  }
-}
-
-void MasterProblem::printCurrentSol() {
-  allocationToString();
-  coverageToString();
-  for (MyVar *var: pModel_->getActiveColumns()) {
-    double v  = pModel_->getVarValue(var);
-    if(v < epsilon()) continue;
-    std::cout << var->name_ << ": " << v << std::endl;
-    PPattern pat = getPattern(var->getPattern());
-    std::cout << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_) << std::endl;
   }
 }
 
@@ -738,7 +740,7 @@ void MasterProblem::updateDemand(PDemand pDemand){
 			}
 }
 
-string MasterProblem::costsConstrainstsToString(){
+string MasterProblem::costsConstrainstsToString() const {
 	std::stringstream rep;
 
 	char buffer[100];
@@ -776,8 +778,7 @@ string MasterProblem::costsConstrainstsToString(){
 	return rep.str();
 }
 
-
-string MasterProblem::allocationToString(bool printInteger){
+string MasterProblem::allocationToString(bool printInteger) const {
 	std::stringstream rep;
 
 	int nbNurses = pScenario_->nbNurses_;
@@ -833,7 +834,7 @@ string MasterProblem::allocationToString(bool printInteger){
 	return rep.str();
 }
 
-string MasterProblem::coverageToString(bool printInteger){
+string MasterProblem::coverageToString(bool printInteger) const {
 	std::stringstream rep;
 
 	int nbShifts = pScenario_->nbShifts_;

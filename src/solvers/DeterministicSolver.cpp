@@ -293,7 +293,7 @@ void DeterministicSolver::updateInitialStats(MasterProblem* pMaster) {
 	stats_.bestUBInitial_= pMaster->computeSolutionCost();
 	stats_.bestUB_= pMaster->computeSolutionCost();
 	stats_.rootLB_ = pModel->getRootLB();
-	stats_.bestLB_ = std::min(stats_.bestUB_, 5.0 * ceil( (pModel->get_best_lb()-pModel->epsilon())/5.0) );
+	stats_.bestLB_ = std::min(stats_.bestUB_, 5.0 * ceil( (pModel->getBestLB()-pModel->epsilon())/5.0) );
 	stats_.timeInitialSol_= pMaster->getTimerTotal()->dSinceStart();
 	pMaster->getTimerTotal()->reset();
 
@@ -426,7 +426,7 @@ double DeterministicSolver::solveCompleteHorizon() {
 	//
 	pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_, options_.solutionAlgorithm_, completeParameters_);
 	pCompleteSolver_->solve(completeParameters_);
-	pCompleteSolver_->printCurrentSol();
+  std::cout << pCompleteSolver_->currentSolToString() << std::endl;
 	std::cout << pCompleteSolver_->solutionToString() << std::endl;
 	return this->treatResults(pCompleteSolver_);
 }
@@ -454,7 +454,7 @@ double DeterministicSolver::treatResults(Solver* pSolver) {
 
 	// Print the solution if required
 	if (completeParameters_.printIntermediarySol_) {
-		pSolver->printCurrentSol();
+    std::cout << pSolver->currentSolToString() << std::endl;
 	}
 
 	// Update nurses' states when solution is feasible or optimal
@@ -589,7 +589,7 @@ double DeterministicSolver::solveWithRollingHorizon() {
 		pRollingSolver_->rollingSolve(rollingParameters_,firstDay);
 
 		if (rollingParameters_.printIntermediarySol_) {
-			pRollingSolver_->printCurrentSol();
+      std::cout << pRollingSolver_->currentSolToString() << std::endl;
 		}
 
 		// fix the days of the sample horizon to the values of the solution
@@ -717,7 +717,7 @@ double DeterministicSolver::solveWithLNS() {
 		solution_ = pLNSSolver_->getSolution();
 		status_ = pLNSSolver_->getStatus();
 		if (lnsParameters_.printIntermediarySol_) {
-			pLNSSolver_->printCurrentSol();
+      std::cout << pLNSSolver_->currentSolToString() << std::endl;
 		}
 
 		// update the weight of adaptive lns

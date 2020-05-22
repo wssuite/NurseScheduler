@@ -121,7 +121,7 @@ vector<MyVar*> RCPricer::pricing(double bound, bool before_fathom, bool after_fa
 
 #ifdef DBG
         if(currentSubproblemStrategy_[pNurse->id_] == SubproblemParam::maxSubproblemStrategyLevel_) {
-          SubProblem *sub2 = new SubProblem(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
+          SubProblem *sub2 = new RotationSP(pScenario_, nbDays_, pNurse->pContract_, pMaster_->pInitialStates());
           sub2->build();
           sub2->solve(pNurse, &dualCosts, sp_param, nurseForbiddenShifts, forbiddenStartingDays_, bound);
           std::vector<RCSolution> sols = sub2->getSolutions();

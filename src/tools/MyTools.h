@@ -87,12 +87,22 @@ namespace Tools {
   };
 
   void throwException(const char *exceptionMsg);
+  void throwException(const std::string& exceptionMsg);
 
-  void throwException(const std::string &str);
+  template<typename ...Args> void throwException(const char* str, Args... args) {
+    char buff[999];
+    sprintf(buff, str, args...);
+    throwException(buff);
+  }
 
   void throwError(const char *exceptionMsg);
+  void throwError(const std::string& exceptionMsg);
 
-  void throwError(const std::string &str);
+  template<typename ...Args> void throwError(const char* str, Args... args) {
+    char buff[999];
+    sprintf(buff, str, args...);
+    throwError(buff);
+  }
 
 // Display a debug message
 //

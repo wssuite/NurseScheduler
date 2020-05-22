@@ -43,7 +43,8 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	StochasticSolverOptions options;
 	setStochasticSolverOptions(options, pScen, solPath, logPathIni, timeout);
 
-	// check if a parameter file in the the in the log path ini
+	// check if a parameters file in the the in the log path ini
+	// This files are hard coded as there are no options to give them to the simulator of the INRCII
   string pathIni = "";
   found = solPath.find_last_of("/");
   if(found != string::npos)
@@ -54,15 +55,15 @@ void solveOneWeek(string scenPath, string demandPath, string historyPath, string
 	try {
 		logStream << "Stochastic options:" << std::endl <<
       ReadWrite::readStochasticSolverOptions(stochasticOptions, options) << std::endl;
-	} catch(const std::string& ex) {}
+	} catch(const char* ex) {}
 	try {
     logStream << "Generation options:" << std::endl <<
       ReadWrite::readSolverOptions(generationOptions, options.generationParameters_) << std::endl;
-	} catch(const std::string& ex) {}
+	} catch(const char* ex) {}
 	try {
     logStream << "Evaluation options:" << std::endl <<
       ReadWrite::readSolverOptions(evaluationOptions, options.evaluationParameters_) << std::endl;
-	} catch(const std::string& ex) {}
+	} catch(const char* ex) {}
 
 	// get history demands by reading the custom file
 	//

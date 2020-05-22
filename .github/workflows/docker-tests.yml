@@ -98,7 +98,7 @@ jobs:
       - name: new1_0_0-1 ROSTER
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type ROSTER  --n-threads 4'
+          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type ROSTER -t 120 --n-threads 4'
 
       - name: n030w4_1_6-2-9-1 dynamic
         uses: ./ # Uses an action in the root directory

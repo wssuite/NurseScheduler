@@ -401,9 +401,11 @@ protected:
 /* Represents the nodes of the branching tree */
 struct MyNode{
 
-	MyNode(): index_(0), pParent_(0), bestLB_(LARGE_SCORE), highestGap_(0), bestLagLB_(-LARGE_SCORE), lastLagLB_(-LARGE_SCORE) {}
+	MyNode(): index_(0), pParent_(0), bestLB_(LARGE_SCORE), processed_(false),
+	gap_(LARGE_SCORE), highestGap_(0), bestLagLB_(-LARGE_SCORE), lastLagLB_(-LARGE_SCORE) {}
 	MyNode(int index, MyNode* pParent):
-		index_(index), pParent_(pParent), bestLB_(pParent->bestLB_), highestGap_(0), bestLagLB_(pParent->bestLagLB_), lastLagLB_(pParent->bestLB_) {}
+		index_(index), pParent_(pParent), bestLB_(pParent->bestLB_), processed_(false),
+		gap_(LARGE_SCORE), highestGap_(0), bestLagLB_(pParent->bestLagLB_), lastLagLB_(pParent->bestLB_) {}
 	virtual ~MyNode() {}
 
 	const int index_;
@@ -415,19 +417,32 @@ struct MyNode{
 		children_.push_back(child);
 	}
 
-	void updateBestLB(double newLB){
-	  // if not root and the LB is decreasing
-    if(pParent_ && bestLB_>newLB+1e-5) {
-//      Tools::throwException("The node lower bound (%.9f) is smaller than its parent one (%.9f).", newLB, bestLB_);
-        std::cerr << "The node lower bound (" << newLB
-                  << ") is smaller than its parent one (" << bestLB_ << ")." << std::endl;
-      }
+	bool updateLB(double newLB){
+	  // if not root and the LB is decreasing -> error.
+	  // BUG: need to be found. For the moment, return false
+	  bool increased = true;
+    if(pParent_ && bestLB_>newLB+1e-2) {
+//      Tools::throwException("The node lower bound (%.2f) is smaller than its parent one (%.2f).", newLB, bestLB_);
+      std::cerr << "The node lower bound (" << newLB
+                << ") is smaller than its parent one (" << bestLB_ << ")." << std::endl;
+      increased = false;
+    }
 		bestLB_ = newLB;
+    processed_ = true;
 		//if not root
 		if(pParent_){
-			double gap = (bestLB_ - pParent_->bestLB_)/pParent_->bestLB_;
-			if(gap > pParent_->highestGap_) pParent_->highestGap_ = gap;
+			double parentGap = (bestLB_ - pParent_->bestLB_) / pParent_->bestLB_;
+			if(parentGap > pParent_->highestGap_) pParent_->highestGap_ = parentGap;
 		}
+		return increased;
+	}
+
+	void computeGap(double treeBestLB) {
+    gap_ = (bestLB_ - treeBestLB) / treeBestLB;
+  }
+
+	double getLPGap() const{
+	  return gap_;
 	}
 
 	double getHighestGap() const {
@@ -464,6 +479,10 @@ struct MyNode{
 
 	double getDepth() const { return depth_; }
 
+	bool isProcessed() const {
+	  return processed_;
+	}
+
 	virtual std::string write() const {
     std::stringstream out;
 		out << "MyNode: (depth=" << depth_ << ",LB=" << bestLB_ << ")";
@@ -472,8 +491,10 @@ struct MyNode{
 
 protected:
 	double bestLB_;
-	//highest gap between the bestLB_ and the computed bestLB_ of the children
-	double highestGap_;
+	bool processed_;
+	// gap: between bestLB_ and current best lb
+	//highest gap: between the bestLB_ and the computed bestLB_ of the children
+	double gap_, highestGap_;
 	int depth_;
 
 	// STAB : best lagrangian bound obtained at this node
@@ -487,212 +508,229 @@ protected:
 };
 
 struct MyTree {
-	MyTree(double epsilon): epsilon_(epsilon), tree_size_(0), nb_nodes_processed_(0), nb_nodes_last_incumbent_(0),
-	    diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0), nb_nodes_since_dive_(0),
-	    currentNode_(nullptr),
-		  best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE), best_ub(LARGE_SCORE) {}
-	virtual ~MyTree() {}
+    MyTree(double epsilon) : epsilon_(epsilon), tree_size_(0), nb_nodes_processed_(0), nb_nodes_last_incumbent_(0),
+                             diveDepth_(0), diveLength_(LARGE_SCORE), min_depth_(0), nb_nodes_since_dive_(0),
+                             currentNode_(nullptr),
+                             best_lb_in_root(LARGE_SCORE), best_lb(LARGE_SCORE), best_ub(LARGE_SCORE) {}
 
-	void setRootLB(double bestLBRoot){ best_lb_in_root = bestLBRoot; }
+    virtual ~MyTree() {}
 
-	double getRootLB() const { return best_lb_in_root; }
+    void setRootLB(double bestLBRoot) { best_lb_in_root = bestLBRoot; }
 
-	void setCurrentNode(MyNode* currentNode, bool diving=false) {
-		// update tree size
-    --tree_size_;
-    // update this parameters only if current nore exists (i.e., currentNode is not the root node)
-    if(currentNode_) {
-      ++nb_nodes_processed_;
-      //one more node without new incumbent and since last dive
-      ++nb_nodes_last_incumbent_;
-      ++nb_nodes_since_dive_;
-    }
-		// update current node
-    currentNode_ = currentNode;
-    //if dive length has not been updated and we are not diving
-    // this would be called once at the end of the first dive
-    if(!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
-      diveLength_ = 1+diveDepth_;
+    double getRootLB() const { return best_lb_in_root; }
+
+    void setCurrentNode(MyNode *currentNode, bool diving = false) {
+      // update tree size
+      --tree_size_;
+      // update this parameters only if current nore exists (i.e., currentNode is not the root node)
+      if (currentNode_) {
+        ++nb_nodes_processed_;
+        //one more node without new incumbent and since last dive
+        ++nb_nodes_last_incumbent_;
+        ++nb_nodes_since_dive_;
+      }
+      // update current node
+      currentNode_ = currentNode;
+      //if dive length has not been updated and we are not diving
+      // this would be called once at the end of the first dive
+      if (!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
+        diveLength_ = 1 + diveDepth_;
 #ifdef DBG
-    if(currentNode_) std::cout << currentNode_->write() << std::endl;
+      if(currentNode_) std::cout << currentNode_->write() << std::endl;
 #endif
-	}
+    }
 
-	/* clear tree */
-	void clear(){
-		for(MyNode* node: tree_)
-			delete node;
-		tree_.clear();
-		activeTreeMapping_.clear();
-	}
+    /* clear tree */
+    void clear() {
+      for (MyNode *node: tree_)
+        delete node;
+      tree_.clear();
+      activeTreeMapping_.clear();
+    }
 
-	std::string writeCurrentNode() {
-		if(currentNode_) return currentNode_->write();
-		else return "";
-	}
-	std::vector<MyNode*> addToMapping(const int nbLeaves, const int diveDepth) {
-		const int size = tree_.size();
-	 	std::vector<MyNode*> leaves(nbLeaves);
-		for(int i=0; i<nbLeaves; ++i){
-			leaves[i] = tree_[size - nbLeaves + i];
-			leaves[i]->setDepth(diveDepth + 1);
-		}
-		activeTreeMapping_.insert(std::pair<MyNode*, std::vector<MyNode*> >(currentNode_, leaves));
-		tree_size_ += nbLeaves;
-    //finally update the current node for the moment as diving (only true if not root node)
-		if(currentNode_) setCurrentNode(leaves[0], true);
-		// set dive depth
-		diveDepth_ = diveDepth;
+    std::string writeCurrentNode() {
+      if (currentNode_) return currentNode_->write();
+      else return "";
+    }
 
-		return leaves;
-	}
+    std::vector<MyNode *> addToMapping(const int nbLeaves, const int diveDepth) {
+      const int size = tree_.size();
+      std::vector<MyNode *> leaves(nbLeaves);
+      for (int i = 0; i < nbLeaves; ++i) {
+        leaves[i] = tree_[size - nbLeaves + i];
+        leaves[i]->setDepth(diveDepth + 1);
+      }
+      activeTreeMapping_.insert(std::pair<MyNode *, std::vector<MyNode *> >(currentNode_, leaves));
+      tree_size_ += nbLeaves;
 
-	//when diving with just one node
-	void updateDive(){
-	  // add one node
-    tree_size_++;
-    // set new node
-		setCurrentNode(tree_.back(), true);
-		// update the depth
-    ++diveDepth_;
-	}
+      // set dive depth in case of diving
+      diveDepth_ = diveDepth;
 
-	void eraseCurrentSibblings(){
-		activeTreeMapping_.erase(currentNode_->pParent_);
-		//update min_depth_
-		min_depth_ = LARGE_SCORE;
-		for(std::pair<MyNode*,std::vector<MyNode*>> p: activeTreeMapping_)
-			if(p.first->getDepth() < min_depth_) min_depth_ = p.first->getDepth();
-	}
+      return leaves;
+    }
 
-	MyNode* getNode(const int nodeIndex) const {
-		return tree_[nodeIndex];
-	}
+    void keepFirstChild(int nLeaves) {
+      // set current node to first child
+      setCurrentNode(tree_[tree_.size() - nLeaves], true);
+      // if only one leave -> update tree_size_ and diveDepth_ as addToMapping won't be called
+      if (nLeaves == 1) {
+        tree_size_++;
+        diveDepth_++;
+      }
+    }
 
-	double computeBestLB() {
-		best_lb = currentNode_->getBestLB();
-		for(std::pair<MyNode*, std::vector<MyNode*> > p: activeTreeMapping_)
-			for(MyNode* node: p.second)
-				if(best_lb > node->getBestLB())
-					best_lb = node->getBestLB();
-		if(best_lb == LARGE_SCORE)
-			return LARGE_SCORE;
-		return best_lb;
-	}
+    void eraseCurrentSibblings() {
+      activeTreeMapping_.erase(currentNode_->pParent_);
+      //update min_depth_
+      min_depth_ = LARGE_SCORE;
+      for (std::pair<MyNode *, std::vector<MyNode *>> p: activeTreeMapping_)
+        if (p.first->getDepth() < min_depth_) min_depth_ = p.first->getDepth();
+    }
 
-	double get_best_lb() const {return best_lb; }
+    MyNode *getNode(const int nodeIndex) const {
+      return tree_[nodeIndex];
+    }
 
-	void setBestUB(double ub) {
-		/* reinitialize nb_nodes_last_incumbent_ */
-		if(ub + 1 < best_ub) nb_nodes_last_incumbent_=0;
-		if(ub < best_ub) best_ub = ub;
-	}
+    double getBestLB() const { return best_lb; }
 
-	double getBestUB() const { return best_ub; }
+    void setBestUB(double ub) {
+      /* reinitialize nb_nodes_last_incumbent_ */
+      if (ub + 1 < best_ub) nb_nodes_last_incumbent_ = 0;
+      if (ub < best_ub) best_ub = ub;
+    }
 
-	double getCurrentLB() const {return currentNode_->getBestLB();}
+    double getBestUB() const { return best_ub; }
 
-	//Reset and clear solving parameters
-	virtual void reset() {
-		clear();
-		best_ub = LARGE_SCORE;
-		currentNode_= nullptr;
-		tree_size_ = 0;
-    nb_nodes_processed_ = 0;
-		nb_nodes_last_incumbent_=0;
-		nb_nodes_since_dive_=0;
-		diveDepth_=0;
-		diveLength_ = LARGE_SCORE;
-		best_lb_in_root = LARGE_SCORE;
-		best_lb = LARGE_SCORE;
-	}
+    double getCurrentLB() const { return currentNode_->getBestLB(); }
 
-	int getTreeSize() const { return tree_size_; }
+    //Reset and clear solving parameters
+    virtual void reset() {
+      clear();
+      best_ub = LARGE_SCORE;
+      currentNode_ = nullptr;
+      tree_size_ = 0;
+      nb_nodes_processed_ = 0;
+      nb_nodes_last_incumbent_ = 0;
+      nb_nodes_since_dive_ = 0;
+      diveDepth_ = 0;
+      diveLength_ = LARGE_SCORE;
+      best_lb_in_root = LARGE_SCORE;
+      best_lb = LARGE_SCORE;
+    }
 
-	int getNbNodesProcessed() const { return nb_nodes_processed_; }
+    int getTreeSize() const { return tree_size_; }
 
-	int getNbNodesSinceLastIncumbent() const { return nb_nodes_last_incumbent_; }
+    int getNbNodesProcessed() const { return nb_nodes_processed_; }
 
-	void resetNbNodesSinceLastDive(){ nb_nodes_since_dive_ = 0; }
+    int getNbNodesSinceLastIncumbent() const { return nb_nodes_last_incumbent_; }
 
-	int getDiveLength() const { return diveLength_; }
+    void resetNbNodesSinceLastDive() { nb_nodes_since_dive_ = 0; }
 
-	int getNbDives() const { return nb_nodes_since_dive_ / diveLength_; } //nb_nodes_last_incumbent_
+    int getDiveLength() const { return diveLength_; }
 
-	void updateNodeLB(double lb){
-		if(nb_nodes_processed_ == 0)
-			best_lb_in_root = lb;
-		currentNode_->updateBestLB(lb);
-		updateStats(currentNode_);
-	}
+    int getNbDives() const { return nb_nodes_since_dive_ / diveLength_; } //nb_nodes_last_incumbent_
 
-	// STAB: getter and setter for lagrangian bound
-	double getNodeBestLagLB() const {return currentNode_->getBestLagLB();}
-	double getNodeLastLagLB() const {return currentNode_->getLastLagLB();}
-	bool updateNodeLagLB(double lb){
-		currentNode_->setLastLagLB(lb);
-		if (lb > currentNode_->getBestLagLB()+epsilon_) {
-			currentNode_->setBestLagLB(lb);
-			return true;
-		}
-		return false;
-	}
+    bool updateNodeLB(double lb) {
+      // set lb and gap
+      bool increased = currentNode_->updateLB(lb);
+      // if root -> set root and best lb
+      if (!currentNode_->pParent_) {
+        best_lb_in_root = lb;
+        best_lb = lb;
+      }
+        // update best_lb if needed: current node was best_lb and lb is not
+      else if (currentNode_->pParent_->getBestLB() < best_lb + 1e-9 && lb > best_lb + 1e-9)
+        best_lb = computeBestLB();
 
-	double getObjective() const { return best_ub; }
+      // compute gap
+      currentNode_->computeGap(best_lb);
+      updateStats(currentNode_);
 
-	double getRelaxedObjective() const { return best_lb_in_root; }
+      return increased;
+    }
 
-	void createRootNode(){
-    tree_.push_back(new MyNode);
-    ++tree_size_;
-	}
+    // compute best lb by visiting all unprocessed nodes
+    double computeBestLB() {
+      double new_best_lb = currentNode_->getBestLB();
+      for (std::pair<MyNode *, std::vector<MyNode *> > p: activeTreeMapping_)
+        for (MyNode *node: p.second)
+          if (!node->isProcessed() && new_best_lb > node->getBestLB()) {
+            new_best_lb = node->getBestLB();
+            if (new_best_lb < best_lb + 1e-9) // if same than current one -> stop
+              return new_best_lb;
+          }
+      return new_best_lb;
+    }
 
-	void pushBackNode(MyNode* node){
-		tree_.push_back(node);
-		currentNode_->pushBackChild(node);
-	}
+    // STAB: getter and setter for lagrangian bound
+    double getNodeBestLagLB() const { return currentNode_->getBestLagLB(); }
 
-	MyNode* getCurrentNode() const { return currentNode_; }
+    double getNodeLastLagLB() const { return currentNode_->getLastLagLB(); }
 
-	virtual bool is_columns_node() const { return false; }
+    bool updateNodeLagLB(double lb) {
+      currentNode_->setLastLagLB(lb);
+      if (lb > currentNode_->getBestLagLB() + epsilon_) {
+        currentNode_->setBestLagLB(lb);
+        return true;
+      }
+      return false;
+    }
 
-	virtual bool continueDiving() const {return false;}
+    double getObjective() const { return best_ub; }
 
-	void addCurrentNodeToStack() {
-		//currentNode_ is finally
-		tree_size_ ++;
-		--nb_nodes_last_incumbent_;
-		--nb_nodes_since_dive_;
-	}
+    double getRelaxedObjective() const { return best_lb_in_root; }
 
-	virtual void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int,int> >& forbidenShifts) { return; }
+    void createRootNode() {
+      tree_.push_back(new MyNode);
+      ++tree_size_;
+    }
 
-	/*
-	 * Stats
-	 */
+    void pushBackNode(MyNode *node) {
+      tree_.push_back(node);
+      currentNode_->pushBackChild(node);
+    }
 
-	virtual void updateStats(MyNode* node) {}
+    MyNode *getCurrentNode() const { return currentNode_; }
 
-	virtual std::string writeBranchStats() const { return ""; }
+    virtual bool is_columns_node() const { return false; }
 
-	void printStats() const { std::cout << writeBranchStats(); }
+    virtual bool continueDiving() const { return false; }
 
-protected:
-  double epsilon_;
-	//mapping between the Siblings and MyNode*
-	//a sibblings contains a list of all its leaves MyNode
-  std::map<MyNode*, std::vector<MyNode*>> activeTreeMapping_;
-	//branching tree
- 	std::vector<MyNode*> tree_;
-	//tree size, number of nodes since last incumbent, depth of the current dive, length of a dive
-	int tree_size_, nb_nodes_processed_, nb_nodes_last_incumbent_, diveDepth_, diveLength_, min_depth_, nb_nodes_since_dive_;
-	//current node
-	MyNode* currentNode_;
+    void addCurrentNodeToStack() {
+      //currentNode_ is finally
+      tree_size_++;
+      --nb_nodes_last_incumbent_;
+      --nb_nodes_since_dive_;
+    }
 
-	//best lb in root and current best lb
-	double best_lb_in_root, best_lb;
-	//best current upper bound found
-	double best_ub;
+    virtual void addForbiddenShifts(PLiveNurse pNurse, std::set<std::pair<int, int> > &forbidenShifts) { return; }
+
+    /*
+     * Stats
+     */
+
+    virtual void updateStats(MyNode *node) {}
+
+    virtual std::string writeBranchStats() const { return ""; }
+
+    void printStats() const { std::cout << writeBranchStats(); }
+
+  protected:
+    double epsilon_;
+    //mapping between the Siblings and MyNode*
+    //a sibblings contains a list of all its leaves MyNode
+    std::map<MyNode *, std::vector<MyNode *>> activeTreeMapping_;
+    //branching tree
+    std::vector<MyNode *> tree_;
+    //tree size, number of nodes since last incumbent, depth of the current dive, length of a dive
+    int tree_size_, nb_nodes_processed_, nb_nodes_last_incumbent_, diveDepth_, diveLength_, min_depth_, nb_nodes_since_dive_;
+    //current node
+    MyNode *currentNode_;
+
+    //best lb in root and current best lb
+    double best_lb_in_root, best_lb;
+    //best current upper bound found
+    double best_ub;
 };
 
 
@@ -1181,6 +1219,8 @@ class Modeler {
 
     virtual double getObjective() const { return pTree_->getBestUB(); }
 
+    virtual double getBestUB() const { return pTree_->getBestUB(); }
+
     virtual double getObjective(int index) const { return LARGE_SCORE; }
 
 
@@ -1188,7 +1228,7 @@ class Modeler {
 
     double getCurrentLB() const { return pTree_->getCurrentLB(); }
 
-    void updateNodeLB(double lb) { pTree_->updateNodeLB(lb); }
+    bool updateNodeLB(double lb) { return pTree_->updateNodeLB(lb); }
 
     // STAB
     double getNodeBestLagLB() { return pTree_->getNodeBestLagLB(); }
@@ -1199,9 +1239,7 @@ class Modeler {
 
     double getRootLB() const { return pTree_->getRootLB(); }
 
-    double computeBestLB() { return pTree_->computeBestLB(); }
-
-    double get_best_lb() const { return pTree_->get_best_lb(); }
+    double getBestLB() const { return pTree_->getBestLB(); }
 
     int getTreeSize() const { return pTree_->getTreeSize(); }
 
@@ -1211,7 +1249,7 @@ class Modeler {
 
     bool is_columns_node() const { return pTree_->is_columns_node(); }
 
-    void updateDive() { return pTree_->updateDive(); }
+    void keepFirstChild(int nLeaves) { return pTree_->keepFirstChild(nLeaves); }
 
     bool continueDiving() { return pTree_->continueDiving(); }
 

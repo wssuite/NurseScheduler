@@ -33,29 +33,21 @@ namespace Tools {
 // Throw an exception with the input message
 //
   void throwException(const char *exceptionMsg) {
-    try {
-      throw NSException(exceptionMsg);
-    } catch (std::exception &e) {
-      printf("Exception caught: %s\n", e.what());
-      throw e;
-    }
+    printf("Exception caught: %s\n", exceptionMsg);
+    throw NSException(exceptionMsg);
   }
 
-  void throwException(const std::string &str) {
-    throwException(str.c_str());
+  void throwException(const std::string& exceptionMsg) {
+    throwException(exceptionMsg.c_str());
   }
 
   void throwError(const char *exceptionMsg) {
-    throwError(std::string(exceptionMsg));
+    printf("Error caught: %s\n", exceptionMsg);
+    throw exceptionMsg;
   }
 
-  void throwError(const std::string &exceptionMsg) {
-    try {
-      throw exceptionMsg;
-    } catch (std::string &m) {
-      printf("Error caught: %s\n", m.c_str());
-      throw m;
-    }
+  void throwError(const std::string& exceptionMsg) {
+    throwError(exceptionMsg.c_str());
   }
 
 // Display a debug message

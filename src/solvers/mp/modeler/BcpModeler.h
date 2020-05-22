@@ -462,7 +462,7 @@ public:
 		pTree_->setCurrentNode(treeMapping_[s][nodeIndex]);
 
 		/* if no more child in this siblings */
-		if(s->toProcess() == 0){
+		if(s->toProcess() == 0) {
 			treeMapping_.erase(s);
 			pTree_->eraseCurrentSibblings();
 		}
@@ -821,6 +821,7 @@ public:
 			BCP_vec<int>& deletable);
 
     int writeLP(std::string fileName) {
+      std::cout << "LP model saved in " << fileName << ".lp" << std::endl;
       getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
       return 0;
     }
@@ -1001,7 +1002,7 @@ protected:
 	}
 
 	void realpush(CoinTreeSiblings* s) {
-		//add the current node to the BcpModeler
+		//add the current node to the BcpModele
 		if(s->toProcess() > 0){
 			pModel_->addToMapping(s);
 			this->candidateList_.push_back(s);

@@ -168,16 +168,15 @@ else
     result=$(cat ${outputDir}/output.txt | grep "Objective value")
 fi
 echo ${result}
-if [ -z "$result" ]
-then
+if [ -z "$result" ]; then
   echo "error: total cost not found"
   exit 1
 fi
 
 rcost=$(echo ${result} | tr -dc '0-9')
+echo "${rcost}"
 echo "::set-output name=cost::${rcost}"
-if [ ${rcost} -lt ${lb} ] || [ ${rcost} -gt ${ub} ]
-then
+if [ ${rcost} -lt ${lb} ] || [ ${rcost} -gt ${ub} ]; then
   echo "error: bounds not respected"
   exit 1
 fi
