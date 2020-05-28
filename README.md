@@ -1,6 +1,6 @@
 # Nurse scheduler
 
-![Docker tests](https://github.com/wssuite/NurseScheduler/workflows/Docker%20tests/badge.svg)
+[![Docker tests](https://github.com/wssuite/NurseScheduler/workflows/Docker%20tests/badge.svg)](https://github.com/wssuite/NurseScheduler/actions?query=workflow%3A%22Docker+tests%22+branch%3Amaster+event%3Apush)
 [![Docker Automated build](https://img.shields.io/docker/automated/legraina/nurse-scheduler)](https://hub.docker.com/repository/docker/legraina/nurse-scheduler/)
 [![DOI](https://zenodo.org/badge/150300357.svg)](https://zenodo.org/badge/latestdoi/150300357)
 
