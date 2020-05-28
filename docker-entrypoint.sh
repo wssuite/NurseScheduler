@@ -15,39 +15,55 @@ function printBashUsage {
   echo "-g | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
   echo "-v | --valgrind: use valgrind to run the code. Default: false."
   echo "-e | --evaluate: use the validator to evaluate thee solution. Default: true."
+  echo "-r | --root-dir-path: set the path where the script should be run. Default: do not move."
 }
 
-# load config arguments
-echo "$@"
-valgrindCMD="valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes -v"
+# load config arguments in one line
+ARGS=()
+while [ ! -z "$1" ]; do
+    for v in $1; do
+        ARGS+=($v)
+    done
+    shift 1;
+done
+echo "${ARGS[@]}"
+# parse arguments
+valgrindCMD="valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes"
 instance_description="n005w4_0_1-2-3-3"
 eval="1"
 dynamic_args=""
 other_args=""
-while [ ! -z $1 ]; do
-  case $1 in
+i=0
+while [ ! -z ${ARGS[${i}]} ]; do
+  case ${ARGS[${i}]} in
     -h|--help) printBashUsage
       exit 0;;
-   -i | --instance) instance_description=$2; shift 2;;
-   -s | --seeds) seeds=$2; dynamic_args="${dynamic_args} -s $2"; shift 2;;
-   -t | --timeout) timeout=$2; dynamic_args="${dynamic_args} -t $2"; shift 2;;
+   -i | --instance) instance_description=${ARGS[((i+1))]}; ((i+=2));;
+   -s | --seeds) seeds=${ARGS[((i+1))]}; dynamic_args="${dynamic_args} -s ${ARGS[((i+1))]}"; ((i+=2));;
+   -t | --timeout) timeout=${ARGS[((i+1))]}; dynamic_args="${dynamic_args} -t ${ARGS[((i+1))]}"; ((i+=2));;
     # add config files
-   -p | --param) param=$2; shift 2;;
-   -sc | --solver-config) param=$2; shift 2;;
-   -gc | --generation-config) genParam=$2; shift 2;;
-   -ec | --evaluation-config) evalParam=$2; shift 2;;
-   -g | --goal) goal=$2; shift 2;;
-   -d | --dynamic) dynamic="1"; shift 1;;
-   -v | -valgrind) valgrind="1"; shift 1;;
-   -e | --evaluate) eval=$2; shift 2;;
-   -*|--*) echo "Option unknown: $1. It will be passed to the scheduler."
-      other_args="${other_args} $1 $2"; shift 2;;
-   *) echo "Cannot parse this argument: $1"
+   -p | --param) param=${ARGS[((i+1))]}; ((i+=2));;
+   -sc | --solver-config) param=${ARGS[((i+1))]}; ((i+=2));;
+   -gc | --generation-config) genParam=${ARGS[((i+1))]}; ((i+=2));;
+   -ec | --evaluation-config) evalParam=${ARGS[((i+1))]}; ((i+=2));;
+   -g | --goal) goal=${ARGS[((i+1))]}; ((i+=2));;
+   -d | --dynamic) dynamic="1"; ((i++));;
+   -v | -valgrind) valgrind="1"; ((i++));;
+   -e | --evaluate) eval=${ARGS[((i+1))]}; ((i+=2));;
+   -r | --root-dir-path) rootDir=${ARGS[((i+1))]}; ((i+=2));;
+   -*|--*) echo "Option unknown: ${ARGS[${i}]}. It will be passed to the scheduler."
+      other_args="${other_args} ${ARGS[${i}]} ${ARGS[((i+1))]}"; ((i+=2));;
+   *) echo "Cannot parse this argument: ${ARGS[${i}]}"
       printBashUsage
       exit 2;;
   esac
 done
 dynamic_args="${dynamic_args} -i ${instance_description}"
+
+# move to root dir if defined
+if [ ! -z ${rootDir} ]; then
+    cd ${rootDir}
+fi
 
 if [ -z ${dynamic} ]; then
 	# parse inputs
@@ -74,7 +90,7 @@ if [ -z ${dynamic} ]; then
 	sCMD="${sCMD} --timeout ${timeout}"
 
 	# set param file
-	if [ ! -z param ]; then
+	if [ ! -z ${param} ]; then
 		# param="paramfiles/default.txt"
 		sCMD="${sCMD} --param paramfiles/${param}"
 	fi
@@ -131,8 +147,7 @@ if [ ${ret} -eq 0 -a ${eval} -eq 1 ]; then
 fi
 
 # if a goal is defined, test the total cost
-if [ -z "$goal" ]
-then
+if [ -z "$goal" ]; then
 	exit 0
 fi
 
@@ -169,6 +184,7 @@ then
 fi
 
 rcost=$(echo ${result} | tr -dc '0-9')
+echo "::set-output name=cost::${rcost}"
 if [ ${rcost} -lt ${lb} ] || [ ${rcost} -gt ${ub} ]
 then
   echo "error: bounds not respected"

@@ -1,0 +1,110 @@
+# This is a basic workflow to help you get started with Actions
+name: Docker tests
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  run-docker-tests:
+    name: docker tests
+    runs-on: ubuntu-latest
+    steps:
+      # To use this repository's private action, you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # run the tests
+      - name: n005w4_0_1-2-3-3 ALL
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-3
+          ns-args:  --short-sp 0 -g 1470
+
+      - name: n005w4_0_1-2-3-3 SHORT
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-3
+          ns-args: --short-sp 1 -g 1470
+
+      - name: n005w4_1_6-2-9-1
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_1_6-2-9-1
+          ns-args: --short-sp 0 -g 1520-1540
+
+      - name: n005w4_2_8-3-0-4
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_2_8-3-0-4
+          ns-args: -g E
+
+      - name: n005w4_0_1-2-3-5 ALL
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-5
+          ns-args: --short-sp 0 -g 1540
+
+      - name: n005w4_0_1-2-3-5 SHORT
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-5
+          ns-args: --short-sp 1 -g 1540
+
+      - name: n005w4_1_5-6-7-8
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_1_5-6-7-8
+          ns-args: -p optimality.txt --short-sp 0 -g 1630-1655 -t 1800
+
+      - name: n005w4_2_9-0-1-2
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_2_9-0-1-2
+          ns-args: -g 1540-1700
+
+      - name: n030w4_1_6-2-9-1
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1780-1900 -t 120
+
+      - name: n030w4_1_6-7-5-3
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-7-5-3
+          ns-args: -g 1950-2150 -t 120
+
+      - name: n035w4_1_1-7-1-8
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n035w4_1_1-7-1-8
+          ns-args: -g 1350-1600 -t 120
+
+      - name: new1_0_0-1
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: new1_0_0-1
+          ns-args: -g 1240-1300 -e 0
+
+      - name: n030w4_1_6-2-9-1 Dynamic
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -d -s 68-54-78-98 -g 1800-2000
+
+      - name: n030w4_1_6-7-5-3 Dynamic
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-7-5-3
+          ns-args: -d -s 50-35-70-80 -g 2000-2150
+
+      - name: n030w4_1_6-7-5-3 Dynamic
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n035w4_1_1-7-1-8
+          ns-args: -d -s 85-76-52-66 -g 1400-1600
