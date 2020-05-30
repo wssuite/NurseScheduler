@@ -1,43 +1,46 @@
-//
-//  Demand.h
-//  RosterDesNurses
-//
+/*
+ * Copyright (C) 2020 Antoine Legrain, Jeremy Omer, and contributors.
+ * All Rights Reserved.
+ *
+ * You may use, distribute and modify this code under the terms of the MIT
+ * license.
+ *
+ * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
+ *  full license detail.
+ */
 
-#ifndef __Demand__
-#define __Demand__
+#ifndef SRC_DATA_DEMAND_H_
+#define SRC_DATA_DEMAND_H_
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "tools/MyTools.h"
-
 
 class Demand;
 typedef std::shared_ptr<Demand> PDemand;
 
 //-----------------------------------------------------------------------------
 //
-//	C l a s s  D e m a n d
+// C l a s s  D e m a n d
 //
 // All the information relative to a particular demand
 //
 //-----------------------------------------------------------------------------
 
 class Demand {
-
-public:
-
+ public:
   // generic constructor and destructor
-	Demand(): name_(""), nbDays_(0), firstDay_(0), nbShifts_(0), nbSkills_(0){}
+  Demand() : name_(""), nbDays_(0), firstDay_(0), nbShifts_(0), nbSkills_(0) {}
   Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string name,
-  vector3D<int> minDemand, vector3D<int> optDemand);
+         vector3D<int> minDemand, vector3D<int> optDemand);
   ~Demand();
 
   // constant attributes of the demand
   //
-public:
-
+ public:
   // name of the demand
   //
   std::string name_;
@@ -55,8 +58,7 @@ public:
   vector3D<int> minDemand_;
   vector3D<int> optDemand_;
 
-public:
-
+ public:
   // total demand in the minimal and optimal demands
   //
   int minTotal_, optTotal_;
@@ -81,8 +83,7 @@ public:
   //
   std::vector<int> minHighestPerSkill_, optHighestPerSkill_;
 
-protected:
-
+ protected:
   // modify the demand by randomly swapping the demand of nnSwaps days
   //
   void swapDays(int nbSwaps);
@@ -100,10 +101,9 @@ protected:
   //
   void perturbShifts(int minPerturb, int maxPerturb);
 
-public:
-
+ public:
   // Index of the last day covered by the demand
-  int lastDay() {return firstDay_+nbDays_-1;}
+  int lastDay() { return firstDay_ + nbDays_ - 1; }
 
   // compute all the potentially helpful attributes of a demand
   // this includes the total demand per skill, per shift,
@@ -137,10 +137,9 @@ public:
   //
   void removeFirstNDays(int nbDays);
 
-	// remove a list of skills from the demand
-	//
-	void removeSkills(std::vector<int> skills);
-
+  // remove a list of skills from the demand
+  //
+  void removeSkills(std::vector<int> skills);
 };
 
-#endif
+#endif  // SRC_DATA_DEMAND_H_

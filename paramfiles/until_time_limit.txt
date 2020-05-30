@@ -1,7 +1,7 @@
 # global options of the deterministic procedure
 solutionAlgorithm=GENCOL
 solverType=CLP
-divideIntoConnexPositions=1
+divideIntoConnectedPositions=1
 withRollingHorizon=0
 withPrimalDual=0
 withLNS=0

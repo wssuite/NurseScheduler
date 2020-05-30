@@ -1,13 +1,16 @@
 /*
+ * Copyright (C) 2020 Antoine Legrain, Jeremy Omer, and contributors.
+ * All Rights Reserved.
+ *
+ * You may use, distribute and modify this code under the terms of the MIT
+ * license.
+ *
+ * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
+ *  full license detail.
+ */
 
-* DemandGenerator.h
-*
-*  Created on: April 27, 2015
-*      Author: jeremy omer
-*/
-
-#ifndef __DemandGenerator__
-#define __DemandGenerator__
+#ifndef SRC_TOOLS_DEMANDGENERATOR_H_
+#define SRC_TOOLS_DEMANDGENERATOR_H_
 
 #include <map>
 #include <string>
@@ -19,49 +22,55 @@
 
 //-----------------------------------------------------------------------------
 //
-//	C l a s s  D e m a n d G e n e r a t o r
+// C l a s s  D e m a n d G e n e r a t o r
 //
 // Generate and store random demand scenarios for stochastic solution of the
 // problem
 //
 //-----------------------------------------------------------------------------
 
-class DemandGenerator{
-public:
-	// default constructor and destructor
-	DemandGenerator(int nbDemands, int nbDays, std::vector<PDemand> demands, PScenario pScenario):
-		nbDemandsToGenerate_(nbDemands), nbDaysInGeneratedDemands_(nbDays),demandHistory_(demands), pScenario_(pScenario),
-	   rdm_(Tools::getANewRandomGenerator()) {
-	}
-	~DemandGenerator();
+class DemandGenerator {
+ public:
+  // default constructor and destructor
+  DemandGenerator(int nbDemands,
+                  int nbDays,
+                  std::vector<PDemand> demands,
+                  PScenario pScenario) :
+      nbDemandsToGenerate_(nbDemands),
+      nbDaysInGeneratedDemands_(nbDays),
+      demandHistory_(demands),
+      pScenario_(pScenario),
+      rdm_(Tools::getANewRandomGenerator()) {
+  }
+  ~DemandGenerator();
 
-public:
+ public:
+  // check the feasibility of a demand scenario
+  bool checkDemandFeasibility(PDemand pDemand);
 
-	// check the feasibility of a demand scenario
-	bool checkDemandFeasibility(PDemand pDemand);
+  // generate nbScenarios_ through perturbations of the demand history
+  std::vector<PDemand> generatePerturbedDemands();
 
-	// generate nbScenarios_ through perturbations of the demand history
-	std::vector<PDemand> generatePerturbedDemands();
+  // generate 1 demand through perturbations of the demand history
+  PDemand generateSinglePerturbatedDemand(bool checkFeasibility = true);
 
-	// generate 1 demand through perturbations of the demand history
-	PDemand generateSinglePerturbatedDemand(bool checkFeasibility = true);
+ protected:
+  // number of demand scenarios that should be generated
+  int nbDemandsToGenerate_;
 
-protected:
-	// number of demand scenarios that should be generated
-	int nbDemandsToGenerate_;
+  // number of days that must be considered in each generated demand
+  int nbDaysInGeneratedDemands_;
 
-	// number of days that must be considered in each generated demand
-	int nbDaysInGeneratedDemands_;
+  // demand history from which the random scenarios should be generated
+  std::vector<PDemand> demandHistory_;
 
-	// demand history from which the random scenarios should be generated
-	std::vector<PDemand> demandHistory_;
+  // nurse rostering scenario under study.
+  // this attribute is necessary to check the feasibility
+  // of the generated demands.
+  PScenario pScenario_;
 
-	// nurse rostering scenario under study
-	// this attribute is necessary to check the feasibility of the generated demands
-	PScenario pScenario_;
-
-	  //random generator
-	  std::minstd_rand rdm_;
+  // random generator
+  std::minstd_rand rdm_;
 };
 
- #endif
+#endif  // SRC_TOOLS_DEMANDGENERATOR_H_

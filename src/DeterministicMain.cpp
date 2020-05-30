@@ -1,17 +1,21 @@
-//
-//  main.cpp
-//  RosterDesNurses
-//
-//  Created by Jeremy Omer on 16/11/2014.
-//  Copyright (c) 2014 Jeremy Omer. All rights reserved.
-//
+/*
+ * Copyright (C) 2020 Antoine Legrain, Jeremy Omer, and contributors.
+ * All Rights Reserved.
+ *
+ * You may use, distribute and modify this code under the terms of the MIT
+ * license.
+ *
+ * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
+ *  full license detail.
+ */
+
+#include <exception>
 
 #include "solvers/InitializeSolver.h"
 #include "tools/MyTools.h"
 #include "tools/ReadWrite.h"
 #include "solvers/Solver.h"
-//#include "Greedy.h"
-#include <exception>
+// #include "Greedy.h"
 #include "solvers/DeterministicSolver.h"
 #include "DeterministicMain_test.h"
 
@@ -25,127 +29,128 @@ using std::pair;
 ******************************************************************************/
 
 int solveDeterministic(InputPaths inputPaths, double timeout) {
+  // set the scenario
+  //
+  std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
+  PScenario pScenario;
+  if (inputPaths.nbWeeks() > 1) {
+    pScenario = initializeMultipleWeeks(inputPaths);
+  } else {
+    pScenario = initializeScenario(inputPaths);
+  }
+  std::cout << std::endl;
 
-	// set the scenario
-	//
-	std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
-	PScenario pScenario;
-	if (inputPaths.nbWeeks() > 1) {
-		pScenario = initializeMultipleWeeks(inputPaths);
-	}
-	else {
-		pScenario = initializeScenario(inputPaths);
-	}
-	std::cout << std::endl;
+  // initialize random of tools
+  Tools::initializeRandomGenerator(inputPaths.randSeed());
 
-	//initialize random of tools
-	Tools::initializeRandomGenerator(inputPaths.randSeed());
-
-	// DBG
-	std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
-	std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
+  // DBG
+  std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
+  std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
 
 
-	// initiialize the solver and call the generic solution where the
-	// specific solution processes are called
-	//
-	std::cout << "# SOLVE THE INSTANCE" << std::endl;
-	DeterministicSolver* pSolver = new DeterministicSolver(pScenario,inputPaths);
-	double objValue = pSolver->solve();
-	std::cout << std::endl;
+  // initiialize the solver and call the generic solution where the
+  // specific solution processes are called
+  //
+  std::cout << "# SOLVE THE INSTANCE" << std::endl;
+  DeterministicSolver *pSolver = new DeterministicSolver(pScenario, inputPaths);
+  double objValue = pSolver->solve();
+  std::cout << std::endl;
 
-	// Display the solution and write the files for the validator
-	//
-	std::cout << "# FINAL SOLUTION" << std::endl;
-	std::string solutionStatus = statusToString.at(pSolver->getStatus());
-  std::cout << "# Solution status = " << solutionStatus <<  std::endl;
+  // Display the solution and write the files for the validator
+  //
+  std::cout << "# FINAL SOLUTION" << std::endl;
+  std::string solutionStatus = statusToString.at(pSolver->getStatus());
+  std::cout << "# Solution status = " << solutionStatus << std::endl;
   std::cout << "# Objective value = ";
-  if(objValue >= LARGE_SCORE) std::cout << "  -  ";
-  else std::cout << objValue;
-  std::cout <<  std::endl;
+  if (objValue >= LARGE_SCORE) std::cout << "  -  ";
+  else
+    std::cout << objValue;
+  std::cout << std::endl;
   pSolver->displaySolutionMultipleWeeks(inputPaths);
 
-	// Write the final statistics
-	//
-	string statPath = inputPaths.solutionPath().empty() ? "" : inputPaths.solutionPath()+"/stat.txt";
-	Tools::LogOutput statStream(statPath);
-	statStream << pSolver->getGlobalStat().toString() << std::endl;
+  // Write the final statistics
+  //
+  string statPath =
+      inputPaths.solutionPath().empty() ? "" : inputPaths.solutionPath()
+          + "/stat.txt";
+  Tools::LogOutput statStream(statPath);
+  statStream << pSolver->getGlobalStat().toString() << std::endl;
 
-	if (pSolver->getOptions().withLNS_) {
-		string lnsStatPath = inputPaths.solutionPath().empty() ? "" : inputPaths.solutionPath()+"/lns_stat.txt";
-		Tools::LogOutput lnsStatStream(lnsStatPath);
-		lnsStatStream << pSolver->getGlobalStat().lnsStatsToString() << std::endl;
-		lnsStatStream.close();
-	}
+  if (pSolver->getOptions().withLNS_) {
+    string lnsStatPath =
+        inputPaths.solutionPath().empty() ? "" : inputPaths.solutionPath()
+            + "/lns_stat.txt";
+    Tools::LogOutput lnsStatStream(lnsStatPath);
+    lnsStatStream << pSolver->getGlobalStat().lnsStatsToString() << std::endl;
+    lnsStatStream.close();
+  }
 
+  int returncode =
+      pSolver->getStatus() == INFEASIBLE;  // 1 if INFEASIBLE, 0 otherwise
 
-	int returncode = pSolver->getStatus() == INFEASIBLE; // 1 if INFEASIBLE, 0 otherwise
+  //  release memory
+  delete pSolver;
+  statStream.close();
 
-	//  release memory
-	delete pSolver;
-	statStream.close();
-
-	return returncode;
+  return returncode;
 }
-
 
 /******************************************************************************
 * Main method
 ******************************************************************************/
 
-int main(int argc, char** argv)
-{
-	std::cout << "# SOLVE THE PROBLEM WITH DETERMINISTIC DEMAND" << std::endl;
-	std::cout << "Number of arguments= " << argc << std::endl;
+int main(int argc, char **argv) {
+  std::cout << "# SOLVE THE PROBLEM WITH DETERMINISTIC DEMAND" << std::endl;
+  std::cout << "Number of arguments= " << argc << std::endl;
 
-	// Detect errors in the number of arguments
-	//
-	if (argc%2 != 1) {
-		Tools::throwError("main: There should be an even number of arguments!");
-	}
+  // Detect errors in the number of arguments
+  //
+  if (argc % 2 != 1) {
+    Tools::throwError("main: There should be an even number of arguments!");
+  }
 
-	// Retrieve the file names in arguments
-	//
-	int narg = 1;
-	InputPaths* pInputPaths=0;
-	string solutionFile="";
-	double timeout = 100.0;
+  // Retrieve the file names in arguments
+  //
+  int narg = 1;
+  InputPaths *pInputPaths = 0;
+  string solutionFile = "";
+  double timeout = 100.0;
 
-	// On se limite à trois arguments pour les tests
-	//
-	if (argc == 3 && !strcmp(argv[1],"--test") ) {
-		std::cout << "arg = " << argv[narg] << " " << argv[narg+1] << std::endl;
+  // On se limite à trois arguments pour les tests
+  //
+  if (argc == 3 && !strcmp(argv[1], "--test")) {
+    std::cout << "arg = " << argv[narg] << " " << argv[narg + 1] << std::endl;
 
-		// Procédures de test
-		if (!strcmp(argv[2], "divide")) {
-			testDivideIntoConnexComponents();
-		}
+    // Procédures de test
+    if (!strcmp(argv[2], "divide")) {
+      testDivideIntoConnectedComponents();
+    }
 
-		return 0;
-	}
+    return 0;
+  }
 
-	// Read the arguments and store them in pInputPaths
-	// If in non compact format, each week is input, so there are at least 19 arguments
-	// In compact format, the number of arguments is smaller than that
-	//
-	if (argc >= 21) {
-		pInputPaths = readNonCompactArguments(argc,argv);
-	}
-	else {
-		pInputPaths = readCompactArguments(argc,argv);
-	}
+  // Read the arguments and store them in pInputPaths
+  // If in non compact format, each week is input,
+  // so there are at least 19 arguments.
+  // In compact format, the number of arguments is smaller than that
+  //
+  if (argc >= 21) {
+    pInputPaths = readNonCompactArguments(argc, argv);
+  } else {
+    pInputPaths = readCompactArguments(argc, argv);
+  }
 
-	// Initialize the random seed
-	//
-	srand(pInputPaths->randSeed());
+  // Initialize the random seed
+  //
+  srand(pInputPaths->randSeed());
 
-	// Solve the problem
-	//
-	int r = solveDeterministic(*pInputPaths, timeout);
+  // Solve the problem
+  //
+  int r = solveDeterministic(*pInputPaths, timeout);
 
-	// Release memory
-	//
-	delete pInputPaths;
+  // Release memory
+  //
+  delete pInputPaths;
 
   return r;
 }

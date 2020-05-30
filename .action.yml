@@ -1,8 +1,0 @@
-name: 'ns'
-description: 'docker container running the nurse scheduler'
-outputs:
-  cost: # id of output
-    description: 'The cost of the solution found'
-runs:
-  using: 'docker'
-  image: 'Dockerfile'

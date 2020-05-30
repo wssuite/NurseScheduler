@@ -44,7 +44,9 @@ def run_actions(tag='ns', docker=True, pipe=subprocess.PIPE):
     with open(".github/workflows/docker-tests.yml", 'r') as stream:
         try:
             d = yaml.safe_load(stream)
-            cmds = [s['with']['args'] for j in d['jobs'].values() for s in j['steps'] if 'with' in s]
+            cmds = ['-i {} {}'.format(
+                s['with']['instance'], s['with']['ns-args'])
+                for j in d['jobs'].values() for s in j['steps'] if 'with' in s]
             for i, cmd in enumerate(cmds):
                 cmd = "-i "+cmd.split('-i ')[-1]
                 if not run_cmd("{} {}".format(run, cmd), i+1, pipe):

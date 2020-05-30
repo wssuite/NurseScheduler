@@ -1,46 +1,50 @@
-//
-// Created by antoine legrain on 2020-04-19.
-//
+/*
+ * Copyright (C) 2020 Antoine Legrain, Jeremy Omer, and contributors.
+ * All Rights Reserved.
+ *
+ * You may use, distribute and modify this code under the terms of the MIT
+ * license.
+ *
+ * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
+ *  full license detail.
+ */
 
-#ifndef NURSESCHEDULER_ROSTERSP_H
-#define NURSESCHEDULER_ROSTERSP_H
+#ifndef SRC_SOLVERS_MP_SP_ROSTERSP_H_
+#define SRC_SOLVERS_MP_SP_ROSTERSP_H_
 
-#include "SubProblem.h"
+#include <vector>
+
+#include "solvers/mp/sp/SubProblem.h"
 
 class RosterSP : public SubProblem {
-  public:
+ public:
+  RosterSP();
+  virtual ~RosterSP();
 
-    RosterSP();
-    virtual ~RosterSP();
+  // Constructor that correctly sets the resource (time + bounds),
+  // but NOT THE COST
+  RosterSP(PScenario scenario,
+           int nbDays,
+           PConstContract contract,
+           std::vector<State> *pInitState);
 
-    // Constructor that correctly sets the resource (time + bounds), but NOT THE COST
-    //
-    RosterSP(PScenario scenario, int nbDays, PConstContract contract, std::vector<State>* pInitState);
+ protected:
+  //----------------------------------------------------------------
+  //
+  // Update of the costs / network for solve function
+  //
+  //----------------------------------------------------------------
 
-//    double startWorkCost(int a) const override;
+  // FUNCTIONS -- SOLVE
+  // return a function that will post process any path found by the RC graph
+  RCSPPSolver *initRCSSPSolver() override;
 
+  // Creates all nodes of the rcspp (including resource window)
+  void createNodes() override;
 
-  protected:
-
-    //----------------------------------------------------------------
-    //
-    // Update of the costs / network for solve function
-    //
-    //----------------------------------------------------------------
-
-    // FUNCTIONS -- SOLVE
-    //
-
-    // return a function that will post process any path found by the RC graph
-    RCSPPSolver* initRCSSPSolver() override ;
-
-    // Creates all nodes of the rcspp (including resource window)
-    void createNodes() override;
-
-    // override creation of arcs source -> principal
-    void createArcsSourceToPrincipal() override;
-    void createArcsAllPriceLabels() override;
+  // override creation of arcs source -> principal
+  void createArcsSourceToPrincipal() override;
+  void createArcsAllPriceLabels() override;
 };
 
-
-#endif //NURSESCHEDULER_ROSTERSP_H
+#endif  // SRC_SOLVERS_MP_SP_ROSTERSP_H_

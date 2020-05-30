@@ -23,94 +23,113 @@ jobs:
       - name: n005w4_0_1-2-3-3 LONG
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_0_1-2-3-3 -g 1470 --sp-type LONG'
+          instance: n005w4_0_1-2-3-3
+          ns-args: -g 1470 --sp-type LONG
 
       - name: n005w4_0_1-2-3-3 ALL
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_0_1-2-3-3 -g 1470 --sp-type ALL'
+          instance: n005w4_0_1-2-3-3
+          ns-args: -g 1470 --sp-type ALL
 
       - name: n005w4_0_1-2-3-3 ROSTER
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_0_1-2-3-3 -g 1470 --sp-type ROSTER'
+          instance: n005w4_0_1-2-3-3
+          ns-args: -g 1470 --sp-type ROSTER
 
       - name: n005w4_1_6-2-9-1 ALL
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_1_6-2-9-1 -g 1520-1540 --sp-type ALL'
+          instance: n005w4_1_6-2-9-1
+          ns-args: -g 1520-1540 --sp-type ALL
 
-      - name: n005w4_2_8-3-0-4 E
+      - name: n005w4_2_8-3-0-4 Infeasible
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_2_8-3-0-4 -g E'
+          instance: n005w4_2_8-3-0-4
+          ns-args: -g E
 
       - name: n005w4_0_1-2-3-5 LONG
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_0_1-2-3-5 -g 1540 --sp-type LONG'
+          instance: n005w4_0_1-2-3-5
+          ns-args: -g 1540 --sp-type LONG
 
       - name: n005w4_0_1-2-3-5 ALL
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_0_1-2-3-5 -g 1540 --sp-type ALL'
+          instance: n005w4_0_1-2-3-5
+          ns-args: -g 1540 --sp-type ALL
 
       - name: n005w4_0_1-2-3-5 ROSTER
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_0_1-2-3-5 -g 1540 --sp-type ROSTER -t 600'
+          instance: n005w4_0_1-2-3-5
+          ns-args: -g 1540 --sp-type ROSTER -t 600
 
-      - name: n005w4_1_5-6-7-8 ALL optimal
+      - name: n005w4_1_5-6-7-8 ALL
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_1_5-6-7-8 --sp-type ALL -g 1630'
+          instance: n005w4_1_5-6-7-8
+          ns-args: --sp-type ALL -g 1630
 
       - name: n005w4_2_9-0-1-2
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n005w4_2_9-0-1-2 -g 1540-1700'
+          instance: n005w4_2_9-0-1-2
+          ns-args: -g 1540-1700
 
-      - name: n030w4_1_6-2-9-1
+      - name: n030w4_1_6-2-9-1  4 threads
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n030w4_1_6-2-9-1 -g 1670-1900 -t 300 --n-threads 4'
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1670-1950 -t 300 --n-threads 4
 
-      - name: n030w4_1_6-7-5-3
+      - name: n030w4_1_6-7-5-3  4 threads
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n030w4_1_6-7-5-3 -g 1950-2150 -t 300 --n-threads 4'
+          instance: n030w4_1_6-7-5-3
+          ns-args: -g 1950-2150 -t 300 --n-threads 4
 
-      - name: n035w4_1_1-7-1-8
+      - name: n035w4_1_1-7-1-8  4 threads
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i n035w4_1_1-7-1-8 -g 1350-1600 -t 300 --n-threads 4'
+          instance: n035w4_1_1-7-1-8
+          ns-args: -g 1300-1600 -t 300 --n-threads 4
 
       - name: new1_0_0-1 LONG
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type LONG'
+          instance: new1_0_0-1
+          ns-args: -g 1200 -e 0 --sp-type LONG
 
       - name: new1_0_0-1 ALL
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type ALL'
+          instance: new1_0_0-1
+          ns-args: -g 1200 -e 0 --sp-type ALL
 
-      - name: new1_0_0-1 ROSTER
+      - name: new1_0_0-1 ROSTER  4 threads
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -i new1_0_0-1 -g 1200 -e 0 --sp-type ROSTER -t 120 --n-threads 4'
+          instance: new1_0_0-1
+          ns-args: -g 1200 -e 0 --sp-type ROSTER -t 120 --n-threads 4
 
       - name: n030w4_1_6-2-9-1 dynamic
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -d -i n030w4_1_6-2-9-1 -s 68-54-78-98 -g 1800-2000'
+          instance: n030w4_1_6-2-9-1
+          ns-args: -d -s 68-54-78-98 -g 1800-2000
 
       - name: n030w4_1_6-7-5-3 dynamic
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -d -i n030w4_1_6-7-5-3 -s 50-35-70-80 -g 2000-2150'
+          instance: n030w4_1_6-7-5-3
+          ns-args: -d -s 50-35-70-80 -g 1950-2150
 
       - name: n035w4_1_1-7-1-8 dynamic
         uses: ./ # Uses an action in the root directory
         with:
-          args: '-r /home/poly/ns -d -i n035w4_1_1-7-1-8 -s 85-76-52-66 -g 1350-1600'
+          instance: n035w4_1_1-7-1-8
+          ns-args: -d -s 85-76-52-66 -g 1350-1600

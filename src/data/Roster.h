@@ -1,11 +1,18 @@
-//
-//  Roster.h
-//  RosterDesNurses
-//
+/*
+ * Copyright (C) 2020 Antoine Legrain, Jeremy Omer, and contributors.
+ * All Rights Reserved.
+ *
+ * You may use, distribute and modify this code under the terms of the MIT
+ * license.
+ *
+ * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
+ *  full license detail.
+ */
 
-#ifndef __Solver__
-#define __Solver__
+#ifndef SRC_DATA_ROSTER_H_
+#define SRC_DATA_ROSTER_H_
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,13 +22,12 @@
 #include "data/Scenario.h"
 #include "data/Nurse.h"
 
-
 //-----------------------------------------------------------------------------
 // struct task:
 // a task is a shift performed on a given day with a given skill
 //
 //-----------------------------------------------------------------------------
-typedef struct {int shift; int skill;} task;
+typedef struct { int shift; int skill; } task;
 
 //-----------------------------------------------------------------------------
 //
@@ -31,13 +37,11 @@ typedef struct {int shift; int skill;} task;
 //
 //-----------------------------------------------------------------------------
 
-class Roster{
-
-public:
-
+class Roster {
+ public:
   // Default constructor
   //
-  Roster():nbDays_(0), firstDay_(0) {}
+  Roster() : nbDays_(0), firstDay_(0) {}
 
   // Constructor form no particular planning
   //
@@ -45,17 +49,19 @@ public:
 
   // Constructor: initialize planning from an input set of shifts for the nurse
   //
-  Roster(int nbDays, int firstDay, const std::vector<int>& shifts);
+  Roster(int nbDays, int firstDay, const std::vector<int> &shifts);
 
   // Constructor: initialize planning from an input set of shifts and skills
   //
-  Roster(int nbDays, int firstDay, const std::vector<int>& shifts, const std::vector<int>& skills);
+  Roster(int nbDays,
+         int firstDay,
+         const std::vector<int> &shifts,
+         const std::vector<int> &skills);
 
   // Destructor
   ~Roster();
 
-private:
-
+ private:
   // number of days in the roster and index of the first day
   //
   int nbDays_, firstDay_;
@@ -78,40 +84,38 @@ private:
   //
   std::vector<int> skills_;
 
-public:
+ public:
   // Basic getters
   //
-  int firstDay() {return firstDay_;}
-  int nbDays() {return nbDays_;}
-  int shift(int day) const {return shifts_[day];}
-  int skill(int day) const {return skills_[day];}
+  int firstDay() const { return firstDay_; }
+  int nbDays() const { return nbDays_; }
+  int shift(int day) const { return shifts_[day]; }
+  int skill(int day) const { return skills_[day]; }
 
   // initialize the roster
   //
-  void init(int nbDays, int firstDay, int shiftDefault=0);
+  void init(int nbDays, int firstDay, int shiftDefault = 0);
 
-  //re-inialize the roster
+  // re-inialize the roster
   //
   void reset();
 
   // get a vector of consecutive states that will result from applying the
   // the roster from a given initial state
   //
-  std::vector<State> getStates(const State& pStateIni, PScenario pScenario);
+  std::vector<State> getStates(const State &pStateIni, PScenario pScenario);
 
   // assign a task at on a given day
   //
-  void assignTask(int day, int shift, int skill=0);
+  void assignTask(int day, int shift, int skill = 0);
 
   // add a roster at the end of the roster
   //
-  void push_back(Roster& roster);
+  void push_back(const Roster &roster);
 
   // copy the input roster
   //
-  void copy(Roster& roster);
-
+  void copy(const Roster &roster);
 };
 
-
-#endif /* defined(__ATCSolver__CftSolver__)*/
+#endif  // SRC_DATA_ROSTER_H_
