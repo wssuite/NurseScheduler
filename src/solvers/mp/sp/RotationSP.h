@@ -28,12 +28,24 @@ class RotationSP : public SubProblem {
   virtual ~RotationSP();
 
  protected:
+  // Index: (shiftType, day) of origin
+  vector2D<int> arcsPrincipalToSink;
+
   // Creates all nodes of the rcspp (including resource window)
   void createNodes() override;
 
   // override creation of arcs source -> principal
   void createArcsSourceToPrincipal() override;
-  void createArcsAllPriceLabels() override;
+
+  // override creation of arcs principal -> principal
+  void createArcsPrincipalToPrincipal() override;
+
+  // override creation of pricing arcs principal -> sinks
+  void createArcsPrincipalToSink() override;
+
+  // override updateArcCosts to take into account end work costs when going
+  // to a daily sink
+  void updateArcCosts() override;
 };
 
 #endif  // SRC_SOLVERS_MP_SP_ROTATIONSP_H_

@@ -250,7 +250,7 @@ void BcpLpModel::modify_lp_parameters(OsiSolverInterface *lp,
     }
 
 #if DBG
-// writeLP("model_"+std::to_string(current_index()));
+    // writeLP("model_"+std::to_string(current_index()));
 #endif
     // modify dual tolerance // DBG
     // double dualTol = std::min(0.1,
@@ -492,8 +492,8 @@ void BcpLpModel::restore_feasibility(const BCP_lp_result &lpres,
 // Convert a set of variables into corresponding columns for the current
 // LP relaxation.
 void BcpLpModel::vars_to_cols(
-    const BCP_vec<BCP_cut *> &cuts,  // on what to expand
-    BCP_vec<BCP_var *> &vars,  // what to expand   NOLINT
+    const BCP_vec<BCP_cut *> &cuts,  // on what to extend
+    BCP_vec<BCP_var *> &vars,  // what to extend   NOLINT
     BCP_vec<BCP_col *> &cols,  // the expanded cols  NOLINT
     // few things that the user can use for lifting vars if allowed
     const BCP_lp_result &lpres,
@@ -730,7 +730,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // It can also be used in general to fathom nodes when the the Lagrangian
   // bound is larger than the best UB
   bool isImproveQuality = false;
-  if (pModel_->getMaster()->lagrangianBoundAvailable()) {
+  if (pModel_->getMaster()->lagrangianBoundAvailable() &&
+      pModel_->isLastPricingOptimal()) {
     double lagLb = pModel_->getMaster()->computeLagrangianBound(lpres.objval());
     isImproveQuality = pModel_->updateNodeLagLB(lagLb);
     // fathom only if column generation would continue
@@ -796,7 +797,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   }
 
 #ifdef DBG
-// pModel_->pMaster_->printCurrentSolToString();
+  // pModel_->pMaster_->printCurrentSolToString();
 #endif
 
   // if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
@@ -1351,10 +1352,10 @@ int BcpModeler::solve(bool relaxation) {
   nbLpIterations_ = pBcp_->getNbLpIterations();
 
 #ifdef DBG
-// static int  cpt = 0;
-// char  nom[1024];
-// sprintf(nom, "ccc%03d", cpt++);
-// writeLP(nom);
+  // static int  cpt = 0;
+  // char  nom[1024];
+  // sprintf(nom, "ccc%03d", cpt++);
+  // writeLP(nom);
 #endif
 
   // clear tree

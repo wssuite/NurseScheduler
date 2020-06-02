@@ -2,7 +2,6 @@ set(LIB_NAME rcspp)
 set(SOURCE_FILES
         RCGraph.cpp
         PrincipalGraph.cpp
-        PriceLabelGraph.cpp
         BoostRCSPP.cpp
         )
 

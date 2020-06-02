@@ -33,8 +33,6 @@ LongRotationSP::LongRotationSP(PScenario scenario,
                                vector<State> *pInitState) :
     RotationSP(scenario, nbDays, contract, pInitState) {
   minConsDays_ = contract->minConsDaysWork_;
-  nLabels_ = 1;
-
   initShortSuccessions();
 }
 

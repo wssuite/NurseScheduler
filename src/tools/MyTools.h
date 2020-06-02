@@ -81,7 +81,7 @@ class myException : public std::exception {
 struct NSException : std::exception {
   explicit NSException(const char *what) : std::exception(), what_(what) {}
   explicit NSException(std::string what) :
-      std::exception(), what_(what.c_str()) {}
+      std::exception(), what_(what) {}
   template<typename ...Args>
   NSException(const char *str, Args... args) {
     char buff[999];
@@ -89,12 +89,12 @@ struct NSException : std::exception {
     what_ = buff;
   }
 
-  const char *what() const throw() {
-    return what_;
+  const char* what() const throw() {
+    return what_.c_str();
   }
 
  private:
-  const char *what_;
+  std::string what_;
 };
 
 void throwException(const char *exceptionMsg);

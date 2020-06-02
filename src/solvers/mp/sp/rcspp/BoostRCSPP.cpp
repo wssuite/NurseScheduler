@@ -11,12 +11,13 @@
 
 #include "BoostRCSPP.h"
 
+#include <algorithm>
 #include <memory>
 
 void spp_res_cont::print(std::ostream &out) const {
   out << "Cost: " << cost << std::endl;
   for (int l = 0; l < size(); l++) {
-    out << labelName[l].c_str() << "=" << label_value(l) << "  ";
+    out << labelsName[l].c_str() << "=" << label_value(l) << "  ";
   }
   out << std::endl;
 #ifdef DBG
@@ -64,10 +65,8 @@ bool operator<(const spp_res_cont &res_cont_1, const spp_res_cont &res_cont_2) {
     return false;
   for (int l = 0; l < res_cont_1.size(); ++l) {
     int v1 = res_cont_1.label_value(l), v2 = res_cont_2.label_value(l);
-    if (v1 < v2)
-      return labelsOrder[l];  // if order is descending -> true
-    if (v1 > v2)
-      return !labelsOrder[l];  // if order is descending -> !true
+    if (v1 < v2) return true;
+    if (v1 > v2) return false;
   }
   // are equal -> false
   return false;
@@ -103,14 +102,19 @@ bool ref_spp::operator()(const Graph &g,
   assert(old_cont.size() == new_cont->size());
 
   for (int l = 0; l < old_cont.size(); ++l) {
-    int lv = old_cont.label_value(l) + arc_prop.consumption(l);
-    int lb = vert_prop.lb(l);
+    LABEL label = labels_[l];
+    int lv = old_cont.label_value(l);
+    // check if should price label
+    if (arc_prop.findLabelToPrice(label))
+      new_cont->cost += arc_prop.penalties.penalty(label, lv);
+    lv += arc_prop.consumption(label);
+    int lb = vert_prop.lb(label);
     if (lv < lb) {
       if (vert_prop.hard_lbs_)
         return false;
       lv = lb;
     }
-    if (lv > vert_prop.ub(l))
+    if (lv > vert_prop.ub(label))
       return false;
     new_cont->label_values[l] = lv;
   }
@@ -127,59 +131,16 @@ bool ref_spp::operator()(const Graph &g,
 
 // Dominance function model
 bool dominance_spp::operator()(spp_res_cont *res_cont_1,
-                               spp_res_cont *res_cont_2) const {
-  // must be "<=" here!!!
+                               const spp_res_cont *res_cont_2) const {
+  // must be "<=" here at epsilon!!!
   // must NOT be "<"!!!
-  if (res_cont_1->cost > res_cont_2->cost + epsilon_) return false;
-
-  /* Dominance:
-   * if label is increasing -> can dominate after a certain level:
-   *    if the label do not reach the minimum level, there is no additional cost
-   * if label is decreasing -> cannot dominate (min level should be an ub).
-   *    the label could continue to decrease in the future and not imply
-   *    any additional cost.
-   * So, res_cont_1 dominates res_cont_2 in one of these 3 situations:
-   * a- cost1 < cost2 at epsilon and all label1 <= label2
-   * b- cost1 == cost2 at epsilon and all label1 <= label2 and
-   *    it exists one label1 < label2 with label2 > minLevel (significant)
-   * c- res_cont_1 == res_cont_2
-   */
-
-  bool dominate = (res_cont_1->cost < res_cont_2->cost - epsilon_),
-      biggerThanMinLevel = false,
-      equal = !dominate;
-  for (int l = 0; l < res_cont_1->size(); ++l) {
-    int label1 = res_cont_1->label_value(l),
-        label2 = res_cont_2->label_value(l),
-        minLevel = labelsMinLevel_.at(l);
-    // label1 > label2 -> cannot be dominated in any case
-    if (label1 > label2) return false;
-
-    // b or not c
-    if (!dominate && label1 < label2) {
-      equal = false;
-      // b: check if label is bigger than the min level
-      if (label2 > minLevel)
-        biggerThanMinLevel = true;
-    }
-  }
-
-#ifdef DBG
-  //  if(dominate || biggerThanMinLevel) {
-//    std::cout << "**************** DOMINATED ****************" << std::endl;
-//    res_cont_2->print();
-//    std::cout << "******************* BY ********************" << std::endl;
-//    res_cont_1->print();
-//    std::cout << "*******************************************" << std::endl;
-//  }
-#endif
-
-  // a, b, c
-  if (dominate || biggerThanMinLevel || equal) {
+  double worst_penalty = worstPenalty(*res_cont_1, *res_cont_2);
+  if (res_cont_1->cost + worst_penalty <= res_cont_2->cost + epsilon_) {
     res_cont_1->dominate(*res_cont_2);
     return true;
   }
   return false;
+
   // this is not a contradiction to the documentation
   // the documentation says:
   // "A label $l_1$ dominates a label $l_2$ if and only if both are resident
@@ -192,6 +153,53 @@ bool dominance_spp::operator()(spp_res_cont *res_cont_1,
   // one will have a higher number and is created at a later point in time,
   // so one can implicitly use the number or the creation time as a resource
   // for tie-breaking
+}
+
+double dominance_spp::worstPenalty(
+    const spp_res_cont &res_cont_1,
+    const spp_res_cont &res_cont_2) const {
+  double penalty = 0;
+  for (int i = 0; i < res_cont_1.size(); i++)
+    penalty += worstPenalty(i,
+                            res_cont_1.label_value(i),
+                            res_cont_2.label_value(i));
+  return penalty;
+}
+
+double dominance_spp::worstPenalty(int l, int level1, int level2) const {
+  // i. if level 1 < level2
+  if (level1 < level2) {
+    int minLvl = penalties_.minLevel(l), maxLvl = penalties_.maxLevel(l);
+    // a. compute penalty with respect to the min level.
+    // worst case: stop working immediately (as the penalty is linear)
+    // -> pay the difference between penalties
+    double min_penalty = penalties_.weight(l) *
+        (std::max(0, minLvl - level1) - std::max(0, minLvl - level2));
+    // b. compute penalty with respect to the max level.
+    // worst case: stop working immediately (as the penalty is linear)
+    // -> pay the difference between penalties
+    double max_penalty = penalties_.weight(l) *
+        (std::max(0, level1 - maxLvl) - std::max(0, level2 - maxLvl));
+    // return sum of both
+    // if both are different of 0:
+    //   - lvl1 < minLvl: min_penalty > 0
+    //   - lvl2 > maxLvl: max_penalty < 0
+    // the sum remains the worst case as there is the same weight penalty
+    // associated to the min and the max (otherwise, it would be a little
+    // more complex).
+    assert(min_penalty == 0 || max_penalty == 0 ||
+        (min_penalty > 0 && max_penalty < 0));
+    return min_penalty + max_penalty;
+  } else {
+    // ii. if level 1 >= level2
+    // a. compute penalty with respect to the min level.
+    // worst case: continue to work until level2 >= minLvl
+    // -> no penalty
+    // b. compute penalty with respect to the max level.
+    // worst case: continue working until level2 reaches maxLvl
+    // -> look at the difference between level (as the penalty is linear)
+    return penalties_.weight(l) * (level1 - level2);
+  }
 }
 
 // Comparator for the priority queue used by boost to process the labels.
@@ -278,23 +286,26 @@ BoostRCSPPSolver::BoostRCSPPSolver(
     post_process_rc_(post_process_rc) {}
 
 std::vector<RCSolution> BoostRCSPPSolver::solve(
-    int nLabels,
-    const std::vector<int> &labelsMinLevel,
+    std::vector<LABEL> labels,
+    const Penalties &penalties,
     std::vector<vertex> sinks) {
   // 1 - solve the resource constraints shortest path problem
-  dominance_spp dominance(labelsOrder, labelsMinLevel, epsilon_);
+  ref_spp ref(labels);
+  dominance_spp dominance(labels, penalties, epsilon_);
   vector2D<edge> opt_solutions_spp;
   std::vector<spp_res_cont> pareto_opt_rcs_spp;
-  rc_spp_visitor
-      vis(nb_max_paths_, sinks, post_process_rc_, maxReducedCostBound_);
+  rc_spp_visitor vis(nb_max_paths_,
+                     sinks,
+                     post_process_rc_,
+                     maxReducedCostBound_);
   r_c_shortest_paths_solve(
       rcg_->g(),
       rcg_->source(),
       sinks,
       &opt_solutions_spp,
       &pareto_opt_rcs_spp,
-      spp_res_cont(0, std::vector<int>(nLabels)),
-      ref_spp(),
+      spp_res_cont(0, std::vector<int>(labels.size())),
+      ref,
       dominance,
       std::allocator<boost::r_c_shortest_paths_label<Graph, spp_res_cont> >(),
       &vis,  // boost::default_r_c_shortest_paths_visitor(),
@@ -306,9 +317,12 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
   // For each path of the list, store the solutions with a negative cost
   for (unsigned int p = 0; p < opt_solutions_spp.size(); ++p) {
     spp_res_cont &rc = pareto_opt_rcs_spp[p];
-    if (processPath(&opt_solutions_spp[p], &rc, post_process_rc_))
-      if (rc.cost < maxReducedCostBound_)
+    if (processPath(&opt_solutions_spp[p], &rc, ref, post_process_rc_)) {
+      if (rc.cost < maxReducedCostBound_) {
+//        printPath(std::cout, opt_solutions_spp[p], rc);
         rc_solutions.push_back(solution(opt_solutions_spp[p], rc));
+      }
+    }
   }
 
   return rc_solutions;
@@ -317,47 +331,25 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
 bool BoostRCSPPSolver::processPath(
     std::vector<edge> *path,
     spp_res_cont *rc,
+    const ref_spp &ref,
     std::function<void(spp_res_cont *)> post_process_rc,
     bool printBadPath) const {
   // a. Check if it is valid
-  bool b_is_a_path_at_all = false;
-  bool b_feasible = false;
-  bool b_correctly_extended = false;
-  spp_res_cont actual_final_resource_levels(0, std::vector<int>(rc->size()));
-  boost::graph_traits<Graph>::edge_descriptor ed_last_extended_arc;
-  ref_spp ref;
-  check_r_c_path(rcg_->g(),
-                 *path,
-                 spp_res_cont(0, std::vector<int>(rc->size())),
-                 true,
-                 *rc,
-                 actual_final_resource_levels,
-                 [&ref](const Graph &g,
-                        spp_res_cont &new_cont,  // NOLINT
-                        const spp_res_cont &old_cont,
-                        const edge &ed) {
-                   return ref(g, &new_cont, old_cont, ed);
-                 },
-                 b_is_a_path_at_all,
-                 b_feasible,
-                 b_correctly_extended,
-                 ed_last_extended_arc);
-  // b. if feasible, postprocess the solution
-  if (b_is_a_path_at_all && b_feasible && b_correctly_extended) {
+  spp_res_cont checked_final_resource_levels(0, std::vector<int>(rc->size()));
+  bool valid = check_r_c_path(*path,
+                              *rc,
+                              &checked_final_resource_levels,
+                              ref);
+  // b. if valid, postprocess the solution
+  if (valid) {
     if (post_process_rc) post_process_rc(rc);
     return true;
   } else {
     // c. print a warning as it shouldn't be the case
     if (printBadPath) {
-      if (!b_is_a_path_at_all)
-        std::cerr << "Not a path." << std::endl;
-      if (!b_feasible)
-        std::cerr << "Not a feasible path." << std::endl;
-      if (!b_correctly_extended)
-        std::cerr << "Not correctly extended." << std::endl;
       printPath(std::cerr, *path, *rc);
       std::cerr << "vs" << std::endl;
-      actual_final_resource_levels.print(std::cerr);
+      checked_final_resource_levels.print(std::cerr);
     }
     return false;
   }
@@ -400,7 +392,7 @@ void BoostRCSPPSolver::printPath(std::ostream &out,
   // Last node and total
   out << "# \t| ~TOTAL~   \t\tCost:   " << resource.cost;
   for (int l = 0; l < resource.size(); ++l)
-    out << "\t\t" << labelName[l] << ":" << resource.label_value(l);
+    out << "\t\t" << labelsName[l] << ":" << resource.label_value(l);
   out << std::endl << "# \t| " << std::endl;
   out << "# \t| RC Solution: |";
 
@@ -426,6 +418,168 @@ void BoostRCSPPSolver::printPath(std::ostream &out,
   }
   out << std::endl;
   out << std::endl;
+}
+
+// modified boost::check_r_c_path function
+bool BoostRCSPPSolver::check_r_c_path(
+    std::vector<edge> ed_vec_path,
+    // if true, computed accumulated final resource levels must
+    // be equal to desired_final_resource_levels
+    // if false, computed accumulated final resource levels must
+    // be less than or equal to desired_final_resource_levels
+    const spp_res_cont &found_final_resource_levels,
+    spp_res_cont *checked_final_resource_levels,
+    const ref_spp &ref) const {
+  // if empty, return checked <= found
+  if (ed_vec_path.empty())
+    return *checked_final_resource_levels < found_final_resource_levels
+        || *checked_final_resource_levels == found_final_resource_levels;
+
+  // if size == 1, check if target(0) == source(1)
+  // return checked <= found
+  if (ed_vec_path.size() == 1) {
+    // if target(0) == source(1)
+    if (target(ed_vec_path[0], rcg_->g()) ==
+        source(ed_vec_path[1], rcg_->g()))
+      return *checked_final_resource_levels < found_final_resource_levels
+          || *checked_final_resource_levels == found_final_resource_levels;
+    // otherwise, return false
+    std::cerr << "Target of arc 0 is different of source of arc 1."
+              << std::endl;
+    Arc_Properties arc_prop = get(
+        boost::edge_bundle, rcg_->g())[ed_vec_path[0]];
+    std::cerr << "Arc 0: " << rcg_->printArc(
+        arc_prop, found_final_resource_levels.size()) << std::endl;
+    arc_prop = get(boost::edge_bundle, rcg_->g())[ed_vec_path[1]];
+    std::cerr << "Arc 1: " << rcg_->printArc(
+        arc_prop, found_final_resource_levels.size()) << std::endl;
+    return false;
+  }
+
+  // reverse the path
+  std::reverse(ed_vec_path.begin(), ed_vec_path.end());
+
+  // check if target(i) == source(i+1)
+  for (int i = 0; i < ed_vec_path.size() - 1; ++i)
+    if (target(ed_vec_path[i], rcg_->g()) !=
+        source(ed_vec_path[i + 1], rcg_->g())) {
+      std::cerr << "Target of arc " << i << "is different of source of arc "
+                << i + 1 << "." << std::endl;
+      Arc_Properties arc_prop = get(
+          boost::edge_bundle, rcg_->g())[ed_vec_path[i]];
+      std::cerr << "Arc " << i << ": " << rcg_->printArc(
+          arc_prop, found_final_resource_levels.size()) << std::endl;
+      arc_prop = get(boost::edge_bundle, rcg_->g())[ed_vec_path[i + 1]];
+      std::cerr << "Arc " << i + 1 << ": " << rcg_->printArc(
+          arc_prop, found_final_resource_levels.size()) << std::endl;
+      return false;
+    }
+
+  // extension of path
+  for (int i = 0; i < ed_vec_path.size(); ++i) {
+    spp_res_cont current_resource_levels = *checked_final_resource_levels;
+    // if extension infeasible
+    if (!ref(rcg_->g(),
+             checked_final_resource_levels,
+             current_resource_levels,
+             ed_vec_path[i])) {
+      std::cerr << "Extension of arc " << i << " is infeasible:" << std::endl;
+      Arc_Properties arc_prop = get(
+          boost::edge_bundle, rcg_->g())[ed_vec_path[i]];
+      std::cerr << rcg_->printArc(
+          arc_prop, found_final_resource_levels.size()) << std::endl;
+      std::cerr << "For resource: ";
+      current_resource_levels.print(std::cerr);
+      return false;
+    }
+  }
+  // return checked <= final
+  return *checked_final_resource_levels < found_final_resource_levels
+      || *checked_final_resource_levels == found_final_resource_levels;
+}  // check_path
+
+// build a path and the corresponding label by backtracking an original one
+void BoostRCSPPSolver::backtrack(
+    const Graph &g,
+    const std::vector<std::list<Spplabel> > &vec_vertex_labels,
+    const Label *p_original_label,
+    const Label *p_cur_label,
+    const ref_spp &ref,
+    const dominance_spp &dominance,
+    vector2D<edge> *opt_solutions_spp,
+    std::vector<spp_res_cont> *pareto_opt_rcs_spp,
+    std::vector<edge> path) const {
+  assert(p_cur_label->b_is_valid);
+  spp_res_cont original_cont = p_cur_label->cumulated_resource_consumption;
+
+  // 1 - if source, store path and build resource container
+  if (p_cur_label->num == 0) {
+    spp_res_cont cur_cont = p_cur_label->cumulated_resource_consumption;
+    for (int i = path.size() - 1; i >= 0; --i) {
+      spp_res_cont old_cont = cur_cont;
+      // extend path. If not feasible, return (could happen when solving
+      // heuristically and the bounds are tighter)
+      if (!ref(g, &cur_cont, old_cont, path[i])) return;
+    }
+    assert(dominance(&cur_cont,
+                     &(p_original_label->cumulated_resource_consumption)));
+    opt_solutions_spp->push_back(path);
+    pareto_opt_rcs_spp->push_back(cur_cont);
+    return;
+  }
+
+  // 2 - find dominating labels when backtracking
+  // a - add the edge to the path
+  path.push_back(p_cur_label->pred_edge);
+  // b - verify target vertex
+  assert(
+      target(p_cur_label->pred_edge, g) == p_cur_label->resident_vertex);
+  // c - find a dominating label at current vertex
+  vertex cur_vertex = source(p_cur_label->pred_edge, g);
+  spp_res_cont cur_cont = p_cur_label->cumulated_resource_consumption;
+  bool found_label = false, infeasible_once = false;
+  for (Spplabel label : vec_vertex_labels[cur_vertex]) {
+    spp_res_cont pred_cont = label->cumulated_resource_consumption,
+        new_cont = pred_cont;
+    // d - extend label: if feasible, check if new label dominate the
+    // current one and then backtrack
+    if (ref(g, &new_cont, pred_cont, p_cur_label->pred_edge)) {
+      if (dominance(&new_cont, &cur_cont)) {
+        assert(label->b_is_valid);
+        assert(cur_vertex == label->resident_vertex);
+        // backtrack
+        backtrack(g,
+                  vec_vertex_labels,
+                  p_original_label,
+                  label,
+                  ref,
+                  dominance,
+                  opt_solutions_spp,
+                  pareto_opt_rcs_spp,
+                  path);
+        found_label = true;
+      }
+    } else {
+      infeasible_once = true;
+    }
+  }
+  // e - verify that a new label has been found and is valid
+  // The main reason a label could not be found is that the predecessor
+  // label has been dominated and deleted, and the label residing at the
+  // current vertex could not be expanded in a feasible way.
+  // That could happen if the LB of a label is hard
+  if (!found_label) {
+    // if one expanded label was infeasible (UB reached or hard LB),
+    // discard the path
+    if (infeasible_once) {
+//      std::cerr << "Discard: ";
+//      cur_cont.print(std::cerr);
+      return;
+    } else {
+      Tools::throwError("Predecessor label could not be found when "
+                        "reconstructing solution path in the RCGraph.");
+    }
+  }
 }
 
 // rc_spp_visitor struct: derived from boost::default_r_c_shortest_paths_visitor

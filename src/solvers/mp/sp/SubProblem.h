@@ -18,7 +18,6 @@
 #include <set>
 
 #include "solvers/mp/sp/rcspp/RCGraph.h"
-#include "solvers/mp/sp/rcspp/PriceLabelGraph.h"
 #include "solvers/mp/sp/rcspp/PrincipalGraph.h"
 #include "solvers/mp/MasterProblem.h"
 
@@ -196,13 +195,15 @@ class SubProblem {
                            shifts);
   }
 
+  Penalties initPenalties() const;
+
   std::vector<int> defaultLBs() const {
-    return {0, 0, 0, 0, 0};
+    return {0, 0, 0};
   }
 
   std::vector<int> defaultUBs() const {
-    return {maxRotationLength_, CDMin_,
-            maxTotalDuration_, pContract_->minTotalShifts_,
+    return {maxRotationLength_,
+            maxTotalDuration_,
             pScenario_->nbWeeks()};
   }
 
@@ -304,8 +305,10 @@ class SubProblem {
   // principal node network begins at this index-1;
   // 1 if no ShortSucc, CDMin otherwise
   int minConsDays_;
-  // Number of labels to use
-  int nLabels_;
+  // Labels to take into account when solving
+  std::vector<LABEL> labels_;
+  // helper  to compute the penalty associated to a label
+  Penalties penalties_;
   // MAXIMUM LENGTH OF A ROTATION (in consecutive worked days)
   int maxRotationLength_;
   // Maximum time duration of a roster
@@ -318,13 +321,10 @@ class SubProblem {
 
   // Data structures for the nodes and arcs
   std::vector<PrincipalGraph> principalGraphs_;
-  vector2D<PriceLabelGraph> priceLabelsGraphs_;
   // Index: (shiftType, day, n, shift) of destination
   vector4D<int> arcsFromSource_;
   // Index: (shiftType, shiftType, day)
   vector3D<int> principalToPrincipal_;
-  // Index: (shiftType, day) of origin
-  vector2D<int> arcsPrincipalToPriceLabelsIn_;
   // arcs to main sink
   std::vector<int> arcsTosink_;
 
@@ -337,9 +337,9 @@ class SubProblem {
   // Create the specific types of arcs
   virtual void createArcsSourceToPrincipal() = 0;
 
-  virtual void createArcsPrincipalToPrincipal();
+  virtual void createArcsPrincipalToPrincipal() = 0;
 
-  virtual void createArcsAllPriceLabels() = 0;
+  virtual void createArcsPrincipalToSink() = 0;
 
   // Updates the costs depending on the reduced costs given for the nurse
   virtual void updateArcCosts();

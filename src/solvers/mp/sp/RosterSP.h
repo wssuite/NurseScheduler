@@ -18,15 +18,14 @@
 
 class RosterSP : public SubProblem {
  public:
-  RosterSP();
-  virtual ~RosterSP();
-
   // Constructor that correctly sets the resource (time + bounds),
   // but NOT THE COST
   RosterSP(PScenario scenario,
            int nbDays,
            PConstContract contract,
            std::vector<State> *pInitState);
+
+  virtual ~RosterSP();
 
  protected:
   //----------------------------------------------------------------
@@ -44,7 +43,16 @@ class RosterSP : public SubProblem {
 
   // override creation of arcs source -> principal
   void createArcsSourceToPrincipal() override;
-  void createArcsAllPriceLabels() override;
+
+  // override creation of arcs principal -> principal
+  void createArcsPrincipalToPrincipal() override;
+
+  // override creation of pricing arcs principal -> sink
+  void createArcsPrincipalToSink() override;
+
+  // override updateArcCosts to take into account start and end work costs
+  // when going fom/to a rest shift
+  void updateArcCosts() override;
 };
 
 #endif  // SRC_SOLVERS_MP_SP_ROSTERSP_H_

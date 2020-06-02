@@ -124,20 +124,6 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   lnsParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
   completeParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
 
-  // override parameters for isColumnDisjoint_ and nbMaxColumnsToAdd_
-  // when solving with roster
-  if (t == ROSTER) {
-    std::cout << "Setting SolverParam isColumnDisjoint_ to true "
-                 "and nbMaxColumnsToAdd_ to "
-              << completeParameters_.nbMaxColumnsToAdd_ * 2 << std::endl;
-    completeParameters_.isColumnDisjoint_ = true;
-    completeParameters_.nbMaxColumnsToAdd_ *= 2;
-    rollingParameters_.isColumnDisjoint_ = true;
-    rollingParameters_.nbMaxColumnsToAdd_ *= 2;
-    lnsParameters_.isColumnDisjoint_ = true;
-    lnsParameters_.nbMaxColumnsToAdd_ *= 2;
-  }
-
   // set the number of threads
   //
   Tools::ThreadsPool::setMaxGlobalThreads(options_.nThreads_);

@@ -480,8 +480,13 @@ class BcpModeler : public CoinModeler {
   int getLastNbSubProblemsSolved() const { return lastNbSubProblemsSolved_; }
 
   double getLastMinReducedCost() const { return lastMinReducedCost_; }
+
   void setLastMinReducedCost(double lastMinReducedCost) {
     lastMinReducedCost_ = lastMinReducedCost;
+  }
+
+  bool isLastPricingOptimal() const {
+    return pPricer_->isLastRunOptimal();
   }
 
   double getLastObj() const {
@@ -879,8 +884,8 @@ class BcpLpModel : public BCP_lp_user {
 
   // Convert a set of variables into corresponding columns for the
   // current LP relaxation.
-  void vars_to_cols(const BCP_vec<BCP_cut *> &cuts,  // on what to expand
-                    BCP_vec<BCP_var *> &vars,  // what to expand   NOLINT
+  void vars_to_cols(const BCP_vec<BCP_cut *> &cuts,  // on what to extend
+                    BCP_vec<BCP_var *> &vars,  // what to extend   NOLINT
                     BCP_vec<BCP_col *> &cols,  // the expanded cols  NOLINT
       // things that the user can use for lifting vars if allowed
                     const BCP_lp_result &lpres,
@@ -1240,29 +1245,22 @@ class BcpPacker : public BCP_user_pack {
 class BcpInitialize : public USER_initialize {
  public:
   explicit BcpInitialize(BcpModeler *pModel) :
-      pModel_(pModel), pLpModel_(0), pTree_(0), pPacker_(0) {}
-  ~BcpInitialize() {
-    if (pLpModel_->getLpProblemPointer())
-      delete pLpModel_->getLpProblemPointer();
-    // if (pLpModel_->getOsiBabSolver()) delete pLpModel_->getOsiBabSolver();
-    delete pTree_;
-  }
+      pModel_(pModel), pLpModel_(nullptr) {}
+  ~BcpInitialize() {}
 
   BCP_tm_user *tm_init(BCP_tm_prob &p,  // NOLINT
                        const int argnum,
                        const char *const *arglist) {
-    if (!pTree_) pTree_ = new BcpBranchingTree(pModel_);
-    return pTree_;
+    return new BcpBranchingTree(pModel_);  // pointer is owned by BCP
   }
 
   BCP_lp_user *lp_init(BCP_lp_prob &p) {  // NOLINT
-    if (!pLpModel_) pLpModel_ = new BcpLpModel(pModel_);
+    pLpModel_ = new BcpLpModel(pModel_);  // pointer is owned by BCP
     return pLpModel_;
   }
 
   BCP_user_pack *packer_init(BCP_user_class *p) {
-    if (!pPacker_) pPacker_ = new BcpPacker(pModel_);
-    return pPacker_;
+    return new BcpPacker(pModel_);  // pointer is owned by BCP
   }
 
   BCP_lp_statistics getTimeStats() {
@@ -1284,8 +1282,6 @@ class BcpInitialize : public USER_initialize {
 
   BcpModeler *pModel_;
   BcpLpModel *pLpModel_;
-  BcpBranchingTree *pTree_;
-  BcpPacker *pPacker_;
 };
 
 #endif  // SRC_SOLVERS_MP_MODELER_BCPMODELER_H_

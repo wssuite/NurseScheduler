@@ -842,7 +842,7 @@ string MasterProblem::costsConstrainstsToString() const {
   snprintf(buffer, sizeof(buffer),
            "%-40s %10.0f \n",
            "Rotation costs",
-           getColumnsCost(TOTAL_COST, false));
+           getColumnsCost(ROTATION_COST, false));
   rep << buffer;
   rep << "-----------------------------------------\n";
   snprintf(buffer, sizeof(buffer),
@@ -873,7 +873,7 @@ string MasterProblem::costsConstrainstsToString() const {
            "%5s%-35s %10.0f \n",
            "",
            "History work costs (counted)",
-           getColumnsCost(TOTAL_COST, true));
+           getColumnsCost(ROTATION_COST, true));
   rep << buffer;
   rep << "-----------------------------------------\n";
   snprintf(buffer, sizeof(buffer),

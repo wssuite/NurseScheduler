@@ -27,7 +27,7 @@
 #include "OsiSolverInterface.hpp"
 
 enum CostType {
-  TOTAL_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST,
+  ROTATION_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST,
   COMPLETE_WEEKEND_COST, PREFERENCE_COST, REST_COST,
   MIN_DAYS_COST, MAX_DAYS_COST, MAX_WEEKEND_COST
 };
@@ -341,6 +341,11 @@ class MasterProblem : public Solver, public PrintSolution {
 
   const vector3D<MyVar *> &getOptDemandVars() { return optDemandVars_; }
 
+  /* Display functions */
+  std::string costsConstrainstsToString() const override;
+  std::string allocationToString(bool printInteger = true) const;
+  std::string coverageToString(bool printInteger = true) const;
+
  protected:
   Modeler *pModel_;
   vector2D<int> positionsPerSkill_;  // link positions to skills
@@ -446,11 +451,6 @@ class MasterProblem : public Solver, public PrintSolution {
   virtual std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const;
   virtual double getWorkedWeekendDualValue(PLiveNurse pNurse) const;
   virtual double getConstantDualvalue(PLiveNurse pNurse) const;
-
-  /* Display functions */
-  std::string costsConstrainstsToString() const override;
-  std::string allocationToString(bool printInteger = true) const;
-  std::string coverageToString(bool printInteger = true) const;
 };
 
 #endif  // SRC_SOLVERS_MP_MASTERPROBLEM_H_

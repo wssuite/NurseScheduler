@@ -122,11 +122,11 @@ void PrincipalGraph::build() {
 // (if < 0, not performing any shift)
 std::vector<int> PrincipalGraph::getConsumption(int day, int shift) const {
   // not performing any shift or the shift type is rest
-  if (day < 0 || shift_type_ == 0) return {0, 0, 0, 0, 0};
+  if (day < 0 || shift_type_ == 0) return {0, 0, 0};
 
   // otherwise work => consume one resource of each if needed
   int t = pSP_->scenario()->timeDurationToWork_[shift];
-  return {1, -1, t, -t, Tools::isSaturday(day)};
+  return {1, t, Tools::isSaturday(day)};
 }
 
 // check if feasible to link this arc at this level
@@ -185,7 +185,7 @@ void PrincipalGraph::linkInSubGraph(SubGraph *inSubGraph, int day) {
   pSP_->addSingleArc(inSubGraph->exit(day),
                      getNode(day, 0),
                      0,
-                     {0, 0, 0, 0, 0},
+                     {0, 0, 0},
                      NONE_ARC);
 }
 
@@ -194,7 +194,7 @@ void PrincipalGraph::linkOutSubGraph(SubGraph *outSubGraph, int day) {
   pSP_->addSingleArc(getNode(day, max_cons_),
                      outSubGraph->entrance(day),
                      0,
-                     {0, 0, 0, 0, 0},
+                     {0, 0, 0},
                      NONE_ARC);
 }
 

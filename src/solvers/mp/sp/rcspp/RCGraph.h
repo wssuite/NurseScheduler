@@ -12,6 +12,7 @@
 #ifndef SRC_SOLVERS_MP_SP_RCSPP_RCGRAPH_H_
 #define SRC_SOLVERS_MP_SP_RCSPP_RCGRAPH_H_
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <set>
@@ -22,31 +23,89 @@
 #include "boost/config.hpp"
 
 enum LABEL {
-  MAX_CONS_DAYS = 0,
-  MIN_CONS_DAYS = 1,
-  MAX_DAYS = 2,
-  MIN_DAYS = 3,
-  MAX_WEEKEND = 4
+  CONS_DAYS = 0,
+  DAYS = 1,
+  WEEKEND = 2
 };
 
 // true if the dominance is done with a descending order (lower the better),
 // false otherwise
-static const std::vector<bool> labelsOrder = {true, false, true, false, true};
-static const std::vector<std::string> labelName = {
-    "MAX_CONS_DAYS", "MIN_CONS_DAYS", "MAX_DAYS     ", "MIN_DAYS     ",
-    "MAX_WEEKEND  "};
+static const std::vector<std::string> labelsName = {
+    "CONS_DAYS", "DAYS     ", "WEEKEND  "};
+
+// Penalties structure
+class Penalties {
+ public:
+  Penalties() = default;
+
+  Penalties(const std::vector<int> &labelsMinLevel,
+            const std::vector<int> &labelsMaxLevel,
+            const std::vector<double> &labelsWeight) :
+      labelsMinLevel_(labelsMinLevel),
+      labelsMaxLevel_(labelsMaxLevel),
+      labelsWeight_(labelsWeight) {}
+
+  void addLabel(LABEL label, const Penalties &penalties) {
+    labelsMinLevel_.push_back(penalties.minLevel(label));
+    labelsMaxLevel_.push_back(penalties.maxLevel(label));
+    labelsWeight_.push_back(penalties.weight(label));
+  }
+
+  void addLabel(int minLvl, int maxLvl, double weight) {
+    labelsMinLevel_.push_back(minLvl);
+    labelsMaxLevel_.push_back(maxLvl);
+    labelsWeight_.push_back(weight);
+  }
+
+  int minLevel(int label) const {
+    return labelsMinLevel_[label];
+  }
+
+  void minLevel(int label, int lvl) {
+    labelsMinLevel_[label] = lvl;
+  }
+
+  int maxLevel(int label) const {
+    return labelsMaxLevel_[label];
+  }
+
+  void maxLevel(int label, int lvl) {
+    labelsMaxLevel_[label] = lvl;
+  }
+
+  double weight(int label) const {
+    return labelsWeight_[label];
+  }
+
+  double penalty(int label, int labelLvl) const {
+    if (labelLvl < minLevel(label)) return minPenalty(label, labelLvl);
+    if (labelLvl > maxLevel(label)) return maxPenalty(label, labelLvl);
+    return 0;
+  }
+
+  double minPenalty(int label, int labelLvl) const {
+    return std::max(0, minLevel(label) - labelLvl) * weight(label);
+  }
+
+  double maxPenalty(int label, int labelLvl) const {
+    return std::max(0, labelLvl - maxLevel(label)) * weight(label);
+  }
+
+ private:
+  // levels for which a label will have a penalty if it is respectively
+  // below the min or above the max
+  std::vector<int> labelsMinLevel_, labelsMaxLevel_;
+  // Weight associated to a given label
+  std::vector<double> labelsWeight_;
+};
 
 // Different node types and their names
 enum NodeType {
-  SOURCE_NODE, PRINCIPAL_NETWORK, PRICE_LABEL_ENTRANCE,
-  PRICE_LABEL, PRICE_LABEL_EXIT, SINK_NODE,
-  NONE_NODE
+  SOURCE_NODE, PRINCIPAL_NETWORK, SINK_NODE, NONE_NODE
 };
 
 static const std::vector<std::string> nodeTypeName = {
-    "SOURCE_NODE", "PPL_NETWORK", "PRI_LAB__IN",
-    "PRICE_LABEL", "PRI_LAB_OUT", "SINK_NODE  ",
-    "NONE       "};
+    "SOURCE_NODE", "PPL_NETWORK", "SINK_NODE  ", "NONE       "};
 
 // Different arc types and their names
 enum ArcType {
@@ -55,17 +114,13 @@ enum ArcType {
   SHIFT_TO_SAMESHIFT,
   SHIFT_TO_ENDSEQUENCE,
   REPEATSHIFT,
-  PRINCIPAL_TO_PRICE_LABEL,
-  PRICE_LABEL_IN_TO_PRICE_LABEL,
-  PRICE_LABEL_TO_PRICE_LABEL_OUT,
-  PRICE_LABEL_OUT_TO_SINK,
+  TO_SINK,
   NONE_ARC
 };
 
 static const std::vector<std::string> arcTypeName = {
     "SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ",
-    "REPEATSHIFT    ", "PPL_TO_PRI_LAB ", "PLBIN_TO_PRILAB", "PRILAB_TO_PLOUT",
-    "PLOUT  TO  SINK", "NONE           "};
+    "REPEATSHIFT    ", "TO_SINK        ", "NONE           "};
 
 //////////////////////////////////////////////////////////////////////////
 //
@@ -110,11 +165,11 @@ struct Vertex_Properties {
   // forbidden
   bool forbidden;
 
-  int lb(int l) const {
+  int lb(LABEL l) const {
     return lbs.at(l);
   }
 
-  int ub(int l) const {
+  int ub(LABEL l) const {
     return ubs.at(l);
   }
 
@@ -160,18 +215,25 @@ struct Arc_Properties {
 
   bool forbidden;
 
-  int consumption(int l) const {
+  int consumption(LABEL l) const {
     return consumptions.at(l);
   }
 
   int size() const {
     return consumptions.size();
   }
+
+  std::set<LABEL> labelsToPrice;
+  Penalties penalties;
+
+  bool findLabelToPrice(LABEL l) const {
+    return labelsToPrice.find(l) != labelsToPrice.end();
+  }
 };
 
 // Graph with RC generic structure
 typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
-                              Vertex_Properties, Arc_Properties> Graph;
+Vertex_Properties, Arc_Properties> Graph;
 typedef boost::graph_traits<Graph>::vertex_descriptor vertex;
 typedef boost::graph_traits<Graph>::edge_descriptor edge;
 
@@ -196,8 +258,8 @@ struct RCSolution {
 // solver for the RC SPP
 struct RCSPPSolver {
   virtual ~RCSPPSolver() {}
-  virtual std::vector<RCSolution> solve(int nLabels,
-                                        const std::vector<int> &labelsMinLevel,
+  virtual std::vector<RCSolution> solve(std::vector<LABEL> labels,
+                                        const Penalties &penalties,
                                         std::vector<vertex> sinks) = 0;
 };
 
@@ -234,8 +296,8 @@ class RCGraph {
   virtual ~RCGraph();
 
   std::vector<RCSolution> solve(RCSPPSolver *rcspp,
-                                int nLabels,
-                                const std::vector<int> &labelsMinLevel,
+                                std::vector<LABEL> labels,
+                                const Penalties &penalties,
                                 std::vector<vertex> sinks = {});
 
   int nDays() const { return nDays_; }
@@ -313,6 +375,15 @@ class RCGraph {
                    int day = -1,
                    std::vector<int> shifts = {});
 
+  int addPricingArc(int origin,
+                    int destination,
+                    double baseCost,
+                    std::vector<int> consumptions,
+                    ArcType type,
+                    int day,
+                    std::set<LABEL> labelsToPrice,
+                    const Penalties &penalties);
+
   // Get info with the arc ID
   int arcsSize() const {
     return nArcs_;
@@ -359,6 +430,10 @@ class RCGraph {
     return get(&Arc_Properties::forbidden, g_, arcsDescriptors_[a]);
   }
 
+  const std::set<LABEL> &arcLabelsToPrice(int a) {
+    return get(&Arc_Properties::labelsToPrice, g_, arcsDescriptors_[a]);
+  }
+
   void updateConsumptions(int a, const std::vector<int> &consumptions) {
     boost::put(&Arc_Properties::consumptions,
                g_,
@@ -394,6 +469,9 @@ class RCGraph {
   void printAllNodes(int nLabel = -1) const;
 
   std::string printArc(int a, int nLabel = -1, int nShiftsToDisplay = 1) const;
+  std::string printArc(const Arc_Properties &arc_prop,
+                       int nLabel = -1,
+                       int nShiftsToDisplay = 1) const;
 
   void printAllArcs(int nLabel = -1, int nShiftsToDisplay = 1) const;
 

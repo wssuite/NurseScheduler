@@ -248,6 +248,9 @@ struct MyPricer {
 
   virtual const std::vector<double> &getLastMinOptimalReducedCost() const = 0;
 
+  // return true if all subproblems have been solved to optimality
+  virtual bool isLastRunOptimal() const = 0;
+
   // METHODS - Forbidden shifts, nurses, starting days, etc.
   //
   // !!! WARNING !!! : SOME METHODS ARE NOT YET IMPLEMENTED IN THE SUBPROBLEM

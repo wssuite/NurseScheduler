@@ -244,7 +244,8 @@ void RotationPattern::checkReducedCost(const DualCosts &costs) {
   if (abs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
     cout << "# " << endl;
     cout << "# " << endl;
-    cout << "Bad dual cost: " << reducedCost_ << " != " << reducedCost << endl;
+    cout << "# Bad dual cost: "
+         << reducedCost_ << " != " << reducedCost << endl;
     cout << "# " << endl;
     cout << "#   | Base cost     : + " << cost_ << endl;
 
@@ -268,7 +269,17 @@ void RotationPattern::checkReducedCost(const DualCosts &costs) {
         cout << "#   | Weekends      : - " << costs.workedWeekendCost() << endl;
     std::cout << toString(costs.nDays());
     cout << "# " << endl;
-    Tools::throwError("Invalid pricing of a rotation.");
+
+    // throw an error only when a significant misprice
+    // Indeed, if the real reduced cost (reducedCost) is greater than the one
+    // found by the pricing, some columns with a positive reduced cost could be
+    // generated.
+    // The reason why the other situation can arise is that some path in the
+    // subproblem could under estimate the real cost. These paths won't be
+    // found when the subproblems are solved at optimality, but could  be
+    // present when using heuristics.
+    if (reducedCost_ < reducedCost + 1e-3)
+      Tools::throwError("Invalid pricing of a rotation.");
   }
 }
 
@@ -1190,7 +1201,7 @@ double RotationMP::getColumnsCost(CostType costType,
   double cost = 0;
   if (justHistoricalCosts) {
     // just initial rest costs
-    if (costType == REST_COST || costType == TOTAL_COST)
+    if (costType == REST_COST || costType == ROTATION_COST)
       cost += getColumnsCost(REST_COST, pModel_->getActiveColumns());
     // cost for empty rotation: rotation for initial state followed by rest
     // -> already included in longRestingVars_
@@ -1209,7 +1220,7 @@ double RotationMP::getColumnsCost(CostType costType,
         + getColumnsCost(REST_COST, pModel_->getActiveColumns());
 
   cost = getColumnsCost(costType, pModel_->getActiveColumns());
-  if (costType == TOTAL_COST)  // add rest costs + historical costs
+  if (costType == ROTATION_COST)  // add rest costs + historical costs
     cost += pModel_->getTotalCost(restingVars_)
         + pModel_->getTotalCost(longRestingVars_);
   else  // add historical non resting costs

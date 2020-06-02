@@ -47,6 +47,10 @@ class RCPricer : public MyPricer {
     return minOptimalReducedCosts_;
   }
 
+  bool isLastRunOptimal() const override {
+    return optimal_;
+  }
+
  protected:
   // DATA - instance-related data
   MasterProblem *pMaster_;
@@ -61,6 +65,9 @@ class RCPricer : public MyPricer {
 
   // DATA - Solutions, rotations, etc.
   std::vector<MyVar *> allNewColumns_;
+
+  // True if all subproblems have been solved to optimality
+  bool optimal_;
 
   // Stats on the number of subproblems solved and successfully solved
   int nbSPTried_;
@@ -90,9 +97,12 @@ class RCPricer : public MyPricer {
   void resetSolutions() {
     allNewColumns_.clear();
     forbiddenShifts_.clear();
+    optimal_ = true;  // will be set to false whenever possible
     nbSPSolvedWithSuccess_ = 0;
     nbSPTried_ = 0;
-    Tools::initVector(&minOptimalReducedCosts_, pMaster_->getNbNurses(), .0);
+    Tools::initVector<double>(&minOptimalReducedCosts_,
+        pMaster_->getNbNurses(),
+        -DBL_MAX);
     minReducedCost_ = 0;
   }
 

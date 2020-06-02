@@ -21,36 +21,26 @@ using std::vector;
 using std::map;
 
 // Constructors and destructor
-RosterSP::RosterSP() : SubProblem() {}
-
 RosterSP::RosterSP(PScenario scenario,
                    int nbDays,
                    PConstContract contract,
                    vector<State> *pInitState) :
     SubProblem(scenario, nbDays, contract, pInitState) {
-  nLabels_ = 5;
+  labels_ = {CONS_DAYS, DAYS, WEEKEND};
 }
 
 RosterSP::~RosterSP() {}
 
 RCSPPSolver *RosterSP::initRCSSPSolver() {
   double constant = pCosts_->constant();
-  int max_days = pLiveNurse_->maxTotalShifts(),
-      max_weekends = pLiveNurse_->maxTotalWeekends();
-  const Weights &weights = pScenario_->weights();
+  Penalties penalties = initPenalties();
   // lambda expression to post process the solutions found by the RCSPP solver
-  auto postProcess =
-      [constant, max_days, max_weekends, &weights](spp_res_cont *res_cont) {
-        res_cont->cost -= constant;
-        res_cont->cost +=
-            res_cont->label_value(MIN_DAYS) * weights.WEIGHT_TOTAL_SHIFTS;
-        res_cont->cost +=
-            std::max(0, res_cont->label_value(MAX_DAYS) - max_days)
-                * weights.WEIGHT_TOTAL_SHIFTS;
-        res_cont->cost +=
-            std::max(0, res_cont->label_value(MAX_WEEKEND) - max_weekends)
-                * weights.WEIGHT_TOTAL_WEEKENDS;
-      };
+  auto postProcess = [constant, penalties](spp_res_cont *res_cont) {
+    res_cont->cost -= constant;
+    res_cont->cost += penalties.penalty(DAYS, res_cont->label_value(DAYS));
+    res_cont->cost +=
+        penalties.penalty(WEEKEND, res_cont->label_value(WEEKEND));
+  };
   return new BoostRCSPPSolver(&g_,
                               maxReducedCostBound_,
                               param_.epsilon,
@@ -63,7 +53,6 @@ RCSPPSolver *RosterSP::initRCSSPSolver() {
 void RosterSP::createNodes() {
   // INITIALIZATION
   principalGraphs_.clear();
-  priceLabelsGraphs_.clear();
 
   // 1. SOURCE NODE
   int v = addSingleNode(SOURCE_NODE);
@@ -74,43 +63,7 @@ void RosterSP::createNodes() {
   for (int sh = 0; sh < pScenario_->nbShiftsType_; sh++)
     principalGraphs_.emplace_back(PrincipalGraph(sh, this));
 
-  // 3. PRICE LABELS
-  // For each of the days, price labels for min and max consecutive days and
-  // reset these labels
-  for (int k = 0; k < nDays_ - 1; k++) {
-    priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
-        {PriceLabelGraph(k,
-                         pContract_->maxConsDaysWork_,
-                         maxRotationLength_,
-                         MAX_CONS_DAYS,
-                         this,
-                         true),
-         PriceLabelGraph(k, 0, CDMin_, MIN_CONS_DAYS, this, true)}));
-
-    // link the sub graphs
-    std::vector<PriceLabelGraph> &plgs = priceLabelsGraphs_.back();
-    // MIN -> rest principal
-    principalGraphs_[0].linkInSubGraph(&plgs.back(), k);
-    // MAX -> MIN
-    plgs.back().linkInSubGraph(&plgs.front(), k);
-  }
-
-  // last day: price max cons days, min/max days and max weekend
-  priceLabelsGraphs_.emplace_back(vector<PriceLabelGraph>(
-      {PriceLabelGraph(nDays_ - 1,
-                       pContract_->maxConsDaysWork_,
-                       maxRotationLength_,
-                       MAX_CONS_DAYS,
-                       this),
-      }));
-  // link subgraphs
-  SubGraph *previousGraph = nullptr;
-  for (PriceLabelGraph &plg : priceLabelsGraphs_.back()) {
-    if (previousGraph) previousGraph->linkOutSubGraph(&plg, nDays_ - 1);
-    previousGraph = &plg;
-  }
-
-  // 4. SINK NODE
+  // 3. SINK
   v = addSingleNode(SINK_NODE);
   g_.addSink(v);
 }
@@ -135,28 +88,67 @@ void RosterSP::createArcsSourceToPrincipal() {
   }
 }
 
-void RosterSP::createArcsAllPriceLabels() {
-  for (int sh = 0; sh < pScenario_->nbShiftsType_; sh++) {  // For all shifts
-    // incoming  arc
-    int origin = principalGraphs_[sh].exit(nDays_ - 1);
-    // do not take the first pricing graph (max cons) if rest
-    int destin = priceLabelsGraphs_[nDays_ - 1].front().entrance();
-    arcsPrincipalToPriceLabelsIn_[sh] =
-        {g_.addSingleArc(origin,
-                         destin,
-                         0,
-                         {0, 0, 0, 0, 0},
-                         PRINCIPAL_TO_PRICE_LABEL,
-                         nDays_ - 1)};
+// Create all arcs from one principal subgraph to another one
+// add a pricing arc when going from work to rest
+void RosterSP::createArcsPrincipalToPrincipal() {
+  int nShiftsType = pScenario_->nbShiftsType_;
+  Penalties penalties = initPenalties();
+  // consumption when pricing to reset CONS_DAYS
+  std::vector<int> pcons = {-maxRotationLength_, 0, 0};
+  for (int sh = 0; sh < nShiftsType; sh++) {
+    for (int newSh = 0; newSh < nShiftsType; newSh++) {
+      // check if succession is allowed
+      if (newSh != sh
+          && !pScenario_->isForbiddenSuccessorShiftType_ShiftType(newSh, sh)) {
+        for (int k = 0; k < nDays_ - 1; k++) {
+          // last level for day k
+          int o = principalGraphs_[sh].exit(k);
+          // entrance level for day k
+          int d = principalGraphs_[newSh].entrance(k);
+          // if ends a rotation, add a pricing arc
+          int a;
+          if (newSh == 0) {
+            a = g_.addPricingArc(o, d, 0, pcons, SHIFT_TO_NEWSHIFT, k,
+                                 {CONS_DAYS}, penalties);
+          } else {
+            // otherwise, just add a normal arc
+            // if start work on sunday (rest to start shift)
+            bool w = (sh == 0 && Tools::isSunday(k + 1));
+            a = g_.addSingleArc(o, d, 0, {0, 0, w}, SHIFT_TO_NEWSHIFT, k);
+          }
+          principalToPrincipal_[sh][newSh][k] = a;
+        }
+      }
+    }
   }
+}
 
-  // outgoing  arcs
-  int origin = priceLabelsGraphs_[nDays_ - 1].back().exit();
-  int destin = g_.lastSink();
-  g_.addSingleArc(origin,
-                  destin,
-                  0,
-                  {0, 0, 0, 0, 0},
-                  PRICE_LABEL_OUT_TO_SINK,
-                  nDays_ - 1);
+void RosterSP::createArcsPrincipalToSink() {
+  Penalties penalties = initPenalties();
+  // last day: price just max
+  penalties.minLevel(CONS_DAYS, 0);
+  // consumption to reset CONS_DAYS
+  std::vector<int> cons = {-maxRotationLength_, 0, 0};
+  int d = g_.lastSink();
+  for (int sh = 0; sh < pScenario_->nbShiftsType_; sh++) {
+    // incoming  arc
+    int o = principalGraphs_[sh].exit(nDays_ - 1);
+    arcsTosink_.push_back(
+        g_.addPricingArc(o, d, 0, cons, TO_SINK, nDays_ - 1,
+                         {CONS_DAYS}, penalties));
+  }
+}
+
+void RosterSP::updateArcCosts() {
+  // A-B: call parent method first
+  SubProblem::updateArcCosts();
+
+  // C. ARCS : PRINCIPAL GRAPH TO PRINCIPAL GRAPH
+  // for rest principal graph
+  for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
+    for (int a : principalToPrincipal_[0][s])
+      if (a != -1) g_.updateCost(a, startWorkCost(a));
+    for (int a : principalToPrincipal_[s][0])
+      if (a != -1) g_.updateCost(a, endWorkCost(a));
+  }
 }

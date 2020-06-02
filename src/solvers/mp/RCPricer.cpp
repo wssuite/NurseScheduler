@@ -154,53 +154,51 @@ vector<MyVar *> RCPricer::pricing(double bound,
           std::vector<RCSolution> solutions = subProblem->getSolutions();
 
 #ifdef DBG
-          if (currentSubproblemStrategy_[pNurse->id_]
-              == SubproblemParam::maxSubproblemStrategyLevel_) {
-            SubProblem *sub2 = new RotationSP(pScenario_,
-                                              nbDays_,
-                                              pNurse->pContract_,
-                                              pMaster_->pInitialStates());
-            sub2->build();
-            sub2->solve(pNurse,
-                        &dualCosts,
-                        sp_param,
-                        nurseForbiddenShifts,
-                        forbiddenStartingDays_,
-                        bound);
-            std::vector<RCSolution> sols = sub2->getSolutions();
-            std::stable_sort(sols.begin(), sols.end(),
-                             [](const RCSolution &sol1,
-                                const RCSolution &sol2) {
-                               return sol1.cost < sol2.cost;
-                             });
-            delete sub2;
-
-            if (!sols.empty() || !solutions.empty()) {
-              if (sols.empty() ^ solutions.empty()) {
-                if (!solutions.empty())
-                  std::cout << solutions.front().toString(
-                      pScenario_->shiftIDToShiftTypeID_)
-                            << std::endl;
-                else
-                  std::cout << sols.front().toString(
-                      pScenario_->shiftIDToShiftTypeID_) << std::endl;
-                Tools::throwError("One of the subproblem has found "
-                                  "a solution and the other not.");
-              }
-              double diff = sols.front().cost - solutions.front().cost;
-              if (diff > pMaster_->getModel()->epsilon()
-                  || diff < -pMaster_->getModel()->epsilon()) {
-                std::cout << solutions.front().toString(
-                    pScenario_->shiftIDToShiftTypeID_)
-                          << std::endl;
-                std::cout
-                    << sols.front().toString(pScenario_->shiftIDToShiftTypeID_)
-                    << std::endl;
-                Tools::throwError(
-                    "The subproblems haven't find solutions of same cost.");
-              }
-            }
-          }
+//          if (currentSubproblemStrategy_[pNurse->id_]
+//              == SubproblemParam::maxSubproblemStrategyLevel_) {
+//            SubProblem *sub2 = new RotationSP(pScenario_,
+//                                              nbDays_,
+//                                              pNurse->pContract_,
+//                                              pMaster_->pInitialStates());
+//            sub2->build();
+//            sub2->solve(pNurse,
+//                        &dualCosts,
+//                        sp_param,
+//                        nurseForbiddenShifts,
+//                        forbiddenStartingDays_,
+//                        bound);
+//            std::vector<RCSolution> sols = sub2->getSolutions();
+//            delete sub2;
+//
+//            sortGeneratedSolutions(&solutions);
+//            sortGeneratedSolutions(&sols);
+//            if (!sols.empty() || !solutions.empty()) {
+//              if (sols.empty() ^ solutions.empty()) {
+//                if (!solutions.empty())
+//                  std::cout << solutions.front().toString(
+//                      pScenario_->shiftIDToShiftTypeID_)
+//                            << std::endl;
+//                else
+//                  std::cout << sols.front().toString(
+//                      pScenario_->shiftIDToShiftTypeID_) << std::endl;
+//                Tools::throwError("One of the subproblem has found "
+//                                  "a solution and the other not.");
+//              }
+//              double diff = sols.front().cost - solutions.front().cost;
+//              if (diff > pMaster_->getModel()->epsilon()
+//                  || diff < -pMaster_->getModel()->epsilon()) {
+//                std::cout << solutions.front().toString(
+//                    pScenario_->shiftIDToShiftTypeID_)
+//                          << std::endl;
+//                std::cout
+//                    << sols.front().toString(
+//                        pScenario_->shiftIDToShiftTypeID_)
+//                    << std::endl;
+//                Tools::throwError(
+//                    "The subproblems haven't find solutions of same cost.");
+//              }
+//            }
+//          }
 #endif
 
           // Lock the pricer
@@ -279,6 +277,9 @@ vector<MyVar *> RCPricer::pricing(double bound,
    * Reverse the vector before putting it back in
    * */
 
+  // At least one subproblem unsolved
+  if (!nursesToSolve_.empty()) optimal_ = false;
+
   // 1- Add the nurses in nursesIncreasedStrategyAndNoSolution:
   // first to be retried on next run as the subproblem will be more effective
   // at generating new columns
@@ -315,12 +316,15 @@ bool RCPricer::updateCurrentStrategyAndRedCost(
     const std::vector<RCSolution> &solutions,
     bool disjointForbidden) {
   lock_guard<recursive_mutex> lock(m_subproblem_);
-  // update reduced cost if solved at optimality
+  // update reduced cost if solved at optimality:
+  // on last level and disjointForbidden = false
   if (currentSubproblemStrategy_[pNurse->id_]
-      == SubproblemParam::maxSubproblemStrategyLevel_) {
+      == SubproblemParam::maxSubproblemStrategyLevel_ && !disjointForbidden) {
     if (solutions.empty()) minOptimalReducedCosts_[pNurse->id_] = 0;
     else
       minOptimalReducedCosts_[pNurse->id_] = solutions.front().cost;
+  } else {
+    optimal_ = false;  // cannot ensure optimality
   }
 
   // check if enough columns have been generated and no shifts forbidden
@@ -334,8 +338,8 @@ bool RCPricer::updateCurrentStrategyAndRedCost(
           < SubproblemParam::maxSubproblemStrategyLevel_) {
     currentSubproblemStrategy_[pNurse->id_]++;
 #ifdef DBG
-//    std::cout << "nurse " << pNurse->id_ << ": lvl "
-//              << currentSubproblemStrategy_[pNurse->id_] << std::endl;
+    //    std::cout << "nurse " << pNurse->id_ << ": lvl "
+    //              << currentSubproblemStrategy_[pNurse->id_] << std::endl;
 #endif
     increased = true;
   }
@@ -437,7 +441,7 @@ int RCPricer::addColumnsToMaster(int nurseId,
   int nbcolumnsAdded = 0;
   for (const RCSolution &sol : *solutions) {
 #ifdef DBG
-//    std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
+// std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
 #endif
     allNewColumns_.emplace_back(pMaster_->addColumn(nurseId, sol));
     ++nbcolumnsAdded;
@@ -446,8 +450,8 @@ int RCPricer::addColumnsToMaster(int nurseId,
   }
 
 #ifdef DBG
-//  std::cerr << "--------------------------------"
-//               "--------------------------------" << std::endl;
+  //  std::cerr << "--------------------------------"
+  //               "--------------------------------" << std::endl;
 #endif
 
   return nbcolumnsAdded;

@@ -264,7 +264,17 @@ void RosterPattern::checkReducedCost(const DualCosts &costs,
                   << costs.workedDayShiftCost(k, shifts_[k]) << std::endl;
     std::cerr << toString(costs.nDays(), Scenario->shiftIDToShiftTypeID_);
     std::cerr << "# " << std::endl;
-    Tools::throwError("Invalid pricing of a roster.");
+
+    // throw an error only when a significant misprice
+    // Indeed, if the real reduced cost (reducedCost) is greater than the one
+    // found by the pricing, some columns with a positive reduced cost could be
+    // generated.
+    // The reason why the other situation can arise is that some path in the
+    // subproblem could under estimate the real cost. These paths won't be
+    // found when the subproblems are solved at optimality, but could  be
+    // present when using heuristics.
+    if (reducedCost_ < reducedCost + 1e-3)
+      Tools::throwError("Invalid pricing of a roster.");
   }
 }
 
@@ -513,10 +523,10 @@ double RosterMP::getColumnsCost(CostType costType,
 double RosterMP::getColumnsCost(CostType costType,
                                 const std::vector<MyVar *> &vars,
                                 bool justHistoricalCosts) const {
-  if (justHistoricalCosts && costType != REST_COST && costType != TOTAL_COST)
+  if (justHistoricalCosts && costType != REST_COST && costType != ROTATION_COST)
     Tools::throwError(
         "It's not possible to retrieve the historical costs for a cost type "
-        "different than REST_COST or TOTAL_COST.");
+        "different than REST_COST or ROTATION_COST.");
 
   double cost = 0;
   for (MyVar *var : vars) {
@@ -544,7 +554,10 @@ double RosterMP::getColumnsCost(CostType costType,
           if (!justHistoricalCosts) c += ros.consDaysOffCost_;
           break;
         default: c += ros.initWorkCost_ + ros.initRestCost_;
-          if (!justHistoricalCosts) c += ros.cost_;
+          if (!justHistoricalCosts) {
+            c += ros.cost_;
+            c -= ros.minDaysCost_ + ros.maxDaysCost_ + ros.maxWeekendCost_;
+          }
           break;
       }
       cost += c * value;

@@ -84,7 +84,7 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -g 1670-1950 -t 300 --n-threads 4
+          ns-args: -g 1670-2000 -t 300 --n-threads 4
 
       - name: n030w4_1_6-7-5-3  4 threads
         uses: ./ # Uses an action in the root directory
@@ -126,7 +126,7 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
-          ns-args: -d -s 50-35-70-80 -g 1950-2150
+          ns-args: -d -s 50-35-70-80 -g 1950d-2150
 
       - name: n035w4_1_1-7-1-8 dynamic
         uses: ./ # Uses an action in the root directory

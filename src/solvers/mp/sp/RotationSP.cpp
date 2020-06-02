@@ -15,7 +15,9 @@ RotationSP::RotationSP(PScenario scenario,
                        int nbDays,
                        PConstContract contract,
                        std::vector<State> *pInitState) :
-    SubProblem(scenario, nbDays, contract, pInitState) {}
+    SubProblem(scenario, nbDays, contract, pInitState) {
+  labels_ = {CONS_DAYS};
+}
 
 RotationSP::~RotationSP() {}
 
@@ -30,7 +32,6 @@ RotationSP::~RotationSP() {}
 void RotationSP::createNodes() {
   // INITIALIZATION
   principalGraphs_.clear();
-  priceLabelsGraphs_.clear();
 
   // 1. SOURCE NODE
   int v = addSingleNode(SOURCE_NODE);
@@ -39,42 +40,15 @@ void RotationSP::createNodes() {
   // 2. PRINCIPAL NETWORK(S) [ONE PER SHIFT TYPE]
   // just add a dummy rcspp to have the right indices
   principalGraphs_.emplace_back(PrincipalGraph(0, nullptr));
-  for (int sh = 1; sh < pScenario_->nbShiftsType_;
-       sh++)        // For each possible worked shift
+  // For each possible worked shift
+  for (int sh = 1; sh < pScenario_->nbShiftsType_; sh++)
     principalGraphs_.emplace_back(PrincipalGraph(sh, this));
 
-  // 3. ROTATION LENGTH CHECK
-  //
-  // For each of the days, do a rotation-length-checker
-  // Deactivate the min cost for the last day
-  for (int k = 0; k < nDays_ - 1; k++) {
-    priceLabelsGraphs_.emplace_back(std::vector<PriceLabelGraph>(
-        {PriceLabelGraph(k,
-                         pContract_->maxConsDaysWork_,
-                         maxRotationLength_,
-                         MAX_CONS_DAYS,
-                         this),
-         PriceLabelGraph(k, 0, CDMin_, MIN_CONS_DAYS, this)}));
-
-    // link the sub graphs
-    priceLabelsGraphs_.back().front().linkOutSubGraph(
-        &priceLabelsGraphs_.back().back());
-
-    // Daily sink node
-    g_.addSink(priceLabelsGraphs_.back().back().exit());
+  // 3. DAILY SINKS AND GLOBAL SINK
+  for (int k = 0; k < nDays_; k++) {
+    v = addSingleNode(SINK_NODE);
+    g_.addSink(v);
   }
-  // last day: price just max
-  priceLabelsGraphs_.emplace_back(std::vector<PriceLabelGraph>(
-      {PriceLabelGraph(nDays_ - 1,
-                       pContract_->maxConsDaysWork_,
-                       maxRotationLength_,
-                       MAX_CONS_DAYS,
-                       this)}));
-  // Daily sink node
-  g_.addSink(priceLabelsGraphs_.back().back().exit());
-
-  // 4. SINK NODE
-  //
   v = addSingleNode(SINK_NODE);
   g_.addSink(v);
 }
@@ -105,32 +79,64 @@ void RotationSP::createArcsSourceToPrincipal() {
       }
 }
 
-// Create all arcs that involve the rotation size checking subnetwork
-// (incoming, internal, and exiting that subnetwork)
-void RotationSP::createArcsAllPriceLabels() {
-  for (int k = 0; k < nDays_; k++) {                // For all days
-    for (int sh = 1; sh < pScenario_->nbShiftsType_;
-         sh++) {        // For all shifts
+// Create all arcs from one principal subgraph to another one
+void RotationSP::createArcsPrincipalToPrincipal() {
+  int nShiftsType = pScenario_->nbShiftsType_;
+  for (int sh = 1; sh < nShiftsType; sh++) {
+    for (int newSh = 1; newSh < nShiftsType; newSh++) {
+      // check if succession is allowed
+      if (newSh != sh
+          && !pScenario_->isForbiddenSuccessorShiftType_ShiftType(newSh, sh)) {
+        // do not create arcs for the last day, as it won't be possible to work
+        for (int k = 0; k < nDays_ - 1; k++) {
+          // last level for day k
+          int o = principalGraphs_[sh].exit(k);
+          // entrance level for day k
+          int d = principalGraphs_[newSh].entrance(k);
+          principalToPrincipal_[sh][newSh][k] =
+              g_.addSingleArc(o, d, 0, {0, 0, 0}, SHIFT_TO_NEWSHIFT, k);
+        }
+      }
+    }
+  }
+}
+
+void RotationSP::createArcsPrincipalToSink() {
+  Tools::initVector2D(&arcsPrincipalToSink,
+                      pScenario_->nbShiftsType_,
+                      nDays_,
+                      -1);
+
+  // Create pricing arcs for the label CONS_DAYS
+  Penalties penalties = initPenalties();
+  std::vector<int> cons = {-maxRotationLength_, 0, 0};
+  // Arcs to daily sinks
+  for (int k = 0; k < nDays_; k++) {
+    // last day: price just max
+    if (k == nDays_ - 1) penalties.minLevel(CONS_DAYS, 0);
+    int s = g_.sink(k);
+    for (int sh = 1; sh < pScenario_->nbShiftsType_; sh++) {
       // incoming  arc
-      int origin = principalGraphs_[sh].exit(k);
-      int destin = priceLabelsGraphs_[k].front().entrance();
-      arcsPrincipalToPriceLabelsIn_[sh][k] =
-          g_.addSingleArc(origin,
-                          destin,
-                          0,
-                          {0, 0, 0, 0, 0},
-                          PRINCIPAL_TO_PRICE_LABEL,
-                          k);    // Allow to stop rotation that day
+      int o = principalGraphs_[sh].exit(k);
+      arcsPrincipalToSink[sh][k] =
+          g_.addPricingArc(o, s, 0, cons, TO_SINK, k, {CONS_DAYS}, penalties);
     }
 
-    // outgoing  arcs
-    int origin = priceLabelsGraphs_[k].back().exit();
-    int destin = g_.lastSink();
-    arcsTosink_.push_back(g_.addSingleArc(origin,
-                                          destin,
-                                          0,
-                                          {0, 0, 0, 0, 0},
-                                          PRICE_LABEL_OUT_TO_SINK,
-                                          k));
+    // Arcs from daily sinks to global one
+    int o = s;
+    int d = g_.lastSink();
+    arcsTosink_.push_back(
+        g_.addSingleArc(o, d, 0, {0, 0, 0}, TO_SINK, nDays_ - 1));
   }
+}
+
+void RotationSP::updateArcCosts() {
+  // A-B: call parent method first
+  SubProblem::updateArcCosts();
+
+  // C. ARCS : PRINCIPAL_TO_SINK
+  // starts at 1, as on 0 we rest (so no end work) and also not defined
+  for (int s = 1; s < pScenario_->nbShiftsType_; s++)
+    for (int a : arcsPrincipalToSink[s])
+      g_.updateCost(a, endWorkCost(a));
 }

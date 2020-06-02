@@ -46,8 +46,8 @@ RCGraph::RCGraph(int nDays) : nDays_(nDays), nNodes_(0), nArcs_(0) {}
 RCGraph::~RCGraph() {}
 
 std::vector<RCSolution> RCGraph::solve(RCSPPSolver *rcspp,
-                                       int nLabels,
-                                       const std::vector<int> &labelsMinLevel,
+                                       std::vector<LABEL> labels,
+                                       const Penalties &penalties,
                                        std::vector<vertex> sinks) {
   // 0 - Remove all forbidden edges
   std::map<int, Arc_Properties> arcs_to_remove;
@@ -65,7 +65,7 @@ std::vector<RCSolution> RCGraph::solve(RCSPPSolver *rcspp,
   // 1 - solve the resource constraints shortest path problem
   if (sinks.empty()) sinks = sinks_;
   std::vector<RCSolution>
-      rc_solutions = rcspp->solve(nLabels, labelsMinLevel, sinks);
+      rc_solutions = rcspp->solve(labels, penalties, sinks);
 
   // 2 - Add back all forbidden edges
   for (auto &p : arcs_to_remove) {
@@ -95,6 +95,22 @@ int RCGraph::addSingleArc(int o,
                           int day,
                           std::vector<int> shifts) {
   Arc_Properties a(nArcs_, o, d, type, baseCost, consumptions, day, shifts);
+  edge e = add_edge(o, d, a, g_).first;
+  arcsDescriptors_.push_back(e);
+  return nArcs_++;
+}
+
+int RCGraph::addPricingArc(int o,
+                           int d,
+                           double baseCost,
+                           std::vector<int> consumptions,
+                           ArcType type,
+                           int day,
+                           std::set<LABEL> labelsToPrice,
+                           const Penalties &penalties) {
+  Arc_Properties a(nArcs_, o, d, type, baseCost, consumptions, day, {});
+  a.labelsToPrice = labelsToPrice;
+  a.penalties = penalties;
   edge e = add_edge(o, d, a, g_).first;
   arcsDescriptors_.push_back(e);
   return nArcs_++;
@@ -139,10 +155,10 @@ std::string RCGraph::printNode(int v, int nLabel) const {
   for (int l = 0; l < nLabel; ++l) {
     snprintf(buff, sizeof(buff),
              "  %13s=%s%3d,%3d]",
-             labelName[l].c_str(),
+             labelsName[l].c_str(),
              (vert_prop.hard_lbs_ ? "[" : "("),
-             vert_prop.lb(l),
-             vert_prop.ub(l));
+             vert_prop.lbs[l],
+             vert_prop.ubs[l]);
     rep << buff;
   }
   rep << "  " << shortNameNode(v);
@@ -159,15 +175,20 @@ void RCGraph::printAllNodes(int nLabel) const {
 
 // Prints the line of an arc
 std::string RCGraph::printArc(int a, int nLabel, int nShiftsToDisplay) const {
-  std::stringstream rep;
   const Arc_Properties &arc_prop = arc(a);
+  return printArc(arc_prop, nLabel, nShiftsToDisplay);
+}
+
+std::string RCGraph::printArc(
+    const Arc_Properties &arc_prop, int nLabel, int nShiftsToDisplay) const {
+  std::stringstream rep;
   char buff[255];
   snprintf(buff, sizeof(buff),
            "# ARC   %5d  %15s  (%5d,%5d)  c=%12.2f  ",
-           a,
+           arc_prop.num,
            arcTypeName[arc_prop.type].c_str(),
-           arcOrigin(a),
-           arcDestination(a),
+           arc_prop.origin,
+           arc_prop.destination,
            arc_prop.cost);
   rep << buff;
   snprintf(buff, sizeof(buff),
@@ -184,8 +205,8 @@ std::string RCGraph::printArc(int a, int nLabel, int nShiftsToDisplay) const {
   }
   rep << (nShiftsToDisplay < arc_prop.shifts.size() ? " ..." : "    ");
   snprintf(buff, sizeof(buff), "  [%20s] -> [%20s]",
-           shortNameNode(arcOrigin(a)).c_str(),
-           shortNameNode(arcDestination(a)).c_str());
+           shortNameNode(arc_prop.origin).c_str(),
+           shortNameNode(arc_prop.destination).c_str());
   rep << buff;
 
   if (nLabel == -1) nLabel = arc_prop.size();
@@ -193,12 +214,17 @@ std::string RCGraph::printArc(int a, int nLabel, int nShiftsToDisplay) const {
     if (l < arc_prop.size())
       snprintf(buff, sizeof(buff),
                "  %13s=%3d",
-               labelName[l].c_str(),
+               labelsName[l].c_str(),
                arc_prop.consumptions[l]);
     else
-      snprintf(buff, sizeof(buff), "  %13s=%3s", labelName[l].c_str(), "");
+      snprintf(buff, sizeof(buff), "  %13s=%3s", labelsName[l].c_str(), "");
     rep << buff;
   }
+
+  rep << "   Price:";
+  for (int l : arc_prop.labelsToPrice)
+    rep << " " << labelsName[l].c_str();
+
   return rep.str();
 }
 
@@ -219,13 +245,6 @@ std::string RCGraph::shortNameNode(int v) const {
     rep << "SOURCE";
   } else if (type_v == PRINCIPAL_NETWORK) {
     rep << "PRINCIPAL_NETWORK";
-  } else if (type_v == PRICE_LABEL_ENTRANCE) {
-    rep << "LEN_IN";
-  } else if (type_v == PRICE_LABEL) {
-    rep << "LEN_<=";
-    for (int ub : nodeUBs(v)) rep << " " << ub;
-  } else if (type_v == PRICE_LABEL_EXIT) {
-    rep << "ROTSIZE OUT";
   } else if (type_v == SINK_NODE) {
     rep << "SINK";
   } else {
