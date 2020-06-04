@@ -91,12 +91,12 @@ bool ref_spp::operator()(const Graph &g,
   if (arc_prop.day != -1) new_cont->day = arc_prop.day;
 
 #ifdef DBG
-  new_cont->pred_arc = arc_prop.num;
-  if (!arc_prop.shifts.empty()) {
-    new_cont->shifts_.insert(new_cont->shifts_.end(),
-                             arc_prop.shifts.begin(),
-                             arc_prop.shifts.end());
-  }
+    new_cont->pred_arc = arc_prop.num;
+    if (!arc_prop.shifts.empty()) {
+      new_cont->shifts_.insert(new_cont->shifts_.end(),
+                               arc_prop.shifts.begin(),
+                               arc_prop.shifts.end());
+    }
 #endif
 
   assert(old_cont.size() == new_cont->size());
@@ -274,11 +274,13 @@ bool SpplabelDominantFirstComparator::operator()(
 BoostRCSPPSolver::BoostRCSPPSolver(
     RCGraph *rcg,
     double maxReducedCostBound,
+    int verbose,
     double epsilon,
     SPSearchStrategy strategy,
     int nb_max_paths,
     std::function<void(spp_res_cont *)> post_process_rc) :
     rcg_(rcg),
+    verbose_(verbose),
     maxReducedCostBound_(maxReducedCostBound),
     epsilon_(epsilon),
     strategy_(strategy),
@@ -289,6 +291,7 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
     std::vector<LABEL> labels,
     const Penalties &penalties,
     std::vector<vertex> sinks) {
+  timer_.start();
   // 1 - solve the resource constraints shortest path problem
   ref_spp ref(labels);
   dominance_spp dominance(labels, penalties, epsilon_);
@@ -315,14 +318,24 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
   // process paths if needed (process_solution is not used)
   std::vector<RCSolution> rc_solutions;
   // For each path of the list, store the solutions with a negative cost
+  double bestCost = maxReducedCostBound_;
   for (unsigned int p = 0; p < opt_solutions_spp.size(); ++p) {
     spp_res_cont &rc = pareto_opt_rcs_spp[p];
     if (processPath(&opt_solutions_spp[p], &rc, ref, post_process_rc_)) {
       if (rc.cost < maxReducedCostBound_) {
-//        printPath(std::cout, opt_solutions_spp[p], rc);
+        if (verbose_ >= 4)
+          printPath(std::cout, opt_solutions_spp[p], rc);
         rc_solutions.push_back(solution(opt_solutions_spp[p], rc));
+        if (rc.cost < bestCost) bestCost = rc.cost;
       }
     }
+  }
+
+  timer_.stop();
+  if (verbose_ >= 3) {
+    vis.printStats(std::cout);
+    std::cout << "Time spent in the RCSPP: " << timer_.dSinceStart()
+              << " and best solution cost: " << bestCost << std::endl;
   }
 
   return rc_solutions;
@@ -357,12 +370,7 @@ bool BoostRCSPPSolver::processPath(
 
 RCSolution BoostRCSPPSolver::solution(const std::vector<edge> &path,
                                       const spp_res_cont &resource) const {
-#ifdef DBG
-  //  printPath(std::cout, path, resource);
-#endif
-
   RCSolution sol(resource.cost);
-
   // All arcs are consecutively considered
   for (int j = path.size() - 1; j >= 0; --j) {
     int a = boost::get(&Arc_Properties::num, rcg_->g(), path[j]);
@@ -584,26 +592,35 @@ void BoostRCSPPSolver::backtrack(
 
 // rc_spp_visitor struct: derived from boost::default_r_c_shortest_paths_visitor
 rc_spp_visitor::rc_spp_visitor(
-    int nPaths,
+    int nMax,
     const std::vector<vertex> &sinks,
     std::function<void(spp_res_cont *)> post_process_rc,
     double maxReducedCostBound) :
-    nMaxPaths_(nPaths),
+    nMax_(nMax),
     sinks_(sinks),
     postProcessRc_(post_process_rc),
     maxReducedCostBound_(maxReducedCostBound) {}
 
-void rc_spp_visitor::on_label_popped(Label &spplabel, const Graph &) {}
+void rc_spp_visitor::on_label_popped(Label &spplabel, const Graph &) {
+  ++nPoppedLabels_;
+}
 
-void rc_spp_visitor::on_label_feasible(Label &spplabel, const Graph &) {}
+void rc_spp_visitor::on_label_feasible(Label &spplabel, const Graph &) {
+  ++nFeasibleLabels_;
+}
 
-void rc_spp_visitor::on_label_not_feasible(Label &, const Graph &) {}
+void rc_spp_visitor::on_label_not_feasible(Label &, const Graph &) {
+  ++nInfeasibleLabels_;
+}
 
-void rc_spp_visitor::on_label_dominated(Label &spplabel, const Graph &) {}
+void rc_spp_visitor::on_label_dominated(Label &spplabel, const Graph &) {
+  ++nDominatedLabels_;
+}
 
 void rc_spp_visitor::on_label_not_dominated(Label &spplabel, const Graph &) {
+  ++nNotDominatedLabels_;
   // if seek all paths, do nothing
-  if (nMaxPaths_ == -1) return;
+  if (nMax_ == -1) return;
   // check if we found a non-dominated path from a source to a sink
   if (find(sinks_.begin(), sinks_.end(), spplabel.resident_vertex)
       != sinks_.end()) {
@@ -614,10 +631,18 @@ void rc_spp_visitor::on_label_not_dominated(Label &spplabel, const Graph &) {
 template<typename Queue>
 bool rc_spp_visitor::on_enter_loop(const Queue &queue, const Graph &graph) {
   // if go until optimality
-  if (nMaxPaths_ == -1) return true;
+  if (nMax_ == -1) return true;
   // if exceed the number of paths searched
-  if (paths_.size() >= nMaxPaths_)
+  if (paths_.size() >= nMax_)
     return false;
-  // stop if have explored too many feasible nodes (avoid stalling)
-  return nLoop_++ < nMaxPaths_ * num_vertices(graph);
+  // stop if have explored too many nodes (avoid stalling)
+  return nPoppedLabels_ < nMax_ * num_vertices(graph);
+}
+
+void rc_spp_visitor::printStats(std::ostream &out) const {
+  out << "Labels statistics:\tpopped=" << nPoppedLabels_
+      << "\tfeasible=" << nFeasibleLabels_
+      << "\tinfeasible=" << nInfeasibleLabels_
+      << "\tdominated=" << nDominatedLabels_
+      << "\tnot dominated=" << nNotDominatedLabels_ << std::endl;
 }

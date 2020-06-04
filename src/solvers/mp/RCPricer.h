@@ -106,6 +106,12 @@ class RCPricer : public MyPricer {
     minReducedCost_ = 0;
   }
 
+  // Retrieve the right subproblem
+  SubProblem *retriveSubproblem(PLiveNurse pNurse);
+
+  // release the subproblem
+  void releaseSubproblem(PLiveNurse pNurse, SubProblem *subProblem);
+
   // METHODS - Forbidden shifts, nurses, starting days, etc.
   //
   // !!! WARNING !!! : SOME METHODS ARE NOT YET IMPLEMENTED IN THE SUBPROBLEM
@@ -197,12 +203,6 @@ class RCPricer : public MyPricer {
   // added to the forbidden shifts.
   bool addForbiddenShifts(const std::vector<RCSolution> &solutions,
                           const DualCosts &duals);
-
-  // Retrieve the right subproblem
-  SubProblem *retriveSubproblem(PLiveNurse pNurse);
-
-  // release the subproblem
-  void releaseSubproblem(PLiveNurse pNurse, SubProblem *subProblem);
 
   // Add the rotations to the master problem
   int addColumnsToMaster(int nurseId, std::vector<RCSolution> *solutions);

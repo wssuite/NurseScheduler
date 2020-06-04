@@ -194,7 +194,7 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
       options_.MySolverType_ = MySolverTypesByName[solverName];
       // DBG
       std::cout << "LP solver :" << solverName << std::endl;
-    } else if (Tools::strEndsWith(title, "verbose")) {
+    } else if (Tools::strEndsWith(title, "verbose_")) {
       file >> options_.verbose_;
     } else if (Tools::strEndsWith(title, "isStabilization")) {
       // Here and below, read the parameters that refer to branch and price
@@ -358,10 +358,6 @@ double DeterministicSolver::solve(vector<Roster> initialSolution) {
   //
   Tools::initializeRandomGenerator(this->options_.randomSeed_);
   srand(this->options_.randomSeed_);
-
-  // DBG
-  std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
-  std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
 
   // Always solve small problems to optimality
   // This can actually save time

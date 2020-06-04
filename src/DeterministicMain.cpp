@@ -28,7 +28,7 @@ using std::pair;
 * Solve the complete planning horizon with the deterministic solver
 ******************************************************************************/
 
-int solveDeterministic(InputPaths inputPaths, double timeout) {
+int solveDeterministic(const InputPaths &inputPaths, double timeout) {
   // set the scenario
   //
   std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
@@ -43,12 +43,7 @@ int solveDeterministic(InputPaths inputPaths, double timeout) {
   // initialize random of tools
   Tools::initializeRandomGenerator(inputPaths.randSeed());
 
-  // DBG
-  std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
-  std::cout << "Next random : " << Tools::randomInt(0, RAND_MAX) << std::endl;
-
-
-  // initiialize the solver and call the generic solution where the
+  // initialize the solver and call the generic solution where the
   // specific solution processes are called
   //
   std::cout << "# SOLVE THE INSTANCE" << std::endl;

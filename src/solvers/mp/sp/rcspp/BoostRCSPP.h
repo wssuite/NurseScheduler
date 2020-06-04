@@ -169,7 +169,7 @@ struct SpplabelDominantFirstComparator {
 
 // rc_spp_visitor struct: derived from boost::default_r_c_shortest_paths_visitor
 struct rc_spp_visitor {
-  rc_spp_visitor(int nPaths,
+  rc_spp_visitor(int nMax,
                  const std::vector<vertex> &sinks,
                  std::function<void(spp_res_cont *)> post_process_rc = nullptr,
                  double maxReducedCostBound = -1e-5);
@@ -191,13 +191,16 @@ struct rc_spp_visitor {
     return paths_;
   }
 
+  void printStats(std::ostream &out) const;
+
  private:
-  int nMaxPaths_;
-  int nLoop_;  // ensure that the exploration doesn't stall
+  int nMax_;
   std::vector<vertex> sinks_;
   std::map<int, spp_res_cont> paths_;
   std::function<void(spp_res_cont *)> postProcessRc_;
   double maxReducedCostBound_;
+  int nPoppedLabels_ = 0, nFeasibleLabels_ = 0, nInfeasibleLabels_ = 0,
+      nDominatedLabels_ = 0, nNotDominatedLabels_ = 0;
 };
 
 // Solver
@@ -205,6 +208,7 @@ class BoostRCSPPSolver : public RCSPPSolver {
  public:
   BoostRCSPPSolver(RCGraph *rcg,
                    double maxReducedCostBound,
+                   int verbose,
                    double epsilon,
                    SPSearchStrategy strategy,
                    int nb_max_paths,
@@ -216,10 +220,12 @@ class BoostRCSPPSolver : public RCSPPSolver {
 
  protected:
   RCGraph *rcg_;
+  int verbose_;
   double maxReducedCostBound_, epsilon_;
   SPSearchStrategy strategy_;
   int nb_max_paths_;
   std::function<void(spp_res_cont *)> post_process_rc_;
+  Tools::Timer timer_;
 
   void printPath(std::ostream &out,
                  std::vector<edge> path,

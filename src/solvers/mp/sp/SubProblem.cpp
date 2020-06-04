@@ -38,7 +38,8 @@ const int SubproblemParam::maxSubproblemStrategyLevel_ = 3;
 void SubproblemParam::initSubprobemParam(int strategy,
                                          PLiveNurse pNurse,
                                          MasterProblem *pMaster) {
-  epsilon = pMaster->getModel()->epsilon();
+  verbose_ = pMaster->getModel()->getParameters().verbose_;
+  epsilon_ = pMaster->getModel()->epsilon();
   maxRotationLength_ = pNurse->maxConsDaysWork();
   int nb_max_path = static_cast<int>(round(
       pMaster->getModel()->getParameters().sp_columns_ratio_for_number_paths_ *
@@ -176,7 +177,7 @@ bool SubProblem::solve(PLiveNurse nurse,
   bestReducedCost_ = 0;
   nFound_ = 0;
   param_ = param;
-  maxReducedCostBound_ = -redCostBound - param.epsilon;  // Cost bound
+  maxReducedCostBound_ = -redCostBound - param.epsilon_;  // Cost bound
   pLiveNurse_ = nurse;  // Store the new nurse
   pCosts_ = costs;  // Store the new cost
 
@@ -221,7 +222,8 @@ bool SubProblem::preprocess() {
 RCSPPSolver *SubProblem::initRCSSPSolver() {
   return new BoostRCSPPSolver(&g_,
                               maxReducedCostBound_,
-                              param_.epsilon,
+                              param_.verbose_,
+                              param_.epsilon_,
                               param_.search_strategy_,
                               param_.nb_max_paths_,
                               nullptr);
@@ -233,7 +235,7 @@ bool SubProblem::solveRCGraph() {
   updateArcCosts();
 
 #ifdef DBG
-  //  g_.printGraph(nLabels_, minConsDays_);
+//    g_.printGraph(labels_.size(), minConsDays_);
 #endif
 
   // solve the RC SPP

@@ -53,3 +53,6 @@ target_link_libraries(staticscheduler ${NURSE_SCHEDULER_LIB})
 
 add_executable(dynamicscheduler src/DynamicMain.cpp)
 target_link_libraries(dynamicscheduler ${NURSE_SCHEDULER_LIB})
+
+add_executable(pricer src/PricerMain.cpp)
+target_link_libraries(pricer ${NURSE_SCHEDULER_LIB})

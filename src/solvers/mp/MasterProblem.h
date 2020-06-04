@@ -241,6 +241,10 @@ class MasterProblem : public Solver, public PrintSolution {
     return pModel_;
   }
 
+  MyPricer *getPricer() {
+    return pPricer_;
+  }
+
   // override save and currentSolToString virtual method fom printFunction
   void save(const std::vector<int> &weekIndices, std::string outdir) override;
   std::string currentSolToString() const override;
@@ -251,6 +255,9 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // build a DualCosts structure
   DualCosts buildDualCosts(PLiveNurse pNurse) const;
+
+  // build a random DualCosts structure
+  DualCosts buildRandomDualCosts() const;
 
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
@@ -281,6 +288,10 @@ class MasterProblem : public Solver, public PrintSolution {
   // Special solve function for LNS
   // It is a priori the same as a regular, but it might be modified if needed
   double LNSSolve(const SolverParam &parameters) override;
+
+  // Initialization of the master problem with/without solution
+  void initialize(const SolverParam &parameters,
+                  std::vector<Roster> solution = {}) override;
 
   //---------------------------------------------------------------------------
   //
@@ -405,10 +416,6 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // Main method to build the rostering problem for a given input
   virtual void build(const SolverParam &parameters);
-
-  // Initialization of the master problem with/without solution
-  void initialize(const SolverParam &parameters,
-                  std::vector<Roster> solution = {}) override;
 
   // Provide an initial solution to the solver
   virtual void initializeSolution(const std::vector<Roster> &solution) = 0;

@@ -34,7 +34,8 @@ struct SubproblemParam {
                           MasterProblem *pMaster);
 
   // *** PARAMETERS ***
-  double epsilon = 1e-5;
+  int verbose_ = 0;
+  double epsilon_ = 1e-5;
 
   SPSearchStrategy search_strategy_ = SP_BREADTH_FIRST;
   // if positive, the RC SPP stops as soon as it has generated enough

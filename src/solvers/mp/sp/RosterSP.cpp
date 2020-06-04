@@ -43,7 +43,8 @@ RCSPPSolver *RosterSP::initRCSSPSolver() {
   };
   return new BoostRCSPPSolver(&g_,
                               maxReducedCostBound_,
-                              param_.epsilon,
+                              param_.verbose_,
+                              param_.epsilon_,
                               param_.search_strategy_,
                               param_.nb_max_paths_,
                               postProcess);
@@ -94,7 +95,7 @@ void RosterSP::createArcsPrincipalToPrincipal() {
   int nShiftsType = pScenario_->nbShiftsType_;
   Penalties penalties = initPenalties();
   // consumption when pricing to reset CONS_DAYS
-  std::vector<int> pcons = {-maxRotationLength_, 0, 0};
+  std::vector<int> pcons = {-10*maxRotationLength_, 0, 0};
   for (int sh = 0; sh < nShiftsType; sh++) {
     for (int newSh = 0; newSh < nShiftsType; newSh++) {
       // check if succession is allowed

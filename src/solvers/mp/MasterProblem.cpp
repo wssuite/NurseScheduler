@@ -82,12 +82,12 @@ MasterProblem::MasterProblem(PScenario pScenario,
 
     Solver(pScenario, pDemand, pPreferences, pInitState),
     PrintSolution(),
-    pModel_(0),
+    pModel_(nullptr),
     positionsPerSkill_(pScenario->nbSkills_),
     skillsPerPosition_(pScenario->nbPositions()),
-    pPricer_(0),
-    pTree_(0),
-    pRule_(0),
+    pPricer_(nullptr),
+    pTree_(nullptr),
+    pRule_(nullptr),
     solverType_(solverType),
     optDemandVars_(pDemand_->nbDays_),
     numberOfNursesByPositionVars_(pDemand_->nbDays_),
@@ -117,8 +117,7 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
   // infinity for the solver
   double inf = -1;
   switch (solverType) {
-    case S_CLP:
-      pModel_ = new BcpModeler(this, PB_NAME, CLP);
+    case S_CLP:pModel_ = new BcpModeler(this, PB_NAME, CLP);
       inf = OsiClpSolverInterface().getInfinity();
       break;
     case S_Gurobi:
@@ -137,8 +136,7 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
       Tools::throwError("BCP has not been built with Cplex.");
 #endif
       break;
-    case S_CBC:
-      pModel_ = new BcpModeler(this, PB_NAME);
+    case S_CBC:pModel_ = new BcpModeler(this, PB_NAME);
       inf = OsiClpSolverInterface().getInfinity();
       break;
     default:
@@ -622,58 +620,75 @@ double MasterProblem::getConstantDualvalue(PLiveNurse pNurse) const {
   return 0;
 }
 
+DualCosts MasterProblem::buildRandomDualCosts() const {
+  return DualCosts(
+      Tools::randomDoubleVector2D(
+          pDemand_->nbDays_, pScenario_->nbShifts_ - 1,
+          0, 3 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+      Tools::randomDoubleVector(
+          pDemand_->nbDays_,
+          0,
+          7 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+      Tools::randomDoubleVector(
+          pDemand_->nbDays_,
+          0,
+          7 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+      Tools::randomDouble(0, 2 * pScenario_->weights().WEIGHT_TOTAL_WEEKENDS),
+      Tools::randomDouble(0, 10 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND));
+}
+
 /*
  * Skills coverage constraints
  */
 void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
   char name[255];
   // initialize vectors
-  Tools::initVector3D<MyVar*>(&optDemandVars_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbSkills_,
-                      nullptr);
-  Tools::initVector3D<MyVar*>(&stabMinDemandPlus_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbSkills_,
-                      nullptr);
-  Tools::initVector3D<MyVar*>(&stabOptDemandPlus_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbSkills_,
-                      nullptr);
-  Tools::initVector3D<MyVar*>(&numberOfNursesByPositionVars_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbPositions(),
-                      nullptr);
-  Tools::initVector4D<MyVar*>(&skillsAllocVars_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbSkills_,
-                      pScenario_->nbPositions(),
-                      nullptr);
-  Tools::initVector3D<MyCons*>(&minDemandCons_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbSkills_,
-                      nullptr);
-  Tools::initVector3D<MyCons*>(&optDemandCons_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbSkills_,
-                      nullptr);
-  Tools::initVector3D<MyCons*>(&numberOfNursesByPositionCons_,
-                      pScenario_->nbPositions(),
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      nullptr);
-  Tools::initVector3D<MyCons*>(&feasibleSkillsAllocCons_,
-                      pDemand_->nbDays_,
-                      pScenario_->nbShifts_ - 1,
-                      pScenario_->nbPositions(),
-                      nullptr);
+  Tools::initVector3D<MyVar *>(&optDemandVars_,
+                               pDemand_->nbDays_,
+                               pScenario_->nbShifts_ - 1,
+                               pScenario_->nbSkills_,
+                               nullptr);
+  Tools::initVector3D<MyVar *>(&stabMinDemandPlus_,
+                               pDemand_->nbDays_,
+                               pScenario_->nbShifts_ - 1,
+                               pScenario_->nbSkills_,
+                               nullptr);
+  Tools::initVector3D<MyVar *>(&stabOptDemandPlus_,
+                               pDemand_->nbDays_,
+                               pScenario_->nbShifts_ - 1,
+                               pScenario_->nbSkills_,
+                               nullptr);
+  Tools::initVector3D<MyVar *>(&numberOfNursesByPositionVars_,
+                               pDemand_->nbDays_,
+                               pScenario_->nbShifts_ - 1,
+                               pScenario_->nbPositions(),
+                               nullptr);
+  Tools::initVector4D<MyVar *>(&skillsAllocVars_,
+                               pDemand_->nbDays_,
+                               pScenario_->nbShifts_ - 1,
+                               pScenario_->nbSkills_,
+                               pScenario_->nbPositions(),
+                               nullptr);
+  Tools::initVector3D<MyCons *>(&minDemandCons_,
+                                pDemand_->nbDays_,
+                                pScenario_->nbShifts_ - 1,
+                                pScenario_->nbSkills_,
+                                nullptr);
+  Tools::initVector3D<MyCons *>(&optDemandCons_,
+                                pDemand_->nbDays_,
+                                pScenario_->nbShifts_ - 1,
+                                pScenario_->nbSkills_,
+                                nullptr);
+  Tools::initVector3D<MyCons *>(&numberOfNursesByPositionCons_,
+                                pScenario_->nbPositions(),
+                                pDemand_->nbDays_,
+                                pScenario_->nbShifts_ - 1,
+                                nullptr);
+  Tools::initVector3D<MyCons *>(&feasibleSkillsAllocCons_,
+                                pDemand_->nbDays_,
+                                pScenario_->nbShifts_ - 1,
+                                pScenario_->nbPositions(),
+                                nullptr);
 
   for (int k = 0; k < pDemand_->nbDays_; k++) {
     // forget s=0, it's a resting shift
@@ -686,7 +701,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
                                    pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
         for (int p = 0; p < pScenario_->nbPositions(); p++) {
           snprintf(name, sizeof(name),
-              "skillsAllocVar_%d_%d_%d_%d", k, s, sk, p);
+                   "skillsAllocVar_%d_%d_%d_%d", k, s, sk, p);
           pModel_->createPositiveVar(&skillsAllocVars_[k][s - 1][sk][p],
                                      name,
                                      0);
@@ -701,7 +716,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
 
         MyVar *vFeasibility;
         snprintf(name, sizeof(name),
-            "minDemandFeasibilityVar_%d_%d_%d", k, s, sk);
+                 "minDemandFeasibilityVar_%d_%d_%d", k, s, sk);
         pModel_->createPositiveFeasibilityVar(&vFeasibility, name);
         vars1.push_back(vFeasibility);
         coeffs1.push_back(1);
@@ -783,7 +798,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
           coeff4[sk] = -1;
         }
         snprintf(name, sizeof(name),
-            "feasibleSkillsAllocCons_%d_%d_%d", k, s, p);
+                 "feasibleSkillsAllocCons_%d_%d_%d", k, s, p);
         pModel_->createEQConsLinear(&feasibleSkillsAllocCons_[k][s - 1][p],
                                     name,
                                     0,

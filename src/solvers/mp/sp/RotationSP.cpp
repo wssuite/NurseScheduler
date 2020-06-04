@@ -109,7 +109,7 @@ void RotationSP::createArcsPrincipalToSink() {
 
   // Create pricing arcs for the label CONS_DAYS
   Penalties penalties = initPenalties();
-  std::vector<int> cons = {-maxRotationLength_, 0, 0};
+  std::vector<int> cons = {-10*maxRotationLength_, 0, 0};
   // Arcs to daily sinks
   for (int k = 0; k < nDays_; k++) {
     // last day: price just max

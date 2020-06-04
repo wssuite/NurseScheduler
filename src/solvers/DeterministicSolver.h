@@ -277,6 +277,12 @@ class DeterministicSolver : public Solver {
   //
   std::string lnsStatsToString();
 
+  // Return a solver with the algorithm specified in the options_
+  //
+  Solver *setSolverWithInputAlgorithm(PDemand pDemand,
+                                      Algorithm algorithm,
+                                      const SolverParam &param);
+
  protected:
   // Prepare data structures for LNS
   //
@@ -317,13 +323,6 @@ class DeterministicSolver : public Solver {
   //
   std::vector<double> positionWeights_;
   std::vector<double> contractWeights_;
-
- protected:
-  // Return a solver with the algorithm specified in the options_
-  //
-  Solver *setSolverWithInputAlgorithm(PDemand pDemand,
-                                      Algorithm algorithm,
-                                      const SolverParam &param);
 };
 
 #endif  // SRC_SOLVERS_DETERMINISTICSOLVER_H_
