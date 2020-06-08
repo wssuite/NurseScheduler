@@ -38,10 +38,10 @@
 // ResourceContainer model
 struct spp_res_cont {
   // Constructor
-  spp_res_cont() : cost(LARGE_SCORE) {}
+  spp_res_cont() : cost(LARGE_SCORE), postprocessCost(0) {}
 
   spp_res_cont(double c, const std::vector<int> &label_values) :
-      cost(c), label_values(label_values) {}
+      cost(c), postprocessCost(0), label_values(label_values) {}
 
   // Assign
   spp_res_cont &operator=(const spp_res_cont &other) {
@@ -55,6 +55,7 @@ struct spp_res_cont {
 
   // Current cost
   double cost;
+  double postprocessCost;
 
   // Current labels
   std::vector<int> label_values;
@@ -228,8 +229,8 @@ class BoostRCSPPSolver : public RCSPPSolver {
   Tools::Timer timer_;
 
   void printPath(std::ostream &out,
-                 std::vector<edge> path,
-                 spp_res_cont resource) const;
+                 const std::vector<edge> &path,
+                 const spp_res_cont &resource) const;
 
   bool processPath(
       std::vector<edge> *path,

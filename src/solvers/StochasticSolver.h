@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_STOCHASTICSOLVER_H_
@@ -139,7 +139,7 @@ class StochasticSolver : public Solver {
   //----------------------------------------------------------------------------
 
   // Main function
-  double solve(std::vector<Roster> initialSolution = {});
+  double solve(const std::vector<Roster> &initialSolution = {});
 
   // get the number of generated schedules
   //

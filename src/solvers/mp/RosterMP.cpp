@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "RosterMP.h"
@@ -41,10 +41,10 @@ void RosterPattern::addForbiddenShifts(
 void RosterPattern::computeCost(PScenario pScenario,
                                 const std::vector<PLiveNurse> &liveNurses) {
   // check if pNurse points to a nurse
-  if (nurseId_ == -1)
+  if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
-  PLiveNurse pNurse = liveNurses[nurseId_];
+  PLiveNurse pNurse = liveNurses[nurseNum_];
 
   /************************************************
    * Compute all the costs of a roster:
@@ -79,6 +79,9 @@ void RosterPattern::computeCost(PScenario pScenario,
       consShiftsCost_ -=
           (nbConsShifts - pScenario->maxConsShiftsOf(lastShiftType))
               * pScenario->weights().WEIGHT_CONS_SHIFTS;
+    if (nbConsDaysWorked > pNurse->maxConsDaysWork())
+      consDaysWorkedCost_ -= (nbConsDaysWorked - pNurse->maxConsDaysWork())
+          * pScenario->weights().WEIGHT_CONS_DAYS_WORK;
   } else if (nbConsShifts > pNurse->maxConsDaysOff()) {
     consDaysOffCost_ -= (nbConsDaysOff - pNurse->maxConsDaysOff())
         * pScenario->weights().WEIGHT_CONS_DAYS_OFF;
@@ -215,7 +218,7 @@ void RosterPattern::computeCost(PScenario pScenario,
 void RosterPattern::checkReducedCost(const DualCosts &costs,
                                      PScenario Scenario) {
   // check if pNurse points to a nurse
-  if (nurseId_ == -1)
+  if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
   /************************************************
@@ -301,12 +304,12 @@ std::string RosterPattern::toString(
     std::vector<int> shiftIDToShiftTypeID) const {
   if (nbDays == -1) nbDays = firstDay_ + length_;
   std::stringstream rep;
-  rep << "#   | ROSTER: N=" << nurseId_ << "  cost=" << cost_ << "  dualCost="
+  rep << "#   | ROSTER: N=" << nurseNum_ << "  cost=" << cost_ << "  dualCost="
       << reducedCost_ << std::endl;
   rep << "#   |";
   for (unsigned int i = 0; i < shifts_.size(); i++) {
     if (shifts_[i] < 1) {
-      rep << "\t|";
+      rep << "   |";
     } else {
       int t = shifts_[i];
       if (t < shiftIDToShiftTypeID.size()) {
@@ -385,13 +388,13 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
 // add the correct constraints and coefficients for the nurse i working
 // on a rotation
 // if s=-1, the nurse works on all shifts
-MyVar *RosterMP::addColumn(int nurseId, const RCSolution &solution) {
+MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
-  RosterPattern pat(solution.shifts, nurseId, DBL_MAX, solution.cost);
+  RosterPattern pat(solution.shifts, nurseNum, DBL_MAX, solution.cost);
   pat.computeCost(pScenario_, theLiveNurses_);
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
-  DualCosts costs = buildDualCosts(theLiveNurses_[nurseId]);
+  DualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
   pat.checkReducedCost(costs, pScenario_);
   std::vector<double> pattern = pat.getCompactPattern();
   checkIfPatternAlreadyPresent(pattern);
@@ -403,7 +406,7 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
                            const char *baseName,
                            bool coreVar) {
   // nurse index
-  const int nurseId = roster.nurseId_;
+  const int nurseNum = roster.nurseNum_;
 
   // Column var, its name, and affected constraints with their coefficients
   MyVar *var;
@@ -415,7 +418,7 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
   addSkillsCoverageConsToCol(&cons, &coeffs, roster);
 
   /* add variable to model */
-  snprintf(name, sizeof(name), "%s_N%d_%d", baseName, nurseId, roster.id_);
+  snprintf(name, sizeof(name), "%s_N%d", baseName, nurseNum);
   if (coreVar) {
     pModel_->createPositiveVar(&var,
                                name,
@@ -428,7 +431,7 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
      * to be sure that the artificial variables can always be used to create
      * a feasible solution
      */
-    addRosterConsToCol(&cons, &coeffs, nurseId);
+    addRosterConsToCol(&cons, &coeffs, nurseNum);
 
     bool relaxed = false;
     bool rest = true;
@@ -493,7 +496,7 @@ std::vector<MyVar *> RosterMP::getRestVarsPerDay(PLiveNurse pNurse,
   std::vector<MyVar *> restRosters;
   for (MyVar *var : pModel_->getActiveColumns()) {
     RosterPattern pat(var->getPattern());
-    if (pat.nurseId_ == pNurse->id_
+    if (pat.nurseNum_ == pNurse->num_
         && pScenario_->isRestShift(pat.getShift(day)))
       restRosters.push_back(var);
   }
@@ -580,5 +583,5 @@ double RosterMP::getMaxWeekendCost() const {
 
 /* retrieve the dual values */
 double RosterMP::getConstantDualvalue(PLiveNurse pNurse) const {
-  return pModel_->getDual(assignmentCons_[pNurse->id_]);
+  return pModel_->getDual(assignmentCons_[pNurse->num_]);
 }

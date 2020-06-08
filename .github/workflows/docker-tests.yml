@@ -90,7 +90,7 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
-          ns-args: -g 1950-2150 -t 300 --n-threads 4
+          ns-args: -g 1900-2150 -t 300 --n-threads 4
 
       - name: n035w4_1_1-7-1-8  4 threads
         uses: ./ # Uses an action in the root directory

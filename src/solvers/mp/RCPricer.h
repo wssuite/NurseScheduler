@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_RCPRICER_H_
@@ -146,14 +146,14 @@ class RCPricer : public MyPricer {
   }
   void clearForbiddenShifts() { forbiddenShifts_.clear(); }
   // Nurses
-  void forbidNurse(int nurseId) override {
-    forbiddenNursesIds_.insert(nurseId);
+  void forbidNurse(int nurseNum) override {
+    forbiddenNursesIds_.insert(nurseNum);
   }
   void forbidNurses(const std::set<int> &nurses) {
     for (auto n : nurses)forbidNurse(n);
   }
-  void authorizeNurse(int nurseId) override {
-    forbiddenNursesIds_.erase(nurseId);
+  void authorizeNurse(int nurseNum) override {
+    forbiddenNursesIds_.erase(nurseNum);
   }
   void clearForbiddenNurses() override { forbiddenNursesIds_.clear(); }
   // Starting days
@@ -205,7 +205,7 @@ class RCPricer : public MyPricer {
                           const DualCosts &duals);
 
   // Add the rotations to the master problem
-  int addColumnsToMaster(int nurseId, std::vector<RCSolution> *solutions);
+  int addColumnsToMaster(int nurseNum, std::vector<RCSolution> *solutions);
 
   // Sort the rotations that just were generated for a nurse.
   // Default option is sort by increasing reduced cost but we

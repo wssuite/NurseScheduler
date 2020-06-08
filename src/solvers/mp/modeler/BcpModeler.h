@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_MODELER_BCPMODELER_H_
@@ -24,6 +24,7 @@
 
 /* BCP includes */
 #include "BCP_enum.hpp"
+#include "BCP_error.hpp"
 #include "BCP_vector.hpp"
 #include "BCP_var.hpp"
 #include "BCP_cut.hpp"
@@ -132,7 +133,7 @@ struct BcpCoreVar : public CoinVar, public BCP_var_core {
              VarType type,
              double lb,
              double ub,
-             const std::vector<double> &pattern = DEFAULT_PATTERN) :
+             const std::vector<double> &pattern = {}) :
       CoinVar(name, index, cost, type, lb, ub, pattern),
       BCP_var_core(getBcpVarType(type), cost, lb, ub) {
     set_bcpind(index_);
@@ -152,7 +153,6 @@ struct BcpCoreVar : public CoinVar, public BCP_var_core {
 // LP problem
 //
 //-----------------------------------------------------------------------------
-
 struct BcpColumn : public CoinVar, public BCP_var_algo {
   BcpColumn(const char *name,
             int index,
@@ -162,8 +162,8 @@ struct BcpColumn : public CoinVar, public BCP_var_algo {
             VarType type,
             double lb,
             double ub,
-            const std::vector<int> &indexRows = Tools::EMPTY_INT_VECTOR,
-            const std::vector<double> &coeffs = Tools::EMPTY_DOUBLE_VECTOR) :
+            const std::vector<int> &indexRows = {},
+            const std::vector<double> &coeffs = {}) :
       CoinVar(name, index, cost, type, lb, ub,
               pattern, dualCost, indexRows, coeffs),
       BCP_var_algo(BcpCoreVar::getBcpVarType(type), cost, lb, ub) {
@@ -219,11 +219,11 @@ struct BcpColumn : public CoinVar, public BCP_var_algo {
   }
 
   // use BCP bounds
-  double getLB() const {
+  double getLB() const override {
     return std::max(lb_, lb());
   }
 
-  double getUB() const {
+  double getUB() const override {
     return std::min(ub_, ub());
   }
 
@@ -231,6 +231,12 @@ struct BcpColumn : public CoinVar, public BCP_var_algo {
   void resetBounds() {
     set_lb(lb_);
     set_ub(ub_);
+  }
+
+ protected:
+  void setIndex(int index) override {
+    MyVar::setIndex(index);
+    set_bcpind(index);
   }
 };
 
@@ -307,6 +313,44 @@ enum LPSolverType { CLP, Gurobi, Cplex };
 static std::map<std::string, LPSolverType> LPSolverTypesByName =
     {{"CLP", CLP}, {"Gurobi", Gurobi}, {"Cplex", Cplex}};
 
+/* Exception to stop the solver */
+struct FeasibleStop : BCP_fatal_error, Tools::NSException {
+  template<typename ...Args>
+  explicit FeasibleStop(MasterProblem *pMaster,
+                        const char *format,
+                        Args... args):
+      BCP_fatal_error(""), Tools::NSException(format, args...) {
+    pMaster->setStatus(FEASIBLE);
+  }
+};
+struct InfeasibleStop : BCP_fatal_error, Tools::NSException {
+  template<typename ...Args>
+  explicit InfeasibleStop(MasterProblem *pMaster,
+                          const char *format,
+                          Args... args):
+      BCP_fatal_error(""), Tools::NSException(format, args...) {
+    pMaster->setStatus(INFEASIBLE);
+  }
+};
+struct OptimalStop : BCP_fatal_error, Tools::NSException {
+  template<typename ...Args>
+  explicit OptimalStop(MasterProblem *pMaster,
+                       const char *format,
+                       Args... args):
+      BCP_fatal_error(""), Tools::NSException(format, args...) {
+    pMaster->setStatus(OPTIMAL);
+  }
+};
+struct TimeoutStop : BCP_fatal_error, Tools::NSException {
+  template<typename ...Args>
+  explicit TimeoutStop(MasterProblem *pMaster,
+                       const char *format,
+                       Args... args):
+      BCP_fatal_error(""), Tools::NSException(format, args...) {
+    pMaster->setStatus(TIME_LIMIT);
+  }
+};
+
 //-----------------------------------------------------------------------------
 //
 // C l a s s   B c p M o d e l e r
@@ -344,6 +388,16 @@ class BcpModeler : public CoinModeler {
   void clearActiveColumns() override {
     Modeler::clearActiveColumns();
     columnsToIndex_.clear();
+  }
+
+  // copy the current active columns to keep a track of them after deleting BCP
+  void copyActiveToInitialColumns() {
+    for (MyVar *v : activeColumnVars_) {
+      auto col = dynamic_cast<BcpColumn *>(v);
+      col->resetBounds();
+      initialColumnVars_.emplace_back(new BcpColumn(*col));
+    }
+    activeColumnVars_.clear();
   }
 
  protected:
@@ -438,7 +492,6 @@ class BcpModeler : public CoinModeler {
   /*
    * Class own methods and parameters
    */
-
   void setLPSol(const BCP_lp_result &lpres,
                 const BCP_vec<BCP_var *> &vars,
                 int lpIteration);
@@ -536,8 +589,7 @@ class BcpModeler : public CoinModeler {
 
   void addToMapping(const CoinTreeSiblings *s) {
     const int nbLeaves = s->size();
-    treeMapping_[s] =
-        pTree_->addToMapping(nbLeaves, s->currentNode()->getDepth());
+    treeMapping_[s] = pTree_->addToMapping(nbLeaves);
   }
 
   MyNode *getNode(const CoinTreeSiblings *s) {
@@ -572,7 +624,10 @@ class BcpModeler : public CoinModeler {
   MasterProblem *getMaster() const { return pMaster_; }
 
   // check if Bcp stops
-  bool doStop() const;
+  bool doStop(const BCP_vec<BCP_var *> &vars = {});
+
+  void stop() { stopped_ = true; }
+  bool isStopped() const { return stopped_; }
 
   // check the active rotations
   void checkActiveColumns(const BCP_vec<BCP_var *> &vars) const;
@@ -608,9 +663,21 @@ class BcpModeler : public CoinModeler {
 
   // Get/set statistics
   BCP_lp_statistics getTimeStats() const { return timeStats_; }
-  double gettimeFirstRoot() const { return timeFirstRoot_; }
-  void settimeFirstRoot(double t) { timeFirstRoot_ = t; }
+  void setTimeStats(const BCP_lp_statistics &stats) {
+    timeStats_ = stats;
+  }
+  void addTimeStats(const BCP_lp_statistics &stats) {
+    timeStats_.add(stats);
+  }
+  double getTimeFirstRoot() const { return timeFirstRoot_; }
+  void setTimeFirstRoot(double t) { timeFirstRoot_ = t; }
   int getNbLpIterations() const { return nbLpIterations_; }
+  void setNbLpIterations(int nbLpIterations) {
+    nbLpIterations_ = nbLpIterations;
+  }
+  void addNbLpIterations(int nbLpIterations) {
+    nbLpIterations_ += nbLpIterations;
+  }
   void incrementNbNodes() { nbNodes_++; }
   int getNbNodes() const { return nbNodes_ - 1; }
 
@@ -644,7 +711,7 @@ class BcpModeler : public CoinModeler {
   // all column generation times as computed by BCP
   BCP_lp_statistics timeStats_;
   // other important timer
-  double timeFirstRoot_ = 0.0;
+  double timeFirstRoot_ = -1;
   // number of iterations of column generation
   int nbLpIterations_ = 0;
   // number of branch and bound nodes explored in the tree
@@ -655,6 +722,9 @@ class BcpModeler : public CoinModeler {
 
   // STAB: number of consecutive degenerate column generation iterations
   int nbDegenerateIt_ = 0;
+
+  // if BCP has been stopped
+  bool stopped_ = true;
 
   // At every this many search tree node provide a single line info on the
   // progress of the search tree.
@@ -672,14 +742,12 @@ class BcpModeler : public CoinModeler {
       {BCP_tm_par::TmVerb_AllFeasibleSolutionValue, 0},
       {BCP_tm_par::TmVerb_AllFeasibleSolution, 0},
       {BCP_tm_par::TmVerb_BetterFeasibleSolutionValue, 0},
-      // need this method to store every better feasible solution
-      {BCP_tm_par::TmVerb_BetterFeasibleSolution, 1},
-      {BCP_tm_par::TmVerb_BestFeasibleSolution, 1},
+      {BCP_tm_par::TmVerb_BetterFeasibleSolution, 0},
+      {BCP_tm_par::TmVerb_BestFeasibleSolution, 0},
       {BCP_tm_par::TmVerb_NewPhaseStart, 0},
       {BCP_tm_par::TmVerb_PrunedNodeInfo, 0},
       {BCP_tm_par::TmVerb_TimeOfImprovingSolution, 0},
       {BCP_tm_par::TmVerb_TrimmedNum, 0},
-      // need this method to store the best feasible solution
       {BCP_tm_par::TmVerb_FinalStatistics, 1},
       {BCP_tm_par::ReportWhenDefaultIsExecuted, 0},
       {BCP_tm_par::TmVerb_Last, 0},
@@ -796,7 +864,7 @@ class BcpModeler : public CoinModeler {
 class BcpLpModel : public BCP_lp_user {
  public:
   explicit BcpLpModel(BcpModeler *pModel);
-  ~BcpLpModel() {}
+  ~BcpLpModel();
 
   /*
    * BCP_lp_user methods
@@ -840,14 +908,60 @@ class BcpLpModel : public BCP_lp_user {
                             const int changeType,
                             bool in_strong_branching);
 
+  // print in cout a line summary headers and of the current solver state
+  void printSummaryLineHeaders() const;
+
+  // print printSummaryLine and printNodeSummaryLine if printNode
+  void printSummaryLine(bool printNode,
+                        const BCP_vec<BCP_var *> &vars) const;
+
   // print in cout a line summary of the current solver state
-  void printSummaryLine(const BCP_vec<BCP_var *> &vars = {}) const;
+  void printSummaryLine(const BCP_vec<BCP_var *> &vars) const;
 
   // print in cout a line summary of the current node state
   void printNodeSummaryLine(int nbChildren = 0) const;
 
   // stop this node or BCP
-  bool doStop();
+  bool doStop(const BCP_vec<BCP_var *> &vars = {});
+
+  /** Process the result of an iteration. This includes:
+    - computing a true lower bound on the subproblem. <br>
+      In case column generation is done the lower bound for the subproblem
+      might not be the same as the objective value of the current LP
+      relaxation. Here the user has an option to return a true lower
+      bound.
+    - test feasibility of the solution (or generate a heuristic solution)
+    - generating cuts and/or variables.
+
+    The reason for the existence of this method is that (especially when
+    column generation is done) these tasks are so intertwined that it is
+    much easier to execute them in one method instead of in several
+    separate methods.
+
+    The default behavior is to do nothing and invoke the individual
+    methods one-by-one.
+
+    @param lp_result the result of the most recent LP optimization (IN)
+    @param vars      variables currently in the formulation (IN)
+    @param cuts      variables currently in the formulation (IN)
+    @param old_lower_bound the previously known best lower bound (IN)
+    @param new_cuts  the vector of generated cuts (OUT)
+    @param new_rows  the corresponding rows(OUT)
+    @param new_vars  the vector of generated variables (OUT)
+    @param new_cols  the corresponding columns(OUT)
+  */
+  // Here, will just store the result
+  virtual void
+  process_lp_result(const BCP_lp_result& lpres,
+                    const BCP_vec<BCP_var*>& vars,
+                    const BCP_vec<BCP_cut*>& cuts,
+                    const double old_lower_bound,
+                    double& true_lower_bound,      // NOLINT
+                    BCP_solution*& sol,            // NOLINT
+                    BCP_vec<BCP_cut*>& new_cuts,   // NOLINT
+                    BCP_vec<BCP_row*>& new_rows,   // NOLINT
+                    BCP_vec<BCP_var*>& new_vars,   // NOLINT
+                    BCP_vec<BCP_col*>& new_cols);  // NOLINT
 
   // This method provides an opportunity for the user to tighten the bounds of
   // variables. The method is invoked after reduced cost fixing. The results
@@ -985,7 +1099,8 @@ class BcpLpModel : public BCP_lp_user {
 
   int writeLP(std::string fileName) {
     std::cout << "LP model saved in " << fileName << ".lp" << std::endl;
-    getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
+    if (getLpProblemPointer())
+      getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
     return 0;
   }
 
@@ -1011,7 +1126,7 @@ class BcpLpModel : public BCP_lp_user {
   // count the iteration
   int currentNodelpIteration_, lpIteration_;
   // current node start time
-  double currentNodeStartTime_;
+  double currentNodeStartTime_ = -1;
   // count the nodes
   int last_node;
   // stored if the current node corresponds to a backtracking
@@ -1024,7 +1139,7 @@ class BcpLpModel : public BCP_lp_user {
   int nbCurrentNodeGeneratedColumns_, nbGeneratedColumns_;
   int nbCurrentNodeSPSolved_;
   // Number of dives to wait before branching on columns again
-  std::list<int> nb_dives_to_wait_before_branching_on_columns_;
+  std::list<double> nb_dives_to_wait_before_branching_on_columns_;
 
   // build the candidate from my candidate
   void buildCandidate(const MyBranchingCandidate &candidate,
@@ -1091,7 +1206,7 @@ class BcpBranchingTree : public BCP_tm_user {
   // BCP_solution* unpack_feasible_solution(BCP_buffer& buf);
 
   // display a feasible solution
-  void display_feasible_solution(const BCP_solution *sol);
+  void display_feasible_solution(const BCP_solution *sol) {}
 
   // setting the base
   // Create the core of the problem by filling out the last three arguments.
@@ -1126,6 +1241,15 @@ class BcpBranchingTree : public BCP_tm_user {
   //   }
   void change_candidate_heap(CoinSearchTreeManager &candidates,  // NOLINT
                              const bool new_solution) {}
+
+  /** Unpack a MIP feasible solution that was packed by the
+    BCP_lp_user::pack_feasible_solution() method.
+
+    Default: Unpacks a BCP_solution_generic object. The built-in default
+    should be used if and only if the built-in default was used
+    in BCP_lp_user::pack_feasible_solution().
+    */
+  virtual BCP_solution *unpack_feasible_solution(BCP_buffer &buf);  // NOLINT
 
   // set search strategy
   // Values:
@@ -1183,7 +1307,7 @@ class MyCoinSearchTree : public CoinSearchTreeBase {
   }
 
   void realpush(CoinTreeSiblings *s) {
-    // add the current node to the BcpModele
+    // add the current node to the BcpModeler
     if (s->toProcess() > 0) {
       pModel_->addToMapping(s);
       this->candidateList_.push_back(s);
@@ -1214,7 +1338,7 @@ class BcpPacker : public BCP_user_pack {
   ~BcpPacker() {}
 
   void pack_var_algo(const BCP_var_algo *var, BCP_buffer &buf) {  // NOLINT
-    dynamic_cast<const BcpColumn*>(var)->pack(buf);
+    dynamic_cast<const BcpColumn *>(var)->pack(buf);
   }
 
   BCP_var_algo *unpack_var_algo(BCP_buffer &buf) {  // NOLINT
@@ -1222,7 +1346,7 @@ class BcpPacker : public BCP_user_pack {
   }
 
   void pack_cut_algo(const BCP_cut_algo *cons, BCP_buffer &buf) {  // NOLINT
-    dynamic_cast<const BcpBranchCons*>(cons)->pack(buf);
+    dynamic_cast<const BcpBranchCons *>(cons)->pack(buf);
   }
 
   BCP_cut_algo *unpack_cut_algo(BCP_buffer &buf) {  // NOLINT
@@ -1261,14 +1385,6 @@ class BcpInitialize : public USER_initialize {
 
   BCP_user_pack *packer_init(BCP_user_class *p) {
     return new BcpPacker(pModel_);  // pointer is owned by BCP
-  }
-
-  BCP_lp_statistics getTimeStats() {
-    return pLpModel_->getTimeStats();
-  }
-
-  int getNbLpIterations() const {
-    return pLpModel_->getNbLpIterations();
   }
 
   int writeLP(std::string fileName) const {

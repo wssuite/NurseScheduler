@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_SP_ROSTERSP_H_

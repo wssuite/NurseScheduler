@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "RCPricer.h"
@@ -98,7 +98,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
     nursesToSolve_.erase(nursesToSolve_.begin());
 
     // try next nurse if forbidden
-    if (isNurseForbidden(pNurse->id_)) {
+    if (isNurseForbidden(pNurse->num_)) {
       nursesNoSolution.push_back(pNurse);
       continue;
     }
@@ -138,7 +138,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
 
           // SET SOLVING OPTIONS
           SubproblemParam sp_param
-              (currentSubproblemStrategy_[pNurse->id_], pNurse, pMaster_);
+              (currentSubproblemStrategy_[pNurse->num_], pNurse, pMaster_);
 
           // SOLVE THE PROBLEM
           ++nbSPTried_;
@@ -209,7 +209,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
           subProblem = nullptr;
 
           // ADD THE ROTATIONS TO THE MASTER PROBLEM
-          addColumnsToMaster(pNurse->id_, &solutions);
+          addColumnsToMaster(pNurse->num_, &solutions);
 
           // update the strategy and the reduced costs
           bool updated = updateCurrentStrategyAndRedCost(pNurse,
@@ -318,11 +318,11 @@ bool RCPricer::updateCurrentStrategyAndRedCost(
   lock_guard<recursive_mutex> lock(m_subproblem_);
   // update reduced cost if solved at optimality:
   // on last level and disjointForbidden = false
-  if (currentSubproblemStrategy_[pNurse->id_]
+  if (currentSubproblemStrategy_[pNurse->num_]
       == SubproblemParam::maxSubproblemStrategyLevel_ && !disjointForbidden) {
-    if (solutions.empty()) minOptimalReducedCosts_[pNurse->id_] = 0;
+    if (solutions.empty()) minOptimalReducedCosts_[pNurse->num_] = 0;
     else
-      minOptimalReducedCosts_[pNurse->id_] = solutions.front().cost;
+      minOptimalReducedCosts_[pNurse->num_] = solutions.front().cost;
   } else {
     optimal_ = false;  // cannot ensure optimality
   }
@@ -334,12 +334,12 @@ bool RCPricer::updateCurrentStrategyAndRedCost(
   if (!disjointForbidden &&
       solutions.size() < pModel_->getParameters().nbMaxColumnsToAdd_ *
           pModel_->getParameters().sp_min_columns_ratio_for_increase_ &&
-      currentSubproblemStrategy_[pNurse->id_]
+      currentSubproblemStrategy_[pNurse->num_]
           < SubproblemParam::maxSubproblemStrategyLevel_) {
-    currentSubproblemStrategy_[pNurse->id_]++;
+    currentSubproblemStrategy_[pNurse->num_]++;
 #ifdef DBG
-    //    std::cout << "nurse " << pNurse->id_ << ": lvl "
-    //              << currentSubproblemStrategy_[pNurse->id_] << std::endl;
+    //    std::cout << "nurse " << pNurse->num_ << ": lvl "
+    //              << currentSubproblemStrategy_[pNurse->num_] << std::endl;
 #endif
     increased = true;
   }
@@ -430,7 +430,7 @@ void RCPricer::releaseSubproblem(PLiveNurse pNurse, SubProblem *subProblem) {
 }
 
 // Add the rotations to the master problem
-int RCPricer::addColumnsToMaster(int nurseId,
+int RCPricer::addColumnsToMaster(int nurseNum,
                                  std::vector<RCSolution> *solutions) {
   // SORT THE SOLUTIONS
   sortGeneratedSolutions(solutions);
@@ -443,7 +443,7 @@ int RCPricer::addColumnsToMaster(int nurseId,
 #ifdef DBG
 // std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_) << std::endl;
 #endif
-    allNewColumns_.emplace_back(pMaster_->addColumn(nurseId, sol));
+    allNewColumns_.emplace_back(pMaster_->addColumn(nurseNum, sol));
     ++nbcolumnsAdded;
     if (nbcolumnsAdded >= pModel_->getParameters().nbMaxColumnsToAdd_)
       break;

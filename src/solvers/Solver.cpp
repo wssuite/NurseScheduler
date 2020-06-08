@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "Solver.h"
@@ -79,7 +79,7 @@ LiveNurse::LiveNurse(const Nurse &nurse,
     pScenario_(pScenario),
     nbDays_(nbDays),
     firstDay_(firstDay),
-    originalNurseId_(nurse.id_),
+    nurseNum_(nurse.num_),
     pStateIni_(pStateIni),
     pPreferences_(pPreferences),
     pPosition_(0),
@@ -108,8 +108,8 @@ LiveNurse::LiveNurse(const Nurse &nurse,
                      int firstDay,
                      State *pStateIni,
                      PPreferences pPreferences,
-                     int nurseId) :
-    Nurse(nurseId,
+                     int num) :
+    Nurse(num,
           nurse.name_,
           nurse.nbSkills_,
           nurse.skills_,
@@ -117,7 +117,7 @@ LiveNurse::LiveNurse(const Nurse &nurse,
     pScenario_(pScenario),
     nbDays_(nbDays),
     firstDay_(firstDay),
-    originalNurseId_(nurse.id_),
+    nurseNum_(nurse.num_),
     pStateIni_(pStateIni),
     pPreferences_(pPreferences),
     pPosition_(0),
@@ -143,11 +143,11 @@ LiveNurse::LiveNurse(const Nurse &nurse,
 LiveNurse::~LiveNurse() {}
 
 const std::map<int, std::vector<Wish> > &LiveNurse::wishesOff() const {
-  return pPreferences_->nurseWishesOff(originalNurseId_);
+  return pPreferences_->nurseWishesOff(nurseNum_);
 }
 
 const std::map<int, std::vector<Wish> > &LiveNurse::wishesOn() const {
-  return pPreferences_->nurseWishesOn(originalNurseId_);
+  return pPreferences_->nurseWishesOn(nurseNum_);
 }
 
 // returns true if the nurse wishes the day-shift off
@@ -479,16 +479,18 @@ void LiveNurse::printContractAndPreferences(PScenario pScenario) const {
 SolverParam::SolverParam(int verbose, OptimalityLevel level,
                          std::string outfile, std::string logfile) :
     verbose_(verbose), outfile_(outfile), logfile_(logfile) {
-  this->initialize(verbose, level);
+  setVerbose(verbose);
+  setOptimalityLevel(level);
 }
 
 // Initialize all the parameters according to a small number of options that
 // represent the strategies we want to test
 //
-void SolverParam::initialize(int verbose, OptimalityLevel level) {
+void SolverParam::setVerbose(int verbose) {
   // Default display values are all set to false,
   // so new values are given only if set to true
   //
+  verbose_ = verbose;
   switch (verbose) {
     case 0: printEverySolution_ = false;
       printRelaxationSol_ = false;
@@ -530,10 +532,6 @@ void SolverParam::initialize(int verbose, OptimalityLevel level) {
       printRelaxationLp_ = true;
       break;
   }
-
-  // Optimality level of the solution process
-  //
-  setOptimalityLevel(level);
 }
 
 // Set the parameters relative to the optimality level
@@ -1748,7 +1746,7 @@ string Solver::solutionToLogString() {
 // display the complete solution in the log and write the solution of
 // the weeks separately
 //
-bool Solver::displaySolutionMultipleWeeks(InputPaths inputPaths) {
+bool Solver::displaySolutionMultipleWeeks(const InputPaths &inputPaths) {
   // create the directory name of outputs
   std::string outDir;
   int nbWeeks = inputPaths.nbWeeks();

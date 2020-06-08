@@ -1,0 +1,126 @@
+name: w8
+benchmark:
+  exe: ./bin/staticscheduler
+  dir: ./datasets/
+  param: ./paramfiles/optimality.txt
+  sp-type: ROSTER
+  timeout: 1200
+  n-threads: 4
+  verbose: 0
+  args: null
+  instances:
+    - name: n030w8_1_2-7-0-9-3-6-0-6
+      root-lb: 1993.7
+      ub: 2085
+      lb: 2000.0
+      time: 1200
+      status: FEASIBLE
+      stats:
+        - 615.0 615.0 592.0 595.0 0.0 0.0 200.1 0.0 200.1 34.0 17.9 500.7 2478 0 14 0
+        - 1470.0 1470.0 1401.7 1405.0 0.0 0.0 1000.4 0.0 1000.4 287.6 231.6 2513.4 1570
+          0 39 0
+    - name: n030w8_1_6-7-5-3-5-6-2-9
+      root-lb: 1709.4
+      ub: 1890
+      lb: 1710.0
+      time: 1200
+      status: FEASIBLE
+      stats:
+        - 480.0 480.0 449.4 450.0 0.1 0.1 200.1 0.0 200.1 37.9 15.4 466.1 2098 0 12 0
+        - 1410.0 1410.0 1260.0 1260.0 0.1 0.1 1000.5 0.0 1000.5 293.3 249.1 2326.6 1509
+          0 40 0
+    - name: n035w8_0_6-2-9-8-7-7-9-8
+      root-lb: 2407.8
+      ub: 2715
+      lb: 2415.0
+      time: 1199
+      status: FEASIBLE
+      stats:
+        - 900.0 900.0 837.5 840.0 0.1 0.1 205.2 0.0 205.2 41.4 13.3 453.0 1222 0 10 0
+        - 1815.0 1815.0 1570.3 1575.0 0.1 0.1 994.3 0.0 994.3 353.0 140.4 2867.2 1099
+          0 45 0
+    - name: n035w8_1_0-8-1-6-1-7-2-0
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n040w8_0_0-6-8-9-2-6-6-4
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n040w8_2_5-0-4-8-7-1-7-2
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n050w8_1_1-7-8-5-7-4-1-8
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n050w8_1_9-7-5-3-8-8-3-1
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n060w8_0_6-2-9-9-0-8-1-3
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n060w8_2_1-0-3-4-0-3-9-1
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n070w8_0_3-3-9-2-3-7-5-2
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n070w8_0_9-3-0-7-2-1-1-0
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n080w8_1_4-4-9-9-3-6-0-5
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n080w8_2_0-4-0-9-1-9-6-2
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n100w8_0_0-1-7-8-9-1-5-4
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n100w8_1_2-4-7-9-3-9-2-8
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n110w8_0_2-1-1-7-2-6-4-7
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n110w8_0_3-2-4-9-4-1-3-7
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n120w8_0_0-9-9-4-5-1-0-3
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A
+    - name: n120w8_1_7-2-6-4-5-2-0-2
+      root-lb: N/A
+      ub: N/A
+      lb: N/A
+      time: N/A

@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "MasterProblem.h"
@@ -44,11 +44,6 @@ using std::endl;
 
 
 // P a t t e r n   s t a t i c   m e t h o d s
-
-// Compare rotations on index
-bool Pattern::compareId(PPattern pat1, PPattern pat2) {
-  return (pat1->id_ < pat2->id_);
-}
 
 // Compare rotations on cost
 bool Pattern::compareCost(PPattern pat1, PPattern pat2) {
@@ -174,19 +169,20 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
 }
 
 // solve the rostering problem
-double MasterProblem::solve(vector<Roster> solution) {
+double MasterProblem::solve(const vector<Roster> &solution) {
   return solve(solution, true);
 }
 
 // Solve the rostering problem with parameters
 
-double MasterProblem::solve(const SolverParam &param, vector<Roster> solution) {
+double MasterProblem::solve(
+    const SolverParam &param, const vector<Roster> &solution) {
   setParameters(param);
   return solve(solution, true);
 }
 
 // solve the rostering problem
-double MasterProblem::solve(vector<Roster> solution, bool rebuild) {
+double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
   // build the model first
   if (rebuild) {
     pModel_->clear();
@@ -203,22 +199,36 @@ double MasterProblem::solve(vector<Roster> solution, bool rebuild) {
   pModel_->writeProblem("master_model");
 #endif
 
-  // RqJO: warning, it would be better to define an enumerate type of verbosity
-  // levels and create the matching in the Modeler subclasses
-  if (solverType_ != S_CBC) {
-    pModel_->setVerbosity(1);
-  }
   this->solveWithCatch();
 
   if (pModel_->getParameters().printBranchStats_) {
     pModel_->printStats();
   }
 
-  if (!pModel_->printBestSol()) {
-    return pModel_->getRelaxedObjective();
+  // update solver's status
+  if (getModel()->nbSolutions() == 0) {
+    // if was solving just the relaxation: stopAfterXSolution_ = 0
+    if (param_.stopAfterXSolution_ == 0) {
+      // if column generation has been solved to optimality
+      if (status_ != INFEASIBLE)
+        status_ = OPTIMAL;
+      return pModel_->getRelaxedObjective();
+    }
+    // otherwise, set solution as infeasible
+    setStatus(INFEASIBLE);
+    return LARGE_SCORE;
+  } else if (status_ == TIME_LIMIT) {
+    std::cout << "Stop solution process: time limit is reached" << std::endl;
+    status_ = FEASIBLE;
   }
 
+  // print best solution
+  pModel_->printBestSol();
+
+  // store solution
   storeSolution();
+
+  // print constraints' costs
   costsConstrainstsToString();
 
   return pModel_->getObjective();
@@ -232,7 +242,7 @@ void MasterProblem::solveWithCatch() {
 //
 double MasterProblem::resolve(PDemand pDemand,
                               const SolverParam &param,
-                              vector<Roster> solution) {
+                              const std::vector<Roster> &solution) {
   updateDemand(pDemand);
   setParameters(param);
   return solve(solution, false);
@@ -240,7 +250,7 @@ double MasterProblem::resolve(PDemand pDemand,
 
 // Initialization of the master problem with/without solution
 void MasterProblem::initialize(const SolverParam &param,
-                               vector<Roster> solution) {
+                               const std::vector<Roster> &solution) {
   build(param);
   initializeSolution(solution);
   setParameters(param);
@@ -263,7 +273,7 @@ void MasterProblem::build(const SolverParam &param) {
   if (solverType_ != S_CBC) {
     /* Rotation pricer */
     pPricer_ = new RCPricer(this, "pricer", param);
-    pModel_->addObjPricer(pPricer_);
+    pModel_->addPricer(pPricer_);
 
     /* Tree */
     RestTree *pTree = new RestTree(pScenario_, pDemand_, param.epsilon_);
@@ -353,7 +363,7 @@ void MasterProblem::fixNurses(vector<bool> isFix) {
   // set the list of fixed day
   // + forbid the generation of rotations of the input nurses
   for (PLiveNurse pNurse : theLiveNurses_) {
-    int n = pNurse->id_;
+    int n = pNurse->num_;
     isFixNurse_[n] = isFixNurse_[n] ? true : isFix[n];
     if (isFixNurse_[n]) pPricer_->forbidNurse(n);
   }
@@ -371,7 +381,7 @@ void MasterProblem::unfixNurses(vector<bool> isUnfix) {
     // set the list of unfixed nurses
     // + authorize the generation of rotations for the input nurses
     for (PLiveNurse pNurse : theLiveNurses_) {
-      int n = pNurse->id_;
+      int n = pNurse->num_;
       isFixNurse_[n] = isFixNurse_[n] ? !isUnfix[n] : false;
       if (!isFixNurse_[n]) pPricer_->authorizeNurse(n);
     }
@@ -384,21 +394,19 @@ void MasterProblem::unfixNurses(vector<bool> isUnfix) {
 //------------------------------------------------------------------------------
 // Solve the problem with a method that allows for a warm start
 //------------------------------------------------------------------------------
-double MasterProblem::rollingSolve(const SolverParam &param, int firstDay) {
+double MasterProblem::rollingSolve(const SolverParam &param,
+                                   int firstDay,
+                                   const std::vector<Roster> &solution) {
   // build the model and initialize with artificial columns
   // at the first iteration
   if (firstDay == 0) {
-    initialize(param);
+    initialize(param, solution);
   } else {
-    // otherwise reset the solution but keep the best solution
-    // load and store the best solution
-    pModel_->loadBestSol();
-    storeSolution();
     // reset the model
     pModel_->reset();
     setParameters(param);
-    // add the best solution  back in the model
-    initializeSolution(solution_);
+    // add the solution in the model
+    initializeSolution(solution);
   }
 
   // solve the problem
@@ -421,15 +429,13 @@ double MasterProblem::rollingSolve(const SolverParam &param, int firstDay) {
 // Solve the problem with a method that can be specific to our implementation
 // of LNS
 //------------------------------------------------------------------------------
-double MasterProblem::LNSSolve(const SolverParam &param) {
-  // load and store the best solution
-  pModel_->loadBestSol();
-  storeSolution();
+double MasterProblem::LNSSolve(const SolverParam &param,
+                               const std::vector<Roster> &solution) {
   // reset the model
   pModel_->reset();
   setParameters(param);
-  // add the best solution  back in the model
-  initializeSolution(solution_);
+  // add the solution
+  initializeSolution(solution);
 
   // solve the problem
   pModel_->setVerbosity(1);
@@ -475,7 +481,7 @@ void MasterProblem::storeSolution() {
   for (MyVar *var : pModel_->getActiveColumns()) {
     if (pModel_->getVarValue(var) > epsilon()) {
       PPattern pat = getPattern(var->getPattern());
-      PLiveNurse pNurse = theLiveNurses_[pat->nurseId_];
+      PLiveNurse pNurse = theLiveNurses_[pat->nurseNum_];
       for (int k = pat->firstDay_; k < pat->firstDay_ + pat->length_; ++k) {
         int s = pat->getShift(k);
         if (s == 0) continue;  // nothing to do
@@ -491,7 +497,7 @@ void MasterProblem::storeSolution() {
           }
         if (!assigned)
           Tools::throwError("No skill found for Nurse %d on day %d on shift %d",
-                            pNurse->id_,
+                            pNurse->num_,
                             k,
                             s);
       }
@@ -527,17 +533,31 @@ void MasterProblem::save(const vector<int> &weekIndices, string outfile) {
 }
 
 std::string MasterProblem::currentSolToString() const {
-  std::stringstream rep;
 //  rep << allocationToString();
 //  rep << coverageToString();
+  // fetch the active columns and store them by nurses
+  vector2D<MyVar *> colsByNurses(pScenario_->nbNurses());
   for (MyVar *var : pModel_->getActiveColumns()) {
     double v = pModel_->getVarValue(var);
     if (v < epsilon()) continue;
-    rep << var->name_ << ": " << v << std::endl;
+    colsByNurses[var->getNurseNum()].push_back(var);
+    std::stringstream rep;
+    rep << var->getNurseNum() << ": " << v << std::endl;
     PPattern pat = getPattern(var->getPattern());
     rep << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_)
         << std::endl;
   }
+
+  // print the solutions
+  std::stringstream rep;
+  for (const auto &vec : colsByNurses)
+    for (MyVar *var : vec) {
+      double v = pModel_->getVarValue(var);
+      rep << var->getNurseNum() << ": " << v << std::endl;
+      PPattern pat = getPattern(var->getPattern());
+      rep << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_)
+          << std::endl;
+    }
   return rep.str();
 }
 
@@ -559,7 +579,7 @@ vector3D<double> MasterProblem::getFractionalRoster() const {
     double value = pModel_->getVarValue(var);
     if (value < epsilon()) continue;
     PPattern pat = getPattern(var->getPattern());
-    vector2D<double> &fractionalRoster2 = fractionalRoster[pat->nurseId_];
+    vector2D<double> &fractionalRoster2 = fractionalRoster[pat->nurseNum_];
     for (int k = pat->firstDay_; k < pat->firstDay_ + pat->length_; ++k)
       fractionalRoster2[k][pat->getShift(k)] += value;
   }
@@ -734,7 +754,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
           pModel_->createPositiveVar(&stabMinDemandPlus_[k][s - 1][sk],
                                      name,
                                      param.stabCostIni_ + param.stabCostMargin_,
-                                     DEFAULT_PATTERN,
+                                     {},
                                      0,
                                      param.stabBoundIni_);
           pModel_->addCoefLinear(minDemandCons_[k][s - 1][sk],
@@ -758,7 +778,7 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
           pModel_->createPositiveVar(&stabOptDemandPlus_[k][s - 1][sk],
                                      name,
                                      param.stabCostIni_ + param.stabCostMargin_,
-                                     DEFAULT_PATTERN,
+                                     {},
                                      0,
                                      param.stabBoundIni_);
           pModel_->addCoefLinear(optDemandCons_[k][s - 1][sk],
@@ -814,7 +834,7 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons *> *cons,
                                               const Pattern &pat) const {
   int nbCons(0);
 
-  int p = theLiveNurses_[pat.nurseId_]->pPosition()->id_;
+  int p = theLiveNurses_[pat.nurseNum_]->pPosition()->id_;
   for (int k = pat.firstDay_; k < pat.firstDay_ + pat.length_; ++k) {
     int s = pat.getShift(k);
     if (pScenario_->isAnyShift(s)) {
@@ -928,8 +948,6 @@ string MasterProblem::costsConstrainstsToString() const {
   rep << "-----------------------------------------\n";
   rep << "\n";
 
-  cout << rep.str();
-
   return rep.str();
 }
 
@@ -947,7 +965,7 @@ string MasterProblem::allocationToString(bool printInteger) const {
   snprintf(buff, sizeof(buff), "%20s", "");
   rep << buff;
   for (int day = firstDay; day < firstDay + nbDays; day++) {
-    rep << "| " << Tools::intToDay(day).at(0) << " ";
+    rep << "| " << Tools::intToDay(day).at(0) << "  ";
     if (Tools::isSunday(day)) rep << "| ";
   }
   rep << "|" << std::endl;
@@ -969,13 +987,13 @@ string MasterProblem::allocationToString(bool printInteger) const {
       for (int day = firstDay; day < firstDay + nbDays; day++) {
         double shiftValue = fnurseFractionalRoster[day][s];
         if (shiftValue > 1 - epsilon()) {
-          rep << "| 1 ";
+          rep << "| 1  ";
         } else if (shiftValue > epsilon()) {
           char buffer[100];
-          snprintf(buffer, sizeof(buffer), "|%3.2f", shiftValue);
+          snprintf(buffer, sizeof(buffer), "|%4.2f", shiftValue);
           rep << buffer;
         } else {
-          rep << "| - ";
+          rep << "| -  ";
         }
         if (Tools::isSunday(day)) rep << "| ";
       }
@@ -984,8 +1002,6 @@ string MasterProblem::allocationToString(bool printInteger) const {
     rep << std::endl;
   }
   rep << std::endl;
-
-  cout << rep.str();
 
   return rep.str();
 }
@@ -1004,7 +1020,7 @@ string MasterProblem::coverageToString(bool printInteger) const {
   snprintf(buff, sizeof(buff), "%20s", "");
   rep << buff;
   for (int day = firstDay; day < firstDay + nbDays; day++) {
-    rep << "|  " << Tools::intToDay(day).at(0) << " ";
+    rep << "|  " << Tools::intToDay(day).at(0) << "  ";
     if (Tools::isSunday(day)) rep << "| ";
   }
   rep << "|" << std::endl;

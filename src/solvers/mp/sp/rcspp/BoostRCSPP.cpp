@@ -15,9 +15,10 @@
 #include <memory>
 
 void spp_res_cont::print(std::ostream &out) const {
-  out << "Cost: " << cost << std::endl;
+  out << "Cost: " << cost << "\t\tPostprocess cost: "
+      << postprocessCost << std::endl;
   for (int l = 0; l < size(); l++) {
-    out << labelsName[l].c_str() << "=" << label_value(l) << "  ";
+    out << "\t\t" << labelsName[l].c_str() << "=" << label_value(l);
   }
   out << std::endl;
 #ifdef DBG
@@ -389,8 +390,8 @@ RCSolution BoostRCSPPSolver::solution(const std::vector<edge> &path,
 
 // Print the path (arcs, nodes, cost of each arc in the current network, etc.)
 void BoostRCSPPSolver::printPath(std::ostream &out,
-                                 std::vector<edge> path,
-                                 spp_res_cont resource) const {
+                                 const std::vector<edge> &path,
+                                 const spp_res_cont &resource) const {
   // The successive nodes, and corresponding arc costs / time
   for (int j = path.size() - 1; j >= 0; --j) {
     int a = boost::get(&Arc_Properties::num, rcg_->g(), path[j]);
@@ -398,9 +399,8 @@ void BoostRCSPPSolver::printPath(std::ostream &out,
   }
 
   // Last node and total
-  out << "# \t| ~TOTAL~   \t\tCost:   " << resource.cost;
-  for (int l = 0; l < resource.size(); ++l)
-    out << "\t\t" << labelsName[l] << ":" << resource.label_value(l);
+  out << "# \t| ~TOTAL~   \t\t";
+  resource.print(out);
   out << std::endl << "# \t| " << std::endl;
   out << "# \t| RC Solution: |";
 
@@ -584,8 +584,10 @@ void BoostRCSPPSolver::backtrack(
 //      cur_cont.print(std::cerr);
       return;
     } else {
-      Tools::throwError("Predecessor label could not be found when "
-                        "reconstructing solution path in the RCGraph.");
+//      Tools::throwError("Predecessor label could not be found when "
+//                        "reconstructing solution path in the RCGraph.");
+      std::cerr << "Predecessor label could not be found when "
+                   "reconstructing solution path in the RCGraph." << std::endl;
     }
   }
 }

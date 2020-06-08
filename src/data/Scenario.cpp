@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "Scenario.h"
@@ -432,10 +432,10 @@ void Scenario::linkWithPreferences(PPreferences pPreferences) {
   pWeekPreferences_ = pPreferences;
   nbShiftOffRequests_ = 0;
   for (PNurse nurse : theNurses_)
-    nbShiftOffRequests_ += pWeekPreferences_->howManyShiftsOff(nurse->id_);
+    nbShiftOffRequests_ += pWeekPreferences_->howManyShiftsOff(nurse->num_);
   nbShiftOnRequests_ = 0;
   for (PNurse nurse : theNurses_)
-    nbShiftOnRequests_ += pWeekPreferences_->howManyShiftsOn(nurse->id_);
+    nbShiftOnRequests_ += pWeekPreferences_->howManyShiftsOn(nurse->num_);
 }
 
 //------------------------------------------------
@@ -511,9 +511,9 @@ string Scenario::toString() {
     for (PNurse nurse : theNurses_) {
       // Display only if the nurse has preferences
       const map<int, vector<Wish> >
-          &prefNurse = pWeekPreferences_->nurseWishesOff(nurse->id_);
+          &prefNurse = pWeekPreferences_->nurseWishesOff(nurse->num_);
       if (!prefNurse.empty()) {
-        rep << "#\t\t\t" << nurse->id_ << "\t" << nurse->name_ << "\t";
+        rep << "#\t\t\t" << nurse->num_ << "\t" << nurse->name_ << "\t";
         for (const auto &itWishlist : prefNurse) {
           rep << Tools::intToDay(itWishlist.first) << ": ";
           bool first = true;
@@ -531,9 +531,9 @@ string Scenario::toString() {
     for (PNurse nurse : theNurses_) {
       // Display only if the nurse has preferences
       const map<int, vector<Wish> >
-          &prefNurse = pWeekPreferences_->nurseWishesOn(nurse->id_);
+          &prefNurse = pWeekPreferences_->nurseWishesOn(nurse->num_);
       if (!prefNurse.empty()) {
-        rep << "#\t\t\t" << nurse->id_ << "\t" << nurse->name_ << "\t";
+        rep << "#\t\t\t" << nurse->num_ << "\t" << nurse->name_ << "\t";
         for (const auto &itWishlist : prefNurse) {
           rep << Tools::intToDay(itWishlist.first) << ": ";
           bool first = true;
@@ -711,7 +711,7 @@ void Scenario::preprocessTheNurses() {
 // Compare nurses in ascending order of their ideas
 //
 bool compareNursesById(PNurse n1, PNurse n2) {
-  return (n1->id_ < n2->id_);
+  return (n1->num_ < n2->num_);
 }
 
 bool comparePairSecond(pair<int, int> p1, pair<int, int> p2) {

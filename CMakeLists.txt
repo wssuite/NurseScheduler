@@ -27,7 +27,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
         endif()
         add_definitions(-DDBG)
 endif()
-add_definitions(-pedantic -Wall)
+add_definitions(-pedantic -Wall -Wno-sign-compare)
 
 # add boost
 if(${BOOST_DIR})
@@ -41,6 +41,7 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 MESSAGE("BCP directory: ${BCP_DIR}")
 INCLUDE_DIRECTORIES(${BCP_DIR}/include/coin)
 LINK_DIRECTORIES(${BCP_DIR}/lib)
+LINK_DIRECTORIES(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 SET(LIBS Bcp Osi OsiClp ClpSolver Clp CoinUtils bz2 z lapack blas m pthread)
 
 # build main library

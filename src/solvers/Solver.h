@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_SOLVER_H_
@@ -23,7 +23,7 @@
 #include "data/Nurse.h"
 #include "data/Roster.h"
 #include "data/Scenario.h"
-#include "solvers/SolverInput.h"
+
 
 //-----------------------------------------------------------------------------
 //
@@ -146,7 +146,7 @@ class LiveNurse : public Nurse {
   LiveNurse(const Nurse &nurse, PScenario pScenario, int nbDays, int firstDay,
             State *pStateIni, PPreferences pPreferences);
   LiveNurse(const Nurse &nurse, PScenario pScenario, int nbDays, int firstDay,
-            State *pStateIni, PPreferences pPreferences, int nurseId);
+            State *pStateIni, PPreferences pPreferences, int num);
   ~LiveNurse();
 
   //----------------------------------------------------------------------------
@@ -160,7 +160,7 @@ class LiveNurse : public Nurse {
   // Data of the the particular period the live nurse is going to work
   //----------------------------------------------------------------------------
   int nbDays_, firstDay_;
-  const int originalNurseId_;
+  const int nurseNum_;
 
   // Initial state
   State *pStateIni_;
@@ -498,10 +498,10 @@ class SolverParam {
   SPType sp_type_ = LONG_ROTATION;
 
  public:
-  // Initialize all the parameters according to a small number of options that
-  // represent the strategies we want to test
+  // Initialize all the parameters according to a small number of
+  // verbose options
   //
-  void initialize(int verbose, OptimalityLevel level);
+  void setVerbose(int verbose);
 
   // Set the parameters relative to the optimality level
   //
@@ -531,12 +531,14 @@ class Solver {
 
   // Main method to solve the rostering problem for a given input and an
   // initial solution
-  virtual double solve(std::vector<Roster> solution = {}) { return DBL_MAX; }
+  virtual double solve(const std::vector<Roster> &solution = {}) {
+    return DBL_MAX;
+  }
 
   // Main method to solve the rostering problem for a given input and an
   // initial solution and parameters
   virtual double solve(const SolverParam &parameters,
-                       std::vector<Roster> solution = {}) {
+                       const std::vector<Roster> &solution = {}) {
     param_ = parameters;
     return solve(solution);
   }
@@ -545,7 +547,7 @@ class Solver {
   //
   virtual double resolve(PDemand pDemand,
                          const SolverParam &parameters,
-                         std::vector<Roster> solution = {}) {
+                         const std::vector<Roster> &solution = {}) {
     pDemand_ = pDemand;
     return solve(parameters, solution);
   }
@@ -632,7 +634,7 @@ class Solver {
 
   // Status of the solver
   //
-  Status status_ = INFEASIBLE;
+  Status status_ = UNSOLVED;
 
   // a solution is a vector of rosters, one for each nurse
   // it is recorded in a vector (roster i in the vector corresponds to nurse i)
@@ -704,13 +706,20 @@ class Solver {
   virtual void unfixNurses(std::vector<bool> isUnfixNurse) {}
 
   // Solve the problem with a method that allows for a warm start
-  virtual double rollingSolve(const SolverParam &parameters, int firstDay) {
+  virtual double rollingSolve(
+      const SolverParam &parameters,
+      int firstDay,
+      const std::vector<Roster> &solution = {}) {
     return 0.0;
   }
 
   // Special solve function for LNS
   // It is a priori the same as a regular, but it might be modified if needed
-  virtual double LNSSolve(const SolverParam &parameters) { return 0.0; }
+  virtual double LNSSolve(
+      const SolverParam &parameters,
+      const std::vector<Roster> &solution = {}) {
+    return 0.0;
+  }
 
   // Solve the problem using a decomposition of the set nurses by connected
   // components of the rcspp of positions
@@ -746,7 +755,7 @@ class Solver {
   // Initialization of the rostering problem with/without solution
   //
   virtual void initialize(const SolverParam &parameters,
-                          std::vector<Roster> solution) {}
+                          const std::vector<Roster> &solution = {}) {}
 
   //------------------------------------------------
   // Preprocess functions
@@ -933,7 +942,7 @@ class Solver {
   // display the complete solution in the log and write the solution of
   // the weeks separately
   //
-  bool displaySolutionMultipleWeeks(InputPaths inputPaths);
+  bool displaySolutionMultipleWeeks(const InputPaths &inputPaths);
 };
 
 #endif  // SRC_SOLVERS_SOLVER_H_

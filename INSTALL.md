@@ -63,12 +63,19 @@ The code can be built either with a traditional Makefile or with cmake. In both 
   ````
 
   - ##### From cmake:
-  First, modify the CMakeDefinitionsLists.txt to provide your own paths (you need to define only one of the last variables for BCP). Also, if boost is installed in a classical path, cmake will be able to find the path automatically.
+  First, modify the CMakeDefinitionsLists.txt to provide your own paths 
+  (you need to define only one of the last variables for BCP). 
+  Also, if boost is installed in a classical path, 
+  cmake will be able to find the path automatically.
   ````bash
   set(BOOST_DIR /path/to/boost/directory/boost_X_XX)
   set(BCPDIROPT /path/to/coinor/directory/Bcp-1.4/build)
   set(BCPDIRDBG /path/to/coinor/directory/Bcp-1.4/debug)
   ````
+  Note that you can use the following command to avoid pushing any 
+  modifications made on "CMakeDefinitionsLists.txt":
+  ```git update-index --skip-worktree CMakeDefinitionsLists.txt```
+  
   Then, go to the root directory of the nurse scheduling project and type:
   ````bash
   mkdir build && cd build && cmake ..

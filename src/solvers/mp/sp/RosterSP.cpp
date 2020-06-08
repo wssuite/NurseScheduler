@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "RosterSP.h"
@@ -36,10 +36,11 @@ RCSPPSolver *RosterSP::initRCSSPSolver() {
   Penalties penalties = initPenalties();
   // lambda expression to post process the solutions found by the RCSPP solver
   auto postProcess = [constant, penalties](spp_res_cont *res_cont) {
-    res_cont->cost -= constant;
-    res_cont->cost += penalties.penalty(DAYS, res_cont->label_value(DAYS));
-    res_cont->cost +=
-        penalties.penalty(WEEKEND, res_cont->label_value(WEEKEND));
+    res_cont->postprocessCost =
+        penalties.penalty(DAYS, res_cont->label_value(DAYS)) +
+        penalties.penalty(WEEKEND, res_cont->label_value(WEEKEND)) -
+        constant;
+    res_cont->cost += res_cont->postprocessCost;
   };
   return new BoostRCSPPSolver(&g_,
                               maxReducedCostBound_,

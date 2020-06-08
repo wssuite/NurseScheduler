@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_TOOLS_INPUTPATHS_H_
@@ -31,11 +31,12 @@ class InputPaths {
              std::string solutionPath = "",
              std::string logPath = "",
              std::string paramFile = "",
-             double timeOut = 3600.0,
+             double timeOut = -1,
+             int verbose = -1,
              int randSeed = 0,
-             std::string SPType = "LONG",
-             int SPStrategy = 1,
-             int nThreads = 1);
+             std::string SPType = "",
+             int SPStrategy = -1,
+             int nThreads = -1);
 
  protected:
   std::string instance_;
@@ -47,11 +48,12 @@ class InputPaths {
   std::string solutionPath_ = "";
   std::string logPath_ = "";
   std::string paramFile_ = "";
+  int verbose_ = -1;
   int randSeed_ = 0;
-  double timeOut_ = 3600;
-  std::string SPType_ = "LONG";
-  int SPStrategy_ = 0;
-  int nThreads_ = 1;
+  double timeOut_ = -1;
+  std::string SPType_ = "";
+  int SPStrategy_ = -1;
+  int nThreads_ = -1;
 
  public:
   // get/set attributes
@@ -80,6 +82,9 @@ class InputPaths {
   void randSeed(int seed) { randSeed_ = seed; }
   double timeOut() const { return timeOut_; }
   void timeOut(double t) { timeOut_ = t; }
+
+  int verbose() const { return verbose_; }
+  void verbose(int verbose) { verbose_ = verbose; }
 
   const std::string& SPType() const { return SPType_; }
   void SPType(std::string t) { SPType_ = t; }

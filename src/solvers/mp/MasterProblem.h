@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_MASTERPROBLEM_H_
@@ -79,37 +79,35 @@ typedef std::shared_ptr<Pattern> PPattern;
 struct Pattern {
   Pattern(int firstDay,
           int length,
-          int nurseId = -1,
+          int nurseNum = -1,
           double cost = DBL_MAX,
           double dualCost = DBL_MAX) :
-      nurseId_(nurseId), firstDay_(firstDay), length_(length), id_(s_count++),
+      nurseNum_(nurseNum), firstDay_(firstDay), length_(length),
       cost_(cost), reducedCost_(dualCost) {}
 
-  Pattern(const Pattern &pat, int nurseId) :
-      nurseId_(nurseId),
+  Pattern(const Pattern &pat, int nurseNum) :
+      nurseNum_(nurseNum),
       firstDay_(pat.firstDay_),
       length_(pat.length_),
-      id_(pat.id_),
       cost_(pat.cost_),
       reducedCost_(pat.reducedCost_) {
-    if (pat.nurseId_ != nurseId_) {
+    if (pat.nurseNum_ != nurseNum_) {
       cost_ = DBL_MAX;
       reducedCost_ = DBL_MAX;
     }
   }
 
   explicit Pattern(const std::vector<double> &pattern) :
-      nurseId_(static_cast<int>(pattern[0])),
+      nurseNum_(static_cast<int>(pattern[0])),
       firstDay_(static_cast<int>(pattern[1])),
       length_(static_cast<int>(pattern[2])),
-      id_(s_count++),
       cost_(DBL_MAX),
       reducedCost_(DBL_MAX) {}
 
   virtual ~Pattern() {}
 
   virtual bool equals(PPattern pat) const {
-    if (nurseId_ != pat->nurseId_) return false;
+    if (nurseNum_ != pat->nurseNum_) return false;
     if (firstDay_ != pat->firstDay_) return false;
     if (length_ != pat->length_) return false;
     for (int k = firstDay_; k < firstDay_ + length_; ++k) {
@@ -120,8 +118,8 @@ struct Pattern {
 
   // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest)
   virtual bool isDisjointWith(PPattern pat, bool needRest = true) const {
-    return ( (firstDay_ + length_ < pat->firstDay_ - needRest)
-        || (pat->firstDay_ + pat->length_ < firstDay_ - needRest) );
+    return ((firstDay_ + length_ < pat->firstDay_ - needRest)
+        || (pat->firstDay_ + pat->length_ < firstDay_ - needRest));
   }
 
   // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest)
@@ -157,18 +155,15 @@ struct Pattern {
   // to create a new one from it
   virtual std::vector<double> getCompactPattern() const {
     std::vector<double> compact;
-    compact.push_back(nurseId_);
+    compact.push_back(nurseNum_);
     compact.push_back(firstDay_);
     compact.push_back(length_);
     return compact;
   }
 
-  int nurseId_;
+  int nurseNum_;
   int firstDay_;
   int length_;
-
-  // Id of the rotation
-  const unsigned int id_;
 
   // Cost
   double cost_;
@@ -176,18 +171,11 @@ struct Pattern {
   // Dual cost as found in the subproblem
   double reducedCost_;
 
-  // Compare rotations on index
-  static bool compareId(PPattern pat1, PPattern pat2);
-
   // Compare rotations on cost
   static bool compareCost(PPattern pat1, PPattern pat2);
 
   // Compare rotations on dual cost
   static bool compareDualCost(PPattern pat1, PPattern pat2);
-
- private:
-  // count rotations
-  static unsigned int s_count;
 };
 
 //-----------------------------------------------------------------------------
@@ -209,23 +197,23 @@ class MasterProblem : public Solver, public PrintSolution {
   ~MasterProblem();
 
   // solve the rostering problem
-  double solve(std::vector<Roster> solution = {}) override;
+  double solve(const std::vector<Roster> &solution = {}) override;
 
   // solve the rostering problem or just the relaxation(root node)
-  double solve(std::vector<Roster> solution, bool rebuild);
+  double solve(const std::vector<Roster> &solution, bool rebuild);
 
   // Solve with parameters
   double solve(const SolverParam &parameters,
-               std::vector<Roster> solution = {}) override;
+               const std::vector<Roster> &solution = {}) override;
 
   // Resolve the problem with another demand and keep the same preferences
   double resolve(PDemand pDemand,
                  const SolverParam &parameters,
-                 std::vector<Roster> solution = {}) override;
+                 const std::vector<Roster> &solution = {}) override;
 
-  // needs to be specialized: add a colum  to the master from a solution of
+  // needs to be specialized: add a column  to the master from a solution of
   // the subproblem
-  virtual MyVar *addColumn(int nurseId, const RCSolution &solution) = 0;
+  virtual MyVar *addColumn(int nurseNum, const RCSolution &solution) = 0;
 
   // retrieve the object represented ny the  vector pattern
   virtual PPattern getPattern(const std::vector<double> &pattern) const = 0;
@@ -283,15 +271,18 @@ class MasterProblem : public Solver, public PrintSolution {
   void unfixNurses(std::vector<bool> isUnfixNurse) override;
 
   // Solve the problem with a method that allows for a warm start
-  double rollingSolve(const SolverParam &parameters, int firstDay) override;
+  double rollingSolve(const SolverParam &parameters,
+                      int firstDay,
+                      const std::vector<Roster> &solution = {}) override;
 
   // Special solve function for LNS
   // It is a priori the same as a regular, but it might be modified if needed
-  double LNSSolve(const SolverParam &parameters) override;
+  double LNSSolve(const SolverParam &parameters,
+                  const std::vector<Roster> &solution = {}) override;
 
   // Initialization of the master problem with/without solution
   void initialize(const SolverParam &parameters,
-                  std::vector<Roster> solution = {}) override;
+                  const std::vector<Roster> &solution = {}) override;
 
   //---------------------------------------------------------------------------
   //

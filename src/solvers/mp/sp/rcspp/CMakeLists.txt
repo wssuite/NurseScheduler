@@ -1,8 +1,8 @@
 set(LIB_NAME rcspp)
 set(SOURCE_FILES
         RCGraph.cpp
-        PrincipalGraph.cpp
         BoostRCSPP.cpp
+        PrincipalGraph.cpp
         )
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})

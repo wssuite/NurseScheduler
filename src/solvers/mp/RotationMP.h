@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_ROTATIONMP_H_
@@ -33,10 +33,10 @@ struct RotationPattern : Pattern {
   // Specific constructors and destructors
   //
   RotationPattern(std::map<int, int> shifts,
-                  int nurseId = -1,
+                  int nurseNum = -1,
                   double cost = DBL_MAX,
                   double dualCost = DBL_MAX) :
-      Pattern(-1, shifts.size(), nurseId, cost, dualCost),
+      Pattern(-1, shifts.size(), nurseNum, cost, dualCost),
       shifts_(shifts),
       consShiftsCost_(0),
       consDaysWorkedCost_(0),
@@ -51,10 +51,10 @@ struct RotationPattern : Pattern {
 
   RotationPattern(int firstDay,
                   std::vector<int> shiftSuccession,
-                  int nurseId = -1,
+                  int nurseNum = -1,
                   double cost = DBL_MAX,
                   double dualCost = DBL_MAX) :
-      Pattern(firstDay, shiftSuccession.size(), nurseId, cost, dualCost),
+      Pattern(firstDay, shiftSuccession.size(), nurseNum, cost, dualCost),
       consShiftsCost_(0),
       consDaysWorkedCost_(0),
       completeWeekendCost_(0),
@@ -77,8 +77,8 @@ struct RotationPattern : Pattern {
       shifts_[firstDay_ + k] = static_cast<int>(compactPattern[k + 3]);
   }
 
-  RotationPattern(const RotationPattern &rotation, int nurseId) :
-      Pattern(rotation, nurseId),
+  RotationPattern(const RotationPattern &rotation, int nurseNum) :
+      Pattern(rotation, nurseNum),
       shifts_(rotation.shifts_),
       consShiftsCost_(rotation.consShiftsCost_),
       consDaysWorkedCost_(rotation.consDaysWorkedCost_),
@@ -168,7 +168,7 @@ class RotationMP : public MasterProblem {
 
   PPattern getPattern(const std::vector<double> &pattern) const override;
 
-  MyVar *addColumn(int nurseId, const RCSolution &solution) override;
+  MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 
   // STAB
   // Update all the upper bounds of the stabilization variables by multiplying
@@ -198,7 +198,7 @@ class RotationMP : public MasterProblem {
   // get a reference to the restsPerDay_ for a Nurse
   std::vector<MyVar *> getRestVarsPerDay(PLiveNurse pNurse,
                                          int day) const override {
-    return restsPerDay_[pNurse->id_][day];
+    return restsPerDay_[pNurse->num_][day];
   }
 
   const std::vector<MyVar *> &getMinWorkedDaysVars() const {

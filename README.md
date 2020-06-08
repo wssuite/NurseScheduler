@@ -37,24 +37,26 @@ The following describes how to handle our code.
 	f. ./scripts : Directory including several scripts for the execution of multiple runs at once
 
 	g. ./bashfiles : Directory containing bash files that execute the solver on an instance (the files are created by the scripts)
-
+	
+	h. ./benchmark : Directory containing the different benchmark on which the code can be run in a static and dynamic version. The best obtained results are also stored there. You can edit this file and run our code on a benchmark with the python script "run-benchmark.py".
+	
 3. Global structure of the code:
 
 	Every source file is in the ./src directory, where header files are used to declare the classes, and methods.
 
 	a. The main is in "DeterministicMain.cpp" and "DynamicMain.cpp". "DeterministicMain_test.cpp" is for the definition of some unitary tests.
 
-	b. Input data and basic preprocessing methods are in "Nurse.h/.cpp", "Roster.h", "Scenario.h/.cpp" and stored in an instance of the class defined in "SolverInput.h"
+	b. Input data and basic preprocessing methods are stored in directory "data/"
+	and correspond to the files "Nurse.h/.cpp", "Roster.h", "Scenario.h/.cpp". 
 
-	c. "Solver.h" stores an abstract solver class and the definitions of several other classes of objects manipulated by the algorithm. In particular a LiveNurse has the constant attributes of a Nurse and other attributes that will be modified during the execution of the solution algorithm. The files "InitializeSolver.h/.cpp" runs some preprocessing actions before actually solving the problem.
+	c. The directory "solvers/" contains all the algorithms. In particular:
+	- "Solver.h" stores an abstract solver class and the definitions of several other classes of objects manipulated by the algorithm. In particular a LiveNurse has the constant attributes of a Nurse and other attributes that will be modified during the execution of the solution algorithm. The files "InitializeSolver.h/.cpp" runs some preprocessing actions before actually solving the problem.
+    - "DeterministicSolver.h/.cpp" contains the declaration and the structure of every algorithm described in [2] as well as all the methods involved in the large neighborhood search. 
+    - Every method that BCP needs are redefined for the branch-and-price algorithm are in "mp/modeler/BcpModeler.h/.cpp", "mp/modeler/CoinModeler.h" and in "mp/TreeManager.h/.cpp". The global structure of the column generation subproblem, including the construction of the constrained shortest path network, is in "mp/sp/Subproblem.h/.cpp", and the dynamic programming algorithm that solves the subproblems is implemented in "mp/sp/rcspp/BoostRCGraph.h/.cpp" (it is adapted from an algorithm found in the Boost library).
+    - "StochasticSolver.h/.cpp" contains the declaration and the structure of the algorithm described in [3] and really close to the one submitted to INRCII.
 
-	d. "DeterministicSolver.h/.cpp" contains the declaration and the structure of every algorithm described in [2] as well as all the methods involved in the large neighborhood search. Every method that BCP needs redefined for the branch-and-price algorithm are in "BcpModeler.h/.cpp", "CoinModeler.h" and in "TreeManager.h/.cpp". The global structure of the column generation subproblem, including the construction of the constrained shortest path network, is in "Subproblem.h/.cpp", and the dynamic programming algorithm that solves the subproblems is implemented in "RotationPricer.h/.cpp" (it is adapted from an algorithm found in the Boost library).
-
-	e. "StochasticSolver.h/.cpp" contains the declaration and the structure of the algorithm described in [3] and really close to the one submitted to INRCII.
-
-	f. The postprocessing/display/parsing methods are in "ReadWrite.h/.cpp", "GlobalStats.h/.cpp", and "InputPaths.h/.cpp".
-
-	g. The files "MyTools.h/.cpp" contain intermediary methods frequently used in the code.
+	d. The postprocessing/display/parsing methods are stored in the directory "tools/".
+	   Especially, the files "MyTools.h/.cpp" contain intermediary methods frequently used in the code.
 
 4. Execution of the deterministic solver:
 

@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_DETERMINISTICSOLVER_H_
@@ -116,7 +116,8 @@ class DeterministicSolverOptions {
 
 class DeterministicSolver : public Solver {
  public:
-  DeterministicSolver(PScenario pScenario, InputPaths inputPaths);
+  explicit DeterministicSolver(PScenario pScenario);
+  DeterministicSolver(PScenario pScenario, const InputPaths &inputPaths);
 
   ~DeterministicSolver();
 
@@ -130,16 +131,16 @@ class DeterministicSolver : public Solver {
  public:
   // Getter/setter
   //
-  const DeterministicSolverOptions& getOptions() const {
+  const DeterministicSolverOptions &getOptions() const {
     return options_;
   }
-  const SolverParam& getRollingParameters() const {
+  const SolverParam &getRollingParameters() const {
     return rollingParameters_;
   }
-  const SolverParam& getLnsParameters() const {
+  const SolverParam &getLnsParameters() const {
     return lnsParameters_;
   }
-  const SolverParam& getCompleteParameters() const {
+  const SolverParam &getCompleteParameters() const {
     return completeParameters_;
   }
 
@@ -184,8 +185,8 @@ class DeterministicSolver : public Solver {
 
   // update functions for the most relevant statistics
   //
-  void updateInitialStats(MasterProblem *pMaster);
-  void updateImproveStats(MasterProblem *pMaster);
+  void updateInitialStats(Solver *pSolver);
+  void updateImproveStats(Solver *pSolver);
 
  protected:
   GlobalStats stats_;
@@ -199,7 +200,7 @@ class DeterministicSolver : public Solver {
 
  public:
   // Main function
-  double solve(std::vector<Roster> initialSolution = {});
+  double solve(const std::vector<Roster> &solution = {});
 
   // Solve the problem using a decomposition of the set nurses by connected
   // components of the rcspp of positions
@@ -222,7 +223,7 @@ class DeterministicSolver : public Solver {
  public:
   // Solve a deterministic input demand with the input algorithm
   //
-  double solveCompleteHorizon();
+  double solveCompleteHorizon(const std::vector<Roster> &solution = {});
 
  private:
   // Solver that will be called to solve each sampling period in the rolling
@@ -245,7 +246,7 @@ class DeterministicSolver : public Solver {
   // The sample period is the number of days for which column variables must
   // be integer.
   //
-  double solveWithRollingHorizon();
+  double solveWithRollingHorizon(const std::vector<Roster> &solution = {});
 
  private:
   // Solver that will be called to solve each sampling period in the rolling
@@ -271,7 +272,7 @@ class DeterministicSolver : public Solver {
   // Iteratively fix the schedule of complete weeks or of a set of nurses and
   // solve the rest to improve a initial feasible solution
   //
-  double solveWithLNS();
+  double solveWithLNS(const std::vector<Roster> &solution = {});
 
   // Print to a string the statistics of the lns
   //

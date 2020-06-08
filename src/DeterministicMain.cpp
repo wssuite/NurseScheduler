@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include <exception>
@@ -54,10 +54,13 @@ int solveDeterministic(const InputPaths &inputPaths, double timeout) {
   // Display the solution and write the files for the validator
   //
   std::cout << "# FINAL SOLUTION" << std::endl;
-  std::string solutionStatus = statusToString.at(pSolver->getStatus());
-  std::cout << "# Solution status = " << solutionStatus << std::endl;
+  std::cout << "# Solution status = "
+            << statusToString.at(pSolver->getStatus()) << std::endl;
   std::cout << "# Objective value = ";
-  if (objValue >= LARGE_SCORE) std::cout << "  -  ";
+  bool noSolution =
+      pSolver->getStatus() == INFEASIBLE || pSolver->getStatus() == UNSOLVED;
+  if (noSolution)
+    std::cout << "  -  ";
   else
     std::cout << objValue;
   std::cout << std::endl;
@@ -80,14 +83,12 @@ int solveDeterministic(const InputPaths &inputPaths, double timeout) {
     lnsStatStream.close();
   }
 
-  int returncode =
-      pSolver->getStatus() == INFEASIBLE;  // 1 if INFEASIBLE, 0 otherwise
-
   //  release memory
   delete pSolver;
   statStream.close();
 
-  return returncode;
+  // 1 if no solution found, 0 otherwise
+  return noSolution;
 }
 
 /******************************************************************************

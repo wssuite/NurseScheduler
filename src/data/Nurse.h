@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_DATA_NURSE_H_
@@ -225,7 +225,7 @@ class Nurse {
   // Id of the nurse within a scenario
   // (=index in the vector<Nurse> theNurse of the Scenario)
   //
-  const int id_;
+  const int num_;
 
   // name of the nurse
   //
@@ -282,7 +282,7 @@ class Nurse {
 //  C l a s s   P r e f e r e n c e s
 //
 //  Describes the preferences of a nurse for a certain period of time
-//  They are given as a vector (entry = nurseId).
+//  They are given as a vector (entry = nurseNum).
 //  Each element is a map<int,set<int>> whose keys are the days,
 //  and values are the sets of wished shift(s) OFF on that day.
 //
@@ -350,8 +350,8 @@ class Preferences {
   bool wantsTheShiftOn(int nurse, int day, int shift) const;
 
   // Returns level if the nurse wants that shift off : -1 otherwise
-  int wantsTheShiftOffLevel(int nurseId, int day, int shift) const;
-  int wantsTheShiftOnLevel(int nurseId, int day, int shift) const;
+  int wantsTheShiftOffLevel(int nurseNum, int day, int shift) const;
+  int wantsTheShiftOnLevel(int nurseNum, int day, int shift) const;
 
   // True if the nurses wants the whole day off
   bool wantsTheDayOff(int nurse, int day) const;

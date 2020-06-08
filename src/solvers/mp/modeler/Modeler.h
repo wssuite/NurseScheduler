@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_MODELER_MODELER_H_
@@ -50,14 +50,13 @@ enum SearchStrategy {
  * the modeler will also delete it at the end.
  */
 struct MyObject {
-  explicit MyObject(const char *name) : id_(s_count) {
-    ++s_count;
-    char *name2 = new char[255];
-    strncpy(name2, name, 255);
-    name_ = name2;
+  explicit MyObject(const char *name) {
+    char *tName = new char[255];
+    strncpy(tName, name, 255);
+    name_ = tName;
   }
 
-  MyObject(const MyObject &myObject) : id_(myObject.id_) {
+  MyObject(const MyObject &myObject) : num_(myObject.num_) {
     char *name2 = new char[255];
     strncpy(name2, myObject.name_, 255);
     name_ = name2;
@@ -67,18 +66,24 @@ struct MyObject {
     delete[] name_;
   }
 
-  // count object
-  static unsigned int s_count;
   // for the map of objects
-  int operator<(const MyObject &m) const { return this->id_ < m.id_; }
+  int operator<(const MyObject &m) const { return num_ < m.num_; }
+
+  int num() const { return num_; }
 
   const char *name_;
 
  private:
-  const unsigned int id_;
-};
+  int num_ = -1;
 
-static const std::vector<double> DEFAULT_PATTERN;
+  void num(int num) {
+    if (num < -1)
+      Tools::throwError("Negative num for MyObject: %d", num);
+    num_ = num;
+  }
+
+  friend class Modeler;
+};
 
 struct MyVar : public MyObject {
   MyVar(const char *name,
@@ -87,7 +92,7 @@ struct MyVar : public MyObject {
         VarType type,
         double lb,
         double ub,
-        const std::vector<double> &pattern = DEFAULT_PATTERN) :
+        const std::vector<double> &pattern = {}) :
       MyObject(name),
       index_(index),
       type_(type),
@@ -169,7 +174,7 @@ struct MyVar : public MyObject {
   }
 
   // get the id of the nurse in charge of the rotation
-  virtual int getNurseId() const {
+  virtual int getNurseNum() const {
     return static_cast<int>(pattern_[0]);
   }
 
@@ -186,9 +191,13 @@ struct MyVar : public MyObject {
   int active_count_;
   // save the iteration number of the last activity
   int last_active_;
-};
 
-static const std::vector<MyVar *> EMPTY_VARS;
+  virtual void setIndex(int index) {
+    index_ = index;
+  }
+
+  friend class Modeler;
+};
 
 struct MyCons : public MyObject {
   MyCons(const char *name, int index, double lhs, double rhs) :
@@ -262,9 +271,9 @@ struct MyPricer {
 //   virtual void authorizeShift(int k, int s)=0;
 //   virtual void clearForbiddenShifts()=0;
   // Nurses
-  virtual void forbidNurse(int nurseId) = 0;
+  virtual void forbidNurse(int nurseNum) = 0;
 //   virtual void forbidNurses(set<int,int> nurses)=0;
-  virtual void authorizeNurse(int nurseId) = 0;
+  virtual void authorizeNurse(int nurseNum) = 0;
   virtual void clearForbiddenNurses() = 0;
   // Starting days
   virtual void forbidStartingDay(int k) = 0;
@@ -277,20 +286,6 @@ struct MyPricer {
 //   virtual void authorizeEndingDay(int k)=0;
 //   virtual void clearForbiddenEndingDays()=0;
 };
-
-/* Exception to stop the solver */
-struct BCPStop : public Tools::NSException {
-  template<typename ...Args>
-  explicit BCPStop(Args... args):
-      Tools::NSException(args...) {
-    std::cout << what() << std::endl;
-  }
-};
-
-typedef BCPStop FeasibleStop;
-typedef BCPStop InfeasibleStop;
-typedef BCPStop OptimalStop;
-typedef BCPStop TimeoutStop;
 
 /* Structures to store a branching candidate and its potential children */
 struct MyBranchingNode {
@@ -449,11 +444,12 @@ struct MyBranchingRule {
 /* Represents the nodes of the branching tree */
 struct MyNode {
   MyNode() : index_(0),
-             pParent_(0),
+             pParent_(nullptr),
              bestLB_(LARGE_SCORE),
              processed_(false),
              gap_(LARGE_SCORE),
              highestGap_(0),
+             depth_(0),
              bestLagLB_(-LARGE_SCORE),
              lastLagLB_(-LARGE_SCORE) {}
   MyNode(int index, MyNode *pParent) :
@@ -463,6 +459,7 @@ struct MyNode {
       processed_(false),
       gap_(LARGE_SCORE),
       highestGap_(0),
+      depth_(pParent->depth_+1),
       bestLagLB_(pParent->bestLagLB_),
       lastLagLB_(pParent->bestLB_) {}
   virtual ~MyNode() {}
@@ -626,18 +623,18 @@ struct MyTree {
       return "";
   }
 
-  std::vector<MyNode *> addToMapping(const int nbLeaves, const int diveDepth) {
+  std::vector<MyNode *> addToMapping(const int nbLeaves) {
     const int size = tree_.size();
     std::vector<MyNode *> leaves(nbLeaves);
     for (int i = 0; i < nbLeaves; ++i) {
       leaves[i] = tree_[size - nbLeaves + i];
-      leaves[i]->setDepth(diveDepth + 1);
     }
     activeTreeMapping_[currentNode_] = leaves;
     tree_size_ += nbLeaves;
 
     // set dive depth in case of diving
-    diveDepth_ = diveDepth;
+    if (currentNode_)
+      diveDepth_ = currentNode_->getDepth();
 
     return leaves;
   }
@@ -713,10 +710,9 @@ struct MyTree {
     if (!currentNode_->pParent_) {
       best_lb_in_root = lb;
       best_lb = lb;
-    } else if (currentNode_->pParent_->getBestLB() < best_lb + 1e-9
-        && lb > best_lb + 1e-9) {
-      // update best_lb if needed: current node was best_lb and lb is not
-      best_lb = computeBestLB();
+    } else {
+      // update best_lb
+      best_lb = computeCurrentBestLB();
     }
 
     // compute gap
@@ -727,7 +723,7 @@ struct MyTree {
   }
 
   // compute best lb by visiting all unprocessed nodes
-  double computeBestLB() {
+  double computeCurrentBestLB() {
     double new_best_lb = currentNode_->getBestLB();
     for (const auto &p : activeTreeMapping_)
       for (MyNode *node : p.second)
@@ -857,10 +853,12 @@ class Modeler {
     if (coreCons_.back()->getIndex() != (cons_count - 1))
       Tools::throwError("coreCons_ is not an ordered sequence: the last "
                         "constraint does not have the right index.");
+    // reset initial columns to ensure the right index
+    resetInitialColumns();
   }
 
   // Add a pricer
-  virtual int addObjPricer(MyPricer *pPricer) {
+  virtual int addPricer(MyPricer *pPricer) {
     pPricer_ = pPricer;
     return 1;
   }
@@ -897,7 +895,7 @@ class Modeler {
                                bool backtracked = false) {
     if (pPricer_)
       return pPricer_->pricing(bound, before_fathom, after_fathom, backtracked);
-    return EMPTY_VARS;
+    return {};
   }
 
   bool branching_candidates(MyBranchingCandidate *candidate) {
@@ -921,6 +919,20 @@ class Modeler {
 
   double epsilon() const {
     return parameters_.epsilon_;
+  }
+
+  /*
+   * Store and set num for objects objects
+   */
+ protected:
+  void registerObject(MyObject *o) {
+    if (o->num() < 0)
+      o->num(objectsCount++);
+  }
+
+  void addObject(MyObject *o) {
+    registerObject(o);
+    objects_.push_back(o);
   }
 
   /*
@@ -966,13 +978,13 @@ class Modeler {
               pattern,
               score);
     coreVars_.push_back(*var);
-    objects_.push_back(*var);
+    addObject(*var);
   }
 
   void createPositiveVar(MyVar **var,
                          const char *var_name,
                          double objCoeff,
-                         const std::vector<double> &pattern = DEFAULT_PATTERN,
+                         const std::vector<double> &pattern = {},
                          double score = 0,
                          double ub = DBL_MAX) {
     ub = (ub == DBL_MAX) ? infinity_ : ub;
@@ -990,7 +1002,7 @@ class Modeler {
   void createIntVar(MyVar **var,
                     const char *var_name,
                     double objCoeff,
-                    const std::vector<double> &pattern = DEFAULT_PATTERN,
+                    const std::vector<double> &pattern = {},
                     double score = 0,
                     double ub = DBL_MAX) {
     ub = (ub == DBL_MAX) ? infinity_ : ub;
@@ -1001,7 +1013,7 @@ class Modeler {
   void createBinaryVar(MyVar **var,
                        const char *var_name,
                        double objCoeff,
-                       const std::vector<double> &pattern = DEFAULT_PATTERN,
+                       const std::vector<double> &pattern = {},
                        double score = 0) {
     createVar(var,
               var_name,
@@ -1017,7 +1029,7 @@ class Modeler {
   void createPositiveFeasibilityVar(
       MyVar **var,
       const char *var_name,
-      const std::vector<double> &pattern = DEFAULT_PATTERN,
+      const std::vector<double> &pattern = {},
       double score = 0,
       double ub = DBL_MAX) {
     createPositiveVar(var, var_name, LARGE_SCORE, pattern, score, ub);
@@ -1058,6 +1070,7 @@ class Modeler {
                     ub,
                     vartype,
                     score);
+    registerObject(*var);
   }
 
   void createPositiveColumnVar(MyVar **var,
@@ -1148,7 +1161,7 @@ class Modeler {
                         "have already been generated.", con_name);
     createConsLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
     coreCons_.push_back(*cons);
-    objects_.push_back(*cons);
+    addObject(*cons);
   }
 
   void createLEConsLinear(MyCons **cons,
@@ -1195,6 +1208,7 @@ class Modeler {
     // set flag cut_added to true
     cut_added = true;
     createCutLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
+    registerObject(*cons);
   }
 
   // Add a lower or equal constraint
@@ -1643,6 +1657,12 @@ class Modeler {
     initialColumnVars_.clear();
   }
 
+  virtual void resetInitialColumns() {
+    // reset the columns index in the Modeler after a reset
+    for (MyVar *v : activeColumnVars_)
+      v->setIndex(var_count++);
+  }
+
   // Fix every rotation to one : this is useful only when the active columns
   // are only the rotations included in a provided initial solution
   virtual void fixEveryRotation() {}
@@ -1686,8 +1706,6 @@ class Modeler {
     activeColumnVars_.push_back(var);
   }
 
-  // store all MyObject* (objects owned by modeler)
-  std::vector<MyObject *> objects_;
   // store the variables and the constraints that belongs to the core of the
   // model (the one that are not generated).
   std::vector<MyVar *> coreVars_;
@@ -1730,6 +1748,13 @@ class Modeler {
 
   // Coin data
   double infinity_ = 1.2343423E23;
+
+ private:
+  // store all MyObject* (objects owned by modeler)
+  std::vector<MyObject *> objects_;
+  // count the objects created by the modeler
+  // (could be different of objects_.size())
+  int objectsCount = 0;
 };
 
 #endif  // SRC_SOLVERS_MP_MODELER_MODELER_H_

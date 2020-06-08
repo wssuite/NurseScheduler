@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "ReadWrite.h"
@@ -441,13 +441,13 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
                                                pScenario->nbShifts_);
       // Temporary vars
       string nurseName, shift, day, strLevel;
-      int nbShifts, nurseId, dayId;
+      int nbShifts, nurseNum, dayId;
       PREF_LEVEL level = WEAK;
       file >> nbShifts;
       for (int i = 0; i < nbShifts; i++) {
         if (nurseName.empty())
           file >> nurseName;
-        nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        nurseNum = pScenario->nurseNameToInt_.at(nurseName);
         nurseName.clear();
         file >> shift;
         file >> day;
@@ -462,11 +462,11 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
         }
 
         if (shift == "Any") {
-          (*pPref)->addDayOff(nurseId, dayId, level);
+          (*pPref)->addDayOff(nurseNum, dayId, level);
         } else {
           // shiftId = pScenario->shiftTypeToInt_.at(shift);
           int shiftId = pScenario->shiftToInt_.at(shift);
-          (*pPref)->addShiftOff(nurseId, dayId, shiftId, level);
+          (*pPref)->addShiftOff(nurseNum, dayId, shiftId, level);
         }
       }
     } else if (Tools::strEndsWith(title, "SHIFT_ON_REQUESTS ")) {
@@ -478,13 +478,13 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
                                                pScenario->nbShifts_);
       // Temporary vars
       string nurseName, shift, day, strLevel;
-      int nbShifts, nurseId, dayId;
+      int nbShifts, nurseNum, dayId;
       PREF_LEVEL level = WEAK;
       file >> nbShifts;
       for (int i = 0; i < nbShifts; i++) {
         if (nurseName.empty())
           file >> nurseName;
-        nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        nurseNum = pScenario->nurseNameToInt_.at(nurseName);
         nurseName.clear();
         file >> shift;
         file >> day;
@@ -499,11 +499,11 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
         }
 
         if (shift == "Any") {
-          (*pPref)->addDayOn(nurseId, dayId, level);
+          (*pPref)->addDayOn(nurseNum, dayId, level);
         } else {
           // shiftId = pScenario->shiftTypeToInt_.at(shift);
           int shiftId = pScenario->shiftToInt_.at(shift);
-          (*pPref)->addShiftOn(nurseId, dayId, shiftId, level);
+          (*pPref)->addShiftOn(nurseNum, dayId, shiftId, level);
         }
       }
     }
@@ -565,11 +565,11 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
       //
       for (int n = 0; n < pScenario->nbNurses_; n++) {
         string nurseName, shiftTypeName;
-        // int nurseId;
+        // int nurseNum;
         int shiftTypeId, totalTimeWorked, totalWeekendsWorked, consDaysWorked,
             consShiftWorked, consRest, consShifts;
         file >> nurseName;
-        // nurseId = pScenario->nurseNameToInt_.at(nurseName);
+        // nurseNum = pScenario->nurseNameToInt_.at(nurseName);
         file >> totalTimeWorked;
         file >> totalWeekendsWorked;
         file >> shiftTypeName;

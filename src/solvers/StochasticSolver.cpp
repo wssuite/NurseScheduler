@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "StochasticSolver.h"
@@ -26,6 +26,7 @@ using std::vector;
 using std::map;
 using std::pair;
 using std::set;
+
 
 /******************************************************************************
  * Set the options of the stochastic solver
@@ -159,8 +160,8 @@ StochasticSolver::StochasticSolver(PScenario pScenario,
       options_.totalTimeLimitSeconds_;
   options_.generationParameters_.weekIndices_ = {pScenario_->thisWeek()};
 
-  options.generationParameters_.verbose_ = options.verbose_;
-  options.evaluationParameters_.verbose_ = options.verbose_;
+  options_.generationParameters_.verbose_ = options_.verbose_;
+  options_.evaluationParameters_.verbose_ = options_.verbose_;
 
   bestScore_ = LARGE_SCORE;
   bestSchedule_ = -1;
@@ -208,7 +209,7 @@ StochasticSolver::~StochasticSolver() {
 //----------------------------------------------------------------------------
 
 // Main function
-double StochasticSolver::solve(vector<Roster> initialSolution) {
+double StochasticSolver::solve(const vector<Roster> &initialSolution) {
   options_.nExtraDaysGenerationDemands_ =
       std::min(options_.nExtraDaysGenerationDemands_,
                7 * (pScenario_->nbWeeks() - (pScenario_->thisWeek() + 1)));

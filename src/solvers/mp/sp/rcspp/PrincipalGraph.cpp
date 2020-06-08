@@ -181,6 +181,7 @@ double PrincipalGraph::consCost(int n) const {
 }
 
 void PrincipalGraph::linkInSubGraph(SubGraph *inSubGraph, int day) {
+  checkInitialization();
   inSubGraphs_[day] = inSubGraph;
   pSP_->addSingleArc(inSubGraph->exit(day),
                      getNode(day, 0),
@@ -190,6 +191,7 @@ void PrincipalGraph::linkInSubGraph(SubGraph *inSubGraph, int day) {
 }
 
 void PrincipalGraph::linkOutSubGraph(SubGraph *outSubGraph, int day) {
+  checkInitialization();
   outSubGraphs_[day] = outSubGraph;
   pSP_->addSingleArc(getNode(day, max_cons_),
                      outSubGraph->entrance(day),
@@ -229,8 +231,7 @@ void PrincipalGraph::authorizeDayShift(int k, int s) {
 
 // forbid any arc that authorizes the violation of a consecutive constraint
 void PrincipalGraph::forbidViolationConsecutiveConstraints() {
-  if (!pSP_)
-    return;
+  if (pSP_ == nullptr) return;
 
   // forbid the arcs that allow to violate the min consecutive constraint
   int minCons = pSP_->minCons(shift_type_);

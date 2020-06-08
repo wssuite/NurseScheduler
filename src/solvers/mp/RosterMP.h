@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_ROSTERMP_H_
@@ -31,10 +31,10 @@
 struct RosterPattern : Pattern {
   // Specific constructors and destructors
   RosterPattern(std::vector<int> shifts,
-                int nurseId = -1,
+                int nurseNum = -1,
                 double cost = DBL_MAX,
                 double dualCost = DBL_MAX) :
-      Pattern(0, shifts.size(), nurseId, cost, dualCost),
+      Pattern(0, shifts.size(), nurseNum, cost, dualCost),
       shifts_(shifts),
       consShiftsCost_(0),
       consDaysOffCost_(0),
@@ -69,8 +69,8 @@ struct RosterPattern : Pattern {
       shifts_[firstDay_ + k] = static_cast<int>(compactPattern[k + 3]);
   }
 
-  RosterPattern(const RosterPattern &roster, int nurseId) :
-      Pattern(roster, nurseId),
+  RosterPattern(const RosterPattern &roster, int nurseNum) :
+      Pattern(roster, nurseNum),
       shifts_(roster.shifts_),
       consShiftsCost_(roster.consShiftsCost_),
       consDaysOffCost_(roster.consDaysOffCost_),
@@ -132,7 +132,7 @@ struct RosterPattern : Pattern {
 
   // Returns true if both columns are disjoint (needRest not used)
   bool isDisjointWith(PPattern pat, bool needRest = true) const override {
-    if (pat->nurseId_ == nurseId_)
+    if (pat->nurseNum_ == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
     for (int k = 0; k < shifts_.size(); k++)
@@ -143,7 +143,7 @@ struct RosterPattern : Pattern {
 
   // Returns true if both columns are disjoint for shifts !!
   bool isShiftDisjointWith(PPattern pat, bool needRest = true) const override {
-    if (pat->nurseId_ == nurseId_)
+    if (pat->nurseNum_ == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
     for (int k = 0; k < shifts_.size(); k++) {
@@ -179,7 +179,7 @@ class RosterMP : public MasterProblem {
 
   PPattern getPattern(const std::vector<double> &pattern) const override;
 
-  MyVar *addColumn(int nurseId, const RCSolution &solution) override;
+  MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 
   // get a reference to the restsPerDay_ for a Nurse
   std::vector<MyVar *> getRestVarsPerDay(PLiveNurse pNurse,

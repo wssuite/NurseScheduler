@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "RotationSP.h"
@@ -63,11 +63,11 @@ void RotationSP::createNodes() {
 // rotations nodes)
 void RotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
-  for (PrincipalGraph &pg : principalGraphs_)
+  for (int sh=1; sh < pScenario_->nbShiftsType_; ++sh)
     for (int k = minConsDays_ - 1; k < nDays_; k++)
-      for (int dest : pg.getDayNodes(k)) {
+      for (int dest : principalGraphs_[sh].getDayNodes(k)) {
         std::vector<int> vec;
-        for (int s : pScenario_->shiftTypeIDToShiftID_[pg.shiftType()])
+        for (int s : pScenario_->shiftTypeIDToShiftID_[sh])
           vec.emplace_back(addSingleArc(origin,
                                         dest,
                                         0,
@@ -75,7 +75,7 @@ void RotationSP::createArcsSourceToPrincipal() {
                                         SOURCE_TO_PRINCIPAL,
                                         k,
                                         s));
-        arcsFromSource_[pg.shiftType()][k].push_back(vec);
+        arcsFromSource_[sh][k].push_back(vec);
       }
 }
 

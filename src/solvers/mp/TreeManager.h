@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_TREEMANAGER_H_
@@ -25,8 +25,9 @@
 // Node that correspond to branching on a set of columns (diving)
 //
 struct ColumnsNode : public MyNode {
-  ColumnsNode(int index, MyNode *pParent, const std::vector<PPattern> &patterns)
-      :
+  ColumnsNode(int index,
+              MyNode *pParent,
+              const std::vector<PPattern> &patterns) :
       MyNode(index, pParent), patterns_(patterns) {}
 
   std::string write() const {
@@ -49,7 +50,7 @@ struct RestNode : public MyNode {
   std::string write() const {
     std::stringstream out;
     out << "RestNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse="
-        << pNurse_->id_ << ",Day=" << day_ << ",";
+        << pNurse_->num_ << ",Day=" << day_ << ",";
     if (rest_) std::cout << "rest";
     else
       std::cout << "work";
@@ -81,7 +82,7 @@ struct ShiftNode : public MyNode {
   std::string write() const {
     std::stringstream out;
     out << "ShiftNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse="
-        << pNurse_->id_ << ",Day=" << day_ << ",";
+        << pNurse_->num_ << ",Day=" << day_ << ",";
     if (work_) out << "work";
     else
       out << "N.A.";
@@ -117,7 +118,7 @@ struct PenaltyNode : public MyNode {
   std::string write() const {
     std::stringstream out;
     out << "PenaltyNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse="
-        << pNurse_->id_ << ",Day=" << day_ << ",";
+        << pNurse_->num_ << ",Day=" << day_ << ",";
     if (work_) out << "work";
     else
       out << "N.A.";
@@ -204,8 +205,7 @@ struct RestTree : public MyTree {
 
   std::string writeOneStat(
       std::string name,
-      const std::vector<std::pair<int,
-                                  double>> &stats) const;
+      const std::vector<std::pair<int, double> > &stats) const;
 
  protected:
   PScenario pScenario_;
@@ -230,7 +230,8 @@ struct DayDisjointComparator : public ColumnsComparator {
 
 struct ShiftDisjointComparator : public ColumnsComparator {
   bool is_disjoint(PPattern col1, PPattern col2) const {
-    return col1->nurseId_ != col2->nurseId_ && col1->isShiftDisjointWith(col2);
+    return col1->nurseNum_ != col2->nurseNum_
+        && col1->isShiftDisjointWith(col2);
   }
 };
 
@@ -283,7 +284,7 @@ class DiveBranchingRule : public MyBranchingRule {
                                  MyBranchingNode *workNode) const;
 
   void deactivateColumns(MyBranchingCandidate *candidate,
-                         int nurseId,
+                         int nurseNum,
                          int day,
                          std::vector<int> forbiddenShifts,
                          MyBranchingNode *forbiddenNode,

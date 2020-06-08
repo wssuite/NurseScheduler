@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_TOOLS_MYTOOLS_H_
@@ -194,10 +194,6 @@ void initVector4D(vector4D<T> *v4D, int m, int n, int p, int q, T val) {
   v4D->resize(m);
   for (vector3D<T> &v3 : *v4D) initVector3D(&v3, n, p, q, val);
 }
-
-// empty vector for default initialization
-static std::vector<int> EMPTY_INT_VECTOR;
-static std::vector<double> EMPTY_DOUBLE_VECTOR;
 
 // return the object at position i (support negative index)
 template<class T>

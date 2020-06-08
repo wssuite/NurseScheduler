@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "solvers/mp/TreeManager.h"
@@ -76,7 +76,7 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
       Tools::throwError("Type of node not recognized.");
 
     for (PPattern pat : columnsNode->patterns_)
-      if (pat->nurseId_ == pNurse->id_)
+      if (pat->nurseNum_ == pNurse->num_)
         pat->addForbiddenShifts(forbidenShifts,
                                 pScenario_->nbShifts(),
                                 pDemand_);
@@ -92,13 +92,13 @@ void RestTree::updateStats(MyNode *node) {
     if (restNode->rest_) {
       statsRestByDay_[restNode->day_].first++;
       statsRestByDay_[restNode->day_].second += increaseLB;
-      statsRestByNurse_[restNode->pNurse_->id_].first++;
-      statsRestByNurse_[restNode->pNurse_->id_].second += increaseLB;
+      statsRestByNurse_[restNode->pNurse_->num_].first++;
+      statsRestByNurse_[restNode->pNurse_->num_].second += increaseLB;
     } else {
       statsWorkByDay_[restNode->day_].first++;
       statsWorkByDay_[restNode->day_].second += increaseLB;
-      statsWorkByNurse_[restNode->pNurse_->id_].first++;
-      statsWorkByNurse_[restNode->pNurse_->id_].second += increaseLB;
+      statsWorkByNurse_[restNode->pNurse_->num_].first++;
+      statsWorkByNurse_[restNode->pNurse_->num_].second += increaseLB;
     }
   }
 
@@ -108,13 +108,13 @@ void RestTree::updateStats(MyNode *node) {
     if (!shiftNode->work_) {
       statsRestByDay_[shiftNode->day_].first++;
       statsRestByDay_[shiftNode->day_].second += increaseLB;
-      statsRestByNurse_[shiftNode->pNurse_->id_].first++;
-      statsRestByNurse_[shiftNode->pNurse_->id_].second += increaseLB;
+      statsRestByNurse_[shiftNode->pNurse_->num_].first++;
+      statsRestByNurse_[shiftNode->pNurse_->num_].second += increaseLB;
     } else {
       statsWorkByDay_[shiftNode->day_].first++;
       statsWorkByDay_[shiftNode->day_].second += increaseLB;
-      statsWorkByNurse_[shiftNode->pNurse_->id_].first++;
-      statsWorkByNurse_[shiftNode->pNurse_->id_].second += increaseLB;
+      statsWorkByNurse_[shiftNode->pNurse_->num_].first++;
+      statsWorkByNurse_[shiftNode->pNurse_->num_].second += increaseLB;
     }
   }
 
@@ -324,7 +324,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
       // 2/ applied to a different nurse
       // 3/ is disjoint with nodePat
       if (activePat->equals(nodePat) ||
-          activePat->nurseId_ != nodePat->nurseId_ ||
+          activePat->nurseNum_ != nodePat->nurseNum_ ||
           activePat->isDisjointWith(nodePat, false))
         continue;
 
@@ -365,7 +365,7 @@ bool DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
 
   for (PLiveNurse pNurse : pMaster_->getLiveNurses()) {
     // ROLLING/LNS: do not branch on a nurse whose rotations are fixed
-    if (pMaster_->isFixNurse(pNurse->id_)) continue;
+    if (pMaster_->isFixNurse(pNurse->num_)) continue;
 
     for (int k = 0; k < pMaster_->getNbDays(); ++k) {
       // ROLLING/LNS: do not branch on a day whose rotations are relaxed or
@@ -403,7 +403,7 @@ bool DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
     buildRestNodesCut(
         candidate, pBestNurse, bestDay, true, &restNode, &workNode);
     deactivateColumns(
-        candidate, pBestNurse->id_, bestDay, {0}, &workNode, &restNode);
+        candidate, pBestNurse->num_, bestDay, {0}, &workNode, &restNode);
 
     // Here : random choice to decide the order of the siblings
     if (Tools::randomInt(0, 1) == 0) {
@@ -441,7 +441,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
   // search for the best branching decision (set of shifts the closest to .5)
   for (PLiveNurse pNurse : pMaster_->getLiveNurses()) {
     // LNS: do not branch on a nurse whose rotations are fixed
-    if (pMaster_->isFixNurse(pNurse->id_)) continue;
+    if (pMaster_->isFixNurse(pNurse->num_)) continue;
 
     for (int k = 0; k < pMaster_->getNbDays(); ++k) {
       // ROLLING/LNS:
@@ -456,7 +456,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
       double valueLeft = 1;
       bool isFractional = false;
       for (int s = 1; s < pMaster_->getNbShifts(); ++s) {
-        double val = fractionalRoster[pNurse->id_][k][s];
+        double val = fractionalRoster[pNurse->num_][k][s];
         // check if solution is fractional
         if (pModel_->epsilon() < val && val < 1 - pModel_->epsilon())
           isFractional = true;
@@ -469,7 +469,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
 
       // put the value left in the rest shift (if any left)
       fractionalNurseDay.emplace_back(pair<int, double>(
-          0, -fractionalRoster[pNurse->id_][k][0] - valueLeft));
+          0, -fractionalRoster[pNurse->num_][k][0] - valueLeft));
 
       sort(fractionalNurseDay.begin(),
            fractionalNurseDay.end(),
@@ -542,7 +542,7 @@ bool DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
 
     // Find the columns to deactivate
     deactivateColumns(candidate,
-                      pBestNurse->id_,
+                      pBestNurse->num_,
                       bestDay,
                       forbiddenShifts,
                       &node1,
@@ -569,7 +569,7 @@ void DiveBranchingRule::buildRestNodesCut(MyBranchingCandidate *candidate,
                                           MyBranchingNode *workNode) const {
   // creating the branching cut
   char name[50];
-  snprintf(name, sizeof(name), "RestBranchingCons_N%d_%d", pNurse->id_, day);
+  snprintf(name, sizeof(name), "RestBranchingCons_N%d_%d", pNurse->num_, day);
   vector<MyVar *> restingArcs = pMaster_->getRestVarsPerDay(pNurse, day);
   vector<double> coeffs;
   Tools::initVector(&coeffs, restingArcs.size(), 1.0);
@@ -589,7 +589,7 @@ void DiveBranchingRule::buildRestNodesCut(MyBranchingCandidate *candidate,
 
 void DiveBranchingRule::deactivateColumns(
     MyBranchingCandidate *candidate,
-    int nurseId,
+    int nurseNum,
     int day,
     std::vector<int> forbiddenShifts,
     MyBranchingNode *forbiddenNode,
@@ -599,7 +599,7 @@ void DiveBranchingRule::deactivateColumns(
     if (var->getUB() == 0)
       continue;
     PPattern pat = pMaster_->getPattern(var->getPattern());
-    if (pat->nurseId_ == nurseId && pat->firstDay_ <= day
+    if (pat->nurseNum_ == nurseNum && pat->firstDay_ <= day
         && pat->firstDay_ + pat->length_ > day) {
       // add the variable to the candidate
       int index = candidate->addBranchingVar(var);

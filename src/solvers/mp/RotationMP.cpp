@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "RotationMP.h"
@@ -60,10 +60,10 @@ void RotationPattern::computeCost(PScenario pScenario,
                                   const vector<PLiveNurse> &liveNurses,
                                   int horizon) {
   // check if pNurse points to a nurse
-  if (nurseId_ == -1)
+  if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
-  PLiveNurse pNurse = liveNurses[nurseId_];
+  PLiveNurse pNurse = liveNurses[nurseNum_];
 
   // compute time duration
   computeTimeDuration(pScenario);
@@ -216,7 +216,7 @@ void RotationPattern::computeCost(PScenario pScenario,
 
 void RotationPattern::checkReducedCost(const DualCosts &costs) {
   // check if pNurse points to a nurse
-  if (nurseId_ == -1)
+  if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
   /************************************************
@@ -288,16 +288,16 @@ std::string RotationPattern::toString(
     std::vector<int> shiftIDToShiftTypeID) const {
   if (nbDays == -1) nbDays = firstDay_ + length_;
   std::stringstream rep;
-  rep << "#   | ROTATION: N=" << nurseId_ << "  cost=" << cost_ << "  dualCost="
-      << reducedCost_ << "  firstDay=" << firstDay_ << "  length=" << length_
-      << std::endl;
+  rep << "#   | ROTATION: N=" << nurseNum_ << "  cost=" << cost_
+      << "  dualCost=" << reducedCost_ << "  firstDay=" << firstDay_
+      << "  length=" << length_ << std::endl;
   rep << "#   |";
   std::vector<int> allTasks(nbDays);
   for (const auto &p : shifts_)
     allTasks[p.first] = p.second;
   for (const auto &t : allTasks) {
     if (t < 1) {
-      rep << "\t|";
+      rep << "   |";
     } else {
       if (t < shiftIDToShiftTypeID.size())
         rep << shiftIDToShiftTypeID[t] << ":" << t << "|";
@@ -440,7 +440,7 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
 vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
   vector2D<double> dualValues = MasterProblem::getShiftsDualValues(pNurse);
 
-  const int i = pNurse->id_;
+  const int i = pNurse->num_;
   const int p = pNurse->pContract_->id_;
 
   /* Min/Max constraints */
@@ -476,7 +476,7 @@ vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
 }
 
 vector<double> RotationMP::getStartWorkDualValues(PLiveNurse pNurse) const {
-  int i = pNurse->id_;
+  int i = pNurse->num_;
   vector<double> dualValues(getNbDays());
 
   // get dual value associated to the source
@@ -490,7 +490,7 @@ vector<double> RotationMP::getStartWorkDualValues(PLiveNurse pNurse) const {
 }
 
 vector<double> RotationMP::getEndWorkDualValues(PLiveNurse pNurse) const {
-  const int i = pNurse->id_;
+  const int i = pNurse->num_;
   vector<double> dualValues(getNbDays());
 
   // get dual values associated to the work flow constraints
@@ -507,7 +507,7 @@ vector<double> RotationMP::getEndWorkDualValues(PLiveNurse pNurse) const {
 }
 
 double RotationMP::getWorkedWeekendDualValue(PLiveNurse pNurse) const {
-  int id = pNurse->id_;
+  int id = pNurse->num_;
   double dualVal = pModel_->getDual(maxWorkedWeekendCons_[id], true);
   if (isMaxWorkedWeekendAvgCons_[id])
     dualVal += pModel_->getDual(maxWorkedWeekendAvgCons_[id], true);
@@ -521,14 +521,14 @@ double RotationMP::getWorkedWeekendDualValue(PLiveNurse pNurse) const {
 // Build the variable of the rotation as well as all the affected constraints
 // with their coefficients. if s=-1, the nurse i works on all shifts
 //------------------------------------------------------------------------------
-MyVar *RotationMP::addColumn(int nurseId, const RCSolution &solution) {
+MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
   RotationPattern rotation
-      (solution.firstDay, solution.shifts, nurseId, DBL_MAX, solution.cost);
+      (solution.firstDay, solution.shifts, nurseNum, DBL_MAX, solution.cost);
   rotation.computeCost(pScenario_, theLiveNurses_, getNbDays());
   rotation.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
-  DualCosts costs = buildDualCosts(theLiveNurses_[nurseId]);
+  DualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
   rotation.checkReducedCost(costs);
   std::vector<double> pattern = rotation.getCompactPattern();
   checkIfPatternAlreadyPresent(pattern);
@@ -540,7 +540,7 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
                                const char *baseName,
                                bool coreVar) {
   // nurse index
-  const int nurseId = rotation.nurseId_;
+  const int nurseNum = rotation.nurseNum_;
 
   // Column var, its name, and affected constraints with their coefficients
   MyVar *var;
@@ -554,14 +554,14 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
                                               - 1);
   addMinMaxConsToCol(&cons,
                      &coeffs,
-                     nurseId,
+                     nurseNum,
                      rotation.timeDuration_,
                      nbWeekends);
 
   /* Skills coverage constraints */
   addSkillsCoverageConsToCol(&cons, &coeffs, rotation);
 
-  snprintf(name, sizeof(name), "%s_N%d_%d", baseName, nurseId, rotation.id_);
+  snprintf(name, sizeof(name), "%s_N%d", baseName, nurseNum);
   if (coreVar) {
     pModel_->createPositiveVar(&var,
                                name,
@@ -576,13 +576,13 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
      */
     addRotationConsToCol(&cons,
                          &coeffs,
-                         nurseId,
+                         nurseNum,
                          rotation.firstDay_,
                          true,
                          false);
     addRotationConsToCol(&cons,
                          &coeffs,
-                         nurseId,
+                         nurseNum,
                          rotation.firstDay_ + rotation.length_ - 1,
                          false,
                          true);
@@ -802,14 +802,14 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
         pModel_->createPositiveVar(&stabRestFlowPlus2[k],
                                    name,
                                    param.stabCostIni_ + param.stabCostMargin_,
-                                   DEFAULT_PATTERN,
+                                   {},
                                    0,
                                    param.stabBoundIni_);
         snprintf(name, sizeof(name), "stabRestFlowMinus2_%i", k);
         pModel_->createPositiveVar(&stabRestFlowMinus2[k],
                                    name,
                                    -param.stabCostIni_ + param.stabCostMargin_,
-                                   DEFAULT_PATTERN,
+                                   {},
                                    0,
                                    param.stabBoundIni_);
         pModel_->addCoefLinear(restFlowCons2[k], stabRestFlowPlus2[k], 1.0);
@@ -874,14 +874,14 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
         pModel_->createPositiveVar(&stabWorkFlowPlus2[k - 1],
                                    name,
                                    param.stabCostIni_ + param.stabCostMargin_,
-                                   DEFAULT_PATTERN,
+                                   {},
                                    0,
                                    param.stabBoundIni_);
         snprintf(name, sizeof(name), "stabWorkFlowMinus2_%i", k - 1);
         pModel_->createPositiveVar(&stabWorkFlowMinus2[k - 1],
                                    name,
                                    -param.stabCostIni_ + param.stabCostMargin_,
-                                   DEFAULT_PATTERN,
+                                   {},
                                    0,
                                    param.stabBoundIni_);
         pModel_->addCoefLinear(workFlowCons2[k - 1],
@@ -969,7 +969,7 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
       pModel_->createPositiveVar(&stabMinWorkedDaysPlus_[i],
                                  name,
                                  param.stabCostIni_ + param.stabCostMargin_,
-                                 DEFAULT_PATTERN,
+                                 {},
                                  0,
                                  param.stabBoundIni_);
       pModel_->addCoefLinear(minWorkedDaysCons_[i],
@@ -994,7 +994,7 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
       pModel_->createPositiveVar(&stabMaxWorkedDaysMinus_[i],
                                  name,
                                  -param.stabCostIni_ + param.stabCostMargin_,
-                                 DEFAULT_PATTERN,
+                                 {},
                                  0,
                                  param.stabBoundIni_);
       pModel_->addCoefLinear(maxWorkedDaysCons_[i],
@@ -1062,7 +1062,7 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
       pModel_->createPositiveVar(&stabMaxWorkedWeekendMinus_[i],
                                  name,
                                  -param.stabCostIni_ + param.stabCostMargin_,
-                                 DEFAULT_PATTERN,
+                                 {},
                                  0,
                                  param.stabBoundIni_);
       pModel_->addCoefLinear(maxWorkedWeekendCons_[i],
@@ -1270,7 +1270,7 @@ double RotationMP::getMaxWeekendCost() const {
 
 RotationPattern RotationMP::computeInitStateRotation(PLiveNurse pNurse) {
   // initialize rotation
-  RotationPattern rot = RotationPattern(map<int, int>(), pNurse->id_);
+  RotationPattern rot = RotationPattern(map<int, int>(), pNurse->num_);
 
   // compute cost for previous cons worked shifts and days
   int lastShiftType = pNurse->pStateIni_->shiftType_;

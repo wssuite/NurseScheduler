@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "tools/InputPaths.h"
@@ -29,6 +29,7 @@ InputPaths::InputPaths(std::string dataDir,
                        std::string logPath,
                        std::string paramFile,
                        double timeOut,
+                       int verbose,
                        int randSeed,
                        std::string SPType,
                        int SPStrategy,
@@ -39,6 +40,7 @@ InputPaths::InputPaths(std::string dataDir,
     solutionPath_(solutionPath),
     logPath_(logPath),
     paramFile_(paramFile),
+    verbose_(verbose),
     randSeed_(randSeed),
     timeOut_(timeOut),
     SPType_(SPType),

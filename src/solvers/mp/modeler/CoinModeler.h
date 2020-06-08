@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #ifndef SRC_SOLVERS_MP_MODELER_COINMODELER_H_
@@ -46,10 +46,10 @@ struct CoinVar : public MyVar {
           VarType type,
           double lb,
           double ub,
-          const std::vector<double> &pattern = DEFAULT_PATTERN,
+          const std::vector<double> &pattern = {},
           double dualCost = 99999,
-          const std::vector<int> &indexRows = Tools::EMPTY_INT_VECTOR,
-          const std::vector<double> &coeffs = Tools::EMPTY_DOUBLE_VECTOR) :
+          const std::vector<int> &indexRows = {},
+          const std::vector<double> &coeffs = {}) :
       MyVar(name, index, cost, type, lb, ub, pattern),
       dualCost_(dualCost),
       indexRows_(indexRows),

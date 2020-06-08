@@ -206,16 +206,16 @@ bool LongRotationSP::solveShortRotations() {
 // rotations nodes)
 void LongRotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
-  for (PrincipalGraph &pg : principalGraphs_) {
+  for (int sh=1; sh < pScenario_->nbShiftsType_; ++sh) {
     // any shift with the right shit type
-    int s = pScenario_->shiftTypeIDToShiftID_[pg.shiftType()].front();
+    int s = pScenario_->shiftTypeIDToShiftID_[sh].front();
     std::vector<int> shifts;
     Tools::initVector(&shifts, minConsDays_, s);
     for (int k = CDMin_ - 1; k < nDays_; k++)
-      for (int dest : pg.getDayNodes(k))
+      for (int dest : principalGraphs_[sh].getDayNodes(k))
         // add one arc for each cons days available
         // the shifts will be updated based on their dual costs
-        arcsFromSource_[pg.shiftType()][k].push_back(
+        arcsFromSource_[sh][k].push_back(
             {addSingleArc(origin, dest, 0, startConsumption(k, shifts),
                           SOURCE_TO_PRINCIPAL, k - CDMin_ + 1)});
   }

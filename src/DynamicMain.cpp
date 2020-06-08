@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include <exception>
@@ -31,7 +31,7 @@ void solveOneWeek(string scenPath,
                   string customInputFile,
                   string solPath,
                   double timeout) {
-  unsigned found = solPath.find_last_of(".");
+  string::size_type found = solPath.find_last_of(".");
   string logPathIni = solPath.substr(0, found),
       logPath = logPathIni + "Log.txt";
   Tools::LogOutput logStream(logPath);

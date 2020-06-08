@@ -46,13 +46,13 @@ class PrincipalGraph : public SubGraph {
   int maxCons() const { return max_cons_; }
 
   int getNode(int k, int n) const {
-    if (!pSP_) return -1;
+    checkInitialization();
     return principalNetworkNodes_[k][n];
   }
 
   const std::vector<int> &getDayNodes(int k) const {
-    if (pSP_) return principalNetworkNodes_[k];
-    return Tools::EMPTY_INT_VECTOR;
+    checkInitialization();
+    return principalNetworkNodes_[k];
   }
 
   // link two sub graphs together:
@@ -66,19 +66,23 @@ class PrincipalGraph : public SubGraph {
   void linkOutSubGraph(SubGraph *outSubGraph, int day = -1) override;
 
   int entrance(int day = -1) const override {
-    if (!pSP_) return -1;
+    checkInitialization();
     if (inSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
     return getNode(day, 0);
   }
 
   int exit(int day = -1) const override {
-    if (!pSP_) return -1;
+    checkInitialization();
     if (outSubGraphs_[day]) return inSubGraphs_[day]->entrance(day);
     return getNode(day, max_cons_);
   }
 
   // forbid any arc that authorizes the violation of a consecutive constraint
   void forbidViolationConsecutiveConstraints();
+
+  void checkInitialization() const {
+    if (!pSP_) Tools::throwError("PrincipalGraph is not initialized");
+  }
 
  protected:
   SubProblem *pSP_;

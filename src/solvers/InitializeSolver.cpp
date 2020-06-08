@@ -6,7 +6,7 @@
  * license.
  *
  * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- *  full license detail.
+ * full license detail.
  */
 
 #include "InitializeSolver.h"
@@ -23,9 +23,6 @@
 #include "solvers/mp/RotationMP.h"
 #include "tools/MyTools.h"
 
-// initialize the counter of objects
-unsigned int MyObject::s_count = 0;
-unsigned int Pattern::s_count = 0;
 
 using std::string;
 using std::vector;
@@ -72,6 +69,9 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--timeout")) {
       pInputPaths->timeOut(std::stod(str));
       narg += 2;
+    } else if (!strcmp(argv[narg], "--verbose")) {
+      pInputPaths->verbose(std::stoi(str));
+      narg += 2;
     } else if (!strcmp(argv[narg], "--rand")) {
       pInputPaths->randSeed(std::stoi(str));
       narg += 2;
@@ -111,10 +111,11 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   // argument.
   std::string dataDir = "", instanceName = "", solutionPath = "", logPath = "",
       paramFile = "";
-  std::string SPType = "LONG";
-  int historyIndex = 0, randSeed = 0, nTreads = 1, SPStrategy = 0;
+  std::string SPType = "";
+  int historyIndex = 0, verbose = -1, randSeed = 0,
+      nTreads = -1, SPStrategy = -1;
   std::vector<int> weekIndices;
-  double timeOut = LARGE_TIME;
+  double timeOut = -1;
 
   // Read the arguments and store them in inputPaths
   //
@@ -154,6 +155,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     } else if (!strcmp(arg, "--param")) {
       paramFile = str;
       narg += 2;
+    } else if (!strcmp(arg, "--verbose")) {
+      verbose = std::stoi(str);
+      narg += 2;
     } else if (!strcmp(arg, "--timeout")) {
       timeOut = std::stod(str);
       narg += 2;
@@ -188,6 +192,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
                      logPath,
                      paramFile,
                      timeOut,
+                     verbose,
                      randSeed,
                      SPType,
                      SPStrategy,
@@ -391,18 +396,18 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
 
     // only keep the demand of the nurses in the component
     for (PNurse pNurse : nursesInTheComponent)
-      for (const auto &itDay : pPreferences->nurseWishesOff(pNurse->id_))
+      for (const auto &itDay : pPreferences->nurseWishesOff(pNurse->num_))
         for (const auto &itShift : itDay.second)
-          pPreferencesInTheComponent->addShiftOff(pNurse->id_,
+          pPreferencesInTheComponent->addShiftOff(pNurse->num_,
                                                   itDay.first,
                                                   itShift.shift,
                                                   itShift.level);
 
     // only keep the demand of the nurses in the component
     for (PNurse pNurse : nursesInTheComponent)
-      for (const auto &itDay : pPreferences->nurseWishesOn(pNurse->id_))
+      for (const auto &itDay : pPreferences->nurseWishesOn(pNurse->num_))
         for (const auto &itShift : itDay.second)
-          pPreferencesInTheComponent->addShiftOn(pNurse->id_,
+          pPreferencesInTheComponent->addShiftOn(pNurse->num_,
                                                  itDay.first,
                                                  itShift.shift,
                                                  itShift.level);
@@ -421,7 +426,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     vector<State> *pInitialState = pScenario->pInitialState();
 
     for (PNurse pNurse : nursesInTheComponent) {
-      intialStatesInTheComponent.push_back(pInitialState->at(pNurse->id_));
+      intialStatesInTheComponent.push_back(pInitialState->at(pNurse->num_));
     }
     pScenarioInTheConnectedComponent->setInitialState(
         intialStatesInTheComponent);
