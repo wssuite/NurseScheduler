@@ -66,7 +66,7 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n005w4_0_1-2-3-5
-          ns-args: -g 1540 --sp-type ROSTER -t 600
+          ns-args: -g 1540 --sp-type ROSTER
 
       - name: n005w4_1_5-6-7-8 ALL
         uses: ./ # Uses an action in the root directory
@@ -85,6 +85,12 @@ jobs:
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -g 1670-2000 -t 300 --n-threads 4
+
+      - name: n030w4_1_6-2-9-1 ROSTER  4 threads
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1670 -t 300 --n-threads 4 --sp-type ROSTER --param optimality.txt
 
       - name: n030w4_1_6-7-5-3  4 threads
         uses: ./ # Uses an action in the root directory

@@ -217,9 +217,6 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
     // otherwise, set solution as infeasible
     setStatus(INFEASIBLE);
     return LARGE_SCORE;
-  } else if (status_ == TIME_LIMIT) {
-    std::cout << "Stop solution process: time limit is reached" << std::endl;
-    status_ = FEASIBLE;
   }
 
   // print best solution
@@ -965,7 +962,7 @@ string MasterProblem::allocationToString(bool printInteger) const {
   snprintf(buff, sizeof(buff), "%20s", "");
   rep << buff;
   for (int day = firstDay; day < firstDay + nbDays; day++) {
-    rep << "| " << Tools::intToDay(day).at(0) << "  ";
+    rep << "|" << Tools::intToDay(day) << " ";
     if (Tools::isSunday(day)) rep << "| ";
   }
   rep << "|" << std::endl;
@@ -1016,17 +1013,16 @@ string MasterProblem::coverageToString(bool printInteger) const {
   rep << std::endl;
   rep << "Coverage of the (potentially fractional) current solution:"
       << std::endl;
-  char buff[20];
-  snprintf(buff, sizeof(buff), "%20s", "");
+  char buff[100];
+  snprintf(buff, sizeof(buff), "%21s", "");
   rep << buff;
   for (int day = firstDay; day < firstDay + nbDays; day++) {
-    rep << "|  " << Tools::intToDay(day).at(0) << "  ";
+    rep << "|" << Tools::intToDay(day) << " ";
     if (Tools::isSunday(day)) rep << "| ";
   }
   rep << "|" << std::endl;
   rep << "-------------------------------------" << std::endl;
 
-  string tab = "\t";
   for (int s = 1; s < nbShifts; ++s) {
     snprintf(buff, sizeof(buff), "%-8s", pScenario_->intToShift_[s].c_str());
     rep << buff;

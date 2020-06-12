@@ -24,7 +24,6 @@
 
 /* BCP includes */
 #include "BCP_enum.hpp"
-#include "BCP_error.hpp"
 #include "BCP_vector.hpp"
 #include "BCP_var.hpp"
 #include "BCP_cut.hpp"
@@ -313,44 +312,6 @@ enum LPSolverType { CLP, Gurobi, Cplex };
 static std::map<std::string, LPSolverType> LPSolverTypesByName =
     {{"CLP", CLP}, {"Gurobi", Gurobi}, {"Cplex", Cplex}};
 
-/* Exception to stop the solver */
-struct FeasibleStop : BCP_fatal_error, Tools::NSException {
-  template<typename ...Args>
-  explicit FeasibleStop(MasterProblem *pMaster,
-                        const char *format,
-                        Args... args):
-      BCP_fatal_error(""), Tools::NSException(format, args...) {
-    pMaster->setStatus(FEASIBLE);
-  }
-};
-struct InfeasibleStop : BCP_fatal_error, Tools::NSException {
-  template<typename ...Args>
-  explicit InfeasibleStop(MasterProblem *pMaster,
-                          const char *format,
-                          Args... args):
-      BCP_fatal_error(""), Tools::NSException(format, args...) {
-    pMaster->setStatus(INFEASIBLE);
-  }
-};
-struct OptimalStop : BCP_fatal_error, Tools::NSException {
-  template<typename ...Args>
-  explicit OptimalStop(MasterProblem *pMaster,
-                       const char *format,
-                       Args... args):
-      BCP_fatal_error(""), Tools::NSException(format, args...) {
-    pMaster->setStatus(OPTIMAL);
-  }
-};
-struct TimeoutStop : BCP_fatal_error, Tools::NSException {
-  template<typename ...Args>
-  explicit TimeoutStop(MasterProblem *pMaster,
-                       const char *format,
-                       Args... args):
-      BCP_fatal_error(""), Tools::NSException(format, args...) {
-    pMaster->setStatus(TIME_LIMIT);
-  }
-};
-
 //-----------------------------------------------------------------------------
 //
 // C l a s s   B c p M o d e l e r
@@ -625,8 +586,7 @@ class BcpModeler : public CoinModeler {
 
   // check if Bcp stops
   bool doStop(const BCP_vec<BCP_var *> &vars = {});
-
-  void stop() { stopped_ = true; }
+  void stop();
   bool isStopped() const { return stopped_; }
 
   // check the active rotations
@@ -952,16 +912,16 @@ class BcpLpModel : public BCP_lp_user {
   */
   // Here, will just store the result
   virtual void
-  process_lp_result(const BCP_lp_result& lpres,
-                    const BCP_vec<BCP_var*>& vars,
-                    const BCP_vec<BCP_cut*>& cuts,
+  process_lp_result(const BCP_lp_result &lpres,
+                    const BCP_vec<BCP_var *> &vars,
+                    const BCP_vec<BCP_cut *> &cuts,
                     const double old_lower_bound,
-                    double& true_lower_bound,      // NOLINT
-                    BCP_solution*& sol,            // NOLINT
-                    BCP_vec<BCP_cut*>& new_cuts,   // NOLINT
-                    BCP_vec<BCP_row*>& new_rows,   // NOLINT
-                    BCP_vec<BCP_var*>& new_vars,   // NOLINT
-                    BCP_vec<BCP_col*>& new_cols);  // NOLINT
+                    double &true_lower_bound,      // NOLINT
+                    BCP_solution *&sol,            // NOLINT
+                    BCP_vec<BCP_cut *> &new_cuts,   // NOLINT
+                    BCP_vec<BCP_row *> &new_rows,   // NOLINT
+                    BCP_vec<BCP_var *> &new_vars,   // NOLINT
+                    BCP_vec<BCP_col *> &new_cols);  // NOLINT
 
   // This method provides an opportunity for the user to tighten the bounds of
   // variables. The method is invoked after reduced cost fixing. The results
@@ -1140,6 +1100,8 @@ class BcpLpModel : public BCP_lp_user {
   int nbCurrentNodeSPSolved_;
   // Number of dives to wait before branching on columns again
   std::list<double> nb_dives_to_wait_before_branching_on_columns_;
+  // Timer started at the creation of the LP and stopped at destruction
+  Tools::Timer *pTimerTotal_;
 
   // build the candidate from my candidate
   void buildCandidate(const MyBranchingCandidate &candidate,
@@ -1187,6 +1149,87 @@ class BcpLpModel : public BCP_lp_user {
  * The virtual methods execute steps in the BCP algorithm where the user
  * might want to override the default behavior.
  */
+class MyCoinSearchTree : public CoinSearchTreeBase {
+ public:
+  explicit MyCoinSearchTree(BcpModeler *pModel)
+      : CoinSearchTreeBase(), pModel_(pModel) {}
+  MyCoinSearchTree(const MyCoinSearchTree &t) :
+      CoinSearchTreeBase(), pModel_(t.pModel_) {
+    candidateList_ = t.getCandidates();
+    numInserted_ = t.numInserted();
+    size_ = t.size();
+  }
+  virtual ~MyCoinSearchTree() {}
+  const char *compName() const override { return ""; }
+
+  void clear() {
+    for (CoinTreeSiblings *s : candidateList_) {
+//      while (s->toProcess() > 0) {
+//        delete s->currentNode();
+//        s->advanceNode();
+//      }
+      delete s;
+    }
+    candidateList_.clear();
+  }
+
+ protected:
+  /*
+   * Tree: allow to update our own tree
+   */
+  void realpop() override {
+    /* update the current node of the modeler */
+    pModel_->setCurrentNode(this->candidateList_.front());
+    /* the siblings is now empty -> choose the next one */
+    // copy the best candidate at the first place
+    candidateList_.front() = candidateList_.back();
+    // and remove the last item
+    candidateList_.pop_back();
+  }
+
+  void fixTop() override {
+    /* update the current node of the modeler */
+    pModel_->setCurrentNode(this->candidateList_.front());
+  }
+
+  BcpModeler *pModel_;
+};
+
+template<typename Comp>
+class MyCompCoinSearchTree : public MyCoinSearchTree {
+ public:
+  explicit MyCompCoinSearchTree(BcpModeler *pModel) :
+      MyCoinSearchTree(pModel), comp_() {}
+  MyCompCoinSearchTree(const MyCompCoinSearchTree &t) :
+      MyCoinSearchTree(t), comp_() {}
+
+  virtual ~MyCompCoinSearchTree() {}
+
+  const char *compName() const override { return Comp::name(); }
+
+ protected:
+  void realpush(CoinTreeSiblings *s) override {
+    // add the current node to the BcpModeler
+    if (s->toProcess() > 0) {
+      pModel_->addToMapping(s);
+      this->candidateList_.push_back(s);
+    }
+
+    /* update the quality  and then the candidateList */
+    // update quality
+    for (CoinTreeSiblings *s1 : this->candidateList_) {
+      double q = pModel_->getNode(s1)->getQuality();
+      s1->currentNode()->setQuality(q);
+    }
+    // reorder the list with the new quality
+    // we dont use a heap
+    std::stable_sort(candidateList_.begin(), candidateList_.end(), comp_);
+  }
+
+ private:
+  Comp comp_;
+};
+
 class BcpBranchingTree : public BCP_tm_user {
  public:
   explicit BcpBranchingTree(BcpModeler *pModel);
@@ -1268,65 +1311,14 @@ class BcpBranchingTree : public BCP_tm_user {
     }
   }
 
+  void clear() {
+    pTree_->clear();
+  }
+
  protected:
   BcpModeler *pModel_;
   int nbInitialColumnVars_;
-};
-
-template<class Comp>
-class MyCoinSearchTree : public CoinSearchTreeBase {
- public:
-  explicit MyCoinSearchTree(BcpModeler *pModel)
-      : CoinSearchTreeBase(), pModel_(pModel), comp_() {}
-  MyCoinSearchTree(const MyCoinSearchTree &t) :
-      CoinSearchTreeBase(), comp_(), pModel_(t.pModel_) {
-    candidateList_ = t.getCandidates();
-    numInserted_ = t.numInserted();
-    size_ = t.size();
-  }
-  virtual ~MyCoinSearchTree() {}
-  const char *compName() const { return Comp::name(); }
-
- protected:
-  /*
-   * Tree: allow to update our own tree
-   */
-  void realpop() {
-    /* update the current node of the modeler */
-    pModel_->setCurrentNode(this->candidateList_.front());
-    /* the siblings is now empty -> choose the next one */
-    // copy the best candidate at the first place
-    candidateList_.front() = candidateList_.back();
-    // and remove the last item
-    candidateList_.pop_back();
-  }
-
-  void fixTop() {
-    /* update the current node of the modeler */
-    pModel_->setCurrentNode(this->candidateList_.front());
-  }
-
-  void realpush(CoinTreeSiblings *s) {
-    // add the current node to the BcpModeler
-    if (s->toProcess() > 0) {
-      pModel_->addToMapping(s);
-      this->candidateList_.push_back(s);
-    }
-
-    /* update the quality  and then the candidateList */
-    // update quality
-    for (CoinTreeSiblings *s1 : this->candidateList_) {
-      double q = pModel_->getNode(s1)->getQuality();
-      s1->currentNode()->setQuality(q);
-    }
-    // reorder the list with the new quality
-    // we dont use a heap
-    std::stable_sort(candidateList_.begin(), candidateList_.end(), comp_);
-  }
-
- private:
-  BcpModeler *pModel_;
-  Comp comp_;
+  MyCoinSearchTree *pTree_;
 };
 
 /*
@@ -1375,7 +1367,8 @@ class BcpInitialize : public USER_initialize {
   BCP_tm_user *tm_init(BCP_tm_prob &p,  // NOLINT
                        const int argnum,
                        const char *const *arglist) {
-    return new BcpBranchingTree(pModel_);  // pointer is owned by BCP
+    pTree_ = new BcpBranchingTree(pModel_);  // pointer is owned by BCP
+    return pTree_;
   }
 
   BCP_lp_user *lp_init(BCP_lp_prob &p) {  // NOLINT
@@ -1398,6 +1391,7 @@ class BcpInitialize : public USER_initialize {
 
   BcpModeler *pModel_;
   BcpLpModel *pLpModel_;
+  BcpBranchingTree *pTree_;
 };
 
 #endif  // SRC_SOLVERS_MP_MODELER_BCPMODELER_H_

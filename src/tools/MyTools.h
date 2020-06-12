@@ -34,6 +34,7 @@
 #include <cfloat>
 #include <random>
 #include <functional>
+#include <utility>
 #include <thread>  // NOLINT (suppress cpplint error)
 #include <mutex>  // NOLINT (suppress cpplint error)
 #include <condition_variable>  // NOLINT (suppress cpplint error)
@@ -57,6 +58,12 @@ namespace Tools {
 
 // Compare functions to sort
 bool compareDecreasing(int i, int j);
+
+template<typename T>
+bool compareObject(const std::pair<T, double> &p1,
+                   const std::pair<T, double> &p2) {
+  return (p1.second < p2.second);
+}
 
 // class defining my own type of exceptions
 //
@@ -89,7 +96,7 @@ struct NSException : std::exception {
     what_ = buff;
   }
 
-  const char* what() const throw() {
+  const char *what() const throw() {
     return what_.c_str();
   }
 

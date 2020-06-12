@@ -12,7 +12,7 @@
 #ifndef SRC_DETERMINISTICMAIN_TEST_H_
 #define SRC_DETERMINISTICMAIN_TEST_H_
 
-// Test the result of the method that divides the scenario \
+// Test the result of the method that divides the scenario
 // according to the connected components of positions
 bool testDivideIntoConnectedComponents();
 

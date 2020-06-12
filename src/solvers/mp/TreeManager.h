@@ -13,6 +13,7 @@
 #define SRC_SOLVERS_MP_TREEMANAGER_H_
 
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -135,26 +136,46 @@ struct PenaltyNode : public MyNode {
   std::vector<int> forbiddenShifts_;
 };
 
-struct NursesNumberNode : public MyNode {
-  NursesNumberNode(int index, MyNode *pParent, MyVar *var, double lb, double ub)
-      :
+struct VarNode : public MyNode {
+  VarNode(int index, MyNode *pParent, MyVar *var, double lb, double ub) :
       MyNode(index, pParent),
-      pNumberOfNurses_(var),
-      nursesLhs_(lb),
-      nursesRhs_(ub) {}
+      var_(var),
+      lb_(lb),
+      ub_(ub) {}
 
   std::string write() const {
     std::stringstream out;
-    out << "NursesNumberNode: (depth=" << depth_ << ",LB=" << bestLB_;
-    out << ",Var=" << pNumberOfNurses_->name_ << ",LB=" << nursesLhs_ << ",UB="
-        << nursesRhs_ << ")";
+    out << "VarNode: (depth=" << depth_ << ",LB=" << bestLB_;
+    out << ",Var=" << var_->name_ << ",LB=" << lb_ << ",UB=" << ub_ << ")";
     return out.str();
   }
 
   // number of nurse on which we have branched. pNumberOfNurses_ can be 0
-  const MyVar *pNumberOfNurses_;
-  const double nursesLhs_, nursesRhs_;
+  const MyVar *var_;
+  const double lb_, ub_;
 };
+
+struct CoverageNode : public MyNode {
+  CoverageNode(int index, MyNode *pParent,
+      const char * cutName, double lhs, double rhs) :
+      MyNode(index, pParent),
+    cutName_(cutName),
+    lhs_(lhs),
+    rhs_(rhs) {}
+
+  std::string write() const {
+    std::stringstream out;
+    out << "CoverageNode: (depth=" << depth_ << ",LB=" << bestLB_;
+    out << ",Var=" << cutName_ << ",LHS=" << lhs_ << ",RHS="
+        << rhs_ << ")";
+    return out.str();
+  }
+
+  // number of nurse on which we have branched. pNumberOfNurses_ can be 0
+  const char * cutName_;
+  const double lhs_, rhs_;
+};
+
 
 struct RestTree : public MyTree {
   RestTree(PScenario pScenario, PDemand pDemand, double epsilon);
@@ -162,9 +183,14 @@ struct RestTree : public MyTree {
   void addForbiddenShifts(PLiveNurse pNurse,
                           std::set<std::pair<int, int> > *forbidenShifts);
 
-  void pushBackNewNursesNumberNode(MyVar *var, double lb, double ub) {
-    NursesNumberNode *node =
-        new NursesNumberNode(tree_.size(), currentNode_, var, lb, ub);
+  void pushBackNewVarNode(MyVar *var, double lb, double ub) {
+    VarNode *node = new VarNode(tree_.size(), currentNode_, var, lb, ub);
+    pushBackNode(node);
+  }
+
+  void pushBackNewDemandNode(const char * cutName, double lhs, double rhs) {
+    CoverageNode *node =
+        new CoverageNode(tree_.size(), currentNode_, cutName, lhs, rhs);
     pushBackNode(node);
   }
 
@@ -235,6 +261,43 @@ struct ShiftDisjointComparator : public ColumnsComparator {
   }
 };
 
+class DiveBranchingRule;
+
+struct ScoreVar {
+  explicit ScoreVar(const DiveBranchingRule *pRule) : pRule(pRule) {}
+  virtual ~ScoreVar() {}
+
+  virtual double score(PLiveNurse pNurse,
+                       int day,
+                       const std::vector<int> &shifts,
+                       const std::vector<double> & values) const = 0;
+
+  const DiveBranchingRule *pRule;
+};
+
+struct ScoreVarCloseHalf : ScoreVar {
+  explicit ScoreVarCloseHalf(const DiveBranchingRule *pRule,
+                             double advantage = .1) :
+      ScoreVar(pRule), advantage(advantage) {}
+
+  double score(PLiveNurse pNurse,
+               int day,
+               const std::vector<int> &shifts,
+               const std::vector<double> & values) const override;
+
+  double advantage;
+};
+
+struct ScoreVarBestExpectedLBImprovement : ScoreVar {
+  explicit ScoreVarBestExpectedLBImprovement(const DiveBranchingRule *pRule) :
+      ScoreVar(pRule) {}
+
+  double score(PLiveNurse pNurse,
+               int day,
+               const std::vector<int> &shifts,
+               const std::vector<double> & values) const override;
+};
+
 class DiveBranchingRule : public MyBranchingRule {
  public:
   DiveBranchingRule(MasterProblem *master, RestTree *tree, const char *name);
@@ -243,11 +306,17 @@ class DiveBranchingRule : public MyBranchingRule {
   /* compute branching decisions */
   bool branching_candidates(MyBranchingCandidate *candidate) override;
 
+  /* branch on a number of nurses working on a shift */
+  void branchOnNumberNurses(MyBranchingCandidate *candidate);
+
+  /* Branch on opt var */
+  void branchOnOptDemand(MyBranchingCandidate *candidate);
+
   /* branch on a set of resting arcs */
-  bool branchOnRestDay(MyBranchingCandidate *candidate);
+  void branchOnRestDay(MyBranchingCandidate *candidate);
 
   /* branch on a set of shifts */
-  bool branchOnShifts(MyBranchingCandidate *candidate);
+  void branchOnShifts(MyBranchingCandidate *candidate);
 
   /* compute fixing decisions */
   bool column_candidates(MyBranchingCandidate *candidate) override;
@@ -266,6 +335,10 @@ class DiveBranchingRule : public MyBranchingRule {
   static bool compareColumnCloseTo5(const std::pair<MyVar *, double> &obj1,
                                     const std::pair<MyVar *, double> &obj2);
 
+  MasterProblem *getMaster() const;
+  Modeler *getModel() const;
+  const std::vector<DualCosts> &getDualCosts() const;
+
  protected:
   // Pointer to the master problem to link the master and the sub problems
   MasterProblem *pMaster_;
@@ -275,6 +348,17 @@ class DiveBranchingRule : public MyBranchingRule {
 
   // Pointers to the data
   Modeler *pModel_;
+
+  // store dual costs
+  std::vector<DualCosts> dualCosts_;
+
+  std::unique_ptr<ScoreVar> scoreFunc_;
+
+  // branching decisions to test
+  typedef void (DiveBranchingRule::*BranchFunc)(MyBranchingCandidate *);
+  std::vector<BranchFunc> branchFunctions_ =
+      {&DiveBranchingRule::branchOnRestDay,
+       &DiveBranchingRule::branchOnShifts};
 
   virtual void buildRestNodesCut(MyBranchingCandidate *candidate,
                                  PLiveNurse pNurse,
@@ -289,6 +373,15 @@ class DiveBranchingRule : public MyBranchingRule {
                          std::vector<int> forbiddenShifts,
                          MyBranchingNode *forbiddenNode,
                          MyBranchingNode *complementaryNode) const;
+
+
+  void randomSwapLastChildren(MyBranchingCandidate *candidate) {
+    // Here : random choice to decide the order of the children
+    if (Tools::randomInt(0, 1)) {
+      candidate->swapLastChildren();
+      tree_->swapLastNodes();
+    }
+  }
 };
 
 class RosterBranchingRule : public DiveBranchingRule {

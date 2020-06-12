@@ -346,6 +346,12 @@ struct MyBranchingCandidate {
     std::swap(children_[index1], children_[index2]);
   }
 
+  void swapLastChildren() {
+    int index1 = children_.size() - 2,
+        index2 = children_.size() - 1;
+    swapChildren(index1, index2);
+  }
+
   void initialize(MyBranchingNode *node) {
     for (MyVar *var : branchingVars_) {
       node->LB.push_back(var->getLB());
@@ -674,6 +680,16 @@ struct MyTree {
 
   double getCurrentLB() const { return currentNode_->getBestLB(); }
 
+  void swapNodes(int index1, int index2) {
+    std::swap(tree_[index1], tree_[index2]);
+  }
+
+  void swapLastNodes() {
+    int index1 = tree_.size() - 2,
+        index2 = tree_.size() - 1;
+    swapNodes(index1, index2);
+  }
+
   // Reset and clear solving parameters
   virtual void reset() {
     clear();
@@ -827,6 +843,9 @@ class Modeler {
   Modeler() : pPricer_(nullptr), pBranchingRule_(nullptr), pTree_(nullptr) {}
 
   virtual ~Modeler() {
+    for (MyVar *var : initialColumnVars_)
+      delete var;
+    initialColumnVars_.clear();
     for (MyObject *object : objects_)
       delete object;
     objects_.clear();

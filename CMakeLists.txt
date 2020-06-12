@@ -30,12 +30,13 @@ endif()
 add_definitions(-pedantic -Wall -Wno-sign-compare)
 
 # add boost
-if(${BOOST_DIR})
+if(DEFINED BOOST_DIR)
     set(Boost_INCLUDE_DIR ${BOOST_DIR})
 else()
     FIND_PACKAGE( Boost 1.48 COMPONENTS graph REQUIRED )
 endif()
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
+MESSAGE("Boost directory: ${Boost_INCLUDE_DIR}")
 
 # add BCP
 MESSAGE("BCP directory: ${BCP_DIR}")

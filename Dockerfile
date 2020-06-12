@@ -13,7 +13,7 @@ COPY --chown=poly ./src/ /home/poly/ns/src/
 # Set the working directory
 WORKDIR /home/poly/ns/
 
-# Compile the nurse scheduler
+## Compile the nurse scheduler
 ARG CMAKE_BUILD_TYPE=Release
 RUN echo "set(BCPDIROPT /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt && \
     echo "set(BCPDIRDBG /usr/local/Bcp-1.4/build)" >> CMakeDefinitionsLists.txt && \

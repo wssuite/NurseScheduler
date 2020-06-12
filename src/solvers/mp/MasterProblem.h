@@ -343,6 +343,12 @@ class MasterProblem : public Solver, public PrintSolution {
 
   const vector3D<MyVar *> &getOptDemandVars() { return optDemandVars_; }
 
+  const vector4D<MyVar *> &getSkillsAllocVars() { return skillsAllocVars_; }
+
+  const std::vector<int> & getPositionsForSkill(int sk) const {
+    return positionsPerSkill_[sk];
+  }
+
   /* Display functions */
   std::string costsConstrainstsToString() const override;
   std::string allocationToString(bool printInteger = true) const;

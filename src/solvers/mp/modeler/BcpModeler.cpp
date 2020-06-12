@@ -58,14 +58,20 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
   // Initialization of nb_dives_to_wait_before_branching_on_columns_
   for (int i = 1; i < 1000; ++i)
     nb_dives_to_wait_before_branching_on_columns_.push_back(pow(i, 2));
+  // create the timer that records the life time of the solver and start it
+  pTimerTotal_ = new Tools::Timer();
+  pTimerTotal_->init();
+  pTimerTotal_->start();
 }
 
 BcpLpModel::~BcpLpModel() {
-  // copy active columns before being deleted
-  pModel_->copyActiveToInitialColumns();
+  // kill the timer
+  pTimerTotal_->stop();
   // record stats before being deleted
   pModel_->addTimeStats(getTimeStats());
   pModel_->addNbLpIterations(getNbLpIterations());
+
+  delete pTimerTotal_;
 }
 
 // Initialize the lp parameters and the OsiSolver
@@ -448,7 +454,8 @@ void BcpLpModel::printNodeSummaryLine(int nbChildren) const {
 
 // stop this node or BCP
 bool BcpLpModel::doStop(const BCP_vec<BCP_var *> &vars) {
-  pModel_->doStop(vars);
+  if (pModel_->doStop(vars))
+    return true;
 
   // fathom if the true lower bound greater than current upper bound
   return pModel_->getObjective() -
@@ -457,16 +464,16 @@ bool BcpLpModel::doStop(const BCP_vec<BCP_var *> &vars) {
 }
 
 //// store the LP results
-void BcpLpModel::process_lp_result(const BCP_lp_result& lpres,
-                  const BCP_vec<BCP_var*>& vars,
-                  const BCP_vec<BCP_cut*>& cuts,
-                  const double old_lower_bound,
-                  double& true_lower_bound,
-                  BCP_solution*& sol,
-                  BCP_vec<BCP_cut*>& new_cuts,
-                  BCP_vec<BCP_row*>& new_rows,
-                  BCP_vec<BCP_var*>& new_vars,
-                  BCP_vec<BCP_col*>& new_cols) {
+void BcpLpModel::process_lp_result(const BCP_lp_result &lpres,
+                                   const BCP_vec<BCP_var *> &vars,
+                                   const BCP_vec<BCP_cut *> &cuts,
+                                   const double old_lower_bound,
+                                   double &true_lower_bound,
+                                   BCP_solution *&sol,
+                                   BCP_vec<BCP_cut *> &new_cuts,
+                                   BCP_vec<BCP_row *> &new_rows,
+                                   BCP_vec<BCP_var *> &new_vars,
+                                   BCP_vec<BCP_col *> &new_cols) {
   // update the total number of LP solutions (from the beginning)
   ++currentNodelpIteration_;
   ++lpIteration_;
@@ -846,8 +853,10 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     double lb = lpres.objval();
     // update node. If return false, the lb has decreased !
     // Bug needs to be find
-    if (!pModel_->updateNodeLB(lb))
+    if (!pModel_->updateNodeLB(lb)) {
+      std::cerr << "The best LB has decreased." << std::endl;
       writeLP("model_" + std::to_string(current_index()));
+    }
     // update true_lower_bound, as we reach the end of the column generation
     getLpProblemPointer()->node->true_lower_bound = lb;
   }
@@ -859,18 +868,13 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
   // otherwise, record the root solution for future use
   if (current_index() == 0) {
-    // Always set abort_on_error to false as BCP will set it back to true.
-    // These errors should always be caught by BCP to let BCP clean
-    // everything before exiting.
-    BCP_fatal_error::abort_on_error = false;
+    if (pModel_->getTimeFirstRoot() < 0)
+      pModel_->setTimeFirstRoot(pTimerTotal_->dSinceStart());
     // Check if infeasible
-    if (!pModel_->isFeasible())
-      throw InfeasibleStop(
-          pModel_->getMaster(),
-          "Feasibility core variable is still present in the solution");
-    pModel_->recordLpSol();
-    if (pModel_->getTimeFirstRoot() < 0) {
-      pModel_->setTimeFirstRoot(CoinWallclockTime() - start_time());
+    if (!pModel_->isFeasible()) {
+      std::cout << "Feasibility core variable is still present "
+                   "in the solution" << std::endl;
+      return BCP_DoNotBranch_Fathomed;
     }
   }
 
@@ -1327,18 +1331,20 @@ void BcpBranchingTree::init_new_phase(int phase,
   //   CoinSearchTreeCompareHighestIncrease::pModel = pModel_;
   switch (pModel_->getSearchStrategy()) {
     case BestFirstSearch:set_param(BCP_tm_par::TreeSearchStrategy, 0);
-      candidates = new MyCoinSearchTree<CoinSearchTreeCompareBest>(pModel_);
+      pTree_ = new MyCompCoinSearchTree<CoinSearchTreeCompareBest>(pModel_);
       break;
     case BreadthFirstSearch:set_param(BCP_tm_par::TreeSearchStrategy, 1);
-      candidates = new MyCoinSearchTree<CoinSearchTreeCompareBreadth>(pModel_);
+      pTree_ = new MyCompCoinSearchTree<CoinSearchTreeCompareBreadth>(pModel_);
       break;
     case DepthFirstSearch:set_param(BCP_tm_par::TreeSearchStrategy, 2);
-      candidates = new MyCoinSearchTree<CoinSearchTreeCompareDepth>(pModel_);
+      pTree_ = new MyCompCoinSearchTree<CoinSearchTreeCompareDepth>(pModel_);
       break;
     default:
-      candidates = new MyCoinSearchTree<CoinSearchTreeCompareBest>(pModel_);
+      pTree_ = new MyCompCoinSearchTree<CoinSearchTreeCompareBest>(pModel_);
       break;
   }
+
+  candidates = pTree_;
 }
 
 
@@ -1997,71 +2003,70 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars) {
     return false;
 
   // check stopping criteria
-  try {
-    // Always set abort_on_error to false as BCP will set it back to true.
-    // These errors should always be caught by BCP to let BCP clean
-    // everything before exiting.
-    BCP_fatal_error::abort_on_error = false;
-    // check if should stop
-    if (pTree_->getBestUB() - pTree_->getBestLB()
-        < parameters_.absoluteGap_ - epsilon()) {
-      updateNodeLB(getBestUB());  // update with ub as optimal
-      throw OptimalStop(getMaster(),
-                        "Stopped: absolute gap < %.2f.",
-                        parameters_.absoluteGap_);
-    } else if (getMaster()->getTimerTotal()->dSinceStart()
-        > getParameters().maxSolvingTimeSeconds_) {
-      throw TimeoutStop(getMaster(),
-                        "Stopped: Time has run out after %.2f s.",
-                        getMaster()->getTimerTotal()->dSinceStart());
-    } else if (parameters_.solveToOptimality_) {
+  if (pTree_->getBestUB() - pTree_->getBestLB()
+      < parameters_.absoluteGap_ - epsilon()) {
+    updateNodeLB(getBestUB());  // update with ub as optimal
+    pMaster_->setStatus(OPTIMAL);
+    printf("BCP STOPPED: absolute gap < %.2f.\n", parameters_.absoluteGap_);
+  } else if (getMaster()->getTimerTotal()->dSinceStart()
+      > getParameters().maxSolvingTimeSeconds_) {
+    pMaster_->setStatus(TIME_LIMIT);
+    printf("BCP STOPPED: Time has run out after %.2f s.\n",
+           pMaster_->getTimerTotal()->dSinceStart());
+  } else if (parameters_.solveToOptimality_) {
+    // all the other criteria are not optimal -> stop here and return false
+    return false;
+  } else if (nbSolutions() >= parameters_.stopAfterXSolution_) {
+    // check the number of solutions
+    pMaster_->setStatus(FEASIBLE);
+    printf("BCP STOPPED: %d solutions have been founded.\n", nbSolutions());
+  } else if (pTree_->getBestUB() - pTree_->getBestLB()
+      < parameters_.minRelativeGap_ * pTree_->getBestLB() - epsilon()) {
+    pMaster_->setStatus(FEASIBLE);
+    printf("BCP STOPPED: relative gap < %.2f.\n", parameters_.minRelativeGap_);
+  } else if (pTree_->getBestUB() - pTree_->getBestLB()
+      < parameters_.relativeGap_ * pTree_->getBestLB() - epsilon()) {
+    // if the relative gap is small enough and if same incumbent
+    // since the last dive, stop
+    if (pTree_->getNbNodesSinceLastIncumbent()
+        > parameters_.nbDiveIfMinGap_ * pTree_->getDiveLength()) {
+      pMaster_->setStatus(FEASIBLE);
+      printf("BCP STOPPED: relative gap < %.2f and more than %d nodes without "
+             "new incumbent.\n",
+             parameters_.relativeGap_,
+             parameters_.nbDiveIfMinGap_ * pTree_->getDiveLength());
+    } else {
       return false;
     }
-
-    // check the number of solutions
-    if (nbSolutions() >= parameters_.stopAfterXSolution_) {
-      throw FeasibleStop(getMaster(),
-                         "Stopped: %d solutions have been founded",
-                         nbSolutions());
-    } else if (pTree_->getBestUB() - pTree_->getBestLB()
-        < parameters_.minRelativeGap_ * pTree_->getBestLB() - epsilon()) {
-      throw FeasibleStop(getMaster(),
-                         "Stopped: relative gap < %.2f.",
-                         parameters_.minRelativeGap_);
-    } else if (pTree_->getBestUB() - pTree_->getBestLB()
-        < parameters_.relativeGap_ * pTree_->getBestLB() - epsilon()) {
-      // if the relative gap is small enough and if same incumbent
-      // since the last dive, stop
-      if (pTree_->getNbNodesSinceLastIncumbent()
-          > parameters_.nbDiveIfMinGap_ * pTree_->getDiveLength()) {
-        throw FeasibleStop(
-            getMaster(),
-            "Stopped: relative gap < %.2f and more than %d nodes without "
-            "new incumbent.",
-            parameters_.relativeGap_,
-            parameters_.nbDiveIfMinGap_ * pTree_->getDiveLength());
-      }
-    } else if (nbSolutions() > 0) {
-      // if(pTree_->getBestUB() - pTree_->getBestLB() <
-      // 10.0 * pTree_->getBestLB()) {
-      // if the relative gap is too big, wait 2 dives before stopping
-      if (pTree_->getNbNodesSinceLastIncumbent()
-          > parameters_.nbDiveIfRelGap_ * pTree_->getDiveLength()) {
-        throw FeasibleStop(
-            getMaster(),
-            "Stopped: relative gap > %.2f and more than %d nodes without "
-            "new incumbent.",
-            parameters_.relativeGap_,
-            parameters_.nbDiveIfRelGap_ * pTree_->getDiveLength());
-      }
+  } else if (nbSolutions() > 0) {
+    // if(pTree_->getBestUB() - pTree_->getBestLB() <
+    // 10.0 * pTree_->getBestLB()) {
+    // if the relative gap is too big, wait 2 dives before stopping
+    if (pTree_->getNbNodesSinceLastIncumbent()
+        > parameters_.nbDiveIfRelGap_ * pTree_->getDiveLength()) {
+      pMaster_->setStatus(FEASIBLE);
+      printf("BCP STOPPED: relative gap > %.2f and more than %d nodes without "
+             "new incumbent.\n",
+             parameters_.relativeGap_,
+             parameters_.nbDiveIfRelGap_ * pTree_->getDiveLength());
+    } else {
+      return false;
     }
-  } catch (BCP_fatal_error &e) {
-    pBcp_->pLpModel_->printSummaryLine(true, vars);
-    stop();
-    throw;
+  } else {
+    return false;
   }
 
-  return false;
+  // stop
+  stop();
+  return true;
+}
+
+void BcpModeler::stop() {
+  // copy active columns before being deleted
+  copyActiveToInitialColumns();
+  // remove all the nodes
+  pBcp_->pTree_->clear();
+  stopped_ = true;
 }
 
 /**************

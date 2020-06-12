@@ -323,7 +323,7 @@ void DeterministicSolver::updateInitialStats(Solver *pSolver) {
   BcpModeler *pModel = dynamic_cast<BcpModeler *>(pMaster->getModel());
 
   stats_.bestUBInitial_ = pMaster->computeSolutionCost();
-  stats_.bestUB_ = pMaster->computeSolutionCost();
+  stats_.bestUB_ = stats_.bestUBInitial_;
   stats_.rootLB_ = pModel->getRootLB();
   stats_.bestLB_ = std::min(stats_.bestUB_,
                             5.0 * ceil((pModel->getBestLB() - pModel->epsilon())
@@ -516,6 +516,7 @@ double DeterministicSolver::solveByConnectedPositions() {
     // The idea is to wait that all scenarios has been solved before restarting
     // a new phase and divide the time left proportionally to the number of
     // nurses in each component not solved at optimality.
+    // change also the settings to try to consume all the solving time provided
     if (nbNursesToSolve == 0) {
       for (auto pSc : scenariosToSolve)
         nbNursesToSolve += pSc->nbNurses();
@@ -524,11 +525,6 @@ double DeterministicSolver::solveByConnectedPositions() {
     // retrieve and remove first scenario
     PScenario pScenario = scenariosToSolve.front();
     scenariosToSolve.pop_front();
-
-    if (options_.verbose_ > 0) {
-      std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
-      std::cout << pScenario->toString() << std::endl;
-    }
 
     // SET THE SOLVER AND SOLVE THE SUBPROBLEM
     // set allowed time proportionally to the number of nurses in the
@@ -539,6 +535,11 @@ double DeterministicSolver::solveByConnectedPositions() {
     if (timeLeft <= 10)
       break;
     double allowedTime = pScenario->nbNurses() * timeLeft / nbNursesToSolve;
+
+    if (options_.verbose_ > 0) {
+      std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
+      std::cout << pScenario->toString() << std::endl;
+    }
 
     // fetch the solver if already existing or create anew one
     DeterministicSolver *solver = nullptr;
@@ -577,9 +578,11 @@ double DeterministicSolver::solveByConnectedPositions() {
     // update the number of nurses to solve
     nbNursesToSolve -= pScenario->nbNurses();
 
-    // If not optimal, push back the scenario in the list to be solved again
-    // in case there is some time left at the end
-    if (newStatus != OPTIMAL)
+    // If not optimal or a timeout has been specified or not trying to
+    // solve at optimality,
+    // push back the scenario in the list to be solved again in case
+    // there is some time left at the end
+    if (newStatus == TIME_LIMIT)
       scenariosToSolve.push_back(pScenario);
   }
 
@@ -589,7 +592,8 @@ double DeterministicSolver::solveByConnectedPositions() {
   // 3- delete the solver
   for (auto &p : solverForScenario) {
     if (status_ == UNSOLVED || status_ == OPTIMAL)
-      status_ = p.second->getStatus();
+      status_ = (p.second->getStatus() == TIME_LIMIT) ?
+                FEASIBLE : p.second->getStatus();
     stats_.add(p.second->getGlobalStat());
     delete p.second;
   }
@@ -604,7 +608,7 @@ double DeterministicSolver::solveByConnectedPositions() {
 }
 
 //------------------------------------------------------------------------
-// Solve the problem with a receeding horizon algorithm
+// Solve the problem with a rolling horizon algorithm
 // The sample period is the number of days for which column variables
 // must be integer
 //------------------------------------------------------------------------
@@ -679,7 +683,7 @@ double DeterministicSolver::solveWithRollingHorizon(
     for (int day = 0; day <= lastDayControl; day++) isUnrelaxDay[day] = true;
     pRollingSolver_->unrelaxDays(isUnrelaxDay);
 
-    // stop lns if runtime is exceeded
+    // stop rolling horizon if runtime is exceeded
     //
     double timeSinceStart = pTimerTotal_->dSinceStart();
     std::cout << "Time spent until then: " << timeSinceStart << " s"
