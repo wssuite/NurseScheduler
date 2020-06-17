@@ -148,7 +148,6 @@ void SubProblem::build() {
 
   // Set all status to authorized
   Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
-  Tools::initVector(&startingDayStatus_, nDays_, true);
   nPathsMin_ = 0;
 
   timeInS_ = new Tools::Timer();
@@ -172,7 +171,6 @@ bool SubProblem::solve(PLiveNurse nurse,
                        DualCosts *costs,
                        const SubproblemParam &param,
                        set<pair<int, int> > forbiddenDayShifts,
-                       set<int> forbiddenStartingDays,
                        double redCostBound) {
   bestReducedCost_ = 0;
   nFound_ = 0;
@@ -190,7 +188,6 @@ bool SubProblem::solve(PLiveNurse nurse,
   resetSolutions();  // Delete all already existing solutions
   initStructuresForSolve();  // Initialize structures
   forbid(forbiddenDayShifts);  // Forbid arcs
-  forbidStartingDays(forbiddenStartingDays);  // Forbid starting days
   if (!param.violateConsecutiveConstraints_)
     forbidViolationConsecutiveConstraints();
 
@@ -583,9 +580,6 @@ bool SubProblem::canSuccStartHere(const Arc_Properties &arc_prop) const {
 }
 
 bool SubProblem::canSuccStartHere(int k, const std::vector<int> &shifts) const {
-  // If the starting date is forbidden, return false
-  if (!startingDayStatus_[k])
-    return false;
   // If the succession with the previous shift (day -1) is not allowed
   if (k == 0 &&
       pScenario_->isForbiddenSuccessorShift_Shift(
@@ -628,43 +622,16 @@ void SubProblem::authorizeDayShift(int k, int s) {
   principalGraphs_[sh].authorizeDayShift(k, s);
 }
 
-// Forbids some starting days
-void SubProblem::forbidStartingDays(const set<int> &forbiddenStartingDays) {
-  for (int k : forbiddenStartingDays)
-    forbidStartingDay(k);
-}
-
-// Authorizes some starting days
-void SubProblem::authorizeStartingDays(const set<int> &authorizedStartingDays) {
-  for (int k : authorizedStartingDays)
-    authorizeStartingDay(k);
-}
-
 // forbid any arc that authorizes the violation of a consecutive constraint
 void SubProblem::forbidViolationConsecutiveConstraints() {
   for (PrincipalGraph &pg : principalGraphs_)
     pg.forbidViolationConsecutiveConstraints();
 }
 
-// Forbids a starting date: no rotation can now start on that day.
-// Gives a prohibitive resource consumption on all short
-// rotation arcs that correspond to rotations starting on that day.
-void SubProblem::forbidStartingDay(int k) {
-  // Mark the starting day as forbidden
-  startingDayStatus_[k] = false;
-}
-
-// Authorizes a starting date: rotations may now start on that day.
-void SubProblem::authorizeStartingDay(int k) {
-  // Mark the starting day as allowed
-  startingDayStatus_[k] = true;
-}
-
 // Reset all authorizations to true
 void SubProblem::resetAuthorizations() {
   // set all value to true
   Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
-  Tools::initVector(&startingDayStatus_, nDays_, true);
   // reset authorizations for all arcs and nodes
   g_.resetAuthorizations();
 }
@@ -717,11 +684,6 @@ void SubProblem::printForbiddenDayShift() const {
 }
 
 void SubProblem::checkForbiddenDaysAndShifts(const RCSolution &sol) const {
-  if (isStartingDayforbidden(sol.firstDay))
-    Tools::throwError("A RC solution starts on a forbidden day %d: %s",
-                      sol.firstDay,
-                      sol.toString(pScenario_->shiftIDToShiftTypeID_).c_str());
-
   int k = sol.firstDay;
   for (int s : sol.shifts)
     if (isDayShiftForbidden(k++, s))

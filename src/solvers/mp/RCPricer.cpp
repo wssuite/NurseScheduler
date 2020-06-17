@@ -133,7 +133,10 @@ vector<MyVar *> RCPricer::pricing(double bound,
 
           // UPDATE NURSE FORBIDDEN SHIFTS
           bool locDisjointForbidden = disjointForbidden;
-          set<pair<int, int> > nurseForbiddenShifts(forbiddenShifts_);
+          set<pair<int, int> > nurseForbiddenShifts(
+              nursesForbiddenShifts_[pNurse->num_]);
+          nurseForbiddenShifts.insert(forbiddenShifts_.begin(),
+                                      forbiddenShifts_.end());
           pModel_->addForbiddenShifts(pNurse, &nurseForbiddenShifts);
 
           // SET SOLVING OPTIONS
@@ -147,7 +150,6 @@ vector<MyVar *> RCPricer::pricing(double bound,
                             &dualCosts,
                             sp_param,
                             nurseForbiddenShifts,
-                            forbiddenStartingDays_,
                             bound);
 
           // RETRIEVE THE GENERATED ROTATIONS
@@ -316,16 +318,11 @@ bool RCPricer::updateCurrentStrategyAndRedCost(
     const std::vector<RCSolution> &solutions,
     bool disjointForbidden) {
   lock_guard<recursive_mutex> lock(m_subproblem_);
-  // update reduced cost if solved at optimality:
-  // on last level and disjointForbidden = false
-  if (currentSubproblemStrategy_[pNurse->num_]
-      == SubproblemParam::maxSubproblemStrategyLevel_ && !disjointForbidden) {
-    if (solutions.empty()) minOptimalReducedCosts_[pNurse->num_] = 0;
-    else
-      minOptimalReducedCosts_[pNurse->num_] = solutions.front().cost;
-  } else {
-    optimal_ = false;  // cannot ensure optimality
-  }
+
+  // if not on on last level and disjointForbidden = false -> not optimal
+  if (disjointForbidden || currentSubproblemStrategy_[pNurse->num_]
+      < SubproblemParam::maxSubproblemStrategyLevel_)
+    optimal_ = false;
 
   // check if enough columns have been generated and no shifts forbidden
   // by disjoint column strategy,
@@ -344,10 +341,11 @@ bool RCPricer::updateCurrentStrategyAndRedCost(
     increased = true;
   }
 
-  // If any solutions, check if red cost needs to be updated
-  if (!solutions.empty())
-    if (solutions.front().cost < minReducedCost_)
-      minReducedCost_ = solutions.front().cost;
+  // update reduced cost and min
+  double redCost = solutions.empty() ? 0 : solutions.front().cost;
+  minReducedCosts_[pNurse->num_] = redCost;
+  if (redCost < minReducedCost_)
+      minReducedCost_ = redCost;
 
   return increased;
 }
@@ -355,6 +353,17 @@ bool RCPricer::updateCurrentStrategyAndRedCost(
 /******************************************************
  * add some forbidden shifts
  ******************************************************/
+void RCPricer::initNursesAvailabilities() {
+  Tools::initVector(&nursesForbiddenShifts_,
+                    pMaster_->getNbNurses(),
+                    std::set<std::pair<int, int>>());
+  for (int n = 0; n < pMaster_->getNbNurses(); ++n)
+    for (int k = 0; k < pMaster_->getNbDays(); ++k)
+      for (int s = 0; s < pMaster_->getNbShifts(); ++s)
+        if (!pMaster_->isNurseAvailableOnDayShift(n, k, s))
+          nursesForbiddenShifts_[n].insert({k, s});
+}
+
 bool RCPricer::addForbiddenShifts(const std::vector<RCSolution> &solutions,
                                   const DualCosts &duals) {
   // search best rotation
@@ -507,20 +516,4 @@ void RCPricer::printStatSPSolutions() {
          tMeanN);
   printf("%s", sepLine.c_str());
   printf("\n");
-}
-
-
-// ------------------------------------------
-//
-// DBG functions - may be useful
-//
-// ------------------------------------------
-
-void RCPricer::generateRandomForbiddenStartingDays() {
-  set<int> randomForbiddenStartingDays;
-  for (int m = 0; m < 5; m++) {
-    int k = Tools::randomInt(0, nbDays_ - 1);
-    randomForbiddenStartingDays.insert(k);
-  }
-  forbiddenStartingDays_ = randomForbiddenStartingDays;
 }

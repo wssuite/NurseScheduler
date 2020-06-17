@@ -128,7 +128,8 @@ struct RosterPattern : Pattern {
 
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem
-  void checkReducedCost(const DualCosts &costs, PScenario Scenario);
+  void checkReducedCost(
+      const DualCosts &costs, PScenario Scenario, bool printBadPricing = true);
 
   // Returns true if both columns are disjoint (needRest not used)
   bool isDisjointWith(PPattern pat, bool needRest = true) const override {
@@ -177,7 +178,7 @@ class RosterMP : public MasterProblem {
            MySolverType solver);
   virtual ~RosterMP();
 
-  PPattern getPattern(const std::vector<double> &pattern) const override;
+  PPattern getPattern(MyVar *var) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 

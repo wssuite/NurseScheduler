@@ -90,10 +90,7 @@ MasterProblem::MasterProblem(PScenario pScenario,
     minDemandCons_(pDemand_->nbDays_),
     optDemandCons_(pDemand_->nbDays_),
     numberOfNursesByPositionCons_(pScenario->nbPositions()),
-    feasibleSkillsAllocCons_(pDemand_->nbDays_),
-    // STAB
-    stabMinDemandPlus_(pDemand_->nbDays_),
-    stabOptDemandPlus_(pDemand_->nbDays_) {
+    feasibleSkillsAllocCons_(pDemand_->nbDays_) {
   // build the model
   this->initializeSolver(solverType);
 }
@@ -205,18 +202,12 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
     pModel_->printStats();
   }
 
-  // update solver's status
-  if (getModel()->nbSolutions() == 0) {
-    // if was solving just the relaxation: stopAfterXSolution_ = 0
-    if (param_.stopAfterXSolution_ == 0) {
-      // if column generation has been solved to optimality
-      if (status_ != INFEASIBLE)
-        status_ = OPTIMAL;
-      return pModel_->getRelaxedObjective();
-    }
-    // otherwise, set solution as infeasible
-    setStatus(INFEASIBLE);
-    return LARGE_SCORE;
+  // if was solving just the relaxation: stopAfterXSolution_ = 0
+  if (param_.stopAfterXSolution_ == 0 && getModel()->nbSolutions() == 0) {
+    // if column generation has been solved to optimality
+    if (status_ != INFEASIBLE)
+      status_ = OPTIMAL;
+    return pModel_->getRelaxedObjective();
   }
 
   // print best solution
@@ -226,12 +217,16 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
   storeSolution();
 
   // print constraints' costs
-  costsConstrainstsToString();
+  std::cout << costsConstrainstsToString() << std::endl;
 
   return pModel_->getObjective();
 }
 
 void MasterProblem::solveWithCatch() {
+  // initialize pricer (useful to authorize/forbid shifts for nurses)
+  // ROLLING/LNS use it
+  pPricer_->initNursesAvailabilities();
+  // then solve
   pModel_->solve();
 }
 
@@ -251,12 +246,6 @@ void MasterProblem::initialize(const SolverParam &param,
   build(param);
   initializeSolution(solution);
   setParameters(param);
-
-  // in case the initial solution is not empty, fix the corresponding rotations
-  // to one and solve the problem to get the solution properly
-  if (!solution.empty()) {
-    pModel_->fixEveryRotation();
-  }
 }
 
 // build the rostering problem
@@ -289,7 +278,7 @@ void MasterProblem::build(const SolverParam &param) {
 
 // relax/unrelax the integrality constraints of the variables corresponding to
 // input days
-void MasterProblem::relaxDays(vector<bool> isRelax) {
+void MasterProblem::relaxDays(const std::vector<bool> &isRelax) {
   if (isRelaxDay_.empty()) {
     isRelaxDay_.insert(isRelaxDay_.begin(), pDemand_->nbDays_, false);
     isPartialRelaxDays_ = true;
@@ -298,63 +287,83 @@ void MasterProblem::relaxDays(vector<bool> isRelax) {
   for (int day = 0; day < pDemand_->nbDays_; day++) {
     isRelaxDay_[day] = isRelaxDay_[day] ? true : isRelax[day];
   }
-
-  pModel_->relaxRotationsStartingFromDays(isRelax);
 }
 
-void MasterProblem::unrelaxDays(vector<bool> isUnrelax) {
+void MasterProblem::unrelaxDays(const std::vector<bool> &isUnrelax) {
   if (isRelaxDay_.empty()) {
     isPartialRelaxDays_ = false;
   } else {
     for (int day = 0; day < pDemand_->nbDays_; day++)
       isRelaxDay_[day] = isRelaxDay_[day] ? !isUnrelax[day] : false;
-    pModel_->unrelaxRotationsStartingFromDays(isUnrelax);
   }
 }
 
-// fix/unfix all the variables corresponding to the input vector of days
-void MasterProblem::fixDays(vector<bool> isFix) {
-  // initialize the list of fixed days if empty
-  if (isFixDay_.empty()) {
-    isFixDay_.insert(isFixDay_.begin(), pDemand_->nbDays_, false);
-    isPartialFixDays_ = true;
-  }
+// set availability for the days before fixBefore (<=) based on
+// the current solution
+void MasterProblem::fixAvailabilityBasedOnSolution(
+    const std::vector<bool> &fixDays) {
+  // check if a solution has been loaded
+  if (pModel_->getActiveColumns().empty())
+    Tools::throwError("Cannot call fixAvailabilityBasedOnSolution "
+                      "if no solutions in the solver");
 
-  // set the list of fixed day
-  // + forbid the generation of rotations with these starting days
-  for (int day = 0; day < pDemand_->nbDays_; day++) {
-    isFixDay_[day] = isFixDay_[day] ? true : isFix[day];
-    if (isFixDay_[day]) pPricer_->forbidStartingDay(day);
-  }
+  // by default set all availabilities to true
+  vector3D<bool> availableNursesDaysShifts;
+  Tools::initVector3D(&availableNursesDaysShifts,
+                      getNbNurses(), getNbDays(), getNbShifts(), true);
+  // then get the solution and set to true only the shift belonging to
+  // a solution
+  vector3D<double> roster = getFractionalRoster();
+  for (int n = 0; n < getNbNurses(); ++n)
+    for (int k = 0; k <= getNbDays(); ++k)
+      if (fixDays[k]) {
+        for (int s = 0; s < getNbShifts(); ++s)
+          availableNursesDaysShifts[n][k][s] = roster[n][k][s] > epsilon();
+      }
 
-  // actually fix the active columns starting with the input days with their
-  // current values
-  pModel_->fixRotationsStartingFromDays(isFix);
+  nursesAvailabilities(availableNursesDaysShifts);
 }
 
-void MasterProblem::unfixDays(vector<bool> isUnfix) {
-  // easy to treat the case where no day is fixed yet
-  if (isFixDay_.empty()) {
-    isPartialFixDays_ = false;
-    pPricer_->clearForbiddenStartingDays();
-  } else {
-    // set the list of unfixed day
-    // + authorize the generation of rotations with these starting days
-    for (int day = 0; day < pDemand_->nbDays_; day++) {
-      isFixDay_[day] = isFixDay_[day] ? !isUnfix[day] : false;
-      if (!isFixDay_[day]) pPricer_->authorizeStartingDay(day);
-    }
+void MasterProblem::nursesAvailabilities(
+    const vector3D<bool> &nursesAvailabilities) {
+  Solver::nursesAvailabilities(nursesAvailabilities);
 
-    // actually unfix the active columns starting with the input days
-    pModel_->unfixRotationsStartingFromDays(isUnfix);
+  // remove from the pool any column that does not respect the availability
+  filterColumnsBasedOnAvailability();
+}
+
+// remove any column that does not respect the availabilities
+void MasterProblem::filterColumnsBasedOnAvailability() {
+  // if all available, all columns can remain in the pool
+  if (!isPartialAvailable_) return;
+
+  // iterate through the pool of columns
+  std::vector<MyVar *> initialColumns;
+  for (MyVar *var : pModel_->getInitialColumns()) {
+    // check if column is feasible
+    PPattern pat = getPattern(var);
+    bool feasible = true;
+    for (int k = pat->firstDay_; k <= pat->endDay(); k++)
+      if (!isNurseAvailableOnDayShift(pat->nurseNum_, k, pat->getShift(k))) {
+        feasible = false;
+        break;
+      }
+    // if feasible, keep it, otherwise delete it
+    if (feasible)
+      initialColumns.push_back(var);
+    else
+      delete var;
   }
+
+  // reset the pool
+  pModel_->setInitialColumns(initialColumns);
 }
 
 // fix/unfix all the variables corresponding to the input vector of nurse ids
-void MasterProblem::fixNurses(vector<bool> isFix) {
+void MasterProblem::fixNurses(const std::vector<bool> &isFix) {
   // initialize the list of fixed nurses if empty
   if (isFixNurse_.empty()) {
-    isFixNurse_.insert(isFixNurse_.begin(), getNbNurses(), false);
+    Tools::initVector(&isFixNurse_, getNbNurses(), false);
     isPartialFixNurses_ = true;
   }
   // set the list of fixed day
@@ -365,11 +374,13 @@ void MasterProblem::fixNurses(vector<bool> isFix) {
     if (isFixNurse_[n]) pPricer_->forbidNurse(n);
   }
 
-  // actually fix the active columns of the input nurses with their
-  // current values
-  pModel_->fixRotationsOfNurses(isFix);
+  // actually fix the active columns of the input nurses
+  for (MyVar *var : pModel_->getInitialColumns())
+    if (isFixNurse(var->getNurseNum()))
+      var->setLB(1);
 }
-void MasterProblem::unfixNurses(vector<bool> isUnfix) {
+
+void MasterProblem::unfixNurses(const std::vector<bool> &isUnfix) {
   // easy to treat the case where no nurse is fixed yet
   if (isFixNurse_.empty()) {
     isPartialFixNurses_ = false;
@@ -384,7 +395,9 @@ void MasterProblem::unfixNurses(vector<bool> isUnfix) {
     }
 
     // actually unfix the active columns of the input nurses
-    pModel_->unfixRotationsOfNurses(isUnfix);
+    for (MyVar *var : pModel_->getInitialColumns())
+      if (!isFixNurse(var->getNurseNum()))
+        var->setLB(0);
   }
 }
 
@@ -407,17 +420,17 @@ double MasterProblem::rollingSolve(const SolverParam &param,
   }
 
   // solve the problem
-  if (solverType_ != S_CBC) {
-    pModel_->setVerbosity(1);
-  }
-
   solveWithCatch();
-  pModel_->loadBestSol();
+  pModel_->loadBestSol(false);
+  // copy active columns (the solution) to initial for next run and
+  // clear solution
+  pModel_->copyActiveToInitialColumns();
+  // reload solution
+  pModel_->loadBestSol(false);
 
   // output information and save the solution
-  if (pModel_->getParameters().printBranchStats_) {
+  if (pModel_->getParameters().printBranchStats_)
     pModel_->printStats();
-  }
 
   return pModel_->getObjective();
 }
@@ -435,18 +448,14 @@ double MasterProblem::LNSSolve(const SolverParam &param,
   initializeSolution(solution);
 
   // solve the problem
-  pModel_->setVerbosity(1);
-
   solveWithCatch();
-  pModel_->loadBestSol();
+  if (pModel_->loadBestSol())
+    storeSolution();
+  costsConstrainstsToString();
 
   // output information and save the solution
-  if (pModel_->getParameters().printBranchStats_) {
+  if (pModel_->getParameters().printBranchStats_)
     pModel_->printStats();
-  }
-
-  storeSolution();
-  costsConstrainstsToString();
 
   return pModel_->getObjective();
 }
@@ -456,6 +465,14 @@ double MasterProblem::LNSSolve(const SolverParam &param,
 
 //------------------------------------------------------------------------------
 void MasterProblem::storeSolution() {
+  // check if a solution if loaded
+  if (pModel_->getActiveColumns().empty()) {
+    if (!pModel_->loadBestSol()) {
+      std::cerr << "No solution available to store." << std::endl;
+      return;
+    }
+  }
+
   // retrieve a feasible allocation of skills
   vector4D<double> skillsAllocation;
   Tools::initVector4D(&skillsAllocation,
@@ -477,9 +494,9 @@ void MasterProblem::storeSolution() {
 
   for (MyVar *var : pModel_->getActiveColumns()) {
     if (pModel_->getVarValue(var) > epsilon()) {
-      PPattern pat = getPattern(var->getPattern());
+      PPattern pat = getPattern(var);
       PLiveNurse pNurse = theLiveNurses_[pat->nurseNum_];
-      for (int k = pat->firstDay_; k < pat->firstDay_ + pat->length_; ++k) {
+      for (int k = pat->firstDay_; k <= pat->endDay(); ++k) {
         int s = pat->getShift(k);
         if (s == 0) continue;  // nothing to do
         // assign a skill to the nurse for the shift
@@ -500,6 +517,13 @@ void MasterProblem::storeSolution() {
       }
     }
   }
+
+  for (int k = 0; k < pDemand_->nbDays_; ++k)
+    for (int s = 0; s < pScenario_->nbShifts_ - 1; ++s)
+      for (int sk = 0; sk < pScenario_->nbSkills_; ++sk)
+        for (double v : skillsAllocation[k][s][sk])
+          if (v > epsilon())
+            Tools::throwError("Some allocation are not covered.");
 
   // build the states of each nurse
   solution_.clear();
@@ -540,7 +564,7 @@ std::string MasterProblem::currentSolToString() const {
     colsByNurses[var->getNurseNum()].push_back(var);
     std::stringstream rep;
     rep << var->getNurseNum() << ": " << v << std::endl;
-    PPattern pat = getPattern(var->getPattern());
+    PPattern pat = getPattern(var);
     rep << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_)
         << std::endl;
   }
@@ -551,7 +575,7 @@ std::string MasterProblem::currentSolToString() const {
     for (MyVar *var : vec) {
       double v = pModel_->getVarValue(var);
       rep << var->getNurseNum() << ": " << v << std::endl;
-      PPattern pat = getPattern(var->getPattern());
+      PPattern pat = getPattern(var);
       rep << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_)
           << std::endl;
     }
@@ -575,9 +599,9 @@ vector3D<double> MasterProblem::getFractionalRoster() const {
     if (var->getPattern().empty()) continue;
     double value = pModel_->getVarValue(var);
     if (value < epsilon()) continue;
-    PPattern pat = getPattern(var->getPattern());
+    PPattern pat = getPattern(var);
     vector2D<double> &fractionalRoster2 = fractionalRoster[pat->nurseNum_];
-    for (int k = pat->firstDay_; k < pat->firstDay_ + pat->length_; ++k)
+    for (int k = pat->firstDay_; k <= pat->endDay(); ++k)
       fractionalRoster2[k][pat->getShift(k)] += value;
   }
 
@@ -665,16 +689,6 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
                                pScenario_->nbShifts_ - 1,
                                pScenario_->nbSkills_,
                                nullptr);
-  Tools::initVector3D<MyVar *>(&stabMinDemandPlus_,
-                               pDemand_->nbDays_,
-                               pScenario_->nbShifts_ - 1,
-                               pScenario_->nbSkills_,
-                               nullptr);
-  Tools::initVector3D<MyVar *>(&stabOptDemandPlus_,
-                               pDemand_->nbDays_,
-                               pScenario_->nbShifts_ - 1,
-                               pScenario_->nbSkills_,
-                               nullptr);
   Tools::initVector3D<MyVar *>(&numberOfNursesByPositionVars_,
                                pDemand_->nbDays_,
                                pScenario_->nbShifts_ - 1,
@@ -747,16 +761,9 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
 
         // STAB:Add stabilization variable
         if (param.isStabilization_) {
-          snprintf(name, sizeof(name), "stabMinDemandPlus_%d_%d_%d", k, s, sk);
-          pModel_->createPositiveVar(&stabMinDemandPlus_[k][s - 1][sk],
-                                     name,
-                                     param.stabCostIni_ + param.stabCostMargin_,
-                                     {},
-                                     0,
-                                     param.stabBoundIni_);
-          pModel_->addCoefLinear(minDemandCons_[k][s - 1][sk],
-                                 stabMinDemandPlus_[k][s - 1][sk],
-                                 1.0);
+          snprintf(name, sizeof(name), "stabMinDemand_%d_%d_%d", k, s, sk);
+          addStabVariables(
+              param, name, minDemandCons_[k][s - 1][sk], false, true);
         }
 
         // adding variables and building optimal demand constraints
@@ -771,16 +778,9 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
 
         // STAB:Add stabilization variable
         if (param.isStabilization_) {
-          snprintf(name, sizeof(name), "stabOptDemandPlus_%d_%d_%d", k, s, sk);
-          pModel_->createPositiveVar(&stabOptDemandPlus_[k][s - 1][sk],
-                                     name,
-                                     param.stabCostIni_ + param.stabCostMargin_,
-                                     {},
-                                     0,
-                                     param.stabBoundIni_);
-          pModel_->addCoefLinear(optDemandCons_[k][s - 1][sk],
-                                 stabOptDemandPlus_[k][s - 1][sk],
-                                 1.0);
+          snprintf(name, sizeof(name), "stabOptDemand_%d_%d_%d", k, s, sk);
+          addStabVariables(
+              param, name, optDemandCons_[k][s - 1][sk], false, true);
         }
       }
 
@@ -832,7 +832,7 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons *> *cons,
   int nbCons(0);
 
   int p = theLiveNurses_[pat.nurseNum_]->pPosition()->id_;
-  for (int k = pat.firstDay_; k < pat.firstDay_ + pat.length_; ++k) {
+  for (int k = pat.firstDay_; k <= pat.endDay(); ++k) {
     int s = pat.getShift(k);
     if (pScenario_->isAnyShift(s)) {
       for (int s0 = 1; s0 < pScenario_->nbShifts_; ++s0) {
@@ -1055,11 +1055,204 @@ string MasterProblem::coverageToString(bool printInteger) const {
   return rep.str();
 }
 
+// Compute the lagrangian bound
+double MasterProblem::computeLagrangianBound(double objVal) const {
+  Tools::throwError("Lagrangian bound not implemented "
+                    "for this master problem.");
+  return -LARGE_SCORE;
+// return objVal+sumRedCost-getStabCost();
+}
+
+// Compute an approximation of the dual UB based on the lagrangian bound
+double MasterProblem::computeApproximateDualUB(double objVal) const {
+  double sumRedCost = 0, minRedCost = pPricer_->getLastMinReducedCost();
+  for (double v : pPricer_->getLastMinReducedCosts()) {
+    if (v < minRedCost) v = minRedCost;
+    sumRedCost += v;
+  }
+  return objVal + sumRedCost;
+}
+
 //---------------------------------------------------------------------------
 //
 // STAB: Methods required to implement stabilization in the column generation
 //
+// Ref: Lübbecke, Marco E., and Jacques Desrosiers.
+// "Selected topics in column generation."
+// Operations research 53.6 (2005): 1007-1023.
+//
 //---------------------------------------------------------------------------
+
+// Add stabilization variables:
+// dual: obj += - c_+ z_+ - c_- z_-, s.t.: b_- - z_-<= Pi <= b_+ + z_+
+// primal: obj += -b_- y_- + b_+ y_+, s.t.: y_- <= c_-, y_+ <= c_+
+// if primal constraint is <= -> create just minus var
+// if primal constraint is >= -> create just plus var
+// WARNING: they are inactive at the beginning
+// WARNING: create integer var to ensure that integer solutions have all
+// stab variables to 0
+//
+void MasterProblem::addStabVariables(
+    const SolverParam &param,
+    const char *name,
+    MyCons *cons,
+    bool LECons,
+    bool GECons) {
+  MyVar *var;
+  char n[255];
+
+  // The  upper side of the box
+  if (GECons) {
+    snprintf(n, sizeof(n), "%s_plus", name);
+    pModel_->createPositiveVar(&var, n, LARGE_SCORE, {}, 0, 0);
+    pModel_->addCoefLinear(cons, var, 1);
+    stabVariables_.push_back(var);
+  } else {
+    stabVariables_.push_back(nullptr);
+  }
+
+  // The lower side of the box
+  if (GECons) {
+    snprintf(n, sizeof(n), "%s_minus", name);
+    pModel_->createPositiveVar(&var, n, LARGE_SCORE, {}, 0, 0);
+    pModel_->addCoefLinear(cons, var, -1);
+    stabVariables_.push_back(var);
+  } else {
+    stabVariables_.push_back(nullptr);
+  }
+
+  stabConstraints_.push_back(cons);
+  stabBoxCenters_.push_back(0);
+}
+
+// STAB
+// Update the stabilization variables based on the dual solution
+// 1- When the dual lays inside the box:
+//     - increase the penalty of the duals (the bound for the primal)
+//     - decrease the radius of the duals (the cost for the primal).
+// 2- When the dual lays outside the box:
+//     - decrease the penalty of the duals (the bound for the primal)
+//     - increase the radius of the duals (the cost for the primal).
+// When a dual solution (of the original problem) of better quality
+// is obtained, recenter the box.
+// The issue here is that the  dual solution is not available as the lagrangian
+// bound needs to be computed (and available) and all sub problems need to
+// have been solved to optimality.
+// Instead, the solution is recenter when asked (recenter=true).
+// Currently, the box is recentered when no more columns are generated.
+void MasterProblem::stabUpdate(OsiSolverInterface *solver, bool recenter) {
+  // stabilization variables corresponding to the cover constraints
+  for (int i = 0; i < stabConstraints_.size(); ++i) {
+    MyVar *varPlus = stabVariables_[2 * i],
+        *varMinus = stabVariables_[2 * i + 1];
+    double center = stabBoxCenters_[i],
+        radius = varPlus ? varPlus->getCost() - center :
+                 center + varMinus->getCost();
+    double dual = pModel_->getDual(stabConstraints_[i], true);
+    double penaltyFactor = 1;
+
+    // if dual within the box, decrease range/radius and increase cost
+    if (dual > center + radius + epsilon() &&
+        dual < center - radius - epsilon()) {
+      // decrease radius
+      if (param_.isStabUpdateBoxRadius_)
+        radius /= param_.stabBoxRadiusFactor_;
+      // increase penalty (more slowly)
+      if (param_.isStabUpdatePenalty_)
+        penaltyFactor *= param_.stabBoxRadiusFactor_;
+    } else {
+      // increase radius
+      if (param_.isStabUpdateBoxRadius_)
+        radius *= param_.stabPenaltyFactor_;
+      // decrease penalty
+      if (param_.isStabUpdatePenalty_)
+        penaltyFactor /= param_.stabPenaltyFactor_;
+    }
+
+    if (radius > param_.stabBoxRadiusMax_)
+      radius = param_.stabBoxRadiusMax_;
+
+    // recenter box
+    if (recenter) {
+      center = dual;
+      stabBoxCenters_[i] = dual;
+    }
+
+    // update box
+    if (varPlus) updateVarCostInSolver(varPlus, solver, center + radius);
+    if (varMinus) updateVarCostInSolver(varMinus, solver, -center + radius);
+    // update penalty
+    if (param_.isStabUpdatePenalty_) {
+      if (varPlus) multiplyUbInSolver(varPlus, solver, penaltyFactor);
+      if (varMinus) multiplyUbInSolver(varMinus, solver, penaltyFactor);
+    }
+  }
+}
+
+// STAB
+// activate the stabilization variables and center them on the current duals
+void MasterProblem::stabInitializeBoundAndCost(OsiSolverInterface *solver) {
+  for (int i = 0; i < stabConstraints_.size(); ++i) {
+    MyVar *varPlus = stabVariables_[2 * i],
+        *varMinus = stabVariables_[2 * i + 1];
+    double center = pModel_->getDual(stabConstraints_[i], true);
+    stabBoxCenters_[i] = center;
+    if (varPlus) {
+      updateVarCostInSolver(varPlus, solver,
+                            center + param_.stabBoxRadiusIni_);
+      updateVarUbInSolver(varPlus, solver, param_.stabPenaltyIni_);
+    }
+    if (varMinus) {
+      updateVarCostInSolver(varMinus, solver,
+                            -center + param_.stabBoxRadiusIni_);
+      updateVarUbInSolver(varMinus, solver, param_.stabPenaltyIni_);
+    }
+  }
+}
+
+// STAB
+// deactivate the stabilization variables
+void MasterProblem::stabDeactivateBoundAndCost(OsiSolverInterface *solver) {
+  for (int i = 0; i < stabConstraints_.size(); ++i) {
+    MyVar *varPlus = stabVariables_[2 * i],
+        *varMinus = stabVariables_[2 * i + 1];
+    double center = pModel_->getDual(stabConstraints_[i], true);
+    stabBoxCenters_[i] = center;
+    if (varPlus) {
+      updateVarCostInSolver(varPlus, solver, LARGE_SCORE);
+      updateVarUbInSolver(varPlus, solver, 0);
+    }
+    if (varMinus) {
+      updateVarCostInSolver(varMinus, solver, LARGE_SCORE);
+      updateVarUbInSolver(varMinus, solver, 0);
+    }
+  }
+}
+
+// STAB
+// Stop when the stabilization variables are all null
+bool MasterProblem::stabCheckStoppingCriterion() const {
+  if (!pModel_->getParameters().isStabilization_)
+    return true;
+
+  for (MyVar *var : stabVariables_)
+    if (var && pModel_->getVarValue(var) > epsilon()) {
+//      printf("%s (c=%f, ub=%f) = %f\n",
+//             var->name_, var->getCost(), var->getUB(),
+//             pModel_->getVarValue(var));
+      return false;
+    }
+
+  return true;
+}
+
+// STAB
+// return the current cost of the stabilization variables
+double MasterProblem::getStabCost() const {
+  if (!pModel_->getParameters().isStabilization_)
+    return 0;
+  return pModel_->getTotalCost(stabVariables_);
+}
 
 // STAB
 // Multiply the upper bound of the input variable by the input factor
@@ -1074,8 +1267,11 @@ void MasterProblem::multiplyUbInSolver(MyVar *pVar,
                       "variable is not the same as that in the solver!");
   }
 
-  solver->setColUpper(varind, factor * ub);
-  pVar->setUB(factor * ub);
+  ub *= factor;
+  if (ub > param_.stabBoxBoundMax_) ub = param_.stabBoxBoundMax_;
+
+  solver->setColUpper(varind, ub);
+  pVar->setUB(ub);
 }
 
 // STAB
@@ -1090,6 +1286,8 @@ void MasterProblem::updateVarUbInSolver(MyVar *pVar,
     Tools::throwError("updateVarUbInSolver: the upper bound stored in the "
                       "variable is not the same as that in the solver!");
   }
+
+  if (value > param_.stabBoxBoundMax_) value = param_.stabBoxBoundMax_;
 
   solver->setColUpper(varind, value);
   pVar->setUB(value);
@@ -1108,118 +1306,9 @@ void MasterProblem::updateVarCostInSolver(MyVar *pVar,
                       "is not the same as that in the solver!");
   }
 
+  if (value > param_.stabPenaltyMax_) value = param_.stabPenaltyMax_;
+  else if (-value > param_.stabPenaltyMax_) value = -param_.stabPenaltyMax_;
+
   solver->setObjCoeff(varind, value);
   pVar->setCost(value);
-}
-
-// STAB
-// Update all the upper bounds of the stabilization variables by multiplying
-// them by an input factor
-void MasterProblem::stabUpdateBound(OsiSolverInterface *solver, double factor) {
-  // stabilization variables corresponding to the cover constraints
-  for (int k = 0; k < pDemand_->nbDays_; k++) {
-    for (int s = 1; s < pScenario_->nbShifts_; s++) {
-      for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
-        multiplyUbInSolver(stabMinDemandPlus_[k][s - 1][sk], solver, factor);
-        multiplyUbInSolver(stabOptDemandPlus_[k][s - 1][sk], solver, factor);
-      }
-    }
-  }
-}
-
-// STAB
-// Update all the costs of the stabilization variables to the values
-// corresponding dual variables with a small margin in input
-void MasterProblem::stabUpdateCost(OsiSolverInterface *solver, double margin) {
-  // stabilization variables corresponding to the cover constraints
-  for (int k = 0; k < pDemand_->nbDays_; k++) {
-    for (int s = 1; s < pScenario_->nbShifts_; s++) {
-      for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
-        double minDemandDual =
-            pModel_->getDual(minDemandCons_[k][s - 1][sk], true);
-        double optDemandDual =
-            pModel_->getDual(optDemandCons_[k][s - 1][sk], true);
-        updateVarCostInSolver(stabMinDemandPlus_[k][s - 1][sk],
-                              solver,
-                              minDemandDual + margin);
-        updateVarCostInSolver(stabOptDemandPlus_[k][s - 1][sk],
-                              solver,
-                              optDemandDual + margin);
-      }
-    }
-  }
-}
-
-// STAB
-// Check the stopping criterion of the relaxation solution specific to the
-// the stabilization
-// The point is that current solution can be infeasible if  stabilization
-// variables are non zero
-bool MasterProblem::stabCheckStoppingCriterion() const {
-  if (!pModel_->getParameters().isStabilization_)
-    return true;
-
-  // stabilization variables corresponding to the cover constraints
-  for (int k = 0; k < pDemand_->nbDays_; k++)
-    for (int s = 1; s < pScenario_->nbShifts_; s++)
-      for (int sk = 0; sk < pScenario_->nbSkills_; sk++)
-        if (pModel_->getVarValue(stabMinDemandPlus_[k][s - 1][sk]) > epsilon()
-            || pModel_->getVarValue(stabOptDemandPlus_[k][s - 1][sk])
-                > epsilon())
-          return false;
-
-  return true;
-}
-
-// STAB
-// return the current cost of the stabilization variables
-double MasterProblem::getStabCost() const {
-  if (!pModel_->getParameters().isStabilization_)
-    return 0;
-
-  // stabilization variables corresponding to the cover constraints
-  double stabSumCostValue = 0.0;
-  for (int k = 0; k < pDemand_->nbDays_; k++)
-    for (int s = 1; s < pScenario_->nbShifts_; s++)
-      for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
-        stabSumCostValue +=
-            stabMinDemandPlus_[k][s - 1][sk]->getCost()
-                * pModel_->getVarValue(stabMinDemandPlus_[k][s - 1][sk]);
-        stabSumCostValue +=
-            stabOptDemandPlus_[k][s - 1][sk]->getCost()
-                * pModel_->getVarValue(stabOptDemandPlus_[k][s - 1][sk]);
-      }
-  return stabSumCostValue;
-}
-
-// STAB: compute the lagrangian bound
-double MasterProblem::computeLagrangianBound(double objVal) const {
-  Tools::throwError("Lagrangian bound not implemented "
-                    "for this master problem.");
-  return -LARGE_SCORE;
-// return objVal+sumRedCost-getStabCost();
-}
-
-// STAB: reset the costs and bounds of the stabilization variables
-void MasterProblem::stabResetBoundAndCost(OsiSolverInterface *solver,
-                                          const SolverParam &param) {
-  // stabilization variables corresponding to the cover constraints
-  for (int k = 0; k < pDemand_->nbDays_; k++) {
-    for (int s = 1; s < pScenario_->nbShifts_; s++) {
-      for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
-        updateVarCostInSolver(stabMinDemandPlus_[k][s - 1][sk],
-                              solver,
-                              param.stabCostIni_ + param.stabCostMargin_);
-        updateVarCostInSolver(stabOptDemandPlus_[k][s - 1][sk],
-                              solver,
-                              param.stabCostIni_ + param.stabCostMargin_);
-        updateVarUbInSolver(stabMinDemandPlus_[k][s - 1][sk],
-                            solver,
-                            param.stabBoundIni_);
-        updateVarUbInSolver(stabOptDemandPlus_[k][s - 1][sk],
-                            solver,
-                            param.stabBoundIni_);
-      }
-    }
-  }
 }

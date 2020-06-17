@@ -247,8 +247,6 @@ class CoinModeler : public Modeler {
   virtual double getObjective() const { return pTree_->getBestUB(); }
   virtual double getObjective(int index) const { return LARGE_SCORE; }
 
-  virtual bool loadBestSol() { return false; }
-
   virtual int writeProblem(std::string fileName) const { return 0; }
 
   virtual int writeLP(std::string fileName) const { return 0; }

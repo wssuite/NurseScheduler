@@ -27,8 +27,8 @@ lnsOptimalityLevel=TWO_DIVES
 
 # default branch and price solver parameters
 isStabilization=0
-isStabUpdateCost=1
-isStabUpdateBounds=1
+isStabUpdateBoxRadius=1
+isStabUpdatePenalty=1
 branchColumnDisjoint=1
 branchColumnUntilValue=0
 stopAfterXDegenerateIt=5

@@ -133,7 +133,7 @@ struct RotationPattern : Pattern {
                    int horizon);
 
   //  Compute the dual cost of a rotation
-  void checkReducedCost(const DualCosts &costs);
+  void checkReducedCost(const DualCosts &costs, bool printBadPricing = true);
 
   std::string toString(
       int nbDays = -1,
@@ -166,40 +166,19 @@ class RotationMP : public MasterProblem {
              MySolverType solver);
   virtual ~RotationMP();
 
-  PPattern getPattern(const std::vector<double> &pattern) const override;
+  PPattern getPattern(MyVar *var) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
-
-  // STAB
-  // Update all the upper bounds of the stabilization variables by multiplying
-  // them by an input factor
-  void stabUpdateBound(OsiSolverInterface *solver, double factor) override;
-
-  // STAB
-  // Update all the costs of the stabilization variables to the values
-  // corresponding dual variables with a small margin in input
-  void stabUpdateCost(OsiSolverInterface *solver, double margin) override;
-
-  // STAB
-  // Check the stopping criterion of the relaxation solution specific to the
-  // the stabilization
-  // The point is that current solution can be infeasible if  stabilization
-  // variables are non zero
-  bool stabCheckStoppingCriterion() const override;
-
-  // STAB
-  // return the current cost of the stabilization variables
-  double getStabCost() const override;
-
-  // STAB: reset the costs and bounds of the stabilization variables
-  void stabResetBoundAndCost(OsiSolverInterface *solver,
-                             const SolverParam &parameters) override;
 
   // get a reference to the restsPerDay_ for a Nurse
   std::vector<MyVar *> getRestVarsPerDay(PLiveNurse pNurse,
                                          int day) const override {
     return restsPerDay_[pNurse->num_][day];
   }
+
+  // build the, possibly fractional, roster corresponding to the solution
+  // currently stored in the model
+  vector3D<double> getFractionalRoster() const override;
 
   const std::vector<MyVar *> &getMinWorkedDaysVars() const {
     return minWorkedDaysVars_;
@@ -330,20 +309,6 @@ class RotationMP : public MasterProblem {
   std::vector<MyCons *> maxWorkedDaysContractAvgCons_;
   //  the number of exceeding worked weekends from average per contract
   std::vector<MyCons *> maxWorkedWeekendContractAvgCons_;
-
-  // STAB
-  // Stabilization variables for each constraint
-  // Two variables are needed for equality constraints and one for inequalities
-  // The constraints on average values are not stabilized yet
-  // The position and allocation constraints do not require stabilization
-  vector2D<MyVar *> stabRestFlowPlus_;
-  vector2D<MyVar *> stabRestFlowMinus_;
-  vector2D<MyVar *> stabWorkFlowPlus_;
-  vector2D<MyVar *> stabWorkFlowMinus_;
-
-  std::vector<MyVar *> stabMinWorkedDaysPlus_;
-  std::vector<MyVar *> stabMaxWorkedDaysMinus_;
-  std::vector<MyVar *> stabMaxWorkedWeekendMinus_;
 
   // vectors of booleans indicating whether some above constraints are present
   // in the model

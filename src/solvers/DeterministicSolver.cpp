@@ -230,17 +230,18 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
       lnsParameters_.isStabilization_ = completeParameters_.isStabilization_;
       rollingParameters_.isStabilization_ =
           completeParameters_.isStabilization_;
-    } else if (Tools::strEndsWith(title, "isStabUpdateCost")) {
-      file >> completeParameters_.isStabUpdateCost_;
-      lnsParameters_.isStabUpdateCost_ = completeParameters_.isStabUpdateCost_;
-      rollingParameters_.isStabUpdateCost_ =
-          completeParameters_.isStabUpdateCost_;
-    } else if (Tools::strEndsWith(title, "isStabUpdateBounds")) {
-      file >> completeParameters_.isStabUpdateBounds_;
-      lnsParameters_.isStabUpdateBounds_ =
-          completeParameters_.isStabUpdateBounds_;
-      rollingParameters_.isStabUpdateBounds_ =
-          completeParameters_.isStabUpdateBounds_;
+    } else if (Tools::strEndsWith(title, "isStabUpdateBoxRadius")) {
+      file >> completeParameters_.isStabUpdateBoxRadius_;
+      lnsParameters_.isStabUpdateBoxRadius_ =
+          completeParameters_.isStabUpdateBoxRadius_;
+      rollingParameters_.isStabUpdateBoxRadius_ =
+          completeParameters_.isStabUpdateBoxRadius_;
+    } else if (Tools::strEndsWith(title, "isStabUpdatePenalty")) {
+      file >> completeParameters_.isStabUpdatePenalty_;
+      lnsParameters_.isStabUpdatePenalty_ =
+          completeParameters_.isStabUpdatePenalty_;
+      rollingParameters_.isStabUpdatePenalty_ =
+          completeParameters_.isStabUpdatePenalty_;
     } else if (Tools::strEndsWith(title, "branchColumnDisjoint")) {
       file >> completeParameters_.branchColumnDisjoint_;
       lnsParameters_.branchColumnDisjoint_ =
@@ -409,14 +410,13 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
     // Find a good feasible solution using a rolling horizon planning or
     // solving directly the complete horizon.
     //
-    if (options_.withRollingHorizon_) {
+    if (options_.withRollingHorizon_)
       objValue_ = solveWithRollingHorizon(solution);
-    } else {
+    else
       objValue_ = this->solveCompleteHorizon(solution);
-      // do not bother improving the solution if it is already optimal
-      if (status_ == OPTIMAL)
-        return objValue_;
-    }
+    // do not bother improving the solution if it is already optimal
+    if (status_ == OPTIMAL)
+      return objValue_;
 
     // Improve the solution with an LNS
     //
@@ -443,8 +443,7 @@ double DeterministicSolver::solveCompleteHorizon(
                                                  options_.solutionAlgorithm_,
                                                  completeParameters_);
   pCompleteSolver_->solve(completeParameters_, solution);
-  if (options_.verbose_ > 0 && (pCompleteSolver_->getStatus() == OPTIMAL ||
-      pCompleteSolver_->getStatus() == FEASIBLE)) {
+  if (options_.verbose_ > 0 && pCompleteSolver_->isSolutionInteger()) {
     std::cout << pCompleteSolver_->currentSolToString() << std::endl;
     std::cout << pCompleteSolver_->solutionToString() << std::endl;
   }
@@ -476,14 +475,12 @@ double DeterministicSolver::treatResults(Solver *pSolver) {
     std::cout << pSolver->currentSolToString() << std::endl;
   }
 
-  // Update nurses' states when solution is feasible or optimal
-  if (status_ == FEASIBLE || status_ == OPTIMAL) {
+  // Update nurses' states when a feasible solution has been found
+  if (pSolver->isSolutionInteger()) {
     solution_ = pSolver->getSolution();
-    if (!solution_.empty()) {
-      for (int n = 0; n < pScenario_->nbNurses_; ++n) {
-        theLiveNurses_[n]->roster_ = solution_[n];
-        theLiveNurses_[n]->buildStates();
-      }
+    for (int n = 0; n < pScenario_->nbNurses_; ++n) {
+      theLiveNurses_[n]->roster_ = solution_[n];
+      theLiveNurses_[n]->buildStates();
     }
   }
 
@@ -592,8 +589,7 @@ double DeterministicSolver::solveByConnectedPositions() {
   // 3- delete the solver
   for (auto &p : solverForScenario) {
     if (status_ == UNSOLVED || status_ == OPTIMAL)
-      status_ = (p.second->getStatus() == TIME_LIMIT) ?
-                FEASIBLE : p.second->getStatus();
+      status_ = p.second->getStatus(true);
     stats_.add(p.second->getGlobalStat());
     delete p.second;
   }
@@ -617,10 +613,6 @@ double DeterministicSolver::solveWithRollingHorizon(
     const std::vector<Roster> &solution) {
   std::cout << "SOLVE WITH ROLLING HORIZON" << std::endl;
 
-  if (!solution.empty())
-    std::cerr << "SolveWithRollingHorizon does not support "
-                 "an initial solution for the moment." << std::endl;
-
   int samplePeriod = options_.rollingSamplePeriod_;
   int controlPeriod = options_.rollingControlHorizon_;
 
@@ -637,6 +629,7 @@ double DeterministicSolver::solveWithRollingHorizon(
   // Solve the instance iteratively with a rolling horizon
   //
   int firstDay = 0;  // first day of the current horizon
+  double LB = 0;
   while (firstDay < pDemand_->nbDays_) {
     std::cout << "FIRST DAY = " << firstDay << std::endl << std::endl;
 
@@ -658,25 +651,31 @@ double DeterministicSolver::solveWithRollingHorizon(
 
     // Solve the problem with a method that allows for a warm start
     //
-    this->rollingSetOptimalityLevel(firstDay);
+//    this->rollingSetOptimalityLevel(firstDay);
     pRollingSolver_->rollingSolve(
         rollingParameters_, firstDay, pRollingSolver_->getSolution());
+    if (firstDay == 0)
+      LB = pRollingSolver_->getLB();
 
-    if (rollingParameters_.printIntermediarySol_) {
+    // check if solution is optimal and integer
+    if (pRollingSolver_->getStatus() == OPTIMAL &&
+        pRollingSolver_->isSolutionInteger())
+      break;
+    if (pRollingSolver_->getStatus(true) == INFEASIBLE)
+      break;
+
+    if (rollingParameters_.printIntermediarySol_)
       std::cout << pRollingSolver_->currentSolToString() << std::endl;
-    }
 
     // fix the days of the sample horizon to the values of the solution
     //
-    vector<bool> isFixDay(pDemand_->nbDays_, false);
-    for (int day = 0; day <= lastDaySample; day++) isFixDay[day] = true;
-    pRollingSolver_->fixDays(isFixDay);
+    pRollingSolver_->fixAvailabilityBasedOnSolution(lastDaySample);
 
     // update the first and last day of the sample period
     //
     firstDay = firstDay + samplePeriod;
-    lastDayControl =
-        std::min(firstDay + controlPeriod - 1, pDemand_->nbDays_ - 1);
+    lastDayControl = std::min(firstDay + controlPeriod - 1,
+                              pDemand_->nbDays_ - 1);
 
     // Set back the integrality constraints for next sampling period
     vector<bool> isUnrelaxDay(pDemand_->nbDays_, false);
@@ -694,10 +693,22 @@ double DeterministicSolver::solveWithRollingHorizon(
       break;
     }
   }
-  vector<bool> isUnfixDay(pDemand_->nbDays_, true);
-  pRollingSolver_->unfixDays(isUnfixDay);
-  pRollingSolver_->storeSolution();
-  pRollingSolver_->costsConstrainstsToString();
+  // put the status to optimal if really the case
+  if (pRollingSolver_->getStatus() == OPTIMAL &&
+      pRollingSolver_->isSolutionInteger()) {
+    double UB = computeSolutionCost();
+    // If UB is not optimal over the whole horizon
+    if (UB > LB + rollingParameters_.absoluteGap_ +
+        pRollingSolver_->epsilon())
+      pRollingSolver_->setStatus(FEASIBLE);
+  }
+
+  // clean the solver and store the solution
+  pRollingSolver_->resetNursesAvailabilities();
+  if (pRollingSolver_->isSolutionInteger())
+    pRollingSolver_->storeSolution();
+  if (pRollingSolver_->getStatus() != INFEASIBLE)
+    pRollingSolver_->costsConstrainstsToString();
 
   std::cout << "END OF ROLLING HORIZON" << std::endl << std::endl;
 
@@ -714,13 +725,13 @@ double DeterministicSolver::solveWithRollingHorizon(
 // This function needs to be called before each new solution, and the behavior
 // depends on the first day of the horizon
 //
-void DeterministicSolver::rollingSetOptimalityLevel(int firstDay) {
-  rollingParameters_.setOptimalityLevel(TWO_DIVES);
-
-  if (pDemand_->nbDays_ - firstDay <= 21) {
-    rollingParameters_.setOptimalityLevel(REPEATED_DIVES);
-  }
-}
+// void DeterministicSolver::rollingSetOptimalityLevel(int firstDay) {
+//  rollingParameters_.setOptimalityLevel(TWO_DIVES);
+//
+//  if (pDemand_->nbDays_ - firstDay <= 21) {
+//    rollingParameters_.setOptimalityLevel(options_.);
+//  }
+// }
 
 
 //------------------------------------------------------------------------
@@ -736,10 +747,6 @@ void DeterministicSolver::rollingSetOptimalityLevel(int firstDay) {
 //
 double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
   std::cout << "SOLVE WITH LNS" << std::endl << std::endl;
-
-  if (!solution.empty())
-    std::cerr << "SolveWithLNS does not support "
-                 "an initial solution for the moment." << std::endl;
 
   // Initialize data structures for LNS
   //
@@ -854,9 +861,8 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
     // unfix every nurse and/or days for next iteration
     //
     std::vector<bool> isUnfixNurse(pScenario_->nbNurses_, true);
-    std::vector<bool> isUnfixDay(getNbDays(), true);
     pLNSSolver_->unfixNurses(isUnfixNurse);
-    pLNSSolver_->unfixDays(isUnfixDay);
+    pLNSSolver_->resetNursesAvailabilities();
 
     stats_.lnsNbIterations_++;
   }
@@ -985,7 +991,7 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
     for (int day = 0; day < nbDaysDestroy; day++) {
       isFixDay[firstDay + day] = false;
     }
-    pLNSSolver_->fixDays(isFixDay);
+    pLNSSolver_->fixAvailabilityBasedOnSolution(isFixDay);
   }
 
   // DBG

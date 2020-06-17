@@ -4,14 +4,14 @@ solverType=CLP
 divideIntoConnectedPositions=1
 withRollingHorizon=1
 withPrimalDual=0
-withLNS=1
+withLNS=0
 
 # complete solution options
 completeOptimalityLevel=UNTIL_FEASIBILITY
 
 # rolling horizon options
 rollingSamplePeriod=7
-rollingControlHorizon=56
+rollingControlHorizon=7
 rollingPredictionHorizon=56
 rollingOptimalityLevel=TWO_DIVES
 
@@ -20,9 +20,6 @@ lnsMaxItWithoutImprovement=100
 lnsNursesRandomDestroy=1
 lnsNursesPositionDestroy=1
 lnsNursesContractDestroy=1
-lnsDestroyOverTwoWeeks=0
-lnsDestroyOverFourWeeks=0
-lnsDestroyOverAllWeeks=1
 lnsNbNursesDestroyOverTwoWeeks=24
 lnsNbNursesDestroyOverFourWeeks=12
 lnsNbNursesDestroyOverAllWeeks=6

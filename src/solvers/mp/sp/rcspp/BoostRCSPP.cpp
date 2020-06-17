@@ -529,8 +529,10 @@ void BoostRCSPPSolver::backtrack(
       // heuristically and the bounds are tighter)
       if (!ref(g, &cur_cont, old_cont, path[i])) return;
     }
+#ifdef DBG
     assert(dominance(&cur_cont,
                      &(p_original_label->cumulated_resource_consumption)));
+#endif
     opt_solutions_spp->push_back(path);
     pareto_opt_rcs_spp->push_back(cur_cont);
     return;

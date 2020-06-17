@@ -303,7 +303,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   } else {
     solution_ = pReusableGenerationSolver_->getSolutionAtDay(13);
   }
-  status_ = pReusableGenerationSolver_->getStatus();
+  status_ = pReusableGenerationSolver_->getStatus(true);
 }
 
 // Special case of the last week
@@ -312,7 +312,7 @@ void StochasticSolver::solveOneWeekWithoutPenalties() {
       setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), GENCOL);
   pSolver->solve(options_.generationParameters_);
   solution_ = pSolver->getSolution();
-  status_ = pSolver->getStatus();
+  status_ = pSolver->getStatus(true);
   delete pSolver;
 }
 
@@ -648,7 +648,7 @@ void StochasticSolver::generateNewSchedule() {
       pReusableGenerationSolver_->resolve(newDemand,
                                           options_.generationParameters_);
 
-    if (pReusableGenerationSolver_->getStatus() == FEASIBLE
+    if (pReusableGenerationSolver_->getStatus(true) == FEASIBLE
         || pReusableGenerationSolver_->getStatus() == OPTIMAL) {
       hasFoundFeasible = true;
     } else {
@@ -796,7 +796,7 @@ bool StochasticSolver::evaluateSchedule(int sched) {
     double currentCostGreedy = costPreviousWeeks_ + baseCost;
 #endif
 
-    if (pReusableGenerationSolver_->getStatus() == INFEASIBLE) {
+    if (pReusableGenerationSolver_->getStatus(true) == INFEASIBLE) {
       currentCost = 1.0e6;
 #ifdef COMPARE_EVALUATIONS
       currentCostGreedy = 1.0e6;

@@ -442,12 +442,17 @@ class SolverParam {
   // parameters of the stabilization : initial costs and bounds of the
   // stabilization variables
   bool isStabilization_ = false;
-  bool isStabUpdateCost_ = true;
-  double stabCostIni_ = 30.0;
-  double stabCostMargin_ = 5.0;
-  bool isStabUpdateBounds_ = false;
-  double stabBoundIni_ = 1.0E-4;
-  double stabBoundFactor_ = 2.0;
+  // update duals' box radius / primals' cost
+  bool isStabUpdateBoxRadius_ = true;
+  double stabBoxRadiusIni_ = 1E-4;
+  double stabBoxRadiusMax_ = 100;
+  double stabBoxBoundMax_ = LARGE_SCORE;
+  double stabBoxRadiusFactor_ = 2;
+  // update duals' penalty / primals' bounds
+  bool isStabUpdatePenalty_ = true;
+  double stabPenaltyIni_ = 1;
+  double stabPenaltyMax_ = LARGE_SCORE;
+  double stabPenaltyFactor_ = 2;
 
   // other technique against degeneracy: simply stop the solution process when
   // it starts begin degenerate
@@ -550,6 +555,12 @@ class Solver {
                          const std::vector<Roster> &solution = {}) {
     pDemand_ = pDemand;
     return solve(parameters, solution);
+  }
+
+  // if a solution, always integer
+  // method is virtual if storing non integer solutions
+  virtual bool isSolutionInteger() const {
+    return !solution_.empty();
   }
 
   // Should be protected (and not private) because Solver will have subclasses
@@ -670,40 +681,75 @@ class Solver {
   //------------------------------------------------
   // Solution with rolling horizon process
   //------------------------------------------------
-
-  // list of starting days for which the rotations will be relaxed
+ protected:
+  // list of days for which the integrity constraints would be relaxed
+  // (The solver will not branch on these days)
   bool isPartialRelaxDays_ = false;
   std::vector<bool> isRelaxDay_;
-  bool isRelaxDay(int day) const {
-    return !isPartialRelaxDays_ ? false : isRelaxDay_[day];
-  }
 
-  // list of starting days for which the rotations will be fixed
-  bool isPartialFixDays_ = false;
-  std::vector<bool> isFixDay_;
-  bool isFixDay(int day) const {
-    return !isPartialFixDays_ ? false : isFixDay_[day];
-  }
+  // list of available days and shifts. By default, all
+  bool isPartialAvailable_ = false;
+  vector3D<bool> nursesAvailabilities_;
 
-  // list of nurses whose roster is fixed in cirrent resolution
+  // list of nurses whose roster is fixed in current resolution
   bool isPartialFixNurses_ = false;
   std::vector<bool> isFixNurse_;
+
+ public:
+  bool isPartialRelaxed() const { return isPartialRelaxDays_; }
+  bool isRelaxDay(int day) const {
+    return isPartialRelaxDays_ ? isRelaxDay_[day] : false;
+  }
+
+  bool isPartialAvailable() const { return isPartialAvailable_; }
+  bool isNurseAvailableOnDayShift(int nurseNum, int day, int shift) const {
+    return isPartialAvailable_ ?
+           nursesAvailabilities_[nurseNum][day][shift] : true;
+  }
+
+  bool isPartialFixNurses() const { return isPartialFixNurses_; }
   bool isFixNurse(int n) const {
-    return !isPartialFixNurses_ ? false : isFixNurse_[n];
+    return isPartialFixNurses_ ? isFixNurse_[n] : false;
   }
 
   // relax/unrelax the integrality constraints of the variables corresponding
   // to input days
-  virtual void relaxDays(std::vector<bool> isRelax) {}
-  virtual void unrelaxDays(std::vector<bool> isUnrelax) {}
+  virtual void relaxDays(const std::vector<bool> &isRelax) {}
+  virtual void unrelaxDays(const std::vector<bool> &isUnrelax) {}
 
-  // fix/unfix all the variables corresponding to the input vector of days
-  virtual void fixDays(std::vector<bool> isFixDay) {}
-  virtual void unfixDays(std::vector<bool> isUnfixDay) {}
+  // set availability for the days in fixDays based on
+  // the current solution
+  virtual void fixAvailabilityBasedOnSolution(
+      const std::vector<bool> &fixDays) {
+    Tools::throwError("Method not implemented");
+  }
+
+  // set availability for the days before fixBefore (<=) based on
+  // the current solution
+  virtual void fixAvailabilityBasedOnSolution(int fixBefore) {
+    std::vector<bool> fixDays(getNbDays(), false);
+    for (int k = 0; k <= fixBefore; ++k) fixDays[k] = true;
+    fixAvailabilityBasedOnSolution(fixDays);
+  }
+
+  // set the availability for each nurse
+  virtual void nursesAvailabilities(
+      const vector3D<bool> &nursesAvailabilities) {
+    if (nursesAvailabilities.size() != getNbNurses())
+      Tools::throwError("The input vector does not have the right size "
+                        "for the method nursesAvailabilities.");
+    isPartialAvailable_ = true;
+    nursesAvailabilities_ = nursesAvailabilities;
+  }
+
+  virtual void resetNursesAvailabilities() {
+    isPartialAvailable_ = false;
+    nursesAvailabilities_.clear();
+  }
 
   // fix/unfix all the variables corresponding to the input vector of nurses
-  virtual void fixNurses(std::vector<bool> isFixNurse) {}
-  virtual void unfixNurses(std::vector<bool> isUnfixNurse) {}
+  virtual void fixNurses(const std::vector<bool> &isFixNurse) {}
+  virtual void unfixNurses(const std::vector<bool> &isUnfixNurse) {}
 
   // Solve the problem with a method that allows for a warm start
   virtual double rollingSolve(
@@ -857,7 +903,11 @@ class Solver {
 
   // return the status of the solution
   //
-  Status getStatus() const { return status_; }
+  Status getStatus(bool removeTIME_LIMIT = false) const {
+    if (removeTIME_LIMIT && status_ == TIME_LIMIT)
+      return isSolutionInteger() ? FEASIBLE : INFEASIBLE;
+    return status_;
+  }
   void setStatus(Status status) { status_ = status; }
 
   // return/set solution_
@@ -921,6 +971,7 @@ class Solver {
 
   std::vector<State> *pInitialStates() const { return pInitState_; }
 
+ public:
   // Returns the number of days over which the solver solves the problem
   int getFirstDay() const { return pDemand_->firstDay_; }
   int getNbDays() const { return pDemand_->nbDays_; }
@@ -930,6 +981,8 @@ class Solver {
 
   // Returns the number of shifts
   int getNbShifts() const { return pDemand_->nbShifts_; }
+
+  virtual double getLB() const { return -LARGE_SCORE; }
 
   // Extend the rosters in the solution with the days covered by the input
   // solution

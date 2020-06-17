@@ -10,13 +10,13 @@ withLNS=0
 completeOptimalityLevel=OPTIMALITY
 
 # default branch and price solver parameters
-isStabilization=0
-isStabUpdateCost=1
-isStabUpdateBounds=1
+isStabilization=1
+isStabUpdateBoxRadius=1
+isStabUpdatePenalty=1
 branchColumnDisjoint=1
 branchColumnUntilValue=0
 stopAfterXDegenerateIt=10
-performHeuristicAfterXNode=10
+performHeuristicAfterXNode=-1
 heuristicMinIntegerPercent=50
 spDefaultStrategy=0
 spNbRotationsPerNurse=20

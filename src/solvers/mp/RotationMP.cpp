@@ -214,7 +214,8 @@ void RotationPattern::computeCost(PScenario pScenario,
       + preferenceCost_ + initRestCost_;
 }
 
-void RotationPattern::checkReducedCost(const DualCosts &costs) {
+void RotationPattern::checkReducedCost(const DualCosts &costs,
+                                       bool printBadPricing) {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
@@ -242,6 +243,9 @@ void RotationPattern::checkReducedCost(const DualCosts &costs) {
 
   // Display: set to true if you want to display the details of the cost
   if (abs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
+    // if do not print and not throwing an error
+    if (!printBadPricing && reducedCost_ > reducedCost + 1e-3) return;
+
     cout << "# " << endl;
     cout << "# " << endl;
     cout << "# Bad dual cost: "
@@ -348,15 +352,7 @@ RotationMP::RotationMP(PScenario pScenario,
     maxWorkedWeekendAvgCons_(pScenario_->nbNurses_),
     minWorkedDaysContractAvgCons_(pScenario->nbContracts_),
     maxWorkedDaysContractAvgCons_(pScenario->nbContracts_),
-    maxWorkedWeekendContractAvgCons_(pScenario_->nbContracts_),
-    // STAB
-    stabRestFlowPlus_(pScenario->nbNurses_),
-    stabRestFlowMinus_(pScenario->nbNurses_),
-    stabWorkFlowPlus_(pScenario->nbNurses_),
-    stabWorkFlowMinus_(pScenario->nbNurses_),
-    stabMinWorkedDaysPlus_(pScenario->nbNurses_),
-    stabMaxWorkedDaysMinus_(pScenario->nbNurses_),
-    stabMaxWorkedWeekendMinus_(pScenario->nbNurses_) {
+    maxWorkedWeekendContractAvgCons_(pScenario_->nbContracts_) {
   // initialize the vectors indicating whether the min/max total constraints
   // with averaged bounds are considered
   Tools::initVector(&isMinWorkedDaysAvgCons_, pScenario_->nbNurses_, false);
@@ -375,8 +371,26 @@ RotationMP::RotationMP(PScenario pScenario,
 
 RotationMP::~RotationMP() {}
 
-PPattern RotationMP::getPattern(const std::vector<double> &pattern) const {
-  return std::make_shared<RotationPattern>(pattern);
+PPattern RotationMP::getPattern(MyVar *var) const {
+  return std::make_shared<RotationPattern>(var->getPattern());
+}
+
+// build the, possibly fractional, roster corresponding to the solution
+// currently stored in the model
+vector3D<double> RotationMP::getFractionalRoster() const {
+  vector3D<double> roster = MasterProblem::getFractionalRoster();
+
+  // add rest values
+  for (auto &nurseRoster : roster)
+    for (auto &dayRoster : nurseRoster) {
+      // fill the rest shift
+      double restValue = 1;
+      for (int s = 1; s < getNbShifts(); ++s)
+        restValue -= dayRoster[s];
+      dayRoster[0] = restValue;
+    }
+
+  return roster;
 }
 
 // build the rostering problem
@@ -529,7 +543,7 @@ MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
   rotation.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
   DualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
-  rotation.checkReducedCost(costs);
+  rotation.checkReducedCost(costs, pPricer_->isLastRunOptimal());
   std::vector<double> pattern = rotation.getCompactPattern();
   checkIfPatternAlreadyPresent(pattern);
 #endif
@@ -587,22 +601,13 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
                          false,
                          true);
 
-    if (this->isRelaxDay(rotation.firstDay_))
-      pModel_->createPositiveColumn(&var,
-                                    name,
-                                    rotation.cost_,
-                                    rotation.getCompactPattern(),
-                                    rotation.reducedCost_,
-                                    cons,
-                                    coeffs);
-    else
-      pModel_->createIntColumn(&var,
-                               name,
-                               rotation.cost_,
-                               rotation.getCompactPattern(),
-                               rotation.reducedCost_,
-                               cons,
-                               coeffs);
+    pModel_->createIntColumn(&var,
+                             name,
+                             rotation.cost_,
+                             rotation.getCompactPattern(),
+                             rotation.reducedCost_,
+                             cons,
+                             coeffs);
   }
   return var;
 }
@@ -798,22 +803,8 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
 
       // STAB:Add stabilization variables
       if (param.isStabilization_) {
-        snprintf(name, sizeof(name), "stabRestFlowPlus2_%i", k);
-        pModel_->createPositiveVar(&stabRestFlowPlus2[k],
-                                   name,
-                                   param.stabCostIni_ + param.stabCostMargin_,
-                                   {},
-                                   0,
-                                   param.stabBoundIni_);
-        snprintf(name, sizeof(name), "stabRestFlowMinus2_%i", k);
-        pModel_->createPositiveVar(&stabRestFlowMinus2[k],
-                                   name,
-                                   -param.stabCostIni_ + param.stabCostMargin_,
-                                   {},
-                                   0,
-                                   param.stabBoundIni_);
-        pModel_->addCoefLinear(restFlowCons2[k], stabRestFlowPlus2[k], 1.0);
-        pModel_->addCoefLinear(restFlowCons2[k], stabRestFlowMinus2[k], -1.0);
+        snprintf(name, sizeof(name), "stabRestFlow2_%i", k);
+        addStabVariables(param, name, restFlowCons2[k], true, true);
       }
     }
 
@@ -870,26 +861,8 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
 
       // STAB:Add stabilization variables
       if (param.isStabilization_) {
-        snprintf(name, sizeof(name), "stabWorkFlowPlus2_%i", k - 1);
-        pModel_->createPositiveVar(&stabWorkFlowPlus2[k - 1],
-                                   name,
-                                   param.stabCostIni_ + param.stabCostMargin_,
-                                   {},
-                                   0,
-                                   param.stabBoundIni_);
-        snprintf(name, sizeof(name), "stabWorkFlowMinus2_%i", k - 1);
-        pModel_->createPositiveVar(&stabWorkFlowMinus2[k - 1],
-                                   name,
-                                   -param.stabCostIni_ + param.stabCostMargin_,
-                                   {},
-                                   0,
-                                   param.stabBoundIni_);
-        pModel_->addCoefLinear(workFlowCons2[k - 1],
-                               stabWorkFlowPlus2[k - 1],
-                               1.0);
-        pModel_->addCoefLinear(workFlowCons2[k - 1],
-                               stabWorkFlowMinus2[k - 1],
-                               -1.0);
+        snprintf(name, sizeof(name), "stabWorkFlow2_%i", k - 1);
+        addStabVariables(param, name, workFlowCons2[k - 1], true, true);
       }
     }
 
@@ -899,12 +872,6 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
     longRestingVars_[i] = longRestingVars2;
     restFlowCons_[i] = restFlowCons2;
     workFlowCons_[i] = workFlowCons2;
-
-    // STAB
-    stabRestFlowPlus_[i] = stabRestFlowPlus2;
-    stabRestFlowMinus_[i] = stabRestFlowMinus2;
-    stabWorkFlowPlus_[i] = stabWorkFlowPlus2;
-    stabWorkFlowMinus_[i] = stabWorkFlowMinus2;
   }
 }
 
@@ -963,18 +930,10 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
                                 minTotalShifts_[i],
                                 {minWorkedDaysVars_[i]},
                                 {1});
-    // STAB:Add stabilization variable
+    // STAB: Add stabilization variable
     if (param.isStabilization_) {
-      snprintf(name, sizeof(name), "stabMinWorkedDaysPlus_%i", i);
-      pModel_->createPositiveVar(&stabMinWorkedDaysPlus_[i],
-                                 name,
-                                 param.stabCostIni_ + param.stabCostMargin_,
-                                 {},
-                                 0,
-                                 param.stabBoundIni_);
-      pModel_->addCoefLinear(minWorkedDaysCons_[i],
-                             stabMinWorkedDaysPlus_[i],
-                             1.0);
+      snprintf(name, sizeof(name), "stabMinWorkedDays_%i", i);
+      addStabVariables(param, name, minWorkedDaysCons_[i], false, true);
     }
 
     /* max worked days constraint */
@@ -988,18 +947,10 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
                                 maxTotalShifts_[i],
                                 {maxWorkedDaysVars_[i]},
                                 {-1});
-    // STAB:Add stabilization variable
+    // STAB: Add stabilization variable
     if (param.isStabilization_) {
-      snprintf(name, sizeof(name), "stabMaxWorkedDaysMinus_%i", i);
-      pModel_->createPositiveVar(&stabMaxWorkedDaysMinus_[i],
-                                 name,
-                                 -param.stabCostIni_ + param.stabCostMargin_,
-                                 {},
-                                 0,
-                                 param.stabBoundIni_);
-      pModel_->addCoefLinear(maxWorkedDaysCons_[i],
-                             stabMaxWorkedDaysMinus_[i],
-                             -1.0);
+      snprintf(name, sizeof(name), "stabMaxWorkedDays_%i", i);
+      addStabVariables(param, name, maxWorkedDaysCons_[i], true, false);
     }
 
     // add constraints on the total number of shifts to satisfy bounds that
@@ -1058,16 +1009,8 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
 
     // STAB:Add stabilization variables
     if (param.isStabilization_) {
-      snprintf(name, sizeof(name), "stabMaxWorkedWeekendMinus_%i", i);
-      pModel_->createPositiveVar(&stabMaxWorkedWeekendMinus_[i],
-                                 name,
-                                 -param.stabCostIni_ + param.stabCostMargin_,
-                                 {},
-                                 0,
-                                 param.stabBoundIni_);
-      pModel_->addCoefLinear(maxWorkedWeekendCons_[i],
-                             stabMaxWorkedWeekendMinus_[i],
-                             -1.0);
+      snprintf(name, sizeof(name), "stabMaxWorkedWeekend_%i", i);
+      addStabVariables(param, name, maxWorkedWeekendCons_[i], true, false);
     }
 
     // STAB: not implemented there yet
@@ -1288,188 +1231,4 @@ RotationPattern RotationMP::computeInitStateRotation(PLiveNurse pNurse) {
   rot.cost_ = rot.consDaysWorkedCost_ + rot.consShiftsCost_;
 
   return rot;
-}
-
-// STAB
-// Update all the upper bounds of the stabilization variables by multiplying
-// them by an input factor
-void RotationMP::stabUpdateBound(OsiSolverInterface *solver, double factor) {
-  MasterProblem::stabUpdateBound(solver, factor);
-  for (int i = 0; i < pScenario_->nbNurses_; i++) {
-    // stabilization variables corresponding to the flow constraints
-    for (int k = 0; k < getNbDays(); ++k) {
-      multiplyUbInSolver(stabRestFlowMinus_[i][k], solver, factor);
-      multiplyUbInSolver(stabRestFlowPlus_[i][k], solver, factor);
-      multiplyUbInSolver(stabWorkFlowMinus_[i][k], solver, factor);
-      multiplyUbInSolver(stabWorkFlowPlus_[i][k], solver, factor);
-    }
-
-    // stabilization variables corresponding to the global constraints of
-    // of the nurses
-    multiplyUbInSolver(stabMinWorkedDaysPlus_[i], solver, factor);
-    multiplyUbInSolver(stabMaxWorkedDaysMinus_[i], solver, factor);
-    multiplyUbInSolver(stabMaxWorkedWeekendMinus_[i], solver, factor);
-  }
-}
-
-// STAB
-// Update all the costs of the stabilization variables to the values
-// corresponding dual variables with a small margin in input
-void RotationMP::stabUpdateCost(OsiSolverInterface *solver, double margin) {
-  MasterProblem::stabUpdateCost(solver, margin);
-  for (int i = 0; i < pScenario_->nbNurses_; i++) {
-    // stabilization variables corresponding to the flow constraints
-    for (int k = 0; k < getNbDays(); ++k) {
-      double restFlowDual = pModel_->getDual(restFlowCons_[i][k], true);
-      double workFlowDual = pModel_->getDual(workFlowCons_[i][k], true);
-      updateVarCostInSolver(stabRestFlowMinus_[i][k],
-                            solver,
-                            -restFlowDual + margin);
-      updateVarCostInSolver(stabRestFlowPlus_[i][k],
-                            solver,
-                            restFlowDual + margin);
-      updateVarCostInSolver(stabWorkFlowMinus_[i][k],
-                            solver,
-                            -workFlowDual + margin);
-      updateVarCostInSolver(stabWorkFlowPlus_[i][k],
-                            solver,
-                            workFlowDual + margin);
-    }
-
-    // stabilization variables corresponding to the global constraints of
-    // of the nurses
-    double minWorkedDaysDual = pModel_->getDual(minWorkedDaysCons_[i], true);
-    double maxWorkedDaysDual = pModel_->getDual(maxWorkedDaysCons_[i], true);
-    double
-        maxWorkedWeekendDual = pModel_->getDual(maxWorkedWeekendCons_[i], true);
-    updateVarCostInSolver(stabMinWorkedDaysPlus_[i],
-                          solver,
-                          minWorkedDaysDual + margin);
-    updateVarCostInSolver(stabMaxWorkedDaysMinus_[i],
-                          solver,
-                          -maxWorkedDaysDual + margin);
-    updateVarCostInSolver(stabMaxWorkedWeekendMinus_[i],
-                          solver,
-                          -maxWorkedWeekendDual + margin);
-  }
-}
-
-// STAB
-// Check the stopping criterion of the relaxation solution specific to the
-// the stabilization
-// The point is that current solution can be infeasible if  stabilization
-// variables are non zero
-bool RotationMP::stabCheckStoppingCriterion() const {
-  if (!pModel_->getParameters().isStabilization_)
-    return true;
-
-  for (int i = 0; i < pScenario_->nbNurses_; i++)
-    // stabilization variables corresponding to the flow constraints
-    for (int k = 0; k < getNbDays(); ++k)
-      if (pModel_->getVarValue(stabRestFlowMinus_[i][k]) > epsilon() ||
-          pModel_->getVarValue(stabRestFlowPlus_[i][k]) > epsilon() ||
-          pModel_->getVarValue(stabWorkFlowMinus_[i][k]) > epsilon() ||
-          pModel_->getVarValue(stabWorkFlowPlus_[i][k]) > epsilon())
-        return false;
-
-  for (int i = 0; i < pScenario_->nbNurses_; i++)
-    // stabilization variables corresponding to the global constraints of
-    // of the nurses
-    if (pModel_->getVarValue(stabMinWorkedDaysPlus_[i]) > epsilon() ||
-        pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]) > epsilon() ||
-        pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]) > epsilon())
-      return false;
-
-  return MasterProblem::stabCheckStoppingCriterion();
-}
-
-// STAB
-// return the current cost of the stabilization variables
-double RotationMP::getStabCost() const {
-  if (!pModel_->getParameters().isStabilization_)
-    return 0;
-
-  // stabilization variables corresponding to the cover constraints
-  double stabSumCostValue = MasterProblem::getStabCost();
-  for (int i = 0; i < pScenario_->nbNurses_; i++) {
-    // stabilization variables corresponding to the flow constraints
-    for (int k = 0; k < getNbDays(); ++k) {
-      stabSumCostValue += stabRestFlowPlus_[i][k]->getCost()
-          * pModel_->getVarValue(stabRestFlowPlus_[i][k]);
-      stabSumCostValue += stabRestFlowMinus_[i][k]->getCost()
-          * pModel_->getVarValue(stabRestFlowMinus_[i][k]);
-      stabSumCostValue += stabWorkFlowPlus_[i][k]->getCost()
-          * pModel_->getVarValue(stabWorkFlowPlus_[i][k]);
-      stabSumCostValue += stabWorkFlowMinus_[i][k]->getCost()
-          * pModel_->getVarValue(stabWorkFlowMinus_[i][k]);
-    }
-
-    // stabilization variables corresponding to the global constraints of
-    // of the nurses
-    stabSumCostValue += stabMinWorkedDaysPlus_[i]->getCost()
-        * pModel_->getVarValue(stabMinWorkedDaysPlus_[i]);
-    stabSumCostValue += stabMaxWorkedDaysMinus_[i]->getCost()
-        * pModel_->getVarValue(stabMaxWorkedDaysMinus_[i]);
-    stabSumCostValue += stabMaxWorkedWeekendMinus_[i]->getCost()
-        * pModel_->getVarValue(stabMaxWorkedWeekendMinus_[i]);
-  }
-  return stabSumCostValue;
-}
-
-// STAB: reset the costs and bounds of the stabilization variables
-//
-void RotationMP::stabResetBoundAndCost(OsiSolverInterface *solver,
-                                       const SolverParam &param) {
-  MasterProblem::stabResetBoundAndCost(solver, param);
-
-  for (int i = 0; i < pScenario_->nbNurses_; i++) {
-    // stabilization variables corresponding to the flow constraints
-    for (int k = 0; k < getNbDays(); ++k) {
-      updateVarCostInSolver(stabRestFlowMinus_[i][k],
-                            solver,
-                            -param.stabCostIni_ + param.stabCostMargin_);
-      updateVarCostInSolver(stabRestFlowPlus_[i][k],
-                            solver,
-                            param.stabCostIni_ + param.stabCostMargin_);
-      updateVarCostInSolver(stabWorkFlowMinus_[i][k],
-                            solver,
-                            -param.stabCostIni_ + param.stabCostMargin_);
-      updateVarCostInSolver(stabWorkFlowPlus_[i][k],
-                            solver,
-                            param.stabCostIni_ + param.stabCostMargin_);
-      updateVarUbInSolver(stabRestFlowMinus_[i][k],
-                          solver,
-                          param.stabBoundIni_);
-      updateVarUbInSolver(stabRestFlowPlus_[i][k],
-                          solver,
-                          param.stabBoundIni_);
-      updateVarUbInSolver(stabWorkFlowMinus_[i][k],
-                          solver,
-                          param.stabBoundIni_);
-      updateVarUbInSolver(stabWorkFlowPlus_[i][k],
-                          solver,
-                          param.stabBoundIni_);
-    }
-
-    // stabilization variables corresponding to the global constraints of
-    // of the nurses
-    updateVarCostInSolver(stabMinWorkedDaysPlus_[i],
-                          solver,
-                          param.stabCostIni_ + param.stabCostMargin_);
-    updateVarCostInSolver(stabMaxWorkedDaysMinus_[i],
-                          solver,
-                          -param.stabCostIni_ + param.stabCostMargin_);
-    updateVarCostInSolver(stabMaxWorkedWeekendMinus_[i],
-                          solver,
-                          -param.stabCostIni_ + param.stabCostMargin_);
-    updateVarUbInSolver(stabMinWorkedDaysPlus_[i],
-                        solver,
-                        param.stabBoundIni_);
-    updateVarUbInSolver(stabMaxWorkedDaysMinus_[i],
-                        solver,
-                        param.stabBoundIni_);
-    updateVarUbInSolver(stabMaxWorkedWeekendMinus_[i],
-                        solver,
-                        param.stabBoundIni_);
-  }
 }

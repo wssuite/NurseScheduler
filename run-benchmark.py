@@ -120,7 +120,7 @@ def run_benchmark(benchmark_file, exe, pipe=subprocess.PIPE, status='.'):
             o_file = benchmark_file.split('.')[-2]
             o_file += '_{}.yml'.format(int(time.time()))
             for i, t in enumerate(instances):
-                if 'status' in t and not re.match(status, t['status'], re.IGNORECASE):
+                if 'status' in t and not re.search(status, t['status'], re.IGNORECASE):
                     continue
                 i_args = t['name'].split('_') + [ns_args]
                 print(i_args)

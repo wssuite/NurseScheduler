@@ -376,8 +376,8 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
       stdout :
       fopen(pModel_->logfile().c_str(), "a");
 
-  // if at least a subproblem has been solved and has some variables
-  if (!vars.empty() && pModel_->getLastNbSubProblemsSolved() > 0) {
+  // if has some variables
+  if (!vars.empty()) {
     /* compute number of fractional columns */
     int frac = 0;
     int non_zero = 0;
@@ -390,23 +390,43 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
         frac++;
     }
 
-    fprintf(pFile,
-            "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
-            "%8d %14.2f %5d / %5d %10ld | %14.2f %5d %5d  \n",
-            current_index(),
-            pModel_->getTreeSize(),
-            current_level(),
-            pModel_->getObjective(),
-            pModel_->getRootLB(),
-            pModel_->getBestLB(),
-            lpIteration_,
-            pModel_->getLastObj(),
-            frac,
-            non_zero,
-            vars.size() - pModel_->getCoreVars().size(),
-            pModel_->getLastMinReducedCost(),
-            pModel_->getLastNbSubProblemsSolved(),
-            nbGeneratedColumns_);
+    // if at least a subproblem has been solved
+    if (pModel_->getLastNbSubProblemsSolved() > 0)
+      fprintf(pFile,
+              "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
+              "%8d %14.2f %5d / %5d %10ld | %14.2f %5d %5d  \n",
+              current_index(),
+              pModel_->getTreeSize(),
+              current_level(),
+              pModel_->getObjective(),
+              pModel_->getRootLB(),
+              pModel_->getBestLB(),
+              lpIteration_,
+              pModel_->getLastObj(),
+              frac,
+              non_zero,
+              vars.size() - pModel_->getCoreVars().size(),
+              pModel_->getLastMinReducedCost(),
+              pModel_->getLastNbSubProblemsSolved(),
+              nbGeneratedColumns_);
+    else
+      fprintf(pFile,
+              "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
+              "%8d %14.2f %5d / %5d %10ld | %14s %5s %5s  \n",
+              current_index(),
+              pModel_->getTreeSize(),
+              current_level(),
+              pModel_->getObjective(),
+              pModel_->getRootLB(),
+              pModel_->getBestLB(),
+              lpIteration_,
+              pModel_->getLastObj(),
+              frac,
+              non_zero,
+              vars.size() - pModel_->getCoreVars().size(),
+              "-",
+              "-",
+              "-");
   } else {
     fprintf(pFile,
             "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
@@ -600,10 +620,13 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result &lpres,
   if (doStop(vars))
     return;
 
-  // Stop the algorithm if the last objective value of the relaxation is
+  // Stop the algorithm if the objective value of the relaxation is
   // close enough to the current LB
-  if (current_index() > 0
-      && lpres.objval() < pModel_->getCurrentLB() + pModel_->epsilon())
+  // WARNING: true if stabilization is inactive
+  bool stabInactive = !pModel_->getParameters().isStabilization_ ||
+      pModel_->getMaster()->stabCheckStoppingCriterion();
+  if (current_index() > 0 && stabInactive &&
+      lpres.objval() < pModel_->getCurrentLB() + pModel_->epsilon())
     return;
 
   // call the rotation pricer to find columns that should be added to the LP
@@ -638,32 +661,6 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result &lpres,
   //    const double rc_bound =
   //   (lpres.dualTolerance() + (lpres.objval() - upper_bound()))/kss.ks_num;
   //    generate_vars(lpres, vars, rc_bound, new_vars);
-}
-
-// STAB
-// Update all the bounds and costs of the stabilization variables
-// The costs are updated only when solution process is stalling or no column
-// is generated
-// The bounds are updated whenever the quality of the lagrangian bound varies
-//
-bool BcpLpModel::stabUpdateBoundAndCost(bool isStall, bool isImproveQuality) {
-  SolverParam param = pModel_->getParameters();
-  MasterProblem *pMaster = pModel_->getMaster();
-  OsiSolverInterface *solver = getLpProblemPointer()->lp_solver;
-
-  if (param.isStabUpdateBounds_) {
-    if (isImproveQuality) {
-      pMaster->stabUpdateBound(solver, 1.0 / param.stabBoundFactor_);
-    } else {
-      pMaster->stabUpdateBound(solver, param.stabBoundFactor_);
-    }
-  }
-  if (param.isStabUpdateCost_) {
-    if (!nbGeneratedColumns_ || isStall) {
-      pMaster->stabUpdateCost(solver, param.stabCostMargin_);
-    }
-  }
-  return false;
 }
 
 /*
@@ -755,6 +752,12 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(
   nbNodesSinceLastHeuristic_++;
   // increase the number of nodes
   pModel_->incrementNbNodes();
+  // deactivate stabilization, feasibility, and dual UB
+  feasible_ = false;
+  approximatedDualUB_ = -LARGE_SCORE;
+  if (pModel_->getParameters().isStabilization_)
+    pModel_->getMaster()->stabDeactivateBoundAndCost(
+        getLpProblemPointer()->lp_solver);
 
   return decision;
 }
@@ -786,14 +789,46 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     Tools::throwError("Column generation has finished with a negative "
                       "reduced cost. There is a problem with the pricing.");
 
+
+  // STAB
+  // activate and update stabilization variables if enable.
+  // Also, check stopping dual stabilization criterion
+  bool isStabActive = false;
+  if (pModel_->getParameters().isStabilization_) {
+    double dualUB =
+        pModel_->getMaster()->computeApproximateDualUB(lpres.objval());
+
+    isStabActive = !pModel_->getMaster()->stabCheckStoppingCriterion();
+    // if was infeasible at the previous iteration and not anymore:
+    // activate stabilization
+    if (becomeFeasible())
+      pModel_->getMaster()->stabInitializeBoundAndCost(
+          getLpProblemPointer()->lp_solver);
+    // Update the stabilization variables if:
+    // feasible and the approximated dual UB has improved
+    else if (feasible_)
+      pModel_->getMaster()->stabUpdate(
+          getLpProblemPointer()->lp_solver,
+          dualUB > approximatedDualUB_ || !column_generated);
+    // update aprrocimated dual UB
+    if (dualUB > approximatedDualUB_) approximatedDualUB_ = dualUB;
+    // Do not branch if some stabilization variables are positive
+    if (!column_generated && isStabActive)
+      return BCP_DoNotBranch;
+  }
+
   // STAB: compute the Lagrangian bound
   // It can also be used in general to fathom nodes when the the Lagrangian
   // bound is larger than the best UB
-  bool isImproveQuality = false;
+  // To be able to compute this bound, three conditions needs to be met:
+  // 1. A lagrangian bound is available
+  // 2. The subproblem were solved at optimality
+  // 3. There are no stabilization variables in the solution
   if (pModel_->getMaster()->lagrangianBoundAvailable() &&
-      pModel_->isLastPricingOptimal()) {
+      pModel_->isLastPricingOptimal() &&
+      !isStabActive) {
     double lagLb = pModel_->getMaster()->computeLagrangianBound(lpres.objval());
-    isImproveQuality = pModel_->updateNodeLagLB(lagLb);
+    pModel_->updateNodeLagLB(lagLb);
     // fathom only if column generation would continue
     // (otherwise would be fathom later in this function)
     if (column_generated && pModel_->getParameters().isLagrangianFathom_ &&
@@ -818,7 +853,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // after a given number of degenerate iterations
   //
   double isStalling = false;
-  if (column_generated && getObjImprovement() < pModel_->epsilon()) {
+  if (column_generated && getObjVariation() < pModel_->epsilon()) {
     isStalling = true;
     pModel_->incrementNbDegenerateIt();
     // stop column generation if not root node and too many iteration
@@ -835,25 +870,18 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     pModel_->setNbDegenerateIt(0);
   }
 
-  // we have an opportunity to update the costs and bounds
-  // of the stabilization variables
-  if (pModel_->getParameters().isStabilization_)
-    this->stabUpdateBoundAndCost(isStalling, isImproveQuality);
-
   // check if continue column generation
   if (column_generated)
-    return BCP_DoNotBranch;
-  // STAB: Do not branch if some stabilization variables are positive
-  if (!pModel_->getMaster()->stabCheckStoppingCriterion())
     return BCP_DoNotBranch;
 
   // update LB (as either branching or fathoming) only if column generation
   // has been solved until optimality
   if (!isStalling) {
     double lb = lpres.objval();
-    // update node. If return false, the lb has decreased !
-    // Bug needs to be find
-    if (!pModel_->updateNodeLB(lb)) {
+    // update node if stabilization not active.
+    // If return false, the lb has decreased !
+    // Bug needs to be found
+    if (!isStabActive && !pModel_->updateNodeLB(lb)) {
       std::cerr << "The best LB has decreased." << std::endl;
       writeLP("model_" + std::to_string(current_index()));
     }
@@ -872,7 +900,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
       pModel_->setTimeFirstRoot(pTimerTotal_->dSinceStart());
     // Check if infeasible
     if (!pModel_->isFeasible()) {
-      std::cout << "Feasibility core variable is still present "
+      pModel_->getMaster()->setStatus(INFEASIBLE);
+      std::cerr << "Feasibility core variable is still present "
                    "in the solution" << std::endl;
       return BCP_DoNotBranch_Fathomed;
     }
@@ -897,39 +926,38 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     heuristicHasBeenRun_ = true;
   }
 
-  // continue the dive
+  // build a candidate
   MyBranchingCandidate candidate;
+  bool generate = true;
+  // if a column node, continue the dive
   if (pModel_->is_columns_node()) {
-    pModel_->column_candidates(&candidate);
-    buildCandidate(candidate, vars, cuts, cands);
-    return BCP_DoBranch;
+    generate = pModel_->branch_on_column(&candidate);
+  } else {
+    // do we branch on columns ?
+    if (pModel_->getNbDives()
+        < pModel_->getParameters().nbDiveIfBranchOnColumns_) {
+      pModel_->branch_on_column(&candidate);
+    } else if (!nb_dives_to_wait_before_branching_on_columns_.empty() &&
+        pModel_->getNbDives()
+            >= nb_dives_to_wait_before_branching_on_columns_.front()) {
+      // after a given number of nodes since last dive,
+      // prepare to go for a new dive
+      nb_dives_to_wait_before_branching_on_columns_.pop_front();
+      pModel_->resetNbNodesSinceLastDive();
+    }
+
+    // other branching decisions: rest on a day, branch on shifts ...
+    generate = pModel_->branching_decisions(&candidate);
   }
 
-  // do we branch on columns ?
-  if (pModel_->getNbDives()
-      < pModel_->getParameters().nbDiveIfBranchOnColumns_) {
-    pModel_->column_candidates(&candidate);
-  }
-
-  // branching candidates: numberOfNursesByPosition_, rest on a day, ...
-  bool generate = pModel_->branching_candidates(&candidate);
-  // throw an error here. Should never happened
   if (!generate) {
+    if (testPartialFeasibility())
+      return BCP_DoNotBranch_Fathomed;
+    // throw an error here. Should never happened
     find_infeasibility(lpres, vars);
     Tools::throwError("Solution should be fractional as no branching "
                       "candidate has been found.");
   }
-
-  // after a given number of nodes since last dive, prepare to go for a new dive
-  if (!nb_dives_to_wait_before_branching_on_columns_.empty() &&
-      pModel_->getNbDives()
-          >= nb_dives_to_wait_before_branching_on_columns_.front()) {
-    nb_dives_to_wait_before_branching_on_columns_.pop_front();
-    pModel_->resetNbNodesSinceLastDive();
-  }
-
-  if (!generate)
-    return BCP_DoNotBranch_Fathomed;
 
   buildCandidate(candidate, vars, cuts, cands);
 
@@ -1112,6 +1140,30 @@ void BcpLpModel::find_infeasibility(
   }
 }
 
+// check if the current solution is feasible according to the days that
+// have been relaxed
+bool BcpLpModel::testPartialFeasibility() {
+  MasterProblem *pMaster = pModel_->getMaster();
+  // check if the solution could be feasible without being integer
+  if (!pMaster->isPartialRelaxed()) return false;
+
+  // if partially relaxed, check that the unrelaxed days are integer
+  vector3D<double> fracRosters = pMaster->getFractionalRoster();
+  for (const auto &vec2D : fracRosters)
+    for (int k = 0; k < pMaster->getNbDays(); ++k) {
+      if (pMaster->isRelaxDay(k))
+        continue;
+      // if should be integer, check integrality
+      for (double v : vec2D[k])
+        if (!pModel_->isInteger(v))
+          return false;
+    }
+
+  // if partially integer, store solution and return true
+  pModel_->addCurrentBcpSol(false);
+  return true;
+}
+
 // Decide what to do with the children of the selected branching object.
 // Fill out the _child_action field in best.
 // This will specify for every child what to do with it.
@@ -1127,6 +1179,8 @@ void BcpLpModel::find_infeasibility(
 // Also, if a child has a presolved lower bound that is higher than
 // the current upper bound then that child is mark as BCP_FathomChild.
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj *best) {
+  if (best->candidate()->child_num == 0)
+    Tools::throwError("No action has been generated.");
   // if only one child -> keep child as dicing
   // if the gap is less than the min relative gap and
   // the node's LP gap is less than maxRelativeLPGapToKeepChild_ -> keep child
@@ -1570,7 +1624,7 @@ void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var *> &vars) const {
 
   for (unsigned int i = coreVars_.size(); i < vars.size(); ++i) {
     auto *var = dynamic_cast<BcpColumn *>(vars[i]);
-    PPattern pat = pMaster_->getPattern(var->getPattern());
+    PPattern pat = pMaster_->getPattern(var);
     if (var->getUB() == 0 || var->ub() == 0
         || shiftNode->pNurse_->num_ != pat->nurseNum_)
       continue;
@@ -1588,47 +1642,78 @@ void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var *> &vars) const {
   }
 }
 
+void BcpModeler::addCurrentBcpSol(bool isInteger) {
+  std::vector<MyVar *> vars;
+  std::vector<double> values;
+
+  for (MyVar *var : getCoreVars()) {
+    double v = getVarValue(var);
+    if (v > epsilon()) {
+      vars.push_back(var);
+      values.push_back(v);
+    }
+  }
+
+  for (MyVar *var : getActiveColumns()) {
+    double v = getVarValue(var);
+    if (v > epsilon()) {
+      vars.push_back(var);
+      values.push_back(v);
+    }
+  }
+
+  addBcpSol(getLastObj(), vars, values, isInteger);
+}
+
 void BcpModeler::addBcpSol(const BCP_solution *sol) {
   // if no integer solution is needed, don't store the solutions
   if (parameters_.stopAfterXSolution_ == 0)
     return;
 
-  // create a solution which is not going to delete the vars at the end
-  // (argument=false)
-  BCP_solution_generic mySol(false);
   auto *sol2 = dynamic_cast<const BCP_solution_generic *>(sol);
+  std::vector<BCP_var *> vars(sol2->_vars.begin(), sol2->_vars.end());
+  std::vector<double> values(sol2->_values.begin(), sol2->_values.end());
+  addBcpSol(sol2->objective_value(), vars, values);
 
+  // check if should stop
+  doStop();
+}
+
+template<typename T>
+void BcpModeler::addBcpSol(double objValue,
+                           const std::vector<T *> &vars,
+                           const std::vector<double> &values,
+                           bool isInteger) {
+  MyBCPSolution mySol(isInteger);
   bool isArtificialSol = false;
-  for (unsigned int i = 0; i < sol2->_vars.size(); ++i) {
-    auto *col = dynamic_cast<BcpColumn *>(sol2->_vars[i]);
+  for (unsigned int i = 0; i < vars.size(); ++i) {
+    auto *col = dynamic_cast<BcpColumn *>(vars[i]);
     if (col) {
       col = new BcpColumn(*col);
       // store pointers to be able to delete them
       columnsInSolutions_.push_back(col);
-      mySol.add_entry(col, sol2->_values[i]);
+      mySol.add_entry(col, values[i]);
     } else {
-      mySol.add_entry(
-          dynamic_cast<BcpCoreVar *>(coreVars_[sol2->_vars[i]->bcpind()]),
-          sol2->_values[i]);
-      if ((coreVars_[sol2->_vars[i]->bcpind()])->getCost() >= LARGE_SCORE) {
-        if (sol2->_values[i] > epsilon()) isArtificialSol = true;
+      BcpCoreVar *var = getCoreVar(vars[i]);
+      mySol.add_entry(var, values[i]);
+      if (var->getCost() >= LARGE_SCORE  -  epsilon()) {
+        if (values[i] > epsilon()) isArtificialSol = true;
       }
     }
   }
 
   if (!isArtificialSol) {
     bcpSolutions_.push_back(mySol);
-  }
-
-  // if the solution improves the upper bound, record the new upper bound and
-  // load the integer solution
-  if (pTree_->getBestUB() > sol->objective_value() + epsilon()) {
-    pTree_->setBestUB(sol->objective_value());
-    // print the solution in a text file
-    if (parameters_.printEverySolution_) {
-      solHasChanged_ = true;
-      parameters_.saveFunction_->save(parameters_.weekIndices_,
-                                      parameters_.outfile_);
+    // if the solution improves the upper bound, record the new upper bound and
+    // load the integer solution
+    if (pTree_->getBestUB() > objValue + epsilon()) {
+      pTree_->setBestUB(objValue);
+      // print the solution in a text file
+      if (parameters_.printEverySolution_ && isInteger) {
+        solHasChanged_ = true;
+        parameters_.saveFunction_->save(parameters_.weekIndices_,
+                                        parameters_.outfile_);
+      }
     }
   }
 
@@ -1637,11 +1722,11 @@ void BcpModeler::addBcpSol(const BCP_solution *sol) {
 }
 
 // Get the index of the best solution in the vector of solutions of BCP
-int BcpModeler::getBestSolIndex() {
+int BcpModeler::getBestSolIndex(bool integer) const {
   int i = 0, index = -1;
   double bestObj = LARGE_SCORE;
-  for (const BCP_solution_generic &sol : bcpSolutions_) {
-    if (sol.objective_value() < bestObj) {
+  for (const MyBCPSolution &sol : bcpSolutions_) {
+    if ((!integer || sol.isInteger_) && sol.objective_value() < bestObj) {
       bestObj = sol.objective_value();
       index = i;
     }
@@ -1650,185 +1735,37 @@ int BcpModeler::getBestSolIndex() {
   return index;
 }
 
-bool BcpModeler::loadBestSol() {
-  int index = getBestSolIndex();
+bool BcpModeler::loadBestSol(bool integer) {
+  int index = getBestSolIndex(integer);
   if (index == -1)
     return false;
 
-  this->loadBcpSol(index);
+  loadBcpSol(index);
   return true;
 }
 
+// Clear the active column, set the active columns with those of the solution
+// and set the primal values accordingly
 void BcpModeler::loadBcpSol(int index) {
-  this->loadInputSol(bcpSolutions_[index]);
-}
-
-// Clear the active column, set the active columns with those in the input
-// solution and set the primal values accordingly
-void BcpModeler::loadInputSol(const BCP_solution_generic &sol) {
-  const int size = sol._vars.size(), core_size = coreVars_.size();
-  vector<double> primal(core_size);
-
-  int ind = core_size;
+  indexBcpSol_ = index;
+  const MyBCPSolution &sol = bcpSolutions_[index];
+  // type of sol._vars[i] is either BcpColumn or BcpCoreVar
+  // Get BcpColumn (after BcpCoreVar) and
+  // map their index to their value in the primal vector
   clearActiveColumns();
-
-  for (int i = 0; i < size; ++i) {
-    // type of sol._vars[i] is either BcpColumn or BcpCoreVar,
-    // dynamic_cast will get the proper one
-    auto *col = dynamic_cast<BcpColumn *>(sol._vars[i]);
-    if (col) {
-      addActiveColumn(col, ind++);
+  int coreSize = coreVars_.size(), colInd = coreSize;
+  vector<double> primal(coreSize);  // fill primal vector with 0 for core vars
+  for (int i = 0; i < sol._vars.size(); ++i) {
+    // BcpCoreVar
+    if (sol._vars[i]->bcpind() < coreSize) {
+      primal[sol._vars[i]->bcpind()] = sol._values[i];
+    } else {
+      // BcpColumnVar
       primal.push_back(sol._values[i]);
-    } else {
-      auto *var = dynamic_cast<BcpCoreVar *>(sol._vars[i]);
-      primal[var->getIndex()] = sol._values[i];
+      addActiveColumn(dynamic_cast<BcpColumn *>(sol._vars[i]), colInd++);
     }
   }
-
   setPrimal(primal);
-}
-
-// DBG
-// Set the value of the active columns with those in the best solution
-void BcpModeler::setActiveColumnsValuesWithBestSol() {
-  int index = getBestSolIndex();
-
-  BCP_solution_generic &sol = bcpSolutions_[index];
-  for (unsigned int i = 0; i < primalValues_.size(); i++) {
-    primalValues_[i] = 0.0;
-  }
-
-  for (unsigned int i = 0; i < sol._vars.size(); i++) {
-    // type of sol._vars[i] is either BcpColumn or BcpCoreVar,
-    // dynamic_cast will get the proper one
-    auto *col = dynamic_cast<BcpColumn *>(sol._vars[i]);
-    if (col) {
-      setVarValue(col, sol._values[i]);
-    } else {
-      auto *var = dynamic_cast<BcpCoreVar *>(sol._vars[i]);
-      setVarValue(var, sol._values[i]);
-    }
-  }
-}
-
-// Set every rotation to one : this is useful only when the active columns
-// are only the rotations included in a provided initial solution
-void BcpModeler::setEveryRotationToOne() {
-  for (MyVar *pVar : activeColumnVars_) {
-    pVar->setLB(1.0);
-    pVar->setUB(1.0);
-  }
-}
-
-/*
- * fix/unfix all the rotations variables starting from the input vector of days
- */
-void BcpModeler::fixRotationsStartingFromDays(const vector<bool> &isFixDay) {
-  // get the best solution currently in BCP
-  int index = getBestSolIndex();
-  BCP_solution_generic &sol = bcpSolutions_[index];
-
-  const int size = sol._vars.size();
-
-  for (int i = 0; i < size; ++i) {
-    // type of sol._vars[i] is either BcpColumn or BcpCoreVar,
-    // dynamic_cast will get the proper one
-    auto *col = dynamic_cast<BcpColumn *>(sol._vars[i]);
-    if (col) {
-      double value = sol._values[i];
-      if (isFixDay[col->getFirstDay()]) {
-        if (value >= epsilon() && value <= 1 - epsilon())
-          Tools::throwError("BcpModeler::fixRotationsStartingFromDays: "
-                            "the value to be fixed is not integer!");
-        col->setLB(1.0);
-        col->setUB(1.0);
-      }
-    }
-  }
-}
-void BcpModeler::unfixRotationsStartingFromDays(
-    const vector<bool> &isUnfixDay) {
-  for (MyVar *var : activeColumnVars_) {
-    if (isUnfixDay[var->getFirstDay()]) {
-      var->setLB(0.0);
-      switch (var->getVarType()) {
-        case VARTYPE_BINARY:var->setUB(1.0);
-          break;
-        default:var->setUB(infinity_);
-          break;
-      }
-    }
-  }
-}
-
-// fix/unfix all the rotations variables of the input nurses
-void BcpModeler::fixRotationsOfNurses(const vector<bool> &isFixNurse) {
-  // get the best solution currently in BCP
-  if (!bcpSolutions_.empty()) {
-    int index = getBestSolIndex();
-    BCP_solution_generic &sol = bcpSolutions_[index];
-
-    const int size = sol._vars.size();
-
-    for (int i = 0; i < size; ++i) {
-      // type of sol._vars[i] is either BcpColumn or BcpCoreVar,
-      // dynamic_cast will get the proper one
-      auto *col = dynamic_cast<BcpColumn *>(sol._vars[i]);
-      if (col) {
-        double value = sol._values[i];
-        if (isFixNurse[col->getNurseNum()]) {
-          if (value >= epsilon() && value <= 1 - epsilon())
-            Tools::throwError("BcpModeler::fixRotationsStartingFromDays: "
-                              "the value to be fixed is not integer!");
-          col->setLB(value);
-          col->setUB(value);
-        }
-      }
-    }
-  } else {
-    // DBG: WARNING THIS IMPLEMENTATION IS RISKY, IT ASSUMES THAT THERE IS NO
-    // SOLUTION AVAILABLE ONLY WHEN THE SOLUTION HAS JUST BEEN LOADED
-    for (MyVar *var : activeColumnVars_) {
-      if (isFixNurse[var->getNurseNum()]) {
-        var->setLB(1.0);
-        var->setUB(1.0);
-      }
-    }
-  }
-}
-void BcpModeler::unfixRotationsOfNurses(const vector<bool> &isUnfixNurse) {
-  for (MyVar *var : activeColumnVars_) {
-    if (isUnfixNurse[var->getNurseNum()]) {
-      var->setLB(0.0);
-      switch (var->getVarType()) {
-        case VARTYPE_BINARY:var->setUB(1.0);
-          break;
-        default:var->setUB(infinity_);
-          break;
-      }
-    }
-  }
-}
-
-/*
- * relax/unrelax all the rotations variables starting from the input vector of
- * days
- */
-void BcpModeler::relaxRotationsStartingFromDays(
-    const vector<bool> &isRelaxDay) {
-  for (MyVar *var : activeColumnVars_) {
-    if (isRelaxDay[var->getFirstDay()]) {
-      var->setVarType(VARTYPE_CONTINUOUS);
-    }
-  }
-}
-void BcpModeler::unrelaxRotationsStartingFromDays(
-    const vector<bool> &isUnrelaxDay) {
-  for (MyVar *var : activeColumnVars_) {
-    if (isUnrelaxDay[var->getFirstDay()]) {
-      var->setVarType(VARTYPE_INTEGER);
-    }
-  }
 }
 
 /*

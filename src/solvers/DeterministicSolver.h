@@ -72,8 +72,8 @@ class DeterministicSolverOptions {
 
   // parameters of column generation
   bool isStabilization_ = false;
-  bool isStabUpdateCost_ = false;
-  bool isStabUpdateBounds_ = false;
+  bool isStabUpdateBoxRadius_ = false;
+  bool isStabUpdatePenalty_ = false;
   int stopAfterXDegenerateIt_ = 1;
 
   // Algorithm that we use to solve the problem
@@ -260,7 +260,7 @@ class DeterministicSolver : public Solver {
   // This function needs to be called before each new solution, and the behavior
   // depends on the first day of the horizon
   //
-  void rollingSetOptimalityLevel(int firstDay);
+//  void rollingSetOptimalityLevel(int firstDay);
 
   //----------------------------------------------------------------------------
   //

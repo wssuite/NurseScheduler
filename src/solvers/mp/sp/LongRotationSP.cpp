@@ -206,7 +206,7 @@ bool LongRotationSP::solveShortRotations() {
 // rotations nodes)
 void LongRotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
-  for (int sh=1; sh < pScenario_->nbShiftsType_; ++sh) {
+  for (int sh = 1; sh < pScenario_->nbShiftsType_; ++sh) {
     // any shift with the right shit type
     int s = pScenario_->shiftTypeIDToShiftID_[sh].front();
     std::vector<int> shifts;
@@ -243,46 +243,44 @@ void LongRotationSP::priceShortSucc() {
         double best_cost = DBL_MAX;
 
         // CHECK THE ROTATIONS ONLY IF THE FIRST DAY IS ALLOWED
-        if (startingDayStatus_[k - CDMin_ + 1]) {
-          for (unsigned int i = 0;
-               i < (allShortSuccCDMinByLastShiftCons_[s][n]).size(); i++) {
-            int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
-            const vector<int>
-                &succ = allowedShortSuccBySize_[CDMin_][curSuccId];
+        for (unsigned int i = 0;
+             i < (allShortSuccCDMinByLastShiftCons_[s][n]).size(); i++) {
+          int curSuccId = allShortSuccCDMinByLastShiftCons_[s][n][i];
+          const vector<int>
+              &succ = allowedShortSuccBySize_[CDMin_][curSuccId];
 
-            // SUCCESSION IS TAKEN INTO ACCOUNT ONLY IF IT DOES NOT VIOLATE
-            // ANY FORBIDDEN DAY-SHIFT COUPLE
-            if (canSuccStartHere(k - CDMin_ + 1, succ)) {
-              double curCost =
-                  costArcShortSucc(CDMin_, curSuccId, k - CDMin_ + 1);
+          // SUCCESSION IS TAKEN INTO ACCOUNT ONLY IF IT DOES NOT VIOLATE
+          // ANY FORBIDDEN DAY-SHIFT COUPLE
+          if (canSuccStartHere(k - CDMin_ + 1, succ)) {
+            double curCost =
+                costArcShortSucc(CDMin_, curSuccId, k - CDMin_ + 1);
 
-              // ONLY CASE WHEN THE DESTINATION NODE MAY HAVE TO CHANGE:
-              // 1. Start date is 0
-              // 2. Size of short succession is < than the number of levels
-              // maxValByShift[s]
-              // 3. Number of consecutive shifts is CDMin_
-              // 4. The shift is the same as the last one worked by the nurse at
-              // initial state
-              // -> the nurse has effectively worked more than n consecutive
-              //    shifts
-              // -> another arc needs to be updated
-              // -> the correct arc is stored and will be updated at the end
-              // (as it could be updated again after)
-              if (k == CDMin_ - 1 && CDMin_ < max_cons && n == CDMin_
-                  && s == pLiveNurse_->pStateIni_->shiftType_) {
-                // a. Determine the destination of that arc
-                int nConsWithPrev =
-                    CDMin_ + pLiveNurse_->pStateIni_->consShifts_;
-                int nDestination = std::min(nConsWithPrev, max_cons);
-                int a = arcsFromSource_[s][k][nDestination].front();
-                // b. Store the succession ID + the special cost for that arc
-                specialArcsSuccId[a] = curSuccId;
-                specialArcsCost[a] = curCost;
-              } else if (best_id == -1 || curCost < best_cost) {
-                // OTHER CASES ("REGULAR ONES")
-                best_id = curSuccId;
-                best_cost = curCost;
-              }
+            // ONLY CASE WHEN THE DESTINATION NODE MAY HAVE TO CHANGE:
+            // 1. Start date is 0
+            // 2. Size of short succession is < than the number of levels
+            // maxValByShift[s]
+            // 3. Number of consecutive shifts is CDMin_
+            // 4. The shift is the same as the last one worked by the nurse at
+            // initial state
+            // -> the nurse has effectively worked more than n consecutive
+            //    shifts
+            // -> another arc needs to be updated
+            // -> the correct arc is stored and will be updated at the end
+            // (as it could be updated again after)
+            if (k == CDMin_ - 1 && CDMin_ < max_cons && n == CDMin_
+                && s == pLiveNurse_->pStateIni_->shiftType_) {
+              // a. Determine the destination of that arc
+              int nConsWithPrev =
+                  CDMin_ + pLiveNurse_->pStateIni_->consShifts_;
+              int nDestination = std::min(nConsWithPrev, max_cons);
+              int a = arcsFromSource_[s][k][nDestination].front();
+              // b. Store the succession ID + the special cost for that arc
+              specialArcsSuccId[a] = curSuccId;
+              specialArcsCost[a] = curCost;
+            } else if (best_id == -1 || curCost < best_cost) {
+              // OTHER CASES ("REGULAR ONES")
+              best_id = curSuccId;
+              best_cost = curCost;
             }
           }
         }
@@ -441,16 +439,14 @@ bool LongRotationSP::priceVeryShortRotations() {
 int LongRotationSP::priceVeryShortSameSizeRotations(
     int k, const vector2D<int> &succs) {
   int nFound = 0;
-  if (startingDayStatus_[k]) {
-    for (const vector<int> &succ : succs) {
-      double redCost = costOfVeryShortRotation(k, succ);
-      if (redCost < maxReducedCostBound_) {
-        theSolutions_.emplace_back(k, succ, redCost);
-        nPaths_++;
-        nVeryShortFound_++;
-        nFound++;
-        bestReducedCost_ = std::min(bestReducedCost_, redCost);
-      }
+  for (const vector<int> &succ : succs) {
+    double redCost = costOfVeryShortRotation(k, succ);
+    if (redCost < maxReducedCostBound_) {
+      theSolutions_.emplace_back(k, succ, redCost);
+      nPaths_++;
+      nVeryShortFound_++;
+      nFound++;
+      bestReducedCost_ = std::min(bestReducedCost_, redCost);
     }
   }
   return nFound;

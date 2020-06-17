@@ -161,6 +161,10 @@ struct Pattern {
     return compact;
   }
 
+  int endDay() const {
+    return firstDay_ + length_ - 1;
+  }
+
   int nurseNum_;
   int firstDay_;
   int length_;
@@ -216,7 +220,7 @@ class MasterProblem : public Solver, public PrintSolution {
   virtual MyVar *addColumn(int nurseNum, const RCSolution &solution) = 0;
 
   // retrieve the object represented ny the  vector pattern
-  virtual PPattern getPattern(const std::vector<double> &pattern) const = 0;
+  virtual PPattern getPattern(MyVar *var) const = 0;
 
   // throw an error if pattern is already present as an active column
   void checkIfPatternAlreadyPresent(const std::vector<double> &pattern) const;
@@ -236,6 +240,14 @@ class MasterProblem : public Solver, public PrintSolution {
   // override save and currentSolToString virtual method fom printFunction
   void save(const std::vector<int> &weekIndices, std::string outdir) override;
   std::string currentSolToString() const override;
+
+  bool isSolutionInteger() const override {
+    return pModel_->isSolutionInteger();
+  }
+
+  double getLB() const override {
+    return pModel_->getBestLB();
+  }
 
   // build the, possibly fractional, roster corresponding to the solution
   // currently stored in the model
@@ -259,16 +271,24 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // relax/unrelax the integrality constraints of the variables corresponding
   // to input days
-  void relaxDays(std::vector<bool> isRelax) override;
-  void unrelaxDays(std::vector<bool> isUnrelax) override;
+  void relaxDays(const std::vector<bool> &isRelax) override;
+  void unrelaxDays(const std::vector<bool> &isUnrelax) override;
 
-  // fix/unfix all the variables corresponding to the input vector of days
-  void fixDays(std::vector<bool> isFixDay) override;
-  void unfixDays(std::vector<bool> isUnfixDay) override;
+  // set availability for the days in fixDays based on
+  // the current solution
+  void fixAvailabilityBasedOnSolution(
+      const std::vector<bool> &fixDays) override;
+
+  // set the available days per nurse
+  void nursesAvailabilities(
+      const vector3D<bool> &availableNursesDaysShifts) override;
+
+  // remove any column that does not respect the availabilities
+  void filterColumnsBasedOnAvailability();
 
   // fix/unfix all the variables corresponding to the input vector of nurses
-  void fixNurses(std::vector<bool> isFixNurse) override;
-  void unfixNurses(std::vector<bool> isUnfixNurse) override;
+  void fixNurses(const std::vector<bool> &isFixNurse) override;
+  void unfixNurses(const std::vector<bool> &isUnfixNurse) override;
 
   // Solve the problem with a method that allows for a warm start
   double rollingSolve(const SolverParam &parameters,
@@ -284,59 +304,13 @@ class MasterProblem : public Solver, public PrintSolution {
   void initialize(const SolverParam &parameters,
                   const std::vector<Roster> &solution = {}) override;
 
-  //---------------------------------------------------------------------------
-  //
-  // Methods required to implement stabilization in the column generation
-  //
-  //---------------------------------------------------------------------------
-
-  // STAB
-  // Multiply the upper bound of the input variable by the input factor
-  void multiplyUbInSolver(MyVar *pVar,
-                          OsiSolverInterface *solver,
-                          double factor);
-  // Set the bound of the input variable to the input value
-  void updateVarUbInSolver(MyVar *pVar,
-                           OsiSolverInterface *solver,
-                           double value);
-
-  // STAB
-  // Set the cost of the input variable to the input value
-  void updateVarCostInSolver(MyVar *pVar,
-                             OsiSolverInterface *solver,
-                             double value);
-
-  // STAB
-  // Update all the upper bounds of the stabilization variables by multiplying
-  // them by an input factor
-  virtual void stabUpdateBound(OsiSolverInterface *solver, double factor);
-
-  // STAB
-  // Update all the costs of the stabilization variables to the values
-  // corresponding dual variables with a small margin in input
-  virtual void stabUpdateCost(OsiSolverInterface *solver, double margin);
-
-  // STAB
-  // Check the stopping criterion of the relaxation solution specific to the
-  // the stabilization
-  // The point is that current solution can be infeasible if  stabilization
-  // variables are non zero
-  virtual bool stabCheckStoppingCriterion() const;
-
-  // STAB
-  // return the current cost of the stabilization variables
-  virtual double getStabCost() const;
-
   // STAB: compute the lagrangian bound
   bool lagrangianBoundAvailable() const { return lagrangianBoundAvail_; }
   virtual double computeLagrangianBound(double objVal) const;
-
-  // STAB: reset the costs and bounds of the stabilization variables
-  virtual void stabResetBoundAndCost(OsiSolverInterface *solver,
-                                     const SolverParam &parameters);
+  virtual double computeApproximateDualUB(double objVal) const;
 
   /*
-  * Solving parameterdoubles
+  * Solving parameter doubles
   */
   const char *PB_NAME = "GenCol";
   int solvingTime;
@@ -345,7 +319,7 @@ class MasterProblem : public Solver, public PrintSolution {
 
   const vector4D<MyVar *> &getSkillsAllocVars() { return skillsAllocVars_; }
 
-  const std::vector<int> & getPositionsForSkill(int sk) const {
+  const std::vector<int> &getPositionsForSkill(int sk) const {
     return positionsPerSkill_[sk];
   }
 
@@ -392,17 +366,6 @@ class MasterProblem : public Solver, public PrintSolution {
   vector3D<MyCons *> numberOfNursesByPositionCons_;
   // ensures that each nurse works with the good skill
   vector3D<MyCons *> feasibleSkillsAllocCons_;
-
-  // STAB
-  // Stabilization variables for each constraint
-  // Two variables are needed for equality constraints and one for inequalities
-  // The constraints on average values are not stabilized yet
-  // The position and allocation constraints do not require stabilization
-
-  // ensure a minimal coverage per day, per shift, per skill
-  vector3D<MyVar *> stabMinDemandPlus_;
-  // count the number of missing nurse to reach the optimal
-  vector3D<MyVar *> stabOptDemandPlus_;
 
   /*
   * Methods
@@ -455,6 +418,79 @@ class MasterProblem : public Solver, public PrintSolution {
   virtual std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const;
   virtual double getWorkedWeekendDualValue(PLiveNurse pNurse) const;
   virtual double getConstantDualvalue(PLiveNurse pNurse) const;
+
+  //---------------------------------------------------------------------------
+  //
+  // Methods required to implement stabilization in the column generation
+  //
+  //---------------------------------------------------------------------------
+
+ public:
+  // STAB
+  // Update the stabilization variables based on the dual solution
+  // 1- When the column generation has found a new columns:
+  //     - increase the cost of the duals (the bound for the primal)
+  //     - increase the bound of the duals (the cost for the primal) if the
+  //        the dual lays outside otherwise reduce it.
+  // 2- When the column generation has not found new columns:
+  //     - recenter the bounds on the current duals
+  //     - keep the same range for the bounds of the duals
+  //     - reduce the cost of the duals
+  void stabUpdate(OsiSolverInterface *solver, bool recenter = true);
+
+  // STAB
+  // initialize the stabilization variables and center them on the current duals
+  void stabInitializeBoundAndCost(OsiSolverInterface *solver);
+
+  // STAB
+  // deactivate the stabilization variables
+  void stabDeactivateBoundAndCost(OsiSolverInterface *solver);
+
+  // STAB
+  // Check the stopping criterion of the relaxation solution specific to the
+  // the stabilization
+  // The point is that current solution can be infeasible if  stabilization
+  // variables are non zero
+  bool stabCheckStoppingCriterion() const;
+
+  // STAB
+  // return the current cost of the stabilization variables
+  double getStabCost() const;
+
+ private:
+  std::vector<MyVar *> stabVariables_;
+  // constraints associated with each two stab variables
+  std::vector<MyCons *> stabConstraints_;
+  std::vector<double> stabBoxCenters_;
+
+ protected:
+  // add stabilization variables:
+  // dual: obj += - c_+ z_+ - c_- z_-, s.t.: b_- - z_-<= Pi <= b_+ + z_+
+  // primal: obj += -b_- y_- + b_+ y_+, s.t.: y_- <= c_-, y_+ <= c_+
+  // if primal constraint is <= -> create just plus var
+  // if primal constraint is >= -> create just minus var
+  // WARNING: they are inactive at the beginning
+  void addStabVariables(const SolverParam &param,
+                        const char *name,
+                        MyCons *cons,
+                        bool LECons,
+                        bool GECons);
+
+  // STAB
+  // Multiply the upper bound of the input variable by the input factor
+  void multiplyUbInSolver(MyVar *pVar,
+                          OsiSolverInterface *solver,
+                          double factor);
+  // Set the bound of the input variable to the input value
+  void updateVarUbInSolver(MyVar *pVar,
+                           OsiSolverInterface *solver,
+                           double value);
+
+  // STAB
+  // Set the cost of the input variable to the input value
+  void updateVarCostInSolver(MyVar *pVar,
+                             OsiSolverInterface *solver,
+                             double value);
 };
 
 #endif  // SRC_SOLVERS_MP_MASTERPROBLEM_H_

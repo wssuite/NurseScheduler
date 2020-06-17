@@ -90,6 +90,15 @@ struct BcpLpSol {
   }
 };
 
+struct MyBCPSolution : BCP_solution_generic {
+  explicit MyBCPSolution(bool isInteger) :
+  // create a solution which is not going to delete the vars at the end
+  // (argument=false)
+      BCP_solution_generic(false), isInteger_(isInteger) {}
+
+  const bool isInteger_;
+};
+
 
 //-----------------------------------------------------------------------------
 //
@@ -349,16 +358,18 @@ class BcpModeler : public CoinModeler {
   void clearActiveColumns() override {
     Modeler::clearActiveColumns();
     columnsToIndex_.clear();
+    // columns of any previous solution have been cleared -> reset index
+    indexBcpSol_ = -1;
   }
 
   // copy the current active columns to keep a track of them after deleting BCP
-  void copyActiveToInitialColumns() {
+  void copyActiveToInitialColumns() override {
     for (MyVar *v : activeColumnVars_) {
       auto col = dynamic_cast<BcpColumn *>(v);
       col->resetBounds();
       initialColumnVars_.emplace_back(new BcpColumn(*col));
     }
-    activeColumnVars_.clear();
+    clearActiveColumns();
   }
 
  protected:
@@ -463,25 +474,42 @@ class BcpModeler : public CoinModeler {
     return it->second;
   }
 
+  void addCurrentBcpSol(bool isInteger = true);
+
   void addBcpSol(const BCP_solution *sol);
 
+  template<typename T>
+  void addBcpSol(double objValue,
+                 const std::vector<T *> &vars,
+                 const std::vector<double> &values,
+                 bool isInteger = true);
+
   // Get the index of the best solution in the vector of solutions of BCP
-  int getBestSolIndex();
+  int getBestSolIndex(bool integer) const;
 
   // Clear the active column, set the active columns with those in the best
   // solution, and set the primal values accordingly
-  bool loadBestSol() override;
-
-  // Set the value of the active columns with those in the best solution
-  void setActiveColumnsValuesWithBestSol() override;
+  bool loadBestSol(bool integer) override;
 
   // Clear the active column, set the active columns with those in the solution
   // with input index and set the primal values accordingly
   void loadBcpSol(int index);
 
-  // Clear the active column, set the active columns with those in the input
-  // solution and set the primal values accordingly
-  void loadInputSol(const BCP_solution_generic &sol);
+  bool isSolutionInteger() const override {
+    // if a solution is loaded, check if integer
+    if (indexBcpSol_ != -1) return bcpSolutions_[indexBcpSol_].isInteger_;
+    // otherwise, fetch best integer solution
+    // if index is -1 -> no integer solution
+    return getBestSolIndex(true) != -1;
+  }
+
+  BcpCoreVar *getCoreVar(BCP_var *var) const {
+    return dynamic_cast<BcpCoreVar *>(coreVars_[var->bcpind()]);
+  }
+
+  BcpCoreVar *getCoreVar(MyVar *var) const {
+    return dynamic_cast<BcpCoreVar *>(coreVars_[var->getIndex()]);
+  }
 
   void setPrimal(const std::vector<double> &primal) { primalValues_ = primal; }
 
@@ -507,28 +535,6 @@ class BcpModeler : public CoinModeler {
     return obj_history_.empty() ? infinity_ : obj_history_.back();
   }
   double getObj(int index) const { return Tools::get(obj_history_, index); }
-
-  // Set every rotation to one : this is useful only when the active columns
-  // are only the rotations included in a provided initial solution
-  void setEveryRotationToOne();
-
-  // fix/unfix all the rotations variables starting from the input vector
-  // of days
-  void fixRotationsStartingFromDays(
-      const std::vector<bool> &isFixDay) override;
-  void unfixRotationsStartingFromDays(
-      const std::vector<bool> &isUnfixDay) override;
-
-  // fix/unfix all the rotations variables of the input nurses
-  void fixRotationsOfNurses(const std::vector<bool> &isFixNurse) override;
-  void unfixRotationsOfNurses(const std::vector<bool> &isUnfixNurse) override;
-
-  // relax/unrelax the integrality of all the rotations variables starting
-  // from the input vector of days
-  void relaxRotationsStartingFromDays(
-      const std::vector<bool> &isRelaxDay) override;
-  void unrelaxRotationsStartingFromDays(
-      const std::vector<bool> &isUnRelaxDay) override;
 
   /*
    * Manage the storage of our own tree
@@ -657,7 +663,8 @@ class BcpModeler : public CoinModeler {
   std::map<int, int> columnsToIndex_;
   bool solHasChanged_ = false;  // reload solution ?
   // bcp solution
-  std::vector<BCP_solution_generic> bcpSolutions_;
+  std::vector<MyBCPSolution> bcpSolutions_;
+  int indexBcpSol_ = -1;  // index of the current loaded solution
   std::vector<MyVar *> columnsInSolutions_;
   // bcp solution of the root node
   BcpLpSol rootSolution_;
@@ -1064,10 +1071,6 @@ class BcpLpModel : public BCP_lp_user {
     return 0;
   }
 
-  // STAB
-  // Update the bounds and/or costs of the stabilization variables
-  bool stabUpdateBoundAndCost(bool isStall, bool isImproveQuality);
-
   // getters/setters
   BCP_lp_statistics getTimeStats() {
     return getLpProblemPointer()->stat;
@@ -1076,9 +1079,9 @@ class BcpLpModel : public BCP_lp_user {
   int getNbLpIterations() const { return lpIteration_; }
   int getNbCurrentNodeLpIterations() const { return currentNodelpIteration_; }
 
-  double getObjImprovement() const {
+  double getObjVariation() const {
     return currentNodelpIteration_ < 2 ? pModel_->getInfinity() :
-           pModel_->getObj(-2) - pModel_->getObj(-1);
+           abs(pModel_->getObj(-2) - pModel_->getObj(-1));
   }
 
  protected:
@@ -1102,6 +1105,18 @@ class BcpLpModel : public BCP_lp_user {
   std::list<double> nb_dives_to_wait_before_branching_on_columns_;
   // Timer started at the creation of the LP and stopped at destruction
   Tools::Timer *pTimerTotal_;
+
+  // if Model is feasible
+  bool feasible_ = false;
+
+  // return true if become feasible (feasible passing from false to true)
+  bool becomeFeasible() {
+    if (feasible_ || !pModel_->isFeasible()) return false;
+    feasible_ = true;
+    return true;
+  }
+
+  double approximatedDualUB_ = -LARGE_SCORE;
 
   // build the candidate from my candidate
   void buildCandidate(const MyBranchingCandidate &candidate,
@@ -1133,6 +1148,9 @@ class BcpLpModel : public BCP_lp_user {
       // added to the formulation (the most violated ones).
       // the generated branching candidates.
       BCP_vec<BCP_lp_branching_object *> &cands);  // NOLINT
+
+  // test if the current solution is feasible according to unrelaxed days
+  bool testPartialFeasibility();
 };
 
 /*

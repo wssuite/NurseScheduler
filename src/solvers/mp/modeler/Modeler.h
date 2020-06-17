@@ -255,7 +255,8 @@ struct MyPricer {
   // set pricer parameters
   virtual void initPricerParameters(const SolverParam &parameters) {}
 
-  virtual const std::vector<double> &getLastMinOptimalReducedCost() const = 0;
+  virtual double getLastMinReducedCost() const = 0;
+  virtual const std::vector<double> &getLastMinReducedCosts() const = 0;
 
   // return true if all subproblems have been solved to optimality
   virtual bool isLastRunOptimal() const = 0;
@@ -275,16 +276,8 @@ struct MyPricer {
 //   virtual void forbidNurses(set<int,int> nurses)=0;
   virtual void authorizeNurse(int nurseNum) = 0;
   virtual void clearForbiddenNurses() = 0;
-  // Starting days
-  virtual void forbidStartingDay(int k) = 0;
-//   virtual void forbidStartingDays(set<int> days)=0;
-  virtual void authorizeStartingDay(int k) = 0;
-  virtual void clearForbiddenStartingDays() = 0;
-  // Ending days
-  virtual void forbidEndingDay(int k) = 0;
-//   virtual void forbidEndingDays(set<int> days)=0;
-//   virtual void authorizeEndingDay(int k)=0;
-//   virtual void clearForbiddenEndingDays()=0;
+
+  virtual void initNursesAvailabilities() = 0;
 };
 
 /* Structures to store a branching candidate and its potential children */
@@ -465,7 +458,7 @@ struct MyNode {
       processed_(false),
       gap_(LARGE_SCORE),
       highestGap_(0),
-      depth_(pParent->depth_+1),
+      depth_(pParent->depth_ + 1),
       bestLagLB_(pParent->bestLagLB_),
       lastLagLB_(pParent->bestLB_) {}
   virtual ~MyNode() {}
@@ -490,8 +483,9 @@ struct MyNode {
                 << ") is smaller than its parent one (" << bestLB_ << ")."
                 << std::endl;
       increased = false;
+    } else {
+      bestLB_ = newLB;
     }
-    bestLB_ = newLB;
     processed_ = true;
     // if not root
     if (pParent_) {
@@ -917,14 +911,14 @@ class Modeler {
     return {};
   }
 
-  bool branching_candidates(MyBranchingCandidate *candidate) {
+  bool branching_decisions(MyBranchingCandidate *candidate) {
     if (pBranchingRule_)
       return pBranchingRule_->branching_candidates(candidate);
     return false;
   }
 
   // remove all bad candidates from fixingCandidates
-  bool column_candidates(MyBranchingCandidate *candidate) {
+  bool branch_on_column(MyBranchingCandidate *candidate) {
     if (pBranchingRule_)
       return pBranchingRule_->column_candidates(candidate);
     return false;
@@ -1379,9 +1373,11 @@ class Modeler {
    */
 
   virtual bool isInteger(MyVar *var) const {
-    double value = getVarValue(var);
-    double fractionalPart = round(value) - value;
-    return abs(fractionalPart) < epsilon();
+    return isInteger(getVarValue(var));
+  }
+
+  virtual bool isInteger(double v) const {
+    return abs(round(v) - v) < epsilon();
   }
 
   virtual double getVarValue(MyVar *var) const = 0;
@@ -1576,6 +1572,10 @@ class Modeler {
 
   bool updateNodeLB(double lb) { return pTree_->updateNodeLB(lb); }
 
+  MyNode *getNode(const int nodeIndex) const {
+    return pTree_->getNode(nodeIndex);
+  }
+
   // STAB
   double getNodeBestLagLB() { return pTree_->getNodeBestLagLB(); }
 
@@ -1653,6 +1653,10 @@ class Modeler {
     initialColumnVars_.push_back(var);
   }
 
+  void setInitialColumns(const std::vector<MyVar *> &vars) {
+    initialColumnVars_ = vars;
+  }
+
   virtual void clear() {
     // clear and delete columns
     clearActiveColumns();
@@ -1678,41 +1682,18 @@ class Modeler {
 
   virtual void resetInitialColumns() {
     // reset the columns index in the Modeler after a reset
-    for (MyVar *v : activeColumnVars_)
+    for (MyVar *v : initialColumnVars_)
       v->setIndex(var_count++);
   }
 
-  // Fix every rotation to one : this is useful only when the active columns
-  // are only the rotations included in a provided initial solution
-  virtual void fixEveryRotation() {}
-
-  // fix/unfix all the rotations variables starting
-  // from the input vector of days
-  virtual void fixRotationsStartingFromDays(
-      const std::vector<bool> &isFixDay) {}
-
-  virtual void unfixRotationsStartingFromDays(
-      const std::vector<bool> &isUnfixDay) {}
-
-  // fix/unfix all the rotations variables of the input nurses
-  virtual void fixRotationsOfNurses(const std::vector<bool> &isFixNurse) {}
-
-  virtual void unfixRotationsOfNurses(const std::vector<bool> &isUnfixNurse) {}
-
-  // relax/unrelax the integrality of all the rotations variables starting
-  // from the input vector of days
-  virtual void relaxRotationsStartingFromDays(
-      const std::vector<bool> &isRelaxDay) {}
-
-  virtual void unrelaxRotationsStartingFromDays(
-      const std::vector<bool> &isUnRelaxDay) {}
-
-  // Set the value of the active columns with those in the best solution
-  virtual void setActiveColumnsValuesWithBestSol() {}
+  virtual void copyActiveToInitialColumns() {}
 
   // Clear the active column, set the active columns with those
   // in the best solution, and set the primal values accordingly
-  virtual bool loadBestSol() { return true; }
+  virtual bool loadBestSol(bool integer) { return false; }
+  virtual bool loadBestSol() { return loadBestSol(true); }
+
+  virtual bool isSolutionInteger() const  { return false; }
 
   // Get te current level in the branch and bound tree
   virtual int getCurrentTreeLevel() const { return 0; }

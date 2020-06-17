@@ -216,7 +216,8 @@ void RosterPattern::computeCost(PScenario pScenario,
 }
 
 void RosterPattern::checkReducedCost(const DualCosts &costs,
-                                     PScenario Scenario) {
+                                     PScenario Scenario,
+                                     bool printBadPricing) {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
@@ -252,6 +253,9 @@ void RosterPattern::checkReducedCost(const DualCosts &costs,
 
   // Display: set to true if you want to display the details of the cost
   if (abs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
+    // if do not print and not throwing an error
+    if (!printBadPricing && reducedCost_ > reducedCost + 1e-3) return;
+
     std::cerr << "# " << std::endl;
     std::cerr << "# " << std::endl;
     std::cerr << "Bad dual cost: " << reducedCost_ << " != " << reducedCost
@@ -345,8 +349,8 @@ RosterMP::RosterMP(PScenario pScenario,
 
 RosterMP::~RosterMP() {}
 
-PPattern RosterMP::getPattern(const std::vector<double> &pattern) const {
-  return std::make_shared<RosterPattern>(pattern);
+PPattern RosterMP::getPattern(MyVar *var) const {
+  return std::make_shared<RosterPattern>(var->getPattern());
 }
 
 // Main method to build the rostering problem for a given input
@@ -395,7 +399,7 @@ MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
   DualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
-  pat.checkReducedCost(costs, pScenario_);
+  pat.checkReducedCost(costs, pScenario_, pPricer_->isLastRunOptimal());
   std::vector<double> pattern = pat.getCompactPattern();
   checkIfPatternAlreadyPresent(pattern);
 #endif
@@ -433,32 +437,13 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
      */
     addRosterConsToCol(&cons, &coeffs, nurseNum);
 
-    bool relaxed = false;
-    bool rest = true;
-    for (int k = 0; k < getNbDays(); ++k) {
-      int shiftType = pScenario_->shiftIDToShiftTypeID_[roster.getShift(k)];
-      if (rest && isRelaxDay(shiftType)) {
-        pModel_->createPositiveColumn(&var,
-                                      name,
-                                      roster.cost_,
-                                      roster.getCompactPattern(),
-                                      roster.reducedCost_,
-                                      cons,
-                                      coeffs);
-        relaxed = true;
-        Tools::throwError("Behaviour nos tested for relaxDay with roster.");
-        break;
-      }
-      rest = (shiftType == 0);
-    }
-    if (!relaxed)
-      pModel_->createIntColumn(&var,
-                               name,
-                               roster.cost_,
-                               roster.getCompactPattern(),
-                               roster.reducedCost_,
-                               cons,
-                               coeffs);
+    pModel_->createIntColumn(&var,
+                             name,
+                             roster.cost_,
+                             roster.getCompactPattern(),
+                             roster.reducedCost_,
+                             cons,
+                             coeffs);
   }
   return var;
 }
@@ -466,7 +451,7 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
 /* Build each set of constraints
  * Add also the coefficient of a column for each set
  */
-void RosterMP::buildAssignmentCons(const SolverParam &parameters) {
+void RosterMP::buildAssignmentCons(const SolverParam &param) {
   char name[255];
   // build the roster assignment constraint for each nurse
   for (int i = 0; i < pScenario_->nbNurses_; i++) {
@@ -479,6 +464,11 @@ void RosterMP::buildAssignmentCons(const SolverParam &parameters) {
                                 1,
                                 {feasibilityVar},
                                 {1});
+    // STAB:Add stabilization variable
+    if (param.isStabilization_) {
+      snprintf(name, sizeof(name), "stabAssignment_%i", i);
+      addStabVariables(param, name, assignmentCons_[i], true, true);
+    }
   }
 }
 
@@ -505,14 +495,16 @@ std::vector<MyVar *> RosterMP::getRestVarsPerDay(PLiveNurse pNurse,
 
 // compute the lagrangian bound
 double RosterMP::computeLagrangianBound(double objVal) const {
+  if (!stabCheckStoppingCriterion()) {
+    std::cerr << "Cannot compute a lagrangian bound when stabilization "
+                 "variables are present in the solution." << std::endl;
+    return -LARGE_SCORE;
+  }
+
   double sumRedCost = 0;
-  for (double v : pPricer_->getLastMinOptimalReducedCost())
+  for (double v : pPricer_->getLastMinReducedCosts())
     sumRedCost += v;
-  // Not sure it's true as the stabilization cost are also included
-  // in the red cost
   return objVal + sumRedCost;
-  // TODO(legraina): check how to manage stabilization variables.
-  return objVal - getStabCost() + sumRedCost;
 }
 
 // return the costs of all active columns associated to the type

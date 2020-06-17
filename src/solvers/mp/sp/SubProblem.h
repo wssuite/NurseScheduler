@@ -104,7 +104,6 @@ class SubProblem {
                      DualCosts *costs,
                      const SubproblemParam &param,
                      std::set<std::pair<int, int> > forbiddenDayShifts = {},
-                     std::set<int> forbiddenStartingDays = {},
                      double redCostBound = 0);
 
   // Returns all rotations saved during the process of solving the SPPRC
@@ -368,7 +367,6 @@ class SubProblem {
 
   // FORBIDDEN ARCS AND NODES
   vector2D<bool> dayShiftStatus_;
-  std::vector<bool> startingDayStatus_;
 
   // Returns true if the succession succ starting on day k does not violate
   // any forbidden day-shift
@@ -382,12 +380,6 @@ class SubProblem {
   // Authorizes some days / shifts
   void authorize(const std::set<std::pair<int, int> > &forbiddenDayShifts);
 
-  // Forbids some starting days
-  void forbidStartingDays(const std::set<int> &forbiddenStartingDays);
-
-  // Authorizes some starting days
-  void authorizeStartingDays(const std::set<int> &forbiddenStartingDays);
-
   // forbid any arc that authorizes the violation of a consecutive constraint
   void forbidViolationConsecutiveConstraints();
 
@@ -396,17 +388,11 @@ class SubProblem {
     return !dayShiftStatus_[k][s];
   }
 
-  bool isStartingDayforbidden(int k) const { return !startingDayStatus_[k]; }
-
   // Forbid a node / arc
   void forbidDayShift(int k, int s);
 
-  void forbidStartingDay(int k);
-
   // Authorize a node / arc
   void authorizeDayShift(int k, int s);
-
-  void authorizeStartingDay(int k);
 
   void resetAuthorizations();
 

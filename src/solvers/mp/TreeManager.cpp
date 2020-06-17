@@ -290,13 +290,23 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
       && pModel_->getParameters().branchColumnDisjoint_)
       || (!pModel_->getParameters().branchColumnUntilValue_
           && !pModel_->getParameters().branchColumnDisjoint_))
-    Tools::throwError("DiveBranchingRule::column_candidates: "
+    Tools::throwError("DiveBranchingRule::branch_on_column: "
                       "the branching rule is not chosen properly!");
 
   for (MyVar *var : pModel_->getActiveColumns()) {
-    // ROLLING: do not branch on relaxed columns
-    if (pMaster_->isRelaxDay(var->getFirstDay())
-        || pMaster_->isFixDay(var->getFirstDay()))
+    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
+    if (pMaster_->isFixNurse(var->getNurseNum())) continue;
+
+    // ROLLING/LNS: do not branch on relaxed columns
+    // check if all days are relaxed
+    PPattern pat = pMaster_->getPattern(var);
+    bool relaxed = true;
+    for (int k = pat->firstDay_; k <= pat->endDay(); ++k)
+      if (!pMaster_->isRelaxDay(k)) {
+        relaxed = false;
+        break;
+      }
+    if (relaxed)
       continue;
 
     // if we have already branched on this variable, continue
@@ -306,7 +316,6 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
     // if var is non null
     if (value > 1 - pModel_->epsilon()) {
       integerFixingCandidates.push_back(var);
-      PPattern pat = pMaster_->getPattern(var->getPattern());
       patterns.push_back(pat);
       continue;
     }
@@ -369,7 +378,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
   for (MyVar *var : pModel_->getActiveColumns()) {
     if (var->getUB() == 0)
       continue;
-    PPattern activePat = pMaster_->getPattern(var->getPattern());
+    PPattern activePat = pMaster_->getPattern(var);
     for (PPattern nodePat : patterns) {
       // do not deactivate if activePat:
       // 1/ will be used (==nodePat)
@@ -569,13 +578,12 @@ void DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
   double bestScore = -DBL_MAX;
 
   for (PLiveNurse pNurse : pMaster_->getLiveNurses()) {
-    // ROLLING/LNS: do not branch on a nurse whose rotations are fixed
+    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
     if (pMaster_->isFixNurse(pNurse->num_)) continue;
 
     for (int k = 0; k < pMaster_->getNbDays(); ++k) {
-      // ROLLING/LNS: do not branch on a day whose rotations are relaxed or
-      // fixed
-      if (pMaster_->isRelaxDay(k) || pMaster_->isFixDay(k))
+      // ROLLING/LNS: do not branch on a relaxed day
+      if (pMaster_->isRelaxDay(k))
         continue;
 
       double value =
@@ -630,35 +638,28 @@ void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
 
   // search for the best branching decision (set of shifts the closest to .5)
   for (PLiveNurse pNurse : pMaster_->getLiveNurses()) {
-    // LNS: do not branch on a nurse whose rotations are fixed
+    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
     if (pMaster_->isFixNurse(pNurse->num_)) continue;
 
     for (int k = 0; k < pMaster_->getNbDays(); ++k) {
-      // ROLLING/LNS:
-      // do not branch on a day whose rotations are relaxed or fixed
-      if (pMaster_->isRelaxDay(k) || pMaster_->isFixDay(k)) {
+      // ROLLING/LNS: do not branch on a relaxed day
+      if (pMaster_->isRelaxDay(k))
         continue;
-      }
 
       // Get the fraction that is spent on the resting shift and recover an
       // indexation of the working shifts from 1 to NbShifts_
       vector<std::pair<int, double>> fractionalNurseDay;
-      double valueLeft = 1;
       bool isFractional = false;
-      for (int s = 1; s < pMaster_->getNbShifts(); ++s) {
+      for (int s = 0; s < pMaster_->getNbShifts(); ++s) {
         double val = fractionalRoster[pNurse->num_][k][s];
         // check if solution is fractional
         if (pModel_->epsilon() < val && val < 1 - pModel_->epsilon())
           isFractional = true;
-        valueLeft -= val;
         fractionalNurseDay.push_back({s, -val});
       }
       // if not fractional, continue
       if (!isFractional)
         continue;
-      // put the value left in the rest shift (if any left)
-      double restValue = fractionalRoster[pNurse->num_][k][0] + valueLeft;
-      fractionalNurseDay.push_back({0, -restValue});
 
       // sort the scores
       sort(fractionalNurseDay.begin(),
@@ -786,9 +787,9 @@ void DiveBranchingRule::deactivateColumns(
   for (MyVar *var : pModel_->getActiveColumns()) {
     if (var->getUB() == 0)
       continue;
-    PPattern pat = pMaster_->getPattern(var->getPattern());
+    PPattern pat = pMaster_->getPattern(var);
     if (pat->nurseNum_ == nurseNum && pat->firstDay_ <= day
-        && pat->firstDay_ + pat->length_ > day) {
+        && pat->endDay() >= day) {
       // add the variable to the candidate
       int index = candidate->addBranchingVar(var);
 
@@ -817,7 +818,7 @@ vector<MyVar *> DiveBranchingRule::chooseColumns(
   for (const pair<MyVar *, double> &p : candidates) {
     if (*maxValue < p.second) continue;
 
-    PPattern pat1 = pMaster_->getPattern(p.first->getPattern());
+    PPattern pat1 = pMaster_->getPattern(p.first);
     // check if this rotation is totally disjoint with all the others
     // if not should be disjoint for the shift and the nurse
     bool isDisjoint = true;

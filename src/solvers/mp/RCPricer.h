@@ -43,13 +43,19 @@ class RCPricer : public MyPricer {
                                bool after_fathom = false,
                                bool backtracked = false) override;
 
-  const std::vector<double> &getLastMinOptimalReducedCost() const override {
-    return minOptimalReducedCosts_;
+  double getLastMinReducedCost() const override {
+    return minReducedCost_;
+  }
+
+  const std::vector<double> &getLastMinReducedCosts() const override {
+    return minReducedCosts_;
   }
 
   bool isLastRunOptimal() const override {
     return optimal_;
   }
+
+  void initNursesAvailabilities() override;
 
  protected:
   // DATA - instance-related data
@@ -74,10 +80,9 @@ class RCPricer : public MyPricer {
   int nbSPSolvedWithSuccess_;
 
   // SETTINGS - Options for forbidden shifts, nurses, starting days, etc.
+  std::vector<std::set<std::pair<int, int> >> nursesForbiddenShifts_;
   std::set<std::pair<int, int> > forbiddenShifts_;
   std::set<int> forbiddenNursesIds_;
-  std::set<int> forbiddenStartingDays_;
-  std::set<int> forbiddenEndingDays_;
 
   // SETTINGS - Options for the neighborhood. need of an original to reset at
   // the end of each node when optimality has been reached.
@@ -86,7 +91,7 @@ class RCPricer : public MyPricer {
   std::vector<int> currentSubproblemStrategy_;  // by nurse
 
   // store the min reduced cost find for each subproblem solved
-  std::vector<double> minOptimalReducedCosts_;
+  std::vector<double> minReducedCosts_;
   double minReducedCost_;
 
   // mutex for concurrency (can be locked several times by the same thread)
@@ -100,9 +105,7 @@ class RCPricer : public MyPricer {
     optimal_ = true;  // will be set to false whenever possible
     nbSPSolvedWithSuccess_ = 0;
     nbSPTried_ = 0;
-    Tools::initVector<double>(&minOptimalReducedCosts_,
-        pMaster_->getNbNurses(),
-        -DBL_MAX);
+    Tools::initVector(&minReducedCosts_, pMaster_->getNbNurses(), -DBL_MAX);
     minReducedCost_ = 0;
   }
 
@@ -156,20 +159,6 @@ class RCPricer : public MyPricer {
     forbiddenNursesIds_.erase(nurseNum);
   }
   void clearForbiddenNurses() override { forbiddenNursesIds_.clear(); }
-  // Starting days
-  void forbidStartingDay(int k) override { forbiddenStartingDays_.insert(k); }
-  void forbidStartingDays(const std::set<int> &days) {
-    for (int d : days)forbidStartingDay(d);
-  }
-  void authorizeStartingDay(int k) override { forbiddenStartingDays_.erase(k); }
-  void clearForbiddenStartingDays() override { forbiddenStartingDays_.clear(); }
-  // Ending days
-  void forbidEndingDay(int k) override { forbiddenEndingDays_.insert(k); }
-  void forbidEndingDays(const std::set<int> &days) {
-    for (int d : days)forbidEndingDay(d);
-  }
-  void authorizeEndingDay(int k) { forbiddenEndingDays_.erase(k); }
-  void clearForbiddenEndingDays() { forbiddenEndingDays_.clear(); }
 
   // Test functions
   bool isShiftForbidden(int k, int n) {
@@ -178,12 +167,6 @@ class RCPricer : public MyPricer {
   }
   bool isNurseForbidden(int n) {
     return (forbiddenNursesIds_.find(n) != forbiddenNursesIds_.end());
-  }
-  bool isStartingDayForbidden(int k) {
-    return (forbiddenStartingDays_.find(k) != forbiddenStartingDays_.end());
-  }
-  bool isEndingDayForbidden(int k) {
-    return (forbiddenEndingDays_.find(k) != forbiddenEndingDays_.end());
   }
 
  protected:
@@ -239,9 +222,6 @@ class RCPricer : public MyPricer {
   int nbN_ = 0;
   int nbNL_ = 0;
   std::minstd_rand rand_;
-
-  // DBG functions
-  void generateRandomForbiddenStartingDays();
 };
 
 #endif  // SRC_SOLVERS_MP_RCPRICER_H_
