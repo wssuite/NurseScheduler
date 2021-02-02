@@ -307,6 +307,10 @@ class MasterProblem : public Solver, public PrintSolution {
   // STAB: compute the lagrangian bound
   bool lagrangianBoundAvailable() const { return lagrangianBoundAvail_; }
   virtual double computeLagrangianBound(double objVal) const;
+
+  // Compute an approximation of the dual UB based on the lagrangian bound
+  // It could be useful to measure the quality of a dual solution (used when
+  // stabilizing).
   virtual double computeApproximateDualUB(double objVal) const;
 
   /*
@@ -421,21 +425,30 @@ class MasterProblem : public Solver, public PrintSolution {
 
   //---------------------------------------------------------------------------
   //
-  // Methods required to implement stabilization in the column generation
+  // STAB: Methods required to implement stabilization in the column generation
+  //
+  // Ref: Lübbecke, Marco E., and Jacques Desrosiers.
+  // "Selected topics in column generation."
+  // Operations research 53.6 (2005): 1007-1023.
   //
   //---------------------------------------------------------------------------
 
  public:
-  // STAB
-  // Update the stabilization variables based on the dual solution
-  // 1- When the column generation has found a new columns:
-  //     - increase the cost of the duals (the bound for the primal)
-  //     - increase the bound of the duals (the cost for the primal) if the
-  //        the dual lays outside otherwise reduce it.
-  // 2- When the column generation has not found new columns:
-  //     - recenter the bounds on the current duals
-  //     - keep the same range for the bounds of the duals
-  //     - reduce the cost of the duals
+// STAB
+// Update the stabilization variables based on the dual solution
+// 1- When the dual lays inside the box:
+//     - increase the penalty of the duals (the bound for the primal)
+//     - decrease the radius of the duals (the cost for the primal).
+// 2- When the dual lays outside the box:
+//     - decrease the penalty of the duals (the bound for the primal)
+//     - increase the radius of the duals (the cost for the primal).
+// When a dual solution (of the original problem) of better quality
+// is obtained, recenter the box.
+// The issue here is that the  dual solution is not available as the lagrangian
+// bound needs to be computed (and available) and all sub problems need to
+// have been solved to optimality.
+// Instead, the solution is recenter when asked (recenter=true).
+// Currently, the box is recentered when no more columns are generated.
   void stabUpdate(OsiSolverInterface *solver, bool recenter = true);
 
   // STAB
@@ -458,18 +471,20 @@ class MasterProblem : public Solver, public PrintSolution {
   double getStabCost() const;
 
  private:
-  std::vector<MyVar *> stabVariables_;
+  std::vector<MyVar *> stabVariablesPlus_, stabVariablesMinus_;
   // constraints associated with each two stab variables
   std::vector<MyCons *> stabConstraints_;
   std::vector<double> stabBoxCenters_;
 
  protected:
-  // add stabilization variables:
-  // dual: obj += - c_+ z_+ - c_- z_-, s.t.: b_- - z_-<= Pi <= b_+ + z_+
-  // primal: obj += -b_- y_- + b_+ y_+, s.t.: y_- <= c_-, y_+ <= c_+
-  // if primal constraint is <= -> create just plus var
-  // if primal constraint is >= -> create just minus var
+  // Add stabilization variables z for the box [b_, b+] with the penalties c
+  // if getting outside of the box:
+  // dual = obj += - c_+ z_+ - c_- z_-, s.t.: b_- - z_-<= Pi <= b_+ + z_+
+  // primal = obj += -b_- y_- + b_+ y_+, s.t.: y_- <= c_-, y_+ <= c_+
+  // if primal constraint is <= -> create just minus var
+  // if primal constraint is >= -> create just plus var
   // WARNING: they are inactive at the beginning
+  //
   void addStabVariables(const SolverParam &param,
                         const char *name,
                         MyCons *cons,

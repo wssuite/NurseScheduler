@@ -804,13 +804,14 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     if (becomeFeasible())
       pModel_->getMaster()->stabInitializeBoundAndCost(
           getLpProblemPointer()->lp_solver);
-    // Update the stabilization variables if:
-    // feasible and the approximated dual UB has improved
+      // Update the stabilization variables if:
+      // feasible and the approximated dual UB has improved
     else if (feasible_)
       pModel_->getMaster()->stabUpdate(
           getLpProblemPointer()->lp_solver,
           dualUB > approximatedDualUB_ || !column_generated);
-    // update aprrocimated dual UB
+    // update approximated dual UB.
+    // Used as a criteria to decide when we obtain a better dual solution
     if (dualUB > approximatedDualUB_) approximatedDualUB_ = dualUB;
     // Do not branch if some stabilization variables are positive
     if (!column_generated && isStabActive)
@@ -1249,9 +1250,8 @@ void BcpLpModel::select_vars_to_delete(const BCP_lp_result &lpres,
   deletable.reserve(varnum);
   for (int i = getLpProblemPointer()->core->varnum(); i < varnum; ++i) {
     BCP_var *var = vars[i];
-//   if (var->is_to_be_removed() ||
-//       (!var->is_non_removable() && var->lb() == 0 && var->ub() == 0))
-    if (var->is_to_be_removed()) {
+    if (var->is_to_be_removed() ||
+        (!var->is_non_removable() && var->lb() == 0 && var->ub() == 0)) {
       deletable.unchecked_push_back(i);
       continue;
     }
@@ -1696,7 +1696,7 @@ void BcpModeler::addBcpSol(double objValue,
     } else {
       BcpCoreVar *var = getCoreVar(vars[i]);
       mySol.add_entry(var, values[i]);
-      if (var->getCost() >= LARGE_SCORE  -  epsilon()) {
+      if (var->getCost() >= LARGE_SCORE - epsilon()) {
         if (values[i] > epsilon()) isArtificialSol = true;
       }
     }

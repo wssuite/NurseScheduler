@@ -333,6 +333,8 @@ void MasterProblem::nursesAvailabilities(
 }
 
 // remove any column that does not respect the availabilities
+// TODO(legraina): try to keep the column in a pool
+//  to perhaps add them back later on
 void MasterProblem::filterColumnsBasedOnAvailability() {
   // if all available, all columns can remain in the pool
   if (!isPartialAvailable_) return;
@@ -1064,6 +1066,8 @@ double MasterProblem::computeLagrangianBound(double objVal) const {
 }
 
 // Compute an approximation of the dual UB based on the lagrangian bound
+// It could be useful to measure the quality of a dual solution (used when
+// stabilizing).
 double MasterProblem::computeApproximateDualUB(double objVal) const {
   double sumRedCost = 0, minRedCost = pPricer_->getLastMinReducedCost();
   for (double v : pPricer_->getLastMinReducedCosts()) {
@@ -1083,14 +1087,15 @@ double MasterProblem::computeApproximateDualUB(double objVal) const {
 //
 //---------------------------------------------------------------------------
 
-// Add stabilization variables:
-// dual: obj += - c_+ z_+ - c_- z_-, s.t.: b_- - z_-<= Pi <= b_+ + z_+
-// primal: obj += -b_- y_- + b_+ y_+, s.t.: y_- <= c_-, y_+ <= c_+
-// if primal constraint is <= -> create just minus var
-// if primal constraint is >= -> create just plus var
+// Add stabilization variables z for the box [b_, b+] with the penalties c
+// if getting outside of the box:
+// dual = obj += - c_+ z_+ - c_- z_-, s.t.: b_- - z_-<= Pi <= b_+ + z_+
+// primal = obj += - b_- y_- + b_+ y_+, s.t.: y_- <= c_-, y_+ <= c_+
+// if primal constraint is <= -> dual <= 0 -> just need the LB of the box
+//                            -> create just minus var
+// if primal constraint is >= -> dual >= 0 -> just need the UB of the box
+//                            -> create just plus var
 // WARNING: they are inactive at the beginning
-// WARNING: create integer var to ensure that integer solutions have all
-// stab variables to 0
 //
 void MasterProblem::addStabVariables(
     const SolverParam &param,
@@ -1101,24 +1106,24 @@ void MasterProblem::addStabVariables(
   MyVar *var;
   char n[255];
 
+  // The lower side of the box
+  if (LECons) {
+    snprintf(n, sizeof(n), "%s_minus", name);
+    pModel_->createPositiveVar(&var, n, LARGE_SCORE, {}, 0, 0);
+    pModel_->addCoefLinear(cons, var, -1);
+    stabVariablesMinus_.push_back(var);
+  } else {
+    stabVariablesMinus_.push_back(nullptr);
+  }
+
   // The  upper side of the box
   if (GECons) {
     snprintf(n, sizeof(n), "%s_plus", name);
     pModel_->createPositiveVar(&var, n, LARGE_SCORE, {}, 0, 0);
     pModel_->addCoefLinear(cons, var, 1);
-    stabVariables_.push_back(var);
+    stabVariablesPlus_.push_back(var);
   } else {
-    stabVariables_.push_back(nullptr);
-  }
-
-  // The lower side of the box
-  if (GECons) {
-    snprintf(n, sizeof(n), "%s_minus", name);
-    pModel_->createPositiveVar(&var, n, LARGE_SCORE, {}, 0, 0);
-    pModel_->addCoefLinear(cons, var, -1);
-    stabVariables_.push_back(var);
-  } else {
-    stabVariables_.push_back(nullptr);
+    stabVariablesPlus_.push_back(nullptr);
   }
 
   stabConstraints_.push_back(cons);
@@ -1143,21 +1148,21 @@ void MasterProblem::addStabVariables(
 void MasterProblem::stabUpdate(OsiSolverInterface *solver, bool recenter) {
   // stabilization variables corresponding to the cover constraints
   for (int i = 0; i < stabConstraints_.size(); ++i) {
-    MyVar *varPlus = stabVariables_[2 * i],
-        *varMinus = stabVariables_[2 * i + 1];
+    MyVar *varPlus = stabVariablesPlus_[i],
+        *varMinus = stabVariablesMinus_[i];
     double center = stabBoxCenters_[i],
         radius = varPlus ? varPlus->getCost() - center :
                  center + varMinus->getCost();
     double dual = pModel_->getDual(stabConstraints_[i], true);
     double penaltyFactor = 1;
 
-    // if dual within the box, decrease range/radius and increase cost
+    // if dual within the box, decrease radius and increase cost
     if (dual > center + radius + epsilon() &&
         dual < center - radius - epsilon()) {
       // decrease radius
       if (param_.isStabUpdateBoxRadius_)
         radius /= param_.stabBoxRadiusFactor_;
-      // increase penalty (more slowly)
+      // increase penalty
       if (param_.isStabUpdatePenalty_)
         penaltyFactor *= param_.stabBoxRadiusFactor_;
     } else {
@@ -1193,8 +1198,8 @@ void MasterProblem::stabUpdate(OsiSolverInterface *solver, bool recenter) {
 // activate the stabilization variables and center them on the current duals
 void MasterProblem::stabInitializeBoundAndCost(OsiSolverInterface *solver) {
   for (int i = 0; i < stabConstraints_.size(); ++i) {
-    MyVar *varPlus = stabVariables_[2 * i],
-        *varMinus = stabVariables_[2 * i + 1];
+    MyVar *varPlus = stabVariablesPlus_[i],
+        *varMinus = stabVariablesMinus_[i];
     double center = pModel_->getDual(stabConstraints_[i], true);
     stabBoxCenters_[i] = center;
     if (varPlus) {
@@ -1214,10 +1219,9 @@ void MasterProblem::stabInitializeBoundAndCost(OsiSolverInterface *solver) {
 // deactivate the stabilization variables
 void MasterProblem::stabDeactivateBoundAndCost(OsiSolverInterface *solver) {
   for (int i = 0; i < stabConstraints_.size(); ++i) {
-    MyVar *varPlus = stabVariables_[2 * i],
-        *varMinus = stabVariables_[2 * i + 1];
-    double center = pModel_->getDual(stabConstraints_[i], true);
-    stabBoxCenters_[i] = center;
+    MyVar *varPlus = stabVariablesPlus_[i],
+        *varMinus = stabVariablesMinus_[i];
+    stabBoxCenters_[i] = 0;
     if (varPlus) {
       updateVarCostInSolver(varPlus, solver, LARGE_SCORE);
       updateVarUbInSolver(varPlus, solver, 0);
@@ -1235,13 +1239,12 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
   if (!pModel_->getParameters().isStabilization_)
     return true;
 
-  for (MyVar *var : stabVariables_)
-    if (var && pModel_->getVarValue(var) > epsilon()) {
-//      printf("%s (c=%f, ub=%f) = %f\n",
-//             var->name_, var->getCost(), var->getUB(),
-//             pModel_->getVarValue(var));
+  for (MyVar *var : stabVariablesPlus_)
+    if (var && pModel_->getVarValue(var) > epsilon())
       return false;
-    }
+  for (MyVar *var : stabVariablesMinus_)
+    if (var && pModel_->getVarValue(var) > epsilon())
+      return false;
 
   return true;
 }
@@ -1251,7 +1254,8 @@ bool MasterProblem::stabCheckStoppingCriterion() const {
 double MasterProblem::getStabCost() const {
   if (!pModel_->getParameters().isStabilization_)
     return 0;
-  return pModel_->getTotalCost(stabVariables_);
+  return pModel_->getTotalCost(stabVariablesPlus_) +
+      pModel_->getTotalCost(stabVariablesMinus_);
 }
 
 // STAB

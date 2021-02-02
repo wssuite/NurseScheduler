@@ -629,7 +629,7 @@ double DeterministicSolver::solveWithRollingHorizon(
   // Solve the instance iteratively with a rolling horizon
   //
   int firstDay = 0;  // first day of the current horizon
-  double LB = 0;
+  double LB = 0;  // LB obtained on the first solve (this is only real LB)
   while (firstDay < pDemand_->nbDays_) {
     std::cout << "FIRST DAY = " << firstDay << std::endl << std::endl;
 
@@ -693,12 +693,15 @@ double DeterministicSolver::solveWithRollingHorizon(
       break;
     }
   }
-  // put the status to optimal if really the case
+  // put the status to optimal if really the case:
+  // 1- solution must be integer;
+  // 2- solution must  be closed enough of LB (i.e. the LB obtained
+  //    on the first solve).
   if (pRollingSolver_->getStatus() == OPTIMAL &&
       pRollingSolver_->isSolutionInteger()) {
     double UB = computeSolutionCost();
     // If UB is not optimal over the whole horizon
-    if (UB > LB + rollingParameters_.absoluteGap_ +
+    if (UB > LB + rollingParameters_.absoluteGap_ -
         pRollingSolver_->epsilon())
       pRollingSolver_->setStatus(FEASIBLE);
   }
