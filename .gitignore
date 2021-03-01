@@ -31,7 +31,7 @@
 *.out
 *.app
 
-CMakeDefinitionsList.txt
+# cmake definitions
 CMakeDefinitionsLists.txt
 
 # source files whose changes must remain local
@@ -42,6 +42,8 @@ src/MyMain.cpp
 bin/*
 obj/*
 build/*
+cmake-build-debug/
+cmake-build-release/
 
 # ouput and log files
 bashfiles/*
@@ -59,5 +61,8 @@ formatter*
 # for mac
 .fuse*
 
-# sublime project files 
+# sublime project files
 *.sublime-*
+
+# clion files
+.idea/

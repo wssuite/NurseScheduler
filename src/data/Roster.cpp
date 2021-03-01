@@ -9,7 +9,7 @@
  * full license detail.
  */
 
-#include "Roster.h"
+#include "data/Roster.h"
 #include "tools/MyTools.h"
 
 using std::vector;

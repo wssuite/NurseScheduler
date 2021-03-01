@@ -27,11 +27,9 @@
 #include <mach/mach.h>
 #endif
 
-
 using std::minstd_rand;
 using std::mutex;
 using std::thread;
-
 
 namespace Tools {
 
@@ -129,23 +127,6 @@ bool strEndsWith(std::string sentence, std::string word) {
   return (!strcmp(word.c_str(), endOfSentence.c_str()));
 }
 
-// Parse an int list written as string with a char delimiter
-//
-std::vector<int> parseList(std::string strList, char delimiter) {
-  std::vector<int> intList;
-  std::stringstream ss(strList);
-  int i;
-
-  while (ss >> i) {
-    intList.push_back(i);
-
-    if (ss.peek() == delimiter) {
-      ss.ignore();
-    }
-  }
-  return intList;
-}
-
 // random generator of tools
 std::minstd_rand rdm0(0);
 
@@ -194,7 +175,8 @@ int randomInt(int minVal, int maxVal) {
 // Returns a double with random value (uniform) within [minVal, maxVal]
 //
 double randomDouble(double minVal, double maxVal) {
-  return ((maxVal - minVal) * (rdm0() * 1.0 / RAND_MAX) + minVal);
+  return ((maxVal - minVal) * (rdm0() * 1.0 / 2147483647 + minVal));
+  // RAND_MAX) + minVal);
 }
 
 // Initializes a vector< double > of size m
@@ -321,6 +303,14 @@ bool isWeekend(int dayId) {
   return isSaturday(dayId) || isSunday(dayId);
 }
 
+bool isFirstWeekDay(int dayId) {
+  return (dayId % 7 == 0);
+}
+
+bool isLastWeekendDay(int dayId) {
+  return isSunday(dayId);
+}
+
 int containsWeekend(int start, int end) {
   int nbWeekend = 0;
   for (int i = start; i <= end; i++)
@@ -333,23 +323,13 @@ int containsWeekend(int start, int end) {
 
 // constructor of Timer
 //
-Timer::Timer() : isInit_(0), isStarted_(0), isStopped_(0) {
-  this->init();
-}
-
-// initialize the timer
-//
-void Timer::init() {
-  coStop_ = 0;
-  cpuInit_.tv_sec = 0;
-  cpuInit_.tv_nsec = 0;
-  cpuSinceStart_.tv_sec = 0;
-  cpuSinceStart_.tv_nsec = 0;
-  cpuSinceInit_.tv_sec = 0;
-  cpuSinceInit_.tv_nsec = 0;
-  isInit_ = true;
-  isStarted_ = false;
-  isStopped_ = true;
+Timer::Timer(bool start) : cpuInit_(std::chrono::system_clock::now()),
+                           cpuSinceStart_(0),
+                           cpuSinceInit_(0),
+                           coStop_(0),
+                           isStarted_(false),
+                           isStopped_(true) {
+  if (start) this->start();
 }
 
 // start the timer
@@ -358,23 +338,9 @@ void Timer::start() {
   if (isStarted_)
     throwError("Trying to start an already started timer!");
 
-#ifdef __MACH__  // OS X does not have clock_gettime, use clock_get_time
-  clock_serv_t cclock;
-  mach_timespec_t mts;
-  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-  clock_get_time(cclock, &mts);
-  mach_port_deallocate(mach_task_self(), cclock);
-  cpuInit_.tv_sec = mts.tv_sec;
-  cpuInit_.tv_nsec = mts.tv_nsec;
-
-#else
-  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuInit_);
-#endif
-
-  cpuSinceStart_.tv_sec = 0;
-  cpuSinceStart_.tv_nsec = 0;
-  isStarted_ = 1;
-  isStopped_ = 0;
+  cpuInit_ = std::chrono::system_clock::now();
+  isStarted_ = true;
+  isStopped_ = false;
 }
 
 // Stop the time and update the times spent since the last start and since the
@@ -384,37 +350,8 @@ void Timer::stop() {
   if (isStopped_)
     throwError("Trying to stop an already stopped timer!");
 
-  timespec cpuNow;
-
-#ifdef __MACH__  // OS X does not have clock_gettime, use clock_get_time
-  clock_serv_t cclock;
-  mach_timespec_t mts;
-  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-  clock_get_time(cclock, &mts);
-  mach_port_deallocate(mach_task_self(), cclock);
-  cpuNow.tv_sec = mts.tv_sec;
-  cpuNow.tv_nsec = mts.tv_nsec;
-
-#else
-  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
-#endif
-
-  if (cpuNow.tv_nsec - cpuInit_.tv_nsec < 0) {
-    cpuSinceStart_.tv_sec = cpuNow.tv_sec - cpuInit_.tv_sec - 1;
-    cpuSinceStart_.tv_nsec = 1e09 + cpuNow.tv_nsec - cpuInit_.tv_nsec;
-  } else {
-    cpuSinceStart_.tv_sec = cpuNow.tv_sec - cpuInit_.tv_sec;
-    cpuSinceStart_.tv_nsec = cpuNow.tv_nsec - cpuInit_.tv_nsec;
-  }
-
-  if (cpuSinceStart_.tv_nsec + cpuSinceInit_.tv_nsec >= 1e09) {
-    cpuSinceInit_.tv_sec = cpuSinceInit_.tv_sec + cpuSinceStart_.tv_sec + 1;
-    cpuSinceInit_.tv_nsec =
-        cpuSinceInit_.tv_nsec + cpuSinceStart_.tv_nsec - 1e09;
-  } else {
-    cpuSinceInit_.tv_sec = cpuSinceInit_.tv_sec + cpuSinceStart_.tv_sec;
-    cpuSinceInit_.tv_nsec = cpuSinceInit_.tv_nsec + cpuSinceStart_.tv_nsec;
-  }
+  cpuSinceStart_ = std::chrono::system_clock::now() - cpuInit_;
+  cpuSinceInit_ += cpuSinceStart_;
 
   isStarted_ = false;
   isStopped_ = true;
@@ -423,85 +360,27 @@ void Timer::stop() {
 
 // Get the time spent since the initialization of the timer without stopping it
 //
-const double Timer::dSinceInit() {
-  if (isStarted_) {
-    timespec cpuNow;
-
-#ifdef __MACH__  // OS X does not have clock_gettime, use clock_get_time
-    clock_serv_t cclock;
-    mach_timespec_t mts;
-    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-    clock_get_time(cclock, &mts);
-    mach_port_deallocate(mach_task_self(), cclock);
-    cpuNow.tv_sec = mts.tv_sec;
-    cpuNow.tv_nsec = mts.tv_nsec;
-
-#else
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
-#endif
-
-    timespec cpuTmp;
-    if (cpuNow.tv_nsec - cpuInit_.tv_nsec < 0) {
-      cpuTmp.tv_sec = cpuNow.tv_sec - cpuInit_.tv_sec - 1;
-      cpuTmp.tv_nsec = 1e09 + cpuNow.tv_nsec - cpuInit_.tv_nsec;
-    } else {
-      cpuTmp.tv_sec = cpuNow.tv_sec - cpuInit_.tv_sec;
-      cpuTmp.tv_nsec = cpuNow.tv_nsec - cpuInit_.tv_nsec;
-    }
-
-    timespec cpuCurrent;
-    if (cpuTmp.tv_nsec + cpuSinceInit_.tv_nsec >= 1e09) {
-      cpuCurrent.tv_sec = cpuSinceInit_.tv_sec + cpuTmp.tv_sec + 1;
-      cpuCurrent.tv_nsec = cpuSinceInit_.tv_nsec + cpuTmp.tv_nsec - 1e09;
-    } else {
-      cpuCurrent.tv_sec = cpuSinceInit_.tv_sec + cpuTmp.tv_sec;
-      cpuCurrent.tv_nsec = cpuSinceInit_.tv_nsec + cpuTmp.tv_nsec;
-    }
-
-    return cpuCurrent.tv_sec + cpuCurrent.tv_nsec / 1.0e09;
-  } else if (isStopped_) {
-    return cpuSinceInit_.tv_sec + cpuSinceInit_.tv_nsec / 1.0e09;
-  } else {
-    throwError("Trying to get the value of an unitialized timer!");
-  }
-
-  return 0.0;
+double Timer::dSinceInit() const {
+  std::chrono::duration<double> cpuCurrent = cpuSinceInit_;
+  if (isStarted_)
+    cpuCurrent += std::chrono::system_clock::now() - cpuInit_;
+  return getSeconds(cpuCurrent);
 }  // end dSinceInit
 
 
 // Get the time spent since the last start of the timer without stopping it
 //
-const double Timer::dSinceStart() {
-  if (!isStarted_ && !isStopped_) {
-    throwError("Trying to get the value of an unitialized timer!");
-  } else if (isStarted_) {
-    timespec cpuNow;
-
-#ifdef __MACH__  // OS X does not have clock_gettime, use clock_get_time
-    clock_serv_t cclock;
-    mach_timespec_t mts;
-    host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
-    clock_get_time(cclock, &mts);
-    mach_port_deallocate(mach_task_self(), cclock);
-    cpuNow.tv_sec = mts.tv_sec;
-    cpuNow.tv_nsec = mts.tv_nsec;
-
-#else
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpuNow);
-#endif
-
-    if (cpuNow.tv_nsec - cpuInit_.tv_nsec < 0) {
-      cpuSinceStart_.tv_sec = cpuNow.tv_sec - cpuInit_.tv_sec - 1;
-      cpuSinceStart_.tv_nsec = 1e09 + cpuNow.tv_nsec - cpuInit_.tv_nsec;
-    } else {
-      cpuSinceStart_.tv_sec = cpuNow.tv_sec - cpuInit_.tv_sec;
-      cpuSinceStart_.tv_nsec = cpuNow.tv_nsec - cpuInit_.tv_nsec;
-    }
+double Timer::dSinceStart() {
+  if (isStarted_) {
+    cpuSinceStart_ = std::chrono::system_clock::now() - cpuInit_;
   }
-
-  return cpuSinceStart_.tv_sec + cpuSinceStart_.tv_nsec / 1.0e09;
+  return getSeconds(cpuSinceStart_);
 }  // end dSinceStart
 
+double Timer::getSeconds(const std::chrono::duration<double>& d) const {
+  return d.count();
+//  return std::chrono::duration_cast<std::chrono::seconds>(d).count();
+}
 
 //
 // ThreadsPool implementation

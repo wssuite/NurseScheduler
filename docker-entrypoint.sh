@@ -51,6 +51,7 @@ while [ ! -z ${ARGS[${i}]} ]; do
    -v | -valgrind) valgrind="1"; ((i++));;
    -e | --evaluate) eval=${ARGS[((i+1))]}; ((i+=2));;
    -r | --root-dir-path) rootDir=${ARGS[((i+1))]}; ((i+=2));;
+   --pricer) pricer="1"; ((i+=1));;
    -*|--*) echo "Option unknown: ${ARGS[${i}]}. It will be passed to the scheduler."
       other_args="${other_args} ${ARGS[${i}]} ${ARGS[((i+1))]}"; ((i+=2));;
    *) echo "Cannot parse this argument: ${ARGS[${i}]}"
@@ -63,6 +64,12 @@ dynamic_args="${dynamic_args} -i ${instance_description}"
 # move to root dir if defined
 if [ ! -z ${rootDir} ]; then
     cd ${rootDir}
+fi
+
+# test pricer if defined
+if [ ! -z ${pricer} ]; then
+   ./bin/pricer ${instance_description}
+    exit 0;
 fi
 
 if [ -z ${dynamic} ]; then

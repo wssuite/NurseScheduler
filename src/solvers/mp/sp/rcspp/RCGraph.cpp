@@ -10,6 +10,7 @@
  */
 
 #include "RCGraph.h"
+#include "BoostRCSPP.h"
 
 #include <iostream>
 #include <map>
@@ -45,36 +46,32 @@ std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
 RCGraph::RCGraph(int nDays) : nDays_(nDays), nNodes_(0), nArcs_(0) {}
 RCGraph::~RCGraph() {}
 
-std::vector<RCSolution> RCGraph::solve(RCSPPSolver *rcspp,
-                                       std::vector<LABEL> labels,
-                                       const Penalties &penalties,
-                                       std::vector<vertex> sinks) {
-  // 0 - Remove all forbidden edges
-  std::map<int, Arc_Properties> arcs_to_remove;
+std::map<int, Arc_Properties> RCGraph::removeForbiddenArcsFromBoost() {
+  // get the boost edges of all forbidden arcs
+  std::map<int, Arc_Properties> arcs_removed;
   std::vector<edge> edges_to_remove;
   for (int a = 0; a < nArcs_; ++a) {
     const Arc_Properties &arc_prop = arc(a);
     if (arc_prop.forbidden) {
-      arcs_to_remove[a] = arc_prop;
       edges_to_remove.push_back(arcsDescriptors_[a]);
+      arcs_removed[a] = arc_prop;
     }
   }
+  // remove the edges
   for (auto &e : edges_to_remove)
     boost::remove_edge(e, g_);
 
-  // 1 - solve the resource constraints shortest path problem
-  if (sinks.empty()) sinks = sinks_;
-  std::vector<RCSolution>
-      rc_solutions = rcspp->solve(labels, penalties, sinks);
+  return arcs_removed;
+}
 
-  // 2 - Add back all forbidden edges
-  for (auto &p : arcs_to_remove) {
+void RCGraph::restoreForbiddenArcsToBoost(
+    std::map<int, Arc_Properties> arcs_removed) {
+  // restore the boost edges of all forbidden arcs
+  for (auto &p : arcs_removed) {
     edge e =
         add_edge(p.second.origin, p.second.destination, p.second, g_).first;
     arcsDescriptors_[p.first] = e;
   }
-
-  return rc_solutions;
 }
 
 // Addition of a single node
@@ -196,14 +193,16 @@ std::string RCGraph::printArc(
            (arc_prop.forbidden ? "forbidden" : "authorized"),
            arc_prop.day);
   rep << buff;
-  for (unsigned int s = 0; s < nShiftsToDisplay; ++s) {
+  for (unsigned int s = 0; static_cast<int>(s) < nShiftsToDisplay; ++s) {
     if (s < arc_prop.shifts.size())
       snprintf(buff, sizeof(buff), " %3d", arc_prop.shifts[s]);
     else
       snprintf(buff, sizeof(buff), " %3s", "");
     rep << buff;
   }
-  rep << (nShiftsToDisplay < arc_prop.shifts.size() ? " ..." : "    ");
+  rep << (nShiftsToDisplay < static_cast<int>(arc_prop.shifts.size()) ? " .."
+                                                                        "."
+                                                                      : "    ");
   snprintf(buff, sizeof(buff), "  [%20s] -> [%20s]",
            shortNameNode(arc_prop.origin).c_str(),
            shortNameNode(arc_prop.destination).c_str());
@@ -300,3 +299,4 @@ std::string RCGraph::printSummaryOfGraph() const {
 
   return rep.str();
 }
+

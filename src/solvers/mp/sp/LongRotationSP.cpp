@@ -31,7 +31,7 @@ LongRotationSP::LongRotationSP(PScenario scenario,
                                int nbDays,
                                PConstContract contract,
                                vector<State> *pInitState) :
-    RotationSP(scenario, nbDays, contract, pInitState) {
+    BoostRotationSP(scenario, nbDays, contract, pInitState) {
   minConsDays_ = contract->minConsDaysWork_;
   initShortSuccessions();
 }
@@ -251,7 +251,7 @@ void LongRotationSP::priceShortSucc() {
 
           // SUCCESSION IS TAKEN INTO ACCOUNT ONLY IF IT DOES NOT VIOLATE
           // ANY FORBIDDEN DAY-SHIFT COUPLE
-          if (canSuccStartHere(k - CDMin_ + 1, succ)) {
+          if (SubProblem::canSuccStartHere(k - CDMin_ + 1, succ)) {
             double curCost =
                 costArcShortSucc(CDMin_, curSuccId, k - CDMin_ + 1);
 

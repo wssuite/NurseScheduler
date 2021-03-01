@@ -13,9 +13,10 @@
 #define SRC_SOLVERS_MP_SP_RCSPP_RCGRAPH_H_
 
 #include <algorithm>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 #include "tools/MyTools.h"
 
@@ -134,7 +135,7 @@ static const std::vector<std::string> arcTypeName = {
 // Nodes specific properties for RC
 struct Vertex_Properties {
   // Constructor
-  Vertex_Properties(int n = 0,
+  explicit Vertex_Properties(int n = 0,
                     NodeType t = NONE_NODE,
                     std::vector<int> lbs = {},
                     std::vector<int> ubs = {},
@@ -212,7 +213,6 @@ struct Arc_Properties {
 
   int day;  // day
   std::vector<int> shifts;  // shifts id
-
   bool forbidden;
 
   int consumption(LABEL l) const {
@@ -258,9 +258,6 @@ struct RCSolution {
 // solver for the RC SPP
 struct RCSPPSolver {
   virtual ~RCSPPSolver() {}
-  virtual std::vector<RCSolution> solve(std::vector<LABEL> labels,
-                                        const Penalties &penalties,
-                                        std::vector<vertex> sinks) = 0;
 };
 
 //---------------------------------------------------------------------------
@@ -295,10 +292,10 @@ class RCGraph {
 
   virtual ~RCGraph();
 
-  std::vector<RCSolution> solve(RCSPPSolver *rcspp,
-                                std::vector<LABEL> labels,
-                                const Penalties &penalties,
-                                std::vector<vertex> sinks = {});
+  // remove every forbidden arc before solving the rcspp; there is a need to
+  // add the arcs backs after solving
+  std::map<int, Arc_Properties> removeForbiddenArcsFromBoost();
+  void restoreForbiddenArcsToBoost(std::map<int, Arc_Properties> arcs_removed);
 
   int nDays() const { return nDays_; }
 

@@ -18,7 +18,7 @@
 #include "solvers/mp/sp/rcspp/RCGraph.h"
 #include "tools/MyTools.h"
 
-class SubProblem;
+class BoostSubProblem;
 
 // PrincipalGraph is a subgraph to model the work activity on a given shift
 // type.
@@ -26,7 +26,7 @@ class SubProblem;
 // the possibility to choose which shift to work on within a given shift type.
 class PrincipalGraph : public SubGraph {
  public:
-  explicit PrincipalGraph(int shift_type, SubProblem *sp = nullptr);
+  explicit PrincipalGraph(int shift_type, BoostSubProblem *sp = nullptr);
   virtual ~PrincipalGraph();
 
   // check if feasible to link this arc at this level
@@ -85,7 +85,7 @@ class PrincipalGraph : public SubGraph {
   }
 
  protected:
-  SubProblem *pSP_;
+  BoostSubProblem *pSP_;
 
   int shift_type_;
   int max_cons_;

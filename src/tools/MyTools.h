@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include <chrono>  // NOLINT (suppress cpplint error)
 #include <memory>
 #include <iostream>
 #include <iomanip>
@@ -144,9 +145,25 @@ bool readUntilChar(std::fstream *file, char separator, std::string *pTitle);
 //
 bool strEndsWith(std::string sentence, std::string word);
 
-// Parse an int list written as string with a char delimiter
+// Parse a T list written as string with a char delimiter
 //
-std::vector<int> parseList(std::string strList, char delimiter = '-');
+template<typename T>
+std::vector<T> tokenize(std::string str, char delim) {
+  std::vector<T> Tlist;
+  size_t start;
+  size_t end = 0;
+  T i;
+  while ((start = str.find_first_not_of(delim, end)) != std::string::npos) {
+    end = str.find(delim, start);
+    std::stringstream ss(str.substr(start, end - start));
+    ss >> i;
+    if (ss.rdbuf()->in_avail() >0)
+      Tools::throwError("%s cannot be tokenized with the type %s",
+          str.c_str(), typeid(T).name());
+    Tlist.push_back(i);
+  }
+  return Tlist;
+}
 
 // Create a random generator
 // the objective is to be sure to have always the same sequence of number
@@ -258,7 +275,8 @@ bool isSaturday(int dayId);
 bool isSunday(int dayId);
 
 bool isWeekend(int dayId);
-
+bool isFirstWeekDay(int dayId);
+bool isLastWeekendDay(int dayId);
 int containsWeekend(int startDate, int endDate);
 
 // High resolution timer class to profile the performance of the algorithms
@@ -266,29 +284,29 @@ int containsWeekend(int startDate, int endDate);
 // problems on windows for instance and it requires some precompiler
 // instructions to work on mac
 //
+
+  typedef std::chrono::duration<int, std::nano> nanoseconds_type;
+
+
 class Timer {
  public:
   // constructor and destructor
   //
-  Timer();
+  explicit Timer(bool start = false);
 
   ~Timer() {}
 
  private:
-  timespec cpuInit_;
-  timespec cpuSinceStart_;
-  timespec cpuSinceInit_;
+  std::chrono::time_point<std::chrono::system_clock> cpuInit_;
+  std::chrono::duration<double> cpuSinceStart_, cpuSinceInit_;
 
   int coStop_;  // number of times the timer was stopped
-  bool isInit_;
   bool isStarted_;
   bool isStopped_;
 
+  double getSeconds(const std::chrono::duration<double>& d) const;
+
  public:
-  void init();
-
-  bool isInit() { return isInit_; }
-
   void start();
 
   void stop();
@@ -301,9 +319,9 @@ class Timer {
   // get the time spent since the initialization of the timer and since the last
   // time it was started
   //
-  const double dSinceInit();
+  double dSinceInit() const;
 
-  const double dSinceStart();
+  double dSinceStart();
 };
 
 // Instantiate an obect of this class to write directly in the attribute log

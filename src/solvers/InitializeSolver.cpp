@@ -84,6 +84,9 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--sp-strategy")) {
       pInputPaths->SPStrategy(std::stoi(str));
       narg += 2;
+    } else if (!strcmp(argv[narg], "--rcspp-type")) {
+      pInputPaths->RCSPPType(str);
+      narg += 2;
     } else {
       Tools::throwError("main: the argument does not match the expected list!");
     }
@@ -111,9 +114,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   // argument.
   std::string dataDir = "", instanceName = "", solutionPath = "", logPath = "",
       paramFile = "";
-  std::string SPType = "";
-  int historyIndex = 0, verbose = -1, randSeed = 0,
-      nTreads = -1, SPStrategy = -1;
+  std::string SPType = "", RCSPPType = "";
+  int historyIndex = 0, randSeed = 0,
+      nTreads = -1, SPStrategy = -1, verbose = -1;
   std::vector<int> weekIndices;
   double timeOut = -1;
 
@@ -144,7 +147,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
       historyIndex = std::stoi(str);
       narg += 2;
     } else if (!strcmp(arg, "--weeks")) {
-      weekIndices = Tools::parseList(str, '-');
+      weekIndices = Tools::tokenize<int>(str, '-');
       narg += 2;
     } else if (!strcmp(arg, "--sol")) {
       solutionPath = str;
@@ -173,6 +176,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--sp-strategy")) {
       SPStrategy = std::stoi(str);
       narg += 2;
+    } else if (!strcmp(argv[narg], "--rcspp-type")) {
+      RCSPPType = str;
+      narg += 2;
     } else {
       std::stringstream err_buff;
       err_buff << "main: the argument (" << arg
@@ -196,6 +202,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
                      randSeed,
                      SPType,
                      SPStrategy,
+                     RCSPPType,
                      nTreads);
 
   return pInputPaths;

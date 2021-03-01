@@ -16,7 +16,7 @@ MESSAGE("Type: ${CMAKE_BUILD_TYPE}")
 set(BCP_DIR ${BCPDIROPT})
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
         set(BCP_DIR ${BCPDIRDBG})
-        add_definitions(-fstack-protector)
+        #add_definitions(-fstack-protector)
         SET(CMAKE_VERBOSE_MAKEFILE on)
         set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -gdwarf-3")
         #    add_definitions(-D_GLIBCXX_DEBUG)
@@ -58,3 +58,7 @@ target_link_libraries(dynamicscheduler ${NURSE_SCHEDULER_LIB})
 
 add_executable(pricer src/PricerMain.cpp)
 target_link_libraries(pricer ${NURSE_SCHEDULER_LIB})
+
+MESSAGE("Linked directories: ${LINK_DIRECTORIES}")
+MESSAGE("Cmake linker flags: ${CMAKE_LINKER_FLAGS}")
+

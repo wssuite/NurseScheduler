@@ -33,6 +33,7 @@ InputPaths::InputPaths(std::string dataDir,
                        int randSeed,
                        std::string SPType,
                        int SPStrategy,
+                       std::string RCSPPType,
                        int nThreads) :
     instance_(instanceName),
     historyIndex_(historyIndex),
@@ -45,6 +46,7 @@ InputPaths::InputPaths(std::string dataDir,
     timeOut_(timeOut),
     SPType_(SPType),
     SPStrategy_(SPStrategy),
+    RCSPPType_(RCSPPType),
     nThreads_(nThreads) {
   std::string instanceDir = dataDir + instanceName + "/";
   // initialize the scenario and history file names

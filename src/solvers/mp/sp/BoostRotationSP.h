@@ -9,23 +9,23 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_ROTATIONSP_H_
-#define SRC_SOLVERS_MP_SP_ROTATIONSP_H_
+#ifndef SRC_SOLVERS_MP_SP_BOOSTROTATIONSP_H_
+#define SRC_SOLVERS_MP_SP_BOOSTROTATIONSP_H_
 
 #include <vector>
 
 #include "solvers/mp/sp/SubProblem.h"
 
-class RotationSP : public SubProblem {
+class BoostRotationSP : public BoostSubProblem {
  public:
-  RotationSP() = default;
+  BoostRotationSP() = default;
 
-  RotationSP(PScenario scenario,
-             int nbDays,
-             PConstContract contract,
-             std::vector<State> *pInitState);
+  BoostRotationSP(PScenario scenario,
+                  int nbDays,
+                  PConstContract contract,
+                  std::vector<State> *pInitState);
 
-  virtual ~RotationSP();
+  virtual ~BoostRotationSP();
 
  protected:
   // Index: (shiftType, day) of origin
@@ -43,9 +43,9 @@ class RotationSP : public SubProblem {
   // override creation of pricing arcs principal -> sinks
   void createArcsPrincipalToSink() override;
 
-  // override updateArcCosts to take into account end work costs when going
+  // override updateArcDualCosts to take into account end work costs when going
   // to a daily sink
-  void updateArcCosts() override;
+  void updateArcDualCosts() override;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_ROTATIONSP_H_
+#endif  // SRC_SOLVERS_MP_SP_BOOSTROTATIONSP_H_

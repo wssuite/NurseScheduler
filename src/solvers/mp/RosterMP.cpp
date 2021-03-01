@@ -24,6 +24,8 @@
 //
 //-----------------------------------------------------------------------------
 
+RosterPattern::~RosterPattern() = default;
+
 // when branching on this pattern, this method add the corresponding forbidden
 // shifts to the set.
 // It will forbid any shifts on any days as the nurse already has a roster.
@@ -38,13 +40,10 @@ void RosterPattern::addForbiddenShifts(
       forbidenShifts->insert(std::pair<int, int>(day, i));
 }
 
-void RosterPattern::computeCost(PScenario pScenario,
-                                const std::vector<PLiveNurse> &liveNurses) {
+void RosterPattern::computeCost(PScenario pScenario, const PLiveNurse &pNurse) {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
-
-  PLiveNurse pNurse = liveNurses[nurseNum_];
 
   /************************************************
    * Compute all the costs of a roster:
@@ -382,7 +381,7 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
       for (int k = 0; k < getNbDays(); ++k)
         shifts[k] = roster.shift(k);
       RosterPattern pat(shifts, i);
-      pat.computeCost(pScenario_, theLiveNurses_);
+      pat.computeCost(pScenario_, theLiveNurses_[i]);
       pModel_->addInitialColumn(addRoster(pat, baseName));
     }
   }
@@ -395,7 +394,7 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
 MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
   RosterPattern pat(solution.shifts, nurseNum, DBL_MAX, solution.cost);
-  pat.computeCost(pScenario_, theLiveNurses_);
+  pat.computeCost(pScenario_, theLiveNurses_[nurseNum]);
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
   DualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
@@ -528,7 +527,7 @@ double RosterMP::getColumnsCost(CostType costType,
     double value = pModel_->getVarValue(var);
     if (value > epsilon()) {
       RosterPattern ros(var->getPattern());
-      ros.computeCost(pScenario_, theLiveNurses_);
+      ros.computeCost(pScenario_, theLiveNurses_[ros.nurseNum_]);
       double c = 0;
       switch (costType) {
         case CONS_SHIFTS_COST: c += ros.consShiftsCost_;

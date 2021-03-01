@@ -83,6 +83,7 @@ PScenario ReadWrite::readScenario(string fileName) {
       hoursInShift, shiftIDToShiftTypeID;
   vector2D<int> shiftTypeIDToShiftID;
   vector2D<int> forbiddenSuccessors;
+  vector<PShift> pShifts;
   map<string, PConstContract> contracts;
   vector<PNurse> theNurses;
 
@@ -171,6 +172,10 @@ PScenario ReadWrite::readScenario(string fileName) {
           forbiddenSuccessors[currentShiftTypeId].push_back(
               shiftTypeToInt.at(strTmp));
         }
+        // make sure the forbidden successors are sorted in increasing order
+        std::sort(forbiddenSuccessors[currentShiftTypeId].begin(),
+                  forbiddenSuccessors[currentShiftTypeId].end());
+        // read end of line
         Tools::readUntilChar(&file, '\n', &strTmp);
       }
     } else if (Tools::strEndsWith(title, "SHIFTS ")) {
@@ -298,6 +303,28 @@ PScenario ReadWrite::readScenario(string fileName) {
     }
   }
 
+  // Create shift structures
+  //
+  for (int i = 0; i < nbShifts; i++) {
+    string name = intToShift[i];
+    int type = shiftIDToShiftTypeID[i];
+    std::vector<int> successorList;
+    for (int s = 0; s < nbShifts; ++s) {
+      vector<int> forbidden = forbiddenSuccessors[type];
+      if (find(forbidden.begin(), forbidden.end(), shiftIDToShiftTypeID[s]) ==
+      forbidden.end()) {
+        successorList.push_back(s);
+      }
+    }
+    pShifts.emplace_back(std::make_shared<Shift>(name,
+                                                 i,
+                                                 type,
+                                                 hoursInShift[i],
+                                                 successorList,
+                                                 minConsShiftType[type],
+                                                 maxConsShiftType[type]));
+  }
+
   // Check that all fields were initialized before initializing the scenario
   //
   if (nbWeeks == -1 || nbSkills == -1 || nbShifts == -1 || nbContracts == -1
@@ -323,6 +350,7 @@ PScenario ReadWrite::readScenario(string fileName) {
                                     maxConsShiftType,
                                     nbForbiddenSuccessors,
                                     forbiddenSuccessors,
+                                    pShifts,
                                     nbContracts,
                                     intToContract,
                                     contracts,

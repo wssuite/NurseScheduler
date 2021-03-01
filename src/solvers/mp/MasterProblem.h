@@ -32,6 +32,12 @@ enum CostType {
   MIN_DAYS_COST, MAX_DAYS_COST, MAX_WEEKEND_COST
 };
 
+// TODO(JO): I added several comments about that below, but to honnest, I
+//  really think that we should use subclass of this DualCosts structure for
+//  the rotation decomposition as long as we are not implementing a more
+//  general way of treating constraints. At this level, we should only keep
+//  the workedShiftCost_ and constant_ attributes, which are the only
+//  dual costs common to every decomposition
 struct DualCosts {
  public:
   DualCosts(const vector2D<double> &workedShiftsCosts,
@@ -51,15 +57,24 @@ struct DualCosts {
     if (!shift) return 0;
     return (workedShiftsCosts_[day][shift - 1]);
   }
+
   double startWorkCost(int day) const { return (startWorkCosts_[day]); }
   double endWorkCost(int day) const { return (endWorkCosts_[day]); }
   double workedWeekendCost() const { return workedWeekendCost_; }
   double constant() const { return constant_; }
 
  protected:
+  // TODO(JO): this indexation is VERY confusing and prone to error. Since we
+  //  have decided to treat rest shifts as any shift, we should never have to
+  //  assume that the rest shift is the one with index 0 (except in the
+  //  isWork()/isRest() functions. And we could still include a cost for the
+  //  rest shift in this vector, with a zero value.
   // Indexed by : (day, shift) !! 0 = shift 1 !!
   vector2D<double> workedShiftsCosts_;
 
+  // TODO(JO): the two types of costs below are specific to the rotation
+  //  decomposition, aren't they? If it so, we should refactor/move them to the
+  //  RotationMP
   // Indexed by : day
   std::vector<double> startWorkCosts_;
 
@@ -104,7 +119,7 @@ struct Pattern {
       cost_(DBL_MAX),
       reducedCost_(DBL_MAX) {}
 
-  virtual ~Pattern() {}
+  virtual ~Pattern() = default;
 
   virtual bool equals(PPattern pat) const {
     if (nurseNum_ != pat->nurseNum_) return false;
@@ -257,7 +272,11 @@ class MasterProblem : public Solver, public PrintSolution {
   DualCosts buildDualCosts(PLiveNurse pNurse) const;
 
   // build a random DualCosts structure
-  DualCosts buildRandomDualCosts() const;
+  // If the option 'optimalDemandConsidered' is selected, the dual costs will
+  // randomly represent the optimal demand over all the horizon. Otherwise,
+  // the dual costs will be created totally randomly.
+  DualCosts buildRandomDualCosts(bool optimalDemandConsidered = false, int
+  NDaysShifts = 10) const;
 
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
@@ -332,6 +351,12 @@ class MasterProblem : public Solver, public PrintSolution {
   std::string allocationToString(bool printInteger = true) const;
   std::string coverageToString(bool printInteger = true) const;
 
+  /*getter for subProblem parameters*/
+  bool sortLabelsOption() { return mp_sortLabelsOption; }
+  bool minimumCostFromSinksOption() { return mp_minimumCostFromSinksOption; }
+  bool worstCaseCostOption() { return mp_worstCaseCostOption; }
+  bool enumeratedSubPathOption() { return mp_enumeratedSubPathOption; }
+
  protected:
   Modeler *pModel_;
   vector2D<int> positionsPerSkill_;  // link positions to skills
@@ -371,6 +396,33 @@ class MasterProblem : public Solver, public PrintSolution {
   // ensures that each nurse works with the good skill
   vector3D<MyCons *> feasibleSkillsAllocCons_;
 
+  // STAB
+  // Stabilization variables for each constraint
+  // Two variables are needed for equality constraints and one for inequalities
+  // The constraints on average values are not stabilized yet
+  // The position and allocation constraints do not require stabilization
+
+  // ensure a minimal coverage per day, per shift, per skill
+  vector3D<MyVar *> stabMinDemandPlus_;
+  // count the number of missing nurse to reach the optimal
+  vector3D<MyVar *> stabOptDemandPlus_;
+
+  // sortLabelsOption for the subProblem
+  // true if labels are sorted by increasing costs before domination is checked
+  bool mp_sortLabelsOption = false;
+  // minimumCostFromSinksOption for the subProblem
+  // true if the shortest path from each node to each sink is computed to
+  // delete the labels that cannot be extended into a negative cost path
+  bool mp_minimumCostFromSinksOption = false;
+  // worstCaseCostOption for the subProblem
+  // true if the domination rule is improved by considering the worst costs that
+  // can result from the violation of soft constraints
+  bool mp_worstCaseCostOption = true;
+  // enumeratedSubPathOption for the subProblem
+  // true if we enumerate subpaths in the RCSPP graph in order to reduce the
+  // number of resources
+  bool mp_enumeratedSubPathOption = false;
+
   /*
   * Methods
   */
@@ -390,10 +442,15 @@ class MasterProblem : public Solver, public PrintSolution {
   // solve a solution in the output
   void storeSolution() override;
 
-  // set parameters and update printFuntion pointer with this
+  // set parameters and update printFunction pointer with this
   void setParameters(const SolverParam &param) {
     pModel_->setParameters(param, this);
     param_ = pModel_->getParameters();
+    // set parameters for sub problems
+    mp_sortLabelsOption = param.spp_sortLabelsOption;
+    mp_minimumCostFromSinksOption = param.spp_minimumCostFromSinksOption;
+    mp_worstCaseCostOption = param.spp_worstCaseCostOption;
+    mp_enumeratedSubPathOption = param.spp_enumeratedSubPathOption;
   }
 
   // return the costs of all active columns associated to the type

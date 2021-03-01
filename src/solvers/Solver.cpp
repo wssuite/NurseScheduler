@@ -600,9 +600,7 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
     isPreprocessedSkills_(false),
     isPreprocessedNurses_(false) {
   // create the timer that records the life time of the solver and start it
-  pTimerTotal_ = new Tools::Timer();
-  pTimerTotal_->init();
-  pTimerTotal_->start();
+  pTimerTotal_ = new Tools::Timer(true);
 
   // initialize the preprocessed data of the skills
   for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {

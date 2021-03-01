@@ -31,7 +31,7 @@ using std::pair;
 // according to the connected components of positions
 //
 bool testDivideIntoConnectedComponents() {
-  // Test directory and instance, the same is used in every test
+  /*// Test directory and instance, the same is used in every test
   string dataDir = "datasets/";  // testdatasets datasets
   string instanceName = "n030w4";  // n100w4 n030w4 n005w4
   string outDir = "outfiles/" + instanceName + "/";
@@ -57,7 +57,7 @@ bool testDivideIntoConnectedComponents() {
   // Display the complete solution
   pSolverInitial->displaySolutionMultipleWeeks(inputPaths);
 
-  delete pSolverInitial;
+  delete pSolverInitial;*/
 
   return true;
 }

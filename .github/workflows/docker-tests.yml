@@ -20,6 +20,24 @@ jobs:
         uses: actions/checkout@v2
 
       # run the tests
+      - name: n005w4_0_1-2-3-3 PRICER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-3
+          ns-args: --pricer
+
+      - name: n035w4_1_1-7-1-8 PRICER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n035w4_1_1-7-1-8
+          ns-args: --pricer
+
+      - name: n012w8_0_3-5-0-2-0-4-5-2 PRICER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n012w8_0_3-5-0-2-0-4-5-2
+          ns-args: --pricer
+
       - name: n005w4_0_1-2-3-3 LONG
         uses: ./ # Uses an action in the root directory
         with:
@@ -37,6 +55,12 @@ jobs:
         with:
           instance: n005w4_0_1-2-3-3
           ns-args: -g 1470 --sp-type ROSTER
+
+      - name: n005w4_0_1-2-3-3 MY ROSTER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-3
+          ns-args: -g 1470 --sp-type ROSTER --rcspp-type MY_SOLVER
 
       - name: n005w4_1_6-2-9-1 ALL
         uses: ./ # Uses an action in the root directory
@@ -67,6 +91,12 @@ jobs:
         with:
           instance: n005w4_0_1-2-3-5
           ns-args: -g 1540 --sp-type ROSTER
+
+      - name: n005w4_0_1-2-3-5 MY ROSTER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-5
+          ns-args: -g 1540 --sp-type ROSTER -t 600 --rcspp-type MY_SOLVER
 
       - name: n005w4_1_5-6-7-8 ALL
         uses: ./ # Uses an action in the root directory

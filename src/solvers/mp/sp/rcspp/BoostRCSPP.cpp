@@ -9,7 +9,7 @@
  * full license detail.
  */
 
-#include "BoostRCSPP.h"
+#include "solvers/mp/sp/rcspp/BoostRCSPP.h"
 
 #include <algorithm>
 #include <memory>
@@ -292,7 +292,7 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
     std::vector<LABEL> labels,
     const Penalties &penalties,
     std::vector<vertex> sinks) {
-  timer_.start();
+
   // 1 - solve the resource constraints shortest path problem
   ref_spp ref(labels);
   dominance_spp dominance(labels, penalties, epsilon_);
@@ -330,13 +330,6 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
         if (rc.cost < bestCost) bestCost = rc.cost;
       }
     }
-  }
-
-  timer_.stop();
-  if (verbose_ >= 3) {
-    vis.printStats(std::cout);
-    std::cout << "Time spent in the RCSPP: " << timer_.dSinceStart()
-              << " and best solution cost: " << bestCost << std::endl;
   }
 
   return rc_solutions;
@@ -408,7 +401,8 @@ void BoostRCSPPSolver::printPath(std::ostream &out,
   int k = 0;
   int firstDay = -1;
   for (int j = path.size() - 1; j >= 0; --j) {
-    if (firstDay == -1 && boost::source(path[j], rcg_->g()) == rcg_->source()) {
+    if (firstDay == -1 && static_cast<int>(boost::source(path[j], rcg_->g())) ==
+    rcg_->source()) {
       firstDay = boost::get(&Arc_Properties::day, rcg_->g(), path[j]);
       while (k < firstDay) {
         out << " |";
@@ -468,7 +462,7 @@ bool BoostRCSPPSolver::check_r_c_path(
   std::reverse(ed_vec_path.begin(), ed_vec_path.end());
 
   // check if target(i) == source(i+1)
-  for (int i = 0; i < ed_vec_path.size() - 1; ++i)
+  for (unsigned int i = 0; i < ed_vec_path.size() - 1; ++i)
     if (target(ed_vec_path[i], rcg_->g()) !=
         source(ed_vec_path[i + 1], rcg_->g())) {
       std::cerr << "Target of arc " << i << "is different of source of arc "
@@ -484,7 +478,7 @@ bool BoostRCSPPSolver::check_r_c_path(
     }
 
   // extension of path
-  for (int i = 0; i < ed_vec_path.size(); ++i) {
+  for (unsigned int i = 0; i < ed_vec_path.size(); ++i) {
     spp_res_cont current_resource_levels = *checked_final_resource_levels;
     // if extension infeasible
     if (!ref(rcg_->g(),
@@ -637,10 +631,10 @@ bool rc_spp_visitor::on_enter_loop(const Queue &queue, const Graph &graph) {
   // if go until optimality
   if (nMax_ == -1) return true;
   // if exceed the number of paths searched
-  if (paths_.size() >= nMax_)
+  if (static_cast<int>(paths_.size()) >= nMax_)
     return false;
   // stop if have explored too many nodes (avoid stalling)
-  return nPoppedLabels_ < nMax_ * num_vertices(graph);
+  return nPoppedLabels_ < nMax_ * static_cast<int>(num_vertices(graph));
 }
 
 void rc_spp_visitor::printStats(std::ostream &out) const {

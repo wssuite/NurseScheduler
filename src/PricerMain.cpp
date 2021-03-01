@@ -9,13 +9,54 @@
  * full license detail.
  */
 
+#include <solvers/mp/sp/MyRosterSP.h>
+#include <solvers/mp/sp/BoostRosterSP.h>
 #include "solvers/InitializeSolver.h"
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/sp/SubProblem.h"
+#include "data/Shift.h"
 
-int solvePricing(const InputPaths &inputPaths) {
+#define DBG_AG
+
+std::pair<float, float> comparePricing(DualCosts *dualCosts,
+                                       PLiveNurse pNurse,
+                                       SubProblem *bSP,
+                                       SubProblem *mSP,
+                                       const SubproblemParam &spParam) {
+  if (spParam.verbose_)
+    std::cout << "\n      SOLVE WITH BOOST RCSPP SOLVER : \n" <<std::endl;
+
+  // solve it
+  bSP->solve(pNurse, dualCosts, spParam);
+
+  if (spParam.verbose_) {
+    std::cout << "## Optimal value = " << bSP->bestReducedCost() << std::endl;
+    std::cout << "## Cpu time = " << bSP->cpuInLastSolve() << std::endl;
+
+    std::cout << "\n      SOLVE WITH MY RCSPP SOLVER : \n" <<std::endl;
+  }
+
+  // solve it
+  mSP->solve(pNurse, dualCosts, spParam);
+
+  if (spParam.verbose_) {
+    std::cout << "## Optimal value = " << mSP->bestReducedCost() <<
+              std::endl;
+    std::cout << "## Cpu time = " << mSP->cpuInLastSolve() << std::endl;
+    std::cout << "\n-----------------------------------\n" << std::endl;
+  }
+
+  if (std::abs(bSP->bestReducedCost() - mSP->bestReducedCost()) > 1.0e-4 )
+    Tools::throwError("The new pricer does not find the same optimal value "
+                      "as Boost");
+
+  return {bSP->cpuInLastSolve(), mSP->cpuInLastSolve()};
+}
+
+float comparePricingToBoost(const InputPaths &inputPaths) {
   // set the scenario
-  std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
+  if (inputPaths.verbose())
+    std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
   PScenario pScenario;
   if (inputPaths.nbWeeks() > 1) {
     pScenario = initializeMultipleWeeks(inputPaths);
@@ -29,11 +70,12 @@ int solvePricing(const InputPaths &inputPaths) {
 
   // initialize the solver, build a master problem,
   // then solve the all the pricing problems
-  std::cout << "# SOLVE THE INSTANCE" << std::endl;
-  DeterministicSolver *pSolver = new DeterministicSolver(pScenario, inputPaths);
+  if (inputPaths.verbose())
+    std::cout << "# SOLVE THE INSTANCE" << std::endl;
+  auto pSolver = new DeterministicSolver(pScenario, inputPaths);
   SolverParam param = pSolver->getCompleteParameters();
-  param.verbose_ = 3;  // 4: print also the solutions
-  MasterProblem *pMaster =
+  param.verbose_ = inputPaths.verbose();  // 4: print also the solutions
+  auto pMaster =
       dynamic_cast<MasterProblem *>(
           pSolver->setSolverWithInputAlgorithm(
               pScenario->pWeekDemand(),
@@ -41,51 +83,85 @@ int solvePricing(const InputPaths &inputPaths) {
               param));
   pMaster->initialize(param);
   // solve the pricing problems
-  // fetch pricer
-  RCPricer *pPricer = dynamic_cast<RCPricer *>(pMaster->getPricer());
-  for (PLiveNurse pNurse : pMaster->getLiveNurses()) {
-    std::cout << "Solve subproblem for nurse " << pNurse->name_ << std::endl;
-    // build random dual costs
-    DualCosts dualCosts = pMaster->buildRandomDualCosts();
-    // retreive a subproblem
-    SubProblem *pSP = pPricer->retriveSubproblem(pNurse);
+  double cpuBoost = 0.0;
+  double cpuNew = 0.0;
+  for (const PLiveNurse pNurse : pMaster->getLiveNurses()) {
+    // Solve with boost RCSPP solver first
+    if (inputPaths.verbose())
+      std::cout << "Solve subproblem for nurse " << pNurse->name_ << std::endl;
     // create param
     SubproblemParam spParam(SubproblemParam::maxSubproblemStrategyLevel_,
                             pNurse,
                             pMaster);
-    // solve it
-    pSP->solve(pNurse, &dualCosts, spParam);
-    // release subproblem
-    pPricer->releaseSubproblem(pNurse, pSP);
+    // retrieve a boost subproblem
+    SubProblem *bSP = new BoostRosterSP(pScenario,
+                                        pScenario->nbDays(),
+                                        pNurse->pContract_,
+                                        pScenario->pInitialState());
+    bSP->build();
+    // Solve with my solver under development
+    SubProblem *mSP =
+        new MyRosterSP(pScenario, pScenario->nbDays(), pNurse, spParam);
+    mSP->build();
+
+    // build random dual costs
+    DualCosts dualCosts = pMaster->buildRandomDualCosts(true);
+    auto p = comparePricing(&dualCosts, pNurse, bSP, mSP, spParam);
+    cpuBoost += p.first;
+    cpuNew += p.second;
+
+    // resolve with new random dual costs
+    dualCosts = pMaster->buildRandomDualCosts(true);
+    p = comparePricing(&dualCosts, pNurse, bSP, mSP, spParam);
+    cpuBoost += p.first;
+    cpuNew += p.second;
+
+    // delete
+    delete bSP;
+    delete mSP;
   }
 
-  return 0;
+  if (inputPaths.verbose())
+    std::cout << "\nRelative CPU reduction = " << 100.0* (cpuBoost - cpuNew)
+        /cpuBoost << "%" << std::endl;
+
+  return 100.0 * (cpuBoost - cpuNew) / cpuBoost;
+}
+
+float test_pricer(const std::string &instance, int verbose) {
+  std::vector<std::string> p = Tools::tokenize<std::string>(instance, '_');
+  InputPaths *pInputPaths = new InputPaths(
+      "datasets/",
+      p[0],  // instance name
+      p.size() > 2 ? std::stoi(p[1]) :0,  // history
+      Tools::tokenize<int>(p[p.size()-1], '-'),  // week indices
+      "", "", "paramfiles/default.txt", LARGE_TIME, verbose, 1, "ROSTER", 1);
+  float cpu = comparePricingToBoost(*pInputPaths);
+  std::cout << "\nComparison finished for " << instance << "." << std::endl;
+  std::cout << "\n###############################"  << std::endl;
+  delete pInputPaths;
+  return cpu;
 }
 
 int main(int argc, char **argv) {
-  std::cout << "# SOLVE THE PRICING PROBLEM" << std::endl;
-  std::cout << "Number of arguments= " << argc << std::endl;
+  std::cout << "# TEST THE NEW PRICER" << std::endl;
 
-  // Detect errors in the number of arguments
-  //
-  if (argc % 2 != 1)
-    Tools::throwError("main: There should be an even number of arguments!");
+  std::vector<string> insts;
+  if (argc <= 1)
+    insts = {"n005w4_2-0-2-1", "n030w4_1-2-3-4", "n012w8_3-5-0-2-0-4-5-2"};
+  else
+    insts = std::vector<string>(argv+1, argv+argc);
 
-  // Read the arguments and store them in pInputPaths
-  // If in non compact format, each week is input,
-  // so there are at least 19 arguments.
-  // In compact format, the number of arguments is smaller than that
-  InputPaths *pInputPaths;
-  if (argc >= 21) {
-    pInputPaths = readNonCompactArguments(argc, argv);
-  } else {
-    pInputPaths = readCompactArguments(argc, argv);
-  }
+  std::vector<float> cpus;
+  for (const string& inst : insts)
+    cpus.push_back(test_pricer(inst, 0));
 
-  // Initialize the random seed
-  srand(pInputPaths->randSeed());
+  std::cout << "\n###############################" << std::endl;
+  std::cout << "###############################\n" << std::endl;
 
-  solvePricing(*pInputPaths);
+  for (size_t i = 0; i < insts.size(); ++i)
+    std::cout << "\nRelative CPU reduction for " << insts[i] << " = "
+              << cpus[i] << "%" << std::endl;
 
-  delete pInputPaths;
+  return 0;
 }

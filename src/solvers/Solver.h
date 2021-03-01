@@ -364,6 +364,11 @@ enum SPType { LONG_ROTATION = 0, ALL_ROTATION = 1, ROSTER = 2 };
 static const std::map<std::string, SPType> SPTypesByName =
     {{"LONG", LONG_ROTATION}, {"ALL", ALL_ROTATION}, {"ROSTER", ROSTER}};
 
+// RCSPP solver type
+enum RCSPPType { BOOST_LABEL_SETTING = 0, MY_LABEL_SETTING = 1 };
+static const std::map<std::string, RCSPPType> RCSPPTypesByName =
+    {{"BOOST_SOLVER", BOOST_LABEL_SETTING}, {"MY_SOLVER", MY_LABEL_SETTING}};
+
 class SolverParam {
  public:
   SolverParam() {}
@@ -501,6 +506,27 @@ class SolverParam {
   double sp_min_columns_ratio_for_increase_ = .1;
   // type of the subproblem used
   SPType sp_type_ = LONG_ROTATION;
+  // type of the RCSPP solver used in the subproblem
+  RCSPPType rcspp_type_ = BOOST_LABEL_SETTING;
+  // true if dominance is improved by considering worst case penalties in
+  // soft constraints
+  bool sp_improve_soft_dominance = true;
+
+  // sortLabelsOption for the subProblem
+  // true if labels are sorted by increasing costs before domination is checked
+  bool spp_sortLabelsOption = false;
+  // minimumCostFromSinksOption for the subProblem
+  // true if the shortest path from each node to each sink is computed to
+  // delete the labels that cannot be extended into a negative cost path
+  bool spp_minimumCostFromSinksOption = false;
+  // worstCaseCostOption for the subProblem
+  // true if the domination rule is improved by considering the worst costs that
+  // can result from the violation of soft constraints
+  bool spp_worstCaseCostOption = true;
+  // enumeratedSubPathOption for the subProblem
+  // true if we enumerate subpaths in the RCSPP graph in order to reduce the
+  // number of resources
+  bool spp_enumeratedSubPathOption = false;
 
  public:
   // Initialize all the parameters according to a small number of

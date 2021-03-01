@@ -9,7 +9,7 @@
  * full license detail.
  */
 
-#include "RosterSP.h"
+#include "BoostRosterSP.h"
 
 #include <string>
 #include <algorithm>
@@ -21,17 +21,17 @@ using std::vector;
 using std::map;
 
 // Constructors and destructor
-RosterSP::RosterSP(PScenario scenario,
-                   int nbDays,
-                   PConstContract contract,
-                   vector<State> *pInitState) :
-    SubProblem(scenario, nbDays, contract, pInitState) {
+BoostRosterSP::BoostRosterSP(PScenario scenario,
+                             int nbDays,
+                             PConstContract contract,
+                             vector<State> *pInitState) :
+    BoostSubProblem(scenario, nbDays, contract, pInitState) {
   labels_ = {CONS_DAYS, DAYS, WEEKEND};
 }
 
-RosterSP::~RosterSP() {}
+BoostRosterSP::~BoostRosterSP() {}
 
-RCSPPSolver *RosterSP::initRCSSPSolver() {
+BoostRCSPPSolver *BoostRosterSP::initRCSSPSolver() {
   double constant = pCosts_->constant();
   Penalties penalties = initPenalties();
   // lambda expression to post process the solutions found by the RCSPP solver
@@ -52,7 +52,7 @@ RCSPPSolver *RosterSP::initRCSSPSolver() {
 }
 
 // Function that creates the nodes of the network
-void RosterSP::createNodes() {
+void BoostRosterSP::createNodes() {
   // INITIALIZATION
   principalGraphs_.clear();
 
@@ -70,7 +70,7 @@ void RosterSP::createNodes() {
   g_.addSink(v);
 }
 
-void RosterSP::createArcsSourceToPrincipal() {
+void BoostRosterSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (PrincipalGraph &pg : principalGraphs_) {
     vector2D<int> vec2;
@@ -92,7 +92,7 @@ void RosterSP::createArcsSourceToPrincipal() {
 
 // Create all arcs from one principal subgraph to another one
 // add a pricing arc when going from work to rest
-void RosterSP::createArcsPrincipalToPrincipal() {
+void BoostRosterSP::createArcsPrincipalToPrincipal() {
   int nShiftsType = pScenario_->nbShiftsType_;
   Penalties penalties = initPenalties();
   // consumption when pricing to reset CONS_DAYS
@@ -125,7 +125,7 @@ void RosterSP::createArcsPrincipalToPrincipal() {
   }
 }
 
-void RosterSP::createArcsPrincipalToSink() {
+void BoostRosterSP::createArcsPrincipalToSink() {
   Penalties penalties = initPenalties();
   // last day: price just max
   penalties.minLevel(CONS_DAYS, 0);
@@ -141,9 +141,9 @@ void RosterSP::createArcsPrincipalToSink() {
   }
 }
 
-void RosterSP::updateArcCosts() {
+void BoostRosterSP::updateArcDualCosts() {
   // A-B: call parent method first
-  SubProblem::updateArcCosts();
+  BoostSubProblem::updateArcDualCosts();
 
   // C. ARCS : PRINCIPAL GRAPH TO PRINCIPAL GRAPH
   // for rest principal graph

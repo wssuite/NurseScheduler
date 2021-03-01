@@ -18,7 +18,7 @@
 using std::string;
 using std::vector;
 
-PrincipalGraph::PrincipalGraph(int shift_type, SubProblem *sp) :
+PrincipalGraph::PrincipalGraph(int shift_type, BoostSubProblem *sp) :
     SubGraph(), pSP_(sp), shift_type_(shift_type), max_cons_(-1) {
   if (sp) {
     max_cons_ = sp->maxCons(shift_type);

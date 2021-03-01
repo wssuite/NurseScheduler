@@ -36,6 +36,7 @@ class InputPaths {
              int randSeed = 0,
              std::string SPType = "",
              int SPStrategy = -1,
+             std::string RCSPPType = "",
              int nThreads = -1);
 
  protected:
@@ -50,10 +51,11 @@ class InputPaths {
   std::string paramFile_ = "";
   int verbose_ = -1;
   int randSeed_ = 0;
-  double timeOut_ = -1;
-  std::string SPType_ = "";
-  int SPStrategy_ = -1;
-  int nThreads_ = -1;
+  double timeOut_ = 3600;
+  std::string SPType_ = "LONG";
+  int SPStrategy_ = 0;
+  std::string RCSPPType_ = "BOOST_SOLVER";
+  int nThreads_ = 1;
 
  public:
   // get/set attributes
@@ -91,6 +93,9 @@ class InputPaths {
 
   int SPStrategy() const { return SPStrategy_; }
   void SPStrategy(int t) { SPStrategy_ = t; }
+
+  std::string RCSPPType() const { return RCSPPType_; }
+  void RCSPPType(std::string t) { RCSPPType_ = t; }
 
   int nThreads() const { return nThreads_; }
   void nThreads(int n) { nThreads_ = n; }

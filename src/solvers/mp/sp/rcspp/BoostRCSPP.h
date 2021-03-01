@@ -217,7 +217,7 @@ class BoostRCSPPSolver : public RCSPPSolver {
 
   std::vector<RCSolution> solve(std::vector<LABEL> labels,
                                 const Penalties &penalties,
-                                std::vector<vertex> sinks) override;
+                                std::vector<vertex> sinks);
 
  protected:
   RCGraph *rcg_;

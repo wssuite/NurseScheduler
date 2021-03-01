@@ -9,17 +9,17 @@
  * full license detail.
  */
 
-#include "RotationSP.h"
+#include "BoostRotationSP.h"
 
-RotationSP::RotationSP(PScenario scenario,
-                       int nbDays,
-                       PConstContract contract,
-                       std::vector<State> *pInitState) :
-    SubProblem(scenario, nbDays, contract, pInitState) {
+BoostRotationSP::BoostRotationSP(PScenario scenario,
+                                 int nbDays,
+                                 PConstContract contract,
+                                 std::vector<State> *pInitState) :
+    BoostSubProblem(scenario, nbDays, contract, pInitState) {
   labels_ = {CONS_DAYS};
 }
 
-RotationSP::~RotationSP() {}
+BoostRotationSP::~BoostRotationSP() {}
 
 
 //--------------------------------------------
@@ -29,7 +29,7 @@ RotationSP::~RotationSP() {}
 //--------------------------------------------
 
 // Function that creates the nodes of the network
-void RotationSP::createNodes() {
+void BoostRotationSP::createNodes() {
   // INITIALIZATION
   principalGraphs_.clear();
 
@@ -61,7 +61,7 @@ void RotationSP::createNodes() {
 
 // Create all arcs whose origin is the source nodes (all go to short
 // rotations nodes)
-void RotationSP::createArcsSourceToPrincipal() {
+void BoostRotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (int sh=1; sh < pScenario_->nbShiftsType_; ++sh)
     for (int k = minConsDays_ - 1; k < nDays_; k++)
@@ -80,7 +80,7 @@ void RotationSP::createArcsSourceToPrincipal() {
 }
 
 // Create all arcs from one principal subgraph to another one
-void RotationSP::createArcsPrincipalToPrincipal() {
+void BoostRotationSP::createArcsPrincipalToPrincipal() {
   int nShiftsType = pScenario_->nbShiftsType_;
   for (int sh = 1; sh < nShiftsType; sh++) {
     for (int newSh = 1; newSh < nShiftsType; newSh++) {
@@ -101,7 +101,7 @@ void RotationSP::createArcsPrincipalToPrincipal() {
   }
 }
 
-void RotationSP::createArcsPrincipalToSink() {
+void BoostRotationSP::createArcsPrincipalToSink() {
   Tools::initVector2D(&arcsPrincipalToSink,
                       pScenario_->nbShiftsType_,
                       nDays_,
@@ -130,9 +130,9 @@ void RotationSP::createArcsPrincipalToSink() {
   }
 }
 
-void RotationSP::updateArcCosts() {
+void BoostRotationSP::updateArcDualCosts() {
   // A-B: call parent method first
-  SubProblem::updateArcCosts();
+  BoostSubProblem::updateArcDualCosts();
 
   // C. ARCS : PRINCIPAL_TO_SINK
   // starts at 1, as on 0 we rest (so no end work) and also not defined

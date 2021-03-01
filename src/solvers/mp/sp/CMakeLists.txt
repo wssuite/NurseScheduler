@@ -4,8 +4,9 @@ set(LIB_NAME sp)
 set(SOURCE_FILES
         SubProblem.cpp
         LongRotationSP.cpp
-        RosterSP.cpp
-        RotationSP.cpp)
+        BoostRosterSP.cpp
+        BoostRotationSP.cpp
+        MyRosterSP.cpp)
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})
 target_link_libraries(${LIB_NAME} rcspp ${LIBS})

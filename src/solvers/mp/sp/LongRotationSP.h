@@ -14,9 +14,9 @@
 
 #include <vector>
 
-#include "solvers/mp/sp/RotationSP.h"
+#include "solvers/mp/sp/BoostRotationSP.h"
 
-class LongRotationSP : public RotationSP {
+class LongRotationSP : public BoostRotationSP {
  public:
   LongRotationSP() = default;
   virtual ~LongRotationSP();

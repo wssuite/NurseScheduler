@@ -67,7 +67,7 @@ class RCPricer : public MyPricer {
 
   // One subproblem list per contract because the consecutive same shift
   // constraints vary by contract.
-  std::map<PConstContract, std::list<SubProblem *>> subProblems_;
+  std::map<PLiveNurse, SubProblem*> subProblems_;
 
   // DATA - Solutions, rotations, etc.
   std::vector<MyVar *> allNewColumns_;
@@ -110,10 +110,7 @@ class RCPricer : public MyPricer {
   }
 
   // Retrieve the right subproblem
-  SubProblem *retriveSubproblem(PLiveNurse pNurse);
-
-  // release the subproblem
-  void releaseSubproblem(PLiveNurse pNurse, SubProblem *subProblem);
+  SubProblem *retrieveSubproblem(PLiveNurse pNurse);
 
   // METHODS - Forbidden shifts, nurses, starting days, etc.
   //

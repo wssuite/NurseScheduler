@@ -59,9 +59,7 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
   for (int i = 1; i < 1000; ++i)
     nb_dives_to_wait_before_branching_on_columns_.push_back(pow(i, 2));
   // create the timer that records the life time of the solver and start it
-  pTimerTotal_ = new Tools::Timer();
-  pTimerTotal_->init();
-  pTimerTotal_->start();
+  pTimerTotal_ = new Tools::Timer(true);
 }
 
 BcpLpModel::~BcpLpModel() {
@@ -361,7 +359,8 @@ void BcpLpModel::printSummaryLineHeaders() const {
 // print in cout a line summary of the current solver state and of the tree
 void BcpLpModel::printSummaryLine(bool printNode,
                                   const BCP_vec<BCP_var *> &vars) const {
-  if (pModel_->getParameters().printBcpSummary_) {
+  if (pModel_->getVerbosity() > 0 ||
+      pModel_->getParameters().printBcpSummary_) {
     printSummaryLine(vars);
     if (printNode) printNodeSummaryLine();
   }
@@ -369,8 +368,6 @@ void BcpLpModel::printSummaryLine(bool printNode,
 
 // print in cout a line summary of the current solver state
 void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
-  if (pModel_->getVerbosity() == 0) return;
-
   FILE *pFile =
       pModel_->logfile().empty() ?
       stdout :

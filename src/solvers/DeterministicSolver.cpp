@@ -148,6 +148,13 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
     lnsParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
   }
 
+  if (!inputPaths.RCSPPType().empty()) {
+    RCSPPType t = RCSPPTypesByName.at(inputPaths.RCSPPType());
+    completeParameters_.rcspp_type_ = t;
+    rollingParameters_.rcspp_type_ = t;
+    lnsParameters_.rcspp_type_ = t;
+  }
+
   // set the number of threads
   if (inputPaths.nThreads() >= 0)
     options_.nThreads_ = inputPaths.nThreads();
@@ -308,6 +315,14 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
           completeParameters_.sp_max_reduced_cost_bound_;
       rollingParameters_.sp_max_reduced_cost_bound_ =
           completeParameters_.sp_max_reduced_cost_bound_;
+    } else if (Tools::strEndsWith(title, "sortLabelsOption")) {
+      file >> completeParameters_.spp_sortLabelsOption;
+    } else if (Tools::strEndsWith(title, "minimumCostFromSinksOption")) {
+      file >> completeParameters_.spp_minimumCostFromSinksOption;
+    } else if (Tools::strEndsWith(title, "worstCaseCostOption")) {
+      file >> completeParameters_.spp_worstCaseCostOption;
+    } else if (Tools::strEndsWith(title, "enumeratedSubPathOption")) {
+      file >> completeParameters_.spp_enumeratedSubPathOption;
     }
   }
 }

@@ -85,7 +85,7 @@ struct RosterPattern : Pattern {
       timeDuration_(roster.timeDuration_),
       nbWeekends_(roster.nbWeekends_) {}
 
-  ~RosterPattern() {}
+  ~RosterPattern();
 
   int getShift(int day) const override {
     return shifts_[day];
@@ -123,8 +123,7 @@ struct RosterPattern : Pattern {
   }
 
   // Compute the cost of a roster
-  void computeCost(PScenario pScenario,
-                   const std::vector<PLiveNurse> &liveNurses);
+  void computeCost(PScenario pScenario, const PLiveNurse &pNurse);
 
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem

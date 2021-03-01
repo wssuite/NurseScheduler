@@ -18,6 +18,7 @@
 #include <string>
 
 #include "tools/MyTools.h"
+#include "data/Shift.h"
 #include "Demand.h"
 
 // the penalties for violating the soft constraints on the nurses' schedules
@@ -80,6 +81,9 @@ typedef std::shared_ptr<Preferences> PPreferences;
 //  Describes the current (or initial) state of a nurse at D-day
 //
 //-----------------------------------------------------------------------------
+// TODO(JO): the state contains the number of week-ends that have been worked
+//  before, but if the day is a weekend day, we need to know if the week-end
+//  is already counted in this total
 class State {
  public:
   // Constructor and Destructor
@@ -89,7 +93,8 @@ class State {
             consDaysWorked_(0),
             consShifts_(0),
             consDaysOff_(0),
-            shiftType_(0) {}
+            shiftType_(0),
+            pShift_(nullptr) {}
   ~State();
 
   // Constructor with attributes
@@ -108,7 +113,8 @@ class State {
       consShifts_(consShifts),
       consDaysOff_(consDaysOff),
       shiftType_(shiftType),
-      shift_(shift) {}
+      shift_(shift),
+      pShift_(std::make_shared<Shift>(shift, shiftType)) {}
 
   // Function that appends a new day worked on a given shiftType
   // to the previous ones
@@ -163,6 +169,8 @@ class State {
   int shiftType_;
 
   int shift_;
+
+  PShift pShift_;
 };
 
 //-----------------------------------------------------------------------------
@@ -195,11 +203,12 @@ class Scenario {
            std::vector<int> maxConsShiftsType,
            std::vector<int> nbForbiddenSuccessors,
            vector2D<int> forbiddenSuccessors,
+           vector<PShift> pShifts,
            int nbContracts,
            std::vector<std::string> intToContract,
            std::map<std::string, PConstContract> contracts,
            int nbNurses,
-           const std::vector<PNurse> &theNurses,
+           std::vector<PNurse> theNurses,
            std::map<std::string, int> nurseNameToInt,
            PWeights weights);
 
@@ -214,8 +223,9 @@ class Scenario {
 
   ~Scenario();
 
-
   // constant attributes are public
+  // TODO(JO): the above member variables are all public, but we still
+  //  declared public getters, why do that?
  public:
   // name of the scenario
   //
@@ -255,6 +265,7 @@ class Scenario {
   const std::vector<std::string> intToShiftType_;
   const std::map<std::string, int> shiftTypeToInt_;
   const vector2D<int> shiftTypeIDToShiftID_;
+  const vector<PShift> pShifts_;
 
   // std::vector of possible contract types
   //

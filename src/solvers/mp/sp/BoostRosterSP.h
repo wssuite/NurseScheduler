@@ -9,23 +9,23 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_ROSTERSP_H_
-#define SRC_SOLVERS_MP_SP_ROSTERSP_H_
+#ifndef SRC_SOLVERS_MP_SP_BOOSTROSTERSP_H_
+#define SRC_SOLVERS_MP_SP_BOOSTROSTERSP_H_
 
 #include <vector>
 
 #include "solvers/mp/sp/SubProblem.h"
 
-class RosterSP : public SubProblem {
+class BoostRosterSP : public BoostSubProblem {
  public:
   // Constructor that correctly sets the resource (time + bounds),
   // but NOT THE COST
-  RosterSP(PScenario scenario,
-           int nbDays,
-           PConstContract contract,
-           std::vector<State> *pInitState);
+  BoostRosterSP(PScenario scenario,
+                int nbDays,
+                PConstContract contract,
+                std::vector<State> *pInitState);
 
-  virtual ~RosterSP();
+  virtual ~BoostRosterSP();
 
  protected:
   //----------------------------------------------------------------
@@ -36,7 +36,7 @@ class RosterSP : public SubProblem {
 
   // FUNCTIONS -- SOLVE
   // return a function that will post process any path found by the RC graph
-  RCSPPSolver *initRCSSPSolver() override;
+  BoostRCSPPSolver *initRCSSPSolver() override;
 
   // Creates all nodes of the rcspp (including resource window)
   void createNodes() override;
@@ -50,9 +50,9 @@ class RosterSP : public SubProblem {
   // override creation of pricing arcs principal -> sink
   void createArcsPrincipalToSink() override;
 
-  // override updateArcCosts to take into account start and end work costs
+  // override updateArcDualCosts to take into account start and end work costs
   // when going fom/to a rest shift
-  void updateArcCosts() override;
+  void updateArcDualCosts() override;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_ROSTERSP_H_
+#endif  // SRC_SOLVERS_MP_SP_BOOSTROSTERSP_H_

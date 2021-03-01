@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2020 Antoine Legrain, Jeremy Omer, and contributors.
- * All Rights Reserved.
+*Copyright (C) 2020 Antoine Legrain, Jeremy Omer, and contributors.
+*All Rights Reserved.
  *
- * You may use, distribute and modify this code under the terms of the MIT
- * license.
+*You may use, distribute and modify this code under the terms of the MIT
+*license.
  *
- * Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
- * full license detail.
+*Please see the LICENSE file or visit https://opensource.org/licenses/MIT for
+*full license detail.
  */
 
 #include "MasterProblem.h"
@@ -142,7 +142,7 @@ void MasterProblem::initializeSolver(MySolverType solverType) {
   this->preprocessData();
 
   /*
-   * Build the two vectors linking positions and skills
+  *Build the two vectors linking positions and skills
    */
   for (unsigned int p = 0; p < skillsPerPosition_.size(); p++) {
     vector<int> skills(pScenario_->pPositions()[p]->skills_.size());
@@ -627,7 +627,7 @@ void MasterProblem::checkIfPatternAlreadyPresent(
 }
 
 /******************************************************
- * Get the duals values per day for a nurse
+*Get the duals values per day for a nurse
  ******************************************************/
 // build a DualCosts structure
 DualCosts MasterProblem::buildDualCosts(PLiveNurse pNurse) const {
@@ -663,25 +663,53 @@ double MasterProblem::getConstantDualvalue(PLiveNurse pNurse) const {
   return 0;
 }
 
-DualCosts MasterProblem::buildRandomDualCosts() const {
+DualCosts MasterProblem::buildRandomDualCosts(bool optimalDemandConsidered,
+                                              int NDaysShifts) const {
+  // TODO(JO): below, every dual cost is initialized, so I fear that they
+  //  will all be used to modify arcs costs, even in the roster-based
+  //  decomposition
+  vector<vector<double>> workDualCosts;
+  if (optimalDemandConsidered) {
+    // This following 2D vector will contain all the dual costs corresponding
+    // to each day and to each shift associated with this day.
+    Tools::initVector2D(
+        &workDualCosts, pDemand_->nbDays_, pScenario_->nbShifts_ - 1, 0.0);
+    // All the values in the vector are initialized to 0 and only a few of
+    // these will be randomly replaced by a value corresponding to the
+    // optimal demand weight multiplied by a random coefficient between 1 and 3.
+    // The number of days-shifts whose dual cost will be changed is given by
+    // the parameter 'NDaysShifts'.
+    std::set<int> daysToBeModified;
+    while (daysToBeModified.size() < NDaysShifts)
+      daysToBeModified.insert(Tools::randomInt(0, pDemand_->nbDays_-1));
+    for (auto day : daysToBeModified) {
+      int idShift = Tools::randomInt(0, pScenario_->nbShifts_-2);
+      int coeff = Tools::randomInt(1, 3);
+      workDualCosts[day][idShift] =
+          coeff*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND;
+    }
+  } else {
+    workDualCosts = Tools::randomDoubleVector2D(
+            pDemand_->nbDays_, pScenario_->nbShifts_ - 1,
+            0, 3*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
+  }
   return DualCosts(
-      Tools::randomDoubleVector2D(
-          pDemand_->nbDays_, pScenario_->nbShifts_ - 1,
-          0, 3 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+      workDualCosts,
       Tools::randomDoubleVector(
           pDemand_->nbDays_,
           0,
-          7 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+          7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
       Tools::randomDoubleVector(
           pDemand_->nbDays_,
           0,
-          7 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
-      Tools::randomDouble(0, 2 * pScenario_->weights().WEIGHT_TOTAL_WEEKENDS),
-      Tools::randomDouble(0, 10 * pScenario_->weights().WEIGHT_OPTIMAL_DEMAND));
+          7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+      Tools::randomDouble(0, 2*pScenario_->weights().WEIGHT_TOTAL_WEEKENDS),
+      Tools::randomDouble(-10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND,
+                          10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND));
 }
 
 /*
- * Skills coverage constraints
+*Skills coverage constraints
  */
 void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
   char name[255];

@@ -62,6 +62,9 @@ void setStochasticSolverOptions(StochasticSolverOptions *options,
   options->rankingStrategy_ = RK_MEAN;
   options->demandingEvaluation_ = true;
   options->verbose_ = 0;
+#ifdef DBG
+  options->verbose_ = 1;
+#endif
 
   SolverParam generationParameters;
   generationParameters.maxSolvingTimeSeconds_ =
@@ -413,7 +416,6 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
   double timeLeft =
       options_.totalTimeLimitSeconds_ - pTimerTotal_->dSinceInit();
   Tools::Timer *timerSolve = new Tools::Timer();
-  timerSolve->init();
   double timeLastSolve = 0.0;
   int maxNbAddedWeeks = pScenario_->nbWeeks() - (pScenario_->thisWeek() + 1);
   int nbAddedWeeks = 0;
@@ -757,6 +759,8 @@ bool StochasticSolver::evaluateSchedule(int sched) {
       if (timeLeft < 1.0) {
         std::cout << "# Time has run out when evaluating schedule no."
                   << (nSchedules_ - 1) << std::endl;
+        std::cout << options_.totalTimeLimitSeconds_ << "; "
+                  << pTimerTotal_->dSinceInit() << std::endl;
         return false;
       }
     }

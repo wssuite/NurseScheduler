@@ -41,7 +41,7 @@ State::~State() {}
 //  totalTimeWorked_ += (newShiftType ? 1 : 0);
 //
 //  // Total weekends worked :
-//  // +1 IF : new day is a Sunday and the nurse works on shift_ or newShift
+//  // +1 IF : new day is a Sunday and the nurse works on pShift_ or newShift
 //  if (Tools::isSunday(dayId_ - 1) and (newShiftType or shiftType_))
 //    totalWeekendsWorked_++;
 //
@@ -101,7 +101,7 @@ void State::addDayToState(const State &prevState,
   } else if (prevShiftType >= 0) {
     // Total weekends worked:
     // +1 IF : new day is a Sunday and the nurse works
-    // on prevState.shift_ or newShift
+    // on prevState.pShift_ or newShift
     if (Tools::isSunday(dayId_ - 1) && (newShiftType || prevState.shiftType_))
       totalWeekendsWorked_ = prevState.totalWeekendsWorked_ + 1;
     else
@@ -198,38 +198,40 @@ Scenario::Scenario(string name,
                    vector<int> maxConsShiftType,
                    vector<int> nbForbiddenSuccessors,
                    vector2D<int> forbiddenSuccessors,
+                   vector<PShift> pShifts,
                    int nbContracts,
                    vector<string> intToContract,
                    map<string, PConstContract> contracts,
                    int nbNurses,
-                   const vector<PNurse> &theNurses,
+                   vector<PNurse> theNurses,
                    map<string, int> nurseNameToInt,
                    PWeights weights) :
-    name_(name),
+    name_(std::move(name)),
     nbWeeks_(nbWeeks),
     nbSkills_(nbSkills),
-    intToSkill_(intToSkill),
-    skillToInt_(skillToInt),
+    intToSkill_(std::move(intToSkill)),
+    skillToInt_(std::move(skillToInt)),
     nbShifts_(nbShifts),
-    intToShift_(intToShift),
-    shiftToInt_(shiftToInt),
-    timeDurationToWork_(hoursToWork),
-    shiftIDToShiftTypeID_(shiftIDToShiftTypeID),
+    intToShift_(std::move(intToShift)),
+    shiftToInt_(std::move(shiftToInt)),
+    timeDurationToWork_(std::move(hoursToWork)),
+    shiftIDToShiftTypeID_(std::move(shiftIDToShiftTypeID)),
     nbShiftsType_(nbShiftsType),
-    intToShiftType_(intToShiftType),
-    shiftTypeToInt_(shiftTypeToInt),
-    shiftTypeIDToShiftID_(shiftTypeIDToShiftID),
+    intToShiftType_(std::move(intToShiftType)),
+    shiftTypeToInt_(std::move(shiftTypeToInt)),
+    shiftTypeIDToShiftID_(std::move(shiftTypeIDToShiftID)),
+    pShifts_(std::move(pShifts)),
     nbContracts_(nbContracts),
-    intToContract_(intToContract),
-    pContracts_(contracts),
+    intToContract_(std::move(intToContract)),
+    pContracts_(std::move(contracts)),
     nbNurses_(nbNurses),
-    theNurses_(theNurses),
-    nurseNameToInt_(nurseNameToInt),
-    pWeights_(weights),
-    minConsShiftType_(minConsShiftType),
-    maxConsShiftType_(maxConsShiftType),
-    nbForbiddenSuccessors_(nbForbiddenSuccessors),
-    forbiddenSuccessors_(forbiddenSuccessors),
+    theNurses_(std::move(theNurses)),
+    nurseNameToInt_(std::move(nurseNameToInt)),
+    pWeights_(std::move(weights)),
+    minConsShiftType_(std::move(minConsShiftType)),
+    maxConsShiftType_(std::move(maxConsShiftType)),
+    nbForbiddenSuccessors_(std::move(nbForbiddenSuccessors)),
+    forbiddenSuccessors_(std::move(forbiddenSuccessors)),
     pWeekDemand_(0),
     nbShiftOffRequests_(0),
     nbShiftOnRequests_(0),
@@ -267,6 +269,7 @@ Scenario::Scenario(PScenario pScenario,
     intToShiftType_(pScenario->intToShiftType_),
     shiftTypeToInt_(pScenario->shiftTypeToInt_),
     shiftTypeIDToShiftID_(pScenario->shiftTypeIDToShiftID_),
+    pShifts_(pScenario->pShifts_),
     nbContracts_(pScenario->nbContracts_),
     intToContract_(pScenario->intToContract_),
     pContracts_(pScenario->pContracts_),
@@ -291,7 +294,6 @@ Scenario::Scenario(PScenario pScenario,
   //
   this->preprocessTheNurses();
 
-
   // The nurses are already preprocessed at this stage
   // Load the input week demand and preferences
   //
@@ -299,7 +301,7 @@ Scenario::Scenario(PScenario pScenario,
   this->linkWithPreferences(pWeekPreferences);
 }
 
-Scenario::~Scenario() {}
+Scenario::~Scenario() = default;
 
 void Scenario::setWeekPreferences(PPreferences weekPreferences) {
   pWeekPreferences_ = weekPreferences;

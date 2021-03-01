@@ -9,7 +9,7 @@
  * full license detail.
  */
 
-#include "Nurse.h"
+#include "data/Nurse.h"
 
 #include <math.h>
 #include <time.h>
@@ -328,7 +328,7 @@ bool Preferences::wantsTheDayOff(int nurseNum, int day) const {
     return false;
   // Set does not repeat its elements. Wants the day off if and only if
   // all shifts off (-1 because REST does not appear)
-  return itM->second.size() == nbShifts_ - 1;
+  return static_cast<int>(itM->second.size()) == nbShifts_ - 1;
 }
 
 // Total number of shifts off that the nurse wants
@@ -397,7 +397,7 @@ bool Preferences::wantsTheDayOn(int nurseNum, int day) const {
     return false;
   // Set does not repeat its elements. Wants the day on if and only if
   // all shifts off (-1 because REST does not appear)
-  return itM->second.size() == nbShifts_ - 1;
+  return static_cast<int>(itM->second.size()) == nbShifts_ - 1;
 }
 
 // Total number of shifts on that the nurse wants
@@ -417,7 +417,7 @@ int Preferences::howManyDaysOn(int nurseNum, int dayMin, int dayMax) const {
   // look at every wishes of the nurse
   for (const auto &dayOn : wishesOn_.at(nurseNum)) {
     nbDayOn += ((dayOn.first >= dayMin) && (dayOn.first <= dayMax)
-        && (dayOn.second.size() == nbShifts_ - 1));
+        && (static_cast<int>(dayOn.second.size()) == nbShifts_ - 1));
   }
   return nbDayOn;
 }
