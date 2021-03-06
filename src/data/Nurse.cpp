@@ -424,7 +424,7 @@ int Preferences::howManyDaysOn(int nurseNum, int dayMin, int dayMax) const {
 
 // add another week preferences at the end of the current one
 //
-void Preferences::push_back(PPreferences pPref) {
+void Preferences::pushBack(PPreferences pPref) {
   // check if same scenario
   if ((nbShifts_ != pPref->nbShifts_) || (nbNurses_ != pPref->nbNurses_)) {
     string error = "Preferences are not compatible";

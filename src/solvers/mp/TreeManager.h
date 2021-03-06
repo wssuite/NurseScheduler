@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "solvers/mp/modeler/Modeler.h"
 #include "solvers/mp/MasterProblem.h"
 
@@ -337,7 +337,7 @@ class DiveBranchingRule : public MyBranchingRule {
 
   MasterProblem *getMaster() const;
   Modeler *getModel() const;
-  const std::vector<DualCosts> &getDualCosts() const;
+  const std::vector<PDualCosts> &getPDualCosts() const;
 
  protected:
   // Pointer to the master problem to link the master and the sub problems
@@ -350,7 +350,7 @@ class DiveBranchingRule : public MyBranchingRule {
   Modeler *pModel_;
 
   // store dual costs
-  std::vector<DualCosts> dualCosts_;
+  std::vector<PDualCosts> pDualCosts_;
 
   std::unique_ptr<ScoreVar> scoreFunc_;
 

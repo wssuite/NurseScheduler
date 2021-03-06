@@ -9,23 +9,31 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_BOOSTROTATIONSP_H_
-#define SRC_SOLVERS_MP_SP_BOOSTROTATIONSP_H_
+#ifndef SRC_SOLVERS_MP_SP_RCSPP_BOOST_ROTATIONSP_H_
+#define SRC_SOLVERS_MP_SP_RCSPP_BOOST_ROTATIONSP_H_
 
 #include <vector>
 
-#include "solvers/mp/sp/SubProblem.h"
+#include "SubProblem.h"
 
-class BoostRotationSP : public BoostSubProblem {
+namespace boostRCSPP {
+
+class RotationSP : public SubProblem {
  public:
-  BoostRotationSP() = default;
+  RotationSP() = default;
 
-  BoostRotationSP(PScenario scenario,
-                  int nbDays,
-                  PConstContract contract,
-                  std::vector<State> *pInitState);
+  RotationSP(PScenario scenario,
+             int nbDays,
+             PConstContract contract,
+             std::vector<State> *pInitState);
 
-  virtual ~BoostRotationSP();
+  virtual ~RotationSP();
+
+  double startWorkCost(int a) const override;
+
+  double shiftCost(int a) const override;
+
+  double endWorkCost(int a) const override;
 
  protected:
   // Index: (shiftType, day) of origin
@@ -48,4 +56,6 @@ class BoostRotationSP : public BoostSubProblem {
   void updateArcDualCosts() override;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_BOOSTROTATIONSP_H_
+}  // namespace boostRCSPP
+
+#endif  // SRC_SOLVERS_MP_SP_RCSPP_BOOST_ROTATIONSP_H_

@@ -293,7 +293,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   // Need to perturb the costs?
   //
   if (options_.generationCostPerturbation_) {
-    pReusableGenerationSolver_->setBoundsAndWeights(
+    pReusableGenerationSolver_->boundsAndWeights(
         options_.generationParameters_.weightStrategy_);
   }
 
@@ -302,11 +302,11 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   (*pLogStream_) << "# Solve without evaluation\n";
   pReusableGenerationSolver_->solve(options_.generationParameters_);
   if (!options_.withRealDemand_) {
-    solution_ = pReusableGenerationSolver_->getSolutionAtDay(6);
+    solution_ = pReusableGenerationSolver_->solutionAtDay(6);
   } else {
-    solution_ = pReusableGenerationSolver_->getSolutionAtDay(13);
+    solution_ = pReusableGenerationSolver_->solutionAtDay(13);
   }
-  status_ = pReusableGenerationSolver_->getStatus(true);
+  status_ = pReusableGenerationSolver_->status(true);
 }
 
 // Special case of the last week
@@ -314,8 +314,8 @@ void StochasticSolver::solveOneWeekWithoutPenalties() {
   Solver *pSolver =
       setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), GENCOL);
   pSolver->solve(options_.generationParameters_);
-  solution_ = pSolver->getSolution();
-  status_ = pSolver->getStatus(true);
+  solution_ = pSolver->solution();
+  status_ = pSolver->status(true);
   delete pSolver;
 }
 
@@ -324,7 +324,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation() {
   while (nSchedules_ < options_.nGenerationDemandsMax_) {
     // get the time left to solve another schedule
     double
-        timeLeft = options_.totalTimeLimitSeconds_ - pTimerTotal_->dSinceInit();
+        timeLeft = options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
     if (nSchedules_ > 0) {
       if (timeLeft < 1.0) break;
       // options_.generationParameters_.maxSolvingTimeSeconds_  =
@@ -414,8 +414,8 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
 
   // Initialize the values that intervene in the stopping criterion
   double timeLeft =
-      options_.totalTimeLimitSeconds_ - pTimerTotal_->dSinceInit();
-  Tools::Timer *timerSolve = new Tools::Timer();
+      options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
+  Tools::Timer timerSolve;
   double timeLastSolve = 0.0;
   int maxNbAddedWeeks = pScenario_->nbWeeks() - (pScenario_->thisWeek() + 1);
   int nbAddedWeeks = 0;
@@ -433,7 +433,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
 
     // Solve the week with no evaluation and
     // nbAddedWeek extra weeks in the demand
-    timerSolve->start();
+    timerSolve.start();
     (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                    << "] Solving week no. " << pScenario_->thisWeek()
                    << " with PERTURBATIONS." << std::endl;
@@ -448,7 +448,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
         solveOneWeekNoGenerationEvaluation();
       }
       // Go back to the last solution if the solver was interrupted
-      timeLeft = options_.totalTimeLimitSeconds_ - pTimerTotal_->dSinceInit();
+      timeLeft = options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
       if (timeLeft <= 1.0) {
         (*pLogStream_)
             << "# The execution had to be interrupted, "
@@ -481,8 +481,8 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
       outStream << solutionToString();
     }
 
-    timerSolve->stop();
-    timeLastSolve = timerSolve->dSinceStart();
+    timerSolve.stop();
+    timeLastSolve = timerSolve.dSinceStart();
     nbAddedWeeks++;
   }
 }
@@ -553,7 +553,7 @@ void StochasticSolver::generateSingleGenerationDemand() {
   (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                  << "] Generation demand no. " << (nGenerationDemands_ - 1)
                  << " created (over "
-                 << pGenerationDemands_[nGenerationDemands_ - 1]->nbDays_
+                 << pGenerationDemands_[nGenerationDemands_ - 1]->nDays_
                  << " days)." << std::endl;
 }
 
@@ -638,7 +638,7 @@ void StochasticSolver::generateNewSchedule() {
     }
 
     if (options_.generationCostPerturbation_) {
-      pReusableGenerationSolver_->setBoundsAndWeights(
+      pReusableGenerationSolver_->boundsAndWeights(
           options_.generationParameters_.weightStrategy_);
     }
 
@@ -650,8 +650,8 @@ void StochasticSolver::generateNewSchedule() {
       pReusableGenerationSolver_->resolve(newDemand,
                                           options_.generationParameters_);
 
-    if (pReusableGenerationSolver_->getStatus(true) == FEASIBLE
-        || pReusableGenerationSolver_->getStatus() == OPTIMAL) {
+    if (pReusableGenerationSolver_->status(true) == FEASIBLE
+        || pReusableGenerationSolver_->status() == OPTIMAL) {
       hasFoundFeasible = true;
     } else {
       nGenerationDemands_--;
@@ -661,8 +661,8 @@ void StochasticSolver::generateNewSchedule() {
 
   // C. Store the solution
   //
-  schedules_.push_back(pReusableGenerationSolver_->getSolutionAtDay(6));
-  finalStates_.push_back(pReusableGenerationSolver_->getStatesOfDay(6));
+  schedules_.push_back(pReusableGenerationSolver_->solutionAtDay(6));
+  finalStates_.push_back(pReusableGenerationSolver_->statesOfDay(6));
 
   // D. Update the data
   //
@@ -673,7 +673,7 @@ void StochasticSolver::generateNewSchedule() {
   (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                  << "] Candidate schedule no. " << (nSchedules_ - 1)
                  << " generated: (length: "
-                 << pReusableGenerationSolver_->getNbDays() << " days)"
+                 << pReusableGenerationSolver_->nDays() << " days)"
                  << std::endl;
 }
 
@@ -749,18 +749,18 @@ bool StochasticSolver::evaluateSchedule(int sched) {
   // set the time per evaluation to the ratio of the time left
   // over the number of evaluations
   // double timeLeft =
-  // options_.totalTimeLimitSeconds_-pTimerTotal_->dSinceInit();
+  // options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
   // options_.evaluationParameters_.maxSolvingTimeSeconds_ =
   // (timeLeft-1.0)/(double)options_.nEvaluationDemands_;
   for (int j = 0; j < options_.nEvaluationDemands_; j++) {
     double timeLeft =
-        options_.totalTimeLimitSeconds_ - pTimerTotal_->dSinceInit();
+        options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
     if (nSchedules_ > 0) {
       if (timeLeft < 1.0) {
         std::cout << "# Time has run out when evaluating schedule no."
                   << (nSchedules_ - 1) << std::endl;
         std::cout << options_.totalTimeLimitSeconds_ << "; "
-                  << pTimerTotal_->dSinceInit() << std::endl;
+                  << timerTotal_.dSinceInit() << std::endl;
         return false;
       }
     }
@@ -782,9 +782,9 @@ bool StochasticSolver::evaluateSchedule(int sched) {
 #endif
 
     if (options_.evaluationCostPerturbation_) {
-      if (pReusableEvaluationSolvers_[sched]->getNbDays()
+      if (pReusableEvaluationSolvers_[sched]->nDays()
           + (7 * pScenario_->thisWeek() + 1) < 7 * pScenario_->nbWeeks_) {
-        pReusableEvaluationSolvers_[sched]->setBoundsAndWeights(
+        pReusableEvaluationSolvers_[sched]->boundsAndWeights(
             options_.evaluationParameters_.weightStrategy_);
 #ifdef COMPARE_EVALUATIONS
         pGreedyEvaluators[j]->computeWeightsTotalShiftsForStochastic();
@@ -800,7 +800,7 @@ bool StochasticSolver::evaluateSchedule(int sched) {
     double currentCostGreedy = costPreviousWeeks_ + baseCost;
 #endif
 
-    if (pReusableGenerationSolver_->getStatus(true) == INFEASIBLE) {
+    if (pReusableGenerationSolver_->status(true) == INFEASIBLE) {
       currentCost = 1.0e6;
 #ifdef COMPARE_EVALUATIONS
       currentCostGreedy = 1.0e6;

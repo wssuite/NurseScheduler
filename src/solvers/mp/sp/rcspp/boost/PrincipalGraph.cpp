@@ -13,12 +13,14 @@
 
 #include <string>
 
-#include "solvers/mp/sp/SubProblem.h"
+#include "SubProblem.h"
 
 using std::string;
 using std::vector;
 
-PrincipalGraph::PrincipalGraph(int shift_type, BoostSubProblem *sp) :
+namespace boostRCSPP {
+
+PrincipalGraph::PrincipalGraph(int shift_type, SubProblem *sp) :
     SubGraph(), pSP_(sp), shift_type_(shift_type), max_cons_(-1) {
   if (sp) {
     max_cons_ = sp->maxCons(shift_type);
@@ -259,3 +261,5 @@ bool PrincipalGraph::checkIfShiftBelongsHere(int s, bool print_err) const {
   }
   return true;
 }
+
+}  // namespace boostRCSPP

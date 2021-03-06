@@ -12,20 +12,18 @@
 #include "ConsShiftResource.h"
 
 int SoftConsShiftResource::getConsumption(const State & initialState) const {
-  int conso = 0;
-  if (pShift_->isAnyWork()) {
-    conso = initialState.consDaysWorked_;
-  } else if (pShift_->isRest()) {
-    conso = initialState.consDaysOff_;
-  } else if (pShift_->includes(*initialState.pShift_)) {
-    conso = initialState.consShifts_;
-  }
-  return conso;
+  if (pShift_->isAnyWork())
+    return initialState.consDaysWorked_;
+  if (pShift_->isRest())
+    return initialState.consDaysOff_;
+  if (pShift_->includes(*initialState.pShift_))
+    return initialState.consShifts_;
+  return 0;
 }
 
-PExpander SoftConsShiftResource::init(const Shift &prevShift,
+PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
                                       const Stretch &stretch,
-                                      const RCArc &arc) {
+                                      const PRCArc &pArc) {
   // we need to count the number of times the considered shift appears at the
   // beginning of the arc's stretch
 
@@ -42,15 +40,18 @@ PExpander SoftConsShiftResource::init(const Shift &prevShift,
     // same shift ->increment consBeforeReset
     if (pShift_->includes(**itShift)) {
       consBeforeReset += 1;
-    } else if (pShift_->includes(prevShift) || consBeforeReset >= 1) {
-      reset = true;
-      break;
+      continue;
     }
+    // reset ? either was working on this shift just before or
+    // has already worked some same shifts here
+    reset = pShift_->includes(prevAShift) || consBeforeReset > 0;
+    break;
   }
 
-  // if inactive, initialize nothing
-  if (consBeforeReset == 0 && !reset)
-    return nullptr;
+  // The arc starts the consumption of the resource if the previous shift is
+  // not included in the resource abstract shift, and if the resource shift
+  // is consumed before reset
+  bool start = (!pShift_->includes(prevAShift)) && (consBeforeReset > 0);
 
   // then compute the penalty due to consecutive shifts inside the stretch
   // -> after reset
@@ -69,18 +70,30 @@ PExpander SoftConsShiftResource::init(const Shift &prevShift,
     }
   }
 
+  // pay for excess of consumption
+  // pay attention that consumptions in the label of the source should not
+  // exceed the upper bounds
+  if (consAfterReset > ub_) {
+    cost += ubCost_ * (consAfterReset - ub_);
+    consAfterReset = ub_;
+  }
+
+  // add cost to base cost of the arc
+  pArc->addBaseCost(cost);
+
+  // if nothing before and after reset and no reset (price previous consumption)
+  // -> initialize nothing
+  if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
+    return nullptr;
+
   // if the stretch ends with the considered, we get a non-zero number of
   // consecutive shifts after replenishment
-  if (arc.target->type == SINK_NODE)
-    return std::make_shared<SoftConsShiftExpander>(
-        *this, reset, consBeforeReset, consAfterReset, cost, true, nDaysLeft);
-  else
-    return std::make_shared<SoftConsShiftExpander>(
-        *this, reset, consBeforeReset, consAfterReset, cost, nDaysLeft);
+  return std::make_shared<SoftConsShiftExpander>(
+      *this, start, reset, consBeforeReset, consAfterReset,
+      pArc->target->type == SINK_NODE, nDaysLeft);
 }
 
-bool SoftConsShiftExpander::expand(const ResourceValues &vParent,
-                                   const PRCLabel &pLChild,
+bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
                                    ResourceValues *vChild) {
   // consumption before resetting resource if any reset
   vChild->consumption += consBeforeReset;
@@ -89,7 +102,12 @@ bool SoftConsShiftExpander::expand(const ResourceValues &vParent,
   // pay attention that consumptions in the label of the source should not
   // exceed the upper bounds
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addConsShiftCost(resource_.getUbCost(vChild->consumption));
+    pLChild->addCost(
+        resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
+#ifdef DBG
+    pLChild->addConsShiftCost(
+        resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
+#endif
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
   }
@@ -98,12 +116,16 @@ bool SoftConsShiftExpander::expand(const ResourceValues &vParent,
   if (!reset) {
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
-    vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption);
+    vChild->worstUbCost =
+        resource_.getWorstUbCost(vChild->consumption, nDaysLeft);
     return true;
   }
 
   // pay for violations of soft bounds when resetting a resource
+  pLChild->addCost(resource_.getLbCost(vChild->consumption));
+#ifdef DBG
   pLChild->addConsShiftCost(resource_.getLbCost(vChild->consumption));
+#endif
 
   // set new consumption to what is consumed after resetting
   vChild->consumption = consAfterReset;
@@ -112,15 +134,80 @@ bool SoftConsShiftExpander::expand(const ResourceValues &vParent,
   if (consAfterReset) {
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
-    vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption);
+    vChild->worstUbCost =
+        resource_.getWorstUbCost(vChild->consumption, nDaysLeft);
   } else {
     vChild->worstLbCost = .0;
     vChild->worstUbCost = .0;
   }
-  // ensure that consumption does not exceed ub_
-  if (vChild->consumption > resource_.getUb())
-    vChild->consumption = resource_.getUb();
 
+  return true;
+}
+bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
+                                       ResourceValues *vChild) {
+  if (!reset) {
+    // consumption is in consBeforeReset if there is no reset
+    vChild->consumption += consBeforeReset;
+  } else {
+    // when going backwards, we first add the consumption after the reset
+    vChild->consumption += consAfterReset;
+    if (vChild->consumption > 0) {
+      // pay for violations of soft bounds when resetting a resource
+      pLChild->addCost(resource_.getLbCost(vChild->consumption));
+      // pay for excess of consumption at reset
+      if (vChild->consumption > resource_.getUb()) {
+        pLChild->addCost(
+            resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
+      }
+    }
+    // set new consumption to what is consumed before resetting
+    vChild->consumption = consBeforeReset;
+  }
+  // if the consumption is 0, reset the state of the resource
+  if (vChild->consumption == 0) {
+    vChild->worstLbCost = .0;
+    vChild->worstUbCost = .0;
+    return true;
+  }
+  // pay for excess of consumption due to this expansion
+  if (vChild->consumption > resource_.getUb()) {
+    pLChild->addCost(
+        resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
+    // beware: we never need to store a consumption larger than the upper
+    // bound
+    vChild->consumption = resource_.getUb();
+  }
+
+  // if it is a start arc, pay for violation of lower bound and reset
+  // wors-case costs
+  if (start) {
+    pLChild->addCost(resource_.getLbCost(vChild->consumption));
+    vChild->consumption = 0;
+    vChild->worstLbCost = .0;
+    vChild->worstUbCost = .0;
+    return true;
+  }
+
+  // DOC: when expanding back, consumption of resource related to the node we
+  // are expanding to is not counted. This means that we know that at least
+  // one more unit of resource will be consumed when going out of the node.
+  // We can use it to improve the computation of worst-case costs
+  vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption + 1);
+  vChild->worstUbCost =
+      resource_.getWorstUbCost(vChild->consumption + 1, resource_
+          .getTotalNbDays()
+          - nDaysLeft);
+  return true;
+}
+bool SoftConsShiftExpander::merge(const ResourceValues &vForward,
+                                  const ResourceValues &vBack,
+                                  ResourceValues *vMerged,
+                                  const PRCLabel &pLMerged) {
+  vMerged->consumption = vForward.consumption + vBack.consumption;
+  if (vMerged->consumption >= 1) {
+    pLMerged->addCost(resource_.getUbCost(vMerged->consumption));
+    pLMerged->addCost(resource_.getLbCost(vMerged->consumption));
+  }
   return true;
 }
 
@@ -134,9 +221,9 @@ int HardConsShiftResource::getConsumption(const State &  initialState) const {
   return 0;
 }
 
-PExpander HardConsShiftResource::init(const Shift &prevShift,
+PExpander HardConsShiftResource::init(const AbstractShift &prevAShift,
                                       const Stretch &stretch,
-                                      const RCArc &arc) {
+                                      const PRCArc &pArc) {
   // we need to count the number of times the considered shift appears at the
   // beginning of the arc's stretch
   bool reset = false;
@@ -148,7 +235,7 @@ PExpander HardConsShiftResource::init(const Shift &prevShift,
   for (; itShift != stretch.pShifts().end(); itShift++) {
     if (pShift_->includes(**itShift)) {
       consBeforeReset += 1;
-    } else if (pShift_->includes(prevShift) || consBeforeReset >= 1) {
+    } else if (pShift_->includes(prevAShift) || consBeforeReset >= 1) {
       reset = true;
       break;
     }
@@ -157,6 +244,11 @@ PExpander HardConsShiftResource::init(const Shift &prevShift,
   // if inactive, initialize nothing
   if (consBeforeReset == 0 && !reset)
     return nullptr;
+
+  // The arc starts the consumption of the resource if the previous shift is
+  // not included in the resource abstract shift, and if the resource shift
+  // is consumed before reset
+  bool start = (!pShift_->includes(prevAShift)) && (consBeforeReset > 0);
 
   if (consBeforeReset > ub_)
     Tools::throwError("RCSPP arc is infeasible");
@@ -178,11 +270,10 @@ PExpander HardConsShiftResource::init(const Shift &prevShift,
   // if the stretch ends with the considered, we get a non-zero number of
   // consecutive shifts after replenishment
   return std::make_shared<HardConsShiftExpander>(
-      *this, reset, consBeforeReset, consAfterReset, cost);
+      *this, start, reset, consBeforeReset, consAfterReset, cost);
 }
 
-bool HardConsShiftExpander::expand(const ResourceValues &vParent,
-                                   const PRCLabel &pLChild,
+bool HardConsShiftExpander::expand(const PRCLabel &pLChild,
                                    ResourceValues *vChild) {
   // consumption before resetting resource if any reset
   vChild->consumption += consBeforeReset;
@@ -199,5 +290,42 @@ bool HardConsShiftExpander::expand(const ResourceValues &vParent,
     vChild->consumption = consAfterReset;
   }
   return true;
+}
+bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
+                                       ResourceValues *vChild) {
+  // if resetting counter
+  if (reset) {
+    // first add consumption after reset resource
+    vChild->consumption += consAfterReset;
+    if (vChild->consumption > 0) {
+      // detect infeasibility due to upper bound
+      if (vChild->consumption > resource_.getUb()) return false;
+      // expansion is infeasible if consumption lower than bound at reset
+      if (vChild->consumption < resource_.getLb()) return false;
+    }
+    // set new consumption to what is consumed before resetting
+    vChild->consumption = consBeforeReset;
+  } else {
+    // the consumpption is in consBeforeReset if no reset
+    vChild->consumption += consBeforeReset;
+    // detect infeasibility due to upper bound
+    if (vChild->consumption > resource_.getUb()) return false;
+  }
+
+  // check lower bound if the arc starts the consumption of the resource
+  if (start) {
+    if (vChild->consumption < resource_.getLb()) return false;
+  }
+
+  return true;
+}
+bool HardConsShiftExpander::merge(const ResourceValues &vForward,
+                                  const ResourceValues &vBack,
+                                  ResourceValues *vMerged,
+                                  const PRCLabel &pLMerged) {
+  vMerged->consumption = vForward.consumption + vBack.consumption;
+  return (vMerged->consumption == 0) ||
+      ((vMerged->consumption <= resource_  .getUb()) &&
+          (vMerged->consumption >= resource_.getLb()));
 }
 

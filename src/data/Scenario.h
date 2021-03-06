@@ -17,7 +17,7 @@
 #include <vector>
 #include <string>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "data/Shift.h"
 #include "Demand.h"
 
@@ -93,6 +93,8 @@ class State {
             consDaysWorked_(0),
             consShifts_(0),
             consDaysOff_(0),
+            consWeekendWorked_(0),
+            consWeekendOff_(0),
             shiftType_(0),
             pShift_(nullptr) {}
   ~State();
@@ -112,6 +114,8 @@ class State {
       consDaysWorked_(consDaysWorked),
       consShifts_(consShifts),
       consDaysOff_(consDaysOff),
+      consWeekendWorked_(0),
+      consWeekendOff_(0),
       shiftType_(shiftType),
       shift_(shift),
       pShift_(std::make_shared<Shift>(shift, shiftType)) {}
@@ -160,7 +164,8 @@ class State {
   // and of consecutive days worked on the same shiftType
   // ending at D (including RESTSHIFT = 0) and shiftType worked on D-Day.
   //
-  int consDaysWorked_, consShifts_, consDaysOff_;
+  int consDaysWorked_, consShifts_, consDaysOff_,
+      consWeekendWorked_, consWeekendOff_;
 
   // Type of shift worked on D-Day. It can be a rest shift (=0).
   // A negative value -d means that the nurse has not been assigned a task for
@@ -255,6 +260,10 @@ class Scenario {
   }
   bool isWorkShift(int shift) const { return !isRestShift(shift); }
   bool isAnyShift(int shift) const { return shift == -1; }
+  bool isRestShiftType(int st) const {
+    return st == 0;
+  }
+  bool isWorkShiftType(int st) const { return !isRestShiftType(st); }
 
   // number of typeshifts, a std::map and a std::vector matching the name of
   // each type shift to an index and,
@@ -440,7 +449,7 @@ class Scenario {
   // getters for the attribute of the demand
   //
   int firstDay() { return pWeekDemand_->firstDay_; }
-  int nbDays() { return pWeekDemand_->nbDays_; }
+  int nbDays() { return pWeekDemand_->nDays_; }
 
   // Setters to class attributes
 

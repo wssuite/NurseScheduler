@@ -1,8 +1,9 @@
 set(LIB_NAME resources)
 set(SOURCE_FILES
         TotalWeekendsResource.cpp
-        TotalShiftResource.cpp
-        ConsShiftResource.cpp)
+        TotalShiftDurationResource.cpp
+        ConsShiftResource.cpp
+        ConsWeekendShiftResource.cpp)
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})
 target_link_libraries(${LIB_NAME} ${LIBS})

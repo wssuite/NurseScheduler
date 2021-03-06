@@ -17,14 +17,16 @@
 #include <utility>
 #include <vector>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 
 using std::string;
 using std::vector;
 using std::shared_ptr;
 
 struct AbstractShift {
+  explicit AbstractShift(const std::string _name = "") : name(_name) {}
   virtual ~AbstractShift() = default;
+
   virtual bool isWork() const { return false; }
   virtual bool isRest() const { return false; }
   virtual bool isAnyWork() const {return false;}
@@ -33,23 +35,27 @@ struct AbstractShift {
   virtual bool isShift(int i) const { return false; }
   virtual int workTime() const { return 0; }
 
-  virtual void print() const = 0;
+  virtual void print() const {
+    std::cout << name << std::endl;
+  }
 
   virtual bool includes(const AbstractShift &) = 0;
+
+  const string name;
 };
 
 typedef shared_ptr<AbstractShift> PAbstractShift;
 
 struct Shift : public AbstractShift {
   // Default constructor builds a resting shift
-  Shift() : name(""),
+  Shift() : AbstractShift(),
             id(0),
             type(0),
             duration(0),
             successors(vector<int>()),
             minCons(0),
             maxCons(99) {}
-  Shift(int id, int type) : name(""),
+  Shift(int id, int type) : AbstractShift(),
                             id(id),
                             type(type),
                             duration(0),
@@ -62,7 +68,7 @@ struct Shift : public AbstractShift {
         int time = 0,
         vector<int> list = vector<int>(),
         int m = 0,
-        int M = 99) : name(std::move(str)),
+        int M = 99) : AbstractShift(std::move(str)),
                       id(i),
                       type(t),
                       duration(time),
@@ -72,7 +78,7 @@ struct Shift : public AbstractShift {
 
 
   Shift(const Shift &shift):
-      name(shift.name),
+      AbstractShift(shift.name),
       id(shift.id),
       type(shift.type),
       duration(shift.duration),
@@ -92,11 +98,6 @@ struct Shift : public AbstractShift {
   int workTime() const override { return duration; }
   bool includes(const AbstractShift &s) override { return s.isShift(id); }
 
-  void print() const override {
-    std::cout << name << std::endl;
-  }
-
-  const string name;
   const int id;
   const int type;
   const int duration;
@@ -108,30 +109,25 @@ struct Shift : public AbstractShift {
 typedef shared_ptr<Shift> PShift;
 
 struct AnyWorkShift : public AbstractShift {
-  AnyWorkShift() = default;
+  AnyWorkShift(): AbstractShift("work") {}
 
   bool isWork() const override { return true; }
   bool isType(int t) const override { return true; }
   bool isAnyWork() const override {return true;}
   bool includes(const AbstractShift &s) override { return s.isWork(); }
-
-  void print() const override {
-    std::cout << "I am any working shift" << std::endl;
-  }
 };
 
 struct AnyOfTypeShift : public AbstractShift {
-  explicit AnyOfTypeShift(int t) : type(t) {}
+  explicit AnyOfTypeShift(int t, std::string _name = "") :
+      AbstractShift(_name.empty() ?
+                    "type_"+std::to_string(t) : std::move(_name)),
+      type(t) {}
 
   bool isWork() const override { return type >= 1; }
   bool isRest() const override { return type == 0; }
   bool isAnyOfType(int t) const override { return type == t; }
   bool isType(int t) const override { return t == type; }
   bool includes(const AbstractShift &s) override { return s.isType(type); }
-
-  void print() const override {
-    std::cout << "I am any shift of type " << type << std::endl;
-  }
 
   const int type;
 };
@@ -150,30 +146,45 @@ struct AnyOfTypeShift : public AbstractShift {
  * be worked or rested
  */
 class Stretch {
-  // TODO(AG): Add another constructor for stretches with severals shifts
  public:
-  Stretch(PShift pShift, int firstDay, int nDays) :
+  Stretch(const PShift& pShift, int firstDay) :
       firstDay_(firstDay),
-      nDays_(nDays) {
-    pShifts_.push_back(pShift);
-  }
+      pShifts_({pShift}),
+      duration_(pShift->duration) {}
 
-  Stretch(vector<PShift> pShifts, int firstDay, int nDays) :
+  Stretch(vector<PShift> pShifts, int firstDay) :
       firstDay_(firstDay),
-      nDays_(nDays) {
-    for (auto pS : pShifts)
-      pShifts_.push_back(pS);
-  }
+      pShifts_(std::move(pShifts)),
+      duration_(computeDuration()) {}
 
   int firstDay() const { return firstDay_; }
-  int nDays() const { return nDays_; }
-  PShift pShift(int ind) const { return pShifts_.at(ind); }
+  int nDays() const { return pShifts_.size(); }
+  int lastDay() const { return firstDay_+ pShifts_.size() - 1; }
+  const PShift& pShift(int ind) const { return pShifts_.at(ind); }
   const vector<PShift> &pShifts() const { return pShifts_; }
+  int duration() const { return duration_; }
+
+  bool operator!=(const Stretch &stretch) const {
+    if (firstDay() != stretch.firstDay()) return true;
+    if (nDays() != stretch.nDays()) return true;
+    if (duration() != stretch.duration()) return true;
+    for (auto it1=pShifts_.begin(), it2=stretch.pShifts_.begin();
+         it1 != pShifts_.end(); it1++, it2++)
+      if ((*it1)->id != (*it2)->id) return true;
+    return false;
+  }
 
  protected:
-  vector<PShift> pShifts_;
   const int firstDay_;
-  const int nDays_;
+  const vector<PShift> pShifts_;
+  // Time duration (in a certain unit: day, hours, half-hours, ...)
+  const int duration_;
+
+  int computeDuration() {
+    int d = 0;
+    for (const PShift &pS : pShifts_) d += pS->duration;
+    return d;
+  }
 };
 
 #endif  // SRC_DATA_SHIFT_H_

@@ -9,294 +9,165 @@
  * full license detail.
  */
 
-#include "RCGraph.h"
-#include "BoostRCSPP.h"
+#include "solvers/mp/sp/rcspp/RCGraph.h"
 
-#include <iostream>
-#include <map>
+#include <list>
 #include <utility>
 
-// print a solution
-std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
-  std::stringstream buff;
-  buff << "RC solution of cost " << cost
-       << " starting on day " << firstDay << ":" << std::endl;
-  for (int k = 0; k < firstDay; k++) buff << "|     ";
-
-  char buffer[500];
-  if (shiftIDToShiftTypeID.empty()) {
-    for (int s : shifts) {
-      snprintf(buffer, sizeof(buffer), "| -:%2d", s);
-      buff << buffer;
+void RCGraph::initializeExpanders() {
+  vector<PResource> softResources;
+  softResources.reserve(nResources());
+  // initialize hard resources first
+  for (const auto &pR : pResources_) {
+    if (!pR->isHard()) {
+      softResources.push_back(pR);
+      continue;
     }
-  } else {
-    for (int s : shifts) {
-      snprintf(buffer, sizeof(buffer), "|%2d:%2d", shiftIDToShiftTypeID[s], s);
-      buff << buffer;
+    for (const auto &pA : pArcs_)
+      pR->initialize(*pA->origin->pAShift, pA->stretch, pA);
+  }
+
+  // then, initialize soft resources
+  for (const auto &pR : softResources)
+    for (const auto &pA : pArcs_)
+      pR->initialize(*pA->origin->pAShift, pA->stretch, pA);
+}
+
+void RCGraph::initializeDominance() {
+  for (const auto &pN : pNodes_)
+    for (const auto &pR : pResources_)
+      if (pR->isActive(pN->day, *pN->pAShift))
+        pN->indActiveResources.push_back(pR->id());
+}
+
+std::vector<PRCNode> RCGraph::sortNodes() const {
+  // compute the depth of each node from the sinks
+  vector<int> depths(nNodes(), 0);
+  std::list<PRCNode> nodesToProcess(pSinks_.begin(), pSinks_.end());
+  while (!nodesToProcess.empty()) {
+    PRCNode pN = nodesToProcess.front();  // retrieve first node
+    nodesToProcess.pop_front();  // remove first node
+    // update predecessors
+    int depth = depths[pN->id] + 1;
+    for (const PRCArc &pArc : pN->inArcs) {
+      // if depth is updated -> reprocess node to update predecessors
+      if (depths[pArc->origin->id] < depth) {
+        depths[pArc->origin->id] = depth;
+        nodesToProcess.push_back(pArc->origin);
+      }
     }
+    if (depth > nNodes())
+      Tools::throwError("The RC graph is cyclic.");
   }
-  buff << "|" << std::endl;
-  return buff.str();
-}
 
-/*
- * Main definitions of the RCGraph
- */
-
-RCGraph::RCGraph(int nDays) : nDays_(nDays), nNodes_(0), nArcs_(0) {}
-RCGraph::~RCGraph() {}
-
-std::map<int, Arc_Properties> RCGraph::removeForbiddenArcsFromBoost() {
-  // get the boost edges of all forbidden arcs
-  std::map<int, Arc_Properties> arcs_removed;
-  std::vector<edge> edges_to_remove;
-  for (int a = 0; a < nArcs_; ++a) {
-    const Arc_Properties &arc_prop = arc(a);
-    if (arc_prop.forbidden) {
-      edges_to_remove.push_back(arcsDescriptors_[a]);
-      arcs_removed[a] = arc_prop;
-    }
+  // order the nodes starting from the source
+  std::vector<PRCNode> sortedNodes;
+  int depth = depths[pSource_->id];
+  for (; depth >= 0; depth--) {
+    // find all nodes of the right depth
+    for (int i = 0; i < depths.size(); i++)
+      if (depths[i] == depth)
+        sortedNodes.push_back(pNode(i));
   }
-  // remove the edges
-  for (auto &e : edges_to_remove)
-    boost::remove_edge(e, g_);
-
-  return arcs_removed;
+  return sortedNodes;
 }
 
-void RCGraph::restoreForbiddenArcsToBoost(
-    std::map<int, Arc_Properties> arcs_removed) {
-  // restore the boost edges of all forbidden arcs
-  for (auto &p : arcs_removed) {
-    edge e =
-        add_edge(p.second.origin, p.second.destination, p.second, g_).first;
-    arcsDescriptors_[p.first] = e;
+void RCGraph::addResource(const PResource& pR) {
+  pR->setId(pResources_.size());
+  pResources_.push_back(pR);
+}
+
+PRCNode RCGraph::addSingleNode(NodeType type, int day, const PShift& pS) {
+  pNodes_.emplace_back(std::make_shared<RCNode>(pNodes_.size(), type, day, pS));
+
+  if (type == SINK_NODE) {
+    pSinks_.push_back(pNodes_.back());
+  } else if (type == SOURCE_NODE) {
+    // TODO(AL): use a vector of sources instead of one source
+    if (pSource_ != nullptr) Tools::throwError("A source is already defined");
+    pSource_ = pNodes_.back();
+  }
+
+  return pNodes_.back();
+}
+
+PRCArc RCGraph::addSingleArc(PRCNode o,
+                             PRCNode d,
+                             const Stretch &s,
+                             double cost) {
+  pArcs_.emplace_back(std::make_shared<RCArc>(
+      pArcs_.size(), std::move(o), std::move(d), s, cost));
+  // Adding the id of the last arc created in the vector of the incident
+  // arcs ids of the target node
+  PRCArc pArc = pArcs_.back();
+  pArc->target->inArcs.push_back(pArcs_.back());
+  // add the arc to pArcsByDayShift_ for each day/shift of the stretch
+  const Stretch &st = pArc->stretch;
+  for (int k = 0; k < st.nDays(); k++)
+    pArcsByDayShift_[st.firstDay()+k][st.pShift(k)->id].push_back(pArc);
+  return pArc;
+}
+
+void RCGraph::printSummaryOfGraph() const {
+  std::cout <<  "# SUMMARY OF THE CONFLICT GRAPH" << std::endl;
+  printAllNodes();
+  printAllArcs();
+}
+
+void RCGraph::printAllNodes() const {
+  std::cout << "List of nodes: " << std::endl;
+  for (const auto& pN : pNodes_) {
+    std::cout << "\t";
+    pN->print();
+    std::cout << std::endl;
   }
 }
-
-// Addition of a single node
-int RCGraph::addSingleNode(NodeType type,
-                           std::vector<int> lbs,
-                           std::vector<int> ubs,
-                           bool hard_lbs) {
-  add_vertex(Vertex_Properties(nNodes_, type, lbs, ubs, hard_lbs), g_);
-  return nNodes_++;
+void RCGraph::printAllArcs() const {
+  std::cout << "List of arcs: " << std::endl;
+  for (const auto& pA : pArcs_) {
+    std::cout << "\t";
+    pA->print();
+    std::cout << std::endl;
+  }
+}
+const vector<PResource> &RCGraph::pResources() const {
+  return pResources_;
 }
 
-// Adds a single arc (origin, destination, cost, travel time, type)
-int RCGraph::addSingleArc(int o,
-                          int d,
-                          double baseCost,
-                          std::vector<int> consumptions,
-                          ArcType type,
-                          int day,
-                          std::vector<int> shifts) {
-  Arc_Properties a(nArcs_, o, d, type, baseCost, consumptions, day, shifts);
-  edge e = add_edge(o, d, a, g_).first;
-  arcsDescriptors_.push_back(e);
-  return nArcs_++;
+PRCArc RCGraph::getArc(const PRCNode& origin, const PRCNode& target) const {
+  for (auto inArc : target->inArcs) {
+    if (inArc->origin->id == origin->id)
+      return inArc;
+  }
+  Tools::throwException("Arc %d not found.", origin->id);
+  return nullptr;
 }
 
-int RCGraph::addPricingArc(int o,
-                           int d,
-                           double baseCost,
-                           std::vector<int> consumptions,
-                           ArcType type,
-                           int day,
-                           std::set<LABEL> labelsToPrice,
-                           const Penalties &penalties) {
-  Arc_Properties a(nArcs_, o, d, type, baseCost, consumptions, day, {});
-  a.labelsToPrice = labelsToPrice;
-  a.penalties = penalties;
-  edge e = add_edge(o, d, a, g_).first;
-  arcsDescriptors_.push_back(e);
-  return nArcs_++;
+// Forbid a node / arc
+void RCGraph::forbidDayShift(int k, int s) {
+  for (const PRCArc &pA : pArcsByDayShift_[k][s])
+    forbidArc(pA);
 }
 
-void RCGraph::resetAuthorizations() {
-  for (int v : forbiddenNodes_)
-    boost::put(&Vertex_Properties::forbidden, g_, v, false);
-  forbiddenNodes_.clear();
+// Authorize a node / arc
+void RCGraph::authorizeDayShift(int k, int s) {
+  for (const PRCArc &pA : pArcsByDayShift_[k][s])
+    authorizeArc(pA);
+}
+
+void RCGraph::forbidArc(const PRCArc &pA) {
+  pA->forbidden = true;
+  forbiddenArcs_.insert(pA->id);
+}
+
+// Authorize a node / arc
+void RCGraph::authorizeArc(const PRCArc &pA) {
+  pA->forbidden = false;
+  forbiddenArcs_.erase(pA->id);
+}
+
+void RCGraph::resetAuthorizationsArcs() {
   for (int a : forbiddenArcs_)
-    boost::put(&Arc_Properties::forbidden, g_, arcsDescriptors_[a], false);
+    pArc(a)->forbidden = false;
   forbiddenArcs_.clear();
 }
-
-// Print the rcspp
-void RCGraph::printGraph(int nLabel, int nShiftsToDisplay) const {
-  // TITLE
-  std::cout << "# " << std::endl;
-  std::cout << "# GRAPH OF THE SUBPROBLEM " << std::endl;
-  std::cout << "# " << std::endl;
-
-  // THE NODES
-  printAllNodes(nLabel);
-
-  // THE ARCS
-  printAllArcs(nLabel, nShiftsToDisplay);
-
-  // SUMMARY
-  std::cout << printSummaryOfGraph();
-}
-
-// Prints the line of a node
-std::string RCGraph::printNode(int v, int nLabel) const {
-  std::stringstream rep;
-  const Vertex_Properties &vert_prop = node(v);
-  char buff[255];
-  snprintf(buff, sizeof(buff), "# NODE   %5d  %15s",
-           v, nodeTypeName[vert_prop.type].c_str());
-  rep << buff;
-
-  if (nLabel == -1) nLabel = vert_prop.size();
-  for (int l = 0; l < nLabel; ++l) {
-    snprintf(buff, sizeof(buff),
-             "  %13s=%s%3d,%3d]",
-             labelsName[l].c_str(),
-             (vert_prop.hard_lbs_ ? "[" : "("),
-             vert_prop.lbs[l],
-             vert_prop.ubs[l]);
-    rep << buff;
-  }
-  rep << "  " << shortNameNode(v);
-  return rep.str();
-}
-
-// Prints all nodes
-void RCGraph::printAllNodes(int nLabel) const {
-  std::cout << "#   NODES (" << nNodes_ << ")" << std::endl;
-  for (int v = 0; v < nNodes_; v++)
-    std::cout << printNode(v, nLabel) << std::endl;
-  std::cout << "# " << std::endl;
-}
-
-// Prints the line of an arc
-std::string RCGraph::printArc(int a, int nLabel, int nShiftsToDisplay) const {
-  const Arc_Properties &arc_prop = arc(a);
-  return printArc(arc_prop, nLabel, nShiftsToDisplay);
-}
-
-std::string RCGraph::printArc(
-    const Arc_Properties &arc_prop, int nLabel, int nShiftsToDisplay) const {
-  std::stringstream rep;
-  char buff[255];
-  snprintf(buff, sizeof(buff),
-           "# ARC   %5d  %15s  (%5d,%5d)  c=%12.2f  ",
-           arc_prop.num,
-           arcTypeName[arc_prop.type].c_str(),
-           arc_prop.origin,
-           arc_prop.destination,
-           arc_prop.cost);
-  rep << buff;
-  snprintf(buff, sizeof(buff),
-           "%10s  %2d:",
-           (arc_prop.forbidden ? "forbidden" : "authorized"),
-           arc_prop.day);
-  rep << buff;
-  for (unsigned int s = 0; static_cast<int>(s) < nShiftsToDisplay; ++s) {
-    if (s < arc_prop.shifts.size())
-      snprintf(buff, sizeof(buff), " %3d", arc_prop.shifts[s]);
-    else
-      snprintf(buff, sizeof(buff), " %3s", "");
-    rep << buff;
-  }
-  rep << (nShiftsToDisplay < static_cast<int>(arc_prop.shifts.size()) ? " .."
-                                                                        "."
-                                                                      : "    ");
-  snprintf(buff, sizeof(buff), "  [%20s] -> [%20s]",
-           shortNameNode(arc_prop.origin).c_str(),
-           shortNameNode(arc_prop.destination).c_str());
-  rep << buff;
-
-  if (nLabel == -1) nLabel = arc_prop.size();
-  for (int l = 0; l < nLabel; ++l) {
-    if (l < arc_prop.size())
-      snprintf(buff, sizeof(buff),
-               "  %13s=%3d",
-               labelsName[l].c_str(),
-               arc_prop.consumptions[l]);
-    else
-      snprintf(buff, sizeof(buff), "  %13s=%3s", labelsName[l].c_str(), "");
-    rep << buff;
-  }
-
-  rep << "   Price:";
-  for (int l : arc_prop.labelsToPrice)
-    rep << " " << labelsName[l].c_str();
-
-  return rep.str();
-}
-
-// Prints all arcs
-void RCGraph::printAllArcs(int nLabel, int nShiftsToDisplay) const {
-  std::cout << "#   ARCS (" << nArcs_ << "]" << std::endl;
-  for (int a = 0; a < nArcs_; a++)
-    std::cout << printArc(a, nLabel, nShiftsToDisplay) << std::endl;
-  std::cout << "# " << std::endl;
-}
-
-// Short name for a node
-std::string RCGraph::shortNameNode(int v) const {
-  std::stringstream rep;
-  NodeType type_v = get(&Vertex_Properties::type, g_)[v];
-
-  if (type_v == SOURCE_NODE) {
-    rep << "SOURCE";
-  } else if (type_v == PRINCIPAL_NETWORK) {
-    rep << "PRINCIPAL_NETWORK";
-  } else if (type_v == SINK_NODE) {
-    rep << "SINK";
-  } else {
-    rep << "NONE";
-  }
-
-  return rep.str();
-}
-
-// Summary of the rcspp
-std::string RCGraph::printSummaryOfGraph() const {
-  std::stringstream rep;
-  std::map<NodeType, int> nNodesPerType;
-  std::map<ArcType, int> nArcsPerType;
-  rep << "# +------------------+" << std::endl;
-  rep << "# | SUBPROBLEM GRAPH |" << std::endl;
-  rep << "# +------------------+" << std::endl;
-  rep << "# " << std::endl;
-  rep << "#     " << nDays_ << " days" << std::endl;
-  rep << "# " << std::endl;
-  // COUNT THE NODES
-  for (int t = SOURCE_NODE; t != NONE_NODE; t++) {
-    NodeType ty = static_cast<NodeType>(t);
-    nNodesPerType.insert(std::pair<NodeType, int>(ty, 0));
-  }
-  for (int v = 0; v < nNodes_; v++) nNodesPerType.at(nodeType(v))++;
-  // DISPLAY NODES
-  rep << "#     -------------------------" << std::endl;
-  rep << "#   > NODES                    " << std::endl;
-  rep << "#     -------------------------" << std::endl;
-  for (int t = SOURCE_NODE; t != NONE_NODE; t++) {
-    NodeType ty = static_cast<NodeType>(t);
-    rep << "#        " << nodeTypeName[ty] << "      " << nNodesPerType.at(ty)
-        << std::endl;
-  }
-  rep << "#     -------------------------" << std::endl;
-  rep << "#        TOTAL            " << nNodes_ << std::endl;
-  rep << "#     -------------------------" << std::endl;
-  rep << "# " << std::endl;
-  rep << "# " << std::endl;
-
-  // COUNT THE ARCS
-  for (int a = 0; a < nArcs_; a++) nArcsPerType[arcType(a)]++;
-  // DISPLAY ARCS
-  rep << "#     -------------------------" << std::endl;
-  rep << "#   > ARCS                     " << std::endl;
-  rep << "#     -------------------------" << std::endl;
-  for (auto p : nArcsPerType)
-    rep << "#        " << arcTypeName[p.first] << "  " << p.second << std::endl;
-  rep << "#     -------------------------" << std::endl;
-  rep << "#        TOTAL            " << nArcs_ << std::endl;
-  rep << "#     -------------------------" << std::endl;
-
-  return rep.str();
-}
-

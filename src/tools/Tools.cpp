@@ -9,7 +9,7 @@
  * full license detail.
  */
 
-#include "MyTools.h"
+#include "Tools.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -175,7 +175,7 @@ int randomInt(int minVal, int maxVal) {
 // Returns a double with random value (uniform) within [minVal, maxVal]
 //
 double randomDouble(double minVal, double maxVal) {
-  return ((maxVal - minVal) * (rdm0() * 1.0 / 2147483647 + minVal));
+  return ((maxVal - minVal) * (rdm0() * 1.0 / (rdm0.max()))  + minVal);
   // RAND_MAX) + minVal);
 }
 
@@ -307,18 +307,27 @@ bool isFirstWeekDay(int dayId) {
   return (dayId % 7 == 0);
 }
 
+bool isFirstWeekendDay(int dayId) {
+  return isSaturday(dayId);
+}
+
 bool isLastWeekendDay(int dayId) {
   return isSunday(dayId);
 }
 
-int containsWeekend(int start, int end) {
-  int nbWeekend = 0;
-  for (int i = start; i <= end; i++)
-    if (isWeekend(i)) {
-      ++nbWeekend;
+int nWeekendsInInterval(int start, int end) {
+  int nWeekends = 0;
+  bool isCounted = false;
+  for (int i = start; i <= end; i++) {
+    if (isWeekend(i) && !isCounted) {
+      ++nWeekends;
       ++i;
+      isCounted = true;
+    } else {
+      isCounted = false;
     }
-  return nbWeekend;
+  }
+  return nWeekends;
 }
 
 // constructor of Timer

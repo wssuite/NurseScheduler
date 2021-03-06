@@ -54,22 +54,20 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
     nbNodesSinceLastHeuristic_(0),
     nbCurrentNodeGeneratedColumns_(0),
     nbGeneratedColumns_(0),
-    nbCurrentNodeSPSolved_(0) {
+    nbCurrentNodeSPSolved_(0),
+    // create the timer that records the life time of the solver and start it
+    timerTotal_(true) {
   // Initialization of nb_dives_to_wait_before_branching_on_columns_
   for (int i = 1; i < 1000; ++i)
     nb_dives_to_wait_before_branching_on_columns_.push_back(pow(i, 2));
-  // create the timer that records the life time of the solver and start it
-  pTimerTotal_ = new Tools::Timer(true);
 }
 
 BcpLpModel::~BcpLpModel() {
   // kill the timer
-  pTimerTotal_->stop();
+  timerTotal_.stop();
   // record stats before being deleted
   pModel_->addTimeStats(getTimeStats());
   pModel_->addNbLpIterations(getNbLpIterations());
-
-  delete pTimerTotal_;
 }
 
 // Initialize the lp parameters and the OsiSolver
@@ -895,10 +893,10 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // otherwise, record the root solution for future use
   if (current_index() == 0) {
     if (pModel_->getTimeFirstRoot() < 0)
-      pModel_->setTimeFirstRoot(pTimerTotal_->dSinceStart());
+      pModel_->setTimeFirstRoot(timerTotal_.dSinceStart());
     // Check if infeasible
     if (!pModel_->isFeasible()) {
-      pModel_->getMaster()->setStatus(INFEASIBLE);
+      pModel_->getMaster()->status(INFEASIBLE);
       std::cerr << "Feasibility core variable is still present "
                    "in the solution" << std::endl;
       return BCP_DoNotBranch_Fathomed;
@@ -1118,7 +1116,7 @@ void BcpLpModel::find_infeasibility(
     }
 
   // print roster
-  auto roster = pModel_->getMaster()->getFractionalRoster();
+  auto roster = pModel_->getMaster()->fractionalRoster();
   for (int n = 0; n < roster.size(); n++) {
     std::cout << "N" << n << ":";
     for (int k = 0; k < roster[n].size(); k++) {
@@ -1146,9 +1144,9 @@ bool BcpLpModel::testPartialFeasibility() {
   if (!pMaster->isPartialRelaxed()) return false;
 
   // if partially relaxed, check that the unrelaxed days are integer
-  vector3D<double> fracRosters = pMaster->getFractionalRoster();
+  vector3D<double> fracRosters = pMaster->fractionalRoster();
   for (const auto &vec2D : fracRosters)
-    for (int k = 0; k < pMaster->getNbDays(); ++k) {
+    for (int k = 0; k < pMaster->nDays(); ++k) {
       if (pMaster->isRelaxDay(k))
         continue;
       // if should be integer, check integrality
@@ -1462,16 +1460,16 @@ int BcpModeler::solve(bool relaxation) {
     value = bcp_main(0, argv, pBcp_);
     // set status to optimal if the status hasn't been set  for the moment
     // -> it implies that BCP exited normally after exploring the whole tree.
-    if (getMaster()->getStatus() == UNSOLVED)
-      getMaster()->setStatus(OPTIMAL);
+    if (getMaster()->status() == UNSOLVED)
+      getMaster()->status(OPTIMAL);
   } catch (const Tools::NSException &e) {
     std::cerr << "Current LP solution:" << std::endl;
     std::cerr << pMaster_->currentSolToString() << std::endl;
     writeLP("model");
     std::cerr << e.what() << std::endl;
-    if (bcpSolutions_.empty()) getMaster()->setStatus(INFEASIBLE);
+    if (bcpSolutions_.empty()) getMaster()->status(INFEASIBLE);
     else
-      getMaster()->setStatus(FEASIBLE);
+      getMaster()->status(FEASIBLE);
     throw;
   }
 
@@ -1621,18 +1619,19 @@ void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var *> &vars) const {
 
   for (unsigned int i = coreVars_.size(); i < vars.size(); ++i) {
     auto *var = dynamic_cast<BcpColumn *>(vars[i]);
-    PPattern pat = pMaster_->getPattern(var);
+//    PPattern pat = pMaster_->getPattern(var);
     if (var->getUB() == 0 || var->ub() == 0
-        || shiftNode->pNurse_->num_ != pat->nurseNum_)
+        || shiftNode->pNurse_->num_ != Pattern::nurseNum(var))
       continue;
-    for (int k = pat->firstDay_; k < pat->firstDay_ + pat->length_; ++k)
+    for (int k = Pattern::firstDay(var); k <= Pattern::lastDay(var); ++k)
       if (shiftNode->day_ == k &&
           find(shiftNode->forbiddenShifts_.begin(),
                shiftNode->forbiddenShifts_.end(),
-               pat->getShift(k))
+               Pattern::shift(var, k))
               != shiftNode->forbiddenShifts_.end()) {
+        PPattern pat = pMaster_->getPattern(var);
         std::cout << "problem: active column " << var->bcpind()
-                  << " with forbidden shift " << pat->getShift(k) << std::endl;
+                  << " with forbidden shift " << pat->shift(k) << std::endl;
         std::cout << pat->toString() << std::endl;
         getchar();
       }
@@ -1940,23 +1939,23 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars) {
   if (pTree_->getBestUB() - pTree_->getBestLB()
       < parameters_.absoluteGap_ - epsilon()) {
     updateNodeLB(getBestUB());  // update with ub as optimal
-    pMaster_->setStatus(OPTIMAL);
+    pMaster_->status(OPTIMAL);
     printf("BCP STOPPED: absolute gap < %.2f.\n", parameters_.absoluteGap_);
-  } else if (getMaster()->getTimerTotal()->dSinceStart()
+  } else if (getMaster()->timerTotal()->dSinceStart()
       > getParameters().maxSolvingTimeSeconds_) {
-    pMaster_->setStatus(TIME_LIMIT);
+    pMaster_->status(TIME_LIMIT);
     printf("BCP STOPPED: Time has run out after %.2f s.\n",
-           pMaster_->getTimerTotal()->dSinceStart());
+           pMaster_->timerTotal()->dSinceStart());
   } else if (parameters_.solveToOptimality_) {
     // all the other criteria are not optimal -> stop here and return false
     return false;
   } else if (nbSolutions() >= parameters_.stopAfterXSolution_) {
     // check the number of solutions
-    pMaster_->setStatus(FEASIBLE);
+    pMaster_->status(FEASIBLE);
     printf("BCP STOPPED: %d solutions have been founded.\n", nbSolutions());
   } else if (pTree_->getBestUB() - pTree_->getBestLB()
       < parameters_.minRelativeGap_ * pTree_->getBestLB() - epsilon()) {
-    pMaster_->setStatus(FEASIBLE);
+    pMaster_->status(FEASIBLE);
     printf("BCP STOPPED: relative gap < %.2f.\n", parameters_.minRelativeGap_);
   } else if (pTree_->getBestUB() - pTree_->getBestLB()
       < parameters_.relativeGap_ * pTree_->getBestLB() - epsilon()) {
@@ -1964,7 +1963,7 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars) {
     // since the last dive, stop
     if (pTree_->getNbNodesSinceLastIncumbent()
         > parameters_.nbDiveIfMinGap_ * pTree_->getDiveLength()) {
-      pMaster_->setStatus(FEASIBLE);
+      pMaster_->status(FEASIBLE);
       printf("BCP STOPPED: relative gap < %.2f and more than %d nodes without "
              "new incumbent.\n",
              parameters_.relativeGap_,
@@ -1978,7 +1977,7 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars) {
     // if the relative gap is too big, wait 2 dives before stopping
     if (pTree_->getNbNodesSinceLastIncumbent()
         > parameters_.nbDiveIfRelGap_ * pTree_->getDiveLength()) {
-      pMaster_->setStatus(FEASIBLE);
+      pMaster_->status(FEASIBLE);
       printf("BCP STOPPED: relative gap > %.2f and more than %d nodes without "
              "new incumbent.\n",
              parameters_.relativeGap_,

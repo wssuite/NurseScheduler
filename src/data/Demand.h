@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 
 class Demand;
 typedef std::shared_ptr<Demand> PDemand;
@@ -33,7 +33,7 @@ typedef std::shared_ptr<Demand> PDemand;
 class Demand {
  public:
   // generic constructor and destructor
-  Demand() : name_(""), nbDays_(0), firstDay_(0), nbShifts_(0), nbSkills_(0) {}
+  Demand() : name_(""), nDays_(0), firstDay_(0), nShifts_(0), nbSkills_(0) {}
   Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string name,
          vector3D<int> minDemand, vector3D<int> optDemand);
   ~Demand();
@@ -47,11 +47,11 @@ class Demand {
 
   // number of days covered by the demand and index of the first day
   //
-  int nbDays_;
+  int nDays_;
   const int firstDay_;
 
   // number of shifts per day and number of skills to cover
-  const int nbShifts_, nbSkills_;
+  const int nShifts_, nbSkills_;
 
   // minimum and optimal demand for each day, shift and skill
   //
@@ -103,7 +103,7 @@ class Demand {
 
  public:
   // Index of the last day covered by the demand
-  int lastDay() { return firstDay_ + nbDays_ - 1; }
+  int lastDay() { return firstDay_ + nDays_ - 1; }
 
   // compute all the potentially helpful attributes of a demand
   // this includes the total demand per skill, per shift,
@@ -111,7 +111,7 @@ class Demand {
 
   // add another week demand at the end of the current one
   // update all the parameters
-  void push_back(PDemand pDemand);
+  void pushBack(PDemand pDemand);
 
   // Returns a new demand that appends pDemand to the current one
   PDemand append(PDemand pDemand);

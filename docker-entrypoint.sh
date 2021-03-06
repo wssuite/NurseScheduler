@@ -54,9 +54,8 @@ while [ ! -z ${ARGS[${i}]} ]; do
    --pricer) pricer="1"; ((i+=1));;
    -*|--*) echo "Option unknown: ${ARGS[${i}]}. It will be passed to the scheduler."
       other_args="${other_args} ${ARGS[${i}]} ${ARGS[((i+1))]}"; ((i+=2));;
-   *) echo "Cannot parse this argument: ${ARGS[${i}]}"
-      printBashUsage
-      exit 2;;
+   *) echo "Cannot parse this argument: ${ARGS[${i}]}. It will be passed to the scheduler."
+      other_args="${other_args} ${ARGS[${i}]}"; ((i+=1));;
   esac
 done
 dynamic_args="${dynamic_args} -i ${instance_description}"
@@ -68,7 +67,7 @@ fi
 
 # test pricer if defined
 if [ ! -z ${pricer} ]; then
-   ./bin/pricer ${instance_description}
+   ./bin/pricer ${instance_description} ${other_args}
     exit 0;
 fi
 

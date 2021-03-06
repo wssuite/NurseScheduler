@@ -18,7 +18,7 @@
 #include <utility>
 #include <vector>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "MasterProblem.h"
 #include "solvers/mp/sp/SubProblem.h"
 #include "solvers/mp/modeler/Modeler.h"
@@ -105,12 +105,13 @@ class RCPricer : public MyPricer {
     optimal_ = true;  // will be set to false whenever possible
     nbSPSolvedWithSuccess_ = 0;
     nbSPTried_ = 0;
-    Tools::initVector(&minReducedCosts_, pMaster_->getNbNurses(), -DBL_MAX);
+    Tools::initVector(&minReducedCosts_, pMaster_->nNurses(), -DBL_MAX);
     minReducedCost_ = 0;
   }
 
   // Retrieve the right subproblem
-  SubProblem *retrieveSubproblem(PLiveNurse pNurse);
+  SubProblem *retrieveSubproblem(const PLiveNurse &pNurse,
+                                 const SubproblemParam &spParam);
 
   // METHODS - Forbidden shifts, nurses, starting days, etc.
   //
@@ -182,7 +183,7 @@ class RCPricer : public MyPricer {
   // only the shift from the best solution with a negative dual costs are
   // added to the forbidden shifts.
   bool addForbiddenShifts(const std::vector<RCSolution> &solutions,
-                          const DualCosts &duals);
+                          const PDualCosts &pDuals);
 
   // Add the rotations to the master problem
   int addColumnsToMaster(int nurseNum, std::vector<RCSolution> *solutions);

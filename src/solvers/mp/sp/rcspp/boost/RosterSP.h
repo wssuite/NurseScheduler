@@ -9,23 +9,31 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_BOOSTROSTERSP_H_
-#define SRC_SOLVERS_MP_SP_BOOSTROSTERSP_H_
+#ifndef SRC_SOLVERS_MP_SP_RCSPP_BOOST_ROSTERSP_H_
+#define SRC_SOLVERS_MP_SP_RCSPP_BOOST_ROSTERSP_H_
 
 #include <vector>
 
-#include "solvers/mp/sp/SubProblem.h"
+#include "SubProblem.h"
 
-class BoostRosterSP : public BoostSubProblem {
+namespace boostRCSPP {
+
+class RosterSP : public SubProblem {
  public:
   // Constructor that correctly sets the resource (time + bounds),
   // but NOT THE COST
-  BoostRosterSP(PScenario scenario,
+  RosterSP(PScenario scenario,
                 int nbDays,
                 PConstContract contract,
                 std::vector<State> *pInitState);
 
-  virtual ~BoostRosterSP();
+  virtual ~RosterSP();
+
+  double startWorkCost(int a) const override;
+
+  double shiftCost(int a) const override;
+
+  double endWorkCost(int a) const override;
 
  protected:
   //----------------------------------------------------------------
@@ -55,4 +63,6 @@ class BoostRosterSP : public BoostSubProblem {
   void updateArcDualCosts() override;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_BOOSTROSTERSP_H_
+}  // namespace boostRCSPP
+
+#endif  // SRC_SOLVERS_MP_SP_RCSPP_BOOST_ROSTERSP_H_

@@ -14,9 +14,10 @@
 
 #include "MasterProblem.h"
 
-#include <utility>
+#include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 //-----------------------------------------------------------------------------
@@ -30,66 +31,24 @@
 
 struct RosterPattern : Pattern {
   // Specific constructors and destructors
-  RosterPattern(std::vector<int> shifts,
+  RosterPattern(const std::vector<int> &shifts,
+                const PScenario &pScenario,
                 int nurseNum = -1,
                 double cost = DBL_MAX,
                 double dualCost = DBL_MAX) :
-      Pattern(0, shifts.size(), nurseNum, cost, dualCost),
-      shifts_(shifts),
-      consShiftsCost_(0),
-      consDaysOffCost_(0),
-      consDaysWorkedCost_(0),
-      completeWeekendCost_(0),
-      preferenceCost_(0),
-      initRestCost_(0),
-      initWorkCost_(0),
-      minDaysCost_(0),
-      maxDaysCost_(0),
-      maxWeekendCost_(0),
-      timeDuration_(-1),
+      Pattern(0, shifts, pScenario, nurseNum, cost, dualCost),
       nbWeekends_(-1) {}
 
-  explicit RosterPattern(const std::vector<double> &compactPattern) :
-      Pattern(compactPattern),
-      shifts_(length_),
-      consShiftsCost_(0),
-      consDaysOffCost_(0),
-      consDaysWorkedCost_(0),
-      completeWeekendCost_(0),
-      preferenceCost_(0),
-      initRestCost_(0),
-      initWorkCost_(0),
-      minDaysCost_(0),
-      maxDaysCost_(0),
-      maxWeekendCost_(0),
-      timeDuration_(static_cast<int>(
-          compactPattern[compactPattern.size() - 2])),
-      nbWeekends_(static_cast<int>(compactPattern.back())) {
-    for (int k = 0; k < length_; k++)
-      shifts_[firstDay_ + k] = static_cast<int>(compactPattern[k + 3]);
-  }
+  RosterPattern(const std::vector<double> &compactPattern,
+                const PScenario &pScenario) :
+      Pattern(compactPattern, pScenario),
+      nbWeekends_(static_cast<int>(compactPattern.back())) {}
 
   RosterPattern(const RosterPattern &roster, int nurseNum) :
       Pattern(roster, nurseNum),
-      shifts_(roster.shifts_),
-      consShiftsCost_(roster.consShiftsCost_),
-      consDaysOffCost_(roster.consDaysOffCost_),
-      consDaysWorkedCost_(roster.consDaysWorkedCost_),
-      completeWeekendCost_(roster.completeWeekendCost_),
-      preferenceCost_(roster.preferenceCost_),
-      initRestCost_(roster.initRestCost_),
-      initWorkCost_(roster.initWorkCost_),
-      minDaysCost_(roster.minDaysCost_),
-      maxDaysCost_(roster.maxDaysCost_),
-      maxWeekendCost_(roster.maxWeekendCost_),
-      timeDuration_(roster.timeDuration_),
       nbWeekends_(roster.nbWeekends_) {}
 
-  ~RosterPattern();
-
-  int getShift(int day) const override {
-    return shifts_[day];
-  }
+  ~RosterPattern() = default;
 
   // When branching on this pattern, this method add the corresponding
   // forbidden shifts to the set.
@@ -98,67 +57,51 @@ struct RosterPattern : Pattern {
                           int nbShifts,
                           PDemand pDemand) const override;
 
-  // Shifts to be performed
-  std::vector<int> shifts_;
-
-  // Cost
-  double consShiftsCost_, consDaysOffCost_, consDaysWorkedCost_,
-      completeWeekendCost_, preferenceCost_,
-      initRestCost_, initWorkCost_, minDaysCost_, maxDaysCost_, maxWeekendCost_;
-
   // Level of the branch and bound tree where the rotation has been generated
   int treeLevel_ = 0;
 
-  // Time duration (in a certain unit: day, hours, half-hours, ...)
-  int timeDuration_;
   int nbWeekends_;
 
   // compact the rotation in a vector
   std::vector<double> getCompactPattern() const override {
     std::vector<double> pattern = Pattern::getCompactPattern();
-    pattern.insert(pattern.end(), shifts_.begin(), shifts_.end());
-    pattern.push_back(timeDuration_);
     pattern.push_back(nbWeekends_);
     return pattern;
   }
 
   // Compute the cost of a roster
-  void computeCost(PScenario pScenario, const PLiveNurse &pNurse);
+  void computeCost(const MasterProblem *pMaster,
+      const PLiveNurse &pNurse) override;
 
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem
   void checkReducedCost(
-      const DualCosts &costs, PScenario Scenario, bool printBadPricing = true);
+      const PDualCosts &costs, PScenario Scenario, bool printBadPricing = true);
 
   // Returns true if both columns are disjoint (needRest not used)
   bool isDisjointWith(PPattern pat, bool needRest = true) const override {
     if (pat->nurseNum_ == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
-    for (int k = 0; k < shifts_.size(); k++)
-      if (getShift(k) > 0 && pat->getShift(k) > 0)  // work both
+    for (int k = 0; k < stretch_.nDays(); k++)
+      // work both
+      if (stretch_.pShift(k)->isWork() && pat->stretch_.pShift(k)->isWork())
         return false;
     return true;
   };
 
-  // Returns true if both columns are disjoint for shifts !!
+  // Returns true if both columns are disjoint for shifts
   bool isShiftDisjointWith(PPattern pat, bool needRest = true) const override {
     if (pat->nurseNum_ == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
-    for (int k = 0; k < shifts_.size(); k++) {
-      int s1 = getShift(k), s2 = pat->getShift(k);
-      if (s1 > 0 && s2 > 0 && s1 == s2)
+    for (int k = 0; k < stretch_.nDays(); k++) {
+      const PShift &pS1 = stretch_.pShift(k), &pS2 = pat->stretch_.pShift(k);
+      if (pS1->isWork() && pS2->isWork() && pS1->id == pS2->id)
         return false;  // work on same shift
     }
     return true;
   }
-
-  std::string toString(
-      int nbDays = -1,
-      std::vector<int> shiftIDToShiftTypeID = {}) const override;
-
-  std::string costsToString(bool initialCosts = true) const;
 };
 
 //-----------------------------------------------------------------------------
@@ -174,12 +117,17 @@ class RosterMP : public MasterProblem {
            PDemand pDemand,
            PPreferences pPreferences,
            std::vector<State> *pInitState,
-           MySolverType solver);
+           SolverType solver);
   virtual ~RosterMP();
 
   PPattern getPattern(MyVar *var) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
+
+  // define the resources used for the sub problem
+  std::vector<PResource> createResources(
+      const PLiveNurse &pN,
+      std::map<int, CostType> *resourceCostType) const override;
 
   // get a reference to the restsPerDay_ for a Nurse
   std::vector<MyVar *> getRestVarsPerDay(PLiveNurse pNurse,
@@ -219,14 +167,12 @@ class RosterMP : public MasterProblem {
                          int i);
 
   // return the costs of all active columns associated to the type
-  double getColumnsCost(CostType costType, bool historicalCosts) const override;
+  double getColumnsCost(CostType costType) const override;
   double getColumnsCost(CostType costType,
-                        const std::vector<MyVar *> &vars,
-                        bool historicalCosts) const;
+                        const std::vector<MyVar *> &vars) const;
 
-  double getMinDaysCost() const override;
-  double getMaxDaysCost() const override;
-  double getMaxWeekendCost() const override;
+  double getDaysCost() const override;
+  double getWeekendCost() const override;
 
   /* retrieve the dual values */
   double getConstantDualvalue(PLiveNurse pNurse) const override;

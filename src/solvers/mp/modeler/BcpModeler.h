@@ -1104,7 +1104,7 @@ class BcpLpModel : public BCP_lp_user {
   // Number of dives to wait before branching on columns again
   std::list<double> nb_dives_to_wait_before_branching_on_columns_;
   // Timer started at the creation of the LP and stopped at destruction
-  Tools::Timer *pTimerTotal_;
+  Tools::Timer timerTotal_;
 
   // if Model is feasible
   bool feasible_ = false;

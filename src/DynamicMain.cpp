@@ -15,7 +15,7 @@
 #include "tools/DemandGenerator.h"
 #include "solvers/StochasticSolver.h"
 // #include "CbcModeler.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "solvers/InitializeSolver.h"
 
 using std::string;
@@ -25,12 +25,8 @@ using std::pair;
 /******************************************************************************
 * Solve one week inside the stochastic process
 ******************************************************************************/
-void solveOneWeek(string scenPath,
-                  string demandPath,
-                  string historyPath,
-                  string customInputFile,
-                  string solPath,
-                  double timeout) {
+void solveOneWeek(InputPaths *pInputPaths) {
+  const std::string &solPath = pInputPaths->solutionPath();
   string::size_type found = solPath.find_last_of(".");
   string logPathIni = solPath.substr(0, found),
       logPath = logPathIni + "Log.txt";
@@ -39,13 +35,14 @@ void solveOneWeek(string scenPath,
 
   // set the scenario
   logStream << "# Initialize the scenario" << std::endl;
-  PScenario pScen = initializeScenario(scenPath, demandPath, historyPath);
+  PScenario pScen = initializeScenario(*pInputPaths);
 
   // set the options of the stochastic solver
   // (the corresponding method needs to be change manually for tests)
   logStream << "# Set the options" << std::endl;
   StochasticSolverOptions options;
-  setStochasticSolverOptions(&options, pScen, solPath, logPathIni, timeout);
+  setStochasticSolverOptions(
+      &options, pScen, solPath, logPathIni, pInputPaths->timeOut());
 
   // check if a parameters file in the the in the log path ini
   // This files are hard coded as there are no options to give them
@@ -80,15 +77,15 @@ void solveOneWeek(string scenPath,
   //
   vector<PDemand> demandHistory;
   demandHistory.push_back(pScen->pWeekDemand());
-  if (!customInputFile.empty()) {
-    ReadWrite::readCustom(customInputFile, pScen, &demandHistory);
-  }
+  if (!pInputPaths->customInputFile().empty())
+    ReadWrite::readCustom(
+        pInputPaths->customInputFile(), pScen, &demandHistory);
 
   Solver *pSolver = new StochasticSolver(pScen, options, demandHistory);
 
   logStream << "# Solve the week" << std::endl;
   pSolver->solve();
-  int solutionStatus = pSolver->getStatus();
+  int solutionStatus = pSolver->status();
   logStream << "# Solution status = " << solutionStatus << std::endl;
 
   Tools::LogOutput solStream(solPath);
@@ -97,6 +94,21 @@ void solveOneWeek(string scenPath,
   //  release memory
   delete pSolver;
   logStream.close();
+
+  // Write the solution in the required output format
+  //
+  if (!pInputPaths->customOutputFile().empty()) {
+    ReadWrite::writeCustom(pInputPaths->customOutputFile(),
+                           pInputPaths->week(0),
+                           pInputPaths->customInputFile());
+  }
+  std::cout << "Custom output file : "
+            << pInputPaths->customOutputFile() << std::endl;
+  // Todo: the method that writes the history file corresponding to the
+  // solution
+  // string outputHistoryFile("history-week");
+  // outputHistoryFile += std::to_string(pScen->thisWeek()) + ".txt";
+  // std::cout << "Output history file: " << outputHistoryFile << std::endl;
 }
 
 /******************************************************************************
@@ -117,10 +129,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir,
   InputPaths inputPaths(dataDir, instanceName, historyIndex, weekIndices);
 
   // initialize the scenario object of the first week
-  PScenario pScen = initializeScenario(inputPaths.scenario(),
-                                       inputPaths.week(0),
-                                       inputPaths.history(),
-                                       "");
+  PScenario pScen = initializeScenario(inputPaths);
 
   // solve the problem for each week and store the solution in the vector below
   vector<Roster> solution;
@@ -146,7 +155,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir,
     currentCost += pSolver->solve();
     nbSched += pSolver->getNbSchedules();
     printf("Current cost = %.2f \n", currentCost);
-    solutionStatus = pSolver->getStatus();
+    solutionStatus = pSolver->status();
     if (solutionStatus == INFEASIBLE) {
       delete pSolver;
       break;
@@ -156,7 +165,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir,
     // treated
     // warning: we must make sure that the main solution in pSolver applies only
     // to the demand of one week
-    vector<Roster> weekSolution = pSolver->getSolutionAtDay(6);
+    vector<Roster> weekSolution = pSolver->solutionAtDay(6);
     if (solution.empty()) {
       solution = weekSolution;
     } else {
@@ -178,7 +187,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir,
       // read the initial state of the new week from the last state of the
       // last week
       // modify the dayId_ to show that this is the first day of the new week
-      vector<State> initialStates = pSolver->getStatesOfDay(6);
+      vector<State> initialStates = pSolver->statesOfDay(6);
       for (int i = 0; i < pScen->nbNurses_; i++) {
         initialStates[i].dayId_ = 0;
       }
@@ -248,82 +257,15 @@ int main(int argc, char **argv) {
     // Nominal behavior of the executable, as required by INRCII
     // Retrieve the file names in arguments
     //
-    int narg = 1;
-    string scenarioFile = "", initialHistoryFile = "", weekDataFile = "",
-        solutionFile = "";
-    string customInputFile = "", customOutputFile = "";
-    int randSeed = 0;
-    double timeout = 0.0;
+    InputPaths *pInputPaths = readArguments(argc, argv);
 
-    while (narg < argc) {
-      std::cout << "arg = " << argv[narg] << " " << argv[narg + 1] << std::endl;
-      // WARNING: problem with the java simulator that add quote
-      // marks in the arguments, which fucks up the open file methods
-      // the code below is here to remove these quote marks
-      //
-      string str(argv[narg + 1]);
-      std::size_t found = str.find("\"");
-      while (found != std::string::npos) {
-        str.erase(found, 1);
-        found = str.find("\"");
-      }
-
-      if (!strcmp(argv[narg], "--sce")) {
-        scenarioFile = str;
-        narg += 2;
-      } else if (!strcmp(argv[narg], "--his")) {
-        initialHistoryFile = str;
-        narg += 2;
-      } else if (!strcmp(argv[narg], "--week")) {
-        weekDataFile = str;
-        narg += 2;
-      } else if (!strcmp(argv[narg], "--sol")) {
-        solutionFile = str;
-        narg += 2;
-      } else if (!strcmp(argv[narg], "--cusIn")) {
-        customInputFile = str;
-        narg += 2;
-      } else if (!strcmp(argv[narg], "--cusOut")) {
-        customOutputFile = str;
-        narg += 2;
-      } else if (!strcmp(argv[narg], "--timeout")) {
-        timeout = std::stod(str);
-        narg += 2;
-      } else if (!strcmp(argv[narg], "--rand")) {
-        randSeed = std::stoi(str);
-        narg += 2;
-      } else {
-        Tools::throwError(
-            "main: the argument does not match the expected list!");
-      }
-    }
-
-    // Throw an error if a necessary input file is missing
-    if (scenarioFile.empty() || initialHistoryFile.empty()
-        || weekDataFile.empty() || solutionFile.empty()) {
-      throw Tools::myException("A necessary file name is missing!", __LINE__);
-    }
-
-    srand(randSeed);
+    // Initialize the random seed
+    //
+    srand(pInputPaths->randSeed());
 
     // Solve the week
-    solveOneWeek(scenarioFile,
-                 weekDataFile,
-                 initialHistoryFile,
-                 customInputFile,
-                 solutionFile,
-                 timeout);
+    solveOneWeek(pInputPaths);
 
-    // Write the solution in the required output format
-    //
-    if (!customOutputFile.empty()) {
-      ReadWrite::writeCustom(customOutputFile, weekDataFile, customInputFile);
-    }
-    std::cout << "Custom output file : " << customOutputFile << std::endl;
-    // Todo: the method that writes the history file corresponding to the
-    // solution
-    // string outputHistoryFile("history-week");
-    // outputHistoryFile += std::to_string(pScen->thisWeek()) + ".txt";
-    // std::cout << "Output history file: " << outputHistoryFile << std::endl;
+    delete pInputPaths;
   }
 }

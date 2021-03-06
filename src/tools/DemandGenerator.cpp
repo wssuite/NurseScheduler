@@ -11,7 +11,7 @@
 
 #include "tools/DemandGenerator.h"
 #include "tools/ReadWrite.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "data/Nurse.h"
 
 using std::string;
@@ -92,7 +92,7 @@ PDemand DemandGenerator::generateSinglePerturbatedDemand(
 
     // create the following weeks append them to the complete demand
     for (int i = 0; i < nbWeeksInGeneratedDemands - 1; i++)
-      pCompleteDemand->push_back(
+      pCompleteDemand->pushBack(
           demandHistory_[indexInHistory[i]]->randomPerturbation());
 
     // keep only the required number of days

@@ -24,19 +24,19 @@
 class InputPaths {
  public:
   InputPaths();
-  InputPaths(std::string dataDir,
-             std::string instanceName,
+  InputPaths(const std::string &dataDir,
+             const std::string &instanceName,
              int historyIndex,
              std::vector<int> weekIndices,
-             std::string solutionPath = "",
-             std::string logPath = "",
-             std::string paramFile = "",
+             const std::string &solutionPath = "",
+             const std::string &logPath = "",
+             const std::string &paramFile = "",
              double timeOut = -1,
              int verbose = -1,
              int randSeed = 0,
-             std::string SPType = "",
+             const std::string &SPType = "",
              int SPStrategy = -1,
-             std::string RCSPPType = "",
+             const std::string &RCSPPType = "",
              int nThreads = -1);
 
  protected:
@@ -48,37 +48,43 @@ class InputPaths {
   std::vector<int> weekIndices_;
   std::string solutionPath_ = "";
   std::string logPath_ = "";
+  std::string customInputFile_ = "";
+  std::string customOutputFile_ = "";
   std::string paramFile_ = "";
   int verbose_ = -1;
   int randSeed_ = 0;
   double timeOut_ = 3600;
   std::string SPType_ = "LONG";
   int SPStrategy_ = 0;
-  std::string RCSPPType_ = "BOOST_SOLVER";
+  std::string RCSPPType_ = "BOOST";
   int nThreads_ = 1;
 
  public:
   // get/set attributes
   const std::string& instance() const { return instance_; }
   const std::string& scenario() const { return scenario_; }
-  void scenario(std::string scenario) { scenario_ = scenario; }
+  void scenario(const std::string &scenario) { scenario_ = scenario; }
 
   int historyIndex() const { return historyIndex_; }
   const std::string& history() const { return history_; }
-  void history(std::string history) { history_ = history; }
+  void history(const std::string &history) { history_ = history; }
 
   const std::vector<std::string>& weeks() const { return weeks_; }
   const std::string& week(int w) const { return weeks_[w]; }
   int weekIndex(int w) const { return weekIndices_[w]; }
   int nbWeeks() const { return weeks_.size(); }
-  void addWeek(std::string week) { weeks_.push_back(week); }
+  void addWeek(const std::string &week) { weeks_.push_back(week); }
 
   const std::string& paramFile() const { return paramFile_; }
-  void paramFile(std::string file) { paramFile_ = file; }
+  void paramFile(const std::string &file) { paramFile_ = file; }
   const std::string& solutionPath() const { return solutionPath_; }
-  void solutionPath(std::string path) { solutionPath_ = path; }
+  void solutionPath(const std::string &path) { solutionPath_ = path; }
   const std::string& logPath() const { return logPath_; }
-  void logPath(std::string path) { logPath_ = path; }
+  void logPath(const std::string &path) { logPath_ = path; }
+  const std::string& customInputFile() const { return customInputFile_; }
+  void customInputFile(const std::string &file) { customInputFile_ = file; }
+  const std::string& customOutputFile() const { return customOutputFile_; }
+  void customOutputFile(const std::string &file) { customOutputFile_ = file; }
 
   int randSeed() const { return randSeed_; }
   void randSeed(int seed) { randSeed_ = seed; }
@@ -89,13 +95,13 @@ class InputPaths {
   void verbose(int verbose) { verbose_ = verbose; }
 
   const std::string& SPType() const { return SPType_; }
-  void SPType(std::string t) { SPType_ = t; }
+  void SPType(const std::string &t) { SPType_ = t; }
 
   int SPStrategy() const { return SPStrategy_; }
   void SPStrategy(int t) { SPStrategy_ = t; }
 
-  std::string RCSPPType() const { return RCSPPType_; }
-  void RCSPPType(std::string t) { RCSPPType_ = t; }
+  const std::string &RCSPPType() const { return RCSPPType_; }
+  void RCSPPType(const std::string &t) { RCSPPType_ = t; }
 
   int nThreads() const { return nThreads_; }
   void nThreads(int n) { nThreads_ = n; }

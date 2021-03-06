@@ -21,19 +21,19 @@ InputPaths::InputPaths() {
   history_ = "";
 }
 
-InputPaths::InputPaths(std::string dataDir,
-                       std::string instanceName,
+InputPaths::InputPaths(const std::string &dataDir,
+                       const std::string &instanceName,
                        int historyIndex,
                        std::vector<int> weekIndices,
-                       std::string solutionPath,
-                       std::string logPath,
-                       std::string paramFile,
+                       const std::string &solutionPath,
+                       const std::string &logPath,
+                       const std::string &paramFile,
                        double timeOut,
                        int verbose,
                        int randSeed,
-                       std::string SPType,
+                       const std::string &SPType,
                        int SPStrategy,
-                       std::string RCSPPType,
+                       const std::string &RCSPPType,
                        int nThreads) :
     instance_(instanceName),
     historyIndex_(historyIndex),

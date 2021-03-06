@@ -9,16 +9,18 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_RCSPP_PRINCIPALGRAPH_H_
-#define SRC_SOLVERS_MP_SP_RCSPP_PRINCIPALGRAPH_H_
+#ifndef SRC_SOLVERS_MP_SP_RCSPP_BOOST_PRINCIPALGRAPH_H_
+#define SRC_SOLVERS_MP_SP_RCSPP_BOOST_PRINCIPALGRAPH_H_
 
 #include <map>
 #include <vector>
 
-#include "solvers/mp/sp/rcspp/RCGraph.h"
-#include "tools/MyTools.h"
+#include "RCGraph.h"
+#include "tools/Tools.h"
 
-class BoostSubProblem;
+namespace boostRCSPP {
+
+class SubProblem;
 
 // PrincipalGraph is a subgraph to model the work activity on a given shift
 // type.
@@ -26,7 +28,7 @@ class BoostSubProblem;
 // the possibility to choose which shift to work on within a given shift type.
 class PrincipalGraph : public SubGraph {
  public:
-  explicit PrincipalGraph(int shift_type, BoostSubProblem *sp = nullptr);
+  explicit PrincipalGraph(int shift_type, SubProblem *sp = nullptr);
   virtual ~PrincipalGraph();
 
   // check if feasible to link this arc at this level
@@ -85,7 +87,7 @@ class PrincipalGraph : public SubGraph {
   }
 
  protected:
-  BoostSubProblem *pSP_;
+  SubProblem *pSP_;
 
   int shift_type_;
   int max_cons_;
@@ -111,4 +113,6 @@ class PrincipalGraph : public SubGraph {
   std::vector<int> getConsumption(int day, int shift) const;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_RCSPP_PRINCIPALGRAPH_H_
+}  // namespace boostRCSPP
+
+#endif  // SRC_SOLVERS_MP_SP_RCSPP_BOOST_PRINCIPALGRAPH_H_

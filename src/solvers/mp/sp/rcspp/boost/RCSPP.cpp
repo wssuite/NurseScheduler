@@ -9,10 +9,12 @@
  * full license detail.
  */
 
-#include "solvers/mp/sp/rcspp/BoostRCSPP.h"
+#include "RCSPP.h"
 
 #include <algorithm>
 #include <memory>
+
+namespace boostRCSPP {
 
 void spp_res_cont::print(std::ostream &out) const {
   out << "Cost: " << cost << "\t\tPostprocess cost: "
@@ -319,15 +321,13 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
   // process paths if needed (process_solution is not used)
   std::vector<RCSolution> rc_solutions;
   // For each path of the list, store the solutions with a negative cost
-  double bestCost = maxReducedCostBound_;
   for (unsigned int p = 0; p < opt_solutions_spp.size(); ++p) {
     spp_res_cont &rc = pareto_opt_rcs_spp[p];
     if (processPath(&opt_solutions_spp[p], &rc, ref, post_process_rc_)) {
-      if (rc.cost < maxReducedCostBound_) {
+      if (rc.cost + epsilon_ < maxReducedCostBound_) {
         if (verbose_ >= 4)
           printPath(std::cout, opt_solutions_spp[p], rc);
         rc_solutions.push_back(solution(opt_solutions_spp[p], rc));
-        if (rc.cost < bestCost) bestCost = rc.cost;
       }
     }
   }
@@ -364,21 +364,22 @@ bool BoostRCSPPSolver::processPath(
 
 RCSolution BoostRCSPPSolver::solution(const std::vector<edge> &path,
                                       const spp_res_cont &resource) const {
-  RCSolution sol(resource.cost);
   // All arcs are consecutively considered
+  int firstDay = -1;
+  std::vector<int> shifts;
   for (int j = path.size() - 1; j >= 0; --j) {
     int a = boost::get(&Arc_Properties::num, rcg_->g(), path[j]);
     int day = rcg_->arcDay(a);
-    const std::vector<int> &shifts = rcg_->arcShifts(a);
+    const std::vector<int> &arcShifts = rcg_->arcShifts(a);
 
-    if (day != -1 && !shifts.empty()) {
+    if (day != -1 && !arcShifts.empty()) {
       // if it's the first day
-      if (sol.firstDay == -1) sol.firstDay = day;
+      if (firstDay == -1) firstDay = day;
       // append the shifts
-      for (int s : shifts) sol.shifts.push_back(s);
+      for (int s : arcShifts) shifts.push_back(s);
     }
   }
-  return sol;
+  return RCSolution(firstDay, shifts, resource.cost);
 }
 
 // Print the path (arcs, nodes, cost of each arc in the current network, etc.)
@@ -644,3 +645,5 @@ void rc_spp_visitor::printStats(std::ostream &out) const {
       << "\tdominated=" << nDominatedLabels_
       << "\tnot dominated=" << nNotDominatedLabels_ << std::endl;
 }
+
+}  // namespace boostRCSPP

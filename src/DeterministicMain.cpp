@@ -12,10 +12,9 @@
 #include <exception>
 
 #include "solvers/InitializeSolver.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "tools/ReadWrite.h"
 #include "solvers/Solver.h"
-// #include "Greedy.h"
 #include "solvers/DeterministicSolver.h"
 #include "DeterministicMain_test.h"
 
@@ -55,10 +54,10 @@ int solveDeterministic(const InputPaths &inputPaths, double timeout) {
   //
   std::cout << "# FINAL SOLUTION" << std::endl;
   std::cout << "# Solution status = "
-            << statusToString.at(pSolver->getStatus()) << std::endl;
+            << statusToString.at(pSolver->status()) << std::endl;
   std::cout << "# Objective value = ";
   bool noSolution =
-      pSolver->getStatus() == INFEASIBLE || pSolver->getStatus() == UNSOLVED;
+      pSolver->status() == INFEASIBLE || pSolver->status() == UNSOLVED;
   if (noSolution)
     std::cout << "  -  ";
   else
@@ -126,15 +125,8 @@ int main(int argc, char **argv) {
   }
 
   // Read the arguments and store them in pInputPaths
-  // If in non compact format, each week is input,
-  // so there are at least 19 arguments.
-  // In compact format, the number of arguments is smaller than that
-  //
-  if (argc >= 21) {
-    pInputPaths = readNonCompactArguments(argc, argv);
-  } else {
-    pInputPaths = readCompactArguments(argc, argv);
-  }
+  pInputPaths = readArguments(argc, argv);
+
 
   // Initialize the random seed
   //

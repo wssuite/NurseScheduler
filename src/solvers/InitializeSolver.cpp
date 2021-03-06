@@ -21,7 +21,7 @@
 
 #include "tools/ReadWrite.h"
 #include "solvers/mp/RotationMP.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 
 
 using std::string;
@@ -33,7 +33,7 @@ using std::pair;
 * Read the arguments in non compact format
 ******************************************************************************/
 InputPaths *readNonCompactArguments(int argc, char **argv) {
-  InputPaths *pInputPaths = nullptr;
+  InputPaths *pInputPaths = new InputPaths();
 
   // Read the arguments and store them in inputPaths
   //
@@ -69,6 +69,12 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--timeout")) {
       pInputPaths->timeOut(std::stod(str));
       narg += 2;
+    } else if (!strcmp(argv[narg], "--cusIn")) {
+      pInputPaths->customInputFile(str);
+      narg += 2;
+    } else if (!strcmp(argv[narg], "--cusOut")) {
+      pInputPaths->customOutputFile(str);
+      narg += 2;
     } else if (!strcmp(argv[narg], "--verbose")) {
       pInputPaths->verbose(std::stoi(str));
       narg += 2;
@@ -88,7 +94,9 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
       pInputPaths->RCSPPType(str);
       narg += 2;
     } else {
-      Tools::throwError("main: the argument does not match the expected list!");
+      Tools::throwError(
+          "main: the argument (%s) does not match the expected list!",
+          argv[narg]);
     }
   }
   // Throw an error if a necessary input file is missing
@@ -180,10 +188,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
       RCSPPType = str;
       narg += 2;
     } else {
-      std::stringstream err_buff;
-      err_buff << "main: the argument (" << arg
-               << ") does not match the expected list!";
-      Tools::throwError(err_buff.str());
+      Tools::throwError(
+          "main: the argument (%s) does not match the expected list!",
+          argv[narg]);
     }
   }
 
@@ -208,39 +215,22 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   return pInputPaths;
 }
 
+/******************************************************************************
+* Read the arguments with the right method for the format
+******************************************************************************/
+InputPaths *readArguments(int argc, char **argv) {
+  // check if the arg --dir is present
+  int narg = 1;
+  while (narg < argc && strcmp(argv[narg], "--dir"))
+    narg++;
+  if (narg == argc)
+    return readNonCompactArguments(argc, argv);
+  return readCompactArguments(argc, argv);
+}
+
 /************************************************************************
 * Initialize the week scenario by reading the input files
 *************************************************************************/
-
-PScenario initializeScenario(string scenPath,
-                             string demandPath,
-                             string historyPath,
-                             string logPath) {
-  // Initialize demand and preferences
-  PDemand pDemand(nullptr);
-  PPreferences pPref(nullptr);
-
-  // Read the scenario
-  PScenario pScen = ReadWrite::readScenario(scenPath);
-
-  // Read the demand and preferences and link them with the scenario
-  ReadWrite::readWeek(demandPath, pScen, &pDemand, &pPref);
-  pScen->linkWithDemand(pDemand);
-  pScen->linkWithPreferences(pPref);
-
-  // Read the history
-  ReadWrite::readHistory(historyPath, pScen);
-
-  // Check that the scenario was read properly if logfile specified in input
-  if (!logPath.empty()) {
-    Tools::LogOutput logStream(logPath);
-    logStream << pScen->toString() << std::endl;
-    logStream << pScen->pWeekDemand()->toString(true) << std::endl;
-  }
-
-  return pScen;
-}
-
 PScenario initializeScenario(const InputPaths &inputPaths, string logPath) {
   // Initialize demand and preferences
   PDemand pDemand(nullptr);
@@ -378,16 +368,16 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     // erase the skills to remove from the minimum and optimal demands
     vector3D<int> minDemand = pDemand->minDemand_;
     vector3D<int> optDemand = pDemand->optDemand_;
-    for (int day = 0; day < pDemand->nbDays_; day++)
-      for (int shift = 0; shift < pDemand->nbShifts_; shift++)
+    for (int day = 0; day < pDemand->nDays_; day++)
+      for (int shift = 0; shift < pDemand->nShifts_; shift++)
         for (int skill : skillsToRemove) {
           minDemand[day][shift][skill] = 0;
           optDemand[day][shift][skill] = 0;
         }
     PDemand pDemandInTheComponent =
-        std::make_shared<Demand>(pDemand->nbDays_,
+        std::make_shared<Demand>(pDemand->nDays_,
                                  pDemand->firstDay_,
-                                 pDemand->nbShifts_,
+                                 pDemand->nShifts_,
                                  pDemand->nbSkills_,
                                  pDemand->name_,
                                  minDemand,
@@ -397,7 +387,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     // component.
     PPreferences pPreferencesInTheComponent =
         std::make_shared<Preferences>(nursesInTheComponent,
-                                      pDemand->nbDays_,
+                                      pDemand->nDays_,
                                       pScenario->nbShifts_);
     PPreferences pPreferences = pScenario->pWeekPreferences();
 

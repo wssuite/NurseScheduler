@@ -48,34 +48,30 @@ void RotationPattern::addForbiddenShifts(
     int nbShifts, PDemand pDemand) const {
   // from the previous day to the day after the end of the rotation,
   // forbid any work shifts
-  for (int day = firstDay_ - 1; day <= firstDay_ + length_; day++) {
+  for (int day = firstDay()-1; day <= lastDay()+1; day++) {
     if (day < pDemand->firstDay_) continue;
-    if (day >= pDemand->firstDay_ + pDemand->nbDays_) continue;
+    if (day >= pDemand->firstDay_ + pDemand->nDays_) continue;
     for (int i = 1; i < nbShifts; ++i)
       forbidenShifts->insert(pair<int, int>(day, i));
   }
 }
 
-void RotationPattern::computeCost(PScenario pScenario,
-                                  const vector<PLiveNurse> &liveNurses,
-                                  int horizon) {
+void RotationPattern::computeCost(const MasterProblem *pMaster,
+                                  const PLiveNurse &pNurse) {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
 
-  PLiveNurse pNurse = liveNurses[nurseNum_];
-
-  // compute time duration
-  computeTimeDuration(pScenario);
+  PScenario pScenario = pMaster->pScenario();
 
   /************************************************
    * Compute all the costs of a rotation:
    ************************************************/
   // if first day of the planning, check on the past, otherwise 0 (rest)
-  int lastShiftType = (firstDay_ == 0) ? pNurse->pStateIni_->shiftType_ : -1;
+  int lastShiftType = (firstDay() == 0) ? pNurse->pStateIni_->shiftType_ : -1;
   // nbConsShift = number of consecutive shift
   // if first day of the planning, check on the past, otherwise 0
-  int nbConsShifts = (firstDay_ == 0) ? pNurse->pStateIni_->consShifts_ : 0;
+  int nbConsShifts = (firstDay() == 0) ? pNurse->pStateIni_->consShifts_ : 0;
   // consShiftCost = cost of be outside of the interval [min,max] of the
   // consecutive shifts
   consShiftsCost_ = 0;
@@ -83,7 +79,7 @@ void RotationPattern::computeCost(PScenario pScenario,
   // nbConsWorked = number of consecutive worked days
   // if first day of the planning, check on the past , otherwise 0
   int nbConsDaysWorked =
-      (firstDay_ == 0) ? pNurse->pStateIni_->consDaysWorked_ : 0;
+      (firstDay() == 0) ? pNurse->pStateIni_->consDaysWorked_ : 0;
   // consWorkedCost = cost of be outside of the interval [min,max] of the
   // consecutive worked days
   consDaysWorkedCost_ = 0;
@@ -103,16 +99,16 @@ void RotationPattern::computeCost(PScenario pScenario,
 
   // if the initial shift has already exceeded the max, substract now the cost
   // that will be readd later
-  if ((firstDay_ == 0) && (lastShiftType > 0) &&
+  if ((firstDay() == 0) && (lastShiftType > 0) &&
       (nbConsShifts > pScenario->maxConsShiftsOf(lastShiftType))) {
     consShiftsCost_ -=
         (nbConsShifts - pScenario->maxConsShiftsOf(lastShiftType))
             * pScenario->weights().WEIGHT_CONS_SHIFTS;
   }
 
-  for (int k = firstDay_; k < firstDay_ + length_; ++k) {
-    int shiftType = pScenario->shiftIDToShiftTypeID_[shifts_[k]];
-    if (lastShiftType == shiftType) {
+  for (int k = firstDay(); k <= lastDay(); ++k) {
+    const PShift &pS = pShift(k);
+    if (lastShiftType == pS->type) {
       nbConsShifts++;
       continue;
     }
@@ -125,12 +121,12 @@ void RotationPattern::computeCost(PScenario pScenario,
     }
     // initialize nbConsShifts and lastShift
     nbConsShifts = 1;
-    lastShiftType = shiftType;
+    lastShiftType = pS->type;
   }
 
   // compute consShiftsCost for the last shift
   if (lastShiftType > 0) {
-    int diff = max((firstDay_ + length_ == horizon) ? 0 :
+    int diff = max((lastDay()+1 == pMaster->nDays()) ? 0 :
                    pScenario->minConsShiftsOf(lastShiftType) - nbConsShifts,
                    nbConsShifts - pScenario->maxConsShiftsOf(lastShiftType));
     if (diff > 0)
@@ -148,10 +144,10 @@ void RotationPattern::computeCost(PScenario pScenario,
       (diffDays > 0) ? -diffDays * pScenario->weights().WEIGHT_CONS_DAYS_WORK
                      : 0;
 
-  nbConsDaysWorked += length_;
+  nbConsDaysWorked += nDays();
   // check if nbConsDaysWorked < min, if finishes on last day, does not count
   if (nbConsDaysWorked < pNurse->minConsDaysWork()
-      && firstDay_ + length_ < horizon)
+      && lastDay() + 1 < pMaster->nDays())
     consDaysWorkedCost_ += (pNurse->minConsDaysWork() - nbConsDaysWorked)
         * pScenario->weights().WEIGHT_CONS_DAYS_WORK;
   else if (nbConsDaysWorked > pNurse->maxConsDaysWork())
@@ -164,10 +160,10 @@ void RotationPattern::computeCost(PScenario pScenario,
    */
   if (pNurse->needCompleteWeekends()) {
     // if first day is a Sunday, the saturday is not worked
-    if (Tools::isSunday(firstDay_))
+    if (Tools::isSunday(firstDay()))
       completeWeekendCost_ += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
     // if last day + 1 is a Sunday, the sunday is not worked
-    if (Tools::isSunday(firstDay_ + length_))
+    if (Tools::isSunday(lastDay()+1))
       completeWeekendCost_ += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
   }
 
@@ -175,14 +171,11 @@ void RotationPattern::computeCost(PScenario pScenario,
    * Compute preferencesCost
    */
 
-  for (int k = firstDay_; k < firstDay_ + length_; ++k) {
-    int level = pNurse->wishesOffLevel(k, shifts_[k]);
+  for (int k = firstDay(); k <= lastDay(); ++k) {
+    int level = pNurse->wishesOffLevel(k, shift(k));
     if (level != -1)
       preferenceCost_ += pScenario->weights().WEIGHT_PREFERENCES_OFF[level];
-  }
-
-  for (int k = firstDay_; k < firstDay_ + length_; ++k) {
-    int level = pNurse->wishesOnLevel(k, shifts_[k]);
+    level = pNurse->wishesOnLevel(k, shift(k));
     if (level != -1)
       preferenceCost_ += pScenario->weights().WEIGHT_PREFERENCES_ON[level];
   }
@@ -191,7 +184,7 @@ void RotationPattern::computeCost(PScenario pScenario,
    * Compute initial resting cost
    */
 
-  if (firstDay_ == 0 && pNurse->pStateIni_->shiftType_ == 0) {
+  if (firstDay() == 0 && pNurse->pStateIni_->shiftType_ == 0) {
     int diff = pNurse->minConsDaysOff() - pNurse->pStateIni_->consDaysOff_;
     initRestCost_ =
         (diff > 0) ? diff * pScenario->weights().WEIGHT_CONS_DAYS_OFF : 0;
@@ -214,7 +207,7 @@ void RotationPattern::computeCost(PScenario pScenario,
       + preferenceCost_ + initRestCost_;
 }
 
-void RotationPattern::checkReducedCost(const DualCosts &costs,
+void RotationPattern::checkReducedCost(const PDualCosts &pCosts,
                                        bool printBadPricing) {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
@@ -227,18 +220,18 @@ void RotationPattern::checkReducedCost(const DualCosts &costs,
   double reducedCost(cost_);
 
   /* Working dual cost */
-  for (int k = firstDay_; k < firstDay_ + length_; ++k)
-    reducedCost -= costs.workedDayShiftCost(k, shifts_[k]);
+  for (int k = firstDay(); k <= lastDay(); ++k)
+    reducedCost -= pCosts->workedDayShiftCost(k, shift(k));
   /* Start working dual cost */
-  reducedCost -= costs.startWorkCost(firstDay_);
+  reducedCost -= pCosts->startWorkCost(firstDay());
   /* Stop working dual cost */
-  reducedCost -= costs.endWorkCost(firstDay_ + length_ - 1);
+  reducedCost -= pCosts->endWorkCost(lastDay());
   /* Working on weekend */
-  if (Tools::isSunday(firstDay_))
-    reducedCost -= costs.workedWeekendCost();
-  for (int k = firstDay_; k < firstDay_ + length_; ++k)
+  if (Tools::isSunday(firstDay()))
+    reducedCost -= pCosts->workedWeekendCost();
+  for (int k = firstDay(); k <= lastDay(); ++k)
     if (Tools::isSaturday(k))
-      reducedCost -= costs.workedWeekendCost();
+      reducedCost -= pCosts->workedWeekendCost();
 
 
   // Display: set to true if you want to display the details of the cost
@@ -259,19 +252,20 @@ void RotationPattern::checkReducedCost(const DualCosts &costs,
     cout << "#       | Preferences       : " << preferenceCost_ << endl;
     cout << "#       | Initial rest      : " << initRestCost_ << endl;
 
-    for (int k = firstDay_; k < firstDay_ + length_; ++k)
+    for (int k = firstDay(); k <= lastDay(); ++k)
       cout << "#   | Work day-shift: - "
-           << costs.workedDayShiftCost(k, shifts_[k]) << endl;
-    cout << "#   | Start work    : - " << costs.startWorkCost(firstDay_)
+           << pCosts->workedDayShiftCost(k, shift(k)) << endl;
+    cout << "#   | Start work    : - " << pCosts->startWorkCost(firstDay())
          << endl;
     cout << "#   | Finish Work   : - "
-         << costs.endWorkCost(firstDay_ + length_ - 1) << endl;
-    if (Tools::isSunday(firstDay_))
-      cout << "#   | Weekends      : - " << costs.workedWeekendCost() << endl;
-    for (int k = firstDay_; k < firstDay_ + length_; ++k)
+         << pCosts->endWorkCost(lastDay()) << endl;
+    if (Tools::isSunday(firstDay()))
+      cout << "#   | Weekends      : - " << pCosts->workedWeekendCost() << endl;
+    for (int k = firstDay(); k <= lastDay(); ++k)
       if (Tools::isSaturday(k))
-        cout << "#   | Weekends      : - " << costs.workedWeekendCost() << endl;
-    std::cout << toString(costs.nDays());
+        cout << "#   | Weekends      : - "
+             << pCosts->workedWeekendCost() << endl;
+    std::cout << toString(pCosts->nDays());
     cout << "# " << endl;
 
     // throw an error only when a significant misprice
@@ -285,32 +279,6 @@ void RotationPattern::checkReducedCost(const DualCosts &costs,
     if (reducedCost_ < reducedCost + 1e-3)
       Tools::throwError("Invalid pricing of a rotation.");
   }
-}
-
-std::string RotationPattern::toString(
-    int nbDays,
-    std::vector<int> shiftIDToShiftTypeID) const {
-  if (nbDays == -1) nbDays = firstDay_ + length_;
-  std::stringstream rep;
-  rep << "#   | ROTATION: N=" << nurseNum_ << "  cost=" << cost_
-      << "  dualCost=" << reducedCost_ << "  firstDay=" << firstDay_
-      << "  length=" << length_ << std::endl;
-  rep << "#   |";
-  std::vector<int> allTasks(nbDays);
-  for (const auto &p : shifts_)
-    allTasks[p.first] = p.second;
-  for (const auto &t : allTasks) {
-    if (t < 1) {
-      rep << "   |";
-    } else {
-      if (t < shiftIDToShiftTypeID.size())
-        rep << shiftIDToShiftTypeID[t] << ":" << t << "|";
-      else
-        rep << " " << t << " |";
-    }
-  }
-  rep << std::endl;
-  return rep.str();
 }
 
 
@@ -327,7 +295,7 @@ RotationMP::RotationMP(PScenario pScenario,
                        PDemand pDemand,
                        PPreferences pPreferences,
                        std::vector<State> *pInitState,
-                       MySolverType solver) :
+                       SolverType solver) :
     MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
     restsPerDay_(pScenario->nbNurses_),
     restingVars_(pScenario->nbNurses_),
@@ -372,20 +340,25 @@ RotationMP::RotationMP(PScenario pScenario,
 RotationMP::~RotationMP() {}
 
 PPattern RotationMP::getPattern(MyVar *var) const {
-  return std::make_shared<RotationPattern>(var->getPattern());
+  return std::make_shared<RotationPattern>(var->getPattern(), pScenario_);
+}
+
+std::vector<PResource> RotationMP::createResources(
+    const PLiveNurse &pN, std::map<int, CostType> *resourceCostType) const {
+  return {};
 }
 
 // build the, possibly fractional, roster corresponding to the solution
 // currently stored in the model
-vector3D<double> RotationMP::getFractionalRoster() const {
-  vector3D<double> roster = MasterProblem::getFractionalRoster();
+vector3D<double> RotationMP::fractionalRoster() const {
+  vector3D<double> roster = MasterProblem::fractionalRoster();
 
   // add rest values
   for (auto &nurseRoster : roster)
     for (auto &dayRoster : nurseRoster) {
       // fill the rest shift
       double restValue = 1;
-      for (int s = 1; s < getNbShifts(); ++s)
+      for (int s = 1; s < nShifts(); ++s)
         restValue -= dayRoster[s];
       dayRoster[0] = restValue;
     }
@@ -420,7 +393,7 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
     int lastShift = 0;
     map<int, int> shifts;
     // build all the successive rotation of this nurse
-    for (int k = 0; k < pDemand_->nbDays_; ++k) {
+    for (int k = 0; k < pDemand_->nDays_; ++k) {
       // shift=0 => rest
       int shift = roster.shift(k);
       // if work, insert the shift in the map
@@ -433,8 +406,8 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
         workedLastDay = true;
       } else if (workedLastDay) {
         // if stop to work, build the rotation
-        RotationPattern rotation(shifts, i);
-        rotation.computeCost(pScenario_, theLiveNurses_, getNbDays());
+        RotationPattern rotation(shifts, pScenario_, i);
+        rotation.computeCost(this, theLiveNurses_[i]);
         pModel_->addInitialColumn(addRotation(rotation, baseName.c_str()));
         shifts.clear();
         lastShift = shift;
@@ -443,12 +416,21 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
     }
     // if work on the last day, build the rotation
     if (workedLastDay) {
-      RotationPattern rotation(shifts, i);
-      rotation.computeCost(pScenario_, theLiveNurses_, getNbDays());
+      RotationPattern rotation(shifts, pScenario_, i);
+      rotation.computeCost(this, theLiveNurses_[i]);
       pModel_->addInitialColumn(addRotation(rotation, baseName.c_str()));
       shifts.clear();
     }
   }
+}
+
+PDualCosts RotationMP::buildDualCosts(PLiveNurse pNurse) const {
+  return std::make_shared<RotationDualCosts>(
+      getShiftsDualValues(pNurse),
+      getStartWorkDualValues(pNurse),
+      getEndWorkDualValues(pNurse),
+      getWorkedWeekendDualValue(pNurse),
+      getConstantDualvalue(pNurse));
 }
 
 vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
@@ -479,7 +461,7 @@ vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
   double d = minWorkedDays + minWorkedDaysAvg + minWorkedDaysContractAvg;
   d += maxWorkedDays + maxWorkedDaysAvg + maxWorkedDaysContractAvg;
 
-  for (int k = 0; k < getNbDays(); ++k) {
+  for (int k = 0; k < nDays(); ++k) {
     vector<double> &dualValues2 = dualValues[k];
     for (int s = 1; s < pScenario_->nbShifts_; ++s)
       // adjust the dual in function of the time duration of the shift
@@ -491,13 +473,13 @@ vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
 
 vector<double> RotationMP::getStartWorkDualValues(PLiveNurse pNurse) const {
   int i = pNurse->num_;
-  vector<double> dualValues(getNbDays());
+  vector<double> dualValues(nDays());
 
   // get dual value associated to the source
   dualValues[0] = pModel_->getDual(restFlowCons_[i][0], true);
   // get dual values associated to the work flow constraints
   // don't take into account the last which is the sink
-  for (int k = 1; k < getNbDays(); ++k)
+  for (int k = 1; k < nDays(); ++k)
     dualValues[k] = pModel_->getDual(workFlowCons_[i][k - 1], true);
 
   return dualValues;
@@ -505,17 +487,17 @@ vector<double> RotationMP::getStartWorkDualValues(PLiveNurse pNurse) const {
 
 vector<double> RotationMP::getEndWorkDualValues(PLiveNurse pNurse) const {
   const int i = pNurse->num_;
-  vector<double> dualValues(getNbDays());
+  vector<double> dualValues(nDays());
 
   // get dual values associated to the work flow constraints
   // don't take into account the first which is the source
   // take into account the cost, if the last day worked is k
-  for (int k = 0; k < getNbDays() - 1; ++k)
+  for (int k = 0; k < nDays() - 1; ++k)
     dualValues[k] = -pModel_->getDual(restFlowCons_[i][k + 1], true);
 
   // get dual value associated to the sink
-  dualValues[getNbDays() - 1] =
-      pModel_->getDual(workFlowCons_[i][getNbDays() - 1], true);
+  dualValues[nDays() - 1] =
+      pModel_->getDual(workFlowCons_[i][nDays() - 1], true);
 
   return dualValues;
 }
@@ -531,6 +513,22 @@ double RotationMP::getWorkedWeekendDualValue(PLiveNurse pNurse) const {
   return dualVal;
 }
 
+PDualCosts RotationMP::buildRandomDualCosts(bool optimalDemandConsidered,
+                                            int NDaysShifts) const {
+  return std::make_shared<RotationDualCosts>(
+      getRandomWorkedDualCosts(optimalDemandConsidered, NDaysShifts),
+      Tools::randomDoubleVector(
+          pDemand_->nDays_,
+          0, 7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+      Tools::randomDoubleVector(
+          pDemand_->nDays_,
+          0,
+          7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
+      Tools::randomDouble(0, 2*pScenario_->weights().WEIGHT_TOTAL_WEEKENDS),
+      Tools::randomDouble(-10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND,
+                          10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND));
+}
+
 //------------------------------------------------------------------------------
 // Build the variable of the rotation as well as all the affected constraints
 // with their coefficients. if s=-1, the nurse i works on all shifts
@@ -538,11 +536,12 @@ double RotationMP::getWorkedWeekendDualValue(PLiveNurse pNurse) const {
 MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
   RotationPattern rotation
-      (solution.firstDay, solution.shifts, nurseNum, DBL_MAX, solution.cost);
-  rotation.computeCost(pScenario_, theLiveNurses_, getNbDays());
+      (solution.firstDay, solution.shifts, pScenario_,
+       nurseNum, DBL_MAX, solution.cost);
+  rotation.computeCost(this, theLiveNurses_[nurseNum]);
   rotation.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
-  DualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
+  PDualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
   rotation.checkReducedCost(costs, pPricer_->isLastRunOptimal());
   std::vector<double> pattern = rotation.getCompactPattern();
   checkIfPatternAlreadyPresent(pattern);
@@ -563,14 +562,9 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
   vector<double> coeffs;
 
   /* Min/Max constraints */
-  int nbWeekends = Tools::containsWeekend(rotation.firstDay_,
-                                          rotation.firstDay_ + rotation.length_
-                                              - 1);
-  addMinMaxConsToCol(&cons,
-                     &coeffs,
-                     nurseNum,
-                     rotation.timeDuration_,
-                     nbWeekends);
+  int nbWeekends = Tools::nWeekendsInInterval(rotation.firstDay(),
+                                              rotation.lastDay());
+  addMinMaxConsToCol(&cons, &coeffs, nurseNum, rotation.duration(), nbWeekends);
 
   /* Skills coverage constraints */
   addSkillsCoverageConsToCol(&cons, &coeffs, rotation);
@@ -591,13 +585,13 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
     addRotationConsToCol(&cons,
                          &coeffs,
                          nurseNum,
-                         rotation.firstDay_,
+                         rotation.firstDay(),
                          true,
                          false);
     addRotationConsToCol(&cons,
                          &coeffs,
                          nurseNum,
-                         rotation.firstDay_ + rotation.length_ - 1,
+                         rotation.lastDay(),
                          false,
                          true);
 
@@ -625,35 +619,35 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
     // =true if we have to compute a cost for resting days exceeding the
     // maximum allowed
     // =false otherwise
-    bool const maxRest = (maxConsDaysOff < getNbDays() + initConsDaysOff);
+    bool const maxRest = (maxConsDaysOff < nDays() + initConsDaysOff);
     // number of long resting arcs as function of maxRest
     int const nbLongRestingArcs((maxRest) ? maxConsDaysOff : minConsDaysOff);
     // first day when a rest arc exists =
     // nbLongRestingArcs - number of consecutive worked days in the past
     int const firstRestArc(std::min(
         std::max(0, nbLongRestingArcs - initConsDaysOff),
-        getNbDays() - 1));
+        nDays() - 1));
     // first day when a restingVar exists: at minimun 1
     // if firstRestArc=0, the first resting arc is a longRestingVar
     int const indexStartRestArc = std::max(1, firstRestArc);
     // number of resting arcs
-    int const nbRestingArcs(getNbDays() - indexStartRestArc);
+    int const nbRestingArcs(nDays() - indexStartRestArc);
 
     // initialize vectors
-    vector<vector<MyVar *> > restsPerDay2(getNbDays());
+    vector<vector<MyVar *> > restsPerDay2(nDays());
     vector<MyVar *> restingVars2(nbRestingArcs);
-    vector<vector<MyVar *> > longRestingVars2(getNbDays());
-    vector<MyCons *> restFlowCons2(getNbDays());
-    vector<MyCons *> workFlowCons2(getNbDays());
-    vector<MyVar *> stabRestFlowPlus2(getNbDays());
-    vector<MyVar *> stabRestFlowMinus2(getNbDays());
-    vector<MyVar *> stabWorkFlowPlus2(getNbDays());
-    vector<MyVar *> stabWorkFlowMinus2(getNbDays());
+    vector<vector<MyVar *> > longRestingVars2(nDays());
+    vector<MyCons *> restFlowCons2(nDays());
+    vector<MyCons *> workFlowCons2(nDays());
+    vector<MyVar *> stabRestFlowPlus2(nDays());
+    vector<MyVar *> stabRestFlowMinus2(nDays());
+    vector<MyVar *> stabWorkFlowPlus2(nDays());
+    vector<MyVar *> stabWorkFlowMinus2(nDays());
 
     /*****************************************
      * Creating arcs
      *****************************************/
-    for (int k = 0; k < getNbDays(); ++k) {
+    for (int k = 0; k < nDays(); ++k) {
       /*****************************************
        * first long resting arcs
        *****************************************/
@@ -718,7 +712,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
          *****************************************/
         // n umber of long resting arcs
         // = min(nbLongRestingArcs, number of possible long resting arcs)
-        int nbLongRestingArcs2(std::min(nbLongRestingArcs, getNbDays() - k));
+        int nbLongRestingArcs2(std::min(nbLongRestingArcs, nDays() - k));
         // initialize cost
         // if the arc finishes the last day, the cost is 0.
         // Indeed it will be computed on the next planning
@@ -739,7 +733,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
                    k,
                    k + l);
           // if arc ends before the last day: normal cost
-          if (l < getNbDays() - k) {
+          if (l < nDays() - k) {
             pModel_->createPositiveVar(&longRestingVars3[l - 1], name, cost);
           } else {
             // otherwise, arc finishes on last day
@@ -757,7 +751,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
         if (maxRest) {
           for (int l = 1 + minConsDaysOff; l <= maxConsDaysOff; ++l) {
             // if exceed last days, break
-            if (l > getNbDays() - k)
+            if (l > nDays() - k)
               break;
             snprintf(name,
                      sizeof(name),
@@ -792,7 +786,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
     /*****************************************
      * Resting nodes constraints
      *****************************************/
-    for (int k = 0; k < getNbDays(); ++k) {
+    for (int k = 0; k < nDays(); ++k) {
       vector<double> coeffs(longRestingVars2[k].size());
       for (unsigned int l = 0; l < longRestingVars2[k].size(); ++l)
         coeffs[l] = 1;
@@ -811,7 +805,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
     /*****************************************
      * Working nodes constraints
      *****************************************/
-    for (int k = 1; k <= getNbDays(); ++k) {
+    for (int k = 1; k <= nDays(); ++k) {
       // take the min between the number of long resting arcs and
       // the number of possible in arcs
       int nbLongRestingArcs2 = std::min(nbLongRestingArcs, k);
@@ -826,7 +820,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
           break;
         vars.push_back(longRestingVars2[k - 1 - l][l]);
         // compute in-flow for the sink
-        if (k == getNbDays()) coeffs.push_back(1);
+        if (k == nDays()) coeffs.push_back(1);
         else  // compute out-flow
           coeffs.push_back(-1);
       }
@@ -836,7 +830,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
         // compute out-flow
         vars.push_back(restingVars2[0]);
         coeffs.push_back(1);
-      } else if (k == getNbDays()) {
+      } else if (k == nDays()) {
         // just 1 in, if last resting arcs
         // compute in-flow for the sink
         vars.push_back(restingVars2[restingVars2.size() - 1]);
@@ -855,7 +849,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
       // (k==pDemand_->nbDays_)
       pModel_->createEQConsLinear(&workFlowCons2[k - 1],
                                   name,
-                                  (k == getNbDays()) ? 1 : 0,
+                                  (k == nDays()) ? 1 : 0,
                                   vars,
                                   coeffs);
 
@@ -897,9 +891,9 @@ int RotationMP::addRotationConsToCol(vector<MyCons *> *cons,
     // check if the rotation finishes on day k
     // add to sink constraint
     // compute in-flow
-    if (k == getNbDays() - 1) {
+    if (k == nDays() - 1) {
       coeffs->push_back(1.0);
-      cons->push_back(workFlowCons_[i][getNbDays() - 1]);
+      cons->push_back(workFlowCons_[i][nDays() - 1]);
     } else {
       // add to rest node constraint
       // compute out-flow
@@ -1139,28 +1133,16 @@ int RotationMP::addMinMaxConsToCol(vector<MyCons *> *cons,
   return nbCons;
 }
 
-double RotationMP::getColumnsCost(CostType costType,
-                                  bool justHistoricalCosts) const {
+double RotationMP::getColumnsCost(CostType costType) const {
   double cost = 0;
-  if (justHistoricalCosts) {
-    // just initial rest costs
-    if (costType == REST_COST || costType == ROTATION_COST)
-      cost += getColumnsCost(REST_COST, pModel_->getActiveColumns());
-    // cost for empty rotation: rotation for initial state followed by rest
-    // -> already included in longRestingVars_
-    if (costType != REST_COST)
-      cost += getColumnsCost(costType, initialStateVars_);
-    return cost;
-  }
-
-  if (costType == REST_COST)
+  if (costType == CONS_REST_COST)
     return pModel_->getTotalCost(restingVars_)
         + pModel_->getTotalCost(longRestingVars_)
             // cost for empty rotation: rotation for initial state followed by
             // rest -> already included in longRestingVars_
         - getColumnsCost(costType, initialStateVars_)
             // just initial rest costs;
-        + getColumnsCost(REST_COST, pModel_->getActiveColumns());
+        + getColumnsCost(CONS_REST_COST, pModel_->getActiveColumns());
 
   cost = getColumnsCost(costType, pModel_->getActiveColumns());
   if (costType == ROTATION_COST)  // add rest costs + historical costs
@@ -1178,18 +1160,18 @@ double RotationMP::getColumnsCost(CostType costType,
   for (MyVar *var : vars) {
     double value = pModel_->getVarValue(var);
     if (value > epsilon()) {
-      RotationPattern rot(var->getPattern());
-      rot.computeCost(pScenario_, theLiveNurses_, getNbDays());
+      RotationPattern rot(var->getPattern(), pScenario_);
+      rot.computeCost(this, theLiveNurses_[rot.nurseNum_]);
       switch (costType) {
         case CONS_SHIFTS_COST: cost += rot.consShiftsCost_ * value;
           break;
-        case CONS_WORKED_DAYS_COST: cost += rot.consDaysWorkedCost_ * value;
+        case CONS_WORK_COST: cost += rot.consDaysWorkedCost_ * value;
           break;
         case COMPLETE_WEEKEND_COST: cost += rot.completeWeekendCost_ * value;
           break;
         case PREFERENCE_COST: cost += rot.preferenceCost_ * value;
           break;
-        case REST_COST: cost += rot.initRestCost_ * value;
+        case CONS_REST_COST: cost += rot.initRestCost_ * value;
           break;
         default: cost += rot.cost_ * value;
           break;
@@ -1199,21 +1181,18 @@ double RotationMP::getColumnsCost(CostType costType,
   return cost;
 }
 
-double RotationMP::getMinDaysCost() const {
-  return pModel_->getTotalCost(minWorkedDaysVars_);
+double RotationMP::getDaysCost() const {
+  return pModel_->getTotalCost(minWorkedDaysVars_) +
+      pModel_->getTotalCost(maxWorkedDaysVars_);
 }
 
-double RotationMP::getMaxDaysCost() const {
-  return pModel_->getTotalCost(maxWorkedDaysVars_);
-}
-
-double RotationMP::getMaxWeekendCost() const {
+double RotationMP::getWeekendCost() const {
   return pModel_->getTotalCost(maxWorkedWeekendVars_);
 }
 
 RotationPattern RotationMP::computeInitStateRotation(PLiveNurse pNurse) {
   // initialize rotation
-  RotationPattern rot = RotationPattern(map<int, int>(), pNurse->num_);
+  RotationPattern rot = RotationPattern(map<int, int>(), nullptr, pNurse->num_);
 
   // compute cost for previous cons worked shifts and days
   int lastShiftType = pNurse->pStateIni_->shiftType_;

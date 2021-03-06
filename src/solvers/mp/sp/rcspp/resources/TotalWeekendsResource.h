@@ -18,8 +18,8 @@
 #include <algorithm>
 #include <memory>
 
-#include "solvers/mp/sp/rcspp/MyRCLabel.h"
-#include "solvers/mp/sp/rcspp/MyRCGraph.h"
+#include "solvers/mp/sp/rcspp/RCLabel.h"
+#include "solvers/mp/sp/rcspp/RCGraph.h"
 
 using std::shared_ptr;
 using std::unique_ptr;
@@ -30,20 +30,19 @@ using std::vector;
  * number of worked weekends
  * Plain expanders are used, because precomputation is more complex than
  * useful for total weekend resources
- * WARNING: with this resource, we implicitly assume that a week-end is
- * saturday and a sunday; otherwise there might be a lot of errors that will
- * happen with current code.
  */
+// TODO(JO): we should generalize the concept of weekend by defining the
+//  pattern of days, and adding methods that detect if a day is in the
+//  pattern, if it is the first day of the pattern and if it is the last day
+//  of the pattern
 class SoftTotalWeekendsResource : public SoftBoundedResource {
  public:
   SoftTotalWeekendsResource(int ub, double ubCost, int totalNbDays = 0) :
-      SoftBoundedResource(0, ub, 0, ubCost), totalNbDays_(totalNbDays) {}
+      SoftBoundedResource("Soft Weekend Total work", 0, ub, 0, ubCost),
+      totalNbDays_(totalNbDays) {}
 
   // instantiate TotalWeekEndLabel
   int getConsumption(const State &initialState) const override;
-
-  // returns true if resource label rl1 dominates rl2
-  bool dominates(int conso1, int conso2) override;
 
   int totalNbDays() const { return totalNbDays_; }
 
@@ -53,9 +52,9 @@ class SoftTotalWeekendsResource : public SoftBoundedResource {
 
  protected:
   // initialize the expander on a given arc
-  PExpander init(const Shift &prevShift,
+  PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
-                 const RCArc &arc) override;
+                 const PRCArc &pArc) override;
 
  private:
   int totalNbDays_;  // Total number of days in the horizon
@@ -66,46 +65,96 @@ class SoftTotalWeekendsResource : public SoftBoundedResource {
  */
 struct SoftTotalWeekendsExpander : public Expander {
   SoftTotalWeekendsExpander(const SoftTotalWeekendsResource& resource,
-                            const Stretch &stretch) :
-      Expander(resource.id()),
-      resource_(resource),
-      nSaturdaysLeft_(0),
-      nSundaysLeft_(0),
-      stretch_(stretch),
-      arcToSink_(false) {}
-
-  SoftTotalWeekendsExpander(const SoftTotalWeekendsResource& resource,
-                            const Stretch &stretch,
-                            int nSaturdaysLeft,
-                            int nSundaysLeft) :
-      Expander(resource.id()),
-      resource_(resource),
-      nSaturdaysLeft_(nSaturdaysLeft),
-      nSundaysLeft_(nSundaysLeft),
-      stretch_(stretch),
-      arcToSink_(false) {}
-
-  SoftTotalWeekendsExpander(const SoftTotalWeekendsResource& resource,
-                            const Stretch &stretch,
-                            int nSaturdaysLeft,
-                            int nSundaysLeft,
+                            Stretch stretch,
+                            int nWeekendsBefore,
+                            int nWeekendsAfter,
                             bool arcToSink) :
       Expander(resource.id()),
       resource_(resource),
-      nSaturdaysLeft_(nSaturdaysLeft),
-      nSundaysLeft_(nSundaysLeft),
-      stretch_(stretch),
-      arcToSink_(arcToSink) {}
+      nWeekendsBefore_(nWeekendsBefore),
+      nWeekendsAfter_(nWeekendsAfter),
+      stretch_(std::move(stretch)),
+      arcToSink_(arcToSink) {
+  }
 
   // expand a given resource label
-  bool expand(const ResourceValues &vParent,
-              const PRCLabel &pLChild,
-              ResourceValues *vChild) override;
+  bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
+  bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
+  bool merge(const ResourceValues &vForward,
+             const ResourceValues &vBack,
+             ResourceValues *vMerged,
+             const PRCLabel &pLMerged) override;
+
 
  protected:
   const SoftTotalWeekendsResource& resource_;
-  int nSaturdaysLeft_;
-  int nSundaysLeft_;
+  // number of weekends before and including the first day of the stretch;
+  // if only a portion of a weekend is left (e.g., only sunday), it counts +1
+  int nWeekendsBefore_;
+  // number of weekends after the end of the stretch,
+  // if only a portion of a weekend is left (e.g., only sunday), it counts +1
+  int nWeekendsAfter_;
+  const Stretch stretch_;
+  bool arcToSink_;  // true if the target of the arc is a sink node
+};
+
+
+
+class HardTotalWeekendsResource : public HardBoundedResource {
+ public:
+  HardTotalWeekendsResource(int lb, int ub, int totalNbDays = 0) :
+      HardBoundedResource("Hard Weekend Total work", lb, ub),
+      totalNbDays_(totalNbDays) {}
+
+  // instantiate TotalWeekEndLabel
+  int getConsumption(const State &initialState) const override;
+
+  int totalNbDays() const { return totalNbDays_; }
+
+ protected:
+  // initialize the expander on a given arc
+  PExpander init(const AbstractShift &prevAShift,
+                 const Stretch &stretch,
+                 const PRCArc &pArc) override;
+
+ private:
+  int totalNbDays_;  // Total number of days in the horizon
+};
+
+/**
+ * Expander that allows to count the consumption of the total weekend resources
+ */
+struct HardTotalWeekendsExpander : public Expander {
+  HardTotalWeekendsExpander(const HardTotalWeekendsResource& resource,
+                            Stretch stretch,
+                            int nWeekendsBefore,
+                            int nWeekendsAfter,
+                            bool arcToSink) :
+      Expander(resource.id()),
+      resource_(resource),
+      nWeekendsBefore_(nWeekendsBefore),
+      nWeekendsAfter_(nWeekendsAfter),
+      stretch_(std::move(stretch)),
+      arcToSink_(arcToSink) {
+  }
+
+  // expand a given resource label
+  bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
+  bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
+  bool merge(const ResourceValues &vForward,
+             const ResourceValues &vBack,
+             ResourceValues *vMerged,
+             const PRCLabel &pLMerged) override;
+
+
+ protected:
+  const HardTotalWeekendsResource& resource_;
+  // number of weekends before and including the first day of the stretch;
+  // if only a portion of a weekend is left (e.g., only sunday), it counts +1
+  int nWeekendsBefore_;
+  // number of weekends after the end of the stretch,
+  // if only a portion of a weekend is left (e.g., only sunday), it counts +1
+  int nWeekendsAfter_;
   const Stretch stretch_;
   bool arcToSink_;  // true if the target of the arc is a sink node
 };

@@ -9,14 +9,16 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_LONGROTATIONSP_H_
-#define SRC_SOLVERS_MP_SP_LONGROTATIONSP_H_
+#ifndef SRC_SOLVERS_MP_SP_RCSPP_BOOST_LONGROTATIONSP_H_
+#define SRC_SOLVERS_MP_SP_RCSPP_BOOST_LONGROTATIONSP_H_
 
 #include <vector>
 
-#include "solvers/mp/sp/BoostRotationSP.h"
+#include "solvers/mp/sp/rcspp/boost/RotationSP.h"
 
-class LongRotationSP : public BoostRotationSP {
+namespace boostRCSPP {
+
+class LongRotationSP : public RotationSP {
  public:
   LongRotationSP() = default;
   virtual ~LongRotationSP();
@@ -29,7 +31,8 @@ class LongRotationSP : public BoostRotationSP {
                  std::vector<State> *pInitState);
 
   double startWorkCost(int a) const override;
-  double historicalCost(int a) const override;
+
+  double historicalCost(int currentShift) const override;
 
  protected:
   // Number of rotations found (that match the bound condition) at that
@@ -43,7 +46,7 @@ class LongRotationSP : public BoostRotationSP {
   // SHORT SUCCESSIONS (computed when creating them)
   // For each size c \in [0,CDMin], for each short rotation of size c,
   // contains its base cost (independent from the date)
-  vector2D<double>  baseArcCostOfShortSucc_;
+  vector2D<double> baseArcCostOfShortSucc_;
 
   //-----------------------
   // THE SHORT SUCCESSIONS
@@ -59,7 +62,7 @@ class LongRotationSP : public BoostRotationSP {
   vector2D<int> lastShiftOfShortSucc_;
   // For each size c \in [0,CDMin], for each short rotation of size c,
   // contains the number of consecutive days the last shift has been performed
-  vector2D<int>  nLastShiftOfShortSucc_;
+  vector2D<int> nLastShiftOfShortSucc_;
   // Minimum number of consecutive days worked for free
   // int CDMin_;
   // For each shift s, for each number of days n, contains the list of short
@@ -114,4 +117,6 @@ class LongRotationSP : public BoostRotationSP {
   void printShortArcs() const;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_LONGROTATIONSP_H_
+}  // namespace boostRCSPP
+
+#endif  // SRC_SOLVERS_MP_SP_RCSPP_BOOST_LONGROTATIONSP_H_

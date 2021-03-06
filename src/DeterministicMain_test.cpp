@@ -20,7 +20,7 @@
 #include "solvers/InitializeSolver.h"
 #include "tools/ReadWrite.h"
 #include "solvers/DeterministicSolver.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 
 using std::string;
 using std::vector;

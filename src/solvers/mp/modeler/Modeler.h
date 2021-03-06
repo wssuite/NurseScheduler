@@ -26,7 +26,7 @@
 #include <utility>
 
 #include "solvers/Solver.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 
 /*
  * Var types

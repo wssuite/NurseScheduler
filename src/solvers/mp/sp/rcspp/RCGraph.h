@@ -13,92 +13,24 @@
 #define SRC_SOLVERS_MP_SP_RCSPP_RCGRAPH_H_
 
 #include <algorithm>
-#include <map>
+#include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "tools/MyTools.h"
-
 #include <boost/graph/adjacency_list.hpp>
-#include "boost/config.hpp"
 
-enum LABEL {
-  CONS_DAYS = 0,
-  DAYS = 1,
-  WEEKEND = 2
-};
+#include "solvers/mp/sp/rcspp/RCLabel.h"
 
-// true if the dominance is done with a descending order (lower the better),
-// false otherwise
-static const std::vector<std::string> labelsName = {
-    "CONS_DAYS", "DAYS     ", "WEEKEND  "};
+using std::vector;
+using std::shared_ptr;
+using std::unique_ptr;
 
-// Penalties structure
-class Penalties {
- public:
-  Penalties() = default;
-
-  Penalties(const std::vector<int> &labelsMinLevel,
-            const std::vector<int> &labelsMaxLevel,
-            const std::vector<double> &labelsWeight) :
-      labelsMinLevel_(labelsMinLevel),
-      labelsMaxLevel_(labelsMaxLevel),
-      labelsWeight_(labelsWeight) {}
-
-  void addLabel(LABEL label, const Penalties &penalties) {
-    labelsMinLevel_.push_back(penalties.minLevel(label));
-    labelsMaxLevel_.push_back(penalties.maxLevel(label));
-    labelsWeight_.push_back(penalties.weight(label));
-  }
-
-  void addLabel(int minLvl, int maxLvl, double weight) {
-    labelsMinLevel_.push_back(minLvl);
-    labelsMaxLevel_.push_back(maxLvl);
-    labelsWeight_.push_back(weight);
-  }
-
-  int minLevel(int label) const {
-    return labelsMinLevel_[label];
-  }
-
-  void minLevel(int label, int lvl) {
-    labelsMinLevel_[label] = lvl;
-  }
-
-  int maxLevel(int label) const {
-    return labelsMaxLevel_[label];
-  }
-
-  void maxLevel(int label, int lvl) {
-    labelsMaxLevel_[label] = lvl;
-  }
-
-  double weight(int label) const {
-    return labelsWeight_[label];
-  }
-
-  double penalty(int label, int labelLvl) const {
-    if (labelLvl < minLevel(label)) return minPenalty(label, labelLvl);
-    if (labelLvl > maxLevel(label)) return maxPenalty(label, labelLvl);
-    return 0;
-  }
-
-  double minPenalty(int label, int labelLvl) const {
-    return std::max(0, minLevel(label) - labelLvl) * weight(label);
-  }
-
-  double maxPenalty(int label, int labelLvl) const {
-    return std::max(0, labelLvl - maxLevel(label)) * weight(label);
-  }
-
- private:
-  // levels for which a label will have a penalty if it is respectively
-  // below the min or above the max
-  std::vector<int> labelsMinLevel_, labelsMaxLevel_;
-  // Weight associated to a given label
-  std::vector<double> labelsWeight_;
-};
+/**
+ * Description of a node of the RCGraph
+ *
+ */
 
 // Different node types and their names
 enum NodeType {
@@ -113,384 +45,240 @@ enum ArcType {
   SOURCE_TO_PRINCIPAL,
   SHIFT_TO_NEWSHIFT,
   SHIFT_TO_SAMESHIFT,
-  SHIFT_TO_ENDSEQUENCE,
-  REPEATSHIFT,
   TO_SINK,
   NONE_ARC
 };
 
 static const std::vector<std::string> arcTypeName = {
-    "SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH", "SHIFT_TO_ENDSEQ",
-    "REPEATSHIFT    ", "TO_SINK        ", "NONE           "};
+    "SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH",
+    "TO_SINK        ", "NONE           "};
 
-//////////////////////////////////////////////////////////////////////////
-//
-// The following structures are the properties of the nodes and arcs:
-//   For the nodes: id, earliest arrival time, and latest arrival time
-//   For the arcs : id, cost and time (time is the resource here)
-//   For the rcspp: usual stuff + nodes and and special properties
-//
-//////////////////////////////////////////////////////////////////////////
+struct RCArc;
+typedef shared_ptr<RCArc> PRCArc;
 
-// Nodes specific properties for RC
-struct Vertex_Properties {
-  // Constructor
-  explicit Vertex_Properties(int n = 0,
-                    NodeType t = NONE_NODE,
-                    std::vector<int> lbs = {},
-                    std::vector<int> ubs = {},
-                    bool hard_lbs = false,
-                    bool forbidden = false) :
-      num(n),
-      type(t),
-      lbs(lbs),
-      ubs(ubs),
-      hard_lbs_(hard_lbs),
-      forbidden(forbidden) {}
+struct RCNode {
+  RCNode(int id, NodeType t, int d, PAbstractShift pAS) :
+      id(id), type(t), day(d), pAShift(pAS) {}
 
-  // id
-  int num;
+  bool isWorkNode() {return pAShift->isWork();}
 
-  // type
+  void print() const {
+    std::cout << "Id: " << id << ", type: " << type << ", day: " <<
+              day << ", shift: " << pAShift->name;
+  }
+
+  const int id;
   NodeType type;
-
-  // label lower bounds
-  std::vector<int> lbs;
-
-  // label upper bounds
-  std::vector<int> ubs;
-
-  // hard lb
-  bool hard_lbs_;
-
-  // forbidden
-  bool forbidden;
-
-  int lb(LABEL l) const {
-    return lbs.at(l);
-  }
-
-  int ub(LABEL l) const {
-    return ubs.at(l);
-  }
-
-  int size() const {
-    return lbs.size();
-  }
+  const int day;
+  PAbstractShift pAShift;
+  vector<PRCArc> inArcs;  // Ids of the arcs entering in this node
+  vector<int> indActiveResources;
 };
 
-// Arcs specific properties for RC
-struct Arc_Properties {
+typedef shared_ptr<RCNode> PRCNode;
+
+/**
+ * Description of an arc of the RCGraph
+ *
+ */
+struct RCArc {
   // Constructor
-  Arc_Properties(int n = 0,
-                 int origin = -1,
-                 int destination = -1,
-                 ArcType ty = NONE_ARC,
-                 double c = 0,
-                 std::vector<int> consumptions = {},
-                 int day = -1,
-                 std::vector<int> shifts = {},
-                 bool forbidden = false) :
-      num(n), origin(origin), destination(destination),
-      type(ty), cost(c), initialCost(c), consumptions(consumptions),
-      day(day), shifts(shifts), forbidden(forbidden) {}
+  //
+  explicit RCArc(int n,
+                 PRCNode  o,
+                 PRCNode  t,
+                 Stretch s,
+                 double c,
+                 ArcType type = NONE_ARC) :
+      id(n),
+      origin(std::move(o)),
+      target(std::move(t)),
+      stretch(std::move(s)),
+      type(type),
+      cost(c),
+      baseCost(c),
+      dualCost(0),
+      forbidden(false) {}
 
-  // id
-  int num;
+  void print() const {
+    std::cout << id <<" : "
+              << "(" << origin->id << "," << target->id
+              << "): base cost = " << baseCost
+              << ", dual cost = " << dualCost
+              << ", first day = " << Tools::intToDay(stretch.firstDay())
+              << ", origin shift = " << origin->pAShift->name
+              << ", stretch =";
+    for (const auto& pS : stretch.pShifts())
+      std::cout << " " << pS->name;
+  }
 
-  // VERTICES
-  int origin, destination;
+  // Set the dual costs on the arc, this should be done when solving the RCSPP
+  void resetDualCost() {
+    cost = baseCost;
+    dualCost = 0;
+  }
 
-  // type
+  void addDualCost(double c) {
+    dualCost += c;
+    cost += c;
+  }
+
+  void addBaseCost(double c) {
+    baseCost += c;
+    cost += c;
+  }
+
+  // Return true if the arc was added during the enumeration process
+  bool isEnumeratedArc() {
+    return stretch.nDays() > 1;
+  }
+
+  int id;
+  const PRCNode origin, target;   // end vertices of the arc
+
+  // the arc symbolizes the affectation of the following stretch
+  const Stretch stretch;
+
+  // global information on the type of arc, see definition of enumerated type
   ArcType type;
 
-  // traversal cost
-  double cost;
-  double initialCost;
+  // traversal costs of the arc
+  double cost;  // total traversal cost
+  double baseCost;  // base cost due to soft constraints
+  double dualCost;  // cost due to the dual values of the master problem
 
-  // label consumption
-  std::vector<int> consumptions;
+  // vector of resources expanded along the arc
+  vector<PExpander> expanders;
 
-  int day;  // day
-  std::vector<int> shifts;  // shifts id
+  // true if the traversal of the arc is forbidden (by branching rule or LNS)
   bool forbidden;
-
-  int consumption(LABEL l) const {
-    return consumptions.at(l);
-  }
-
-  int size() const {
-    return consumptions.size();
-  }
-
-  std::set<LABEL> labelsToPrice;
-  Penalties penalties;
-
-  bool findLabelToPrice(LABEL l) const {
-    return labelsToPrice.find(l) != labelsToPrice.end();
-  }
-};
-
-// Graph with RC generic structure
-typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
-Vertex_Properties, Arc_Properties> Graph;
-typedef boost::graph_traits<Graph>::vertex_descriptor vertex;
-typedef boost::graph_traits<Graph>::edge_descriptor edge;
-
-// enum to define how to search the rc graph when solving
-enum SPSearchStrategy {
-  SP_BREADTH_FIRST, SP_DEPTH_FIRST, SP_BEST_FIRST, SP_DOMINANT_FIRST
-};
-
-// Solution from the RC SPP
-struct RCSolution {
-  RCSolution(int firstDay, const std::vector<int> &shifts, double c = 0) :
-      firstDay(firstDay), shifts(shifts), cost(c) {}
-  explicit RCSolution(double c = 0) : firstDay(-1), cost(c) {}
-
-  int firstDay;
-  std::vector<int> shifts;
-  double cost = 0;
-
-  std::string toString(std::vector<int> shiftIDToShiftTypeID = {}) const;
-};
-
-// solver for the RC SPP
-struct RCSPPSolver {
-  virtual ~RCSPPSolver() {}
-};
-
-//---------------------------------------------------------------------------
-//
-// C l a s s e s   G r a p h s
-//
-// Contains a interface for subgraphs and the main rcspp
-//
-//---------------------------------------------------------------------------
-class SubGraph {
- public:
-  SubGraph() {}
-  virtual ~SubGraph() {}
-
-  virtual int entrance(int day = -1) const = 0;
-  virtual int exit(int day = -1) const = 0;
-
-  // link two sub graphs together:
-  // 1. create an arc from the exit of inSubGraph to the current entrance
-  // 2. the entrance method should now returns the entrance of the  inSubGraph
-  virtual void linkInSubGraph(SubGraph *inSubGraph, int day = -1) = 0;
-
-  // link two sub graphs together:
-  // 1. create an arc from the current exit to the entrance of outSubGraph
-  // 2. the exit method should now returns the exit of the outSubGraph
-  virtual void linkOutSubGraph(SubGraph *outSubGraph, int day = -1) = 0;
 };
 
 class RCGraph {
  public:
-  explicit RCGraph(int nDays = 0);
-
-  virtual ~RCGraph();
-
-  // remove every forbidden arc before solving the rcspp; there is a need to
-  // add the arcs backs after solving
-  std::map<int, Arc_Properties> removeForbiddenArcsFromBoost();
-  void restoreForbiddenArcsToBoost(std::map<int, Arc_Properties> arcs_removed);
-
-  int nDays() const { return nDays_; }
-
-  ////////////////////
-  //  NODES
-  ////////////////////
-  Graph &g() { return g_; }
-
-  // Basic function for adding a node
-  int addSingleNode(NodeType type,
-                    std::vector<int> lbs,
-                    std::vector<int> ubs,
-                    bool hard_lbs = false);
-
-  void setSource(int v) { source_ = v; }
-
-  int source() const { return source_; }
-
-  void addSink(int v) { sinks_.push_back(v); }
-
-  int sink(int k = 0) const { return sinks_.at(k); }
-
-  int lastSink() const { return sinks_.back(); }
-
-  const std::vector<vertex> &sinks() const { return sinks_; }
-
-  // Get info from the node ID
-  int nodesSize() const { return nNodes_; }
-
-  const Vertex_Properties &node(int v) const {
-    if (v == -1) Tools::throwError("Cannot retrieve a node for index -1;");
-    return get(boost::vertex_bundle, g_)[v];
+  explicit RCGraph(int nDays, int nShifts) :
+      nDays_(nDays), nShifts_(nShifts), pSource_(nullptr) {
+    Tools::initVector3D(&pArcsByDayShift_, nDays, nShifts, 0);
   }
 
-  NodeType nodeType(int v) const {
-    return get(&Vertex_Properties::type, g_)[v];
+  void copy(const RCGraph &g) {
+    nDays_ = g.nDays_;
+    nShifts_ = g.nShifts_;
+    for (const auto &pN : g.pNodes_) {
+      pNodes_.emplace_back(std::make_shared<RCNode>(*pN));
+      if (pN->type == SOURCE_NODE) {
+        pSource_ = pNodes_.back();
+      }
+      if (pN->type == SINK_NODE) {
+        pSinks_.push_back(pNodes_.back());
+      }
+    }
+    for (const auto &pA : g.pArcs_) {
+      pArcs_.emplace_back(std::make_shared<RCArc>(*pA));
+    }
+    Tools::initVector3D(&pArcsByDayShift_, nDays_, nShifts_, 0);
+    for (int k=0; k < nDays_; k++)
+      for (int s=0; s < nShifts_; s++)
+        for (const PRCArc &pA : g.pArcsByDayShift_[k][s])
+          pArcsByDayShift_[k][s].push_back(pArc(pA->id));
+    forbiddenNodes_ = g.forbiddenNodes_;
+    forbiddenArcs_ = g.forbiddenArcs_;
   }
 
-  const std::vector<int> &nodeLBs(int v) const {
-    return get(&Vertex_Properties::lbs, g_)[v];
+  // Getters of private attributes
+  int nNodes() const {return pNodes_.size();}
+  const vector<PRCNode>& pNodes() const {return pNodes_;}
+  const PRCNode& pNode(int id) const {return pNodes_[id];}
+  PRCNode pSource() const {return pSource_;}
+  const vector<PRCNode> &pSinks() const { return pSinks_; }
+  int nArcs() const {return pArcs_.size();}
+  int nDays() const {return nDays_;}
+  int nShifts() const {return nShifts_;}
+  const vector<PRCArc> pArcs() const {return pArcs_;}
+  const PRCArc& pArc(int id) const {return pArcs_[id];}
+  const vector<PRCArc>& pArcs(int day, int shift) const {
+    return pArcsByDayShift_[day][shift];
+  }
+  int nResources() const {return pResources_.size();}
+  const vector<PResource> &pResources() const;
+  PRCArc getArc(const PRCNode& origin, const PRCNode& target) const;
+
+  void reset() {
+    clearResources();
+    clearNodes();
+    clearArcs();
   }
 
-  const std::vector<int> &nodeUBs(int v) const {
-    return get(&Vertex_Properties::ubs, g_)[v];
+  void clearNodes() {
+    pNodes_.clear();
   }
 
-  bool nodeForbidden(int v) const {
-    return forbiddenNodes_.find(v) != forbiddenNodes_.end();
+  void clearArcs() {
+    pArcs_.clear();
   }
 
-  void updateUBs(int v, const std::vector<int> &ubs) {
-    boost::put(&Vertex_Properties::ubs, g_, v, ubs);
+  void clearResources() {
+    pResources_.clear();
   }
 
-  void forbidNode(int v) {
-    boost::put(&Vertex_Properties::forbidden, g_, v, true);
-    forbiddenNodes_.insert(v);
+  const vector<int> & getActiveResourcesNode(int idNode) {
+    return pNode(idNode)->indActiveResources;
   }
 
-  void authorizeNode(int v) {
-    boost::put(&Vertex_Properties::forbidden, g_, v, false);
-    forbiddenNodes_.erase(v);
-  }
+  void addResource(const PResource& pR);
+  PRCNode addSingleNode(NodeType type, int day, const PShift& pS);
 
-  ////////////////////
-  //  ARCS
-  ////////////////////
-  // Basic function for adding an arc
-  int addSingleArc(int origin,
-                   int destination,
-                   double baseCost,
-                   std::vector<int> consumptions,
-                   ArcType type,
-                   int day = -1,
-                   std::vector<int> shifts = {});
+  PRCArc addSingleArc(PRCNode o, PRCNode d, const Stretch &s, double d1);
 
-  int addPricingArc(int origin,
-                    int destination,
-                    double baseCost,
-                    std::vector<int> consumptions,
-                    ArcType type,
-                    int day,
-                    std::set<LABEL> labelsToPrice,
-                    const Penalties &penalties);
+  // preprocess the expansion of every resource on every arc to save cpu at
+  // the actual expansion of labels
+  void initializeExpanders();
 
-  // Get info with the arc ID
-  int arcsSize() const {
-    return nArcs_;
-  }
+  // preprocess dominance of every resource on every node to save cpu at the
+  // actual dominance of labels
+  void initializeDominance();
 
-  const Arc_Properties &arc(int a) const {
-    if (a == -1) Tools::throwError("Cannot retrieve an arc for index -1;");
-    return get(boost::edge_bundle, g_)[arcsDescriptors_[a]];
-  }
+  // return a sorted vector of the nodes from sources to sinks to ensure
+  // that a given node cannont reach previous nodes in the graph
+  std::vector<PRCNode> sortNodes() const;
 
-  ArcType arcType(int a) const {
-    return get(&Arc_Properties::type, g_, arcsDescriptors_[a]);
-  }
+  // Forbid all node / arc using day k and shift s
+  void forbidDayShift(int k, int s);
 
-  int arcOrigin(int a) const {
-    return boost::source(arcsDescriptors_[a], g_);
-  }
+  // Authorize a node / arc using day k and shift s
+  void authorizeDayShift(int k, int s);
 
-  int arcDestination(int a) const {
-    return target(arcsDescriptors_[a], g_);
-  }
+  // Forbid arc
+  void forbidArc(const PRCArc &pA);
 
-  const std::vector<int> &arcConsumptions(int a) const {
-    return get(&Arc_Properties::consumptions, g_, arcsDescriptors_[a]);
-  }
+  // Authorize a arc
+  void authorizeArc(const PRCArc &pA);
 
-  double arcCost(int a) const {
-    return get(&Arc_Properties::cost, g_, arcsDescriptors_[a]);
-  }
+  // remove all forbidden arcs
+  void resetAuthorizationsArcs();
 
-  double arcInitialCost(int a) const {
-    return get(&Arc_Properties::initialCost, g_, arcsDescriptors_[a]);
-  }
-
-  const std::vector<int> &arcShifts(int a) const {
-    return get(&Arc_Properties::shifts, g_, arcsDescriptors_[a]);
-  }
-
-  int arcDay(int a) const {
-    return get(&Arc_Properties::day, g_, arcsDescriptors_[a]);
-  }
-
-  bool arcForbidden(int a) const {
-    return get(&Arc_Properties::forbidden, g_, arcsDescriptors_[a]);
-  }
-
-  const std::set<LABEL> &arcLabelsToPrice(int a) {
-    return get(&Arc_Properties::labelsToPrice, g_, arcsDescriptors_[a]);
-  }
-
-  void updateConsumptions(int a, const std::vector<int> &consumptions) {
-    boost::put(&Arc_Properties::consumptions,
-               g_,
-               arcsDescriptors_[a],
-               consumptions);
-  }
-
-  void updateShifts(int a, const std::vector<int> &shifts) {
-    boost::put(&Arc_Properties::shifts, g_, arcsDescriptors_[a], shifts);
-  }
-
-  void updateCost(int a, double cost) {
-    boost::put(&Arc_Properties::cost, g_, arcsDescriptors_[a], cost);
-  }
-
-  void forbidArc(int a) {
-    boost::put(&Arc_Properties::forbidden, g_, arcsDescriptors_[a], true);
-    forbiddenArcs_.insert(a);
-  }
-
-  void authorizeArc(int a) {
-    boost::put(&Arc_Properties::forbidden, g_, arcsDescriptors_[a], false);
-    forbiddenArcs_.erase(a);
-  }
-
-  void resetAuthorizations();
-
-  // Print functions.
-  void printGraph(int nLabel = -1, int nShiftsToDisplay = 1) const;
-
-  std::string printNode(int v, int nLabel = -1) const;
-
-  void printAllNodes(int nLabel = -1) const;
-
-  std::string printArc(int a, int nLabel = -1, int nShiftsToDisplay = 1) const;
-  std::string printArc(const Arc_Properties &arc_prop,
-                       int nLabel = -1,
-                       int nShiftsToDisplay = 1) const;
-
-  void printAllArcs(int nLabel = -1, int nShiftsToDisplay = 1) const;
-
-  std::string shortNameNode(int v) const;
-
-  std::string printSummaryOfGraph() const;
+  // print utilities
+  void printSummaryOfGraph() const;
+  void printAllNodes() const;
+  void printAllArcs() const;
 
  protected:
   // THE GRAPH
-  Graph g_;
-  int nDays_;
-  int nNodes_;  // Total number of nodes in the rcspp
-  // Source
-  vertex source_;
-  // Sink Node
-  std::vector<vertex> sinks_;
+  int nDays_, nShifts_;
+  vector<PRCNode> pNodes_;
+  PRCNode pSource_;  // source node
+  vector<PRCNode> pSinks_;   // sink nodes
 
-  int nArcs_;  // Total number of arcs in the rcspp
-  std::vector<edge> arcsDescriptors_;
+  vector<PRCArc> pArcs_;
+  // arcs stored by day and shifts contains within the arc stretch
+  vector3D<PRCArc> pArcsByDayShift_;
 
+ protected:
   std::set<int> forbiddenNodes_;
   std::set<int> forbiddenArcs_;
+
+  // RESOURCES
+  vector<PResource> pResources_;
 };
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCGRAPH_H_

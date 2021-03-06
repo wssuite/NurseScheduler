@@ -17,9 +17,6 @@
 #include <string>
 #include <vector>
 
-#include <boost/graph/adjacency_list.hpp>
-
-#include "solvers/mp/sp/rcspp/BoostRCSPP.h"
 #include "solvers/mp/RosterMP.h"
 
 using std::stringstream;
@@ -31,7 +28,6 @@ using std::set;
 
 #define DBG_AG
 
-
 //---------------------------------------------------------------------------
 //
 // C l a s s   S u b P r o b l e m
@@ -39,80 +35,6 @@ using std::set;
 // Contains the shortest paths with resource constraints
 //
 //---------------------------------------------------------------------------
-
-const int SubproblemParam::maxSubproblemStrategyLevel_ = 3;
-
-// TODO(JO): it seems that param_ is not initialized at the same time as the
-//  subproblem. This can be very annoying if parameters are needed. Always
-//  need to check whether they have been initialized or not
-void SubproblemParam::initSubproblemParam(int strategy,
-                                          PLiveNurse pNurse,
-                                          MasterProblem *pMaster) {
-  verbose_ = pMaster->getModel()->getParameters().verbose_;
-  epsilon_ = pMaster->getModel()->epsilon();
-  maxRotationLength_ = pNurse->maxConsDaysWork();
-  sp_sortLabelsOption = pMaster->sortLabelsOption();
-  sp_minimumCostFromSinksOption = pMaster->minimumCostFromSinksOption();
-  sp_worstCaseCostOption = pMaster->worstCaseCostOption();
-  sp_enumeratedSubPathOption = pMaster->enumeratedSubPathOption();
-  int nb_max_path = static_cast<int>(round(
-      pMaster->getModel()->getParameters().sp_columns_ratio_for_number_paths_ *
-          pMaster->getModel()->getParameters().nbMaxColumnsToAdd_));
-  switch (strategy) {
-    // 0 -> [Heuristic large search]
-    //  short = all,
-    //  min   = 0,
-    //  max   = CD_max+3
-    //
-    case 0:search_strategy_ = SP_BEST_FIRST;
-      nb_max_paths_ = nb_max_path;
-      violateConsecutiveConstraints_ = true;
-      shortRotationsStrategy_ = 3;
-      maxRotationLength_ += 3;
-      break;
-
-      // 1 -> [Exact legal only]
-      //  short = first and last day,
-      //  min   = CD_min,
-      //  max   = CD_max
-      //
-    case 1:search_strategy_ = SP_BREADTH_FIRST;
-      nb_max_paths_ = -1;
-      violateConsecutiveConstraints_ = false;
-      shortRotationsStrategy_ = 2;
-      maxRotationLength_ += 0;
-      break;
-
-      // 2 -> [Exact above legal]
-      //  short = all,
-      //  min   = 0,
-      //  max   = CD_max+2
-      //
-    case 2:search_strategy_ = SP_BREADTH_FIRST;
-      nb_max_paths_ = -1;
-      violateConsecutiveConstraints_ = true;
-      shortRotationsStrategy_ = 3;
-      maxRotationLength_ += 2;
-      break;
-
-      // 3 -> [Exact exhaustive search]
-      //  short = all,
-      //  min   = 0,
-      //  max   = LARGE
-      //
-    case 3:search_strategy_ = SP_BREADTH_FIRST;
-      nb_max_paths_ = -1;
-      violateConsecutiveConstraints_ = true;
-      shortRotationsStrategy_ = 3;
-      maxRotationLength_ =
-          pNurse->pStateIni_->consDaysWorked_ + pNurse->nbDays_;
-      break;
-    default:  // UNKNOWN STRATEGY
-      std::cout << "# Unknown strategy for the subproblem (" << strategy << ")"
-                << std::endl;
-      break;
-  }
-}
 
 // Constructors and destructor
 SubProblem::SubProblem() :
@@ -126,17 +48,12 @@ SubProblem::SubProblem(PScenario scenario,
                        int nDays,
                        PConstContract contract,
                        vector<State> *pInitState) :
-    pScenario_(scenario), nDays_(nDays), pContract_(contract),
-    CDMin_(contract->minConsDaysWork_), minConsDays_(1),
-    maxRotationLength_(nDays) {
+    pScenario_(scenario), nDays_(nDays), pContract_(contract) {
   int max = 0;
   for (int t : pScenario_->timeDurationToWork_)
     if (t > max) max = t;
   maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
   if (pInitState) init(*pInitState);
-
-  timerPresolve_ = new Tools::Timer();
-  timerSolve_ = new Tools::Timer();
 }
 
 SubProblem::SubProblem(PScenario scenario,
@@ -146,23 +63,14 @@ SubProblem::SubProblem(PScenario scenario,
     pScenario_(std::move(scenario)), nDays_(nDays),
     pContract_(pNurse->pContract_),
     pLiveNurse_(pNurse),
-    param_(param),
-    CDMin_(pNurse->minConsDaysWork()),
-    minConsDays_(1),
-    maxRotationLength_(nDays) {
+    param_(param) {
   int max = 0;
   for (auto s : pScenario_->pShifts_)
     if (s->duration > max) max = s->duration;
   maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
-
-  timerPresolve_ = new Tools::Timer();
-  timerSolve_ = new Tools::Timer();
 }
 
-SubProblem::~SubProblem() {
-  delete timerPresolve_;
-  delete timerSolve_;
-}
+SubProblem::~SubProblem() {}
 
 // Initialization function
 void SubProblem::init(const vector<State> &initStates) {
@@ -175,21 +83,6 @@ void SubProblem::init(const vector<State> &initStates) {
   nFound_ = 0;
 }
 
-void BoostSubProblem::build() {
-  g_ = RCGraph(nDays_);
-
-  //  initShortSuccessions();
-
-  createNodes();
-  createArcs();
-
-  // Set all status to authorized
-  Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
-  nPathsMin_ = 0;
-}
-
-
-
 //--------------------------------------------
 //
 // Solve function
@@ -200,14 +93,14 @@ void BoostSubProblem::build() {
 // Returns TRUE if negative reduced costs path were found;
 // FALSE otherwise.
 bool SubProblem::solve(PLiveNurse nurse,
-                       DualCosts *costs,
+                       const PDualCosts &costs,
                        const SubproblemParam &param,
                        const std::set<std::pair<int, int>> &forbiddenDayShifts,
                        double redCostBound) {
   bestReducedCost_ = 0;
   nFound_ = 0;
   param_ = param;
-  maxReducedCostBound_ = -redCostBound - param.epsilon_;  // Cost bound
+  maxReducedCostBound_ = redCostBound;  // Cost bound
   pLiveNurse_ = nurse;  // Store the new nurse
   pCosts_ = costs;  // Store the new cost
 
@@ -226,14 +119,14 @@ bool SubProblem::solve(PLiveNurse nurse,
   // Set to true if you want to display contract + preferences (for debug)
 //  if (false) pLiveNurse_->printContractAndPreferences(pScenario_);
 
-  timerSolve_->start();
+  timerSolve_.start();
   // Set of operation applied on the rcGraph to prepare the solving
-  timerPresolve_->start();
+  timerPresolve_.start();
   preprocess();
-  timerPresolve_->stop();
+  timerPresolve_.stop();
 
   bool ANS = solveRCGraph();  // Solve the RCSPP on the rcGraph
-  timerSolve_->stop();
+  timerSolve_.stop();
 
   // and check that all solution respects forbidden shifts
 #ifdef DBG
@@ -246,96 +139,15 @@ bool SubProblem::solve(PLiveNurse nurse,
 }
 
 bool SubProblem::preprocess() {
-  return true;
-}
-
-BoostRCSPPSolver *BoostSubProblem::initRCSSPSolver() {
-  return new BoostRCSPPSolver(&g_,
-                              maxReducedCostBound_,
-                              param_.verbose_,
-                              param_.epsilon_,
-                              param_.search_strategy_,
-                              param_.nb_max_paths_,
-                              nullptr);
-}
-
-// shortest path problem is to be solved
-bool BoostSubProblem::solveRCGraph() {
-  // update arcs costs
+  // update dual costs
   updateArcDualCosts();
-
-  // solve the RC SPP
-  std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks = g_.sinks();
-
-  if (param_.oneSinkNodePerLastDay_ && sinks.size() > 1) {
-    sinks.resize(sinks.size() - 1);  // remove last sink (it's the main one)
-    for (int a : arcsTosink_)
-      g_.forbidArc(a);
-  } else {
-    // keep just the main one
-    sinks = {sinks.back()};
-  }
-
-  // 0 - Remove all forbidden edges
-  std::map<int, Arc_Properties > arcs_removed =
-      g_.removeForbiddenArcsFromBoost();
-
-  // 1 - solve the resource constraints shortest path problem
-  if (sinks.empty()) sinks = g_.sinks();
-  Penalties penalties = initPenalties();
-  BoostRCSPPSolver *solver = initRCSSPSolver();
-
-  std::vector<RCSolution>
-      solutions = solver->solve(labels_, penalties, sinks);
-  delete solver;
-
-  // 2 - Add back all forbidden edges
-  g_.restoreForbiddenArcsToBoost(arcs_removed);
-
-  // Extract the best reduced cost
-  for (const RCSolution &sol : solutions) {
-    theSolutions_.push_back(sol);
-    nPaths_++;
-    nFound_++;
-    if (bestReducedCost_ > sol.cost)
-      bestReducedCost_ = sol.cost;
-  }
-
-  return !solutions.empty();
+  return true;
 }
 
 // Reset all solutions data (rotations, number of solutions, etc.)
 void SubProblem::resetSolutions() {
   theSolutions_.clear();
   nPaths_ = 0;
-}
-
-
-//--------------------------------------------
-//
-// Functions for the ARCS of the rcspp
-//
-//--------------------------------------------
-
-// Function that creates the arcs of the network
-void BoostSubProblem::createArcs() {
-  // Initialization
-  Tools::initVector4D(&arcsFromSource_,
-                      pScenario_->nbShiftsType_,
-                      nDays_,
-                      0,
-                      0,
-                      -1);
-  Tools::initVector3D(&principalToPrincipal_,
-                      pScenario_->nbShiftsType_,
-                      pScenario_->nbShiftsType_,
-                      nDays_,
-                      -1);
-
-  // create arcs
-  createArcsSourceToPrincipal();
-  createArcsPrincipalToPrincipal();
-  createArcsPrincipalToSink();
 }
 
 //--------------------------------------------
@@ -374,275 +186,6 @@ void SubProblem::initStructuresForSolve() {
           pScenario_->weights().WEIGHT_PREFERENCES_ON[s.level];
 }
 
-Penalties SubProblem::initPenalties() const {
-  Penalties penalties;
-  // Add each label
-  // 0: CONS_DAYS
-  penalties.addLabel(pContract_->minConsDaysWork_,
-                     pContract_->maxConsDaysWork_,
-                     pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
-
-  // if a live nurse is defined (true when solving)
-  if (pLiveNurse_) {
-    // 1: DAYS
-    penalties.addLabel(pLiveNurse_->minTotalShifts(),
-                       pLiveNurse_->maxTotalShifts(),
-                       pScenario_->weights().WEIGHT_TOTAL_SHIFTS);
-    // 2: WEEKEND
-    penalties.addLabel(0, pLiveNurse_->maxTotalWeekends(),
-                       pScenario_->weights().WEIGHT_TOTAL_WEEKENDS);
-  }
-
-  return penalties;
-}
-
-double BoostSubProblem::startWorkCost(int a) const {
-  // retrieve the work cost
-  const Arc_Properties &arc_prop = g_.arc(a);
-  double cost = shiftCost(arc_prop, true);
-  int start = arc_prop.day;
-  // test is true when the arc does not match an assignment;
-  // it may be then end of a rotation for instance
-  if (arc_prop.shifts.empty())
-    ++start;  // start work the next day as no shift today
-  cost -= pCosts_->startWorkCost(start);
-  cost += startWeekendCosts_[start];
-
-  return cost;
-}
-
-double BoostSubProblem::shiftCost(int a, bool first_day) const {
-  return shiftCost(g_.arc(a), first_day);
-}
-
-double BoostSubProblem::shiftCost(const Arc_Properties &arc_prop,
-                             bool first_day) const {
-  // initial cost of the arc is the part of the cost that is common to all
-  // nurses with the same contract
-  double cost = arc_prop.initialCost;
-
-  int k = arc_prop.day;
-  // iterate through the shift to update the cost
-  for (int s : arc_prop.shifts) {
-    cost += preferencesCosts_[k][s];
-    if (pScenario_->isWorkShift(s)) {
-      cost -= pCosts_->workedDayShiftCost(k, s);
-      // add weekend cost on saturday, except when first day is sunday
-      // TODO(JO): I am not getting this line: when is first_day false: only
-      //  when the arc comes from the source and the nurse was working in the
-      //  history? If so, it would be better to test on this here. Also, if
-      //  the arc stands for several shifts, we might end-up counting the
-      //  workedWeekendCost several times.
-      // TODO(JO): moreover, this worked week-end cost is a rotation-related
-      //  dual cost, should not be at the Subproblem level
-      if (Tools::isSaturday(k) || (first_day && Tools::isSunday(k)))
-        cost -= pCosts_->workedWeekendCost();
-    }
-    ++k;
-  }
-  return cost;
-}
-
-double BoostSubProblem::endWorkCost(int a) const {
-  const Arc_Properties &arc_prop = g_.arc(a);
-  double cost = shiftCost(arc_prop);
-  int length = arc_prop.shifts.size(), end = arc_prop.day;
-  // compute the end of the sequence of shifts
-  if (length > 1) end += length - 1;
-  if (arc_prop.shifts.empty() || arc_prop.shifts.back())
-    cost += endWeekendCosts_[end];
-  cost -= pCosts_->endWorkCost(end);
-
-  return cost;
-}
-
-// take into account historical state depending on current shift
-// (should be called wisely)
-double BoostSubProblem::historicalCost(int a) const {
-  const Arc_Properties &arc_prop = g_.arc(a);
-
-  // WARNING: the following logic is based on the fact that shifts contains
-  // only one element
-  if (arc_prop.shifts.size() != 1)
-    Tools::throwError("The initial state handling in startWorkCost "
-                      "is implemented only for a sequence of one shift.");
-
-  double cost = 0;
-  int currentShift = arc_prop.shifts.front();
-  int shiftTypeIni = pLiveNurse_->pStateIni_->shiftType_;
-  int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
-  int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
-
-  // if resting
-  if (pScenario_->isRestShift(currentShift)) {
-    // 1. The nurse was resting
-    if (shiftTypeIni == 0) {
-      // if the nurse has already exceeded its max amount of rest,
-      // add one penalty as current shift is already over the max
-      if (pLiveNurse_->pStateIni_->consDaysOff_
-          >= pLiveNurse_->maxConsDaysOff())
-        cost += pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
-    } else {
-      // 2. The nurse was working
-      // pay just penalty for min
-      int diff = pLiveNurse_->minConsDaysWork() - nConsWorkIni;
-      cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
-
-      int diff2 = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-      cost += std::max(.0, diff2 * pScenario_->weights().WEIGHT_CONS_SHIFTS);
-    }
-  } else {
-    // otherwise, currently working
-    // 1. The nurse was resting: pay more only if the rest is too short
-    if (shiftTypeIni == 0) {
-      int diffRest =
-          pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
-      cost +=
-          std::max(.0, diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF);
-    } else {
-      // 2. The nurse was working
-      // a. If the number of consecutive days worked has already exceeded the
-      // max, subtract now the cost that will be added later
-      int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
-      cost -=
-          std::max(.0, diffWork * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
-
-      // b. The nurse was working on a different shift: if too short,
-      // add the corresponding cost
-      int shiftType = pScenario_->shiftIDToShiftTypeID_[currentShift];
-      if (shiftTypeIni != shiftType) {
-        int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
-        cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_SHIFTS);
-      } else if (nConsShiftIni >= pScenario_->maxConsShiftsOf(shiftTypeIni)) {
-        // c. If working on the same shift type, need to update the
-        // consecutive shift cost just if exceeding the max
-        cost += pScenario_->weights().WEIGHT_CONS_SHIFTS;
-      }
-    }
-  }
-
-  return cost;
-}
-
-//--------------------------------------------
-//
-// Functions for the costs
-//
-//--------------------------------------------
-
-// Updates the costs depending on the reduced costs given for the nurse
-void BoostSubProblem::updateArcDualCosts() {
-  // A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
-  for (PrincipalGraph &pg : principalGraphs_)
-    for (unsigned int k = minConsDays_ - 1;
-         k < arcsFromSource_[pg.shiftType()].size(); k++)
-      for (int n = 0; n <= pg.maxCons(); ++n)
-        for (int a : arcsFromSource_[pg.shiftType()][k][n]) {
-          const Arc_Properties &arc_prop = g_.arc(a);
-          if (!arc_prop.forbidden && canSuccStartHere(arc_prop) &&
-              pg.checkFeasibilityEntranceArc(arc_prop, n)) {
-            double c = 0;
-            // if first day -> add the historical costs
-            if (k == minConsDays_ - 1)
-              c += historicalCost(a);
-            // if rest shift, just add shift cost
-            if (pg.shiftType() == 0)
-              c += shiftCost(a);
-            else
-              // otherwise, call startWorkCost method
-              c += startWorkCost(a);
-            g_.updateCost(a, c);
-            // For an arc that starts on the first day, must update the
-            // consumption based on the historical state
-            if (k == minConsDays_ - 1)
-              g_.updateConsumptions(a, startConsumption(k, arc_prop.shifts));
-          } else {
-            g_.forbidArc(a);
-          }
-        }
-
-  // B. ARCS : PRINCIPAL GRAPH
-  for (PrincipalGraph &pg : principalGraphs_)
-    pg.updateArcCosts();
-}
-
-
-//--------------------------------------------
-//
-// Functions to update the maximum length of a rotation
-//
-//--------------------------------------------
-
-void BoostSubProblem::updatedMaxRotationLengthOnNodes(int maxRotationLength) {
-  if (maxRotationLength != maxRotationLength_) {
-    maxRotationLength_ = maxRotationLength;
-    for (int v = 0; v < g_.nodesSize(); v++) {
-      std::vector<int> ubs = g_.nodeUBs(v);
-      ubs[CONS_DAYS] = maxRotationLength;
-      g_.updateUBs(v, ubs);
-    }
-  }
-}
-
-std::vector<int> SubProblem::startConsumption(
-    int day, std::vector<int> shifts) const {
-  if (pScenario_->isRestShift(shifts.back()))
-    return {0, 0, 0};
-
-  int timeDuration = 0, size = 0;
-  for (int s : shifts) {
-    if (pScenario_->isRestShift(s)) {
-      timeDuration = 0;
-      size = 0;
-    } else {
-      timeDuration += pScenario_->timeDurationToWork_[s];
-      ++size;
-    }
-  }
-
-  // set the consumption
-  std::vector<int> c = {
-      size,
-      timeDuration,
-      Tools::containsWeekend(day - size + 1, day)
-  };
-
-  // if need to take the historical state
-  if (day == size - 1 && pLiveNurse_)
-    c[CONS_DAYS] += pLiveNurse_->pStateIni_->consDaysWorked_;
-  return c;
-}
-
-//--------------------------------------------
-//
-// Functions to forbid / authorize arcs and nodes
-//
-//--------------------------------------------
-
-
-// Returns true if the succession succ starting on day k does not violate
-// any forbidden day-shift
-bool BoostSubProblem::canSuccStartHere(int a) const {
-  return canSuccStartHere(g_.arc(a));
-}
-
-bool BoostSubProblem::canSuccStartHere(const Arc_Properties &arc_prop) const {
-  return SubProblem::canSuccStartHere(arc_prop.day, arc_prop.shifts);
-}
-
-bool SubProblem::canSuccStartHere(int k, const std::vector<int> &shifts) const {
-  // If the succession with the previous shift (day -1) is not allowed
-  if (k == 0 &&
-      pScenario_->isForbiddenSuccessorShift_Shift(
-          shifts.front(), pLiveNurse_->pStateIni_->shift_))
-    return false;
-  // If some day-shift is forbidden
-  for (int s : shifts)
-    if (!dayShiftStatus_[k++][s])
-      return false;
-  return true;
-}
-
 // Forbids the nodes that correspond to forbidden shifts
 void SubProblem::forbid(const set<pair<int, int> > &forbiddenDayShifts) {
   for (const pair<int, int> &p : forbiddenDayShifts)
@@ -653,38 +196,6 @@ void SubProblem::forbid(const set<pair<int, int> > &forbiddenDayShifts) {
 void SubProblem::authorize(const set<pair<int, int> > &forbiddenDayShifts) {
   for (const pair<int, int> &p : forbiddenDayShifts)
     authorizeDayShift(p.first, p.second);
-}
-
-// Forbids a day-shift couple
-void BoostSubProblem::forbidDayShift(int k, int s) {
-  // Mark the day-shift as forbidden
-  dayShiftStatus_[k][s] = false;
-
-  int sh = pScenario_->shiftIDToShiftTypeID_[s];
-  principalGraphs_[sh].forbidDayShift(k, s);
-}
-
-// (re)Authorizes the day-shift couple
-void BoostSubProblem::authorizeDayShift(int k, int s) {
-  // Mark the day-shift as forbidden
-  dayShiftStatus_[k][s] = true;
-
-  int sh = pScenario_->shiftIDToShiftTypeID_[s];
-  principalGraphs_[sh].authorizeDayShift(k, s);
-}
-
-// forbid any arc that authorizes the violation of a consecutive constraint
-void BoostSubProblem::forbidViolationConsecutiveConstraints() {
-  for (PrincipalGraph &pg : principalGraphs_)
-    pg.forbidViolationConsecutiveConstraints();
-}
-
-// Reset all authorizations to true
-void BoostSubProblem::resetAuthorizations() {
-  // set all value to true
-  Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
-  // reset authorizations for all arcs and nodes
-  g_.resetAuthorizations();
 }
 
 // Generate random forbidden shifts

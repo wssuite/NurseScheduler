@@ -9,37 +9,40 @@
  * full license detail.
  */
 
-#include "BoostRosterSP.h"
+#include "RosterSP.h"
 
 #include <string>
 #include <algorithm>
 
-#include "solvers/mp/sp/rcspp/BoostRCSPP.h"
+#include "RCSPP.h"
 
 using std::string;
 using std::vector;
 using std::map;
 
+namespace boostRCSPP {
+
 // Constructors and destructor
-BoostRosterSP::BoostRosterSP(PScenario scenario,
-                             int nbDays,
-                             PConstContract contract,
-                             vector<State> *pInitState) :
-    BoostSubProblem(scenario, nbDays, contract, pInitState) {
+RosterSP::RosterSP(PScenario scenario,
+                   int nbDays,
+                   PConstContract contract,
+                   vector<State> *pInitState) :
+    SubProblem(scenario, nbDays, contract, pInitState) {
   labels_ = {CONS_DAYS, DAYS, WEEKEND};
+  build();
 }
 
-BoostRosterSP::~BoostRosterSP() {}
+RosterSP::~RosterSP() {}
 
-BoostRCSPPSolver *BoostRosterSP::initRCSSPSolver() {
+BoostRCSPPSolver *RosterSP::initRCSSPSolver() {
   double constant = pCosts_->constant();
   Penalties penalties = initPenalties();
   // lambda expression to post process the solutions found by the RCSPP solver
   auto postProcess = [constant, penalties](spp_res_cont *res_cont) {
     res_cont->postprocessCost =
         penalties.penalty(DAYS, res_cont->label_value(DAYS)) +
-        penalties.penalty(WEEKEND, res_cont->label_value(WEEKEND)) -
-        constant;
+            penalties.penalty(WEEKEND, res_cont->label_value(WEEKEND)) -
+            constant;
     res_cont->cost += res_cont->postprocessCost;
   };
   return new BoostRCSPPSolver(&g_,
@@ -47,12 +50,12 @@ BoostRCSPPSolver *BoostRosterSP::initRCSSPSolver() {
                               param_.verbose_,
                               param_.epsilon_,
                               param_.search_strategy_,
-                              param_.nb_max_paths_,
+                              param_.rcsppMinNegativeLabels_,
                               postProcess);
 }
 
 // Function that creates the nodes of the network
-void BoostRosterSP::createNodes() {
+void RosterSP::createNodes() {
   // INITIALIZATION
   principalGraphs_.clear();
 
@@ -70,7 +73,7 @@ void BoostRosterSP::createNodes() {
   g_.addSink(v);
 }
 
-void BoostRosterSP::createArcsSourceToPrincipal() {
+void RosterSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (PrincipalGraph &pg : principalGraphs_) {
     vector2D<int> vec2;
@@ -92,7 +95,7 @@ void BoostRosterSP::createArcsSourceToPrincipal() {
 
 // Create all arcs from one principal subgraph to another one
 // add a pricing arc when going from work to rest
-void BoostRosterSP::createArcsPrincipalToPrincipal() {
+void RosterSP::createArcsPrincipalToPrincipal() {
   int nShiftsType = pScenario_->nbShiftsType_;
   Penalties penalties = initPenalties();
   // consumption when pricing to reset CONS_DAYS
@@ -125,7 +128,7 @@ void BoostRosterSP::createArcsPrincipalToPrincipal() {
   }
 }
 
-void BoostRosterSP::createArcsPrincipalToSink() {
+void RosterSP::createArcsPrincipalToSink() {
   Penalties penalties = initPenalties();
   // last day: price just max
   penalties.minLevel(CONS_DAYS, 0);
@@ -141,9 +144,10 @@ void BoostRosterSP::createArcsPrincipalToSink() {
   }
 }
 
-void BoostRosterSP::updateArcDualCosts() {
-  // A-B: call parent method first
-  BoostSubProblem::updateArcDualCosts();
+void RosterSP::updateArcDualCosts() {
+  // A. ARCS : SOURCE_TO_PRINCIPAL [baseCost = 0]
+  // B. ARCS : PRINCIPAL GRAPH
+  SubProblem::updateArcDualCosts();
 
   // C. ARCS : PRINCIPAL GRAPH TO PRINCIPAL GRAPH
   // for rest principal graph
@@ -154,3 +158,48 @@ void BoostRosterSP::updateArcDualCosts() {
       if (a != -1) g_.updateCost(a, endWorkCost(a));
   }
 }
+
+double RosterSP::startWorkCost(int a) const {
+  const Arc_Properties &arc_prop  = g_.arc(a);
+  // retrieve the work cost
+  double cost = shiftCost(a);
+  int start = arc_prop.day;
+  // test is true when the arc does not match an assignment;
+  // it may be then end of a rotation for instance
+  if (arc_prop.shifts.empty())
+    ++start;  // start work the next day as no shift today
+  cost += startWeekendCosts_[start];
+
+  return cost;
+}
+
+double RosterSP::shiftCost(int a) const {
+  const Arc_Properties &arc_prop  = g_.arc(a);
+  // initial cost of the arc is the part of the cost that is common to all
+  // nurses with the same contract
+  double cost = arc_prop.initialCost;
+
+  int k = arc_prop.day;
+  // iterate through the shift to update the cost
+  for (int s : arc_prop.shifts) {
+    cost += preferencesCosts_[k][s];
+    if (pScenario_->isWorkShift(s))
+      cost -= pCosts_->workedDayShiftCost(k, s);
+    ++k;
+  }
+  return cost;
+}
+
+double RosterSP::endWorkCost(int a) const {
+  const Arc_Properties &arc_prop  = g_.arc(a);
+  double cost = shiftCost(a);
+  int length = arc_prop.shifts.size(), end = arc_prop.day;
+  // compute the end of the sequence of shifts
+  // length could be equal to 0, but still represents the end of the rotation
+  if (length > 1) end += length - 1;
+  if (arc_prop.shifts.empty() || arc_prop.shifts.back())
+    cost += endWeekendCosts_[end];
+  return cost;
+}
+
+}  // namespace boostRCSPP

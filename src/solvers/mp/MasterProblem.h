@@ -12,56 +12,69 @@
 #ifndef SRC_SOLVERS_MP_MASTERPROBLEM_H_
 #define SRC_SOLVERS_MP_MASTERPROBLEM_H_
 
-#include <memory>
 #include <algorithm>
-#include <utility>
+#include <map>
+#include <memory>
 #include <set>
-#include <vector>
 #include <string>
+#include <utility>
+#include <vector>
 
-#include "solvers/mp/sp/rcspp/RCGraph.h"
+
+#include "solvers/mp/sp/rcspp/RCLabel.h"
 #include "solvers/Solver.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "data/Nurse.h"
 #include "solvers/mp/modeler/Modeler.h"
 #include "OsiSolverInterface.hpp"
 
 enum CostType {
-  ROTATION_COST, CONS_SHIFTS_COST, CONS_WORKED_DAYS_COST,
-  COMPLETE_WEEKEND_COST, PREFERENCE_COST, REST_COST,
-  MIN_DAYS_COST, MAX_DAYS_COST, MAX_WEEKEND_COST
+  ROTATION_COST, CONS_SHIFTS_COST, CONS_WORK_COST,
+  COMPLETE_WEEKEND_COST, PREFERENCE_COST, CONS_REST_COST,
+  DAYS_COST, WEEKEND_COST
 };
 
-// TODO(JO): I added several comments about that below, but to honnest, I
-//  really think that we should use subclass of this DualCosts structure for
-//  the rotation decomposition as long as we are not implementing a more
-//  general way of treating constraints. At this level, we should only keep
-//  the workedShiftCost_ and constant_ attributes, which are the only
-//  dual costs common to every decomposition
+//---------------------------------------------------------------------------
+//
+// C l a s s   R C S o l u t i o n
+//
+// Contains a solution of the RCSPP
+//
+//---------------------------------------------------------------------------
+// TODO(AL): if shifts and shift types do not match, the vector of shifts of
+//  a solution should not contain shift types
+struct RCSolution {
+  RCSolution(int firstDay, const std::vector<int> &shifts, double c) :
+      firstDay(firstDay), shifts(shifts), cost(c) {}
+  RCSolution() : firstDay(-1), cost(0) {}
+
+  int firstDay;
+  std::vector<int> shifts;
+  double cost;
+
+  std::string toString(std::vector<int> shiftIDToShiftTypeID = {}) const;
+};
+
 struct DualCosts {
  public:
-  DualCosts(const vector2D<double> &workedShiftsCosts,
-            const std::vector<double> &startWorkCosts,
-            const std::vector<double> &endWorkCosts,
-            double workedWeekendCost, double constant = 0) :
-      workedShiftsCosts_(workedShiftsCosts),
-      startWorkCosts_(startWorkCosts),
-      endWorkCosts_(endWorkCosts),
-      workedWeekendCost_(workedWeekendCost),
+  DualCosts(vector2D<double> workedShiftsCosts,
+            double constant) :
+      workedShiftsCosts_(std::move(workedShiftsCosts)),
       constant_(constant) {}
+  virtual ~DualCosts() = default;
 
   // GETTERS
   //
-  int nDays() const { return startWorkCosts_.size(); }
-  double workedDayShiftCost(int day, int shift) const {
-    if (!shift) return 0;
-    return (workedShiftsCosts_[day][shift - 1]);
+  virtual int nDays() const {
+    return workedShiftsCosts_.size();
   }
-
-  double startWorkCost(int day) const { return (startWorkCosts_[day]); }
-  double endWorkCost(int day) const { return (endWorkCosts_[day]); }
-  double workedWeekendCost() const { return workedWeekendCost_; }
-  double constant() const { return constant_; }
+  virtual double workedDayShiftCost(int day, int shift) const {
+    return shift == 0 ? 0 : workedShiftsCosts_[day][shift - 1];
+  }
+  virtual double startWorkCost(int day) const { return 0; }
+  virtual double endWorkCost(int day) const { return 0; }
+  virtual double workedWeekendCost() const { return 0; }
+  virtual double constant() const { return constant_; }
 
  protected:
   // TODO(JO): this indexation is VERY confusing and prone to error. Since we
@@ -69,42 +82,81 @@ struct DualCosts {
   //  assume that the rest shift is the one with index 0 (except in the
   //  isWork()/isRest() functions. And we could still include a cost for the
   //  rest shift in this vector, with a zero value.
+  //  AL: indeed, but at the same time, it's protected and
+  //  the workedDayShiftCost method takes care of that. The rest shift not 0
+  //  would be fixed another time
   // Indexed by : (day, shift) !! 0 = shift 1 !!
   vector2D<double> workedShiftsCosts_;
-
-  // TODO(JO): the two types of costs below are specific to the rotation
-  //  decomposition, aren't they? If it so, we should refactor/move them to the
-  //  RotationMP
-  // Indexed by : day
-  std::vector<double> startWorkCosts_;
-
-  // Indexed by : day
-  std::vector<double> endWorkCosts_;
-
-  // Reduced cost of the weekends
-  double workedWeekendCost_;
 
   // constant part of the reduced cost
   double constant_;
 };
+typedef std::shared_ptr<DualCosts> PDualCosts;
 
 struct Pattern;
 typedef std::shared_ptr<Pattern> PPattern;
 
+class MasterProblem;
+
 struct Pattern {
+  /* Static helpers */
+  static int nurseNum(const std::vector<double> &pattern) {
+    return static_cast<int>(pattern[0]);
+  }
+  static int firstDay(const std::vector<double> &pattern) {
+    return static_cast<int>(pattern[1]);
+  }
+  static int lastDay(const std::vector<double> &pattern) {
+    return Pattern::firstDay(pattern) + Pattern::nDays(pattern) - 1;
+  }
+  static int nDays(const std::vector<double> &pattern) {
+    return static_cast<int>(pattern[2]);
+  }
+  static int shift(const std::vector<double> &pattern, int d) {
+    return static_cast<int>(pattern[3+d-Pattern::firstDay(pattern)]);
+  }
+  static int duration(const std::vector<double> &pattern) {
+    return static_cast<int>(pattern[3+Pattern::nDays(pattern)]);
+  }
+
+  static int nurseNum(MyVar *var) {
+    return Pattern::nurseNum(var->getPattern());
+  }
+  static int firstDay(MyVar *var) {
+    return Pattern::firstDay(var->getPattern());
+  }
+  static int lastDay(MyVar *var) {
+    return Pattern::lastDay(var->getPattern());
+  }
+  static int nDays(MyVar *var) {
+    return Pattern::nDays(var->getPattern());
+  }
+  static int shift(MyVar *var, int d) {
+    return Pattern::shift(var->getPattern(), d);
+  }
+  static int duration(MyVar *var) {
+    return Pattern::duration(var->getPattern());
+  }
+
+  /* class functions */
   Pattern(int firstDay,
-          int length,
+          const std::vector<int> &shifts,
+          const PScenario &pScenario,
           int nurseNum = -1,
           double cost = DBL_MAX,
-          double dualCost = DBL_MAX) :
-      nurseNum_(nurseNum), firstDay_(firstDay), length_(length),
-      cost_(cost), reducedCost_(dualCost) {}
+          double dualCost = DBL_MAX);
+
+  Pattern(const std::map<int, int> &shifts,
+          const PScenario &pScenario,
+          int nurseNum = -1,
+          double cost = DBL_MAX,
+          double dualCost = DBL_MAX);
 
   Pattern(const Pattern &pat, int nurseNum) :
       nurseNum_(nurseNum),
-      firstDay_(pat.firstDay_),
-      length_(pat.length_),
+      stretch_(pat.stretch_),
       cost_(pat.cost_),
+      costs_(pat.costs_),
       reducedCost_(pat.reducedCost_) {
     if (pat.nurseNum_ != nurseNum_) {
       cost_ = DBL_MAX;
@@ -112,29 +164,19 @@ struct Pattern {
     }
   }
 
-  explicit Pattern(const std::vector<double> &pattern) :
-      nurseNum_(static_cast<int>(pattern[0])),
-      firstDay_(static_cast<int>(pattern[1])),
-      length_(static_cast<int>(pattern[2])),
-      cost_(DBL_MAX),
-      reducedCost_(DBL_MAX) {}
+  Pattern(const std::vector<double> &pattern, const PScenario &pScenario);
 
   virtual ~Pattern() = default;
 
   virtual bool equals(PPattern pat) const {
     if (nurseNum_ != pat->nurseNum_) return false;
-    if (firstDay_ != pat->firstDay_) return false;
-    if (length_ != pat->length_) return false;
-    for (int k = firstDay_; k < firstDay_ + length_; ++k) {
-      if (getShift(k) != pat->getShift(k)) return false;
-    }
-    return true;
+    return !(stretch_ != pat->stretch_);
   }
 
   // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest)
   virtual bool isDisjointWith(PPattern pat, bool needRest = true) const {
-    return ((firstDay_ + length_ < pat->firstDay_ - needRest)
-        || (pat->firstDay_ + pat->length_ < firstDay_ - needRest));
+    return ((lastDay() < pat->firstDay() - needRest)
+        || (pat->lastDay() < firstDay() - needRest));
   }
 
   // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest)
@@ -142,22 +184,25 @@ struct Pattern {
     if (isDisjointWith(pat, needRest))
       return true;
 
-    int commomFirstDay = std::max(firstDay_, pat->firstDay_),
+    int commomFirstDay =
+        std::max(stretch_.firstDay(), pat->stretch_.firstDay()),
         commomLastDay =
-        std::min(firstDay_ + length_, pat->firstDay_ + pat->length_) - 1;
+        std::min(stretch_.lastDay(), pat->stretch_.lastDay());
     for (int k = commomFirstDay; k <= commomLastDay; ++k)
-      if (getShift(k) == pat->getShift(k)) return false;
+      if (shift(k) == pat->shift(k)) return false;
 
     return true;
   }
 
-  virtual std::string toString(
-      int nbDays = -1,
-      std::vector<int> shiftIDToShiftTypeID = {}) const {
-    return "";
+  virtual std::string toString(int nbDays = -1) const;
+
+  virtual int shift(int day) const {
+    return pShift(day)->id;
   }
 
-  virtual int getShift(int day) const = 0;
+  virtual const PShift& pShift(int day) const {
+    return stretch_.pShift(day-firstDay());
+  }
 
   // when branching on this pattern,
   // this method add the corresponding forbidden shifts to the set
@@ -166,26 +211,56 @@ struct Pattern {
       int nbShifts,
       PDemand pDemand) const = 0;
 
+  // compute the cost of a pattern based on the master
+  virtual void computeCost(const MasterProblem *pMaster,
+                           const PLiveNurse &pNurse) = 0;
+
+  void computeResourcesCosts(const MasterProblem *pMaster,
+                             const State &initialState);
+
+  void addCost(double c, CostType t)  {
+    cost_ += c;
+    costs_[t] += c;
+  }
+
+  double cost(CostType t) {
+    if (t == ROTATION_COST)
+      return costs_.at(CONS_SHIFTS_COST) + costs_.at(CONS_WORK_COST) +
+          costs_.at(PREFERENCE_COST) + costs_.at(COMPLETE_WEEKEND_COST);
+    else
+      return costs_.at(t);
+  }
+
+  std::string costsToString() const;
+
   // need to be able to write the pattern as a vector and
   // to create a new one from it
   virtual std::vector<double> getCompactPattern() const {
-    std::vector<double> compact;
-    compact.push_back(nurseNum_);
-    compact.push_back(firstDay_);
-    compact.push_back(length_);
-    return compact;
+    std::vector<double> pattern;
+    pattern.reserve(stretch_.nDays()+10);
+    pattern.push_back(nurseNum_);
+    pattern.push_back(stretch_.firstDay());
+    pattern.push_back(stretch_.nDays());
+    for (const PShift& pS : stretch_.pShifts())
+      pattern.push_back(pS->id);
+    pattern.push_back(stretch_.duration());
+    return pattern;
   }
 
-  int endDay() const {
-    return firstDay_ + length_ - 1;
-  }
+  int firstDay() const { return stretch_.firstDay(); }
 
-  int nurseNum_;
-  int firstDay_;
-  int length_;
+  int lastDay() const { return stretch_.lastDay(); }
+
+  int nDays() const { return stretch_.nDays(); }
+
+  int duration() const { return stretch_.duration(); }
+
+  const int nurseNum_;
+  const Stretch stretch_;
 
   // Cost
   double cost_;
+  std::map<CostType, double> costs_;
 
   // Dual cost as found in the subproblem
   double reducedCost_;
@@ -212,7 +287,7 @@ class MasterProblem : public Solver, public PrintSolution {
                 PDemand pDemand,
                 PPreferences pPreferences,
                 std::vector<State> *pInitState,
-                MySolverType solver);
+                SolverType solver);
   ~MasterProblem();
 
   // solve the rostering problem
@@ -237,6 +312,14 @@ class MasterProblem : public Solver, public PrintSolution {
   // retrieve the object represented ny the  vector pattern
   virtual PPattern getPattern(MyVar *var) const = 0;
 
+  // define the resources used for the sub problem
+  std::vector<PResource> createResources(const PLiveNurse &pN) const {
+    return createResources(pN, nullptr);
+  }
+  virtual std::vector<PResource>
+  createResources(const PLiveNurse &pN,
+                  std::map<int, CostType> *resourceCostType) const = 0;
+
   // throw an error if pattern is already present as an active column
   void checkIfPatternAlreadyPresent(const std::vector<double> &pattern) const;
 
@@ -260,23 +343,26 @@ class MasterProblem : public Solver, public PrintSolution {
     return pModel_->isSolutionInteger();
   }
 
-  double getLB() const override {
+  double LB() const override {
     return pModel_->getBestLB();
   }
 
   // build the, possibly fractional, roster corresponding to the solution
   // currently stored in the model
-  vector3D<double> getFractionalRoster() const override;
+  vector3D<double> fractionalRoster() const override;
 
   // build a DualCosts structure
-  DualCosts buildDualCosts(PLiveNurse pNurse) const;
+  virtual PDualCosts buildDualCosts(PLiveNurse pNurse) const;
 
   // build a random DualCosts structure
   // If the option 'optimalDemandConsidered' is selected, the dual costs will
   // randomly represent the optimal demand over all the horizon. Otherwise,
   // the dual costs will be created totally randomly.
-  DualCosts buildRandomDualCosts(bool optimalDemandConsidered = false, int
-  NDaysShifts = 10) const;
+  virtual PDualCosts buildRandomDualCosts(
+      bool optimalDemandConsidered = false, int NDaysShifts = 10) const;
+
+  vector2D<double> getRandomWorkedDualCosts(
+      bool optimalDemandConsidered, int NDaysShifts) const;
 
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
@@ -351,12 +437,6 @@ class MasterProblem : public Solver, public PrintSolution {
   std::string allocationToString(bool printInteger = true) const;
   std::string coverageToString(bool printInteger = true) const;
 
-  /*getter for subProblem parameters*/
-  bool sortLabelsOption() { return mp_sortLabelsOption; }
-  bool minimumCostFromSinksOption() { return mp_minimumCostFromSinksOption; }
-  bool worstCaseCostOption() { return mp_worstCaseCostOption; }
-  bool enumeratedSubPathOption() { return mp_enumeratedSubPathOption; }
-
  protected:
   Modeler *pModel_;
   vector2D<int> positionsPerSkill_;  // link positions to skills
@@ -364,7 +444,7 @@ class MasterProblem : public Solver, public PrintSolution {
   MyPricer *pPricer_;  // prices the rotations
   MyTree *pTree_;  // store the tree information
   MyBranchingRule *pRule_;  // choose the variables on which we should branch
-  MySolverType solverType_;  // which solver is used
+  SolverType solverType_;  // which solver is used
   bool lagrangianBoundAvail_ = false;
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -407,28 +487,12 @@ class MasterProblem : public Solver, public PrintSolution {
   // count the number of missing nurse to reach the optimal
   vector3D<MyVar *> stabOptDemandPlus_;
 
-  // sortLabelsOption for the subProblem
-  // true if labels are sorted by increasing costs before domination is checked
-  bool mp_sortLabelsOption = false;
-  // minimumCostFromSinksOption for the subProblem
-  // true if the shortest path from each node to each sink is computed to
-  // delete the labels that cannot be extended into a negative cost path
-  bool mp_minimumCostFromSinksOption = false;
-  // worstCaseCostOption for the subProblem
-  // true if the domination rule is improved by considering the worst costs that
-  // can result from the violation of soft constraints
-  bool mp_worstCaseCostOption = true;
-  // enumeratedSubPathOption for the subProblem
-  // true if we enumerate subpaths in the RCSPP graph in order to reduce the
-  // number of resources
-  bool mp_enumeratedSubPathOption = false;
-
   /*
   * Methods
   */
 
   // Initialize the solver at construction
-  void initializeSolver(MySolverType solverType);
+  void initializeSolver(SolverType solverType);
 
   // Main method to build the rostering problem for a given input
   virtual void build(const SolverParam &parameters);
@@ -446,20 +510,13 @@ class MasterProblem : public Solver, public PrintSolution {
   void setParameters(const SolverParam &param) {
     pModel_->setParameters(param, this);
     param_ = pModel_->getParameters();
-    // set parameters for sub problems
-    mp_sortLabelsOption = param.spp_sortLabelsOption;
-    mp_minimumCostFromSinksOption = param.spp_minimumCostFromSinksOption;
-    mp_worstCaseCostOption = param.spp_worstCaseCostOption;
-    mp_enumeratedSubPathOption = param.spp_enumeratedSubPathOption;
   }
 
   // return the costs of all active columns associated to the type
-  virtual double getColumnsCost(CostType costType,
-                                bool justHistoricalCosts) const = 0;
+  virtual double getColumnsCost(CostType costType) const = 0;
 
-  virtual double getMinDaysCost() const = 0;
-  virtual double getMaxDaysCost() const = 0;
-  virtual double getMaxWeekendCost() const = 0;
+  virtual double getDaysCost() const = 0;
+  virtual double getWeekendCost() const = 0;
 
   // update the demand with a new one of the same size
   // change the rhs of the constraints minDemandCons_ and optDemandCons_
@@ -475,9 +532,6 @@ class MasterProblem : public Solver, public PrintSolution {
 
   /* retrieve the dual values */
   virtual vector2D<double> getShiftsDualValues(PLiveNurse pNurse) const;
-  virtual std::vector<double> getStartWorkDualValues(PLiveNurse pNurse) const;
-  virtual std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const;
-  virtual double getWorkedWeekendDualValue(PLiveNurse pNurse) const;
   virtual double getConstantDualvalue(PLiveNurse pNurse) const;
 
   //---------------------------------------------------------------------------

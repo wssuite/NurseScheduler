@@ -9,18 +9,21 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_RCSPP_BOOSTRCSPP_H_
-#define SRC_SOLVERS_MP_SP_RCSPP_BOOSTRCSPP_H_
+#ifndef SRC_SOLVERS_MP_SP_RCSPP_BOOST_RCSPP_H_
+#define SRC_SOLVERS_MP_SP_RCSPP_BOOST_RCSPP_H_
 
 #include <map>
 #include <queue>
 #include <vector>
 #include <list>
 
-#include "solvers/mp/sp/rcspp/RCGraph.h"
+#include "RCGraph.h"
+#include "solvers/Solver.h"
+#include "solvers/mp/MasterProblem.h"
 
 #include "boost/graph/r_c_shortest_paths.hpp"
 
+namespace boostRCSPP {
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -205,7 +208,7 @@ struct rc_spp_visitor {
 };
 
 // Solver
-class BoostRCSPPSolver : public RCSPPSolver {
+class BoostRCSPPSolver {
  public:
   BoostRCSPPSolver(RCGraph *rcg,
                    double maxReducedCostBound,
@@ -634,4 +637,6 @@ class BoostRCSPPSolver : public RCSPPSolver {
                  std::vector<edge> path) const;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_RCSPP_BOOSTRCSPP_H_
+}  // namespace boostRCSPP
+
+#endif  // SRC_SOLVERS_MP_SP_RCSPP_BOOST_RCSPP_H_

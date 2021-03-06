@@ -17,7 +17,7 @@
 
 #include "solvers/mp/modeler/CoinModeler.h"
 #include "CbcModel.hpp"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 
 // Using CLP as the solver
 #include "OsiClpSolverInterface.hpp"

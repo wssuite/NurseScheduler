@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "Scenario.h"
 
 class Scenario;
@@ -367,7 +367,7 @@ class Preferences {
 
   // add another week preferences at the end of the current one
   //
-  void push_back(PPreferences pPref);
+  void pushBack(PPreferences pPref);
 
   // Keep the preferences relative to the days in [begin,end)
   PPreferences keep(int begin, int end);

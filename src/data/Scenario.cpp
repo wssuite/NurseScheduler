@@ -18,7 +18,7 @@
 
 #include "solvers/Solver.h"
 #include "data/Nurse.h"
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 
 using std::string;
 using std::vector;
@@ -479,10 +479,10 @@ string Scenario::toString() {
   }
   rep << "# " << std::endl;
   rep << "# FORBIDDEN        " << std::endl;
-  for (int i = 0; i < nbShifts_; i++) {
-    rep << "#\t\t\t" << intToShift_[i] << "\t-> ";
+  for (int i = 0; i < nbShiftsType_; i++) {
+    rep << "#\t\t\t" << intToShiftType_[i] << "\t-> ";
     for (int j = 0; j < nbForbiddenSuccessors_[i]; j++) {
-      rep << intToShift_[forbiddenSuccessors_[i][j]] << " ";
+      rep << intToShiftType_[forbiddenSuccessors_[i][j]] << " ";
     }
     rep << std::endl;
   }

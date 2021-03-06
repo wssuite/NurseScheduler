@@ -21,14 +21,9 @@
 #include "solvers/Solver.h"
 
 // Read the arguments in noncompact/compact format
-InputPaths *readNonCompactArguments(int argc, char **argv);
-InputPaths *readCompactArguments(int argc, char **argv);
+InputPaths *readArguments(int argc, char **argv);
 
 // Initialize the week scenario by reading the input files
-PScenario initializeScenario(std::string scenFile,
-                             std::string demandFile,
-                             std::string historyFile,
-                             std::string logFile = "");
 PScenario initializeScenario(const InputPaths &inputPaths,
                              std::string logPath = "");
 

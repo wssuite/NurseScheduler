@@ -9,21 +9,21 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_RCSPP_MYRCLABEL_H_
-#define SRC_SOLVERS_MP_SP_RCSPP_MYRCLABEL_H_
+#ifndef SRC_SOLVERS_MP_SP_RCSPP_RCLABEL_H_
+#define SRC_SOLVERS_MP_SP_RCSPP_RCLABEL_H_
 
 
 #include <algorithm>
 #include <map>
 #include <memory>
 #include <typeinfo>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "data/Scenario.h"
 #include "data/Shift.h"
-#include "tools/MyTools.h"
-#include "solvers/mp/sp/rcspp/RCGraph.h"
+#include "tools/Tools.h"
 
 using std::shared_ptr;
 using std::unique_ptr;
@@ -74,54 +74,44 @@ class RCLabel {
 
  public:
   RCLabel();
-  explicit RCLabel(int nResLabels);
+  explicit RCLabel(int nResources);
   RCLabel(const vector<shared_ptr<Resource>> &resources,
           const State &initialState);
-  RCLabel(int idLabel, const RCLabel &l);
   RCLabel(const RCLabel &l);
 
   void copy(const RCLabel& l);
 
-  int getNum() { return num_; }
-
   double cost() const { return cost_; }
+
+  void addCost(double c) { cost_ += c; }
+
+  void setAsNext(const shared_ptr<RCLabel> &pLPrevious,
+                 const shared_ptr<RCArc> &pArc);
+  void setAsPrevious(const shared_ptr<RCLabel> &pLNext,
+                     const shared_ptr<RCArc> &pArc);
+
+#ifdef DBG
   double baseCost() const { return baseCost_; }
   double dualCost() const { return dualCost_; }
   double consShiftCost() const { return consShiftCost_; }
   double totalShiftCost() const { return totalShiftCost_; }
   double totalWeekendCost() const { return totalWeekendCost_; }
-
-  void setCost(double c) { cost_ = c; }
-
-  void addCost(double c) { cost_ += c; }
-
-  void addBaseCost(double c) {
-    baseCost_ += c;
-    cost_ += c;
-  }
-
-  void addDualCost(double c) {
-    dualCost_ += c;
-    cost_ += c;
-  }
-
-
   void addConsShiftCost(double c) {
     consShiftCost_ += c;
-    cost_ += c;
   }
-
-
   void addTotalShiftCost(double c) {
-    totalShiftCost_ += c,
-        cost_ += c;
+    totalShiftCost_ += c;
   }
-
-
   void addTotalWeekendCost(double c) {
     totalWeekendCost_ += c;
-    cost_ += c;
   }
+  void addBaseCost(double c) {
+    baseCost_ += c;
+  }
+  void addDualCost(double c) {
+    dualCost_ += c;
+  }
+#endif
 
   int getConsumption(int r) const {
     return resourceValues_[r].consumption;
@@ -143,17 +133,24 @@ class RCLabel {
     resourceValues_ = move(resourceValues);
   }
 
-  int nResLabels() const { return nResLabels_; }
+  vector<ResourceValues> allResourceValues() {
+    return resourceValues_;
+  }
+
+  int nResources() const { return resourceValues_.size(); }
 
   shared_ptr<RCNode> getNode() const { return pNode_; }
   void setNode(shared_ptr<RCNode> pN) {  pNode_ = pN; }
 
   shared_ptr<RCArc> getInArc() const { return pInArc_; }
-  void setInArc(shared_ptr<RCArc> pArc);
+  shared_ptr<RCArc> getOutArc() const { return pOutArc_; }
 
-  shared_ptr<RCLabel> getPreviousLabel() const {return pParentLabel_;}
-  void setParentLabel(shared_ptr<RCLabel> pL) { pParentLabel_ = std::move(pL); }
-
+  shared_ptr<RCLabel> getPreviousLabel() const {return pPreviousLabel_;}
+  void setPreviousLabel(shared_ptr<RCLabel> pL) {
+    pPreviousLabel_ = std::move(pL);
+  }
+  shared_ptr<RCLabel> getNextLabel() const { return pNextLabel_; }
+  void setNextLabel(shared_ptr<RCLabel> pL) {pNextLabel_ = std::move(pL);}
 
   bool operator()(const shared_ptr<RCLabel> &pr1, const shared_ptr<RCLabel>
   &pr2) {
@@ -162,20 +159,26 @@ class RCLabel {
 
  private:
   int num_;  // Id of the label
-  int nResLabels_;  // Number of resources represented in the label
   shared_ptr<RCNode> pNode_;  // current residing node of the label
-  shared_ptr<RCArc> pInArc_;   // index of the arc where this label
-  // was last expanded
-  shared_ptr<RCLabel> pParentLabel_;  // Parent label which the current one
-  // comes from
+  shared_ptr<RCArc> pInArc_;   // pointer to the arc trough which this label
+  // was forward-expanded
+  shared_ptr<RCArc> pOutArc_;   // pointer to the arc trough which this label
+  // was backward-expanded
+  shared_ptr<RCLabel> pPreviousLabel_;  // Label from which the current one
+  // was expanded in forward propagation
+  shared_ptr<RCLabel> pNextLabel_;  // Label from which the current one
+  // was backward expanded
   double cost_;   // current cumulated cost of the label
-  // containing all the resource values
-  vector<ResourceValues> resourceValues_;
+  vector<ResourceValues> resourceValues_;   // vector containing all the
+  // resource values
+
+#ifdef DBG
   double baseCost_;  // current part of the cost due to base cost
   double dualCost_;  // current part of the cost due to dual cost
   double consShiftCost_;  // current cumulated cost due to consecutive shifts
   double totalShiftCost_;  // current cumulated cost due to total shifts
   double totalWeekendCost_;  // current cumulated cost due to worked weekends
+#endif
 };
 
 typedef shared_ptr<RCLabel> PRCLabel;
@@ -203,6 +206,18 @@ class RCLabelFactory {
 };
 
 typedef shared_ptr<RCLabelFactory> PRCLabelFactory;
+
+/**
+* Class used to compare two labels with a view to expand only the K first
+ * labels, where K is set by the option param_.NbExpanded_
+*/
+class SortForFewExpansions {
+ public:
+  bool operator()(const PRCLabel &pr1, const PRCLabel
+  &pr2) {
+    return pr1->cost() < pr2->cost();
+  }
+};
 
 /**
 * Class used to compare two labels costs in order to sort by increasing cost
@@ -235,9 +250,14 @@ struct Expander {
   explicit Expander(int rId): resourceId(rId) {}
   virtual ~Expander() = default;
 
-  virtual bool expand(const ResourceValues &vParent,
-                      const PRCLabel &pLChild,
-                      ResourceValues *vChild) = 0;
+  // TODO(AL) : can we remove vChild as accessible from pLChild ?
+  virtual bool expand(const PRCLabel &pLChild, ResourceValues *vChild) = 0;
+  virtual bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) = 0;
+  virtual bool merge(const ResourceValues &vForward,
+                     const ResourceValues &vBack,
+                     ResourceValues *vMerged,
+                     const PRCLabel &pLMerged) = 0;
+
   const int resourceId;
 };
 typedef shared_ptr<Expander> PExpander;
@@ -249,7 +269,7 @@ typedef shared_ptr<Expander> PExpander;
  */
 struct PlainExpander : public Expander {
   explicit PlainExpander(int rId, const Stretch &stretch) :
-  Expander(rId), stretch(stretch) {}
+      Expander(rId), stretch(stretch) {}
 
   const Stretch &getStretch() const { return stretch; }
 
@@ -261,9 +281,8 @@ struct PlainExpander : public Expander {
 */
 class Resource {
  public:
-  Resource() : id_(-1) {}
-
-  explicit Resource(int id) : id_(id) {}
+  explicit Resource(std::string _name = "", int id = -1) :
+      name(std::move(_name)), id_(-1) {}
 
   virtual ~Resource() = default;
 
@@ -272,70 +291,95 @@ class Resource {
 
   int id() const { return id_; }
 
-  void initialize(const Shift &prevShift,
+  void initialize(const AbstractShift &prevAShift,
                   const Stretch &stretch,
                   const shared_ptr<RCArc> &pArc);
 
-  virtual bool dominates(int conso1,
-                         int conso2) {
-    return conso1 <= conso2;
-  }
+  virtual bool dominates(const PRCLabel &pL1,
+                         const PRCLabel &pL2,
+                         double *cost = nullptr);
 
-  virtual bool isActive(int dayId, const Shift &shift) const { return true; }
+  virtual void useDefaultDomination() { useDefaultDomination_ = true; }
+
+  virtual void useAltenativeDomination() { useDefaultDomination_ = false; }
+
+  virtual bool isActive(int dayId, const AbstractShift &aShift) const {
+    return true;
+  }
 
   // return true, if to be considered as a hard constraint
   virtual bool isHard() const = 0;
 
+  virtual bool isAnyWorkShiftResource() const { return false; }
+
   virtual int getConsumption(const State &initialState) const = 0;
 
-  virtual double getWorstLbCost(int consumption) const = 0;
-
-  virtual double getWorstUbCost(int consumption, int nLeft = 0) const = 0;
+  const std::string name;   // name of the resource
 
  protected:
   int id_;  // id of the resource
+  // allow to switch between two different domination functions is necessary
+  bool useDefaultDomination_ = true;
 
-  virtual PExpander init(const Shift &prevShift,
+  virtual PExpander init(const AbstractShift &prevAShift,
                          const Stretch &stretch,
-                         const RCArc &arc) = 0;
+                         const std::shared_ptr<RCArc> &pArc) = 0;
 };
 
 /**
- * Class describing a resource which has both an upper and a lower bound,
- * each being possibly soft with an associated cost
+ * Class describing a resource which has both an upper and a lower bound
  */
 class BoundedResource : public Resource {
  public:
   // Constructor
   //
-  BoundedResource(bool isLbSoft, bool isUbSoft,
-                  int lb, int ub, double cL = 0.0, double cU = 0.0) :
-      isLbSoft_(isLbSoft), isUbSoft_(isUbSoft), lb_(lb), ub_(ub),
-      lbCost_(cL), ubCost_(cU) {}
+  BoundedResource(std::string _name, int lb, int ub) :
+      Resource(std::move(_name)), lb_(lb), ub_(ub) {}
 
   // true if rl1 dominates rl2, false otherwise
-  bool dominates(int conso1, int conso2) override;
+  bool dominates(const PRCLabel &pL1,
+                 const PRCLabel &pL2,
+                 double *cost) override;
 
-  // return true, if at least one bound is hard
-  bool isHard() const override {
-    return !isLbSoft_ || !isUbSoft_;
-  }
-
-  bool isLbSoft() const {
-    return isLbSoft_;
-  }
-  bool isUbSoft() const {
-    return isUbSoft_;
-  }
   int getLb() const {
     return lb_;
   }
+
   int getUb() const {
     return ub_;
   }
+
+ protected:
+  int lb_ = 0;
+  int ub_ = 0;
+};
+
+/**
+ * Bounded resource where both lower and upper bounds are soft
+ */
+class SoftBoundedResource : public BoundedResource {
+ public:
+  // Constructor
+  SoftBoundedResource(
+      std::string _name, int lb, int ub, double lbCost, double ubCost) :
+      BoundedResource(std::move(_name), lb, ub),
+      lbCost_(lbCost),
+      ubCost_(ubCost) {}
+
+  // true if rl1 dominates rl2, false otherwise
+  // use worst case for the bounds to determinate if domination
+  bool dominates(const PRCLabel &pL1,
+                 const PRCLabel &pL2,
+                 double *cost) override;
+
+  bool isHard() const override {
+    return false;
+  }
+
   double getLbCost() const {
     return lbCost_;
   }
+
   double getUbCost() const {
     return ubCost_;
   }
@@ -350,31 +394,17 @@ class BoundedResource : public Resource {
     return ubCost_ * (consumption - ub_);
   }
 
- protected:
-  bool isLbSoft_;  // true if there is soft lower bound
-  bool isUbSoft_;  // true if there is a soft upper bound
-  int lb_ = 0;
-  int ub_ = 0;
-  double lbCost_ = 0.0;
-  double ubCost_ = 0.0;
-};
-
-/**
- * Bounded resource where both lower and upper bounds are soft
- */
-class SoftBoundedResource : public BoundedResource {
- public:
-  // Constructor
-  SoftBoundedResource(int lb, int ub, double lbCost, double ubCost) :
-      BoundedResource(true, true, lb, ub, lbCost, ubCost) {}
-
-  double getWorstLbCost(int consumption) const override {
+  virtual double getWorstLbCost(int consumption) const {
     return getLbCost(consumption);
   }
 
-  double getWorstUbCost(int consumption, int nLeft = 0) const override {
+  virtual double getWorstUbCost(int consumption, int nLeft = 0) const {
     return getUbCost(consumption + nLeft);
   }
+
+ protected:
+  double lbCost_ = 0.0;
+  double ubCost_ = 0.0;
 };
 
 /**
@@ -383,14 +413,13 @@ class SoftBoundedResource : public BoundedResource {
 class HardBoundedResource : public BoundedResource {
  public:
   // Constructor
-  HardBoundedResource(int lb, int ub) :
-      BoundedResource(true, false, lb, ub) {}
+  HardBoundedResource(std::string _name, int lb, int ub) :
+      BoundedResource(std::move(_name), lb, ub) {}
 
-  double getWorstLbCost(int consumption) const override { return .0; }
-
-  double getWorstUbCost(int consumption, int nLeft = 0) const override {
-    return .0;
+  // return true. If soft, should be overridden
+  bool isHard() const override {
+    return true;
   }
 };
 
-#endif  // SRC_SOLVERS_MP_SP_RCSPP_MYRCLABEL_H_
+#endif  // SRC_SOLVERS_MP_SP_RCSPP_RCLABEL_H_

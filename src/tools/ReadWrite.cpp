@@ -28,7 +28,7 @@
 #include <string>
 #include <utility>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "data/Scenario.h"
 #include "solvers/Solver.h"
 #include "solvers/StochasticSolver.h"
@@ -375,8 +375,8 @@ PDemand ReadWrite::readWeeks(std::vector<std::string> strWeekFiles,
       PPreferences nextPref;
       ReadWrite::readWeek(strWeekFile, pScenario, &nextDemand, &nextPref);
       // update the current weeks
-      pDemand->push_back(nextDemand);
-      pPref->push_back(nextPref);
+      pDemand->pushBack(nextDemand);
+      pPref->pushBack(nextPref);
       pScenario->addAWeek();
     }
 
@@ -441,24 +441,24 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
 
       // Do not take the rest shift into account here
       // (by initialization, requirements already at 0
-      for (int i = 1; i < pScenario->nbShifts_; i++) {
-        for (int j = 0; j < pScenario->nbSkills_; j++) {
-          // Read shift and skill
-          file >> shiftName;
-          file >> skillName;
-          shiftId = pScenario->shiftToInt_.at(shiftName);
-          skillId = pScenario->skillToInt_.at(skillName);
-          // For every day in the week, read min and opt values
-          for (int day = 0; day < 7; day++) {
-            Tools::readUntilChar(&file, '(', &strTmp);
-            file >> intTmp;
-            minWeekDemand[day][shiftId][skillId] = intTmp;
-            Tools::readUntilChar(&file, ',', &strTmp);
-            file >> intTmp;
-            optWeekDemand[day][shiftId][skillId] = intTmp;
-          }
-          Tools::readUntilChar(&file, ')', &strTmp);
+      char c = '0';
+      while (std::isalnum(c)) {  // check if character is alphanumeric
+        // Read shift and skill
+        file >> shiftName;
+        file >> skillName;
+        shiftId = pScenario->shiftToInt_.at(shiftName);
+        skillId = pScenario->skillToInt_.at(skillName);
+        // For every day in the week, read min and opt values
+        for (int day = 0; day < 7; day++) {
+          Tools::readUntilChar(&file, '(', &strTmp);
+          file >> intTmp;
+          minWeekDemand[day][shiftId][skillId] = intTmp;
+          Tools::readUntilChar(&file, ',', &strTmp);
+          file >> intTmp;
+          optWeekDemand[day][shiftId][skillId] = intTmp;
         }
+        Tools::readUntilChar(&file, '\n', &strTmp);
+        c = file.peek();
       }
     } else if (Tools::strEndsWith(title, "SHIFT_OFF_REQUESTS ")) {
       // Read the shift off requests

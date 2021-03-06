@@ -476,22 +476,22 @@ void LiveNurse::printContractAndPreferences(PScenario pScenario) const {
 //-----------------------------------------------------------------------------
 // Specific constructor that sets the verbosity level
 //
-SolverParam::SolverParam(int verbose, OptimalityLevel level,
+SolverParam::SolverParam(int v, OptimalityLevel level,
                          std::string outfile, std::string logfile) :
-    verbose_(verbose), outfile_(outfile), logfile_(logfile) {
-  setVerbose(verbose);
-  setOptimalityLevel(level);
+    verbose_(v), outfile_(outfile), logfile_(logfile) {
+  verbose(v);
+  optimalityLevel(level);
 }
 
 // Initialize all the parameters according to a small number of options that
 // represent the strategies we want to test
 //
-void SolverParam::setVerbose(int verbose) {
+void SolverParam::verbose(int v) {
   // Default display values are all set to false,
   // so new values are given only if set to true
   //
-  verbose_ = verbose;
-  switch (verbose) {
+  verbose_ = v;
+  switch (v) {
     case 0: printEverySolution_ = false;
       printRelaxationSol_ = false;
       printIntermediarySol_ = false;
@@ -534,9 +534,85 @@ void SolverParam::setVerbose(int verbose) {
   }
 }
 
+const int SubproblemParam::maxSubproblemStrategyLevel_ = 3;
+
+// TODO(JO): it seems that param_ is not initialized at the same time as the
+//  subproblem. This can be very annoying if parameters are needed. Always
+//  need to check whether they have been initialized or not
+SubproblemParam::SubproblemParam(int strategy, PLiveNurse pNurse,
+                                 const SolverParam& param):
+                                 SubproblemParam(param.spParam_) {
+  initSubproblemParam(strategy, pNurse, param);
+}
+
+void SubproblemParam::initSubproblemParam(int strategy,
+                                          PLiveNurse pNurse,
+                                          const SolverParam& param) {
+  verbose_ = param.verbose_;
+  epsilon_ = param.epsilon_;
+  maxRotationLength_ = pNurse->maxConsDaysWork();
+  int nb_max_path = static_cast<int>(round(
+      param.sp_columns_ratio_for_number_paths_ * param.nbMaxColumnsToAdd_));
+  switch (strategy) {
+    // 0 -> [Heuristic large search]
+    //  short = all,
+    //  min   = 0,
+    //  max   = CD_max+3
+    //
+    case 0:search_strategy_ = SP_BEST_FIRST;
+      rcsppMinNegativeLabels_ = nb_max_path;
+      violateConsecutiveConstraints_ = true;
+      shortRotationsStrategy_ = 3;
+      maxRotationLength_ += 3;
+      break;
+
+    // 1 -> [Exact legal only]
+    //  short = first and last day,
+    //  min   = CD_min,
+    //  max   = CD_max
+    //
+    case 1:search_strategy_ = SP_BREADTH_FIRST;
+      rcsppMinNegativeLabels_ = -1;
+      violateConsecutiveConstraints_ = false;
+      shortRotationsStrategy_ = 2;
+      maxRotationLength_ += 0;
+      break;
+
+    // 2 -> [Exact above legal]
+    //  short = all,
+    //  min   = 0,
+    //  max   = CD_max+2
+    //
+    case 2:search_strategy_ = SP_BREADTH_FIRST;
+      rcsppMinNegativeLabels_ = -1;
+      violateConsecutiveConstraints_ = true;
+      shortRotationsStrategy_ = 3;
+      maxRotationLength_ += 2;
+      break;
+
+    // 3 -> [Exact exhaustive search]
+    //  short = all,
+    //  min   = 0,
+    //  max   = LARGE
+    //
+    case 3:search_strategy_ = SP_BREADTH_FIRST;
+      rcsppMinNegativeLabels_ = -1;
+      violateConsecutiveConstraints_ = true;
+      shortRotationsStrategy_ = 3;
+      maxRotationLength_ =
+          pNurse->pStateIni_->consDaysWorked_ + pNurse->nbDays_;
+      break;
+    default:  // UNKNOWN STRATEGY
+      std::cout << "# Unknown strategy for the subproblem (" << strategy << ")"
+                << std::endl;
+      break;
+  }
+}
+
+
 // Set the parameters relative to the optimality level
 //
-void SolverParam::setOptimalityLevel(OptimalityLevel level) {
+void SolverParam::optimalityLevel(OptimalityLevel level) {
   switch (level) {
     case UNTIL_FEASIBLE: absoluteGap_ = 5;
       minRelativeGap_ = 1e-4;
@@ -593,15 +669,13 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
     pDemand_(pDemand),
     pPreferences_(pPreferences),
     pInitState_(pInitState),
-    pTimerTotal_(0),
+    // create the timer that records the life time of the solver and start it
+    timerTotal_(true),
     status_(UNSOLVED),
     totalCostUnderStaffing_(-1),
     maxTotalStaffNoPenalty_(-1),
     isPreprocessedSkills_(false),
     isPreprocessedNurses_(false) {
-  // create the timer that records the life time of the solver and start it
-  pTimerTotal_ = new Tools::Timer(true);
-
   // initialize the preprocessed data of the skills
   for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
     maxStaffPerSkillNoPenalty_.push_back(-1.0);
@@ -614,7 +688,7 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
     theLiveNurses_.emplace_back(
         std::make_shared<LiveNurse>(*(pScenario->theNurses_[i]),
                                     pScenario_,
-                                    pDemand_->nbDays_,
+                                    pDemand_->nDays_,
                                     pDemand_->firstDay_,
                                     &(*pInitState_)[i],
                                     pPreferences_,
@@ -644,11 +718,7 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
 }
 
 // Destructor
-Solver::~Solver() {
-  // kill the timer
-  pTimerTotal_->stop();
-  delete pTimerTotal_;
-}
+Solver::~Solver() {}
 
 // Load a solution in the solver
 //
@@ -673,7 +743,7 @@ void Solver::loadSolution(const vector<Roster> &solution) {
 void Solver::preprocessTheNurses() {
   // local variables for conciseness of the code
   //
-  int nbDays = pDemand_->nbDays_;
+  int nbDays = pDemand_->nDays_;
 
   this->specifyNursePositions();
   if (!isPreprocessedSkills_) this->preprocessTheSkills();
@@ -761,7 +831,7 @@ void Solver::specifyNursePositions() {
 void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   // number of days that will be covered after the current demand
   int nbDaysFuture =
-      7 * (pScenario_->nbWeeks() - pScenario_->thisWeek()) - pDemand_->nbDays_;
+      7 * (pScenario_->nbWeeks() - pScenario_->thisWeek()) - pDemand_->nDays_;
 
   // For each contract, compute the maximum and minimum number of working days
   // that can be done after the current demand without ensuing penalties due to
@@ -829,9 +899,9 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
     double demandMaxAvgPerWeek =
         pNurse->maxTotalShifts() * 1.0 / pScenario_->nbWeeks();
     double demandMinAvgUntilThisDemand = demandMinAvgPerWeek
-        * (pScenario_->thisWeek() + pDemand_->nbDays_ / 7.0);
+        * (pScenario_->thisWeek() + pDemand_->nDays_ / 7.0);
     double demandMaxAvgUntilThisDemand = demandMaxAvgPerWeek
-        * (pScenario_->thisWeek() + pDemand_->nbDays_ / 7.0);
+        * (pScenario_->thisWeek() + pDemand_->nDays_ / 7.0);
 
     pNurse->minAvgWorkDaysNoPenaltyTotalDays_ =
         demandMinAvgUntilThisDemand - pNurse->totalTimeWorked();
@@ -849,7 +919,7 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 void Solver::computeMinMaxDaysNoPenaltyConsDays() {
   for (PLiveNurse pNurse : theLiveNurses_) {
     auto p = pNurse->computeMinMaxDaysNoPenaltyConsDay(pNurse->pStateIni_,
-                                                       pDemand_->nbDays_);
+                                                       pDemand_->nDays_);
     pNurse->minWorkDaysNoPenaltyConsDays_ = p.first;
     pNurse->maxWorkDaysNoPenaltyConsDays_ = p.second;
   }
@@ -960,7 +1030,7 @@ void Solver::preprocessData() {
 // already treated and on the number of weeks left
 // The required data on the nurses is mostly computed in preprocessTheNurses
 //-----------------------------------------------------------------------------
-void Solver::setBoundsAndWeights(WeightStrategy strategy) {
+void Solver::boundsAndWeights(WeightStrategy strategy) {
   switch (strategy) {
     case MAX :
     case MEAN: computeWeightsTotalShiftsForPrimalDual(strategy);
@@ -1008,7 +1078,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
   // constraints on the total number of working days/week-ends is the remaining
   // number of days/week-ends after the demand currently treated
   int remainingDays = 7 * pScenario_->nbWeeks() - 7 * (pScenario_->thisWeek())
-      - pDemand_->nbDays_;
+      - pDemand_->nDays_;
   double factorRemainingDays = remainingDays / (7.0 * pScenario_->nbWeeks());
 
 
@@ -1016,7 +1086,7 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
   int remainingWeekends = pScenario_->nbWeeks() - pScenario_->thisWeek();
   // portion of these remaining weekends in this demand
   double factorRemainingWeekends =
-      (pDemand_->nbDays_ / 7) * 1.0 / remainingWeekends;
+      (pDemand_->nDays_ / 7) * 1.0 / remainingWeekends;
 
   // Compute the non-penalized intervals and the associated penalties
   for (int n = 0; n < pScenario_->nbNurses(); n++) {
@@ -1057,8 +1127,8 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
     }
 
     double factorMarginOnAvg =
-        0.25 * factorRemainingDays * 7.0 / pDemand_->nbDays_;
-    factorMarginOnAvg = (pDemand_->nbDays_ % 14 == 0) ? 0.0 : factorMarginOnAvg;
+        0.25 * factorRemainingDays * 7.0 / pDemand_->nDays_;
+    factorMarginOnAvg = (pDemand_->nDays_ % 14 == 0) ? 0.0 : factorMarginOnAvg;
     minTotalShiftsAvg_.push_back(
         (1.0 - factorMarginOnAvg) * pNurse->minAvgWorkDaysNoPenaltyTotalDays_);
     maxTotalShiftsAvg_.push_back(
@@ -1174,8 +1244,8 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy) {
   // round the min/max values of the interval associated to the contract
   int remainingWeeks = pScenario_->nbWeeks() - pScenario_->thisWeek();
   int remainingDays = 7 * remainingWeeks;
-  int nDaysInHorizon = pDemand_->nbDays_;
-  int nWeekendsInHorizon = (pDemand_->nbDays_ + 1) / 7;
+  int nDaysInHorizon = pDemand_->nDays_;
+  int nWeekendsInHorizon = (pDemand_->nDays_ + 1) / 7;
   double ratioDays = nDaysInHorizon * (1.0 / remainingDays);
   double ratioWeekends = nWeekendsInHorizon * (1.0 / remainingWeeks);
 
@@ -1262,7 +1332,7 @@ void Solver::computeBoundsAccordingToDemandSize() {
   // in the future
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
-  double ratio = pDemand_->nbDays_
+  double ratio = pDemand_->nDays_
       / (7.0 * (pScenario_->nbWeeks_ - pScenario_->thisWeek()));
 
   // initialize the minimum and maximum number of total working days
@@ -1327,14 +1397,14 @@ bool Solver::checkFeasibility() {
 // Count the fraction of current solution that is integer
 //------------------------------------------------------------------------------
 double Solver::computeFractionOfIntegerInCurrentSolution() {
-  vector3D<double> fractionalRoster = getFractionalRoster();
+  vector3D<double> fracRoster = fractionalRoster();
   int nbFractional = 0;
   int nbDayNurse = 0;
-  for (int nurse = 0; nurse < getNbNurses(); nurse++) {
-    for (int day = 0; day < getNbDays(); day++) {
+  for (int nurse = 0; nurse < nNurses(); nurse++) {
+    for (int day = 0; day < nDays(); day++) {
       nbDayNurse++;
-      for (int shift = 1; shift < getNbShifts(); shift++) {
-        double activity = fractionalRoster[nurse][day][shift];
+      for (int shift = 1; shift < nShifts(); shift++) {
+        double activity = fracRoster[nurse][day][shift];
         if ((activity < 1 - epsilon()) && (activity > epsilon())) {
           nbFractional++;
           break;
@@ -1351,20 +1421,20 @@ double Solver::computeFractionOfIntegerInCurrentSolution() {
 // model with complete plannings
 //------------------------------------------------------------------------
 double Solver::computeFractionalWeekendPenalty() {
-  vector3D<double> fractionalRoster = getFractionalRoster();
+  vector3D<double> fracRoster = fractionalRoster();
 
   int nbWeeks = pScenario_->nbWeeks_ - pScenario_->thisWeek();
   double fractionalWeekendPenalty = 0.0;
-  for (int nurse = 0; nurse < getNbNurses(); nurse++) {
+  for (int nurse = 0; nurse < nNurses(); nurse++) {
     int nbActiveWeekends = 0;
     double penalizedFraction = 1.0;
     for (int w = 0; w < nbWeeks; w++) {
       double weekendActivity;
       double activitySaturday = 0.0;
       double activitySunday = 0.0;
-      for (int shift = 1; shift < getNbShifts(); shift++) {
-        activitySaturday += fractionalRoster[nurse][7 * w + 5][shift];
-        activitySunday += fractionalRoster[nurse][7 * w + 6][shift];
+      for (int shift = 1; shift < nShifts(); shift++) {
+        activitySaturday += fracRoster[nurse][7 * w + 5][shift];
+        activitySunday += fracRoster[nurse][7 * w + 6][shift];
       }
       weekendActivity = std::max(activitySaturday, activitySunday);
       if (weekendActivity > epsilon()) {
@@ -1446,7 +1516,7 @@ double Solver::computeSolutionCost(int nbDays) {
 // get aggregate information on the solution and write them in a string
 //
 string Solver::solutionStatisticsToString() {
-  int nbDays = pDemand_->nbDays_;
+  int nbDays = pDemand_->nDays_;
 
   // start by computing every individual cost of the nurses
   computeSolutionCost(nbDays);
@@ -1504,7 +1574,7 @@ string Solver::solutionStatisticsToString() {
 
 // Return the solution at day k
 //
-vector<Roster> Solver::getSolutionAtDay(int k) {
+vector<Roster> Solver::solutionAtDay(int k) {
   vector<Roster> ans;
   for (unsigned int i = 0; i < solution_.size(); i++) {
     Roster r = solution_[i];
@@ -1539,9 +1609,9 @@ void Solver::extendSolution(vector<Roster> solutionExtension) {
 
 // return the final states of the nurses
 //
-vector<State> Solver::getFinalStates() {
+vector<State> Solver::finalStates() {
   vector<State> pFinalStates;
-  int nbDays = pDemand_->nbDays_;
+  int nbDays = pDemand_->nDays_;
   for (PLiveNurse pNurse : theLiveNurses_) {
     pFinalStates.push_back(pNurse->state(nbDays));
   }
@@ -1551,7 +1621,7 @@ vector<State> Solver::getFinalStates() {
 
 // return the states of the nurses at day k
 //
-vector<State> Solver::getStatesOfDay(int k) {
+vector<State> Solver::statesOfDay(int k) {
   vector<State> pStatesOfDayK;
   for (PLiveNurse pNurse : theLiveNurses_) {
     pStatesOfDayK.push_back(pNurse->state(k + 1));
@@ -1563,7 +1633,7 @@ vector<State> Solver::getStatesOfDay(int k) {
 //
 string Solver::solutionToString() {
   return solutionToString(pDemand_->firstDay_,
-                          pDemand_->nbDays_,
+                          pDemand_->nDays_,
                           pScenario_->thisWeek());
 }
 
@@ -1635,7 +1705,7 @@ string Solver::solutionToLogString() {
   std::stringstream rep;
   int nbNurses = pScenario_->nbNurses_, nbShifts = pScenario_->nbShifts_;
   int nbSkills = pScenario_->nbSkills_;
-  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nbDays_;
+  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nDays_;
 
   rep << "Complete shift schedule" << std::endl << std::endl;
   rep << "\t\t\t";

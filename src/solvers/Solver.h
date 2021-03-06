@@ -18,7 +18,7 @@
 #include <string>
 #include <utility>
 
-#include "tools/MyTools.h"
+#include "tools/Tools.h"
 #include "tools/InputPaths.h"
 #include "data/Nurse.h"
 #include "data/Roster.h"
@@ -326,6 +326,7 @@ struct PrintSolution {
   virtual std::string currentSolToString() const = 0;
 };
 
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S o l v e r P a r a m
@@ -347,8 +348,8 @@ static const std::map<std::string, Algorithm> AlgorithmsByName =
     {{"GENCOL", GENCOL}, {"STOCHASTIC_GENCOL", STOCHASTIC_GENCOL},
      {"NONE", NONE}};
 
-enum MySolverType { S_SCIP, S_CLP, S_Gurobi, S_Cplex, S_CBC };
-static std::map<std::string, MySolverType> MySolverTypesByName =
+enum SolverType { S_SCIP, S_CLP, S_Gurobi, S_Cplex, S_CBC };
+static std::map<std::string, SolverType> SolverTypesByName =
     {{"CLP", S_CLP}, {"Gurobi", S_Gurobi}, {"Cplex", S_Cplex}, {"CBC", S_CBC},
      {"SCIP", S_SCIP}};
 
@@ -365,9 +366,126 @@ static const std::map<std::string, SPType> SPTypesByName =
     {{"LONG", LONG_ROTATION}, {"ALL", ALL_ROTATION}, {"ROSTER", ROSTER}};
 
 // RCSPP solver type
-enum RCSPPType { BOOST_LABEL_SETTING = 0, MY_LABEL_SETTING = 1 };
+enum RCSPPType { BOOST_LABEL_SETTING = 0, LABEL_SETTING = 1 };
+
 static const std::map<std::string, RCSPPType> RCSPPTypesByName =
-    {{"BOOST_SOLVER", BOOST_LABEL_SETTING}, {"MY_SOLVER", MY_LABEL_SETTING}};
+    {{"BOOST", BOOST_LABEL_SETTING}, {"DEFAULT", LABEL_SETTING}};
+
+// enum to define how to search the rc graph when solving
+enum SPSearchStrategy {
+  SP_BREADTH_FIRST, SP_DEPTH_FIRST, SP_BEST_FIRST, SP_DOMINANT_FIRST
+};
+
+// Parameters of the subproblem (used in the solve function of the subproblem)
+class SolverParam;
+struct SubproblemParam {
+  SubproblemParam() {}
+  SubproblemParam(int strategy, PLiveNurse pNurse, const SolverParam& param);
+
+  void initSubproblemParam(int strategy,
+                         PLiveNurse pNurse,
+                         const SolverParam& param);
+  ~SubproblemParam() {}
+
+
+  // *** PARAMETERS ***
+  int verbose_ = 0;
+  double epsilon_ = 1e-5;
+
+  static const int maxSubproblemStrategyLevel_;
+
+  // Parameters nb_max_paths, shortRotationsStrategy_, maxRotationLength_ and
+  // violateConsecutiveConstraints_ are set according to the value of the
+  // strategy argument in initSubProblemParam to adopt a more or less
+  // agressive attitude
+  SPSearchStrategy search_strategy_ = SP_BREADTH_FIRST;
+
+  // true -> authorize the violation of the consecutive constraints
+  // false -> forbid any arc that authorized to violate the consecutive
+  // constraints
+  bool violateConsecutiveConstraints_ = true;
+
+  // 0 -> no short rotations
+  // 1 -> day-0 short rotations only
+  // 2 -> day-0 and last-day short rotations only
+  // 3 -> all short rotations
+  int shortRotationsStrategy_ = 3;
+
+  // maximal length for a rotation
+  int maxRotationLength_ = 0;
+
+  // TODO(JO): we never questioned this option, I think that we could remove the
+  //  option and the alternative code that corresponds to the false value
+  // true  -> one sink node per day
+  // false -> one single sink node for the network
+  bool oneSinkNodePerLastDay_ = true;
+
+  // Parameters below are set in the parameter file once and for all
+
+  // true if the RCSPP is solved to optimality. If false, can be satisified
+  // with any negative cost solution
+  bool rcsppToOptimality_ = true;
+
+  // if positive, the RC SPP stops as soon as it has generated enough
+  // non-dominated path
+  int rcsppMinNegativeLabels_ = 1;
+
+  // true if labels are sorted by increasing costs before domination is checked
+  bool rcsppSortLabels_ = true;
+
+  // true if the shortest path from each node to each sink is computed to
+  // delete the labels that cannot be extended into a negative cost path
+  bool rcsppMinCostToSinks_ = false;
+
+  // true if the domination rule is improved by considering the worst costs that
+  // can result from the violation of soft constraints
+  bool rcsppImprovedDomination_ = true;
+
+  // true if we enumerate subpaths in the RCSPP graph in order to reduce the
+  // number of resources
+  bool rcsppEnumSubpaths_ = false;
+
+  // tue  if we enumerate subpaths in a copy of the RCSPP graph, but only use
+  // this enumeration to compute a better bound with minimum costs to sinks
+  // minimum cost to sinks need to be computed for this option to have an impact
+  bool rcsppEnumSubpathsForMinCostToSinks_ = false;
+
+  // true if we apply a decremental state-space relaxation method, where we
+  // first ignore the lower bounds of every constraint on any work shift and
+  // then consider them only if needed, i.e., if no sufficiently negative
+  // reduced cost column was generated in the subproblem
+  bool rcsppDssr_ = false;
+
+  // if different from 0, a heuristic search is done in the RCSPP where only
+  // the specified number of labels is expanded from each node
+  // we take only the labels with smallest (most negative) cost
+  int rcsppNbToExpand_ = 0;
+
+  // true if we solve the RCSPP with a bidirectional label-setting algorithm
+  bool rcsppBidirectional_ = false;
+
+  // true if we solve the RCSPP with the Pulse algorithm described in
+  // Bolivar et al. (2014), where a depth-first exploration of the graph is
+  // first done to get good primal bounds
+  bool rcsppPulse_ = false;
+
+  // true if we solve the roster RCSPP by first computing the smallest cost
+  // rotations between each pair of nodes, and then search for the optimal
+  // roster in a graph where each arc is an optimal rotation
+  // when optimality is not required, we keep the rotation graph of previous
+  // iterations as long as it yields a negative cost roster
+  bool rcsppWithRotationGraph_ = false;
+
+  // Getters for the class fields
+  int maxRotationLength() { return maxRotationLength_; }
+  int shortRotationsStrategy() { return shortRotationsStrategy_; }
+  bool oneSinkNodePerLastDay() { return oneSinkNodePerLastDay_; }
+
+  // Setters
+  void maxRotationLength(int value) { maxRotationLength_ = value; }
+  void shortRotationsStrategy(int value) { shortRotationsStrategy_ = value; }
+  void oneSinkNodePerLastDay(bool value) { oneSinkNodePerLastDay_ = value; }
+};
 
 class SolverParam {
  public:
@@ -483,11 +601,13 @@ class SolverParam {
   // minimum reduced cost that the best solution must have to be considered
   // when disjoint column generation is active
   double minReducedCostDisjoint_ = -1e2;
-  int nbMaxColumnsToAdd_ = 20;
+  int nbMaxColumnsToAdd_ = 10;
   int nbSubProblemsToSolve_ = 15;
 
   // primal-dual strategy
   WeightStrategy weightStrategy_ = NO_STRAT;
+
+  SubproblemParam spParam_;
 
   // Subproblem options
   //
@@ -508,35 +628,16 @@ class SolverParam {
   SPType sp_type_ = LONG_ROTATION;
   // type of the RCSPP solver used in the subproblem
   RCSPPType rcspp_type_ = BOOST_LABEL_SETTING;
-  // true if dominance is improved by considering worst case penalties in
-  // soft constraints
-  bool sp_improve_soft_dominance = true;
-
-  // sortLabelsOption for the subProblem
-  // true if labels are sorted by increasing costs before domination is checked
-  bool spp_sortLabelsOption = false;
-  // minimumCostFromSinksOption for the subProblem
-  // true if the shortest path from each node to each sink is computed to
-  // delete the labels that cannot be extended into a negative cost path
-  bool spp_minimumCostFromSinksOption = false;
-  // worstCaseCostOption for the subProblem
-  // true if the domination rule is improved by considering the worst costs that
-  // can result from the violation of soft constraints
-  bool spp_worstCaseCostOption = true;
-  // enumeratedSubPathOption for the subProblem
-  // true if we enumerate subpaths in the RCSPP graph in order to reduce the
-  // number of resources
-  bool spp_enumeratedSubPathOption = false;
 
  public:
   // Initialize all the parameters according to a small number of
   // verbose options
   //
-  void setVerbose(int verbose);
+  void verbose(int verbose);
 
   // Set the parameters relative to the optimality level
   //
-  void setOptimalityLevel(OptimalityLevel level);
+  void optimalityLevel(OptimalityLevel level);
 };
 
 
@@ -613,7 +714,7 @@ class Solver {
   std::vector<State> *pInitState_;
 
   // Timer started at the creation of the solver and stopped at destruction
-  Tools::Timer *pTimerTotal_;
+  Tools::Timer timerTotal_;
 
   // current parameters of the solver (change with each solve)
   SolverParam param_;
@@ -704,6 +805,8 @@ class Solver {
  public:
   double epsilon() const { return param_.epsilon_; }
 
+  const SolverParam & parameters() const { return param_; }
+
   //------------------------------------------------
   // Solution with rolling horizon process
   //------------------------------------------------
@@ -753,7 +856,7 @@ class Solver {
   // set availability for the days before fixBefore (<=) based on
   // the current solution
   virtual void fixAvailabilityBasedOnSolution(int fixBefore) {
-    std::vector<bool> fixDays(getNbDays(), false);
+    std::vector<bool> fixDays(nDays(), false);
     for (int k = 0; k <= fixBefore; ++k) fixDays[k] = true;
     fixAvailabilityBasedOnSolution(fixDays);
   }
@@ -761,7 +864,7 @@ class Solver {
   // set the availability for each nurse
   virtual void nursesAvailabilities(
       const vector3D<bool> &nursesAvailabilities) {
-    if (nursesAvailabilities.size() != getNbNurses())
+    if (nursesAvailabilities.size() != nNurses())
       Tools::throwError("The input vector does not have the right size "
                         "for the method nursesAvailabilities.");
     isPartialAvailable_ = true;
@@ -861,7 +964,7 @@ class Solver {
   // already treated and on the number of weeks left
   // The required data on the nurses is mostly computed in preprocessTheNurses
   //
-  void setBoundsAndWeights(WeightStrategy strategy);
+  void boundsAndWeights(WeightStrategy strategy);
 
   void computeWeightsTotalShiftsForStochastic();
 
@@ -878,7 +981,7 @@ class Solver {
 
   // compute the rarity indicator for each skill
   //
-  void getSkillsRarity();
+  void skillsRarity();
 
   // Create the vector of sorted nurses
   // The nurses are ordered according to their position and the nurses that have
@@ -901,7 +1004,7 @@ class Solver {
 
   // build the, possibly fractional, roster corresponding to the solution
   // currently stored in the model
-  virtual vector3D<double> getFractionalRoster() const { return {}; }
+  virtual vector3D<double> fractionalRoster() const { return {}; }
 
   // count the fraction of current solution that is integer
   //
@@ -916,7 +1019,7 @@ class Solver {
   double computeSolutionCost(int nbDays);
 
   double computeSolutionCost() {
-    return computeSolutionCost(pDemand_->nbDays_);
+    return computeSolutionCost(pDemand_->nDays_);
   }
 
   // get aggregate information on the solution and write them in a string
@@ -929,30 +1032,30 @@ class Solver {
 
   // return the status of the solution
   //
-  Status getStatus(bool removeTIME_LIMIT = false) const {
+  Status status(bool removeTIME_LIMIT = false) const {
     if (removeTIME_LIMIT && status_ == TIME_LIMIT)
       return isSolutionInteger() ? FEASIBLE : INFEASIBLE;
     return status_;
   }
-  void setStatus(Status status) { status_ = status; }
+  void status(Status status) { status_ = status; }
 
   // return/set solution_
   //
-  const std::vector<Roster> &getSolution() const { return solution_; }
+  const std::vector<Roster> &solution() const { return solution_; }
   void addRosterToSolution(const Roster &roster) {
     solution_.push_back(roster);
   }
-  void setSolution(const std::vector<Roster> &solution) {
+  void solution(const std::vector<Roster> &solution) {
     solution_ = solution;
   }
 
   // get the timer
   //
-  Tools::Timer *getTimerTotal() const { return pTimerTotal_; }
+  Tools::Timer *timerTotal() { return &timerTotal_; }
 
   // return the solution, but only for the k first days
   //
-  std::vector<Roster> getSolutionAtDay(int k);
+  std::vector<Roster> solutionAtDay(int k);
 
   // convert the internal solution of a solver into a interpretable one
   virtual void storeSolution() {}
@@ -960,12 +1063,12 @@ class Solver {
 
   // return the final states of the nurses
   //
-  std::vector<State> getFinalStates();
+  std::vector<State> finalStates();
 
   // Returns the states(k+1) since the states start at 0
   // (hence, the state at the end of day k is state(k+1)
   //
-  std::vector<State> getStatesOfDay(int k);
+  std::vector<State> statesOfDay(int k);
 
   // display the whole solution in the required format
   //
@@ -986,12 +1089,12 @@ class Solver {
   //
   std::string solutionToLogString();
 
-  PScenario getScenario() const { return pScenario_; }
+  PScenario pScenario() const { return pScenario_; }
 
-  const std::vector<PLiveNurse> &getLiveNurses() const {
+  const std::vector<PLiveNurse> &liveNurses() const {
     return theLiveNurses_;
   }
-  const std::vector<PLiveNurse> &getSortedLiveNurses() const {
+  const std::vector<PLiveNurse> &sortedLiveNurses() const {
     return theNursesSorted_;
   }
 
@@ -999,16 +1102,16 @@ class Solver {
 
  public:
   // Returns the number of days over which the solver solves the problem
-  int getFirstDay() const { return pDemand_->firstDay_; }
-  int getNbDays() const { return pDemand_->nbDays_; }
+  int firstDay() const { return pDemand_->firstDay_; }
+  int nDays() const { return pDemand_->nDays_; }
 
   // Returns the number of nurses
-  int getNbNurses() const { return theLiveNurses_.size(); }
+  int nNurses() const { return theLiveNurses_.size(); }
 
   // Returns the number of shifts
-  int getNbShifts() const { return pDemand_->nbShifts_; }
+  int nShifts() const { return pDemand_->nShifts_; }
 
-  virtual double getLB() const { return -LARGE_SCORE; }
+  virtual double LB() const { return -LARGE_SCORE; }
 
   // Extend the rosters in the solution with the days covered by the input
   // solution

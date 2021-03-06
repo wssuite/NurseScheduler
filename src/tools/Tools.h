@@ -9,8 +9,8 @@
  * full license detail.
  */
 
-#ifndef SRC_TOOLS_MYTOOLS_H_
-#define SRC_TOOLS_MYTOOLS_H_
+#ifndef SRC_TOOLS_TOOLS_H_
+#define SRC_TOOLS_TOOLS_H_
 
 #define _USE_MATH_DEFINES  // needed for the constant M_PI
 
@@ -18,7 +18,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
-
 #include <chrono>  // NOLINT (suppress cpplint error)
 #include <memory>
 #include <iostream>
@@ -219,6 +218,33 @@ void initVector4D(vector4D<T> *v4D, int m, int n, int p, int q, T val) {
   for (vector3D<T> &v3 : *v4D) initVector3D(&v3, n, p, q, val);
 }
 
+template<class T>
+void initVector(std::vector<T> *v, int m) {
+  v->clear();
+  v->resize(m);
+}
+
+template<class T>
+void initVector2D(vector2D<T> *v2D, int m, int n) {
+  v2D->clear();
+  v2D->resize(m);
+  for (std::vector<T> &v : *v2D) initVector(&v, n);
+}
+
+template<class T>
+void initVector3D(vector3D<T> *v3D, int m, int n, int p) {
+  v3D->clear();
+  v3D->resize(m);
+  for (vector2D<T> &v2 : *v3D) initVector2D(&v2, n, p);
+}
+
+template<class T>
+void initVector4D(vector4D<T> *v4D, int m, int n, int p, int q) {
+  v4D->clear();
+  v4D->resize(m);
+  for (vector3D<T> &v3 : *v4D) initVector3D(&v3, n, p, q);
+}
+
 // return the object at position i (support negative index)
 template<class T>
 const T &get(const std::vector<T> &v, int i) {
@@ -276,8 +302,9 @@ bool isSunday(int dayId);
 
 bool isWeekend(int dayId);
 bool isFirstWeekDay(int dayId);
+bool isFirstWeekendDay(int dayId);
 bool isLastWeekendDay(int dayId);
-int containsWeekend(int startDate, int endDate);
+int nWeekendsInInterval(int startDate, int endDate);
 
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed
@@ -500,4 +527,5 @@ class ThreadsPool {
 };
 
 }  // namespace Tools
-#endif  // SRC_TOOLS_MYTOOLS_H_
+
+#endif  // SRC_TOOLS_TOOLS_H_

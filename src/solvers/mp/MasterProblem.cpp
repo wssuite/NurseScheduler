@@ -10,9 +10,12 @@
  */
 
 #include "MasterProblem.h"
+
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
+#include "solvers/mp/sp/rcspp/RCGraph.h"
+
 
 #ifdef USE_CPLEX
 #include "OsiCpxSolverInterface.hpp"
@@ -42,8 +45,159 @@ using std::cout;
 using std::endl;
 
 
+// print a rc solution
+std::string RCSolution::toString(std::vector<int> shiftIDToShiftTypeID) const {
+  std::stringstream buff;
+  buff << "RC solution of cost " << cost
+       << " starting on day " << firstDay << ":" << std::endl;
+  for (int k = 0; k < firstDay; k++) buff << "|     ";
+
+  char buffer[500];
+  if (shiftIDToShiftTypeID.empty()) {
+    for (int s : shifts) {
+      snprintf(buffer, sizeof(buffer), "| -:%2d", s);
+      buff << buffer;
+    }
+  } else {
+    for (int s : shifts) {
+      snprintf(buffer, sizeof(buffer), "|%2d:%2d", shiftIDToShiftTypeID[s], s);
+      buff << buffer;
+    }
+  }
+  buff << "|" << std::endl;
+  return buff.str();
+}
 
 // P a t t e r n   s t a t i c   m e t h o d s
+
+Stretch getStretch(int firstDay,
+                   const std::vector<int> &shifts,
+                   const PScenario &pScenario) {
+  std::vector<PShift> pShifts;
+  pShifts.reserve(shifts.size());
+  for (int s : shifts) pShifts.emplace_back(pScenario->pShifts_[s]);
+  return Stretch(pShifts, firstDay);
+}
+
+Stretch getStretch(const std::vector<double> &pattern,
+                   const PScenario &pScenario) {
+  int firstDay = Pattern::firstDay(pattern),
+      length = Pattern::nDays(pattern);
+  std::vector<PShift> pShifts(length);
+  for (int k = 0; k < length; k++)
+    pShifts[k] = pScenario->pShifts_[static_cast<int>(pattern[k + 3])];
+  return Stretch(pShifts, firstDay);
+}
+
+Stretch getStretch(const std::map<int, int> &shifts,
+                   const PScenario &pScenario) {
+  if (shifts.empty()) return Stretch(vector<PShift>(), -1);
+  // find first day
+  int firstDay = shifts.begin()->first;
+  for (const auto &p : shifts)
+    if (p.first < firstDay) firstDay = p.first;
+  // build the vector of PShifts
+  std::vector<PShift> pShifts(shifts.size());
+  for (const auto &p : shifts)
+    pShifts[p.first - firstDay] = pScenario->pShifts_[p.second];
+  return Stretch(pShifts, firstDay);
+}
+
+Pattern::Pattern(int firstDay,
+                 const std::vector<int> &shifts,
+                 const PScenario &pScenario,
+                 int nurseNum,
+                 double cost,
+                 double dualCost) :
+    nurseNum_(nurseNum), stretch_(getStretch(firstDay, shifts, pScenario)),
+    cost_(cost), reducedCost_(dualCost) {}
+
+Pattern::Pattern(const std::map<int, int> &shifts,
+                 const PScenario &pScenario,
+                 int nurseNum,
+                 double cost,
+                 double dualCost) :
+    nurseNum_(nurseNum), stretch_(getStretch(shifts, pScenario)),
+    cost_(cost), reducedCost_(dualCost) {}
+
+Pattern::Pattern(const std::vector<double> &pattern,
+                 const PScenario &pScenario) :
+    nurseNum_(Pattern::nurseNum(pattern)),
+    stretch_(getStretch(pattern, pScenario)),
+    cost_(DBL_MAX),
+    reducedCost_(DBL_MAX) {}
+
+void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
+                                    const State &initialState) {
+  // reset costs
+  costs_.clear();
+  for (int t=CONS_SHIFTS_COST; t <= WEEKEND_COST; t++)
+    costs_[(CostType)t] = 0;
+  std::map<int, CostType> resourceCostType;
+  // create origin, destination and arc
+  PRCNode pSource = std::make_shared<RCNode>(
+      0, SOURCE_NODE, firstDay(), initialState.pShift_),
+      pSink = std::make_shared<RCNode>(
+      1, SINK_NODE, nDays(), pShift(lastDay()));
+  PRCArc pArc = std::make_shared<RCArc>(
+      0, pSource, pSink, stretch_, 0, TO_SINK);
+  // create resources
+  auto resources = pMaster->createResources(pMaster->liveNurses()[nurseNum_],
+                                            &resourceCostType);
+  // create expander for stretch
+  double c = pArc->cost;
+  for (const auto &pR : resources) {
+    pR->initialize(*pSource->pAShift, stretch_, pArc);
+    addCost(pArc->cost-c, resourceCostType[pR->id()]);
+    c = pArc->cost;
+  }
+  // expand
+  PRCLabel pL = std::make_shared<RCLabel>(resources, initialState);
+  c = pL->cost();
+  for (const auto &pE : pArc->expanders) {
+    ResourceValues &v = pL->getResourceValues(pE->resourceId);
+    pE->expand(pL, &v);
+    addCost(pL->cost()-c, resourceCostType[pE->resourceId]);
+    c = pL->cost();
+  }
+}
+
+std::string Pattern::costsToString() const {
+  std::stringstream rep;
+  rep << "#       | Consecutive shifts  : "
+      << costs_.at(CONS_SHIFTS_COST) << std::endl;
+  rep << "#       | Consecutive days off: "
+      << costs_.at(CONS_REST_COST) << std::endl;
+  rep << "#       | Consecutive days    : "
+      << costs_.at(CONS_WORK_COST) << std::endl;
+  rep << "#       | Complete weekends   : "
+      << costs_.at(COMPLETE_WEEKEND_COST) << std::endl;
+  rep << "#       | Preferences         : "
+      << costs_.at(PREFERENCE_COST) << std::endl;
+  rep << "#       | Worked days         : "
+      << costs_.at(DAYS_COST) << std::endl;
+  rep << "#       | Worked weekend  : "
+      << costs_.at(WEEKEND_COST) << std::endl;
+  return rep.str();
+}
+
+std::string Pattern::toString(int nbDays) const {
+  if (nbDays == -1) nbDays = lastDay()+1;
+  std::stringstream rep;
+  rep << "#   | PATTERN: N=" << nurseNum_ << "  cost=" << cost_
+      << "  dualCost=" << reducedCost_ << "  firstDay=" << firstDay()
+      << "  length=" << nDays() << std::endl;
+  rep << "#   |";
+  std::vector<PShift> allTasks(nbDays);
+  for (int k = 0; k < nbDays; ++k) {
+    if (k < firstDay() || k > lastDay() || pShift(k)->isRest())
+      rep << "   |";
+    else
+      rep << pShift(k)->type << ":" << pShift(k)->id << "|";
+  }
+  rep << std::endl;
+  return rep.str();
+}
 
 // Compare rotations on cost
 bool Pattern::compareCost(PPattern pat1, PPattern pat2) {
@@ -73,7 +227,7 @@ MasterProblem::MasterProblem(PScenario pScenario,
                              PDemand pDemand,
                              PPreferences pPreferences,
                              vector<State> *pInitState,
-                             MySolverType solverType) :
+                             SolverType solverType) :
 
     Solver(pScenario, pDemand, pPreferences, pInitState),
     PrintSolution(),
@@ -84,13 +238,13 @@ MasterProblem::MasterProblem(PScenario pScenario,
     pTree_(nullptr),
     pRule_(nullptr),
     solverType_(solverType),
-    optDemandVars_(pDemand_->nbDays_),
-    numberOfNursesByPositionVars_(pDemand_->nbDays_),
-    skillsAllocVars_(pDemand_->nbDays_),
-    minDemandCons_(pDemand_->nbDays_),
-    optDemandCons_(pDemand_->nbDays_),
+    optDemandVars_(pDemand_->nDays_),
+    numberOfNursesByPositionVars_(pDemand_->nDays_),
+    skillsAllocVars_(pDemand_->nDays_),
+    minDemandCons_(pDemand_->nDays_),
+    optDemandCons_(pDemand_->nDays_),
     numberOfNursesByPositionCons_(pScenario->nbPositions()),
-    feasibleSkillsAllocCons_(pDemand_->nbDays_) {
+    feasibleSkillsAllocCons_(pDemand_->nDays_) {
   // build the model
   this->initializeSolver(solverType);
 }
@@ -104,7 +258,7 @@ MasterProblem::~MasterProblem() {
 
 // Initialize the solver at construction
 //
-void MasterProblem::initializeSolver(MySolverType solverType) {
+void MasterProblem::initializeSolver(SolverType solverType) {
   // This OSI interface is created only to retrieve the proper value of
   // infinity for the solver
   double inf = -1;
@@ -280,11 +434,11 @@ void MasterProblem::build(const SolverParam &param) {
 // input days
 void MasterProblem::relaxDays(const std::vector<bool> &isRelax) {
   if (isRelaxDay_.empty()) {
-    isRelaxDay_.insert(isRelaxDay_.begin(), pDemand_->nbDays_, false);
+    isRelaxDay_.insert(isRelaxDay_.begin(), pDemand_->nDays_, false);
     isPartialRelaxDays_ = true;
   }
 
-  for (int day = 0; day < pDemand_->nbDays_; day++) {
+  for (int day = 0; day < pDemand_->nDays_; day++) {
     isRelaxDay_[day] = isRelaxDay_[day] ? true : isRelax[day];
   }
 }
@@ -293,7 +447,7 @@ void MasterProblem::unrelaxDays(const std::vector<bool> &isUnrelax) {
   if (isRelaxDay_.empty()) {
     isPartialRelaxDays_ = false;
   } else {
-    for (int day = 0; day < pDemand_->nbDays_; day++)
+    for (int day = 0; day < pDemand_->nDays_; day++)
       isRelaxDay_[day] = isRelaxDay_[day] ? !isUnrelax[day] : false;
   }
 }
@@ -310,14 +464,14 @@ void MasterProblem::fixAvailabilityBasedOnSolution(
   // by default set all availabilities to true
   vector3D<bool> availableNursesDaysShifts;
   Tools::initVector3D(&availableNursesDaysShifts,
-                      getNbNurses(), getNbDays(), getNbShifts(), true);
+                      nNurses(), nDays(), nShifts(), true);
   // then get the solution and set to true only the shift belonging to
   // a solution
-  vector3D<double> roster = getFractionalRoster();
-  for (int n = 0; n < getNbNurses(); ++n)
-    for (int k = 0; k <= getNbDays(); ++k)
+  vector3D<double> roster = fractionalRoster();
+  for (int n = 0; n < nNurses(); ++n)
+    for (int k = 0; k <= nDays(); ++k)
       if (fixDays[k]) {
-        for (int s = 0; s < getNbShifts(); ++s)
+        for (int s = 0; s < nShifts(); ++s)
           availableNursesDaysShifts[n][k][s] = roster[n][k][s] > epsilon();
       }
 
@@ -345,8 +499,8 @@ void MasterProblem::filterColumnsBasedOnAvailability() {
     // check if column is feasible
     PPattern pat = getPattern(var);
     bool feasible = true;
-    for (int k = pat->firstDay_; k <= pat->endDay(); k++)
-      if (!isNurseAvailableOnDayShift(pat->nurseNum_, k, pat->getShift(k))) {
+    for (int k = pat->firstDay(); k <= pat->lastDay(); k++)
+      if (!isNurseAvailableOnDayShift(pat->nurseNum_, k, pat->shift(k))) {
         feasible = false;
         break;
       }
@@ -365,7 +519,7 @@ void MasterProblem::filterColumnsBasedOnAvailability() {
 void MasterProblem::fixNurses(const std::vector<bool> &isFix) {
   // initialize the list of fixed nurses if empty
   if (isFixNurse_.empty()) {
-    Tools::initVector(&isFixNurse_, getNbNurses(), false);
+    Tools::initVector(&isFixNurse_, nNurses(), false);
     isPartialFixNurses_ = true;
   }
   // set the list of fixed day
@@ -478,13 +632,13 @@ void MasterProblem::storeSolution() {
   // retrieve a feasible allocation of skills
   vector4D<double> skillsAllocation;
   Tools::initVector4D(&skillsAllocation,
-                      pDemand_->nbDays_,
+                      pDemand_->nDays_,
                       pScenario_->nbShifts_ - 1,
                       pScenario_->nbSkills_,
                       0,
                       .0);
 
-  for (int k = 0; k < pDemand_->nbDays_; ++k)
+  for (int k = 0; k < pDemand_->nDays_; ++k)
     for (int s = 0; s < pScenario_->nbShifts_ - 1; ++s)
       for (int sk = 0; sk < pScenario_->nbSkills_; ++sk)
         skillsAllocation[k][s][sk] =
@@ -498,8 +652,8 @@ void MasterProblem::storeSolution() {
     if (pModel_->getVarValue(var) > epsilon()) {
       PPattern pat = getPattern(var);
       PLiveNurse pNurse = theLiveNurses_[pat->nurseNum_];
-      for (int k = pat->firstDay_; k <= pat->endDay(); ++k) {
-        int s = pat->getShift(k);
+      for (int k = pat->firstDay(); k <= pat->lastDay(); ++k) {
+        int s = pat->shift(k);
         if (s == 0) continue;  // nothing to do
         // assign a skill to the nurse for the shift
         bool assigned = false;
@@ -520,7 +674,7 @@ void MasterProblem::storeSolution() {
     }
   }
 
-  for (int k = 0; k < pDemand_->nbDays_; ++k)
+  for (int k = 0; k < pDemand_->nDays_; ++k)
     for (int s = 0; s < pScenario_->nbShifts_ - 1; ++s)
       for (int sk = 0; sk < pScenario_->nbSkills_; ++sk)
         for (double v : skillsAllocation[k][s][sk])
@@ -567,7 +721,7 @@ std::string MasterProblem::currentSolToString() const {
     std::stringstream rep;
     rep << var->getNurseNum() << ": " << v << std::endl;
     PPattern pat = getPattern(var);
-    rep << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_)
+    rep << pat->toString(nDays())
         << std::endl;
   }
 
@@ -578,7 +732,7 @@ std::string MasterProblem::currentSolToString() const {
       double v = pModel_->getVarValue(var);
       rep << var->getNurseNum() << ": " << v << std::endl;
       PPattern pat = getPattern(var);
-      rep << pat->toString(getNbDays(), pScenario_->shiftIDToShiftTypeID_)
+      rep << pat->toString(nDays())
           << std::endl;
     }
   return rep.str();
@@ -588,12 +742,12 @@ std::string MasterProblem::currentSolToString() const {
 // Build the, possibly fractional, roster corresponding to the solution
 // currently stored in the model
 //------------------------------------------------------------------------------
-vector3D<double> MasterProblem::getFractionalRoster() const {
+vector3D<double> MasterProblem::fractionalRoster() const {
   vector3D<double> fractionalRoster;
   Tools::initVector3D(&fractionalRoster,
-                      getNbNurses(),
-                      getNbDays(),
-                      pDemand_->nbShifts_,
+                      nNurses(),
+                      nDays(),
+                      pDemand_->nShifts_,
                       .0);
 
   // Retrieve current fractional roster for each nurse
@@ -603,8 +757,8 @@ vector3D<double> MasterProblem::getFractionalRoster() const {
     if (value < epsilon()) continue;
     PPattern pat = getPattern(var);
     vector2D<double> &fractionalRoster2 = fractionalRoster[pat->nurseNum_];
-    for (int k = pat->firstDay_; k <= pat->endDay(); ++k)
-      fractionalRoster2[k][pat->getShift(k)] += value;
+    for (int k = pat->firstDay(); k <= pat->lastDay(); ++k)
+      fractionalRoster2[k][pat->shift(k)] += value;
   }
 
   return fractionalRoster;
@@ -630,50 +784,43 @@ void MasterProblem::checkIfPatternAlreadyPresent(
 *Get the duals values per day for a nurse
  ******************************************************/
 // build a DualCosts structure
-DualCosts MasterProblem::buildDualCosts(PLiveNurse pNurse) const {
-  return DualCosts(getShiftsDualValues(pNurse),
-                   getStartWorkDualValues(pNurse),
-                   getEndWorkDualValues(pNurse),
-                   getWorkedWeekendDualValue(pNurse),
-                   getConstantDualvalue(pNurse));
+PDualCosts MasterProblem::buildDualCosts(PLiveNurse pNurse) const {
+  return std::make_shared<DualCosts>(getShiftsDualValues(pNurse),
+                                     getConstantDualvalue(pNurse));
 }
 
 // return the dual values associated to the demand
 vector2D<double> MasterProblem::getShiftsDualValues(PLiveNurse pNurse) const {
-  vector2D<double> dualValues(pDemand_->nbDays_);
-  for (int k = 0; k < pDemand_->nbDays_; ++k)
+  vector2D<double> dualValues(pDemand_->nDays_);
+  for (int k = 0; k < pDemand_->nDays_; ++k)
     dualValues[k] = pModel_->getDuals(
         numberOfNursesByPositionCons_[pNurse->pPosition_->id_][k]);
   return dualValues;
-}
-
-vector<double> MasterProblem::getStartWorkDualValues(PLiveNurse pNurse) const {
-  return vector<double>(pDemand_->nbDays_);
-}
-
-vector<double> MasterProblem::getEndWorkDualValues(PLiveNurse pNurse) const {
-  return vector<double>(pDemand_->nbDays_);
-}
-
-double MasterProblem::getWorkedWeekendDualValue(PLiveNurse pNurse) const {
-  return 0;
 }
 
 double MasterProblem::getConstantDualvalue(PLiveNurse pNurse) const {
   return 0;
 }
 
-DualCosts MasterProblem::buildRandomDualCosts(bool optimalDemandConsidered,
-                                              int NDaysShifts) const {
+PDualCosts MasterProblem::buildRandomDualCosts(bool optimalDemandConsidered,
+                                               int NDaysShifts) const {
+  return std::make_shared<DualCosts>(
+      getRandomWorkedDualCosts(optimalDemandConsidered, NDaysShifts),
+      Tools::randomDouble(-10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND,
+                          10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND));
+}
+
+vector2D<double> MasterProblem::getRandomWorkedDualCosts(
+    bool optimalDemandConsidered, int NDaysShifts) const {
   // TODO(JO): below, every dual cost is initialized, so I fear that they
   //  will all be used to modify arcs costs, even in the roster-based
   //  decomposition
-  vector<vector<double>> workDualCosts;
+  vector2D<double> workDualCosts;
   if (optimalDemandConsidered) {
     // This following 2D vector will contain all the dual costs corresponding
     // to each day and to each shift associated with this day.
     Tools::initVector2D(
-        &workDualCosts, pDemand_->nbDays_, pScenario_->nbShifts_ - 1, 0.0);
+        &workDualCosts, pDemand_->nDays_, pScenario_->nbShifts_ - 1, 0.0);
     // All the values in the vector are initialized to 0 and only a few of
     // these will be randomly replaced by a value corresponding to the
     // optimal demand weight multiplied by a random coefficient between 1 and 3.
@@ -681,7 +828,7 @@ DualCosts MasterProblem::buildRandomDualCosts(bool optimalDemandConsidered,
     // the parameter 'NDaysShifts'.
     std::set<int> daysToBeModified;
     while (daysToBeModified.size() < NDaysShifts)
-      daysToBeModified.insert(Tools::randomInt(0, pDemand_->nbDays_-1));
+      daysToBeModified.insert(Tools::randomInt(0, pDemand_->nDays_-1));
     for (auto day : daysToBeModified) {
       int idShift = Tools::randomInt(0, pScenario_->nbShifts_-2);
       int coeff = Tools::randomInt(1, 3);
@@ -690,22 +837,10 @@ DualCosts MasterProblem::buildRandomDualCosts(bool optimalDemandConsidered,
     }
   } else {
     workDualCosts = Tools::randomDoubleVector2D(
-            pDemand_->nbDays_, pScenario_->nbShifts_ - 1,
-            0, 3*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
+        pDemand_->nDays_, pScenario_->nbShifts_ - 1,
+        0, 3*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
   }
-  return DualCosts(
-      workDualCosts,
-      Tools::randomDoubleVector(
-          pDemand_->nbDays_,
-          0,
-          7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
-      Tools::randomDoubleVector(
-          pDemand_->nbDays_,
-          0,
-          7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND),
-      Tools::randomDouble(0, 2*pScenario_->weights().WEIGHT_TOTAL_WEEKENDS),
-      Tools::randomDouble(-10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND,
-                          10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND));
+  return workDualCosts;
 }
 
 /*
@@ -715,43 +850,43 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
   char name[255];
   // initialize vectors
   Tools::initVector3D<MyVar *>(&optDemandVars_,
-                               pDemand_->nbDays_,
+                               pDemand_->nDays_,
                                pScenario_->nbShifts_ - 1,
                                pScenario_->nbSkills_,
                                nullptr);
   Tools::initVector3D<MyVar *>(&numberOfNursesByPositionVars_,
-                               pDemand_->nbDays_,
+                               pDemand_->nDays_,
                                pScenario_->nbShifts_ - 1,
                                pScenario_->nbPositions(),
                                nullptr);
   Tools::initVector4D<MyVar *>(&skillsAllocVars_,
-                               pDemand_->nbDays_,
+                               pDemand_->nDays_,
                                pScenario_->nbShifts_ - 1,
                                pScenario_->nbSkills_,
                                pScenario_->nbPositions(),
                                nullptr);
   Tools::initVector3D<MyCons *>(&minDemandCons_,
-                                pDemand_->nbDays_,
+                                pDemand_->nDays_,
                                 pScenario_->nbShifts_ - 1,
                                 pScenario_->nbSkills_,
                                 nullptr);
   Tools::initVector3D<MyCons *>(&optDemandCons_,
-                                pDemand_->nbDays_,
+                                pDemand_->nDays_,
                                 pScenario_->nbShifts_ - 1,
                                 pScenario_->nbSkills_,
                                 nullptr);
   Tools::initVector3D<MyCons *>(&numberOfNursesByPositionCons_,
                                 pScenario_->nbPositions(),
-                                pDemand_->nbDays_,
+                                pDemand_->nDays_,
                                 pScenario_->nbShifts_ - 1,
                                 nullptr);
   Tools::initVector3D<MyCons *>(&feasibleSkillsAllocCons_,
-                                pDemand_->nbDays_,
+                                pDemand_->nDays_,
                                 pScenario_->nbShifts_ - 1,
                                 pScenario_->nbPositions(),
                                 nullptr);
 
-  for (int k = 0; k < pDemand_->nbDays_; k++) {
+  for (int k = 0; k < pDemand_->nDays_; k++) {
     // forget s=0, it's a resting shift
     for (int s = 1; s < pScenario_->nbShifts_; s++) {
       for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
@@ -862,8 +997,8 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons *> *cons,
   int nbCons(0);
 
   int p = theLiveNurses_[pat.nurseNum_]->pPosition()->id_;
-  for (int k = pat.firstDay_; k <= pat.endDay(); ++k) {
-    int s = pat.getShift(k);
+  for (int k = pat.firstDay(); k <= pat.lastDay(); ++k) {
+    int s = pat.shift(k);
     if (pScenario_->isAnyShift(s)) {
       for (int s0 = 1; s0 < pScenario_->nbShifts_; ++s0) {
         ++nbCons;
@@ -881,7 +1016,7 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons *> *cons,
 }
 
 void MasterProblem::updateDemand(PDemand pDemand) {
-  if (pDemand->nbDays_ != pDemand_->nbDays_)
+  if (pDemand->nDays_ != pDemand_->nDays_)
     Tools::throwError("The new demand must have the same "
                       "size than the old one, so that's ");
 
@@ -889,7 +1024,7 @@ void MasterProblem::updateDemand(PDemand pDemand) {
   pDemand_ = pDemand;
 
   // modify the associated constraints
-  for (int k = 0; k < pDemand_->nbDays_; k++)
+  for (int k = 0; k < pDemand_->nDays_; k++)
     for (int s = 1; s < pScenario_->nbShifts_; s++)
       for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
         minDemandCons_[k][s - 1][sk]->setLhs(pDemand_->minDemand_[k][s][sk]);
@@ -904,68 +1039,50 @@ string MasterProblem::costsConstrainstsToString() const {
   snprintf(buffer, sizeof(buffer),
            "%-40s %10.0f \n",
            "Rotation costs",
-           getColumnsCost(ROTATION_COST, false));
+           getColumnsCost(ROTATION_COST));
   rep << buffer;
   rep << "-----------------------------------------\n";
   snprintf(buffer, sizeof(buffer),
            "%5s%-35s %10.0f \n",
            "",
            "Cons. shifts costs",
-           getColumnsCost(CONS_SHIFTS_COST, false));
+           getColumnsCost(CONS_SHIFTS_COST));
   rep << buffer;
   snprintf(buffer, sizeof(buffer),
            "%5s%-35s %10.0f \n",
            "",
            "Cons. worked days costs",
-           getColumnsCost(CONS_WORKED_DAYS_COST, false));
+           getColumnsCost(CONS_WORK_COST));
   rep << buffer;
   snprintf(buffer, sizeof(buffer),
            "%5s%-35s %10.0f \n",
            "",
            "Complete weekend costs",
-           getColumnsCost(COMPLETE_WEEKEND_COST, false));
+           getColumnsCost(COMPLETE_WEEKEND_COST));
   rep << buffer;
   snprintf(buffer, sizeof(buffer),
            "%5s%-35s %10.0f \n",
            "",
            "Preferences costs",
-           getColumnsCost(PREFERENCE_COST, false));
-  rep << buffer;
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "History work costs (counted)",
-           getColumnsCost(ROTATION_COST, true));
+           getColumnsCost(PREFERENCE_COST));
   rep << buffer;
   rep << "-----------------------------------------\n";
   snprintf(buffer, sizeof(buffer),
            "%5s%-35s %10.0f \n",
            "",
            "Resting costs",
-           getColumnsCost(REST_COST, false));
-  rep << buffer;
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "History rest costs (counted)",
-           getColumnsCost(REST_COST, true));
+           getColumnsCost(CONS_REST_COST));
   rep << buffer;
   snprintf(buffer,
            sizeof(buffer),
            "%-40s %10.0f \n",
-           "Min worked days costs",
-           getMinDaysCost());
-  rep << buffer;
-  snprintf(buffer,
-           sizeof(buffer),
-           "%-40s %10.0f \n",
-           "Max worked days costs",
-           getMaxDaysCost());
+           "Worked days costs",
+           getDaysCost());
   rep << buffer;
   snprintf(buffer, sizeof(buffer),
            "%-40s %10.0f \n",
-           "Max worked weekend costs",
-           getMaxWeekendCost());
+           "Worked weekend costs",
+           getWeekendCost());
   rep << buffer;
   snprintf(buffer, sizeof(buffer),
            "%-40s %10.0f \n",
@@ -983,7 +1100,7 @@ string MasterProblem::allocationToString(bool printInteger) const {
 
   int nbNurses = pScenario_->nbNurses_;
   int nbShifts = pScenario_->nbShifts_;
-  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nbDays_;
+  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nDays_;
 
   rep << std::endl;
   rep << "Allocations of the (potentially fractional) current solution:"
@@ -998,7 +1115,7 @@ string MasterProblem::allocationToString(bool printInteger) const {
   rep << "|" << std::endl;
   rep << "-------------------------------------" << std::endl;
 
-  vector3D<double> fractionalRoster = getFractionalRoster();
+  vector3D<double> fractionalRoster = this->fractionalRoster();
   for (int n = 0; n < nbNurses; n++) {
     PLiveNurse pNurse = theLiveNurses_[n];
     const vector2D<double> &fnurseFractionalRoster = fractionalRoster[n];
@@ -1038,7 +1155,7 @@ string MasterProblem::coverageToString(bool printInteger) const {
 
   int nbShifts = pScenario_->nbShifts_;
   int nbSkills = pScenario_->nbSkills_;
-  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nbDays_;
+  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nDays_;
 
   rep << std::endl;
   rep << "Coverage of the (potentially fractional) current solution:"

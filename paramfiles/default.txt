@@ -44,7 +44,14 @@ spMaxReducedCostBound=0
 verbose=1
 
 # RCSPP Solver options
-sortLabelsOption=0
-minimumCostFromSinksOption=0
-worstCaseCostOption=1
-enumeratedSubPathOption=0
+rcsppToOptimality=1
+rcsppSortLabels=1
+rcsppMinCostToSinks=0
+rcsppImprovedDomination=1
+rcsppEnumerateSubpaths=0
+rcsppEnumerateSubpathsForMinCostToSinks=0
+rcsppDssr=0
+rcsppNbToExpand=0
+rcsppBidirectional=0
+rcsppPulse=0
+rcsppWithRotationGraph=0

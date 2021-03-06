@@ -14,11 +14,48 @@
 
 #include "MasterProblem.h"
 
+#include <climits>  // for INT_MAX
+
 #include <set>
 #include <map>
 #include <string>
 #include <utility>
 #include <vector>
+
+struct RotationDualCosts : public DualCosts {
+ public:
+  RotationDualCosts(vector2D<double> workedShiftsCosts,
+                    std::vector<double> startWorkCosts,
+                    std::vector<double> endWorkCosts,
+                    double workedWeekendCost,
+                    double constant = 0) :
+      DualCosts(std::move(workedShiftsCosts), constant),
+      startWorkCosts_(std::move(startWorkCosts)),
+      endWorkCosts_(std::move(endWorkCosts)),
+      workedWeekendCost_(workedWeekendCost) {}
+
+  // GETTERS
+  //
+  double startWorkCost(int day) const override {
+    return (startWorkCosts_[day]);
+  }
+  double endWorkCost(int day) const override {
+    return (endWorkCosts_[day]);
+  }
+  double workedWeekendCost() const override {
+    return workedWeekendCost_;
+  }
+
+ protected:
+  // Indexed by : day
+  std::vector<double> startWorkCosts_;
+
+  // Indexed by : day
+  std::vector<double> endWorkCosts_;
+
+  // Reduced cost of the weekends
+  double workedWeekendCost_;
+};
 
 //-----------------------------------------------------------------------------
 //
@@ -33,65 +70,48 @@ struct RotationPattern : Pattern {
   // Specific constructors and destructors
   //
   RotationPattern(std::map<int, int> shifts,
+                  const PScenario &pScenario,
                   int nurseNum = -1,
                   double cost = DBL_MAX,
                   double dualCost = DBL_MAX) :
-      Pattern(-1, shifts.size(), nurseNum, cost, dualCost),
-      shifts_(shifts),
+      Pattern(shifts, pScenario, nurseNum, cost, dualCost),
       consShiftsCost_(0),
       consDaysWorkedCost_(0),
       completeWeekendCost_(0),
       preferenceCost_(0),
-      initRestCost_(0),
-      timeDuration_(shifts.size()) {
-    firstDay_ = INT_MAX;
-    for (auto itS = shifts.begin(); itS != shifts.end(); ++itS)
-      if (itS->first < firstDay_) firstDay_ = itS->first;
-  }
+      initRestCost_(0) {}
 
   RotationPattern(int firstDay,
                   std::vector<int> shiftSuccession,
+                  const PScenario &pScenario,
                   int nurseNum = -1,
                   double cost = DBL_MAX,
                   double dualCost = DBL_MAX) :
-      Pattern(firstDay, shiftSuccession.size(), nurseNum, cost, dualCost),
+      Pattern(firstDay, shiftSuccession, pScenario, nurseNum, cost, dualCost),
       consShiftsCost_(0),
       consDaysWorkedCost_(0),
       completeWeekendCost_(0),
       preferenceCost_(0),
-      initRestCost_(0),
-      timeDuration_(shiftSuccession.size()) {
-    for (int k = 0; k < length_; k++)
-      shifts_[firstDay + k] = shiftSuccession[k];
-  }
+      initRestCost_(0) {}
 
-  explicit RotationPattern(const std::vector<double> &compactPattern) :
-      Pattern(compactPattern),
+  explicit RotationPattern(const std::vector<double> &compactPattern,
+                           const PScenario &pScenario) :
+      Pattern(compactPattern, pScenario),
       consShiftsCost_(0),
       consDaysWorkedCost_(0),
       completeWeekendCost_(0),
       preferenceCost_(0),
-      initRestCost_(0),
-      timeDuration_(static_cast<int>(compactPattern.back())) {
-    for (int k = 0; k < length_; k++)
-      shifts_[firstDay_ + k] = static_cast<int>(compactPattern[k + 3]);
-  }
+      initRestCost_(0) {}
 
   RotationPattern(const RotationPattern &rotation, int nurseNum) :
       Pattern(rotation, nurseNum),
-      shifts_(rotation.shifts_),
       consShiftsCost_(rotation.consShiftsCost_),
       consDaysWorkedCost_(rotation.consDaysWorkedCost_),
       completeWeekendCost_(rotation.completeWeekendCost_),
       preferenceCost_(rotation.preferenceCost_),
-      initRestCost_(rotation.initRestCost_),
-      timeDuration_(rotation.timeDuration_) {}
+      initRestCost_(rotation.initRestCost_) {}
 
   ~RotationPattern() {}
-
-  int getShift(int day) const override {
-    return shifts_.at(day);
-  }
 
   // when branching on this pattern, this method add the corresponding
   // forbidden shifts to the set.
@@ -104,10 +124,6 @@ struct RotationPattern : Pattern {
                           int nbShifts,
                           PDemand pDemand) const override;
 
-  // Shifts to be performed
-  //
-  std::map<int, int> shifts_;
-
   // Cost
   //
   double consShiftsCost_, consDaysWorkedCost_, completeWeekendCost_,
@@ -116,38 +132,12 @@ struct RotationPattern : Pattern {
   // Level of the branch and bound tree where the rotation has been generated
   int treeLevel_ = 0;
 
-  // Time duration (in a certain unit: day, hours, half-hours, ...)
-  int timeDuration_;
-
-  // compact the rotation in a vector
-  std::vector<double> getCompactPattern() const override {
-    std::vector<double> pattern = Pattern::getCompactPattern();
-    for (const std::pair<int, int> &p : shifts_) pattern.push_back(p.second);
-    pattern.push_back(timeDuration_);
-    return pattern;
-  }
-
   // Compute the cost of a rotation
-  void computeCost(PScenario pScenario,
-                   const std::vector<PLiveNurse> &liveNurses,
-                   int horizon);
+  void computeCost(const MasterProblem *pMaster,
+                   const PLiveNurse &pNurse) override;
 
   //  Compute the dual cost of a rotation
-  void checkReducedCost(const DualCosts &costs, bool printBadPricing = true);
-
-  std::string toString(
-      int nbDays = -1,
-      std::vector<int> shiftIDToShiftTypeID = {}) const override;
-
- private:
-  // compute the time duration of the rotation
-  // (number of days, cumulative number of hours, etc
-  void computeTimeDuration(PScenario pScenario) {
-    timeDuration_ = 0;
-    for (const std::pair<int, int> &p : shifts_) {
-      timeDuration_ += pScenario->timeDurationToWork_[p.second];
-    }
-  }
+  void checkReducedCost(const PDualCosts &costs, bool printBadPricing = true);
 };
 
 //-----------------------------------------------------------------------------
@@ -163,10 +153,14 @@ class RotationMP : public MasterProblem {
              PDemand pDemand,
              PPreferences pPreferences,
              std::vector<State> *pInitState,
-             MySolverType solver);
+             SolverType solver);
   virtual ~RotationMP();
 
   PPattern getPattern(MyVar *var) const override;
+
+  std::vector<PResource> createResources(
+      const PLiveNurse &pN,
+      std::map<int, CostType> *resourceCostType) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 
@@ -178,7 +172,7 @@ class RotationMP : public MasterProblem {
 
   // build the, possibly fractional, roster corresponding to the solution
   // currently stored in the model
-  vector3D<double> getFractionalRoster() const override;
+  vector3D<double> fractionalRoster() const override;
 
   const std::vector<MyVar *> &getMinWorkedDaysVars() const {
     return minWorkedDaysVars_;
@@ -227,19 +221,22 @@ class RotationMP : public MasterProblem {
                          int nbWeekends);
 
   // return the costs of all active columns associated to the type
-  double getColumnsCost(CostType costType, bool historicalCosts) const override;
+  double getColumnsCost(CostType costType) const override;
   double getColumnsCost(CostType costType,
                         const std::vector<MyVar *> &vars) const;
 
-  double getMinDaysCost() const override;
-  double getMaxDaysCost() const override;
-  double getMaxWeekendCost() const override;
+  double getDaysCost() const override;
+  double getWeekendCost() const override;
 
   /* retrieve the dual values */
+  PDualCosts buildDualCosts(PLiveNurse pNurse) const override;
   vector2D<double> getShiftsDualValues(PLiveNurse pNurse) const override;
-  std::vector<double> getStartWorkDualValues(PLiveNurse pNurse) const override;
-  std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const override;
-  double getWorkedWeekendDualValue(PLiveNurse pNurse) const override;
+  std::vector<double> getStartWorkDualValues(PLiveNurse pNurse) const;
+  std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const;
+  double getWorkedWeekendDualValue(PLiveNurse pNurse) const;
+
+  PDualCosts buildRandomDualCosts(bool optimalDemandConsidered,
+                                  int NDaysShifts) const override;
 
   /*
   * Variables

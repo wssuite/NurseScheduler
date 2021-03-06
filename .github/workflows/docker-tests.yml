@@ -24,19 +24,19 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n005w4_0_1-2-3-3
-          ns-args: --pricer
+          ns-args: --pricer 10
 
       - name: n035w4_1_1-7-1-8 PRICER
         uses: ./ # Uses an action in the root directory
         with:
           instance: n035w4_1_1-7-1-8
-          ns-args: --pricer
+          ns-args: --pricer 5
 
       - name: n012w8_0_3-5-0-2-0-4-5-2 PRICER
         uses: ./ # Uses an action in the root directory
         with:
           instance: n012w8_0_3-5-0-2-0-4-5-2
-          ns-args: --pricer
+          ns-args: --pricer 5
 
       - name: n005w4_0_1-2-3-3 LONG
         uses: ./ # Uses an action in the root directory
@@ -50,17 +50,17 @@ jobs:
           instance: n005w4_0_1-2-3-3
           ns-args: -g 1470 --sp-type ALL
 
+      - name: n005w4_0_1-2-3-3 BOOST ROSTER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-3
+          ns-args: -g 1470 --sp-type ROSTER --rcspp-type BOOST
+
       - name: n005w4_0_1-2-3-3 ROSTER
         uses: ./ # Uses an action in the root directory
         with:
           instance: n005w4_0_1-2-3-3
-          ns-args: -g 1470 --sp-type ROSTER
-
-      - name: n005w4_0_1-2-3-3 MY ROSTER
-        uses: ./ # Uses an action in the root directory
-        with:
-          instance: n005w4_0_1-2-3-3
-          ns-args: -g 1470 --sp-type ROSTER --rcspp-type MY_SOLVER
+          ns-args: -g 1470 --sp-type ROSTER --rcspp-type DEFAULT
 
       - name: n005w4_1_6-2-9-1 ALL
         uses: ./ # Uses an action in the root directory
@@ -86,17 +86,17 @@ jobs:
           instance: n005w4_0_1-2-3-5
           ns-args: -g 1540 --sp-type ALL
 
+      - name: n005w4_0_1-2-3-5 BOOST ROSTER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-5
+          ns-args: -g 1540 --sp-type ROSTER  --rcspp-type BOOST
+
       - name: n005w4_0_1-2-3-5 ROSTER
         uses: ./ # Uses an action in the root directory
         with:
           instance: n005w4_0_1-2-3-5
-          ns-args: -g 1540 --sp-type ROSTER
-
-      - name: n005w4_0_1-2-3-5 MY ROSTER
-        uses: ./ # Uses an action in the root directory
-        with:
-          instance: n005w4_0_1-2-3-5
-          ns-args: -g 1540 --sp-type ROSTER -t 600 --rcspp-type MY_SOLVER
+          ns-args: -g 1540 --sp-type ROSTER -t 600 --rcspp-type DEFAULT
 
       - name: n005w4_1_5-6-7-8 ALL
         uses: ./ # Uses an action in the root directory
@@ -128,17 +128,23 @@ jobs:
 #          instance: n030w4_1_6-2-9-1
 #          ns-args: -g 1670-2000 -t 300 --n-threads 4 --param lns_rolling_1week.txt
 
+      - name: n030w4_1_6-2-9-1 BOOST ROSTER  4 threads
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1670 -t 300 --n-threads 4 --sp-type ROSTER --rcspp-type BOOST --param optimality.txt
+
       - name: n030w4_1_6-2-9-1 ROSTER  4 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -g 1670 -t 300 --n-threads 4 --sp-type ROSTER --param optimality.txt
+          ns-args: -g 1670 -t 300 --n-threads 4 --sp-type ROSTER --rcspp-type DEFAULT --param optimality.txt
 
       - name: n030w4_1_6-7-5-3  4 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
-          ns-args: -g 1900-2150 -t 300 --n-threads 4
+          ns-args: -g 1900-2200 -t 300 --n-threads 4
 
       - name: n035w4_1_1-7-1-8  4 threads
         uses: ./ # Uses an action in the root directory
@@ -174,7 +180,7 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
-          ns-args: -d -s 50-35-70-80 -g 1950d-2150
+          ns-args: -d -s 50-35-70-80 -g 1950-2150
 
       - name: n035w4_1_1-7-1-8 dynamic
         uses: ./ # Uses an action in the root directory

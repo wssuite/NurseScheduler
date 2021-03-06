@@ -9,15 +9,15 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_MYROSTERSP_H_
-#define SRC_SOLVERS_MP_SP_MYROSTERSP_H_
+#ifndef SRC_SOLVERS_MP_SP_ROSTERSP_H_
+#define SRC_SOLVERS_MP_SP_ROSTERSP_H_
 
 #include <memory>
 #include <vector>
 
 #include "solvers/mp/sp/SubProblem.h"
-#include "solvers/mp/sp/rcspp/MyRCGraph.h"
-#include "solvers/mp/sp/rcspp/MyRCSPP.h"
+#include "solvers/mp/sp/rcspp/RCGraph.h"
+#include "solvers/mp/sp/rcspp/RCSPP.h"
 
 /**
  * Class describing the subproblems that appear in a branch-and-price
@@ -25,13 +25,13 @@
  * The main functions are to build a RCSPP graph and call an RCSPP solver to
  * get the optimal path in the graph
  */
-class MyRosterSP : public SubProblem {
+class RosterSP : public SubProblem {
  public:
-  MyRosterSP(PScenario scenario,
-             int nbDays,
-             PLiveNurse nurse,
-             const SubproblemParam &param,
-             bool enumerateSubPath = true);
+  RosterSP(PScenario scenario,
+           int nbDays,
+           PLiveNurse nurse,
+           std::vector<PResource> pResources,
+           const SubproblemParam &param);
 
   // FUNCTIONS -- SOLVE
   // run preprocessing algorithms, e.g., for precomputing bounds on the
@@ -59,24 +59,26 @@ class MyRosterSP : public SubProblem {
 
 
   // Principal method for the enumeration of sub paths in the rcGraph
-  void enumerationSubPaths();
+  void enumerateSubPaths(RCGraph *pRcGraph);
 
   // Enumeration of sub paths from the source node
-  void enumerateConsShiftTypeFromSource();
+  void enumerateConsShiftTypeFromSource(RCGraph *pRCGraph);
 
   // Enumeration of sub paths from a PRINCIPAL_NETWORK node in the rcGraph
   // for a given day and for a given shift
-  void enumerateConsShiftType(PShift pS, int day);
+  void enumerateConsShiftType(RCGraph *pRCGraph,
+                              const PShift& pS,
+                              int day);
 
   // Update of the costs of the existing arcs by adding a supplement cost
   // corresponding to penalties due to the soft bounds of the consecutive
   // shifts resources
-  void updateOfExistingArcsCost();
+  void updateOfExistingArcsCost(RCGraph *pRCGraph);
 
  private:
-  MyRCGraph rcGraph_;
+  std::vector<PResource> pResources_;
+  RCGraph rcGraph_;
   vector2D<PRCNode> pNodesPerDayShift_;  // list of nodes for each day
-
   shared_ptr<MyRCSPPSolver> pRcsppSolver_;  // Solver
 
   // Vector containing all the consumption's upper bounds of each shift
@@ -93,24 +95,12 @@ class MyRosterSP : public SubProblem {
   // lower bounds of each shift
   vector<double> consShiftsLbCosts_;
 
-  // Option to sort labels before each domination operation in the RCSPP solver
-  bool mrsp_sortLabelsOption_ = false;
-  // Option to check if a label can produce a path until a sink with a
-  // negative cost in the RCSPP solver
-  bool mrsp_minimumCostFromSinksOption_ = false;
-  // Option to use the improved domination technique in the RCSPP solver
-  bool mrsp_worstCaseCostOption_ = true;
-  // Option to solve the RCSPP in the graph with the enumeration of sub paths
-  // technique in the RCSPP solver
-  bool mrsp_enumeratedSubPathOption_ = false;
-
   // Timer measuring the total time spent in enumerating sub paths in the
   // rcGraph
-  Tools::Timer* timerEnumerationOfSubPath_;
-
+  Tools::Timer timerEnumerationOfSubPath_;
   // Timer measuring the total time spent in computing costs of shortest
   // paths from sink nodes to each other node in the rcGraph
-  Tools::Timer* timerComputeMinCostFromSink_;
+  Tools::Timer timerComputeMinCostFromSink_;
 
   // get the base cost of a stretch when it comes just after a given previous
   // shift
@@ -126,9 +116,16 @@ class MyRosterSP : public SubProblem {
 
   // create the resource constrained graph: create nodes, arcs and resources
   void build() override;
-  void createNodes() override;
-  void createArcs() override;
-  virtual void createResources();
+  void build(RCGraph *pRCGraph);
+  void createNodes() override {
+    this->createNodes(&rcGraph_);
+  }
+  void createNodes(RCGraph *pRCGraph);
+  void createArcs(RCGraph *pRCGraph);
+  void createArcs() override {
+    this->createArcs(&rcGraph_);
+  }
+  void createResources(RCGraph *pRCGraph);
 
   // create the RCSPP solver
   void createRCSPPSolver();
@@ -142,7 +139,7 @@ class MyRosterSP : public SubProblem {
 
   // update arcs costs based on the dual costs comnig from the master problem
   void updateArcDualCosts() override;
-  void updateArcDualCost(PRCArc pA);
+  void updateArcDualCost(const PRCArc &pA);
 
   // create the initial label that will be expanded from the source to the
   // sink(s)
@@ -152,15 +149,15 @@ class MyRosterSP : public SubProblem {
   void forbidViolationConsecutiveConstraints() override {};
 
   // Forbid a node / arc
-  void forbidDayShift(int k, int s) override {};
+  void forbidDayShift(int k, int s) override;
 
   // Authorize a node / arc
-  void authorizeDayShift(int k, int s) override {};
+  void authorizeDayShift(int k, int s) override;
 
-  void resetAuthorizations() override {};
+  void resetAuthorizations() override;
 
   // run the actual solution of the RCSPP once every preprocessing is done
   bool solveRCGraph() override;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_MYROSTERSP_H_
+#endif  // SRC_SOLVERS_MP_SP_ROSTERSP_H_

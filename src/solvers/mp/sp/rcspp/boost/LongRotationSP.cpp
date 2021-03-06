@@ -18,6 +18,8 @@ using std::string;
 using std::vector;
 using std::map;
 
+namespace boostRCSPP {
+
 //---------------------------------------------------------------------------
 //
 // C l a s s   S u b P r o b l e m
@@ -31,9 +33,10 @@ LongRotationSP::LongRotationSP(PScenario scenario,
                                int nbDays,
                                PConstContract contract,
                                vector<State> *pInitState) :
-    BoostRotationSP(scenario, nbDays, contract, pInitState) {
+    RotationSP(scenario, nbDays, contract, pInitState) {
   minConsDays_ = contract->minConsDaysWork_;
   initShortSuccessions();
+  build();
 }
 
 LongRotationSP::~LongRotationSP() {}
@@ -169,6 +172,8 @@ void LongRotationSP::initShortSuccessions() {
 bool LongRotationSP::preprocess() {
   // find best start of rotation
   priceShortSucc();
+  // update dual costs
+  updateArcDualCosts();
   // find short rotations
   return solveShortRotations();
 }
@@ -225,7 +230,7 @@ double LongRotationSP::startWorkCost(int a) const {
   return g_.arcCost(a);  // cost already updated;
 }
 
-double LongRotationSP::historicalCost(int) const {
+double LongRotationSP::historicalCost(int currentShift) const {
   return 0;  // cost already updated
 }
 
@@ -251,7 +256,7 @@ void LongRotationSP::priceShortSucc() {
 
           // SUCCESSION IS TAKEN INTO ACCOUNT ONLY IF IT DOES NOT VIOLATE
           // ANY FORBIDDEN DAY-SHIFT COUPLE
-          if (SubProblem::canSuccStartHere(k - CDMin_ + 1, succ)) {
+          if (canSuccStartHere(k - CDMin_ + 1, succ)) {
             double curCost =
                 costArcShortSucc(CDMin_, curSuccId, k - CDMin_ + 1);
 
@@ -389,7 +394,7 @@ double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
     ANS += preferencesCosts_[startDate + i][succ[i]];
 
   // E. REDCOST: WEEKENDS
-  int nbWeekends = Tools::containsWeekend(startDate, startDate + size - 1);
+  int nbWeekends = Tools::nWeekendsInInterval(startDate, startDate + size - 1);
   ANS -= nbWeekends * pCosts_->workedWeekendCost();
 
   // F. REDCOST: FIRST DAY (BACK TO WORK)
@@ -441,7 +446,7 @@ int LongRotationSP::priceVeryShortSameSizeRotations(
   int nFound = 0;
   for (const vector<int> &succ : succs) {
     double redCost = costOfVeryShortRotation(k, succ);
-    if (redCost < maxReducedCostBound_) {
+    if (redCost + param_.epsilon_ < maxReducedCostBound_) {
       theSolutions_.emplace_back(k, succ, redCost);
       nPaths_++;
       nVeryShortFound_++;
@@ -541,8 +546,8 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
 
   // F. REDUCED COST: WEEKENDS
   //
-  weekendRedCost -=
-      Tools::containsWeekend(startDate, endDate) * pCosts_->workedWeekendCost();
+  weekendRedCost -= pCosts_->workedWeekendCost() *
+      Tools::nWeekendsInInterval(startDate, endDate);
 
   // F. REDUCED COST: FIRST DAY (BACK TO WORK)
   //
@@ -650,3 +655,4 @@ void LongRotationSP::printShortArcs() const {
   }
 }
 
+}  // namespace boostRCSPP

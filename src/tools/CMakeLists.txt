@@ -3,7 +3,7 @@ set(SOURCE_FILES
         DemandGenerator.cpp
         GlobalStats.cpp
         InputPaths.cpp
-        MyTools.cpp
+        Tools.cpp
         ReadWrite.cpp
         )
 
