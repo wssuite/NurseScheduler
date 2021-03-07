@@ -781,8 +781,9 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // is negative
   if (!column_generated
       && pModel_->getLastMinReducedCost() < -pModel_->epsilon())
-    Tools::throwError("Column generation has finished with a negative "
-                      "reduced cost. There is a problem with the pricing.");
+    Tools::throwError("Column generation has finished with a negative reduced "
+                      "cost (%.2f). There is a problem with the pricing.",
+                      pModel_->getLastMinReducedCost());
 
 
   // STAB

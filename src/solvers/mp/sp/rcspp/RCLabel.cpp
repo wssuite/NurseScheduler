@@ -91,6 +91,15 @@ void RCLabel::copy(const RCLabel &l) {
 #endif
 }
 
+std::string RCLabel::toString() const {
+  std::stringstream rep;
+  rep << "Label: cost=" << cost() << std::endl;
+  if (pInArc_) rep << "Arc in: " << pInArc_->toString() << std::endl;
+  if (pOutArc_) rep << "Arc out: " << pOutArc_->toString() << std::endl;
+//  rep << "Ressources:" << std::endl;
+  return rep.str();
+}
+
 void Resource::initialize(const AbstractShift &prevAShift,
                           const Stretch &stretch,
                           const PRCArc &pArc) {

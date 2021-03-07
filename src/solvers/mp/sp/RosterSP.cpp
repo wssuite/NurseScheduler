@@ -117,23 +117,19 @@ void RosterSP::createArcs(RCGraph* pRCGraph) {
   PShift pShiftIni = pScenario_->pShifts_[pLiveNurse_->pStateIni_->shift_];
   for (auto shiftId : pShiftIni->successors) {
     PRCNode pN = pNodesPerDayShift_[0][shiftId];
-    PRCArc pArc = pRCGraph->addSingleArc(
-        pRCGraph->pSource(),
-        pN,
-        Stretch(pScenario_->pShifts_[shiftId], 0),
-        0);
+    addSingleArc(
+        pRCGraph, pRCGraph->pSource(), pN, pScenario_->pShifts_[shiftId], 0);
   }
 
-  // arcs from each day to next day; those from nDays-2 to nDays-1 are the
-  // arcs to the sinks
-  for (int d = 0; d < nDays_ - 1; ++d) {
+  // arcs from the previous day to current day;
+  // those from nDays-2 to nDays-1 are the arcs to the sinks
+  for (int d = 1; d < nDays_; ++d) {
     for (const PShift &pS : pScenario_->pShifts_) {
-      PRCNode pOrigin = pNodesPerDayShift_[d][pS->id];
+      PRCNode pOrigin = pNodesPerDayShift_[d-1][pS->id];
       for (int succId : pS->successors) {
-        PRCNode pTarget = pNodesPerDayShift_[d + 1][succId];
-        Stretch stretch(pScenario_->pShifts_[succId], d + 1);
-        double bCost = baseCost(stretch, pS);
-        pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
+        PRCNode pTarget = pNodesPerDayShift_[d][succId];
+        addSingleArc(pRCGraph, pOrigin, pTarget,
+                     pScenario_->pShifts_[succId], d);
       }
     }
   }
@@ -349,6 +345,15 @@ void RosterSP::updateOfExistingArcsCost(RCGraph *pRCGraph) {
 //  }
 }
 
+PRCArc RosterSP::addSingleArc(RCGraph* pRCGraph,
+                              const PRCNode &pOrigin,
+                              const PRCNode &pTarget,
+                              const PShift &pS,
+                              int day) {
+  Stretch stretch(pS, day);
+  double bCost = baseCost(stretch, pOrigin->pAShift);
+  return pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
+}
 
 double RosterSP::dualCost(const Stretch &stretch) {
   double dualCost = 0;
@@ -365,7 +370,8 @@ double RosterSP::dualCost(const Stretch &stretch) {
   return dualCost;
 }
 
-double RosterSP::baseCost(const Stretch &stretch, PShift pPrevShift) {
+double RosterSP::baseCost(
+    const Stretch &stretch, PAbstractShift pPrevShift) {
   double cost = 0;
   int curDay = stretch.firstDay();
   // iterate through the shift to update the cost

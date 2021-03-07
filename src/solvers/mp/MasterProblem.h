@@ -223,7 +223,7 @@ struct Pattern {
     costs_[t] += c;
   }
 
-  double cost(CostType t) {
+  double cost(CostType t) const {
     if (t == ROTATION_COST)
       return costs_.at(CONS_SHIFTS_COST) + costs_.at(CONS_WORK_COST) +
           costs_.at(PREFERENCE_COST) + costs_.at(COMPLETE_WEEKEND_COST);

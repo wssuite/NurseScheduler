@@ -157,6 +157,8 @@ class RCLabel {
     return pr1->cost() < pr2->cost();
   }
 
+  std::string toString() const;
+
  private:
   int num_;  // Id of the label
   shared_ptr<RCNode> pNode_;  // current residing node of the label

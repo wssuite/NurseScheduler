@@ -186,7 +186,7 @@ std::string Pattern::toString(int nbDays) const {
   std::stringstream rep;
   rep << "#   | PATTERN: N=" << nurseNum_ << "  cost=" << cost_
       << "  dualCost=" << reducedCost_ << "  firstDay=" << firstDay()
-      << "  length=" << nDays() << std::endl;
+      << "  length=" << nDays() << "  duration=" << duration() << std::endl;
   rep << "#   |";
   std::vector<PShift> allTasks(nbDays);
   for (int k = 0; k < nbDays; ++k) {
@@ -1070,7 +1070,7 @@ string MasterProblem::costsConstrainstsToString() const {
   snprintf(buffer, sizeof(buffer),
            "%5s%-35s %10.0f \n",
            "",
-           "Resting costs",
+           "Cons. rest days costs",
            getColumnsCost(CONS_REST_COST));
   rep << buffer;
   snprintf(buffer,

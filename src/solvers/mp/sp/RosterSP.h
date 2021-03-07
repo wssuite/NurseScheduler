@@ -102,9 +102,16 @@ class RosterSP : public SubProblem {
   // paths from sink nodes to each other node in the rcGraph
   Tools::Timer timerComputeMinCostFromSink_;
 
+  // create an arc from origin to target with the stretch {ps} starting on day
+  PRCArc addSingleArc(RCGraph* pRCGraph,
+                      const PRCNode &pOrigin,
+                      const PRCNode &pTarget,
+                      const PShift &pS,
+                      int day);
+
   // get the base cost of a stretch when it comes just after a given previous
   // shift
-  double baseCost(const Stretch &stretch, PShift pPrevShift);
+  double baseCost(const Stretch &stretch, PAbstractShift pPrevShift);
 
   // get the dual cost of a given stretch
   double dualCost(const Stretch &stretch);

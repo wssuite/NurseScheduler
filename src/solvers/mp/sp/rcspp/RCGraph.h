@@ -100,16 +100,23 @@ struct RCArc {
       dualCost(0),
       forbidden(false) {}
 
-  void print() const {
-    std::cout << id <<" : "
-              << "(" << origin->id << "," << target->id
-              << "): base cost = " << baseCost
-              << ", dual cost = " << dualCost
-              << ", first day = " << Tools::intToDay(stretch.firstDay())
-              << ", origin shift = " << origin->pAShift->name
-              << ", stretch =";
+  std::string toString() const {
+    std::stringstream rep;
+    rep << id <<" : "
+        << "(" << origin->id << "," << target->id
+        << "): base cost = " << baseCost
+        << ", dual cost = " << dualCost
+        << ", first day = " << stretch.firstDay()
+        << "(" << Tools::intToDay(stretch.firstDay()) << ")"
+        << ", origin shift = " << origin->pAShift->name
+        << ", stretch =";
     for (const auto& pS : stretch.pShifts())
-      std::cout << " " << pS->name;
+      rep << " " << pS->name;
+    return rep.str();
+  }
+
+  void print() const {
+    std::cout << toString();
   }
 
   // Set the dual costs on the arc, this should be done when solving the RCSPP
