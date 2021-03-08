@@ -114,10 +114,6 @@ struct SoftTotalShiftDurationExpander : public Expander {
 
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
-  bool merge(const ResourceValues &vForward,
-             const ResourceValues &vBack,
-             ResourceValues *vMerged,
-             const PRCLabel &pLMerged) override;
 
  protected:
   const SoftTotalShiftDurationResource& resource_;
@@ -139,10 +135,6 @@ struct HardTotalShiftDurationExpander : public Expander {
 
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
-  bool merge(const ResourceValues &vForward,
-             const ResourceValues &vBack,
-             ResourceValues *vMerged,
-             const PRCLabel &pLMerged) override;
 
  protected:
   const HardTotalShiftDurationResource& resource_;

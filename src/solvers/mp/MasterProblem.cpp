@@ -769,7 +769,7 @@ void MasterProblem::checkIfPatternAlreadyPresent(
   for (MyVar *var : pModel_->getActiveColumns()) {
     bool equal = true;
     for (int j = 0; j < pattern.size(); ++j)
-      if (abs(pattern[j] - var->getPattern()[j]) > epsilon()) {
+      if (std::fabs(pattern[j] - var->getPattern()[j]) > epsilon()) {
         equal = false;
         break;
       }
@@ -1186,7 +1186,7 @@ string MasterProblem::coverageToString(bool printInteger) const {
         double shiftValue =
             pModel_->getVarValue(skillsAllocVars_[day][s - 1][sk]);
         char buffer[100];
-        if (abs(shiftValue - round(shiftValue)) < epsilon())
+        if (std::fabs(shiftValue - round(shiftValue)) < epsilon())
           snprintf(buffer, sizeof(buffer), "|%4.0f", round(shiftValue));
         else
           snprintf(buffer, sizeof(buffer), "|%4.2f", shiftValue);

@@ -74,6 +74,17 @@ void RCLabel::setAsPrevious(const shared_ptr<RCLabel> &pLNext,
   pNextLabel_ = pLNext;
 }
 
+void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
+                          const shared_ptr<RCLabel> &pLBackward) {
+  pPreviousLabel_ = pLForward->getPreviousLabel();
+  pNextLabel_ = pLBackward->getNextLabel();
+  cost_ = pLForward->cost() + pLBackward->cost();
+  resourceValues_ = pLForward->allResourceValues();
+  pNode_ = pLForward->getNode();
+  pInArc_ = pLForward->getInArc();
+  pOutArc_ = pLBackward->getOutArc();
+}
+
 void RCLabel::copy(const RCLabel &l) {
   cost_ = l.cost_;
   resourceValues_ = l.resourceValues_;
@@ -114,6 +125,14 @@ bool Resource::dominates(const PRCLabel &pL1,
   return pL1->getConsumption(id_) <= pL2->getConsumption(id_);
 }
 
+bool Resource::merge(const ResourceValues &vForward,
+                     const ResourceValues &vBack,
+                     ResourceValues *vMerged,
+                     const PRCLabel &pLMerged) {
+  vMerged->consumption = vForward.consumption + vBack.consumption;
+  return true;
+}
+
 bool BoundedResource::dominates(const PRCLabel &pL1,
                                 const PRCLabel &pL2,
                                 double *cost) {
@@ -137,4 +156,22 @@ bool SoftBoundedResource::dominates(const PRCLabel &pL1,
 #endif
   *cost += std::max(ubDiff, lbDiff);
   return true;
+}
+
+bool SoftBoundedResource::merge(const ResourceValues &vForward,
+                                const ResourceValues &vBack,
+                                ResourceValues *vMerged,
+                                const PRCLabel &pLMerged) {
+  vMerged->consumption = vForward.consumption + vBack.consumption;
+  pLMerged->addCost(getUbCost(vMerged->consumption));
+  pLMerged->addCost(getLbCost(vMerged->consumption));
+  return true;
+}
+
+bool HardBoundedResource::merge(const ResourceValues &vForward,
+                                const ResourceValues &vBack,
+                                ResourceValues *vMerged,
+                                const PRCLabel &pLMerged) {
+  vMerged->consumption = vForward.consumption + vBack.consumption;
+  return (vMerged->consumption <= ub_) && (vMerged->consumption >= lb_);
 }

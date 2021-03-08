@@ -89,6 +89,8 @@ class RCLabel {
                  const shared_ptr<RCArc> &pArc);
   void setAsPrevious(const shared_ptr<RCLabel> &pLNext,
                      const shared_ptr<RCArc> &pArc);
+  void setAsMerged(const shared_ptr<RCLabel> &pLForward,
+                   const shared_ptr<RCLabel> &pLBackward);
 
 #ifdef DBG
   double baseCost() const { return baseCost_; }
@@ -255,10 +257,6 @@ struct Expander {
   // TODO(AL) : can we remove vChild as accessible from pLChild ?
   virtual bool expand(const PRCLabel &pLChild, ResourceValues *vChild) = 0;
   virtual bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) = 0;
-  virtual bool merge(const ResourceValues &vForward,
-                     const ResourceValues &vBack,
-                     ResourceValues *vMerged,
-                     const PRCLabel &pLMerged) = 0;
 
   const int resourceId;
 };
@@ -300,6 +298,11 @@ class Resource {
   virtual bool dominates(const PRCLabel &pL1,
                          const PRCLabel &pL2,
                          double *cost = nullptr);
+
+  virtual bool merge(const ResourceValues &vForward,
+                     const ResourceValues &vBack,
+                     ResourceValues *vMerged,
+                     const PRCLabel &pLMerged);
 
   virtual void useDefaultDomination() { useDefaultDomination_ = true; }
 
@@ -400,13 +403,17 @@ class SoftBoundedResource : public BoundedResource {
     return getLbCost(consumption);
   }
 
-  virtual double getWorstUbCost(int consumption, int nLeft = 0) const {
+  virtual double getWorstUbCost(int consumption, int nLeft) const {
     return getUbCost(consumption + nLeft);
   }
 
  protected:
   double lbCost_ = 0.0;
   double ubCost_ = 0.0;
+  bool merge(const ResourceValues &vForward,
+             const ResourceValues &vBack,
+             ResourceValues *vMerged,
+             const PRCLabel &pLMerged) override;
 };
 
 /**
@@ -422,6 +429,11 @@ class HardBoundedResource : public BoundedResource {
   bool isHard() const override {
     return true;
   }
+
+  bool merge(const ResourceValues &vForward,
+             const ResourceValues &vBack,
+             ResourceValues *vMerged,
+             const PRCLabel &pLMerged) override;
 };
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCLABEL_H_

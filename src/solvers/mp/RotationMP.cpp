@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <algorithm>
+#include <utility>
 
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/RCPricer.h"
@@ -44,7 +45,7 @@ using std::endl;
 // so the shifts can also be forbidden on these two days
 // (if the rotation is not at an extremity of the horizon).
 void RotationPattern::addForbiddenShifts(
-    std::set<std::pair<int, int> > *forbidenShifts,
+    std::set<std::pair<int, int> > *forbiddenShifts,
     int nbShifts, PDemand pDemand) const {
   // from the previous day to the day after the end of the rotation,
   // forbid any work shifts
@@ -52,7 +53,7 @@ void RotationPattern::addForbiddenShifts(
     if (day < pDemand->firstDay_) continue;
     if (day >= pDemand->firstDay_ + pDemand->nDays_) continue;
     for (int i = 1; i < nbShifts; ++i)
-      forbidenShifts->insert(pair<int, int>(day, i));
+      forbiddenShifts->insert(pair<int, int>(day, i));
   }
 }
 
@@ -235,7 +236,7 @@ void RotationPattern::checkReducedCost(const PDualCosts &pCosts,
 
 
   // Display: set to true if you want to display the details of the cost
-  if (abs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
+  if (std::fabs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
     // if do not print and not throwing an error
     if (!printBadPricing && reducedCost_ > reducedCost + 1e-3) return;
 
@@ -291,12 +292,13 @@ void RotationPattern::checkReducedCost(const PDualCosts &pCosts,
 //
 //-----------------------------------------------------------------------------
 
-RotationMP::RotationMP(PScenario pScenario,
+RotationMP::RotationMP(const PScenario& pScenario,
                        PDemand pDemand,
                        PPreferences pPreferences,
                        std::vector<State> *pInitState,
                        SolverType solver) :
-    MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
+    MasterProblem(pScenario, std::move(pDemand), std::move(pPreferences),
+                  pInitState, solver),
     restsPerDay_(pScenario->nbNurses_),
     restingVars_(pScenario->nbNurses_),
     longRestingVars_(pScenario->nbNurses_),
@@ -337,7 +339,7 @@ RotationMP::RotationMP(PScenario pScenario,
                     false);
 }
 
-RotationMP::~RotationMP() {}
+RotationMP::~RotationMP() = default;
 
 PPattern RotationMP::getPattern(MyVar *var) const {
   return std::make_shared<RotationPattern>(var->getPattern(), pScenario_);
@@ -471,7 +473,8 @@ vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
   return dualValues;
 }
 
-vector<double> RotationMP::getStartWorkDualValues(PLiveNurse pNurse) const {
+vector<double> RotationMP::getStartWorkDualValues(const PLiveNurse& pNurse)
+const {
   int i = pNurse->num_;
   vector<double> dualValues(nDays());
 
@@ -485,7 +488,8 @@ vector<double> RotationMP::getStartWorkDualValues(PLiveNurse pNurse) const {
   return dualValues;
 }
 
-vector<double> RotationMP::getEndWorkDualValues(PLiveNurse pNurse) const {
+vector<double> RotationMP::getEndWorkDualValues(const PLiveNurse& pNurse)
+const {
   const int i = pNurse->num_;
   vector<double> dualValues(nDays());
 
@@ -502,7 +506,7 @@ vector<double> RotationMP::getEndWorkDualValues(PLiveNurse pNurse) const {
   return dualValues;
 }
 
-double RotationMP::getWorkedWeekendDualValue(PLiveNurse pNurse) const {
+double RotationMP::getWorkedWeekendDualValue(const PLiveNurse& pNurse) const {
   int id = pNurse->num_;
   double dualVal = pModel_->getDual(maxWorkedWeekendCons_[id], true);
   if (isMaxWorkedWeekendAvgCons_[id])
@@ -1190,7 +1194,7 @@ double RotationMP::getWeekendCost() const {
   return pModel_->getTotalCost(maxWorkedWeekendVars_);
 }
 
-RotationPattern RotationMP::computeInitStateRotation(PLiveNurse pNurse) {
+RotationPattern RotationMP::computeInitStateRotation(const PLiveNurse& pNurse) {
   // initialize rotation
   RotationPattern rot = RotationPattern(map<int, int>(), nullptr, pNurse->num_);
 

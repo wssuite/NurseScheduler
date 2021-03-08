@@ -1377,7 +1377,7 @@ class Modeler {
   }
 
   virtual bool isInteger(double v) const {
-    return abs(round(v) - v) < epsilon();
+    return std::fabs(round(v) - v) < epsilon();
   }
 
   virtual double getVarValue(MyVar *var) const = 0;

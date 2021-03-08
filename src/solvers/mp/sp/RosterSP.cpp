@@ -15,6 +15,7 @@
 #include <memory>
 #include <set>
 #include <utility>
+#include <limits>
 
 #include "solvers/mp/RosterMP.h"
 #include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
@@ -458,8 +459,8 @@ bool RosterSP::preprocess() {
     rcGraph_.printSummaryOfGraph();
   }
 
-  // reset solver in case it is not the first time it is called
-  pRcsppSolver_->reset();
+  // resetLabels solver in case it is not the first time it is called
+  pRcsppSolver_->reset(param_);
   pRcsppSolver_->initializeLabels();
 
   return true;
@@ -540,9 +541,6 @@ bool RosterSP::solveRCGraph() {
 
   // Solution of the RCSPP obtained with the RCSPP Solver
   theSolutions_ = pRcsppSolver_->solve(maxReducedCostBound_,
-                                       param_.verbose_,
-                                       param_.epsilon_,
-                                       param_.search_strategy_,
                                        param_.rcsppMinNegativeLabels_);
 
   // Extract the best reduced cost
@@ -576,7 +574,7 @@ void RosterSP::createInitialLabel() {
   auto pL = std::make_shared<RCLabel>(rcGraph_.pResources(),
                                       *pLiveNurse_->pStateIni_);
   pL->setNode(rcGraph_.pSource());
-  pRcsppSolver_->addLabelToExpand(pL);
+  pRcsppSolver_->setSourceLabel(pL);
 }
 
 // Forbids a day-shift couple

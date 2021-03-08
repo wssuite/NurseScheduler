@@ -116,75 +116,25 @@ MyRCSPPSolver::MyRCSPPSolver(RCGraph *pRcGraph,
     pRcGraph_(pRcGraph),
     pFactory_(std::make_shared<RCLabelFactory>()),
     labelPool_(pFactory_, 100),
+    pLSource_(nullptr),
     nParetoLabels_(0),
     bestPrimalBound_(0.0),
     number_of_infeasible_deleted_labels_(0),
     total_number_of_generated_labels_(0),
     total_number_of_dominations_(0),
     param_(param),
-    verbose_(false),
     maxReducedCostBound_(0),
-    epsilon_(1.0e-5),
-    strategy_(SP_BREADTH_FIRST),
     nb_max_paths_(1) {}
 
-void MyRCSPPSolver::reset() {
-  verbose_ = false;
-  maxReducedCostBound_ = 0;
-  epsilon_ = 1.0e-5;
-  strategy_ = SP_BREADTH_FIRST;
-  nb_max_paths_ = 1;
+void MyRCSPPSolver::resetLabels() {
   this->pExpandedLabelsPerNode_.clear();
   this->pLabelsToExpandPerNode_.clear();
   this->pLabelsNoExpandPerNode_.clear();
 }
 
-void MyRCSPPSolver::displaySolveInputInfo() {
-  if (verbose_ >= 3) {
-    std::cout << "\nOPTION(S): " << std::endl;
-    if (param_.rcsppSortLabels_)
-      std::cout << " - sortLabels option is activated " << std::endl;
-    if (param_.rcsppMinCostToSinks_)
-      std::cout << " - minimumCostToSinks option is activated " << std::endl;
-    if (param_.rcsppImprovedDomination_)
-      std::cout << " - worstCaseCost option is activated " << std::endl;
-    if (param_.rcsppEnumSubpaths_)
-      std::cout << " - enumeratedSubPath option is activated " << std::endl;
-    if (param_.rcsppDssr_)
-      std::cout << " - decrementalSearchSpace option is activated " <<
-                std::endl;
-
-    std::cout << "\nGRAPH : " << std::endl;
-    std::cout << " - number of nodes: " << pRcGraph_->nNodes() << std::endl;
-    std::cout << " - number of arcs: " << pRcGraph_->nArcs() << std::endl;
-  }
-}
-
-void MyRCSPPSolver::displaySolveStatistics() {
-  if (verbose_ >= 3) {
-    std::cout << "\nLABELS STATISTICS: " << std::endl;
-    // We add 1 to nParetoLabels in order to take account the first labels of
-    // the source node
-    std::cout << " - Total number of not dominated labels: "
-                 "" << nParetoLabels_ + 1 << std::endl;
-    std::cout << " - Number of infeasible labels deleted: "
-                 "" << number_of_infeasible_deleted_labels_ << std::endl;
-    std::cout << " - Total number of generated labels: " <<
-              total_number_of_generated_labels_ << std::endl;
-    std::cout << " - Total number of dominations: " <<
-              total_number_of_dominations_ << std::endl << std::endl;
-  }
-}
-
 std::vector<RCSolution> MyRCSPPSolver::solve(double maxReducedCostBound,
-                                             int verbose,
-                                             double epsilon,
-                                             SPSearchStrategy strategy,
                                              int nb_max_paths) {
   maxReducedCostBound_ = maxReducedCostBound;
-  verbose_ = verbose;
-  epsilon_ = epsilon;
-  strategy_ = strategy;
   nb_max_paths_ = nb_max_paths;
 
   // Displaying of the activated options for the algorithm
@@ -194,16 +144,20 @@ std::vector<RCSolution> MyRCSPPSolver::solve(double maxReducedCostBound,
   vector<PRCLabel> pLabelsSinks;
   // sort nodes as the graph should be acyclic
   vector<PRCNode> sortedNodes = pRcGraph_->sortNodes();
-
   while (true) {
-    vector<PRCLabel> destinationLabels = forwardLabelSetting(sortedNodes, 0);
+    vector<PRCLabel> destinationLabels;
+    if (param_.rcsppBidirectional_) {
+      destinationLabels = bidirectionalLabelSetting(sortedNodes);
+    } else {
+      destinationLabels = forwardLabelSetting(sortedNodes, pRcGraph_->nDays());
+    }
     pLabelsSinks.insert(pLabelsSinks.end(),
                         destinationLabels.begin(),
                         destinationLabels.end());
     // Sorting by increasing cost all the labels of the sink nodes
     int nbNegativeLabels = getNbNegativeCostLabels(pLabelsSinks,
                                                    &bestPrimalBound_);
-    if (verbose_ >= 3) {
+    if (param_.verbose_ >= 3) {
       std::cout << "Current best primal bound = " << bestPrimalBound_ <<
                 std::endl;
       std::cout << "Number of negative cost labels = " << nbNegativeLabels <<
@@ -238,7 +192,7 @@ std::vector<RCSolution> MyRCSPPSolver::solve(double maxReducedCostBound,
 
   vector<RCSolution> finalSolutions;
   for (const auto& pL : pLabelsSinks) {
-    if (pL->cost() + epsilon_ < maxReducedCostBound_) {
+    if (pL->cost() + param_.epsilon_ < maxReducedCostBound_) {
       RCSolution solution = createSolution(pL);
       finalSolutions.push_back(solution);
     } else {
@@ -250,12 +204,19 @@ std::vector<RCSolution> MyRCSPPSolver::solve(double maxReducedCostBound,
   return finalSolutions;
 }
 
-std::vector<PRCLabel> MyRCSPPSolver::forwardLabelSetting(const std::vector<
-    PRCNode> &sortedNodes,
-                                                         int finalDay) {
+std::vector<PRCLabel> MyRCSPPSolver::forwardLabelSetting(
+    const std::vector<PRCNode> &sortedNodes, int finalDay) {
+  // vector of non-dominated labels at the nodes of day=finalDay
   vector<PRCLabel> destinationLabels;
+
+  // add the initial label to the expansion list
+  addLabelToExpand(pLSource_);
+
   // Allow to visit each node once
   for (const auto &pN : sortedNodes) {
+    // stop if finalDay is overcome
+    if (pN->day >= finalDay + 1) break;
+
     // Expand all the labels of the predecessors of the node through the
     // arcs entering the node
     pullLabelsFromPredecessors(pN);
@@ -615,7 +576,7 @@ RCSolution MyRCSPPSolver::createSolution(const PRCLabel &finalLabel) {
       firstDay = pL->getNode()->day;
     pL = pL->getPreviousLabel();
   }
-  // "Track forward" from the label if some bakcward expansion
+  // "Track forward" from the label if some backward expansion
   pL = finalLabel;
   while (pL->getNextLabel() != nullptr) {
     for (const auto &pS : pL->getOutArc()->stretch.pShifts())
@@ -640,7 +601,7 @@ int MyRCSPPSolver::getNbNegativeCostLabels(const vector<PRCLabel> &labels,
   *pMinCost = 0;
   int nbNegativeCosts = 0;
   for (const auto &pL : labels) {
-    if (pL->cost() <= -epsilon_) {
+    if (pL->cost() <= -param_.epsilon_) {
       nbNegativeCosts++;
       *pMinCost = std::min(*pMinCost, pL->cost());
     }
@@ -648,9 +609,89 @@ int MyRCSPPSolver::getNbNegativeCostLabels(const vector<PRCLabel> &labels,
   return nbNegativeCosts;
 }
 
+
+std::vector<PRCLabel> MyRCSPPSolver::bidirectionalLabelSetting(
+    const std::vector<PRCNode> &sortedNodes) {
+  int middleDay = this->pRcGraph_->nDays()/2;
+  this->initializeLabels();
+  vector<PRCLabel> forwardLabels = forwardLabelSetting(sortedNodes, middleDay);
+  resetLabels();
+  vector<PRCLabel> backwardLabels = backwardLabelSetting(sortedNodes,
+                                                         middleDay);
+  // merge the labels built by forward and backward propagation
+  mergeLabels(&forwardLabels, &backwardLabels);
+
+  // store the resulting negative cost labels
+  vector<PRCLabel> negativeLabels;
+  auto itL = labelPool_.begin();
+  for (; itL != labelPool_.end(); ++itL) {
+    negativeLabels.push_back(pFactory_->makePRCLabel(**itL));
+  }
+  labelPool_.clear();
+
+  return negativeLabels;
+}
+
+void MyRCSPPSolver::mergeLabels(
+    vector<PRCLabel> *pForwardLabels,
+    vector<PRCLabel> *pBackwardLabels
+    ) {
+  // sort the labels by increasing costs to stop the merging process
+  // prematurely when no negative cost roster can happen from merging
+  std::sort(pForwardLabels->begin(), pForwardLabels->end(),
+            LabelCostIncreasing());
+  std::sort(pBackwardLabels->begin(), pBackwardLabels->end(),
+            LabelCostIncreasing());
+
+  for (const auto& pLForward : *pForwardLabels) {
+    for (const auto& pLBackward : *pBackwardLabels) {
+      // break if no future merge can yield a negative cost roster
+      // TODO(JO): should we adapt break earlier when we have a maximum
+      //  number of negative rosters we wish to return?
+      if (pLForward->cost() + pLBackward->cost() > -param_.epsilon_) break;
+      // merge only the labels that are hosted by the same node
+      if (pLForward->getNode() != pLBackward->getNode()) continue;
+      // merge the two labels
+      merge(pLForward, pLBackward);
+    }
+  }
+}
+
+bool MyRCSPPSolver::merge(const PRCLabel& pLForward,
+                          const PRCLabel& pLBackward) {
+  // get a new label from the pool for the result of merging
+  PRCLabel pLMerged = labelPool_.getNewLabel();
+  pLMerged->setAsMerged(pLForward, pLBackward);
+  // merge every resource consumption
+  for (const auto &pR : pRcGraph_->pResources()) {
+    ResourceValues &vForward = pLForward->getResourceValues(pR->id());
+    ResourceValues &vBackward = pLBackward->getResourceValues(pR->id());
+    ResourceValues &vMerged = pLBackward->getResourceValues(pR->id());
+    if (!pR->merge(vForward, vBackward, &vMerged, pLMerged)) {
+      labelPool_.releaseLastLabel();
+      return false;
+    }
+  }
+  // keep only the labels with negative costs
+  if (pLMerged->cost() > -param_.epsilon_) {
+    labelPool_.releaseLastLabel();
+    return false;
+  }
+  return true;
+}
+
 std::vector<PRCLabel> MyRCSPPSolver::backwardLabelSetting(
     const std::vector<PRCNode> &sortedNodes, int finalDay) {
+  // vector of non-dominated labels at the nodes of day=finalDay
   vector<PRCLabel> destinationLabels;
+
+  // add zero labels to the sink nodes and to the expansion list
+  for (const auto& pN : pRcGraph_->pSinks()) {
+    auto pL = std::make_shared<RCLabel>(pRcGraph_->nResources());
+    pL->setNode(pN);
+    pLabelsToExpandPerNode_[pN->id].push_back(pL);
+  }
+
   // Allow to visit each node once
   auto itN = sortedNodes.rbegin();
   for (; itN != sortedNodes.rend(); ++itN) {
@@ -718,6 +759,7 @@ void MyRCSPPSolver::pushLabelsToPredecessors(const PRCNode &pN) {
     }
   }
 }
+
 bool MyRCSPPSolver::expandBack(
     const PRCLabel &pLNext, const PRCArc &pArc, const PRCLabel &pLPrevious) {
   pLPrevious->setAsPrevious(pLNext, pArc);
@@ -733,4 +775,42 @@ bool MyRCSPPSolver::expandBack(
   }
   pLPrevious->addCost(pArc->baseCost + pArc->dualCost);
   return true;
+}
+
+
+void MyRCSPPSolver::displaySolveInputInfo() {
+  if (param_.verbose_ >= 3) {
+    std::cout << "\nOPTION(S): " << std::endl;
+    if (param_.rcsppSortLabels_)
+      std::cout << " - sortLabels option is activated " << std::endl;
+    if (param_.rcsppMinCostToSinks_)
+      std::cout << " - minimumCostToSinks option is activated " << std::endl;
+    if (param_.rcsppImprovedDomination_)
+      std::cout << " - worstCaseCost option is activated " << std::endl;
+    if (param_.rcsppEnumSubpaths_)
+      std::cout << " - enumeratedSubPath option is activated " << std::endl;
+    if (param_.rcsppDssr_)
+      std::cout << " - decrementalSearchSpace option is activated " <<
+                std::endl;
+
+    std::cout << "\nGRAPH : " << std::endl;
+    std::cout << " - number of nodes: " << pRcGraph_->nNodes() << std::endl;
+    std::cout << " - number of arcs: " << pRcGraph_->nArcs() << std::endl;
+  }
+}
+
+void MyRCSPPSolver::displaySolveStatistics() {
+  if (param_.verbose_ >= 3) {
+    std::cout << "\nLABELS STATISTICS: " << std::endl;
+    // We add 1 to nParetoLabels in order to take account the first labels of
+    // the source node
+    std::cout << " - Total number of not dominated labels: "
+                 "" << nParetoLabels_ + 1 << std::endl;
+    std::cout << " - Number of infeasible labels deleted: "
+                 "" << number_of_infeasible_deleted_labels_ << std::endl;
+    std::cout << " - Total number of generated labels: " <<
+              total_number_of_generated_labels_ << std::endl;
+    std::cout << " - Total number of dominations: " <<
+              total_number_of_dominations_ << std::endl << std::endl;
+  }
 }

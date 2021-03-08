@@ -1081,7 +1081,7 @@ class BcpLpModel : public BCP_lp_user {
 
   double getObjVariation() const {
     return currentNodelpIteration_ < 2 ? pModel_->getInfinity() :
-           abs(pModel_->getObj(-2) - pModel_->getObj(-1));
+           std::fabs(pModel_->getObj(-2) - pModel_->getObj(-1));
   }
 
  protected:

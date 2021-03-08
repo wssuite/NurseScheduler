@@ -111,7 +111,7 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
   }
 
   // Display: set to true if you want to display the details of the cost
-  if (abs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
+  if (std::fabs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
     // if do not print and not throwing an error
     if (!printBadPricing && reducedCost_ > reducedCost + 1e-3) return;
 

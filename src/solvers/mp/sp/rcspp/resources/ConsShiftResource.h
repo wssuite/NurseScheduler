@@ -66,6 +66,11 @@ class SoftConsShiftResource : public SoftBoundedResource {
                     SoftBoundedResource::getWorstUbCost(consumption, nLeft));
   }
 
+  bool merge(const ResourceValues &vForward,
+             const ResourceValues &vBack,
+             ResourceValues *vMerged,
+             const PRCLabel &pLMerged) override;
+
  protected:
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
@@ -88,6 +93,11 @@ class HardConsShiftResource : public HardBoundedResource {
   int getConsumption(const State &initialState) const override;
 
   bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
+
+  bool merge(const ResourceValues &vForward,
+             const ResourceValues &vBack,
+             ResourceValues *vMerged,
+             const PRCLabel &pLMerged) override;
 
  protected:
   // initialize the expander on a given arc
@@ -141,10 +151,6 @@ struct SoftConsShiftExpander : public ConsShiftExpander {
 
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
-  bool merge(const ResourceValues &vForward,
-             const ResourceValues &vBack,
-             ResourceValues *vMerged,
-             const PRCLabel &pLMerged) override;
 
  private:
   const SoftConsShiftResource& resource_;
@@ -169,11 +175,6 @@ struct HardConsShiftExpander : public ConsShiftExpander {
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
 
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
-
-  bool merge(const ResourceValues &vForward,
-             const ResourceValues &vBack,
-             ResourceValues *vMerged,
-             const PRCLabel &pLMerged) override;
 
  private:
   const HardConsShiftResource& resource_;

@@ -47,7 +47,7 @@ std::pair<float, float> comparePricing(PDualCosts pDualCosts,
   }
 
   if (spParam.rcsppToOptimality_ &&
-      std::abs(bSP->bestReducedCost() - mSP->bestReducedCost()) > 1.0e-4 )
+      std::fabs(bSP->bestReducedCost() - mSP->bestReducedCost()) > 1.0e-4 )
     Tools::throwError("The new pricer does not find the same optimal value "
                       "as Boost");
 

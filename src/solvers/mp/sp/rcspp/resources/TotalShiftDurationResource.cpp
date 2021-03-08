@@ -117,16 +117,6 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
   return true;
 }
 
-bool SoftTotalShiftDurationExpander::merge(const ResourceValues &vForward,
-                                           const ResourceValues &vBack,
-                                           ResourceValues *vMerged,
-                                           const PRCLabel &pLMerged) {
-  vMerged->consumption = vForward.consumption + vBack.consumption;
-  pLMerged->addCost(resource_.getUbCost(vMerged->consumption));
-  pLMerged->addCost(resource_.getLbCost(vMerged->consumption));
-  return true;
-}
-
 int HardTotalShiftDurationResource::getConsumption(
     const State &initialState) const {
   return initialState.totalTimeWorked_;
@@ -163,14 +153,3 @@ bool HardTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
   // merging labels with the label at source
   return vChild->consumption <= resource_.getUb();
 }
-bool HardTotalShiftDurationExpander::merge(const ResourceValues &vForward,
-                                           const ResourceValues &vBack,
-                                           ResourceValues *vMerged,
-                                           const PRCLabel &pLMerged) {
-  vMerged->consumption = vForward.consumption + vBack.consumption;
-
-  return (vMerged->consumption <= resource_.getUb()) &&
-      (vMerged->consumption >= resource_.getLb());
-}
-
-

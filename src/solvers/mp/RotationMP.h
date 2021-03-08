@@ -120,7 +120,7 @@ struct RotationPattern : Pattern {
   // Moreover, there needs to be a resting day before and after each rotation,
   // so the shifts can also be forbidden on these two days
   // (if the rotation is not at an extremity of the horizon).
-  void addForbiddenShifts(std::set<std::pair<int, int> > *forbidenShifts,
+  void addForbiddenShifts(std::set<std::pair<int, int> > *forbiddenShifts,
                           int nbShifts,
                           PDemand pDemand) const override;
 
@@ -149,7 +149,7 @@ struct RotationPattern : Pattern {
 //-----------------------------------------------------------------------------
 class RotationMP : public MasterProblem {
  public:
-  RotationMP(PScenario pScenario,
+  RotationMP(const PScenario& pScenario,
              PDemand pDemand,
              PPreferences pPreferences,
              std::vector<State> *pInitState,
@@ -201,7 +201,7 @@ class RotationMP : public MasterProblem {
 
   // compute and add the last rotation finishing on the day just before
   // the first one
-  RotationPattern computeInitStateRotation(PLiveNurse pNurse);
+  RotationPattern computeInitStateRotation(const PLiveNurse& pNurse);
 
   /* Build each set of constraints
    * Add also the coefficient of a column for each set */
@@ -231,9 +231,9 @@ class RotationMP : public MasterProblem {
   /* retrieve the dual values */
   PDualCosts buildDualCosts(PLiveNurse pNurse) const override;
   vector2D<double> getShiftsDualValues(PLiveNurse pNurse) const override;
-  std::vector<double> getStartWorkDualValues(PLiveNurse pNurse) const;
-  std::vector<double> getEndWorkDualValues(PLiveNurse pNurse) const;
-  double getWorkedWeekendDualValue(PLiveNurse pNurse) const;
+  std::vector<double> getStartWorkDualValues(const PLiveNurse& pNurse) const;
+  std::vector<double> getEndWorkDualValues(const PLiveNurse& pNurse) const;
+  double getWorkedWeekendDualValue(const PLiveNurse& pNurse) const;
 
   PDualCosts buildRandomDualCosts(bool optimalDemandConsidered,
                                   int NDaysShifts) const override;

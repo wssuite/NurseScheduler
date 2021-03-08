@@ -80,11 +80,6 @@ struct SoftTotalWeekendsExpander : public Expander {
   // expand a given resource label
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
-  bool merge(const ResourceValues &vForward,
-             const ResourceValues &vBack,
-             ResourceValues *vMerged,
-             const PRCLabel &pLMerged) override;
-
 
  protected:
   const SoftTotalWeekendsResource& resource_;
@@ -141,11 +136,6 @@ struct HardTotalWeekendsExpander : public Expander {
   // expand a given resource label
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
-  bool merge(const ResourceValues &vForward,
-             const ResourceValues &vBack,
-             ResourceValues *vMerged,
-             const PRCLabel &pLMerged) override;
-
 
  protected:
   const HardTotalWeekendsResource& resource_;

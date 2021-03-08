@@ -250,7 +250,7 @@ double ScoreVarBestExpectedLBImprovement::score(
     if (Tools::isWeekend(day))
       dc += pDCosts->workedWeekendCost() * (s ? 1 : -1);
     // use absolute value
-    dc = abs(dc);
+    dc = std::fabs(dc);
     // if use shift -> not using the other shifts -> worst case
     double ceilDC = dc * (ceil(v) - v);
     if (ceilDC < ceilCost) ceilCost = ceilDC;
@@ -860,7 +860,7 @@ bool DiveBranchingRule::compareColumnCloseTo5(
     const std::pair<MyVar *, double> &obj2) {
   double frac1 = obj1.second - floor(obj1.second),
       frac2 = obj2.second - floor(obj2.second);
-  double closeTo5_1 = abs(0.5 - frac1), closeTo5_2 = abs(0.5 - frac2);
+  double closeTo5_1 = fabs(0.5 - frac1), closeTo5_2 = fabs(0.5 - frac2);
   return (closeTo5_1 < closeTo5_2);
 }
 

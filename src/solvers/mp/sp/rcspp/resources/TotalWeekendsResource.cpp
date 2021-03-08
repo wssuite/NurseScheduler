@@ -137,15 +137,6 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
 
   return true;
 }
-bool SoftTotalWeekendsExpander::merge(const ResourceValues &vForward,
-                                      const ResourceValues &vBack,
-                                      ResourceValues *vMerged,
-                                      const PRCLabel &pLMerged) {
-  vMerged->consumption = vForward.consumption + vBack.consumption;
-  pLMerged->addCost(resource_.getUbCost(vMerged->consumption));
-  pLMerged->addCost(resource_.getLbCost(vMerged->consumption));
-  return true;
-}
 
 int HardTotalWeekendsResource::getConsumption(
     const State & initialState) const {
@@ -211,12 +202,4 @@ bool HardTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
   }
 
   return vChild->consumption <= resource_.getUb();
-}
-bool HardTotalWeekendsExpander::merge(const ResourceValues &vForward,
-                                      const ResourceValues &vBack,
-                                      ResourceValues *vMerged,
-                                      const PRCLabel &pLMerged) {
-  vMerged->consumption = vForward.consumption + vBack.consumption;
-  return (vMerged->consumption <= resource_.getUb()) &&
-      (vMerged->consumption >= resource_.getLb());
 }

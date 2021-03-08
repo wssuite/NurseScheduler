@@ -89,22 +89,18 @@ class MyRCSPPSolver {
   explicit MyRCSPPSolver(RCGraph *pRcGraph,
                          const SubproblemParam &param);
 
+  // set the initial label at the source of the graph
+  void setSourceLabel(const PRCLabel& pL) {pLSource_ = pL;}
+
   // reset the solver state without acting on the graph
-  void reset();
-
-  // set the values of minimum costs from each node to the sinks
-  void setMinimumCostToSinks(const vector<double>& minCosts) {
-    minimumCostToSinks_.clear();
-    minimumCostToSinks_ = minCosts;
+  void reset(const SubproblemParam& p) {
+    setParams(p);
+    resetLabels();
   }
-
-  // Solve the resource constrained shortest path problem in the RCGraph
-  // using a label correcting algorithm
-  std::vector<RCSolution> solve(double maxReducedCostBound,
-                                int verbose,
-                                double epsilon,
-                                SPSearchStrategy strategy,
-                                int nb_max_paths);
+  void resetLabels();
+  void setParams(const SubproblemParam& p) {
+    param_ = p;
+  }
 
   // initialization of  the vectors that will contain the labels of each node
   void initializeLabels() {
@@ -118,6 +114,17 @@ class MyRCSPPSolver {
   void addLabelToExpand(const PRCLabel &pL) {
     pLabelsToExpandPerNode_[pL->getNode()->id].push_back(pL);
   }
+
+  // set the values of minimum costs from each node to the sinks
+  void setMinimumCostToSinks(const vector<double>& minCosts) {
+    minimumCostToSinks_.clear();
+    minimumCostToSinks_ = minCosts;
+  }
+
+  // Solve the resource constrained shortest path problem in the RCGraph
+  // using a label correcting algorithm
+  std::vector<RCSolution> solve(double maxReducedCostBound,
+                                int nb_max_paths);
 
   // forward label-setting algorithm on the input list of topologically
   // sorted nodes, until the input day is reached
@@ -199,7 +206,7 @@ class MyRCSPPSolver {
   // display information about the graph and options if verbose >= 1
   void displaySolveInputInfo();
 
-  // display information abot the execution of the label setting algorithm,
+  // display information about the execution of the label setting algorithm,
   // such as the number of expansions and dominations
   void displaySolveStatistics();
 
@@ -212,6 +219,8 @@ class MyRCSPPSolver {
   LabelPool labelPool_;
   // Total number of not dominated labels during the algorithm's execution
   int nParetoLabels_;
+  // Initial label at the source of the graph
+  PRCLabel pLSource_;
   // Non-dominated labels at each node of the graph
   vector2D<PRCLabel> pExpandedLabelsPerNode_;
   // Non-dominated labels that will be expanded at each node of the graph
@@ -231,11 +240,14 @@ class MyRCSPPSolver {
   // Parameters of the solver
   SubproblemParam param_;
   // verbose
-  int verbose_;
-  double maxReducedCostBound_, epsilon_;
-  SPSearchStrategy strategy_;
+  double maxReducedCostBound_;
   // Maximal number of optimal path conserved after the algorithm's execution
   int nb_max_paths_;
+  vector<PRCLabel> bidirectionalLabelSetting(
+      const vector<PRCNode> &sortedNodes);
+  void mergeLabels(vector<PRCLabel> *pForwardLabels,
+                   vector<PRCLabel> *pBackwardLabels);
+  bool merge(const PRCLabel &pLForward, const PRCLabel &pLBackward);
 };
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCSPP_H_

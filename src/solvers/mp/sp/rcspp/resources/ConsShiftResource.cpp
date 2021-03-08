@@ -92,6 +92,13 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
       *this, start, reset, consBeforeReset, consAfterReset,
       pArc->target->type == SINK_NODE, nDaysLeft);
 }
+bool SoftConsShiftResource::merge(const ResourceValues &vForward,
+                                  const ResourceValues &vBack,
+                                  ResourceValues *vMerged,
+                                  const PRCLabel &pLMerged) {
+  if (vForward.consumption + vBack.consumption == 0) return true;
+  return SoftBoundedResource::merge(vForward, vBack, vMerged, pLMerged);
+}
 
 bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
                                    ResourceValues *vChild) {
@@ -199,17 +206,6 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
           - nDaysLeft);
   return true;
 }
-bool SoftConsShiftExpander::merge(const ResourceValues &vForward,
-                                  const ResourceValues &vBack,
-                                  ResourceValues *vMerged,
-                                  const PRCLabel &pLMerged) {
-  vMerged->consumption = vForward.consumption + vBack.consumption;
-  if (vMerged->consumption >= 1) {
-    pLMerged->addCost(resource_.getUbCost(vMerged->consumption));
-    pLMerged->addCost(resource_.getLbCost(vMerged->consumption));
-  }
-  return true;
-}
 
 int HardConsShiftResource::getConsumption(const State &  initialState) const {
   if (pShift_->isAnyWork())
@@ -272,6 +268,13 @@ PExpander HardConsShiftResource::init(const AbstractShift &prevAShift,
   return std::make_shared<HardConsShiftExpander>(
       *this, start, reset, consBeforeReset, consAfterReset, cost);
 }
+bool HardConsShiftResource::merge(const ResourceValues &vForward,
+                                  const ResourceValues &vBack,
+                                  ResourceValues *vMerged,
+                                  const PRCLabel &pLMerged) {
+  if (vForward.consumption + vBack.consumption == 0) return true;
+  return HardBoundedResource::merge(vForward, vBack, vMerged, pLMerged);
+}
 
 bool HardConsShiftExpander::expand(const PRCLabel &pLChild,
                                    ResourceValues *vChild) {
@@ -318,14 +321,5 @@ bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
   }
 
   return true;
-}
-bool HardConsShiftExpander::merge(const ResourceValues &vForward,
-                                  const ResourceValues &vBack,
-                                  ResourceValues *vMerged,
-                                  const PRCLabel &pLMerged) {
-  vMerged->consumption = vForward.consumption + vBack.consumption;
-  return (vMerged->consumption == 0) ||
-      ((vMerged->consumption <= resource_  .getUb()) &&
-          (vMerged->consumption >= resource_.getLb()));
 }
 
