@@ -214,7 +214,7 @@ void RosterSP::enumerateConsShiftTypeFromSource(RCGraph *pRCGraph) {
 //
 //        // Recovery of the base cost of the arc stretch (taking account the
 //        // previous shift)
-//        double bCost = baseCost(stretch, pOrigin->pShift);
+//       double bCost = baseCost(stretch, pOrigin->pShift);
 //
 //        // Arc cost due to penalty of soft lower bound of the corresponding
 //        // shift
@@ -431,7 +431,8 @@ bool RosterSP::preprocess() {
       timerComputeMinCostFromSink_.start();
       // Computation of the costs of the shortest paths from each sink node
       // to all the other nodes in the rcGraph
-      pRcsppSolver_->computeMinimumCostToSinks(&enumGraph);
+      pRcsppSolver_->setMinimumCostToSinks(
+          shortestPathToSinksAcyclic(&enumGraph));
       timerComputeMinCostFromSink_.stop();
       std::cout << " - Total time spent in computing minimum paths costs from "
                    "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
@@ -446,7 +447,7 @@ bool RosterSP::preprocess() {
     timerComputeMinCostFromSink_.start();
     // Computation of the costs of the shortest paths from each sink node
     // to all the other nodes in the rcGraph
-    pRcsppSolver_->computeMinimumCostToSinks(&rcGraph_);
+    pRcsppSolver_->setMinimumCostToSinks(shortestPathToSinksAcyclic(&rcGraph_));
     timerComputeMinCostFromSink_.stop();
     std::cout << " - Total time spent in computing minimum paths costs from "
                  "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
@@ -462,6 +463,65 @@ bool RosterSP::preprocess() {
   pRcsppSolver_->initializeLabels();
 
   return true;
+}
+
+// TODO(JO): verify the computation with enumerated subpath once the
+//  enumeration function is functional again
+vector<double> RosterSP::shortestPathToSinksAcyclic(
+    const RCGraph *pRCGraph) {
+  // Initialization of all the costs of the shortest paths at infinity
+  double inf = std::numeric_limits<double>::infinity();
+  vector<double> shortestPathToSinks(pRCGraph->nNodes(), inf);
+  // Only the cost of the shortest path to the sink node is set to 0
+  for (const auto &pN : pRCGraph->pSinks())
+    shortestPathToSinks.at(pN->id) = 0.0;
+
+  // Iteration through all the nodes of the acyclic graph in the reverse
+  // order of the topological order
+  vector<PRCNode> sortedNodes = pRCGraph->sortNodes();
+  auto itN = sortedNodes.rbegin();
+  for (; itN != sortedNodes.rend(); itN++) {
+    double sp = shortestPathToSinks[(*itN)->id];
+    for (const auto &pArc : (*itN)->inArcs) {
+      if (pArc->forbidden) continue;  // do not use forbidden arcs
+      double cost = pArc->cost;
+      int day = pArc->stretch.firstDay();
+      auto it = pArc->stretch.pShifts().begin();
+      vector<shared_ptr<Shift>> pShifts = pArc->stretch.pShifts();
+      PAbstractShift pPrevShift = pArc->origin->pAShift;
+      int predecessor = pArc->origin->id;
+      for (; it != pArc->stretch.pShifts().end(); ++it, ++day) {
+        // update shortest path if needed
+        if (shortestPathToSinks[predecessor] > sp + cost) {
+          shortestPathToSinks[predecessor] = sp + cost;
+        }
+        // when enumerating subpath only for computing minimum cost to sinks,
+        // we need to compute what is the cost to each node of each stretch
+        // of the enumerated arcs, otherwise, this is not necessary
+        if (!param_.rcsppEnumSubpathsForMinCostToSinks_) break;
+        if (day == pArc->stretch.lastDay()) break;
+
+        // next, we will focus on the following node of the arc's stretch, so
+        // update the cost to remove the base and dual cost associated with
+        // current node
+        cost -= preferencesCosts_[day][(*it)->id];
+        if ((*it)->isWork()) {
+          // add complete weekend cost if first worked shift of a rotation
+          if (pPrevShift->isRest())
+            cost -= startWeekendCosts_[day];
+        } else if ((*it)->isRest() && day > 0 && pPrevShift->isWork()) {
+          cost -= endWeekendCosts_[day - 1];
+        }
+        if (day == 0) cost -= pCosts_->constant();
+        if ((*it)->isWork())
+            cost += pCosts_->workedDayShiftCost(day, (*it)->id);
+
+        pPrevShift = (*it);
+        predecessor = pNodesPerDayShift_[day][(*it)->id]->id;
+      }
+    }
+  }
+  return shortestPathToSinks;
 }
 
 void RosterSP::updateArcDualCosts() {

@@ -18,7 +18,6 @@
 
 #include "solvers/mp/RCPricer.h"
 
-// TODO(JO): works only for  soft resources. AL commented
 int dominate(const PRCLabel &pL1,
              const PRCLabel &pL2,
              const vector<PResource> &resources) {
@@ -46,14 +45,16 @@ int dominateNoLB(const PRCLabel &pL1,
   // We implement only improved domination for DSSR
   double cost1noLB = pL1->cost(), costOfLBs = 0;
   double cost2 = pL2->cost();
+  // if cost1 > cost2, return false
+  if (cost1noLB > cost2) return 0;
   for (const auto &r : resources) {
-    // if at anytime cost1 > cost2, return false
-    if (cost1noLB > cost2) return 0;
     // if hard resource, just check both bounds
     if (r->isHard()) {
       if (!r->dominates(pL1, pL2)) return 0;
       continue;
     }
+    // if at anytime cost1 > cost2, return false
+    if (cost1noLB > cost2) return 0;
     // if soft resource, evaluate worst case for UB
     double ubDiff =
         pL1->getWorstUbCost(r->id()) - pL2->getWorstUbCost(r->id());
@@ -82,38 +83,6 @@ int dominateNoLB(const PRCLabel &pL1,
     cost1noLB += maxDiff;
   }
   return cost1noLB > cost2 ? 0 : ((cost1noLB + costOfLBs <= cost2) ? 1 : 2);
-}
-
-vector<double> MyRCSPPSolver::shortestPathToSinksAcyclic(
-    const RCGraph *pRCGraph) {
-  // Initialization of all the costs of the shortest paths at infinity
-  double inf = std::numeric_limits<double>::infinity();
-  vector<double> shortestPathToSinks(pRCGraph->nNodes(), inf);
-  // Only the cost of the shortest path to the sink node is set to 0
-  for (const auto &pN : pRCGraph->pSinks())
-    shortestPathToSinks.at(pN->id) = 0.0;
-
-  // Iteration through all the nodes of the acyclic graph in the reverse
-  // order of the topological order
-  vector<PRCNode> sortedNodes = pRCGraph->sortNodes();
-  auto itN = sortedNodes.rbegin();
-  for (; itN != sortedNodes.rend(); itN++) {
-    double sp = shortestPathToSinks[(*itN)->id];
-    for (const auto &pArc : (*itN)->inArcs) {
-      if (pArc->forbidden) continue;  // do not use forbidden arcs
-      int predecessor = pArc->origin->id;
-      // update shortest path if needed
-      if (shortestPathToSinks[predecessor] > sp + pArc->cost) {
-        shortestPathToSinks[predecessor] = sp + pArc->cost;
-      }
-    }
-  }
-  return shortestPathToSinks;
-}
-
-void MyRCSPPSolver::computeMinimumCostToSinks(RCGraph *pRCGraph) {
-  minimumCostToSinks_.clear();
-  minimumCostToSinks_ = shortestPathToSinksAcyclic(pRCGraph);
 }
 
 PRCLabel LabelPool::getNewLabel() {

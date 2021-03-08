@@ -89,8 +89,14 @@ class MyRCSPPSolver {
   explicit MyRCSPPSolver(RCGraph *pRcGraph,
                          const SubproblemParam &param);
 
-// reset the solver state without acting on the graph
+  // reset the solver state without acting on the graph
   void reset();
+
+  // set the values of minimum costs from each node to the sinks
+  void setMinimumCostToSinks(const vector<double>& minCosts) {
+    minimumCostToSinks_.clear();
+    minimumCostToSinks_ = minCosts;
+  }
 
   // Solve the resource constrained shortest path problem in the RCGraph
   // using a label correcting algorithm
@@ -164,15 +170,6 @@ class MyRCSPPSolver {
 
   // Create a solution object given a label coming from a sink node
   static RCSolution createSolution(const PRCLabel& finalLabel);
-
-  // Algorithm adapted to acyclic graphs computing the costs of the shortest
-  // paths from a given sink node to all the other nodes (in the reverse
-  // direction of the arcs)
-  vector<double> shortestPathToSinksAcyclic(const RCGraph *pRCGraph);
-
-  // Computation of the costs of the shortest paths from EACH sink node to
-  // all the other nodes in the graph
-  void computeMinimumCostToSinks(RCGraph *pRCGraph);
 
   // Check if a label can produce a path to a sink node with negative cost
   bool hasPotentialImprovingPathToSinks(const PRCLabel &pl, const PRCNode& pN,

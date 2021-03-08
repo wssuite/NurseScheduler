@@ -38,6 +38,11 @@ class RosterSP : public SubProblem {
   // minimum cost to the sink(s) and on the minimum consumption of resources
   bool preprocess() override;
 
+  // Algorithm adapted to acyclic graphs computing the costs of the shortest
+  // paths from a given sink node to all the other nodes (in the reverse
+  // direction of the arcs)
+  vector<double> shortestPathToSinksAcyclic(const RCGraph *pRCGraph);
+
   //------------------------------------------------
   // Enumeration of sub paths
   //------------------------------------------------
@@ -76,8 +81,8 @@ class RosterSP : public SubProblem {
   void updateOfExistingArcsCost(RCGraph *pRCGraph);
 
  private:
-  std::vector<PResource> pResources_;
   RCGraph rcGraph_;
+  std::vector<PResource> pResources_;
   vector2D<PRCNode> pNodesPerDayShift_;  // list of nodes for each day
   shared_ptr<MyRCSPPSolver> pRcsppSolver_;  // Solver
 

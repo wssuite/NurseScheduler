@@ -165,7 +165,7 @@ class RCGraph {
  public:
   explicit RCGraph(int nDays, int nShifts) :
       nDays_(nDays), nShifts_(nShifts), pSource_(nullptr) {
-    Tools::initVector3D(&pArcsByDayShift_, nDays, nShifts, 0);
+    Tools::initVector3D(&pArcsPerDayShift_, nDays, nShifts, 0);
   }
 
   void copy(const RCGraph &g) {
@@ -183,11 +183,11 @@ class RCGraph {
     for (const auto &pA : g.pArcs_) {
       pArcs_.emplace_back(std::make_shared<RCArc>(*pA));
     }
-    Tools::initVector3D(&pArcsByDayShift_, nDays_, nShifts_, 0);
+    Tools::initVector3D(&pArcsPerDayShift_, nDays_, nShifts_, 0);
     for (int k=0; k < nDays_; k++)
       for (int s=0; s < nShifts_; s++)
-        for (const PRCArc &pA : g.pArcsByDayShift_[k][s])
-          pArcsByDayShift_[k][s].push_back(pArc(pA->id));
+        for (const PRCArc &pA : g.pArcsPerDayShift_[k][s])
+          pArcsPerDayShift_[k][s].push_back(pArc(pA->id));
     forbiddenNodes_ = g.forbiddenNodes_;
     forbiddenArcs_ = g.forbiddenArcs_;
   }
@@ -204,7 +204,7 @@ class RCGraph {
   const vector<PRCArc> pArcs() const {return pArcs_;}
   const PRCArc& pArc(int id) const {return pArcs_[id];}
   const vector<PRCArc>& pArcs(int day, int shift) const {
-    return pArcsByDayShift_[day][shift];
+    return pArcsPerDayShift_[day][shift];
   }
   int nResources() const {return pResources_.size();}
   const vector<PResource> &pResources() const;
@@ -278,7 +278,7 @@ class RCGraph {
 
   vector<PRCArc> pArcs_;
   // arcs stored by day and shifts contains within the arc stretch
-  vector3D<PRCArc> pArcsByDayShift_;
+  vector3D<PRCArc> pArcsPerDayShift_;
 
  protected:
   std::set<int> forbiddenNodes_;

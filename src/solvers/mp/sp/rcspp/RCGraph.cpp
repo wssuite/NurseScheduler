@@ -101,10 +101,10 @@ PRCArc RCGraph::addSingleArc(PRCNode o,
   // arcs ids of the target node
   PRCArc pArc = pArcs_.back();
   pArc->target->inArcs.push_back(pArcs_.back());
-  // add the arc to pArcsByDayShift_ for each day/shift of the stretch
+  // add the arc to pArcsPerDayShift_ for each day/shift of the stretch
   const Stretch &st = pArc->stretch;
   for (int k = 0; k < st.nDays(); k++)
-    pArcsByDayShift_[st.firstDay()+k][st.pShift(k)->id].push_back(pArc);
+    pArcsPerDayShift_[st.firstDay()+k][st.pShift(k)->id].push_back(pArc);
   return pArc;
 }
 
@@ -145,13 +145,13 @@ PRCArc RCGraph::getArc(const PRCNode& origin, const PRCNode& target) const {
 
 // Forbid a node / arc
 void RCGraph::forbidDayShift(int k, int s) {
-  for (const PRCArc &pA : pArcsByDayShift_[k][s])
+  for (const PRCArc &pA : pArcsPerDayShift_[k][s])
     forbidArc(pA);
 }
 
 // Authorize a node / arc
 void RCGraph::authorizeDayShift(int k, int s) {
-  for (const PRCArc &pA : pArcsByDayShift_[k][s])
+  for (const PRCArc &pA : pArcsPerDayShift_[k][s])
     authorizeArc(pA);
 }
 
