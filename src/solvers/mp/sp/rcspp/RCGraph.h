@@ -71,7 +71,8 @@ struct RCNode {
   NodeType type;
   const int day;
   PAbstractShift pAShift;
-  vector<PRCArc> inArcs;  // Ids of the arcs entering in this node
+  vector<PRCArc> inArcs;  // pointers to the arcs entering in this node
+  vector<PRCArc> outArcs;  // pointers to the arcs exiting in this node
   vector<int> indActiveResources;
 };
 
@@ -228,10 +229,6 @@ class RCGraph {
     pResources_.clear();
   }
 
-  const vector<int> & getActiveResourcesNode(int idNode) {
-    return pNode(idNode)->indActiveResources;
-  }
-
   void addResource(const PResource& pR);
   PRCNode addSingleNode(NodeType type, int day, const PShift& pS);
 
@@ -246,7 +243,7 @@ class RCGraph {
   void initializeDominance();
 
   // return a sorted vector of the nodes from sources to sinks to ensure
-  // that a given node cannont reach previous nodes in the graph
+  // that a given node cannot reach previous nodes in the graph
   std::vector<PRCNode> sortNodes() const;
 
   // Forbid all node / arc using day k and shift s

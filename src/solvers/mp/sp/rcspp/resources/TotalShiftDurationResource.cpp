@@ -90,9 +90,9 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
   if (consumption == 0) {
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
-    vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
-                                                   resource_.totalNbDays() -
-                                                       nDaysLeft);
+    vChild->worstUbCost =
+        resource_.getWorstUbCost(vChild->consumption,
+                                 resource_.totalNbDays() - nDaysLeft - 1);
     return true;
   }
 
@@ -110,9 +110,9 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
 
   // Setting 'worst case cost'
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
-  vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
-                                                 resource_.totalNbDays() -
-                                                     nDaysLeft);
+  vChild->worstUbCost =
+      resource_.getWorstUbCost(vChild->consumption,
+                               resource_.totalNbDays() - nDaysLeft - 1);
 
   return true;
 }

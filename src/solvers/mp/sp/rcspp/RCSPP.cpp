@@ -117,19 +117,23 @@ MyRCSPPSolver::MyRCSPPSolver(RCGraph *pRcGraph,
     pFactory_(std::make_shared<RCLabelFactory>()),
     labelPool_(pFactory_, 100),
     pLSource_(nullptr),
-    nParetoLabels_(0),
     bestPrimalBound_(0.0),
-    number_of_infeasible_deleted_labels_(0),
-    total_number_of_generated_labels_(0),
-    total_number_of_dominations_(0),
     param_(param),
     maxReducedCostBound_(0),
-    nb_max_paths_(1) {}
+    nb_max_paths_(1),
+    total_number_of_nondominated_labels_(0),
+    number_of_infeasible_deleted_labels_(0),
+    total_number_of_generated_labels_(0),
+    total_number_of_dominations_(0) {}
 
 void MyRCSPPSolver::resetLabels() {
-  this->pExpandedLabelsPerNode_.clear();
-  this->pLabelsToExpandPerNode_.clear();
-  this->pLabelsNoExpandPerNode_.clear();
+  pExpandedLabelsPerNode_.clear();
+  pLabelsToExpandPerNode_.clear();
+  pLabelsNoExpandPerNode_.clear();
+  int nNodes = pRcGraph_->nNodes();
+  pExpandedLabelsPerNode_.resize(nNodes);
+  pLabelsToExpandPerNode_.resize(nNodes);
+  pLabelsNoExpandPerNode_.resize(nNodes);
 }
 
 std::vector<RCSolution> MyRCSPPSolver::solve(double maxReducedCostBound,
@@ -149,7 +153,8 @@ std::vector<RCSolution> MyRCSPPSolver::solve(double maxReducedCostBound,
     if (param_.rcsppBidirectional_) {
       destinationLabels = bidirectionalLabelSetting(sortedNodes);
     } else {
-      destinationLabels = forwardLabelSetting(sortedNodes, pRcGraph_->nDays());
+      destinationLabels = forwardLabelSetting(sortedNodes,
+                                              pRcGraph_->nDays() - 1);
     }
     pLabelsSinks.insert(pLabelsSinks.end(),
                         destinationLabels.begin(),
@@ -252,11 +257,15 @@ std::vector<PRCLabel> MyRCSPPSolver::forwardLabelSetting(
     labelPool_.clear();
   }
 
-  // Collect all the labels of the sink nodes
-  for (const auto &pN : pRcGraph_->pSinks()) {
-    for (const auto &pl : pLabelsToExpandPerNode_.at(pN->id))
-      destinationLabels.push_back(pl);
+  // Collect all the labels of the final day nodes
+  for (const auto &pN : sortedNodes) {
+    if (pN->day > finalDay) break;
+    if (pN->day == finalDay) {
+      for (const auto &pl : pLabelsToExpandPerNode_.at(pN->id))
+        destinationLabels.push_back(pl);
+    }
   }
+
   return destinationLabels;
 }
 
@@ -500,7 +509,7 @@ void MyRCSPPSolver::selectLabelsToExpand(
       if (d == 0) {
         // expand the label if not dominated with relaxed constraints
         labelsToExpand.push_back(pFactory_->makePRCLabel(**itL));
-        nParetoLabels_++;
+        total_number_of_nondominated_labels_++;
       } else if (d == 2) {
         // store the label without expanding it if not dominated with every
         // constraint
@@ -515,7 +524,7 @@ void MyRCSPPSolver::selectLabelsToExpand(
       if (d == 0) {
         // expand the label if not dominated with every constraint
         labelsToExpand.push_back(*itL);
-        nParetoLabels_++;
+        total_number_of_nondominated_labels_++;
       }
       ++itL;
     }
@@ -526,7 +535,7 @@ void MyRCSPPSolver::selectLabelsToExpand(
       if (d == 0) {
         // expand the label if not dominated with every constraint
         labelsToExpand.push_back(pFactory_->makePRCLabel(**itL));
-        nParetoLabels_++;
+        total_number_of_nondominated_labels_++;
       }
       ++itL;
     }
@@ -635,7 +644,7 @@ std::vector<PRCLabel> MyRCSPPSolver::bidirectionalLabelSetting(
 void MyRCSPPSolver::mergeLabels(
     vector<PRCLabel> *pForwardLabels,
     vector<PRCLabel> *pBackwardLabels
-    ) {
+) {
   // sort the labels by increasing costs to stop the merging process
   // prematurely when no negative cost roster can happen from merging
   std::sort(pForwardLabels->begin(), pForwardLabels->end(),
@@ -701,7 +710,7 @@ std::vector<PRCLabel> MyRCSPPSolver::backwardLabelSetting(
 
     // Expand all the labels of the predecessors of the node through the
     // arcs entering the node
-    pushLabelsToPredecessors(pN);
+    pullLabelsFromSuccessors(pN);
 
     // information of domination of newly generated labels
     size_t nLabels = labelPool_.nLabels();
@@ -734,7 +743,7 @@ std::vector<PRCLabel> MyRCSPPSolver::backwardLabelSetting(
     labelPool_.clear();
   }
 
-  // Collect all the labels of the sink nodes
+  // Collect all the labels of the final day nodes
   for (const auto &pN : sortedNodes) {
     if (pN->day > finalDay) break;
     if (pN->day == finalDay) {
@@ -742,16 +751,17 @@ std::vector<PRCLabel> MyRCSPPSolver::backwardLabelSetting(
         destinationLabels.push_back(pl);
     }
   }
+
   return destinationLabels;
 }
 
-void MyRCSPPSolver::pushLabelsToPredecessors(const PRCNode &pN) {
+void MyRCSPPSolver::pullLabelsFromSuccessors(const PRCNode &pN) {
   // expand labels to all predecessors
-  for (const auto &pArc : pN->inArcs) {
+  for (const auto &pArc : pN->outArcs) {
     if (pArc->forbidden) continue;  // do not use forbidden arcs
-    // Expand all the labels
-    for (const auto &pL : pLabelsToExpandPerNode_.at(pN->id)) {
-      // Expansion on the current arc
+    // expand all the labels
+    for (const auto &pL : pLabelsToExpandPerNode_.at(pArc->target->id)) {
+      // expansion on the current arc
       if (expandBack(pL, pArc, labelPool_.getNewLabel()))
         total_number_of_generated_labels_++;
       else
@@ -774,6 +784,10 @@ bool MyRCSPPSolver::expandBack(
     }
   }
   pLPrevious->addCost(pArc->baseCost + pArc->dualCost);
+#ifdef DBG
+  pLPrevious->addBaseCost(pArc->baseCost);
+  pLPrevious->addDualCost(pArc->dualCost);
+#endif
   return true;
 }
 
@@ -805,7 +819,7 @@ void MyRCSPPSolver::displaySolveStatistics() {
     // We add 1 to nParetoLabels in order to take account the first labels of
     // the source node
     std::cout << " - Total number of not dominated labels: "
-                 "" << nParetoLabels_ + 1 << std::endl;
+                 "" << total_number_of_nondominated_labels_ + 1 << std::endl;
     std::cout << " - Number of infeasible labels deleted: "
                  "" << number_of_infeasible_deleted_labels_ << std::endl;
     std::cout << " - Total number of generated labels: " <<

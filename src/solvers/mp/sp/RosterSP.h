@@ -34,7 +34,7 @@ class RosterSP : public SubProblem {
            const SubproblemParam &param);
 
   // FUNCTIONS -- SOLVE
-  // run preprocessing algorithms, e.g., for precomputing bounds on the
+  // run preprocessing algorithms, e.g., for pre-computing bounds on the
   // minimum cost to the sink(s) and on the minimum consumption of resources
   bool preprocess() override;
 
@@ -146,10 +146,10 @@ class RosterSP : public SubProblem {
   // subpaths of consecutive identical shifts,
   void preprocessRCGraph();
 
-  // precompute data for dominance and expansion of the resources
+  // pre-compute data for dominance and expansion of the resources
   void initializeResources();
 
-  // update arcs costs based on the dual costs comnig from the master problem
+  // update arcs costs based on the dual costs coming from the master problem
   void updateArcDualCosts() override;
   void updateArcDualCost(const PRCArc &pA);
 

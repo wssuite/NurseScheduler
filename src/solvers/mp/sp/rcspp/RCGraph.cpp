@@ -101,6 +101,7 @@ PRCArc RCGraph::addSingleArc(PRCNode o,
   // arcs ids of the target node
   PRCArc pArc = pArcs_.back();
   pArc->target->inArcs.push_back(pArcs_.back());
+  pArc->origin->outArcs.push_back(pArcs_.back());
   // add the arc to pArcsPerDayShift_ for each day/shift of the stretch
   const Stretch &st = pArc->stretch;
   for (int k = 0; k < st.nDays(); k++)

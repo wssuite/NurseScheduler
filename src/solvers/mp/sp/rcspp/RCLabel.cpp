@@ -72,6 +72,13 @@ void RCLabel::setAsPrevious(const shared_ptr<RCLabel> &pLNext,
   pOutArc_ = pArc;
   pPreviousLabel_ = nullptr;
   pNextLabel_ = pLNext;
+#ifdef DBG
+  baseCost_ = pLNext->baseCost();
+  dualCost_ = pLNext->dualCost();
+  consShiftCost_ = pLNext->consShiftCost();
+  totalShiftCost_ = pLNext->totalShiftCost();
+  totalWeekendCost_ = pLNext->totalWeekendCost();
+#endif
 }
 
 void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,

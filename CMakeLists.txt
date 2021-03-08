@@ -27,7 +27,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
         endif()
         add_definitions(-DDBG)
 endif()
-add_definitions(-pedantic -Wall -Wno-sign-compare)
+add_definitions(-pedantic -Wno-deprecated -Wno-sign-compare)
 
 # add boost
 if(DEFINED BOOST_DIR)

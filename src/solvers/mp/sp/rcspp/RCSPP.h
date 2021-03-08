@@ -198,10 +198,24 @@ class MyRCSPPSolver {
   // topologically sorted nodes and until the final day is treated
   vector<PRCLabel> backwardLabelSetting(const vector<PRCNode> &sortedNodes,
                                         int finalDay = 0);
-  void pushLabelsToPredecessors(const PRCNode &pN);
+  void pullLabelsFromSuccessors(const PRCNode &pN);
   bool expandBack(const PRCLabel &pLNext,
                   const PRCArc &pArc,
                   const PRCLabel &pLPrevious);
+
+  // bidirectional label-setting algorithm: forward propagation from source
+  // to middle-day and backward propagation from sinks to middle-day before
+  // merging the labels
+  vector<PRCLabel> bidirectionalLabelSetting(
+      const vector<PRCNode> &sortedNodes);
+
+  // merge the labels obtained by forward propagation with those obtained by
+  // backward propagation
+  void mergeLabels(vector<PRCLabel> *pForwardLabels,
+                   vector<PRCLabel> *pBackwardLabels);
+
+  // merge two labels to get a complete roster label
+  bool merge(const PRCLabel &pLForward, const PRCLabel &pLBackward);
 
   // display information about the graph and options if verbose >= 1
   void displaySolveInputInfo();
@@ -217,9 +231,7 @@ class MyRCSPPSolver {
   PRCLabelFactory pFactory_;
   // Temporary pool of labels
   LabelPool labelPool_;
-  // Total number of not dominated labels during the algorithm's execution
-  int nParetoLabels_;
-  // Initial label at the source of the graph
+    // Initial label at the source of the graph
   PRCLabel pLSource_;
   // Non-dominated labels at each node of the graph
   vector2D<PRCLabel> pExpandedLabelsPerNode_;
@@ -231,23 +243,20 @@ class MyRCSPPSolver {
   vector<double> minimumCostToSinks_;
   // Cost of the best path found until now
   double bestPrimalBound_;
-  // Total number of labels deleted due to the minimum cost from sinks strategy
-  int number_of_infeasible_deleted_labels_;
-  // Total number of generated labels during the algorithm's execution
-  int total_number_of_generated_labels_;
-  // Total number of domination operation during the algorithm's execution
-  int total_number_of_dominations_;
   // Parameters of the solver
   SubproblemParam param_;
   // verbose
   double maxReducedCostBound_;
   // Maximal number of optimal path conserved after the algorithm's execution
   int nb_max_paths_;
-  vector<PRCLabel> bidirectionalLabelSetting(
-      const vector<PRCNode> &sortedNodes);
-  void mergeLabels(vector<PRCLabel> *pForwardLabels,
-                   vector<PRCLabel> *pBackwardLabels);
-  bool merge(const PRCLabel &pLForward, const PRCLabel &pLBackward);
+  // Total number of not dominated labels during the algorithm's execution
+  int total_number_of_nondominated_labels_;
+  // Total number of labels deleted due to the minimum cost from sinks strategy
+  int number_of_infeasible_deleted_labels_;
+  // Total number of generated labels during the algorithm's execution
+  int total_number_of_generated_labels_;
+  // Total number of domination operation during the algorithm's execution
+  int total_number_of_dominations_;
 };
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCSPP_H_

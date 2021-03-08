@@ -150,6 +150,10 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
 
   return true;
 }
+
+// TODO(JO): forgot to nullify violations due to LB on consecutive shifts
+//  when they end at the sink
+// TODO(JO): beware of which resource will be active for domination
 bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
                                        ResourceValues *vChild) {
   if (!reset) {
@@ -160,7 +164,10 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
     vChild->consumption += consAfterReset;
     if (vChild->consumption > 0) {
       // pay for violations of soft bounds when resetting a resource
-      pLChild->addCost(resource_.getLbCost(vChild->consumption));
+      // pay lower bound consumption only if the consecutive shifts did not end
+      // at a sink
+      if (vChild->consumption < nDaysLeft + 1)
+        pLChild->addCost(resource_.getLbCost(vChild->consumption));
       // pay for excess of consumption at reset
       if (vChild->consumption > resource_.getUb()) {
         pLChild->addCost(
@@ -169,12 +176,6 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
     }
     // set new consumption to what is consumed before resetting
     vChild->consumption = consBeforeReset;
-  }
-  // if the consumption is 0, reset the state of the resource
-  if (vChild->consumption == 0) {
-    vChild->worstLbCost = .0;
-    vChild->worstUbCost = .0;
-    return true;
   }
   // pay for excess of consumption due to this expansion
   if (vChild->consumption > resource_.getUb()) {
@@ -186,13 +187,13 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
   }
 
   // if it is a start arc, pay for violation of lower bound and reset
-  // wors-case costs
+  // worst-case costs
   if (start) {
-    pLChild->addCost(resource_.getLbCost(vChild->consumption));
+    // pay lower bound consumption only if the consecutive shifts did not end
+    // at a sink
+    if (vChild->consumption < nDaysLeft + 1)
+      pLChild->addCost(resource_.getLbCost(vChild->consumption));
     vChild->consumption = 0;
-    vChild->worstLbCost = .0;
-    vChild->worstUbCost = .0;
-    return true;
   }
 
   // DOC: when expanding back, consumption of resource related to the node we
@@ -201,9 +202,8 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
   // We can use it to improve the computation of worst-case costs
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption + 1);
   vChild->worstUbCost =
-      resource_.getWorstUbCost(vChild->consumption + 1, resource_
-          .getTotalNbDays()
-          - nDaysLeft);
+      resource_.getWorstUbCost(vChild->consumption + 1,
+                               resource_.getTotalNbDays() - nDaysLeft - 1);
   return true;
 }
 
@@ -304,12 +304,13 @@ bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
       // detect infeasibility due to upper bound
       if (vChild->consumption > resource_.getUb()) return false;
       // expansion is infeasible if consumption lower than bound at reset
-      if (vChild->consumption < resource_.getLb()) return false;
+      if (vChild->consumption < nDaysLeft + 1)
+        if (vChild->consumption < resource_.getLb()) return false;
     }
     // set new consumption to what is consumed before resetting
     vChild->consumption = consBeforeReset;
   } else {
-    // the consumpption is in consBeforeReset if no reset
+    // the consumption is in consBeforeReset if no reset
     vChild->consumption += consBeforeReset;
     // detect infeasibility due to upper bound
     if (vChild->consumption > resource_.getUb()) return false;
@@ -317,7 +318,9 @@ bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
 
   // check lower bound if the arc starts the consumption of the resource
   if (start) {
-    if (vChild->consumption < resource_.getLb()) return false;
+    if (vChild->consumption < nDaysLeft + 1)
+      if (vChild->consumption < resource_.getLb()) return false;
+    vChild->consumption = 0;
   }
 
   return true;

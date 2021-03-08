@@ -29,8 +29,8 @@ RosterSP::RosterSP(PScenario scenario, int nbDays, PLiveNurse nurse,
                nbDays,
                std::move(nurse),
                param),
-    pResources_(std::move(pResources)),
     rcGraph_(nbDays, pScenario_->nbShifts()),
+    pResources_(std::move(pResources)),
     pRcsppSolver_(nullptr),
     timerEnumerationOfSubPath_(),
     timerComputeMinCostFromSink_() {
@@ -154,85 +154,85 @@ void RosterSP::enumerateSubPaths(RCGraph *pRcGraph) {
 
 
 void RosterSP::enumerateConsShiftTypeFromSource(RCGraph *pRCGraph) {
-//  // Recovery of the last shift performed by the current nurse (It can be a
-//  // worked shift or a rest shift). This is the 'initial Shift'.
-//  State* initialState = this->pLiveNurse_->pStateIni_;
-//  PShift pShiftIni = pScenario_->pShifts_[initialState->shift_];
-//
-//  // Recovery of the number of times the last shift was completed by the
-//  // current nurse (It's either a worked shift or a rest shift). This value
-//  // is stored in the variable 'initialConsumption'.
-//  int initialConsumption(0);
-//  if (pShiftIni->isRest())
-//    initialConsumption = initialState->consDaysOff_;
-//  else if (pShiftIni->isWork())
-//    initialConsumption = initialState->consShifts_;
-//
-//  // All following arcs added will have the source node as their origin
-//  PRCNode pOrigin = pRCGraph->pSource();
-//  // Iterate through all the possible successor shifts of the initial shift
-//  for (auto indSuccessorShift : pShiftIni->successors) {
-//    // The successor shift is either of the same type as the initial shift or
-//    // of a different type. The two cases are treated separately in order to
-//    // take account the initial consumption of the last shift performed.
-//    if (indSuccessorShift == pShiftIni->id) {
-//      for (int d{1}; d <= consShiftsUbs_.at(pShiftIni->id) -
-//          initialConsumption - 1 && d < pScenario_->nbDays() ; d++) {
-//        // Target node of the arc that will be added
-//        PRCNode pTarget = pNodesPerDayShift_[d][indSuccessorShift];
-//
-//        // Creation of the stretch of the arc that will be added
-//        vector<PShift> vecShift(d+1, nullptr);
-//        for (size_t i = 0; i < d+1; i++)
-//          vecShift.at(i) = std::make_shared<Shift>(*pTarget->pShift);
-//        Stretch stretch(vecShift, 0, d + 1);
-//
-//        // Recovery of the base cost of the arc stretch (taking account the
-//        // previous shift)
-//        double bCost = baseCost(stretch, pOrigin->pShift);
-//
-//        // Arc cost due to penalty of soft lower bound of the corresponding
-//        // shift (this initial shift)
-//        bCost += consShiftsLbCosts_.at(pShiftIni->id) *
-//            std::max(0, consShiftsLbs_.at(pShiftIni->id) -
-//                initialConsumption - 1 - d);
-//
-//        // The new arc is added to the rcGraph with its corresponding costs
-//        PRCArc pArc =
-//            pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
-//      }
-//    } else {
-//      for (int d{1}; d <= consShiftsUbs_.at(indSuccessorShift)-1 && d <
-//          pScenario_->nbDays(); d++) {
-//        // Target node of the arc that will be added
-//        PRCNode pTarget = pNodesPerDayShift_[d][indSuccessorShift];
-//
-//        // Creation of the stretch of the arc that will be added
-//        vector<PShift> vecShift(d+1, nullptr);
-//        for (size_t i = 0; i < d+1; i++)
-//          vecShift.at(i) = std::make_shared<Shift>(*pTarget->pShift);
-//        Stretch stretch(vecShift, 0, d+1);
-//
-//        // Recovery of the base cost of the arc stretch (taking account the
-//        // previous shift)
-//       double bCost = baseCost(stretch, pOrigin->pShift);
-//
-//        // Arc cost due to penalty of soft lower bound of the corresponding
-//        // shift
-//        bCost += std::max(0, consShiftsLbs_.at(indSuccessorShift) - d - 1)
-//            * consShiftsLbCosts_.at(indSuccessorShift);
-//
-//        // Arc cost due to penalty of soft lower bound of the initial
-//        // shift
-//        bCost += consShiftsLbCosts_.at(pShiftIni->id) *
-//           std::max(0, (consShiftsLbs_.at(pShiftIni->id)-initialConsumption));
-//
-//        // The new arc is added to the rcGraph with its corresponding costs
-//        PRCArc pArc =
-//            pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
-//      }
-//    }
-//  }
+/*  // Recovery of the last shift performed by the current nurse (It can be a
+  // worked shift or a rest shift). This is the 'initial Shift'.
+  State* initialState = this->pLiveNurse_->pStateIni_;
+  PShift pShiftIni = pScenario_->pShifts_[initialState->shift_];
+
+  // Recovery of the number of times the last shift was completed by the
+  // current nurse (It's either a worked shift or a rest shift). This value
+  // is stored in the variable 'initialConsumption'.
+  int initialConsumption(0);
+  if (pShiftIni->isRest())
+    initialConsumption = initialState->consDaysOff_;
+  else if (pShiftIni->isWork())
+    initialConsumption = initialState->consShifts_;
+
+  // All following arcs added will have the source node as their origin
+  PRCNode pOrigin = pRCGraph->pSource();
+  // Iterate through all the possible successor shifts of the initial shift
+  for (auto indSuccessorShift : pShiftIni->successors) {
+    // The successor shift is either of the same type as the initial shift or
+    // of a different type. The two cases are treated separately in order to
+    // take account the initial consumption of the last shift performed.
+    if (indSuccessorShift == pShiftIni->id) {
+      for (int d{1}; d <= consShiftsUbs_.at(pShiftIni->id) -
+          initialConsumption - 1 && d < pScenario_->nbDays() ; d++) {
+        // Target node of the arc that will be added
+        PRCNode pTarget = pNodesPerDayShift_[d][indSuccessorShift];
+
+        // Creation of the stretch of the arc that will be added
+        vector<PShift> vecShift(d+1, nullptr);
+        for (size_t i = 0; i < d+1; i++)
+          vecShift.at(i) = std::make_shared<Shift>(*pTarget->pAShift);
+        Stretch stretch(vecShift, 0);
+
+        // Recovery of the base cost of the arc stretch (taking account the
+        // previous shift)
+        double bCost = baseCost(stretch, pOrigin->pAShift);
+
+        // Arc cost due to penalty of soft lower bound of the corresponding
+        // shift (this initial shift)
+        bCost += consShiftsLbCosts_.at(pShiftIni->id) *
+            std::max(0, consShiftsLbs_.at(pShiftIni->id) -
+                initialConsumption - 1 - d);
+
+        // The new arc is added to the rcGraph with its corresponding costs
+        PRCArc pArc =
+            pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
+      }
+    } else {
+      for (int d{1}; d <= consShiftsUbs_.at(indSuccessorShift)-1 && d <
+          pScenario_->nbDays(); d++) {
+        // Target node of the arc that will be added
+        PRCNode pTarget = pNodesPerDayShift_[d][indSuccessorShift];
+
+        // Creation of the stretch of the arc that will be added
+        vector<PShift> vecShift(d+1, nullptr);
+        for (size_t i = 0; i < d+1; i++)
+          vecShift.at(i) = std::make_shared<Shift>(*pTarget->pAShift);
+        Stretch stretch(vecShift, 0);
+
+        // Recovery of the base cost of the arc stretch (taking account the
+        // previous shift)
+       double bCost = baseCost(stretch, pOrigin->pAShift);
+
+        // Arc cost due to penalty of soft lower bound of the corresponding
+        // shift
+        bCost += std::max(0, consShiftsLbs_.at(indSuccessorShift) - d - 1)
+            * consShiftsLbCosts_.at(indSuccessorShift);
+
+        // Arc cost due to penalty of soft lower bound of the initial
+        // shift
+        bCost += consShiftsLbCosts_.at(pShiftIni->id) *
+           std::max(0, (consShiftsLbs_.at(pShiftIni->id)-initialConsumption));
+
+        // The new arc is added to the rcGraph with its corresponding costs
+        PRCArc pArc =
+            pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
+      }
+    }
+  }*/
 }
 
 void RosterSP::enumerateConsShiftType(RCGraph *pRCGraph,
