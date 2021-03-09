@@ -155,7 +155,7 @@ bool BoundedResource::dominates(const PRCLabel &pL1,
 bool SoftBoundedResource::dominates(const PRCLabel &pL1,
                                     const PRCLabel &pL2,
                                     double *cost) {
-  if (useDefaultDomination_)
+  if (id_ == 3) // (useDefaultDomination_)
     return BoundedResource::dominates(pL1, pL2, cost);
 
   double ubDiff = pL1->getWorstUbCost(id_) - pL2->getWorstUbCost(id_),

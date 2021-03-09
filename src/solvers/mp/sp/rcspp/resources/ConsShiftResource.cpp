@@ -208,12 +208,12 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
   // DOC: when expanding back, consumption of resource related to the node we
   // are expanding to is not counted. This means that we know that at least
   // one more unit of resource will be consumed when going out of the node.
-  // We can use it to improve the computation of worst-case costs
+  // We can use it to improve the computation of worst-case LB cost
   if (vChild->consumption == nDaysLeft + 1)
     vChild->worstLbCost = 0;
   else
     vChild->worstLbCost =
-        resource_.getWorstLbCost(vChild->consumption);
+        resource_.getWorstLbCost(vChild->consumption+1);
   vChild->worstUbCost =
       resource_.getWorstUbCost(vChild->consumption);
   return true;
