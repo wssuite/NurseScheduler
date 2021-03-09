@@ -45,7 +45,7 @@ class SoftConsWeekendShiftResource : public SoftConsShiftResource {
     return Tools::isWeekend(dayId) && pShift_->includes(aShift);
   }
 
-  double getWorstUbCost(int consumption, int nLeft = 0) const override {
+  double getWorstUbCost(int consumption, int nLeft) const override {
     return ubCost_ * std::min(consumption, ub_);
   }
 

@@ -61,8 +61,11 @@ class SoftConsShiftResource : public SoftBoundedResource {
   // consumption 0, the max that it can reach is nLeft and thus the other will
   // exceed of only std::max(ub_ - consumption - nLeft, 0) which is the default
   // worst case.
+  double getWorstUbCost(int consumption) const override {
+    return SoftBoundedResource::getWorstUbCost(consumption);
+  }
   double getWorstUbCost(int consumption, int nLeft) const override {
-    return std::min(ubCost_ * std::min(consumption, ub_),
+    return std::min(getWorstUbCost(consumption),
                     SoftBoundedResource::getWorstUbCost(consumption, nLeft));
   }
 

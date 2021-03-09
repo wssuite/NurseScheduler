@@ -403,6 +403,10 @@ class SoftBoundedResource : public BoundedResource {
     return getLbCost(consumption);
   }
 
+  virtual double getWorstUbCost(int consumption) const {
+    return ubCost_ * std::min(consumption, ub_);
+  }
+
   virtual double getWorstUbCost(int consumption, int nLeft) const {
     return getUbCost(consumption + nLeft);
   }

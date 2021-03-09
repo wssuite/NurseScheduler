@@ -576,7 +576,7 @@ void MyRCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
 RCSolution MyRCSPPSolver::createSolution(const PRCLabel &finalLabel) {
   // Backtrack from the label
   PRCLabel pL = finalLabel;
-  int firstDay;
+  int firstDay = 0;
   vector<int> shifts;
   while (pL->getPreviousLabel() != nullptr) {
     for (const auto &pS : pL->getInArc()->stretch.pShifts())
@@ -654,10 +654,11 @@ void MyRCSPPSolver::mergeLabels(
 
   for (const auto& pLForward : *pForwardLabels) {
     for (const auto& pLBackward : *pBackwardLabels) {
-      // break if no future merge can yield a negative cost roster
+      // break if no future merge can yield a better negative cost roster
       // TODO(JO): should we adapt break earlier when we have a maximum
       //  number of negative rosters we wish to return?
-      if (pLForward->cost() + pLBackward->cost() > -param_.epsilon_) break;
+      if (pLForward->cost() + pLBackward->cost() >
+      std::min(bestPrimalBound_, 0.0) - param_.epsilon_) break;
       // merge only the labels that are hosted by the same node
       if (pLForward->getNode() != pLBackward->getNode()) continue;
       // merge the two labels
@@ -682,9 +683,11 @@ bool MyRCSPPSolver::merge(const PRCLabel& pLForward,
     }
   }
   // keep only the labels with negative costs
-  if (pLMerged->cost() > -param_.epsilon_) {
+  if (pLMerged->cost() > bestPrimalBound_ -param_.epsilon_) {
     labelPool_.releaseLastLabel();
     return false;
+  } else {
+    bestPrimalBound_ = pLMerged->cost();
   }
   return true;
 }
@@ -705,7 +708,7 @@ std::vector<PRCLabel> MyRCSPPSolver::backwardLabelSetting(
   auto itN = sortedNodes.rbegin();
   for (; itN != sortedNodes.rend(); ++itN) {
     PRCNode pN = *itN;
-    if (pN->type == SOURCE_NODE) break;
+    // if (pN->type == SOURCE_NODE) break;
     if (pN->day < finalDay) break;
 
     // Expand all the labels of the predecessors of the node through the

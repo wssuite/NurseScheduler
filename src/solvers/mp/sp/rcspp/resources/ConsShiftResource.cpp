@@ -197,7 +197,7 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
   if (start) {
     // pay lower bound consumption only if the consecutive shifts did not end
     // at a sink
-    if (vChild->consumption < nDaysLeft + 1)
+    if (vChild->consumption != nDaysLeft + 1)
       pLChild->addCost(resource_.getLbCost(vChild->consumption));
     vChild->consumption = 0;
     vChild->worstLbCost = 0;
@@ -209,10 +209,13 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
   // are expanding to is not counted. This means that we know that at least
   // one more unit of resource will be consumed when going out of the node.
   // We can use it to improve the computation of worst-case costs
-  vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption + 1);
+  if (vChild->consumption == nDaysLeft + 1)
+    vChild->worstLbCost = 0;
+  else
+    vChild->worstLbCost =
+        resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost =
-      resource_.getWorstUbCost(vChild->consumption + 1,
-                               nDaysBefore - 1);
+      resource_.getWorstUbCost(vChild->consumption);
   return true;
 }
 
