@@ -321,7 +321,6 @@ int nWeekendsInInterval(int start, int end) {
   for (int i = start; i <= end; i++) {
     if (isWeekend(i) && !isCounted) {
       ++nWeekends;
-      ++i;
       isCounted = true;
     } else {
       isCounted = false;
