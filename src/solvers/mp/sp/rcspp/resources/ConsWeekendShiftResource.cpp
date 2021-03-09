@@ -27,6 +27,9 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
   // we need to count the number of times the considered shift appears at the
   // beginning of the arc's stretch
 
+  // number of days before the start of the stretch (beware that indices of
+  // days start at 0)
+  int nDaysBefore = stretch.firstDay();
   // Number of days left since the day of the target node of the arc
   int nDaysLeft = totalNbDays_ - (stretch.firstDay() + stretch.nDays());
   bool reset = false;
@@ -103,7 +106,7 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
   // consecutive shifts after replenishment
   return std::make_shared<SoftConsShiftExpander>(
       *this, reset, consBeforeReset, consAfterReset,
-      pArc->target->type == SINK_NODE, nDaysLeft);
+      pArc->target->type == SINK_NODE, nDaysBefore, nDaysLeft);
 }
 
 int HardConsWeekendShiftResource::getConsumption(

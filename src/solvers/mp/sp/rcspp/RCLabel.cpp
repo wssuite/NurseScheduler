@@ -87,6 +87,9 @@ void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
   pNextLabel_ = pLBackward->getNextLabel();
   cost_ = pLForward->cost() + pLBackward->cost();
   resourceValues_ = pLForward->allResourceValues();
+  for (auto& r : resourceValues_) {
+    r.consumption = 0;
+  }
   pNode_ = pLForward->getNode();
   pInArc_ = pLForward->getInArc();
   pOutArc_ = pLBackward->getOutArc();

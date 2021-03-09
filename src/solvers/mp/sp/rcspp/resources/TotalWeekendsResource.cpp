@@ -26,9 +26,8 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   int start = stretch.firstDay()+stretch.nDays(), end = r.totalNbDays()-1;
   int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
 
-  // Computing the number of weekends before and including the first day of the
-  // stretch
-  start = 0, end = stretch.firstDay();
+  // Computing the number of weekends before the first day of the stretch
+  start = 0, end = stretch.firstDay() - 1;
   int nWeekendsBefore = Tools::nWeekendsInInterval(start, end);
 
   return std::make_shared<E>(

@@ -18,6 +18,9 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const R &r) {
   // we only need to count the number of corresponding shift
 
+  // number of days before the start of the stretch (beware that indices of
+  // days start at 0)
+  int nDaysBefore = stretch.firstDay();
   // Number of days left since the day of the target node of the arc
   int nDaysLeft = r.totalNbDays() - (stretch.firstDay() + stretch.nDays());
   int consumption = 0;
@@ -33,7 +36,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
     return nullptr;
 
   return std::make_shared<E>(
-      r, consumption, nDaysLeft, pArc->target->type == SINK_NODE);
+      r, consumption, nDaysBefore, nDaysLeft, pArc->target->type == SINK_NODE);
 }
 
 int SoftTotalShiftDurationResource::getConsumption(
@@ -87,15 +90,6 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
 }
 bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
                                                 ResourceValues *vChild) {
-  if (consumption == 0) {
-    // Setting 'worst case cost'
-    vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
-    vChild->worstUbCost =
-        resource_.getWorstUbCost(vChild->consumption,
-                                 resource_.totalNbDays() - nDaysLeft - 1);
-    return true;
-  }
-
   // update consumption
   vChild->consumption += consumption;
 
@@ -111,8 +105,7 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
   // Setting 'worst case cost'
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost =
-      resource_.getWorstUbCost(vChild->consumption,
-                               resource_.totalNbDays() - nDaysLeft - 1);
+      resource_.getWorstUbCost(vChild->consumption, nDaysBefore);
 
   return true;
 }

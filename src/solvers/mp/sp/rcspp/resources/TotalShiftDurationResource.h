@@ -104,11 +104,13 @@ class HardTotalShiftDurationResource : public HardBoundedResource {
 struct SoftTotalShiftDurationExpander : public Expander {
   SoftTotalShiftDurationExpander(const SoftTotalShiftDurationResource& resource,
                                  int consumption,
+                                 int nDaysBefore,
                                  int nDaysLeft,
                                  bool arcToSink) :
       Expander(resource.id()),
       resource_(resource),
       consumption(consumption),
+      nDaysBefore(nDaysBefore),
       nDaysLeft(nDaysLeft),
       arcToSink_(arcToSink) {}
 
@@ -118,6 +120,7 @@ struct SoftTotalShiftDurationExpander : public Expander {
  protected:
   const SoftTotalShiftDurationResource& resource_;
   int consumption;
+  int nDaysBefore;  // number of days before the start of the stretch
   int nDaysLeft;  // total number of days left after the end of the stretch
   bool arcToSink_;  // true if the target of the arc is a sink node
 };
@@ -125,11 +128,13 @@ struct SoftTotalShiftDurationExpander : public Expander {
 struct HardTotalShiftDurationExpander : public Expander {
   HardTotalShiftDurationExpander(const HardTotalShiftDurationResource& resource,
                                  int consumption,
+                                 int nDaysBefore,
                                  int nDaysLeft,
                                  bool arcToSink) :
       Expander(resource.id()),
       resource_(resource),
       consumption(consumption),
+      nDaysBefore(nDaysBefore),
       nDaysLeft(nDaysLeft),
       arcToSink_(arcToSink) {}
 
@@ -139,6 +144,7 @@ struct HardTotalShiftDurationExpander : public Expander {
  protected:
   const HardTotalShiftDurationResource& resource_;
   int consumption;
+  int nDaysBefore;  // number of days before the start of the stretch
   int nDaysLeft;  // total number of days left after the end of the stretch
   bool arcToSink_;  // true if the target of the arc is a sink node
 };

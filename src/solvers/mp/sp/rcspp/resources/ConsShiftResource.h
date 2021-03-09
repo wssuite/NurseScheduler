@@ -115,12 +115,13 @@ class HardConsShiftResource : public HardBoundedResource {
 struct ConsShiftExpander : public Expander {
   ConsShiftExpander(int rId, bool start, bool reset,
                     int consBeforeReset, int consAfterReset,
-                    bool arcToSink, int nDaysLeft = 0) :
+                    bool arcToSink, int nDaysBefore = 0, int nDaysLeft = 0) :
       Expander(rId), arcToSink(arcToSink),
       start(start),
       reset(reset),
       consBeforeReset(consBeforeReset),
       consAfterReset(consAfterReset),
+      nDaysBefore(nDaysBefore),
       nDaysLeft(nDaysLeft) {}
 
  protected:
@@ -129,6 +130,7 @@ struct ConsShiftExpander : public Expander {
   bool reset;  // true if resource is reset on the arc
   int consBeforeReset;  // resource consumption before resetting the arc
   int consAfterReset;  // resource consumption after resetting the arc
+  int nDaysBefore;  // number of days before the start of the stretch
   int nDaysLeft;  // total number of days left after the end of the stretch
 };
 
@@ -139,6 +141,7 @@ struct SoftConsShiftExpander : public ConsShiftExpander {
                         int consBeforeReset,
                         int consAfterReset,
                         bool arcToSink,
+                        int nDaysBefore = 0,
                         int nDaysLeft = 0):
       ConsShiftExpander(resource.id(),
                         start,
@@ -146,6 +149,7 @@ struct SoftConsShiftExpander : public ConsShiftExpander {
                         consBeforeReset,
                         consAfterReset,
                         arcToSink,
+                        nDaysBefore,
                         nDaysLeft),
       resource_(resource) {}
 
@@ -163,12 +167,16 @@ struct HardConsShiftExpander : public ConsShiftExpander {
                         bool reset,
                         int consBeforeReset,
                         int consAfterReset,
+                        bool arcToSink,
+                        int nDaysBefore = 0,
                         int nDaysLeft = 0):
       ConsShiftExpander(resource.id(),
                         start,
                         reset,
                         consBeforeReset,
                         consAfterReset,
+                        arcToSink,
+                        nDaysBefore,
                         nDaysLeft),
       resource_(resource) {}
 

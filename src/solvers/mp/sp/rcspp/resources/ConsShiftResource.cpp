@@ -27,6 +27,9 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
   // we need to count the number of times the considered shift appears at the
   // beginning of the arc's stretch
 
+  // number of days before the start of the stretch (beware that indices of
+  // days start at 0)
+  int nDaysBefore = stretch.firstDay();
   // Number of days left since the day of the target node of the arc
   int nDaysLeft = totalNbDays_ - (stretch.firstDay() + stretch.nDays());
   bool reset = false;
@@ -90,7 +93,7 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
   // consecutive shifts after replenishment
   return std::make_shared<SoftConsShiftExpander>(
       *this, start, reset, consBeforeReset, consAfterReset,
-      pArc->target->type == SINK_NODE, nDaysLeft);
+      pArc->target->type == SINK_NODE, nDaysBefore, nDaysLeft);
 }
 bool SoftConsShiftResource::merge(const ResourceValues &vForward,
                                   const ResourceValues &vBack,
@@ -151,14 +154,17 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
   return true;
 }
 
-// TODO(JO): forgot to nullify violations due to LB on consecutive shifts
-//  when they end at the sink
-// TODO(JO): beware of which resource will be active for domination
 bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
                                        ResourceValues *vChild) {
   if (!reset) {
     // consumption is in consBeforeReset if there is no reset
     vChild->consumption += consBeforeReset;
+    // reset worst-case costs and return if no consumption
+    if (vChild->consumption == 0) {
+      vChild->worstLbCost = 0;
+      vChild->worstUbCost = 0;
+      return true;
+    }
   } else {
     // when going backwards, we first add the consumption after the reset
     vChild->consumption += consAfterReset;
@@ -194,6 +200,9 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
     if (vChild->consumption < nDaysLeft + 1)
       pLChild->addCost(resource_.getLbCost(vChild->consumption));
     vChild->consumption = 0;
+    vChild->worstLbCost = 0;
+    vChild->worstUbCost = 0;
+    return true;
   }
 
   // DOC: when expanding back, consumption of resource related to the node we
@@ -203,7 +212,7 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption + 1);
   vChild->worstUbCost =
       resource_.getWorstUbCost(vChild->consumption + 1,
-                               resource_.getTotalNbDays() - nDaysLeft - 1);
+                               nDaysBefore - 1);
   return true;
 }
 
@@ -225,7 +234,6 @@ PExpander HardConsShiftResource::init(const AbstractShift &prevAShift,
   bool reset = false;
   int consBeforeReset = 0;
   int consAfterReset = 0;
-  double cost = 0;
 
   auto itShift = stretch.pShifts().begin();
   for (; itShift != stretch.pShifts().end(); itShift++) {
@@ -266,7 +274,8 @@ PExpander HardConsShiftResource::init(const AbstractShift &prevAShift,
   // if the stretch ends with the considered, we get a non-zero number of
   // consecutive shifts after replenishment
   return std::make_shared<HardConsShiftExpander>(
-      *this, start, reset, consBeforeReset, consAfterReset, cost);
+      *this, start, reset, consBeforeReset, consAfterReset,
+      pArc->target->type == SINK_NODE);
 }
 bool HardConsShiftResource::merge(const ResourceValues &vForward,
                                   const ResourceValues &vBack,
@@ -304,6 +313,7 @@ bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
       // detect infeasibility due to upper bound
       if (vChild->consumption > resource_.getUb()) return false;
       // expansion is infeasible if consumption lower than bound at reset
+      // check lower bound only if the consecutive shifts did not end at a sink
       if (vChild->consumption < nDaysLeft + 1)
         if (vChild->consumption < resource_.getLb()) return false;
     }

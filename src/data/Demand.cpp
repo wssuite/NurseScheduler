@@ -211,13 +211,13 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
   // generate the number of perturbations
   int nbPerturb = Tools::randomInt(minPerturb, maxPerturb);
   int valPerturb = (nbPerturb >= 0) ? 1 : -1;
-  nbPerturb = fabs(nbPerturb);
+  nbPerturb = std::abs(nbPerturb);
 
   // preprocess the demand to find the highest demand per skill
   if (!isPreprocessed_) this->preprocessDemand();
 
   int coTrials = 0;  // used to avoid infinite loop
-  for (int i = 0; i < fabs(nbPerturb); i++) {
+  for (int i = 0; i < std::abs(nbPerturb); i++) {
     // draw the particular shift whose demand should be perturbed
     // select only a demand that is below the highest demand of the week for
     // this shift if demand should be added (this constraint is added to avoid

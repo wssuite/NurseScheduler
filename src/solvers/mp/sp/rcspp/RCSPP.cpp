@@ -580,7 +580,7 @@ RCSolution MyRCSPPSolver::createSolution(const PRCLabel &finalLabel) {
   vector<int> shifts;
   while (pL->getPreviousLabel() != nullptr) {
     for (const auto &pS : pL->getInArc()->stretch.pShifts())
-      shifts.insert(shifts.begin(), pS->type);
+      shifts.insert(shifts.begin(), pS->id);
     if (pL->getNode()->day >= 0)
       firstDay = pL->getNode()->day;
     pL = pL->getPreviousLabel();
@@ -589,7 +589,7 @@ RCSolution MyRCSPPSolver::createSolution(const PRCLabel &finalLabel) {
   pL = finalLabel;
   while (pL->getNextLabel() != nullptr) {
     for (const auto &pS : pL->getOutArc()->stretch.pShifts())
-      shifts.push_back(pS->type);
+      shifts.push_back(pS->id);
     pL = pL->getNextLabel();
   }
 
@@ -675,7 +675,7 @@ bool MyRCSPPSolver::merge(const PRCLabel& pLForward,
   for (const auto &pR : pRcGraph_->pResources()) {
     ResourceValues &vForward = pLForward->getResourceValues(pR->id());
     ResourceValues &vBackward = pLBackward->getResourceValues(pR->id());
-    ResourceValues &vMerged = pLBackward->getResourceValues(pR->id());
+    ResourceValues &vMerged = pLMerged->getResourceValues(pR->id());
     if (!pR->merge(vForward, vBackward, &vMerged, pLMerged)) {
       labelPool_.releaseLastLabel();
       return false;

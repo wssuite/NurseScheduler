@@ -259,7 +259,7 @@ double ScoreVarBestExpectedLBImprovement::score(
   }
 
   // return the worst (closest to 0)
-  return std::min(abs(floorCost), abs(ceilCost));
+  return std::min(std::fabs(floorCost), std::fabs(ceilCost));
 }
 
 /* Constructs the branching rule object. */
