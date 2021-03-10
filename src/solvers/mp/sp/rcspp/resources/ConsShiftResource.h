@@ -109,6 +109,10 @@ class HardConsShiftResource : public HardBoundedResource {
                  const PRCArc &pArc) override;
 
   const PAbstractShift pShift_;
+  // TODO(JO): use this member to initialize expanders and improve the worst
+  //  case UB costs in back-expansions
+  int initialConsumption_ = 0;  // consumption of the resource in the initial
+  // state
 };
 
 /*

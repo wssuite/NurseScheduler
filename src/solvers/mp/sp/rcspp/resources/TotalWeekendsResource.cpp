@@ -90,9 +90,8 @@ bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
   // Setting 'worst case cost'
   // if the resource is not ready to be consumed, it means that the current
   // weekend must not be counted in the potentially remaining weekends
-  vChild->worstUbCost = resource_.getWorstUbCost(
-      vChild->consumption,
-      nWeekendsAfter_ - (vChild->readyToConsume ? 0 : 1));
+  vChild->worstUbCost =
+      resource_.getWorstUbCost(vChild->consumption, nWeekendsAfter_);
 
   return true;
 }
@@ -130,17 +129,8 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
   // Setting worst-case costs
   // if the resource is not ready to be consumed, it means that the current
   // weekend must not be counted in the potentially remaining weekends
-  // TODO(AL): the last error is here, I had to comment the part where I
-  //  withdraw 1 to the worst-case cost when the shift is work on a sunday to
-  //  show that working on the saturday cannot increase the consumption value
-  //  I honestly don't see why this was an error.............................
-  //  OK I think I understood, it can be a problem if the saturday node is a
-  //  rest node and if on the saturday node we compare this label with a
-  //  label that rested on saturday and sunday. So I should add something
-  //  about that in the init function.
-  vChild->worstUbCost = resource_.getWorstUbCost(
-      vChild->consumption, nWeekendsBefore_);  // - (vChild->readyToConsume ?
-      // 0:1));
+  vChild->worstUbCost =
+      resource_.getWorstUbCost(vChild->consumption, nWeekendsBefore_);
 
   return true;
 }
