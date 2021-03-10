@@ -238,14 +238,12 @@ void LiveNurse::checkConstraints(const Roster &roster,
 
     // Check the forbidden successor constraint
     //
-    int lastShiftType =
-        states[day].shiftType_;   // last shift assigned to the nurse
+    int lastShift =
+        states[day].shift_;   // last shift assigned to the nurse
     int thisShift = roster.shift(day);    // shift assigned on this day
 
     stat->violSuccShifts_[day] =
-        pScenario_->isForbiddenSuccessorShift_ShiftType(
-            thisShift,
-            lastShiftType);
+        pScenario_->isForbiddenSuccessorShift_Shift(thisShift, lastShift);
   }
 
   // check the soft constraints and record the costs of the violations and the
@@ -1452,6 +1450,13 @@ double Solver::computeFractionalWeekendPenalty() {
 // get the total cost of the current solution
 // the solution is simply given by the roster of each nurse
 double Solver::computeSolutionCost(int nbDays) {
+  if (!useDefaultResources()) {
+    std::cout << "WARNING: computeSolutionCost() works only with the default "
+                 "resources. Instead, the direct cost soluyion will be used."
+              << std::endl;
+    return solutionCost_;
+  }
+
   double totalCost = 0.0;
   int nbNurses = pScenario_->nbNurses_;
   int nbShifts = pScenario_->nbShifts_, nbSkills = pScenario_->nbSkills_;
@@ -1706,31 +1711,40 @@ string Solver::solutionToLogString() {
   int nbNurses = pScenario_->nbNurses_, nbShifts = pScenario_->nbShifts_;
   int nbSkills = pScenario_->nbSkills_;
   int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nDays_;
-
+  int name_w = 10, shift_w = 2;
   rep << "Complete shift schedule" << std::endl << std::endl;
-  rep << "\t\t\t";
+  rep << std::setw(name_w) << "";
   for (int day = firstDay; day < firstDay + nbDays; day++) {
-    rep << "| " << Tools::intToDay(day).at(0) << " ";
+    rep << " | " << std::setw(shift_w) << Tools::intToDay(day).at(0);
+    if (day < firstDay+nbDays-1 && Tools::isSunday(day)) rep << " |";
   }
-  rep << "|" << std::endl;
-  rep << "-------------------------------------" << std::endl;
+  rep << " |" << std::endl;
+
+  int sep_w = name_w+1 + (shift_w+3)*nbDays + 2*(nbDays/7) + 1;
+  string sep(sep_w, '=');
+  rep << sep << std::endl;
 
   for (int n = 0; n < nbNurses; n++) {
     PLiveNurse pNurse = theLiveNurses_[n];
-    rep << pNurse->name_ << "\t";
+    rep << std::setw(name_w) << pNurse->name_;
     for (int day = firstDay; day < firstDay + nbDays; day++) {
       int shift = pNurse->roster_.shift(day);
       if (shift != 0) {
-        rep << "| " << pScenario_->intToShift_[shift].at(0) << " ";
+        rep << " | " << std::setw(shift_w)
+            << pScenario_->intToShift_[shift].substr(0, shift_w);
       } else {
-        rep << "| - ";
+        rep << " | " << string(shift_w, '-');
       }
 
-      if (Tools::isSunday(day)) rep << "| ";
+      if (day < firstDay+nbDays-1 && Tools::isSunday(day)) rep << " |";
     }
-    rep << "|" << std::endl;
+    rep << " |" << std::endl;
   }
   rep << std::endl;
+
+  // if not using, default resources, the following costs doesn't mean anything
+  if (!useDefaultResources())
+    return rep.str();
 
   // compute the total cost and in the mean time update the structures of each
   // live nurse that contains all the required information on soft and hard

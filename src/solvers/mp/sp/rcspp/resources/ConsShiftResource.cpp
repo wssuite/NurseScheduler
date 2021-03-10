@@ -31,7 +31,7 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
   // days start at 0)
   int nDaysBefore = stretch.firstDay();
   // Number of days left since the day of the target node of the arc
-  int nDaysLeft = totalNbDays_ - (stretch.firstDay() + stretch.nDays());
+  int nDaysLeft = totalNbDays_ - stretch.lastDay() - 1;
   bool reset = false;
   int consBeforeReset = 0;
   int consAfterReset = 0;
@@ -130,6 +130,13 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
         resource_.getWorstUbCost(vChild->consumption, nDaysLeft);
     return true;
   }
+
+#ifdef DBG
+  // It could never be equal to 0, as there is at least 1 consumption for the
+  // shift of the current node
+  if (vChild->consumption  == 0)
+    Tools::throwError("The resource value is 0 when it should be > 0.");
+#endif
 
   // pay for violations of soft bounds when resetting a resource
   pLChild->addCost(resource_.getLbCost(vChild->consumption));
@@ -299,13 +306,21 @@ bool HardConsShiftExpander::expand(const PRCLabel &pLChild,
 
   // if resetting counter
   if (reset) {
+#ifdef DBG
+    // It could never be equal to 0, as there is at least 1 consumption for the
+    // shift of the current node
+    if (vChild->consumption  == 0)
+      Tools::throwError("The resource value is 0 when it should be > 0.");
+#endif
     // expansion is infeasible if consumption lower than bound at reset
-    if (vChild->consumption < resource_.getLb()) return false;
+    if (vChild->consumption < resource_.getLb())
+      return false;
     // set new consumption to what is consumed after resetting
     vChild->consumption = consAfterReset;
   }
   return true;
 }
+
 bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
                                        ResourceValues *vChild) {
   // if resetting counter

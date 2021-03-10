@@ -28,12 +28,6 @@
 #include "solvers/mp/modeler/Modeler.h"
 #include "OsiSolverInterface.hpp"
 
-enum CostType {
-  ROTATION_COST, CONS_SHIFTS_COST, CONS_WORK_COST,
-  COMPLETE_WEEKEND_COST, PREFERENCE_COST, CONS_REST_COST,
-  DAYS_COST, WEEKEND_COST
-};
-
 //---------------------------------------------------------------------------
 //
 // C l a s s   R C S o l u t i o n
@@ -270,6 +264,9 @@ struct Pattern {
 
   // Compare rotations on dual cost
   static bool compareDualCost(PPattern pat1, PPattern pat2);
+
+ protected:
+  PRCLabel pL_ = nullptr;
 };
 
 //-----------------------------------------------------------------------------
@@ -312,13 +309,39 @@ class MasterProblem : public Solver, public PrintSolution {
   // retrieve the object represented ny the  vector pattern
   virtual PPattern getPattern(MyVar *var) const = 0;
 
-  // define the resources used for the sub problem
-  std::vector<PResource> createResources(const PLiveNurse &pN) const {
-    return createResources(pN, nullptr);
+  // create the resources used for the sub problem
+  std::vector<PResource> createPResources(const PLiveNurse &pN) const {
+    return pResources(generatePResources(pN));
   }
-  virtual std::vector<PResource>
-  createResources(const PLiveNurse &pN,
-                  std::map<int, CostType> *resourceCostType) const = 0;
+
+  // create resources and the map that associates a PRessource to its cost type
+  virtual std::map<PResource, CostType>
+  generatePResources(const PLiveNurse &pN) const {
+    // if defined, do not use the default function
+    if (generatePResourcesFunc_) return generatePResourcesFunc_(pN);
+    return defaultgeneratePResources(pN);
+  }
+
+  // set the function to override
+  // the default resource generation function defaultgeneratePResources
+  void setGeneratePResourcesFunction(
+      const std::function<std::map<PResource, CostType>(
+          const PLiveNurse &)> &f) {
+    generatePResourcesFunc_ = f;
+  }
+
+  // create a vector of resources with the resource indices pointing
+  // to their position in the vector
+  std::vector<PResource> pResources(
+      const std::map<PResource, CostType> &mResources) const {
+    std::vector<PResource> pResources;
+    pResources.reserve(mResources.size());
+    for (const auto &p : mResources) {
+      p.first->setId(pResources.size());
+      pResources.push_back(p.first);
+    }
+    return pResources;
+  }
 
   // throw an error if pattern is already present as an active column
   void checkIfPatternAlreadyPresent(const std::vector<double> &pattern) const;
@@ -446,6 +469,10 @@ class MasterProblem : public Solver, public PrintSolution {
   MyBranchingRule *pRule_;  // choose the variables on which we should branch
   SolverType solverType_;  // which solver is used
   bool lagrangianBoundAvail_ = false;
+
+  // Functions to generate the default resources for a given nurse
+  virtual std::map<PResource, CostType>
+  defaultgeneratePResources(const PLiveNurse &pN) const = 0;
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //

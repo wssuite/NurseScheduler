@@ -86,11 +86,8 @@ class SoftConsShiftResource : public SoftBoundedResource {
 class HardConsShiftResource : public HardBoundedResource {
  public:
   HardConsShiftResource(
-      int lb, int ub, const PAbstractShift pShift, std::string _name = "") :
-      HardBoundedResource(_name.empty() ?
-                          "Hard Cons "+pShift->name : std::move(_name),
-                          lb,
-                          ub),
+      int lb, int ub, const PAbstractShift pShift) :
+      HardBoundedResource("Hard Cons "+pShift->name, lb, ub),
       pShift_(pShift) {}
 
   int getConsumption(const State &initialState) const override;

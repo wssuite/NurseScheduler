@@ -1556,6 +1556,16 @@ class Modeler {
     return true;
   }
 
+  void printInfeasibleVars() const {
+    for (MyVar *var : feasibilityCoreVars_) {
+      double v = getVarValue(var);
+      if (v > epsilon() || v < -epsilon()) {
+        std::cout << var->name_ << ": "
+                  << std::setprecision(3) << v << std::endl;
+      }
+    }
+  }
+
   int getVerbosity() const { return verbosity_; }
 
   virtual void setBestUB(double ub) { pTree_->setBestUB(ub); }

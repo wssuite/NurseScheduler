@@ -131,9 +131,8 @@ void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
                                     const State &initialState) {
   // reset costs
   costs_.clear();
-  for (int t=CONS_SHIFTS_COST; t <= WEEKEND_COST; t++)
+  for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
     costs_[(CostType)t] = 0;
-  std::map<int, CostType> resourceCostType;
   // create origin, destination and arc
   PRCNode pSource = std::make_shared<RCNode>(
       0, SOURCE_NODE, firstDay(), initialState.pShift_),
@@ -142,23 +141,27 @@ void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
   PRCArc pArc = std::make_shared<RCArc>(
       0, pSource, pSink, stretch_, 0, TO_SINK);
   // create resources
-  auto resources = pMaster->createResources(pMaster->liveNurses()[nurseNum_],
-                                            &resourceCostType);
+  // map that associates a PRessource to its cost type
+  auto mResources =
+      pMaster->generatePResources(pMaster->liveNurses()[nurseNum_]);
+  // create a vector of resources with the resource indices pointing
+  // to their position in the vector
+  auto pResources = pMaster->pResources(mResources);
   // create expander for stretch
   double c = pArc->cost;
-  for (const auto &pR : resources) {
+  for (const auto &pR : pResources) {
     pR->initialize(*pSource->pAShift, stretch_, pArc);
-    addCost(pArc->cost-c, resourceCostType[pR->id()]);
+    addCost(pArc->cost-c, mResources[pR]);
     c = pArc->cost;
   }
   // expand
-  PRCLabel pL = std::make_shared<RCLabel>(resources, initialState);
-  c = pL->cost();
+  pL_ = std::make_shared<RCLabel>(pResources, initialState);
+  c = pL_->cost();
   for (const auto &pE : pArc->expanders) {
-    ResourceValues &v = pL->getResourceValues(pE->resourceId);
-    pE->expand(pL, &v);
-    addCost(pL->cost()-c, resourceCostType[pE->resourceId]);
-    c = pL->cost();
+    ResourceValues &v = pL_->getResourceValues(pE->resourceId);
+    pE->expand(pL_, &v);
+    addCost(pL_->cost()-c, mResources[pResources[pE->resourceId]]);
+    c = pL_->cost();
   }
 }
 
@@ -175,9 +178,9 @@ std::string Pattern::costsToString() const {
   rep << "#       | Preferences         : "
       << costs_.at(PREFERENCE_COST) << std::endl;
   rep << "#       | Worked days         : "
-      << costs_.at(DAYS_COST) << std::endl;
+      << costs_.at(TOTAL_WORK_COST) << std::endl;
   rep << "#       | Worked weekend  : "
-      << costs_.at(WEEKEND_COST) << std::endl;
+      << costs_.at(TOTAL_WEEKEND_COST) << std::endl;
   return rep.str();
 }
 
@@ -687,6 +690,9 @@ void MasterProblem::storeSolution() {
     pNurse->buildStates();
     solution_.push_back(pNurse->roster_);
   }
+
+  // set the corresponding cost
+  solutionCost_ = pModel_->getBestUB();
 }
 
 //------------------------------------------------------------------------------

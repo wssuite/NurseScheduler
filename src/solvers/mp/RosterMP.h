@@ -73,10 +73,15 @@ struct RosterPattern : Pattern {
   void computeCost(const MasterProblem *pMaster,
       const PLiveNurse &pNurse) override;
 
+  // direct computation of the cost without the resources when using the
+  // default version of the resources.
+  // Verify that the same cost is indeed found
+  void checkDefaultCost(const MasterProblem *pMaster,
+                        const PLiveNurse &pNurse) const;
+
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem
-  void checkReducedCost(
-      const PDualCosts &costs, PScenario Scenario, bool printBadPricing = true);
+  void checkReducedCost(const PDualCosts &costs, bool printBadPricing = true);
 
   // Returns true if both columns are disjoint (needRest not used)
   bool isDisjointWith(PPattern pat, bool needRest = true) const override {
@@ -123,11 +128,6 @@ class RosterMP : public MasterProblem {
   PPattern getPattern(MyVar *var) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
-
-  // define the resources used for the sub problem
-  std::vector<PResource> createResources(
-      const PLiveNurse &pN,
-      std::map<int, CostType> *resourceCostType) const override;
 
   // get a reference to the restsPerDay_ for a Nurse
   std::vector<MyVar *> getRestVarsPerDay(PLiveNurse pNurse,
@@ -176,6 +176,10 @@ class RosterMP : public MasterProblem {
 
   /* retrieve the dual values */
   double getConstantDualvalue(PLiveNurse pNurse) const override;
+
+  // Functions to generate the resources for a given nurse
+  std::map<PResource, CostType>
+  defaultgeneratePResources(const PLiveNurse &pN) const override;
 
   /*
   * Constraints

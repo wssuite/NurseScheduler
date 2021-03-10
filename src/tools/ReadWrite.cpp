@@ -79,10 +79,10 @@ PScenario ReadWrite::readScenario(string fileName) {
       nbContracts = -1, nbNurses = -1;
   vector<string> intToSkill, intToShift, intToShiftType, intToContract;
   map<string, int> skillToInt, shiftToInt, shiftTypeToInt, nurseNameToInt;
-  vector<int> minConsShiftType, maxConsShiftType, nbForbiddenSuccessors,
-      hoursInShift, shiftIDToShiftTypeID;
+  vector<int> minConsShiftType, maxConsShiftType, hoursInShift,
+      shiftIDToShiftTypeID, nbForbidShiftSucc;
   vector2D<int> shiftTypeIDToShiftID;
-  vector2D<int> forbiddenSuccessors;
+  vector2D<int> forbiddenShiftTypeSuccessors, forbiddenShiftSuccessors;
   vector<PShift> pShifts;
   map<string, PConstContract> contracts;
   vector<PNurse> theNurses;
@@ -147,16 +147,11 @@ PScenario ReadWrite::readScenario(string fileName) {
         Tools::readUntilChar(&file, '\n', &strTmp);
       }
 
-
-      // Forbidden successions
-      //
-      for (int i = 0; i < nbShiftsType; i++) {
-        vector<int> v;
-        forbiddenSuccessors.push_back(v);
-        nbForbiddenSuccessors.push_back(0);
-      }
       while (!Tools::strEndsWith(title, "FORBIDDEN_SHIFT_TYPES_SUCCESSIONS"))
         file >> title;
+
+      // Forbidden successions
+      forbiddenShiftTypeSuccessors.resize(nbShiftsType);
       // Reading all lines
       for (int i = 1; i < nbShiftsType; i++) {
         // Which current shift type ?
@@ -165,16 +160,15 @@ PScenario ReadWrite::readScenario(string fileName) {
         int currentShiftTypeId = shiftTypeToInt.at(currentShiftType);
         // How many forbidden after it ?
         file >> intTmp;
-        nbForbiddenSuccessors[currentShiftTypeId] = intTmp;
         // Which ones are forbidden ?
-        for (int j = 0; j < nbForbiddenSuccessors[currentShiftTypeId]; j++) {
+        for (int j = 0; j < intTmp; j++) {
           file >> strTmp;
-          forbiddenSuccessors[currentShiftTypeId].push_back(
+          forbiddenShiftTypeSuccessors[currentShiftTypeId].push_back(
               shiftTypeToInt.at(strTmp));
         }
         // make sure the forbidden successors are sorted in increasing order
-        std::sort(forbiddenSuccessors[currentShiftTypeId].begin(),
-                  forbiddenSuccessors[currentShiftTypeId].end());
+        std::sort(forbiddenShiftTypeSuccessors[currentShiftTypeId].begin(),
+                  forbiddenShiftTypeSuccessors[currentShiftTypeId].end());
         // read end of line
         Tools::readUntilChar(&file, '\n', &strTmp);
       }
@@ -216,6 +210,29 @@ PScenario ReadWrite::readScenario(string fileName) {
         int currentShiftTypeId = shiftTypeToInt.at(currentShiftType);
         shiftIDToShiftTypeID.push_back(currentShiftTypeId);
         shiftTypeIDToShiftID[currentShiftTypeId].push_back(i);
+      }
+    }  else if (Tools::strEndsWith(title, "FORBIDDEN_SHIFT_SUCCESSIONS ")) {
+      // Forbidden successions
+      //
+      forbiddenShiftSuccessors.resize(nbShifts);
+      // Reading all lines
+      int n;
+      file >> n;
+      for (int i = 0; i < n; i++) {
+        // Which current shift type ?
+        string currentShift;
+        file >> currentShift;
+        int currentShiftId = shiftToInt.at(currentShift);
+        // How many forbidden after it ?
+        file >> intTmp;
+        // Which ones are forbidden ?
+        for (int j = 0; j < intTmp; j++) {
+          file >> strTmp;
+          forbiddenShiftSuccessors[currentShiftId].push_back(
+              shiftToInt.at(strTmp));
+        }
+        // read end of line
+        Tools::readUntilChar(&file, '\n', &strTmp);
       }
     } else if (Tools::strEndsWith(title, "CONTRACTS ")) {
       // Read the different contracts type
@@ -284,6 +301,9 @@ PScenario ReadWrite::readScenario(string fileName) {
             i, nurseName, nbSkills, skills, contracts.at(contractName)));
         nurseNameToInt.insert(pair<string, int>(nurseName, i));
       }
+    } else if (title[title.size()-1] != '\n') {
+      // if not the end of the file
+      Tools::throwError("Field %s not recognized.", title.c_str());
     }
   }
 
@@ -303,20 +323,34 @@ PScenario ReadWrite::readScenario(string fileName) {
     }
   }
 
+  // Merge forbidden successors from shift type and shift
+  nbForbidShiftSucc.resize(nbShifts);
+  forbiddenShiftSuccessors.resize(nbShifts);
+  for (int i = 1; i < nbShifts; i++) {
+    // add all the shifts corresponding to a forbidden type successor
+    vector<int> &succs = forbiddenShiftSuccessors[i];
+    for (int st : forbiddenShiftTypeSuccessors[shiftIDToShiftTypeID[i]])
+      succs.insert(succs.end(),
+          shiftTypeIDToShiftID[st].begin(), shiftTypeIDToShiftID[st].end());
+    // make sure the forbidden successors are sorted in increasing order
+    std::sort(succs.begin(), succs.end());
+    // remove duplicate if any
+    succs.erase(unique(succs.begin(), succs.end()), succs.end());
+    // set nbForbidShiftSucc
+    nbForbidShiftSucc[i] = succs.size();
+  }
+
   // Create shift structures
   //
   for (int i = 0; i < nbShifts; i++) {
-    string name = intToShift[i];
-    int type = shiftIDToShiftTypeID[i];
     std::vector<int> successorList;
+    vector<int> &f = forbiddenShiftSuccessors[i];
     for (int s = 0; s < nbShifts; ++s) {
-      vector<int> forbidden = forbiddenSuccessors[type];
-      if (find(forbidden.begin(), forbidden.end(), shiftIDToShiftTypeID[s]) ==
-      forbidden.end()) {
+      if (find(f.begin(), f.end(), s) == f.end())
         successorList.push_back(s);
-      }
     }
-    pShifts.emplace_back(std::make_shared<Shift>(name,
+    int type = shiftIDToShiftTypeID[i];
+    pShifts.emplace_back(std::make_shared<Shift>(intToShift[i],
                                                  i,
                                                  type,
                                                  hoursInShift[i],
@@ -348,8 +382,8 @@ PScenario ReadWrite::readScenario(string fileName) {
                                     shiftTypeIDToShiftID,
                                     minConsShiftType,
                                     maxConsShiftType,
-                                    nbForbiddenSuccessors,
-                                    forbiddenSuccessors,
+                                    nbForbidShiftSucc,
+                                    forbiddenShiftSuccessors,
                                     pShifts,
                                     nbContracts,
                                     intToContract,
@@ -592,16 +626,16 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
       // Read each nurse's initial state
       //
       for (int n = 0; n < pScenario->nbNurses_; n++) {
-        string nurseName, shiftTypeName;
+        string nurseName, shiftName;
         // int nurseNum;
-        int shiftTypeId, totalTimeWorked, totalWeekendsWorked, consDaysWorked,
+        int shiftId, totalTimeWorked, totalWeekendsWorked, consDaysWorked,
             consShiftWorked, consRest, consShifts;
         file >> nurseName;
         // nurseNum = pScenario->nurseNameToInt_.at(nurseName);
         file >> totalTimeWorked;
         file >> totalWeekendsWorked;
-        file >> shiftTypeName;
-        shiftTypeId = pScenario->shiftTypeToInt_.at(shiftTypeName);
+        file >> shiftName;
+        shiftId = pScenario->shiftToInt_.at(shiftName);
         file >> consShiftWorked;
         file >> consDaysWorked;
         file >> consRest;
@@ -610,16 +644,15 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
           Tools::throwError("History of nurse %s is invalid as one must "
                             "either work or rest.", nurseName.c_str());
 
-        int shiftID = pScenario->shiftTypeIDToShiftID_[shiftTypeId].front();
-        consShifts = (shiftTypeId == 0) ? consRest : consShiftWorked;
+        consShifts = (shiftId == 0) ? consRest : consShiftWorked;
         State nurseState(0,
                          totalTimeWorked,
                          totalWeekendsWorked,
                          consDaysWorked,
                          consShifts,
                          consRest,
-                         shiftTypeId,
-                         shiftID);
+                         pScenario->shiftIDToShiftTypeID_[shiftId],
+                         shiftId);
         initialState.push_back(nurseState);
       }
     }

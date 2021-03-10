@@ -11,12 +11,12 @@
 
 #include <exception>
 
-#include "solvers/InitializeSolver.h"
+#include "ParseArguments.h"
 #include "tools/Tools.h"
 #include "tools/ReadWrite.h"
+#include "solvers/InitializeSolver.h"
 #include "solvers/Solver.h"
 #include "solvers/DeterministicSolver.h"
-#include "DeterministicMain_test.h"
 
 using std::string;
 using std::vector;
@@ -53,6 +53,7 @@ int solveDeterministic(const InputPaths &inputPaths, double timeout) {
   // Display the solution and write the files for the validator
   //
   std::cout << "# FINAL SOLUTION" << std::endl;
+  std::cout << pSolver->solutionToLogString() << std::endl;
   std::cout << "# Solution status = "
             << statusToString.at(pSolver->status()) << std::endl;
   std::cout << "# Objective value = ";
@@ -63,7 +64,7 @@ int solveDeterministic(const InputPaths &inputPaths, double timeout) {
   else
     std::cout << objValue;
   std::cout << std::endl;
-  pSolver->displaySolutionMultipleWeeks(inputPaths);
+  if (!noSolution) pSolver->displaySolutionMultipleWeeks(inputPaths);
 
   // Write the final statistics
   //
@@ -106,23 +107,9 @@ int main(int argc, char **argv) {
 
   // Retrieve the file names in arguments
   //
-  int narg = 1;
   InputPaths *pInputPaths = 0;
   string solutionFile = "";
   double timeout = 100.0;
-
-  // On se limite à trois arguments pour les tests
-  //
-  if (argc == 3 && !strcmp(argv[1], "--test")) {
-    std::cout << "arg = " << argv[narg] << " " << argv[narg + 1] << std::endl;
-
-    // Procédures de test
-    if (!strcmp(argv[2], "divide")) {
-      testDivideIntoConnectedComponents();
-    }
-
-    return 0;
-  }
 
   // Read the arguments and store them in pInputPaths
   pInputPaths = readArguments(argc, argv);

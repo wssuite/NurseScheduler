@@ -420,7 +420,8 @@ SubProblem *RCPricer::retrieveSubproblem(const PLiveNurse &pNurse,
                                                 pMaster_->pInitialStates());
         else
           subProblem = new RosterSP(pScenario_, nbDays_, pNurse,
-                                    pMaster_->createResources(pNurse), spParam);
+                                    pMaster_->createPResources(pNurse),
+                                    spParam);
         break;
       }
       default:

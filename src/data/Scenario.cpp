@@ -178,6 +178,32 @@ string State::toString() {
 //
 //-----------------------------------------------------------------------------
 
+vector2D<int> forbiddenShiftTypeSuccessors(
+    const vector2D<int> &forbiddenSuccessors,
+    const vector2D<int> &shiftTypeIDToShiftID,
+    const vector<int> &shiftIDToShiftTypeID) {
+  vector2D<int> forbidSuccs(shiftTypeIDToShiftID.size());
+  int nShiftType = shiftTypeIDToShiftID.size();
+  for (int st1 = 0; st1 < nShiftType; st1++)
+    for (int st2 = 0; st2 < nShiftType; st2++) {
+      if (st1 == st2) continue;
+      int nShiftToFound2 = shiftTypeIDToShiftID[st2].size();
+      bool allFound = true;
+      for (int s1 : shiftTypeIDToShiftID[st1]) {
+        int n = 0;
+        for (int s2 : forbiddenSuccessors[s1])
+          n += (shiftIDToShiftTypeID[s2] == st2);
+        if (n != nShiftToFound2) {
+          allFound = false;
+          break;
+        }
+      }
+      if (allFound) forbidSuccs[st1].push_back(st2);
+    }
+  return forbidSuccs;
+}
+
+
 // Constructor and destructor
 //
 Scenario::Scenario(string name,
@@ -232,6 +258,10 @@ Scenario::Scenario(string name,
     maxConsShiftType_(std::move(maxConsShiftType)),
     nbForbiddenSuccessors_(std::move(nbForbiddenSuccessors)),
     forbiddenSuccessors_(std::move(forbiddenSuccessors)),
+    forbiddenShiftTypeSuccessors_(
+        forbiddenShiftTypeSuccessors(forbiddenSuccessors_,
+                                     shiftTypeIDToShiftID_,
+                                     shiftIDToShiftTypeID_)),
     pWeekDemand_(0),
     nbShiftOffRequests_(0),
     nbShiftOnRequests_(0),
@@ -281,6 +311,7 @@ Scenario::Scenario(PScenario pScenario,
     maxConsShiftType_(pScenario->maxConsShiftType_),
     nbForbiddenSuccessors_(pScenario->nbForbiddenSuccessors_),
     forbiddenSuccessors_(pScenario->forbiddenSuccessors_),
+    forbiddenShiftTypeSuccessors_(pScenario->forbiddenShiftTypeSuccessors_),
     pWeekDemand_(nullptr),
     nbShiftOffRequests_(0),
     nbShiftOnRequests_(0),
@@ -325,30 +356,11 @@ void Scenario::setWeekPreferences(PPreferences weekPreferences) {
 bool Scenario::isForbiddenSuccessorShift_Shift(int shNext, int shLast) {
   if (shLast <= 0) return false;
 
-  int shTypeNext = shiftIDToShiftTypeID_[shNext];
-  int shTypeLast = shiftIDToShiftTypeID_[shLast];
+  for (int st : forbiddenSuccessors_[shLast])
+    if (shNext == st)
+      return true;
 
-  return isForbiddenSuccessorShiftType_ShiftType(shTypeNext, shTypeLast);
-}
-
-// return true if the shift shNext is
-// a forbidden successor of shiftType shTypeLast
-bool Scenario::isForbiddenSuccessorShift_ShiftType(int shNext, int shTypeLast) {
-  if (shTypeLast <= 0) return false;
-
-  int shTypeNext = shiftIDToShiftTypeID_[shNext];
-
-  return isForbiddenSuccessorShiftType_ShiftType(shTypeNext, shTypeLast);
-}
-
-// return true if the shiftType shTypeNext is
-// a forbidden successor of shiftType shTypeLast
-bool Scenario::isForbiddenSuccessorShiftType_Shift(int shTypeNext, int shLast) {
-  if (shLast <= 0) return false;
-
-  int shTypeLast = shiftIDToShiftTypeID_[shLast];
-
-  return isForbiddenSuccessorShiftType_ShiftType(shTypeNext, shTypeLast);
+  return false;
 }
 
 // return true if the shiftType shTypeNext is
@@ -357,11 +369,10 @@ bool Scenario::isForbiddenSuccessorShiftType_ShiftType(int shTypeNext,
                                                        int shTypeLast) {
   if (shTypeLast <= 0) return false;
 
-  for (int i = 0; i < nbForbiddenSuccessors_[shTypeLast]; i++) {
-    if (shTypeNext == forbiddenSuccessors_[shTypeLast][i]) {
+  for (int st : forbiddenShiftTypeSuccessors_[shTypeLast])
+    if (shTypeNext == st)
       return true;
-    }
-  }
+
   return false;
 }
 

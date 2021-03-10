@@ -345,11 +345,6 @@ PPattern RotationMP::getPattern(MyVar *var) const {
   return std::make_shared<RotationPattern>(var->getPattern(), pScenario_);
 }
 
-std::vector<PResource> RotationMP::createResources(
-    const PLiveNurse &pN, std::map<int, CostType> *resourceCostType) const {
-  return {};
-}
-
 // build the, possibly fractional, roster corresponding to the solution
 // currently stored in the model
 vector3D<double> RotationMP::fractionalRoster() const {

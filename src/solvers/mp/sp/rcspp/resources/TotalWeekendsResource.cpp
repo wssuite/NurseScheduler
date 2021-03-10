@@ -18,12 +18,11 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const PRCArc &pArc,
                            const R &r) {
   // check if expander is active
-  if (!Tools::nWeekendsInInterval(
-      stretch.firstDay(), stretch.firstDay() + stretch.nDays() - 1))
+  if (!Tools::nWeekendsInInterval(stretch.firstDay(), stretch.lastDay()))
     return nullptr;
 
   // Computing the number of weekends after the last day of the stretch
-  int start = stretch.firstDay()+stretch.nDays(), end = r.totalNbDays()-1;
+  int start = stretch.lastDay()+1, end = r.totalNbDays()-1;
   int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
 
   // Computing the number of weekends before the first day of the stretch
@@ -55,9 +54,7 @@ bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
   // go through the days of the stretch and count the weekends that have not
   // been counted yet
   auto itShift = stretch_.pShifts().begin();
-  for (int i = stretch_.firstDay();
-       i < stretch_.firstDay() + stretch_.nDays();
-       i++, itShift++) {
+  for (int i = stretch_.firstDay(); i <= stretch_.lastDay(); i++, itShift++) {
     // if a weekend
     if (Tools::isWeekend(i)) {
       // check if working on this day and
@@ -102,7 +99,7 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
   // The number of non-working weekends remaining is either given by the
   // number of Saturdays or given by the number of Sundays
   auto itShift = stretch_.pShifts().rbegin();
-  int i = stretch_.firstDay() + stretch_.nDays() - 1;
+  int i = stretch_.lastDay();
   for (; i >= stretch_.firstDay(); i--, itShift++) {
     // if a weekend
     if (Tools::isWeekend(i)) {
@@ -152,9 +149,7 @@ bool HardTotalWeekendsExpander::expand(const PRCLabel &pLChild,
   // go through the days of the stretch and count the weekends that have not
   // been counted yet
   auto itShift = stretch_.pShifts().begin();
-  for (int i = stretch_.firstDay();
-       i < stretch_.firstDay() + stretch_.nDays();
-       i++, itShift++) {
+  for (int i = stretch_.firstDay(); i <= stretch_.lastDay(); i++, itShift++) {
     // if a weekend
     if (Tools::isWeekend(i)) {
       // check if working on this day and
@@ -174,7 +169,7 @@ bool HardTotalWeekendsExpander::expand(const PRCLabel &pLChild,
 
   // if reach the end while remaining lower than LB -> return false
   // otherwise true
-  return !(arcToSink_ && vChild->consumption < resource_.getLb());
+  return vChild->consumption + nWeekendsAfter_ >= resource_.getLb();
 }
 
 bool HardTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
@@ -182,7 +177,7 @@ bool HardTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
   // The number of non-working weekends remaining is either given by the
   // number of Saturdays or given by the number of Sundays
   auto itShift = stretch_.pShifts().rbegin();
-  int i = stretch_.firstDay() + stretch_.nDays() - 1;
+  int i = stretch_.lastDay();
   for (; i >= stretch_.firstDay(); i--, itShift++) {
     // if a weekend
     if (Tools::isWeekend(i)) {

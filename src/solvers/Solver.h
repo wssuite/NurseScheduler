@@ -23,6 +23,9 @@
 #include "data/Nurse.h"
 #include "data/Roster.h"
 #include "data/Scenario.h"
+// TODO(AL): Try to define things differently to avoid this kind of relation
+#include "solvers/mp/sp/rcspp/RCLabel.h"
+
 
 
 //-----------------------------------------------------------------------------
@@ -374,6 +377,23 @@ static const std::map<std::string, RCSPPType> RCSPPTypesByName =
 // enum to define how to search the rc graph when solving
 enum SPSearchStrategy {
   SP_BREADTH_FIRST, SP_DEPTH_FIRST, SP_BEST_FIRST, SP_DOMINANT_FIRST
+};
+
+// Allow to break down the total cost into smaller pieces.
+// It is mainly used for:
+// - Classifying the cost type of a resource or a variable
+// - Retrieving the part of the total cost related to this type
+enum CostType {
+  // parts of the cost depending on a rotation, i.e. the sum of:
+  // CONS_SHIFTS_COST, CONS_WORK_COST, COMPLETE_WEEKEND_COST, PREFERENCE_COST
+  ROTATION_COST,
+  CONS_SHIFTS_COST,  // consecutive shifts constraint
+  CONS_WORK_COST,  // consecutive worked shifts constraint
+  COMPLETE_WEEKEND_COST,  // cost of not working a complete weekend
+  PREFERENCE_COST,  // cost of not respecting nurses' preferences
+  CONS_REST_COST,  // consecutive rest shifts constraint
+  TOTAL_WORK_COST,  // total shifts' duration
+  TOTAL_WEEKEND_COST  // total worked weekends
 };
 
 // Parameters of the subproblem (used in the solve function of the subproblem)
@@ -777,6 +797,7 @@ class Solver {
   // a solution is a vector of rosters, one for each nurse
   // it is recorded in a vector (roster i in the vector corresponds to nurse i)
   //
+  double solutionCost_;
   std::vector<Roster> solution_;
 
   // Objective value of the current solution
@@ -1125,6 +1146,25 @@ class Solver {
   // the weeks separately
   //
   bool displaySolutionMultipleWeeks(const InputPaths &inputPaths);
+
+  // set the function to override
+  // the default resource generation function defaultgeneratePResources
+  // in the master problem
+  void setGeneratePResourcesFunction(
+      const std::function<std::map<PResource, CostType>(
+          const PLiveNurse &)> &f) {
+    generatePResourcesFunc_ = f;
+  }
+
+  bool useDefaultResources() const {
+    return generatePResourcesFunc_ == nullptr;
+  }
+
+ protected:
+  // Functions to generate the resources for a given nurse for the subproblem
+  // if this function is defined, it will override any default function
+  std::function<std::map<PResource, CostType>(const PLiveNurse &)>
+      generatePResourcesFunc_ = nullptr;
 };
 
 #endif  // SRC_SOLVERS_SOLVER_H_

@@ -39,7 +39,7 @@ bool compareDecreasing(int i, int j) { return (i > j); }
 // Throw an exception with the input message
 //
 void throwException(const char *exceptionMsg) {
-  printf("Exception caught: %s\n", exceptionMsg);
+  fprintf(stderr, "Exception caught: %s\n", exceptionMsg);
   throw NSException(exceptionMsg);
 }
 
@@ -48,7 +48,7 @@ void throwException(const std::string &exceptionMsg) {
 }
 
 void throwError(const char *exceptionMsg) {
-  printf("Error caught: %s\n", exceptionMsg);
+  fprintf(stderr, "Error caught: %s\n", exceptionMsg);
   throw exceptionMsg;
 }
 

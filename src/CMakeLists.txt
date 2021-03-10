@@ -2,9 +2,7 @@ add_subdirectory(data)
 add_subdirectory(solvers)
 add_subdirectory(tools)
 
-set(SOURCE_FILES
-        DeterministicMain_test.cpp
-        )
+set(SOURCE_FILES ParseArguments.cpp)
 
 # build the dynamic library
 add_library(${NURSE_SCHEDULER_LIB} SHARED ${SOURCE_FILES})

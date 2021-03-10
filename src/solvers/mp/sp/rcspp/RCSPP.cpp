@@ -592,7 +592,6 @@ RCSolution MyRCSPPSolver::createSolution(const PRCLabel &finalLabel) {
       shifts.push_back(pS->id);
     pL = pL->getNextLabel();
   }
-
   return RCSolution(firstDay, shifts, finalLabel->cost());
 }
 

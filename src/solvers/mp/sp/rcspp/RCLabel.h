@@ -399,6 +399,10 @@ class SoftBoundedResource : public BoundedResource {
     return ubCost_ * (consumption - ub_);
   }
 
+  double getCost(int consumption) const {
+    return getLbCost(consumption) + getUbCost(consumption);
+  }
+
   virtual double getWorstLbCost(int consumption) const {
     return getLbCost(consumption);
   }

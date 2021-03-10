@@ -9,11 +9,12 @@
  * full license detail.
  */
 
-#ifndef SRC_DETERMINISTICMAIN_TEST_H_
-#define SRC_DETERMINISTICMAIN_TEST_H_
+#ifndef SRC_PARSEARGUMENTS_H_
+#define SRC_PARSEARGUMENTS_H_
 
-// Test the result of the method that divides the scenario
-// according to the connected components of positions
-bool testDivideIntoConnectedComponents();
+#include "tools/InputPaths.h"
 
-#endif  // SRC_DETERMINISTICMAIN_TEST_H_
+// Read the arguments in noncompact/compact format
+InputPaths *readArguments(int argc, char **argv);
+
+#endif  // SRC_PARSEARGUMENTS_H_

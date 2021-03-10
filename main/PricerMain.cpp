@@ -80,7 +80,7 @@ float comparePricingToBoost(const MasterProblem *pMaster) {
     // Solve with my solver under development
     SubProblem *mSP =
         new RosterSP(pScenario, pScenario->nbDays(), pNurse,
-                     pMaster->createResources(pNurse), spParam);
+                     pMaster->createPResources(pNurse), spParam);
     mSP->build();
 
     // build random dual costs

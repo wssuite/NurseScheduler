@@ -158,10 +158,6 @@ class RotationMP : public MasterProblem {
 
   PPattern getPattern(MyVar *var) const override;
 
-  std::vector<PResource> createResources(
-      const PLiveNurse &pN,
-      std::map<int, CostType> *resourceCostType) const override;
-
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 
   // get a reference to the restsPerDay_ for a Nurse
@@ -237,6 +233,13 @@ class RotationMP : public MasterProblem {
 
   PDualCosts buildRandomDualCosts(bool optimalDemandConsidered,
                                   int NDaysShifts) const override;
+
+  // Functions to generate the resources for a given nurse
+  std::map<PResource, CostType>
+  defaultgeneratePResources(const PLiveNurse &pN) const override {
+    Tools::throwError("defaultgeneratePResources is not implemented.");
+    return {};
+  }
 
   /*
   * Variables

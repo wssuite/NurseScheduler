@@ -5,7 +5,7 @@ inputs:
   root-path:  # id of input
     description: 'Path to the root of the nurse scheduler project'
     required: true
-    default: '/home/poly/ns'
+    default: '/home/dantzig/ns'
   instance:  # id of input
     description: 'Instance to be solved'
     required: true

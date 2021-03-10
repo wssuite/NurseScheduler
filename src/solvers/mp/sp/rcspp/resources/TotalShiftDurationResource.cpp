@@ -22,7 +22,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   // days start at 0)
   int nDaysBefore = stretch.firstDay();
   // Number of days left since the day of the target node of the arc
-  int nDaysLeft = r.totalNbDays() - (stretch.firstDay() + stretch.nDays());
+  int nDaysLeft = r.totalNbDays() - stretch.lastDay() - 1;
   int consumption = 0;
   for (const auto &pShift : stretch.pShifts())
     if (r.pShift()->includes(*pShift)) {
@@ -54,7 +54,7 @@ PExpander SoftTotalShiftDurationResource::init(const AbstractShift &prevAShift,
 
 bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
                                             ResourceValues *vChild) {
-  if (consumption == 0) {
+  if (consumption == 0 && !arcToSink_) {
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
     vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
@@ -132,9 +132,9 @@ bool HardTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
   if (vChild->consumption  > resource_.getUb())
     return false;
 
-  // if reach the end while remaining lower than LB -> return false
+  // if will reach the end while remaining lower than LB -> return false
   // otherwise true
-  return !(arcToSink_ && vChild->consumption < resource_.getLb());
+  return vChild->consumption + nDaysLeft >= resource_.getLb();
 }
 
 bool HardTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,

@@ -20,9 +20,6 @@
 #include "solvers/DeterministicSolver.h"
 #include "solvers/Solver.h"
 
-// Read the arguments in noncompact/compact format
-InputPaths *readArguments(int argc, char **argv);
-
 // Initialize the week scenario by reading the input files
 PScenario initializeScenario(const InputPaths &inputPaths,
                              std::string logPath = "");

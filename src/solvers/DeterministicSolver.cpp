@@ -17,7 +17,7 @@
 
 #include "solvers/mp/RotationMP.h"
 #include "solvers/mp/RosterMP.h"
-#include "solvers/InitializeSolver.h"
+#include "InitializeSolver.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 
 // #define COMPARE_EVALUATIONS
@@ -153,6 +153,14 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
     completeParameters_.rcspp_type_ = t;
     rollingParameters_.rcspp_type_ = t;
     lnsParameters_.rcspp_type_ = t;
+    if (t == LABEL_SETTING) {
+      completeParameters_.sp_default_strategy_ =
+          SubproblemParam::maxSubproblemStrategyLevel_;
+      rollingParameters_.sp_default_strategy_ =
+          SubproblemParam::maxSubproblemStrategyLevel_;
+      lnsParameters_.sp_default_strategy_ =
+          SubproblemParam::maxSubproblemStrategyLevel_;
+    }
   }
 
   // set the number of threads
@@ -1146,5 +1154,8 @@ Solver *DeterministicSolver::setSolverWithInputAlgorithm(
     default:Tools::throwError("The algorithm is not handled yet");
       break;
   }
+  // override the default function if generatePResourcesFunc_
+  if (generatePResourcesFunc_)
+    pSolver->setGeneratePResourcesFunction(generatePResourcesFunc_);
   return pSolver;
 }

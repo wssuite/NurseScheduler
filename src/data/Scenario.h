@@ -298,7 +298,7 @@ class Scenario {
   // the indices of these forbidden successors
   //
   const std::vector<int> nbForbiddenSuccessors_;
-  const vector2D<int> forbiddenSuccessors_;
+  const vector2D<int> forbiddenSuccessors_, forbiddenShiftTypeSuccessors_;
 
   //------------------------------------------------
   // From the Week data file
@@ -478,8 +478,6 @@ class Scenario {
   // return true if the shift shNext is a forbidden successor of shLast
   //
   bool isForbiddenSuccessorShift_Shift(int shNext, int shLast);
-  bool isForbiddenSuccessorShift_ShiftType(int shNext, int shTypeLast);
-  bool isForbiddenSuccessorShiftType_Shift(int shTypeNext, int shLast);
   bool isForbiddenSuccessorShiftType_ShiftType(int shTypeNext, int shTypeLast);
 
   // update the scenario to treat a new week

@@ -92,8 +92,153 @@ void RosterPattern::computeCost(const MasterProblem *pMaster,
   }
 }
 
+void RosterPattern::checkDefaultCost(const MasterProblem *pMaster,
+                                     const PLiveNurse &pNurse) const {
+  // check if pNurse points to a nurse
+  if (nurseNum_ == -1)
+    Tools::throwError("LiveNurse = NULL");
+
+  /************************************************
+   * Compute all the costs of a roster:
+   ************************************************/
+  PScenario pScenario = pMaster->pScenario();
+
+  // initialize costs
+  double cost = 0;
+
+  /*
+   * Compute initial cost
+   */
+
+  // initial state of the nurse
+  int lastShiftType = pNurse->pStateIni_->shiftType_;
+  int nbConsShifts = pNurse->pStateIni_->consShifts_;
+  int nbConsDaysWorked = pNurse->pStateIni_->consDaysWorked_;
+  int nbConsDaysOff = pNurse->pStateIni_->consDaysOff_;
+
+  // 1. if the initial shift has already exceeded the max,
+  // fix these values to the UB to not pay it twice
+  if (lastShiftType > 0) {  // was working
+    if (nbConsShifts > pScenario->maxConsShiftsOf(lastShiftType))
+      nbConsShifts = pScenario->maxConsShiftsOf(lastShiftType);
+    if (nbConsDaysWorked > pNurse->maxConsDaysWork())
+      nbConsDaysWorked = pNurse->maxConsDaysWork();
+  } else if (nbConsShifts > pNurse->maxConsDaysOff()) {
+    nbConsDaysOff = pNurse->maxConsDaysOff();
+  }
+
+  // 2. compute the cost
+  for (const PShift &pS : stretch_.pShifts()) {
+    // a. same shift type -> increment the counters
+    if (lastShiftType == pS->type) {
+      if (pS->isWork()) {
+        nbConsShifts++;
+        nbConsDaysWorked++;
+      } else {
+        nbConsDaysOff++;
+      }
+      continue;
+    }
+    // b. different shift type -> add the corresponding cost
+    // i) goes to rest
+    if (pS->isRest()) {
+      // compute cost
+      cost += pScenario->consShiftTypeCost(lastShiftType, nbConsShifts);
+      cost += pNurse->consDaysCost(nbConsDaysWorked);
+      // update counters
+      nbConsShifts = 0;
+      nbConsDaysWorked = 0;
+      nbConsDaysOff = 1;
+    } else if (lastShiftType == 0) {
+      // ii) goes to work
+      // compute cost
+      cost += pNurse->consDaysOffCost(nbConsDaysOff);
+      // update counters
+      nbConsDaysOff = 0;
+      nbConsDaysWorked = 1;
+      nbConsShifts = 1;
+    } else {
+      // iii) continue to work on a different shift
+      // compute cost
+      cost += pScenario->consShiftTypeCost(lastShiftType, nbConsShifts);
+      // update counters
+      nbConsShifts = 1;
+      nbConsDaysWorked++;
+    }
+    // update
+    lastShiftType = pS->type;
+  }
+
+  // pay the max for last day
+  if (nbConsDaysOff > pNurse->maxConsDaysOff())
+    cost += pNurse->consDaysOffCost(nbConsDaysOff);
+  if (lastShiftType > 0
+      && nbConsShifts > pScenario->maxConsShiftsOf(lastShiftType))
+    cost += pScenario->consShiftTypeCost(lastShiftType, nbConsShifts);
+  if (nbConsDaysWorked > pNurse->maxConsDaysWork())
+    cost += pNurse->consDaysCost(nbConsDaysWorked);
+
+  /*
+   * Compute preferencesCost
+   */
+
+  for (int k = firstDay(); k <= lastDay(); ++k) {
+    int level = pNurse->wishesOffLevel(k, shift(k));
+    if (level != -1)
+      cost += pScenario->weights().WEIGHT_PREFERENCES_OFF[level];
+    level = pNurse->wishesOnLevel(k, shift(k));
+    if (level != -1)
+      cost += pScenario->weights().WEIGHT_PREFERENCES_ON[level];
+  }
+
+  /*
+   * Compute time duration and complete weekend
+   */
+  int nWeekends = 0;
+  int k = 0;
+  bool rest = false;
+  for (const PShift &pS : stretch_.pShifts()) {
+    if (pS->isWork()) {
+      if (Tools::isSaturday(k)) {
+        nWeekends++;
+      } else if (rest && Tools::isSunday(k)) {
+        nWeekends++;
+        if (pNurse->needCompleteWeekends())
+          cost += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
+      }
+      rest = false;
+    } else {
+      if (pNurse->needCompleteWeekends() && !rest && Tools::isSunday(k))
+        cost += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
+      rest = true;
+    }
+    k++;
+  }
+
+  if (pNurse->minTotalShifts() - duration() > 0)
+    cost += pScenario->weights().WEIGHT_TOTAL_SHIFTS
+        * (pNurse->minTotalShifts() - duration());
+  if (duration() - pNurse->maxTotalShifts() > 0)
+    cost += pScenario->weights().WEIGHT_TOTAL_SHIFTS
+        * (duration() - pNurse->maxTotalShifts());
+  cost += pNurse->totalWeekendCost(nWeekends);
+
+  if (std::abs(cost - cost_) > 1e-3) {
+    std::cerr << "# " << std::endl;
+    std::cerr << "# " << std::endl;
+    std::cerr << "Bad cost: " << cost_ << " != " << cost
+              << std::endl;
+    std::cerr << "# " << std::endl;
+    std::cerr << "#   | Base cost     : + " << cost_ << std::endl;
+    std::cerr << costsToString();
+    std::cerr << toString(pMaster->nDays());
+    std::cerr << "# " << std::endl;
+    Tools::throwError("defaultComputeCost and computeCost do not get "
+                      "the same result for RosterPattern.");
+  }
+}
+
 void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
-                                     PScenario Scenario,
                                      bool printBadPricing) {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
@@ -207,69 +352,57 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
   }
 }
 
-std::vector<PResource> RosterMP::createResources(
-    const PLiveNurse &pN, std::map<int, CostType> *resourceCostType) const {
-  std::vector<PResource> resources;
+std::map<PResource, CostType>
+    RosterMP::defaultgeneratePResources(const PLiveNurse &pN) const {
   PWeights pW = pScenario_->pWeights_;
-  int k = 0;
 
-  // initialize resource on the total number of working days
-  resources.emplace_back(std::make_shared<SoftTotalShiftDurationResource>(
-      pN->minTotalShifts(),
-      pN->maxTotalShifts(),
-      pW->WEIGHT_TOTAL_SHIFTS,
-      pW->WEIGHT_TOTAL_SHIFTS,
-      std::make_shared<AnyWorkShift>(),
-      nDays()));
-  if (resourceCostType) (*resourceCostType)[k] = DAYS_COST;
-  resources.back()->setId(k++);
-
-  // initialize resource on the total number of week-ends
-  resources.emplace_back(std::make_shared<SoftTotalWeekendsResource>(
-      pN->maxTotalWeekends(),
-      pW->WEIGHT_TOTAL_WEEKENDS,
-      nDays()));
-  if (resourceCostType) (*resourceCostType)[k] = WEEKEND_COST;
-  resources.back()->setId(k++);
-
-  // initialize resource on the number of consecutive worked days
-  resources.emplace_back(std::make_shared<SoftConsShiftResource>(
-      pN->minConsDaysWork(),
-      pN->maxConsDaysWork(),
-      pW->WEIGHT_CONS_DAYS_WORK,
-      pW->WEIGHT_CONS_DAYS_WORK,
-      std::make_shared<AnyWorkShift>(),
-      nDays()));
-  if (resourceCostType) (*resourceCostType)[k] = CONS_WORK_COST;
-  resources.back()->setId(k++);
+  std::map<PResource, CostType> mResources = {
+      // initialize resource on the total number of working days
+      {std::make_shared<SoftTotalShiftDurationResource>(
+          pN->minTotalShifts(),
+          pN->maxTotalShifts(),
+          pW->WEIGHT_TOTAL_SHIFTS,
+          pW->WEIGHT_TOTAL_SHIFTS,
+          std::make_shared<AnyWorkShift>(),
+          nDays()), TOTAL_WORK_COST},
+      // initialize resource on the total number of week-ends
+      {std::make_shared<SoftTotalWeekendsResource>(
+          pN->maxTotalWeekends(),
+          pW->WEIGHT_TOTAL_WEEKENDS,
+          nDays()), TOTAL_WEEKEND_COST},
+      // initialize resource on the number of consecutive worked days
+      {std::make_shared<SoftConsShiftResource>(
+          pN->minConsDaysWork(),
+          pN->maxConsDaysWork(),
+          pW->WEIGHT_CONS_DAYS_WORK,
+          pW->WEIGHT_CONS_DAYS_WORK,
+          std::make_shared<AnyWorkShift>(),
+          nDays()), CONS_WORK_COST}
+  };
 
   // initialize resources on the number of consecutive shifts of each type
   for (int st = 0; st < pScenario_->nbShiftsType_; st++) {
     shared_ptr<AbstractShift> absShift =
         std::make_shared<AnyOfTypeShift>(st, pScenario_->intToShiftType_[st]);
-    if (absShift->isWork()) {
-      resources.emplace_back(std::make_shared<SoftConsShiftResource>(
+    if (absShift->isWork())
+      mResources[std::make_shared<SoftConsShiftResource>(
           pScenario_->minConsShiftsOf(st),
           pScenario_->maxConsShiftsOf(st),
           pW->WEIGHT_CONS_SHIFTS,
           pW->WEIGHT_CONS_SHIFTS,
           absShift,
-          nDays()));
-      if (resourceCostType) (*resourceCostType)[k] = CONS_SHIFTS_COST;
-    } else if (absShift->isRest()) {
-      resources.emplace_back(std::make_shared<SoftConsShiftResource>(
+          nDays())] = CONS_SHIFTS_COST;
+    else if (absShift->isRest())
+      mResources[std::make_shared<SoftConsShiftResource>(
           pN->minConsDaysOff(),
           pN->maxConsDaysOff(),
           pW->WEIGHT_CONS_DAYS_WORK,
           pW->WEIGHT_CONS_DAYS_WORK,
           absShift,
-          nDays()));
-      if (resourceCostType) (*resourceCostType)[k] = CONS_REST_COST;
-    }
-    resources.back()->setId(k++);
+          nDays())] = CONS_REST_COST;
   }
 
-  return resources;
+  return mResources;
 }
 
 // Create a new rotation variable
@@ -282,9 +415,11 @@ MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
       solution.shifts, pScenario_, nurseNum, DBL_MAX, solution.cost);
   pat.computeCost(this, theLiveNurses_[nurseNum]);
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
+//  if (useDefaultResources())
+//    pat.checkDefaultCost(this, theLiveNurses_[nurseNum]);
 #ifdef DBG
   PDualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
-  pat.checkReducedCost(costs, pScenario_, pPricer_->isLastRunOptimal());
+  pat.checkReducedCost(costs, pPricer_->isLastRunOptimal());
   std::vector<double> pattern = pat.getCompactPattern();
   checkIfPatternAlreadyPresent(pattern);
 #endif
@@ -411,11 +546,11 @@ double RosterMP::getColumnsCost(CostType costType,
 }
 
 double RosterMP::getDaysCost() const {
-  return getColumnsCost(DAYS_COST);
+  return getColumnsCost(TOTAL_WORK_COST);
 }
 
 double RosterMP::getWeekendCost() const {
-  return getColumnsCost(WEEKEND_COST);
+  return getColumnsCost(TOTAL_WEEKEND_COST);
 }
 
 /* retrieve the dual values */

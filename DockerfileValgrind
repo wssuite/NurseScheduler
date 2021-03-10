@@ -5,16 +5,16 @@ RUN apt-get update; exit 0
 RUN apt-get install -y --force-yes --fix-missing valgrind; exit 0
 
 # create a user
-RUN useradd -ms /bin/bash poly
+RUN useradd -ms /bin/bash dantzig
 
 # Change user
-USER poly
+USER dantzig
 
 # Copy everything
-COPY --chown=poly . /home/poly/ns/
+COPY --chown=dantzig . /home/dantzig/ns/
 
 # Set the working directory
-WORKDIR /home/poly/ns/
+WORKDIR /home/dantzig/ns/
 
 # Compile the nurse scheduler
 RUN echo "set(BCPDIRDBG /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt && \

@@ -18,7 +18,6 @@
 #include "solvers/Solver.h"
 #include "tools/InputPaths.h"
 #include "tools/GlobalStats.h"
-#include "solvers/mp/MasterProblem.h"
 
 enum NursesSelectionOperator {
   NURSES_RANDOM,
@@ -149,6 +148,7 @@ class DeterministicSolver : public Solver {
     rollingParameters_ = pSolver->getRollingParameters();
     lnsParameters_ = pSolver->getLnsParameters();
     completeParameters_ = pSolver->getCompleteParameters();
+    generatePResourcesFunc_ = pSolver->generatePResourcesFunc_;
   }
 
   // Initialize deterministic options with default values
@@ -212,7 +212,6 @@ class DeterministicSolver : public Solver {
 
   // After the end of a solution process: retrieve status, solution, etc.
   double treatResults(Solver *pSolver);
-
 
   //----------------------------------------------------------------------------
   //

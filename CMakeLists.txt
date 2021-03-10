@@ -45,19 +45,12 @@ LINK_DIRECTORIES(${BCP_DIR}/lib)
 LINK_DIRECTORIES(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 SET(LIBS Bcp Osi OsiClp ClpSolver Clp CoinUtils bz2 z lapack blas m pthread)
 
-# build main library
+# build library
 INCLUDE_DIRECTORIES(src)
 add_subdirectory(src)
 
-# exec
-add_executable(staticscheduler src/DeterministicMain.cpp)
-target_link_libraries(staticscheduler ${NURSE_SCHEDULER_LIB})
-
-add_executable(dynamicscheduler src/DynamicMain.cpp)
-target_link_libraries(dynamicscheduler ${NURSE_SCHEDULER_LIB})
-
-add_executable(pricer src/PricerMain.cpp)
-target_link_libraries(pricer ${NURSE_SCHEDULER_LIB})
+# build executables
+add_subdirectory(main)
 
 MESSAGE("Linked directories: ${LINK_DIRECTORIES}")
 MESSAGE("Cmake linker flags: ${CMAKE_LINKER_FLAGS}")

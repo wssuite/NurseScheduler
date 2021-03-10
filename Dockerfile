@@ -1,17 +1,18 @@
 FROM legraina/bcp
 
 # create a user
-RUN useradd -ms /bin/bash poly
+RUN useradd -ms /bin/bash dantzig
 
 # Change user
-USER poly
+USER dantzig
 
 # Copy sources
-COPY --chown=poly ./CMakeLists.txt /home/poly/ns/CMakeLists.txt
-COPY --chown=poly ./src/ /home/poly/ns/src/
+COPY --chown=dantzig ./CMakeLists.txt /home/dantzig/ns/CMakeLists.txt
+COPY --chown=dantzig ./src/ /home/dantzig/ns/src/
+COPY --chown=dantzig ./main/ /home/dantzig/ns/main/
 
 # Set the working directory
-WORKDIR /home/poly/ns/
+WORKDIR /home/dantzig/ns/
 
 ## Compile the nurse scheduler
 ARG CMAKE_BUILD_TYPE=Release
@@ -24,7 +25,7 @@ RUN echo "set(BCPDIROPT /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt &
     make -j4
 
 # Copy everything
-COPY --chown=poly . /home/poly/ns/
+COPY --chown=dantzig . /home/dantzig/ns/
 
 # Entrypoint for the nurse scheduler
 ENTRYPOINT [ "./docker-entrypoint.sh" ]

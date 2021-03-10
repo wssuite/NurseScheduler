@@ -11,6 +11,7 @@
 
 #include <exception>
 
+#include "ParseArguments.h"
 #include "tools/ReadWrite.h"
 #include "tools/DemandGenerator.h"
 #include "solvers/StochasticSolver.h"

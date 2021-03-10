@@ -900,6 +900,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
       pModel_->getMaster()->status(INFEASIBLE);
       std::cerr << "Feasibility core variable is still present "
                    "in the solution" << std::endl;
+      pModel_->printInfeasibleVars();
       return BCP_DoNotBranch_Fathomed;
     }
   }
