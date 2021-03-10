@@ -29,7 +29,7 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
 
   // number of days before the start of the stretch (beware that indices of
   // days start at 0)
-  int nDaysBefore = stretch.firstDay();
+  int nDaysBefore = stretch.firstDay() + initialConsumption_;
   // Number of days left since the day of the target node of the arc
   int nDaysLeft = totalNbDays_ - stretch.lastDay() - 1;
   bool reset = false;
@@ -222,7 +222,7 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
     vChild->worstLbCost =
         resource_.getWorstLbCost(vChild->consumption+1);
   vChild->worstUbCost =
-      resource_.getWorstUbCost(vChild->consumption);
+      resource_.getWorstUbCost(vChild->consumption, nDaysBefore);
   return true;
 }
 
