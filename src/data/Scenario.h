@@ -228,49 +228,36 @@ class Scenario {
 
   ~Scenario();
 
-  // constant attributes are public
-  // TODO(JO): the above member variables are all public, but we still
-  //  declared public getters, why do that?
- public:
+ private:
   // name of the scenario
   //
   const std::string name_;
 
   // total number of weeks and current week being planned
   //
-  const int nbWeeks_;
+  const int nWeeks_;
 
   // number of skills, a std::map and a std::vector matching the name
   // of each skill to an index and reversely
   //
-  const int nbSkills_;
+  const int nSkills_;
   const std::vector<std::string> intToSkill_;
   const std::map<std::string, int> skillToInt_;
 
   // number of shifts, a std::map and a std::vector matching the name
   // of each shift to an index and reversely
 
-  const int nbShifts_;
+  const int nShifts_;
   const std::vector<std::string> intToShift_;
   const std::map<std::string, int> shiftToInt_;
   const std::vector<int> timeDurationToWork_, shiftIDToShiftTypeID_;
-
-  bool isRestShift(int shift) const {
-    return shiftIDToShiftTypeID_[shift] == 0;
-  }
-  bool isWorkShift(int shift) const { return !isRestShift(shift); }
-  bool isAnyShift(int shift) const { return shift == -1; }
-  bool isRestShiftType(int st) const {
-    return st == 0;
-  }
-  bool isWorkShiftType(int st) const { return !isRestShiftType(st); }
 
   // number of typeshifts, a std::map and a std::vector matching the name of
   // each type shift to an index and,
   // reversely minimum and maximum number consecutive assignments
   // for each shift, and penalty for violations of these bounds.
   //
-  const int nbShiftsType_;
+  const int nShiftTypes_;
   const std::vector<std::string> intToShiftType_;
   const std::map<std::string, int> shiftTypeToInt_;
   const vector2D<int> shiftTypeIDToShiftID_;
@@ -278,26 +265,25 @@ class Scenario {
 
   // std::vector of possible contract types
   //
-  const int nbContracts_;
+  const int nContracts_;
   const std::vector<std::string> intToContract_;
   const std::map<std::string, PConstContract> pContracts_;
-
-  // number of nurses, and std::vector of all the nurses
-  //
-  const int nbNurses_;
-  const std::vector<PNurse> theNurses_;
-  std::map<std::string, int> nurseNameToInt_;
 
   // weights of the cost functions
   const PWeights pWeights_;
 
- private:
+  // number of nurses, and std::vector of all the nurses
+  //
+  int nNurses_;
+  std::vector<PNurse> pNurses_;
+  std::map<std::string, int> nurseNameToInt_;
+
   const std::vector<int> minConsShiftType_, maxConsShiftType_;
 
   // for each shift, the number of forbidden successors and a table containing
   // the indices of these forbidden successors
   //
-  const std::vector<int> nbForbiddenSuccessors_;
+  const std::vector<int> nForbiddenSuccessors_;
   const vector2D<int> forbiddenSuccessors_, forbiddenShiftTypeSuccessors_;
 
   //------------------------------------------------
@@ -312,8 +298,8 @@ class Scenario {
   // Shift off requests : Preferences for each nurse :
   // which (day,shift) do they want off ?
   //
-  int nbShiftOffRequests_;
-  int nbShiftOnRequests_;
+  int nShiftOffRequests_;
+  int nShiftOnRequests_;
   PPreferences pWeekPreferences_ = nullptr;
   //------------------------------------------------
 
@@ -327,7 +313,7 @@ class Scenario {
   // range of the weeks that are being scheduled
   //
   int thisWeek_;
-  int nbWeeksLoaded_;
+  int nWeeksLoaded_;
   //------------------------------------------------
 
 
@@ -341,7 +327,7 @@ class Scenario {
   //------------------------------------------------
   // std::vector of existing positions
   //
-  int nbPositions_;
+  int nPositions_;
   std::vector<PPosition> pPositions_;
   vector2D<PNurse> nursesPerPosition_;
   vector2D<PPosition> componentsOfConnectedPositions_;
@@ -355,24 +341,75 @@ class Scenario {
   // Getters and setters
   //------------------------------------------------
 
+  bool isRestShift(int shift) const {
+    return shiftIDToShiftTypeID_[shift] == 0;
+  }
+  bool isWorkShift(int shift) const { return !isRestShift(shift); }
+  bool isAnyShift(int shift) const { return shift == -1; }
+  bool isRestShiftType(int st) const {
+    return st == 0;
+  }
+  bool isWorkShiftType(int st) const { return !isRestShiftType(st); }
+  int duration(int s) const { return timeDurationToWork_[s]; }
+  int maxDuration() const {
+    return *max_element(timeDurationToWork_.begin(), timeDurationToWork_.end());
+  }
+
+  const std::string &shift(int i) const { return intToShift_[i]; }
+  int shift(const std::string &s) const { return shiftToInt_.at(s); }
+  const PShift &pShift(int s) { return pShifts_[s]; }
+  const vector<PShift> &pShifts() const { return pShifts_; }
+
+  const std::string &skill(int i) const { return intToSkill_[i]; }
+  int skill(const std::string &s) const { return skillToInt_.at(s); }
+
+  const std::string &shiftType(int i) const { return intToShiftType_[i]; }
+  int shiftType(const std::string &s) const { return shiftTypeToInt_.at(s); }
+
+  const std::string &contract(int c) const { return intToContract_[c]; }
+  const std::map<string, PConstContract> &pContracts() const {
+    return pContracts_;
+  }
+  const PConstContract &pContract(const string &c) const {
+    return pContracts_.at(c);
+  }
+  const PConstContract &pContract(int c) const {
+    return pContracts_.at(contract(c));
+  }
+
+  int shiftIDToShiftTypeID(int s) const { return shiftIDToShiftTypeID_[s]; }
+
+  const std::vector<int> &shiftTypeIDToShiftID(int st) const {
+    return shiftTypeIDToShiftID_[st];
+  }
+
   // getters for the private class attributes
   //
-  int nbWeeks() { return nbWeeks_; }
-  int thisWeek() { return thisWeek_; }
-  int nbWeeksLoaded() { return nbWeeksLoaded_; }
-  std::string weekName() { return weekName_; }
+  const std::string &name() const { return name_; }
+  int nWeeks() const { return nWeeks_; }
+  int thisWeek() const { return thisWeek_; }
+  int nWeeksLoaded() const { return nWeeksLoaded_; }
+  const std::string &weekName() const { return weekName_; }
   PDemand pWeekDemand() { return pWeekDemand_; }
-  int nbShifts() { return nbShifts_; }
-  int nbShiftOffRequests() { return nbShiftOffRequests_; }
-  int nbShiftOnRequests() { return nbShiftOnRequests_; }
+  int nShifts() const { return nShifts_; }
+  int nShiftTypes() const { return nShiftTypes_; };
+  int nShiftOffRequests() const { return nShiftOffRequests_; }
+  int nShiftOnRequests() const { return nShiftOnRequests_; }
   PPreferences pWeekPreferences() { return pWeekPreferences_; }
   std::vector<State> *pInitialState() { return &initialState_; }
-  int nbSkills() { return nbSkills_; }
-  int nbPositions() { return nbPositions_; }
+  int nSkills() const { return nSkills_; }
+  const std::map<string, int> &skillsToInt() const { return skillToInt_; }
+  int nContracts() const { return nContracts_; }
+  int nPositions() const { return nPositions_; }
   const std::vector<PPosition> &pPositions() const { return pPositions_; }
   PPosition pPosition(int p) const { return pPositions_[p]; }
-  int nbNurses() { return nbNurses_; }
-  int nbOfConnectedComponentsOfPositions() {
+  int nNurses() { return nNurses_; }
+  const PNurse &pNurse(int nurseNum) { return pNurses_[nurseNum]; }
+  const vector<PNurse> &pNurses() { return pNurses_; }
+  int nurse(const std::string &name) const {
+    return nurseNameToInt_.at(name);
+  }
+  int nbOfConnectedComponentsOfPositions() const {
     return componentsOfConnectedPositions_.size();
   }
   const std::vector<PPosition> &componentOfConnectedPositions(int c) const {
@@ -384,23 +421,14 @@ class Scenario {
   }
   const Weights &weights() const { return *pWeights_; }
 
-  int nbForbiddenSuccessorsShift(int shift) {
-    int shiftType = shiftIDToShiftTypeID_[shift];
-    return nbForbiddenSuccessors_[shiftType];
-  }
-
-  int nbForbiddenSuccessorsShiftType(int shiftType) {
-    return nbForbiddenSuccessors_[shiftType];
-  }
-
-  const std::vector<int> &nbForbiddenSuccessors() {
-    return nbForbiddenSuccessors_;
+  const std::vector<int> &nForbiddenSuccessors() const {
+    return nForbiddenSuccessors_;
   }
 
   // getter for the maximum number of consecutive worked days
   // before the planning horizon
   //
-  int maxConDaysWorkedInHistory() {
+  int maxConDaysWorkedInHistory() const {
     int ANS = 0;
     for (auto p : initialState_) {
       if ((p.consDaysWorked_ > ANS) && (p.shiftType_ > 0))
@@ -422,15 +450,15 @@ class Scenario {
 
   // getters for consecutive type of shifts
 
-  int minConsShiftsOfTypeOf(int whichShift);
-  int maxConsShiftsOfTypeOf(int whichShift);
+  int minConsShiftsOfTypeOf(int whichShift) const;
+  int maxConsShiftsOfTypeOf(int whichShift) const;
 
-  int minConsShiftsOf(int whichShiftType);
-  int maxConsShiftsOf(int whichShiftType);
+  int minConsShiftsOf(int whichShiftType) const;
+  int maxConsShiftsOf(int whichShiftType) const;
 
   // Cost function for consecutive identical shifts
   //
-  double consShiftCost(int sh, int n) {
+  double consShiftCost(int sh, int n) const {
     if (minConsShiftsOfTypeOf(sh) - n > 0)
       return (pWeights_->WEIGHT_CONS_SHIFTS * (minConsShiftsOfTypeOf(sh) - n));
     if (n - maxConsShiftsOfTypeOf(sh) > 0)
@@ -438,7 +466,7 @@ class Scenario {
     return 0;
   }
 
-  double consShiftTypeCost(int sh, int n) {
+  double consShiftTypeCost(int sh, int n) const {
     if (minConsShiftsOf(sh) - n > 0)
       return (pWeights_->WEIGHT_CONS_SHIFTS * (minConsShiftsOf(sh) - n));
     if (n - maxConsShiftsOf(sh) > 0)
@@ -448,8 +476,8 @@ class Scenario {
 
   // getters for the attribute of the demand
   //
-  int firstDay() { return pWeekDemand_->firstDay_; }
-  int nbDays() { return pWeekDemand_->nDays_; }
+  int firstDay() const { return pWeekDemand_->firstDay_; }
+  int nDays() const { return pWeekDemand_->nDays_; }
 
   // Setters to class attributes
 
@@ -460,25 +488,26 @@ class Scenario {
     pWeekDemand_ = pDemand;
   }
   void setTNbShiftOffRequests(int nbShiftOffRequests) {
-    nbShiftOffRequests_ = nbShiftOffRequests;
+    nShiftOffRequests_ = nbShiftOffRequests;
   }
   void setTNbShiftOnRequests(int nbShiftOnRequests) {
-    nbShiftOnRequests_ = nbShiftOnRequests;
+    nShiftOnRequests_ = nbShiftOnRequests;
   }
   void setWeekPreferences(PPreferences weekPreferences);
 
   // when reading the history file
   //
   void setThisWeek(int thisWeek) { thisWeek_ = thisWeek; }
-  void addAWeek() { ++nbWeeksLoaded_; }
+  void addAWeek() { ++nWeeksLoaded_; }
   void setInitialState(const std::vector<State> &initialState) {
     initialState_ = initialState;
   }
 
   // return true if the shift shNext is a forbidden successor of shLast
   //
-  bool isForbiddenSuccessorShift_Shift(int shNext, int shLast);
-  bool isForbiddenSuccessorShiftType_ShiftType(int shTypeNext, int shTypeLast);
+  bool isForbiddenSuccessorShift_Shift(int shNext, int shLast) const;
+  bool isForbiddenSuccessorShiftType_ShiftType(
+      int shTypeNext, int shTypeLast) const;
 
   // update the scenario to treat a new week
   //
@@ -501,7 +530,7 @@ class Scenario {
 
   // display the whole scenario
   //
-  std::string toString();
+  std::string toString() const;
 
   //------------------------------------------------
   // Preprocess functions

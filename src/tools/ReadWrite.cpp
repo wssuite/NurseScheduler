@@ -464,13 +464,13 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
       // init the vectors
       Tools::initVector3D(&minWeekDemand,
                           7,
-                          pScenario->nbShifts_,
-                          pScenario->nbSkills_,
+                          pScenario->nShifts(),
+                          pScenario->nSkills(),
                           0);
       Tools::initVector3D(&optWeekDemand,
                           7,
-                          pScenario->nbShifts_,
-                          pScenario->nbSkills_,
+                          pScenario->nShifts(),
+                          pScenario->nSkills(),
                           0);
 
       // Do not take the rest shift into account here
@@ -480,8 +480,8 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
         // Read shift and skill
         file >> shiftName;
         file >> skillName;
-        shiftId = pScenario->shiftToInt_.at(shiftName);
-        skillId = pScenario->skillToInt_.at(skillName);
+        shiftId = pScenario->shift(shiftName);
+        skillId = pScenario->skill(skillName);
         // For every day in the week, read min and opt values
         for (int day = 0; day < 7; day++) {
           Tools::readUntilChar(&file, '(', &strTmp);
@@ -498,9 +498,9 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
       // Read the shift off requests
       //
       if (!*pPref)
-        *pPref = std::make_shared<Preferences>(pScenario->nbNurses_,
+        *pPref = std::make_shared<Preferences>(pScenario->nNurses(),
                                                7,
-                                               pScenario->nbShifts_);
+                                               pScenario->nShifts());
       // Temporary vars
       string nurseName, shift, day, strLevel;
       int nbShifts, nurseNum, dayId;
@@ -509,7 +509,7 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
       for (int i = 0; i < nbShifts; i++) {
         if (nurseName.empty())
           file >> nurseName;
-        nurseNum = pScenario->nurseNameToInt_.at(nurseName);
+        nurseNum = pScenario->nurse(nurseName);
         nurseName.clear();
         file >> shift;
         file >> day;
@@ -527,7 +527,7 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
           (*pPref)->addDayOff(nurseNum, dayId, level);
         } else {
           // shiftId = pScenario->shiftTypeToInt_.at(shift);
-          int shiftId = pScenario->shiftToInt_.at(shift);
+          int shiftId = pScenario->shift(shift);
           (*pPref)->addShiftOff(nurseNum, dayId, shiftId, level);
         }
       }
@@ -535,9 +535,9 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
       // Read the shift on requests
       //
       if (!*pPref)
-        *pPref = std::make_shared<Preferences>(pScenario->nbNurses_,
+        *pPref = std::make_shared<Preferences>(pScenario->pNurses(),
                                                7,
-                                               pScenario->nbShifts_);
+                                               pScenario->nShifts());
       // Temporary vars
       string nurseName, shift, day, strLevel;
       int nbShifts, nurseNum, dayId;
@@ -546,7 +546,7 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
       for (int i = 0; i < nbShifts; i++) {
         if (nurseName.empty())
           file >> nurseName;
-        nurseNum = pScenario->nurseNameToInt_.at(nurseName);
+        nurseNum = pScenario->nurse(nurseName);
         nurseName.clear();
         file >> shift;
         file >> day;
@@ -564,7 +564,7 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
           (*pPref)->addDayOn(nurseNum, dayId, level);
         } else {
           // shiftId = pScenario->shiftTypeToInt_.at(shift);
-          int shiftId = pScenario->shiftToInt_.at(shift);
+          int shiftId = pScenario->shift(shift);
           (*pPref)->addShiftOn(nurseNum, dayId, shiftId, level);
         }
       }
@@ -574,8 +574,8 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
   // Define a new instance of demand
   *pDemand = std::make_shared<Demand>(7,
                                       0,
-                                      pScenario->nbShifts_,
-                                      pScenario->nbSkills_,
+                                      pScenario->nShifts(),
+                                      pScenario->nSkills(),
                                       weekName,
                                       minWeekDemand,
                                       optWeekDemand);
@@ -625,7 +625,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
     } else if (Tools::strEndsWith(title, "NURSE_HISTORY")) {
       // Read each nurse's initial state
       //
-      for (int n = 0; n < pScenario->nbNurses_; n++) {
+      for (int n = 0; n < pScenario->nNurses(); n++) {
         string nurseName, shiftName;
         // int nurseNum;
         int shiftId, totalTimeWorked, totalWeekendsWorked, consDaysWorked,
@@ -635,7 +635,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
         file >> totalTimeWorked;
         file >> totalWeekendsWorked;
         file >> shiftName;
-        shiftId = pScenario->shiftToInt_.at(shiftName);
+        shiftId = pScenario->shift(shiftName);
         file >> consShiftWorked;
         file >> consDaysWorked;
         file >> consRest;
@@ -651,7 +651,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
                          consDaysWorked,
                          consShifts,
                          consRest,
-                         pScenario->shiftIDToShiftTypeID_[shiftId],
+                         pScenario->shiftIDToShiftTypeID(shiftId),
                          shiftId);
         initialState.push_back(nurseState);
       }
@@ -895,7 +895,7 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(
 
   // initialize the solution
   vector<Roster> solution;
-  for (int n = 0; n < pScenario->nbNurses(); n++) {
+  for (int n = 0; n < pScenario->nNurses(); n++) {
     vector<int> shifts(7 * nbWeeks, 0);
     vector<int> skills(7 * nbWeeks, -1);
 
@@ -932,10 +932,10 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(
     // parse the assignments
     while (file.good()) {
       file >> strNurse >> strDay >> strShift >> strSkill;
-      nurse = pScenario->nurseNameToInt_.at(strNurse);
+      nurse = pScenario->nurse(strNurse);
       day = firstDay + Tools::dayToInt(strDay);
-      shift = pScenario->shiftToInt_.at(strShift);
-      skill = pScenario->skillToInt_.at(strSkill);
+      shift = pScenario->shift(strShift);
+      skill = pScenario->skill(strSkill);
 
       solution[nurse].assignTask(day, shift, skill);
     }
@@ -1039,7 +1039,7 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
   logStream
       << "# Total capacity of the nurses per skill "
          "(without unavoidable penalty/with average work):" << std::endl;
-  for (int i = 0; i < pScen->nbSkills_; i++) {
+  for (int i = 0; i < pScen->nSkills(); i++) {
     logStream << "# SK" + Tools::itoa(i) + ":";
     logStream << Tools::itoa(pSolver->maxStaffPerSkillNoPenalty_[i]) + "/" +
         Tools::itoa(pSolver->maxStaffPerSkillAvgWork_[i]);
@@ -1066,7 +1066,7 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
     logStream << "WD" + Tools::itoa(d);
   }
   logStream.endl();
-  for (int i = 1; i < pScen->nbShifts_; i++) {
+  for (int i = 1; i < pScen->nShifts(); i++) {
     logStream << "# SH" + Tools::itoa(i) + ":";
     for (unsigned int d = 0; d < minPerShift.size(); d++) {
       logStream << Tools::itoa(minPerShift[d][i]) + "/"
@@ -1082,9 +1082,9 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
     logStream << "WD" + Tools::itoa(d);
   }
   logStream.endl();
-  for (int i = 0; i < pScen->nbSkills_; i++) {
+  for (int i = 0; i < pScen->nSkills(); i++) {
     logStream.setWidth(12);
-    logStream << "# " + pScen->intToSkill_[i] + ":";
+    logStream << "# " + pScen->skill(i) + ":";
     logStream.setWidth(10);
     for (unsigned int d = 0; d < minPerShift.size(); d++) {
       logStream << Tools::itoa(minPerSkill[d][i]) + "/"
@@ -1100,7 +1100,7 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
     logStream << "WD" + Tools::itoa(d);
   }
   logStream.endl();
-  for (int i = 0; i < pScen->nbSkills_; i++) {
+  for (int i = 0; i < pScen->nSkills(); i++) {
     logStream << "# SK" + Tools::itoa(i) + ":";
     for (unsigned int d = 0; d < minPerShift.size(); d++) {
       logStream << Tools::itoa(minHighestPerSkill[d][i]) + "/"
@@ -1176,8 +1176,8 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
     logStream << "WD" + Tools::itoa(d);
   }
   logStream << "Average" << "Std dev" << std::endl;
-  for (int i = 0; i < pScen->nbSkills_; i++) {
-    logStream << "# " + pScen->intToSkill_[i] + ":";
+  for (int i = 0; i < pScen->nSkills(); i++) {
+    logStream << "# " + pScen->skill(i) + ":";
     averageMin = 0, averageOpt = 0, stdDevMin = 0, stdDevOpt = 0;
     for (unsigned int d = 0; d < minPerShift.size(); d++) {
       logStream << Tools::itoa(
@@ -1209,8 +1209,8 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
     logStream << "WD" + Tools::itoa(d);
   }
   logStream << "Average" << "Std dev" << std::endl;
-  for (int i = 0; i < pScen->nbSkills_; i++) {
-    logStream << "# " + pScen->intToSkill_[i] + ":";
+  for (int i = 0; i < pScen->nSkills(); i++) {
+    logStream << "# " + pScen->skill(i) + ":";
     averageMin = 0, averageOpt = 0, stdDevMin = 0, stdDevOpt = 0;
     for (unsigned int d = 0; d < minPerShift.size(); d++) {
       logStream << Tools::itoa(

@@ -299,43 +299,43 @@ RotationMP::RotationMP(const PScenario& pScenario,
                        SolverType solver) :
     MasterProblem(pScenario, std::move(pDemand), std::move(pPreferences),
                   pInitState, solver),
-    restsPerDay_(pScenario->nbNurses_),
-    restingVars_(pScenario->nbNurses_),
-    longRestingVars_(pScenario->nbNurses_),
-    minWorkedDaysVars_(pScenario->nbNurses_),
-    maxWorkedDaysVars_(pScenario->nbNurses_),
-    maxWorkedWeekendVars_(pScenario->nbNurses_),
-    minWorkedDaysAvgVars_(pScenario->nbNurses_),
-    maxWorkedDaysAvgVars_(pScenario->nbNurses_),
-    maxWorkedWeekendAvgVars_(pScenario_->nbNurses_),
-    minWorkedDaysContractAvgVars_(pScenario->nbContracts_),
-    maxWorkedDaysContractAvgVars_(pScenario->nbContracts_),
-    maxWorkedWeekendContractAvgVars_(pScenario_->nbContracts_),
+    restsPerDay_(pScenario->nNurses()),
+    restingVars_(pScenario->nNurses()),
+    longRestingVars_(pScenario->nNurses()),
+    minWorkedDaysVars_(pScenario->nNurses()),
+    maxWorkedDaysVars_(pScenario->nNurses()),
+    maxWorkedWeekendVars_(pScenario->nNurses()),
+    minWorkedDaysAvgVars_(pScenario->nNurses()),
+    maxWorkedDaysAvgVars_(pScenario->nNurses()),
+    maxWorkedWeekendAvgVars_(pScenario_->nNurses()),
+    minWorkedDaysContractAvgVars_(pScenario->nContracts()),
+    maxWorkedDaysContractAvgVars_(pScenario->nContracts()),
+    maxWorkedWeekendContractAvgVars_(pScenario_->nContracts()),
 
-    restFlowCons_(pScenario->nbNurses_),
-    workFlowCons_(pScenario->nbNurses_),
-    minWorkedDaysCons_(pScenario->nbNurses_),
-    maxWorkedDaysCons_(pScenario->nbNurses_),
-    maxWorkedWeekendCons_(pScenario->nbNurses_),
-    minWorkedDaysAvgCons_(pScenario->nbNurses_),
-    maxWorkedDaysAvgCons_(pScenario->nbNurses_),
-    maxWorkedWeekendAvgCons_(pScenario_->nbNurses_),
-    minWorkedDaysContractAvgCons_(pScenario->nbContracts_),
-    maxWorkedDaysContractAvgCons_(pScenario->nbContracts_),
-    maxWorkedWeekendContractAvgCons_(pScenario_->nbContracts_) {
+    restFlowCons_(pScenario->nNurses()),
+    workFlowCons_(pScenario->nNurses()),
+    minWorkedDaysCons_(pScenario->nNurses()),
+    maxWorkedDaysCons_(pScenario->nNurses()),
+    maxWorkedWeekendCons_(pScenario->nNurses()),
+    minWorkedDaysAvgCons_(pScenario->nNurses()),
+    maxWorkedDaysAvgCons_(pScenario->nNurses()),
+    maxWorkedWeekendAvgCons_(pScenario_->nNurses()),
+    minWorkedDaysContractAvgCons_(pScenario->nContracts()),
+    maxWorkedDaysContractAvgCons_(pScenario->nContracts()),
+    maxWorkedWeekendContractAvgCons_(pScenario_->nContracts()) {
   // initialize the vectors indicating whether the min/max total constraints
   // with averaged bounds are considered
-  Tools::initVector(&isMinWorkedDaysAvgCons_, pScenario_->nbNurses_, false);
-  Tools::initVector(&isMaxWorkedDaysAvgCons_, pScenario_->nbNurses_, false);
-  Tools::initVector(&isMaxWorkedWeekendAvgCons_, pScenario_->nbNurses_, false);
+  Tools::initVector(&isMinWorkedDaysAvgCons_, pScenario_->nNurses(), false);
+  Tools::initVector(&isMaxWorkedDaysAvgCons_, pScenario_->nNurses(), false);
+  Tools::initVector(&isMaxWorkedWeekendAvgCons_, pScenario_->nNurses(), false);
   Tools::initVector(&isMinWorkedDaysContractAvgCons_,
-                    pScenario_->nbContracts_,
+                    pScenario_->nContracts(),
                     false);
   Tools::initVector(&isMaxWorkedDaysContractAvgCons_,
-                    pScenario_->nbContracts_,
+                    pScenario_->nContracts(),
                     false);
   Tools::initVector(&isMaxWorkedWeekendContractAvgCons_,
-                    pScenario_->nbContracts_,
+                    pScenario_->nContracts(),
                     false);
 }
 
@@ -382,7 +382,7 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
   // rotations are added for each nurse of the initial solution
   string baseName("initialRotation");
   // build the rotations of each nurse
-  for (int i = 0; i < pScenario_->nbNurses_; ++i) {
+  for (int i = 0; i < pScenario_->nNurses(); ++i) {
     // load the roster of nurse i
     Roster roster = solution[i];
 
@@ -460,9 +460,9 @@ vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
 
   for (int k = 0; k < nDays(); ++k) {
     vector<double> &dualValues2 = dualValues[k];
-    for (int s = 1; s < pScenario_->nbShifts_; ++s)
+    for (int s = 1; s < pScenario_->nShifts(); ++s)
       // adjust the dual in function of the time duration of the shift
-      dualValues2[s - 1] += d * pScenario_->timeDurationToWork_[s];
+      dualValues2[s - 1] += d * pScenario_->duration(s);
   }
 
   return dualValues;
@@ -611,7 +611,7 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
 void RotationMP::buildRotationCons(const SolverParam &param) {
   char name[255];
   // build the rotation network for each nurse
-  for (int i = 0; i < pScenario_->nbNurses_; i++) {
+  for (int i = 0; i < pScenario_->nNurses(); i++) {
     int minConsDaysOff(theLiveNurses_[i]->minConsDaysOff()),
         maxConsDaysOff(theLiveNurses_[i]->maxConsDaysOff()),
         initConsDaysOff(theLiveNurses_[i]->pStateIni_->consDaysOff_);
@@ -911,7 +911,7 @@ int RotationMP::addRotationConsToCol(vector<MyCons *> *cons,
  */
 void RotationMP::buildMinMaxCons(const SolverParam &param) {
   char name[255];
-  for (int i = 0; i < pScenario_->nbNurses_; i++) {
+  for (int i = 0; i < pScenario_->nNurses(); i++) {
     /* min worked days constraint */
     snprintf(name, sizeof(name), "minWorkedDaysVar_N%d", i);
     pModel_->createPositiveVar(&minWorkedDaysVars_[i],
@@ -1027,7 +1027,7 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
     }
   }
 
-  for (int p = 0; p < pScenario_->nbContracts_; ++p) {
+  for (int p = 0; p < pScenario_->nContracts(); ++p) {
     if (!minTotalShiftsContractAvg_.empty()
         && !maxTotalShiftsContractAvg_.empty()
         && !weightTotalShiftsContractAvg_.empty()) {

@@ -511,7 +511,7 @@ string Preferences::toString(PScenario pScenario) const {
     for (const auto &pWishes2 : pWishes.second) {
       rep << "      | " << pWishes.first << ":" << pWishes2.first << "  ->  ";
       for (const Wish &w : pWishes2.second)
-        rep << (pScenario ? pScenario->intToShift_[w.shift]
+        rep << (pScenario ? pScenario->shift(w.shift)
                           : std::to_string(w.shift))
             << " (" << levelsToString.at(w.level) << ")\t";
       rep << std::endl;
@@ -521,7 +521,7 @@ string Preferences::toString(PScenario pScenario) const {
     for (const auto &pWishes2 : pWishes.second) {
       rep << "      | " << pWishes.first << ":" << pWishes2.first << "  ->  ";
       for (const Wish &w : pWishes2.second)
-        rep << (pScenario ? pScenario->intToShift_[w.shift]
+        rep << (pScenario ? pScenario->shift(w.shift)
                           : std::to_string(w.shift))
             << " (" << levelsToString.at(w.level) << ")\t";
       rep << std::endl;

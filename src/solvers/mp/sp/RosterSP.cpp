@@ -29,42 +29,42 @@ RosterSP::RosterSP(PScenario scenario, int nbDays, PLiveNurse nurse,
                nbDays,
                std::move(nurse),
                param),
-    rcGraph_(nbDays, pScenario_->nbShifts()),
+    rcGraph_(nbDays, pScenario_->nShifts()),
     pResources_(std::move(pResources)),
     pRcsppSolver_(nullptr),
     timerEnumerationOfSubPath_(),
     timerComputeMinCostFromSink_() {
   Tools::initVector2D<PRCNode>(&pNodesPerDayShift_, nDays_,
-                               pScenario_->nbShifts(), nullptr);
+                               pScenario_->nShifts(), nullptr);
 }
 
 void RosterSP::build() {
   SubProblem::initStructuresForSolve();
   this->build(&rcGraph_);
   // set the status of all arcs to authorized
-  Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
+  Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nShifts(), true);
   nPathsMin_ = 0;
 
   //  Initialization of the vectors that will contain all information
   //  corresponding to bounds and to costs associated with the violations of
   //  soft bounds of each shift
-  Tools::initVector(&consShiftsUbs_, pScenario_->nbShiftsType_, 0);
-  Tools::initVector(&consShiftsLbs_, pScenario_->nbShiftsType_, 0);
-  Tools::initVector(&consShiftsUbCosts_, pScenario_->nbShiftsType_, .0);
-  Tools::initVector(&consShiftsLbCosts_, pScenario_->nbShiftsType_, .0);
+  Tools::initVector(&consShiftsUbs_, pScenario_->nShiftTypes(), 0);
+  Tools::initVector(&consShiftsLbs_, pScenario_->nShiftTypes(), 0);
+  Tools::initVector(&consShiftsUbCosts_, pScenario_->nShiftTypes(), .0);
+  Tools::initVector(&consShiftsLbCosts_, pScenario_->nShiftTypes(), .0);
 
-  for (int st = 0; st < pScenario_->nbShiftsType_; st++) {
+  for (int st = 0; st < pScenario_->nShiftTypes(); st++) {
     shared_ptr<AbstractShift> absShift = std::make_shared<AnyOfTypeShift>(st);
     if (absShift->isWork()) {
       consShiftsLbs_.at(st) = pScenario_->minConsShiftsOf(st);
       consShiftsUbs_.at(st) = pScenario_->maxConsShiftsOf(st);
-      consShiftsLbCosts_.at(st) = pScenario_->pWeights_->WEIGHT_CONS_SHIFTS;
-      consShiftsUbCosts_.at(st) = pScenario_->pWeights_->WEIGHT_CONS_SHIFTS;
+      consShiftsLbCosts_.at(st) = pScenario_->weights().WEIGHT_CONS_SHIFTS;
+      consShiftsUbCosts_.at(st) = pScenario_->weights().WEIGHT_CONS_SHIFTS;
     } else if (absShift->isRest()) {
       consShiftsLbs_.at(st) = pLiveNurse_->minConsDaysOff();
       consShiftsUbs_.at(st) = pLiveNurse_->maxConsDaysOff();
-      consShiftsLbCosts_.at(st) = pScenario_->pWeights_->WEIGHT_CONS_DAYS_OFF;
-      consShiftsUbCosts_.at(st) = pScenario_->pWeights_->WEIGHT_CONS_DAYS_OFF;
+      consShiftsLbCosts_.at(st) = pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
+      consShiftsUbCosts_.at(st) = pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
     }
   }
   // resources
@@ -102,12 +102,12 @@ void RosterSP::createNodes(RCGraph *pRCGraph) {
   pRCGraph->addSingleNode(SOURCE_NODE, -1, pLiveNurse_->pStateIni_->pShift_);
   // principal network is from day 0 to day nDays_-2
   for (int d = 0; d < nDays_ - 1; ++d)
-    for (const auto& pShift : pScenario_->pShifts_)
+    for (const auto& pShift : pScenario_->pShifts())
       pNodesPerDayShift_[d][pShift->id] =
           pRCGraph->addSingleNode(PRINCIPAL_NETWORK, d, pShift);
 
   // every shift on the last day is a sink
-  for (const auto& pShift : pScenario_->pShifts_)
+  for (const auto& pShift : pScenario_->pShifts())
     pNodesPerDayShift_[nDays_ - 1][pShift->id] =
         pRCGraph->addSingleNode(SINK_NODE, nDays_ - 1, pShift);
 }
@@ -115,22 +115,22 @@ void RosterSP::createNodes(RCGraph *pRCGraph) {
 
 void RosterSP::createArcs(RCGraph* pRCGraph) {
   // arcs from source to first day
-  PShift pShiftIni = pScenario_->pShifts_[pLiveNurse_->pStateIni_->shift_];
+  PShift pShiftIni = pScenario_->pShift(pLiveNurse_->pStateIni_->shift_);
   for (auto shiftId : pShiftIni->successors) {
     PRCNode pN = pNodesPerDayShift_[0][shiftId];
     addSingleArc(
-        pRCGraph, pRCGraph->pSource(), pN, pScenario_->pShifts_[shiftId], 0);
+        pRCGraph, pRCGraph->pSource(), pN, pScenario_->pShift(shiftId), 0);
   }
 
   // arcs from the previous day to current day;
   // those from nDays-2 to nDays-1 are the arcs to the sinks
   for (int d = 1; d < nDays_; ++d) {
-    for (const PShift &pS : pScenario_->pShifts_) {
+    for (const PShift &pS : pScenario_->pShifts()) {
       PRCNode pOrigin = pNodesPerDayShift_[d-1][pS->id];
       for (int succId : pS->successors) {
         PRCNode pTarget = pNodesPerDayShift_[d][succId];
         addSingleArc(pRCGraph, pOrigin, pTarget,
-                     pScenario_->pShifts_[succId], d);
+                     pScenario_->pShift(succId), d);
       }
     }
   }
@@ -144,7 +144,7 @@ void RosterSP::enumerateSubPaths(RCGraph *pRcGraph) {
   // Then, we enumerate sub paths from a PRINCIPAL_NETWORK node in the rcGraph
   // corresponding to a given day and to a given shift
   for (int d = 0; d < nDays_ - 1; ++d)
-    for (const auto& pS : pScenario_->pShifts_)
+    for (const auto& pS : pScenario_->pShifts())
       enumerateConsShiftType(pRcGraph, pS, d);
 
   // Finally, the costs of the arcs which existed before the enumeration

@@ -82,11 +82,11 @@ vector<State> Roster::getStates(const State &stateIni, PScenario pScenario) {
   states.push_back(stateIni);
   for (int day = 0; day < nbDays_; day++) {
     State nextState;
-    int shiftType = pScenario->shiftIDToShiftTypeID_[shifts_[day]];
+    int shiftType = pScenario->shiftIDToShiftTypeID(shifts_[day]);
     nextState.addDayToState(states[day],
                             shiftType,
                             shifts_[day],
-                            pScenario_->timeDurationToWork_[shifts_[day]]);
+                            pScenario_->duration(shifts_[day]));
     states.push_back(nextState);
   }
 

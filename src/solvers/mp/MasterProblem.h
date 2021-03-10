@@ -46,7 +46,7 @@ struct RCSolution {
   std::vector<int> shifts;
   double cost;
 
-  std::string toString(std::vector<int> shiftIDToShiftTypeID = {}) const;
+  std::string toString(const PScenario &pScenario = nullptr) const;
 };
 
 struct DualCosts {
@@ -390,7 +390,7 @@ class MasterProblem : public Solver, public PrintSolution {
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
   virtual double getBranchColumnValueMax() const {
-    return std::max(1.0, pScenario_->nbWeeks_ / 2.0);
+    return std::max(1.0, pScenario_->nWeeks() / 2.0);
   }
 
   //------------------------------------------------

@@ -43,7 +43,7 @@ void RotationSP::createNodes() {
   // just add a dummy rcspp to have the right indices
   principalGraphs_.emplace_back(PrincipalGraph(0, nullptr));
   // For each possible worked shift
-  for (int sh = 1; sh < pScenario_->nbShiftsType_; sh++)
+  for (int sh = 1; sh < pScenario_->nShiftTypes(); sh++)
     principalGraphs_.emplace_back(PrincipalGraph(sh, this));
 
   // 3. DAILY SINKS AND GLOBAL SINK
@@ -65,11 +65,11 @@ void RotationSP::createNodes() {
 // rotations nodes)
 void RotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
-  for (int sh=1; sh < pScenario_->nbShiftsType_; ++sh)
+  for (int sh=1; sh < pScenario_->nShiftTypes(); ++sh)
     for (int k = minConsDays_ - 1; k < nDays_; k++)
       for (int dest : principalGraphs_[sh].getDayNodes(k)) {
         std::vector<int> vec;
-        for (int s : pScenario_->shiftTypeIDToShiftID_[sh])
+        for (int s : pScenario_->shiftTypeIDToShiftID(sh))
           vec.emplace_back(addSingleArc(origin,
                                         dest,
                                         0,
@@ -83,7 +83,7 @@ void RotationSP::createArcsSourceToPrincipal() {
 
 // Create all arcs from one principal subgraph to another one
 void RotationSP::createArcsPrincipalToPrincipal() {
-  int nShiftsType = pScenario_->nbShiftsType_;
+  int nShiftsType = pScenario_->nShiftTypes();
   for (int sh = 1; sh < nShiftsType; sh++) {
     for (int newSh = 1; newSh < nShiftsType; newSh++) {
       // check if succession is allowed
@@ -105,7 +105,7 @@ void RotationSP::createArcsPrincipalToPrincipal() {
 
 void RotationSP::createArcsPrincipalToSink() {
   Tools::initVector2D(&arcsPrincipalToSink,
-                      pScenario_->nbShiftsType_,
+                      pScenario_->nShiftTypes(),
                       nDays_,
                       -1);
 
@@ -117,7 +117,7 @@ void RotationSP::createArcsPrincipalToSink() {
     // last day: price just max
     if (k == nDays_ - 1) penalties.minLevel(CONS_DAYS, 0);
     int s = g_.sink(k);
-    for (int sh = 1; sh < pScenario_->nbShiftsType_; sh++) {
+    for (int sh = 1; sh < pScenario_->nShiftTypes(); sh++) {
       // incoming  arc
       int o = principalGraphs_[sh].exit(k);
       arcsPrincipalToSink[sh][k] =
@@ -140,7 +140,7 @@ void RotationSP::updateArcDualCosts() {
 
   // C. ARCS : PRINCIPAL_TO_SINK
   // starts at 1, as on 0 we rest (so no end work) and also not defined
-  for (int s = 1; s < pScenario_->nbShiftsType_; s++)
+  for (int s = 1; s < pScenario_->nShiftTypes(); s++)
     for (int a : arcsPrincipalToSink[s])
       g_.updateCost(a, endWorkCost(a));
 }

@@ -65,7 +65,7 @@ void RosterSP::createNodes() {
 
   // 2. PRINCIPAL NETWORK(S) [ONE PER SHIFT TYPE]
   // For each possible worked shift
-  for (int sh = 0; sh < pScenario_->nbShiftsType_; sh++)
+  for (int sh = 0; sh < pScenario_->nShiftTypes(); sh++)
     principalGraphs_.emplace_back(PrincipalGraph(sh, this));
 
   // 3. SINK
@@ -79,7 +79,7 @@ void RosterSP::createArcsSourceToPrincipal() {
     vector2D<int> vec2;
     for (int dest : pg.getDayNodes(0)) {
       std::vector<int> vec;
-      for (int s : pScenario_->shiftTypeIDToShiftID_[pg.shiftType()])
+      for (int s : pScenario_->shiftTypeIDToShiftID(pg.shiftType()))
         vec.emplace_back(addSingleArc(origin,
                                       dest,
                                       0,
@@ -96,7 +96,7 @@ void RosterSP::createArcsSourceToPrincipal() {
 // Create all arcs from one principal subgraph to another one
 // add a pricing arc when going from work to rest
 void RosterSP::createArcsPrincipalToPrincipal() {
-  int nShiftsType = pScenario_->nbShiftsType_;
+  int nShiftsType = pScenario_->nShiftTypes();
   Penalties penalties = initPenalties();
   // consumption when pricing to reset CONS_DAYS
   std::vector<int> pcons = {-10*maxRotationLength_, 0, 0};
@@ -135,7 +135,7 @@ void RosterSP::createArcsPrincipalToSink() {
   // consumption to reset CONS_DAYS
   std::vector<int> cons = {-maxRotationLength_, 0, 0};
   int d = g_.lastSink();
-  for (int sh = 0; sh < pScenario_->nbShiftsType_; sh++) {
+  for (int sh = 0; sh < pScenario_->nShiftTypes(); sh++) {
     // incoming  arc
     int o = principalGraphs_[sh].exit(nDays_ - 1);
     arcsTosink_.push_back(
@@ -151,7 +151,7 @@ void RosterSP::updateArcDualCosts() {
 
   // C. ARCS : PRINCIPAL GRAPH TO PRINCIPAL GRAPH
   // for rest principal graph
-  for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
+  for (int s = 1; s < pScenario_->nShiftTypes(); s++) {
     for (int a : principalToPrincipal_[0][s])
       if (a != -1) g_.updateCost(a, startWorkCost(a));
     for (int a : principalToPrincipal_[s][0])

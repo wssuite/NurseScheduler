@@ -73,13 +73,13 @@ float comparePricingToBoost(const MasterProblem *pMaster) {
     // retrieve a boost subproblem
     SubProblem *bSP =
         new boostRCSPP::RosterSP(pScenario,
-                                 pScenario->nbDays(),
+                                 pScenario->nDays(),
                                  pNurse->pContract_,
                                  pScenario->pInitialState());
     bSP->build();
     // Solve with my solver under development
     SubProblem *mSP =
-        new RosterSP(pScenario, pScenario->nbDays(), pNurse,
+        new RosterSP(pScenario, pScenario->nDays(), pNurse,
                      pMaster->createPResources(pNurse), spParam);
     mSP->build();
 

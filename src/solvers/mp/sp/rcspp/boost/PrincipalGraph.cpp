@@ -25,7 +25,7 @@ PrincipalGraph::PrincipalGraph(int shift_type, SubProblem *sp) :
   if (sp) {
     max_cons_ = sp->maxCons(shift_type);
     int i = 0;
-    for (int s : sp->scenario()->shiftTypeIDToShiftID_[shift_type_])
+    for (int s : sp->scenario()->shiftTypeIDToShiftID(shift_type_))
       shifts_to_indices_[s] = i++;
     Tools::initVector<SubGraph *>(&inSubGraphs_, pSP_->nDays(), nullptr);
     Tools::initVector<SubGraph *>(&outSubGraphs_, pSP_->nDays(), nullptr);
@@ -51,7 +51,7 @@ void PrincipalGraph::build() {
 
 
   // CREATE THE ARCS
-  unsigned int nShifts = pScenario->shiftTypeIDToShiftID_[shift_type_].size();
+  unsigned int nShifts = pScenario->shiftTypeIDToShiftID(shift_type_).size();
 
   // initialization
   Tools::initVector3D(&arcsShiftToSameShift_,
@@ -71,7 +71,7 @@ void PrincipalGraph::build() {
       origin = principalNetworkNodes_[k][nCons];
       destin = principalNetworkNodes_[k + 1][nCons + 1];
       for (unsigned int s = 0; s < nShifts; s++) {
-        int shiftID = pScenario->shiftTypeIDToShiftID_[shift_type_][s];
+        int shiftID = pScenario->shiftTypeIDToShiftID(shift_type_)[s];
         int a = pSP_->addSingleArc(origin,
                                    destin,
                                    0,
@@ -87,7 +87,7 @@ void PrincipalGraph::build() {
     origin = principalNetworkNodes_[k][max_cons_];
     destin = principalNetworkNodes_[k + 1][max_cons_];
     for (unsigned int s = 0; s < nShifts; s++) {
-      int shiftID = pScenario->shiftTypeIDToShiftID_[shift_type_][s];
+      int shiftID = pScenario->shiftTypeIDToShiftID(shift_type_)[s];
       int a = pSP_->addSingleArc(origin,
                                  destin,
                                  cost,
@@ -127,7 +127,7 @@ std::vector<int> PrincipalGraph::getConsumption(int day, int shift) const {
   if (day < 0 || shift_type_ == 0) return {0, 0, 0};
 
   // otherwise work => consume one resource of each if needed
-  int t = pSP_->scenario()->timeDurationToWork_[shift];
+  int t = pSP_->scenario()->duration(shift);
   return {1, t, Tools::isSaturday(day)};
 }
 
@@ -151,7 +151,7 @@ bool PrincipalGraph::checkFeasibilityEntranceArc(
   }
 
   for (int s : arc_prop.shifts) {
-    int new_sh = pSP_->scenario()->shiftIDToShiftTypeID_[s];
+    int new_sh = pSP_->scenario()->shiftIDToShiftTypeID(s);
     if (new_sh == sh) ++n;
     else
       n = 1;
@@ -251,7 +251,7 @@ void PrincipalGraph::forbidViolationConsecutiveConstraints() {
 
 bool PrincipalGraph::checkIfShiftBelongsHere(int s, bool print_err) const {
   if (pSP_ == nullptr) return false;
-  int sh = pSP_->scenario()->shiftIDToShiftTypeID_[s];
+  int sh = pSP_->scenario()->shiftIDToShiftTypeID(s);
   if (shift_type_ != sh) {
     if (print_err)
       std::cerr << "Shift " << s << " of type " << sh <<

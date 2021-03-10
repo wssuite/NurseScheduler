@@ -49,9 +49,7 @@ SubProblem::SubProblem(PScenario scenario,
                        PConstContract contract,
                        vector<State> *pInitState) :
     pScenario_(scenario), nDays_(nDays), pContract_(contract) {
-  int max = 0;
-  for (int t : pScenario_->timeDurationToWork_)
-    if (t > max) max = t;
+  int max = pScenario_->maxDuration();
   maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
   if (pInitState) init(*pInitState);
 }
@@ -65,7 +63,7 @@ SubProblem::SubProblem(PScenario scenario,
     pLiveNurse_(pNurse),
     param_(param) {
   int max = 0;
-  for (auto s : pScenario_->pShifts_)
+  for (auto s : pScenario_->pShifts())
     if (s->duration > max) max = s->duration;
   maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
 }
@@ -174,7 +172,7 @@ void SubProblem::initStructuresForSolve() {
 
 
   // Preference costs.
-  Tools::initVector2D(&preferencesCosts_, nDays_, pScenario_->nbShifts_, .0);
+  Tools::initVector2D(&preferencesCosts_, nDays_, pScenario_->nShifts(), .0);
 
   for (const auto &p : pLiveNurse_->wishesOff())
     for (const Wish &s : p.second)
@@ -203,7 +201,7 @@ set<pair<int, int> > SubProblem::randomForbiddenShifts(int nbForbidden) {
   set<pair<int, int> > ans;
   for (int f = 0; f < nbForbidden; f++) {
     int k = Tools::randomInt(0, nDays_ - 1);
-    int s = Tools::randomInt(1, pScenario_->nbShifts_ - 1);
+    int s = Tools::randomInt(1, pScenario_->nShifts() - 1);
     ans.insert(std::pair<int, int>(k, s));
   }
   return ans;
@@ -220,7 +218,7 @@ void SubProblem::printAllSolutions() const {
   std::cout << "# HERE ARE ALL " << nPaths_
             << " ROTATIONS OF THE CURRENT SOLUTION LIST :" << std::endl;
   for (const RCSolution &sol : theSolutions_)
-    std::cout << sol.toString(pScenario_->shiftIDToShiftTypeID_);
+    std::cout << sol.toString(pScenario_);
   std::cout << "# " << std::endl;
 }
 
@@ -230,14 +228,14 @@ void SubProblem::printForbiddenDayShift() const {
   bool anyForbidden = false;
   for (int k = 0; k < nDays_; k++) {
     bool alreadyStarted = false;
-    for (int s = 1; s < pScenario_->nbShifts_; s++) {
+    for (int s = 1; s < pScenario_->nShifts(); s++) {
       if (isDayShiftForbidden(k, s)) {
         anyForbidden = true;
         if (!alreadyStarted) {
           std::cout << std::endl << "#      | Day " << k << " :";
           alreadyStarted = true;
         }
-        std::cout << " " << pScenario_->intToShift_[s].at(0);
+        std::cout << " " << pScenario_->shift(s).at(0);
       }
     }
   }
@@ -251,5 +249,5 @@ void SubProblem::checkForbiddenDaysAndShifts(const RCSolution &sol) const {
     if (isDayShiftForbidden(k++, s))
       Tools::throwError(
           "A RC solution uses the forbidden day %d and shift %d: %s",
-          k - 1, s, sol.toString(pScenario_->shiftIDToShiftTypeID_).c_str());
+          k - 1, s, sol.toString(pScenario_).c_str());
 }

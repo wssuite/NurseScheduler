@@ -170,7 +170,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir,
     if (solution.empty()) {
       solution = weekSolution;
     } else {
-      for (int n = 0; n < pScen->nbNurses_; n++)
+      for (int n = 0; n < pScen->nNurses(); n++)
         solution[n].push_back(weekSolution[n]);
     }
 
@@ -189,7 +189,7 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir,
       // last week
       // modify the dayId_ to show that this is the first day of the new week
       vector<State> initialStates = pSolver->statesOfDay(6);
-      for (int i = 0; i < pScen->nbNurses_; i++) {
+      for (int i = 0; i < pScen->nNurses(); i++) {
         initialStates[i].dayId_ = 0;
       }
 

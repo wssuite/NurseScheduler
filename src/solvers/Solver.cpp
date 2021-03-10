@@ -96,7 +96,7 @@ LiveNurse::LiveNurse(const Nurse &nurse,
   states_.push_back(*pStateIni);
   for (int day = 0; day < nbDays_; day++) {
     State nextState;
-    int newShiftType = pScenario->shiftIDToShiftTypeID_[0];
+    int newShiftType = pScenario->shiftIDToShiftTypeID(0);
     nextState.addDayToState(states_[day], newShiftType, 0, 0);
     states_.push_back(nextState);
   }
@@ -134,7 +134,7 @@ LiveNurse::LiveNurse(const Nurse &nurse,
   states_.push_back(*pStateIni);
   for (int day = 0; day < nbDays_; day++) {
     State nextState;
-    int newShiftType = pScenario->shiftIDToShiftTypeID_[0];
+    int newShiftType = pScenario->shiftIDToShiftTypeID(0);
     nextState.addDayToState(states_[day], newShiftType, 0, 0);
     states_.push_back(nextState);
   }
@@ -362,12 +362,11 @@ void LiveNurse::checkConstraints(const Roster &roster,
 //
 void LiveNurse::buildStates() {
   for (unsigned int k = 1; k < states_.size(); ++k) {
-    int newShiftType = pScenario_->shiftIDToShiftTypeID_[roster_.shift(k - 1)];
+    int newShiftType = pScenario_->shiftIDToShiftTypeID(roster_.shift(k - 1));
     states_[k].addDayToState(states_[k - 1],
                              newShiftType,
                              roster_.shift(k - 1),
-                             pScenario_->timeDurationToWork_[roster_.shift(
-                                 k - 1)]);
+                             pScenario_->duration(roster_.shift(k - 1)));
   }
 }
 
@@ -442,20 +441,20 @@ void LiveNurse::printContractAndPreferences(PScenario pScenario) const {
   for (const auto &wishes : wishesOff()) {
     std::cout << "      | " << wishes.first << "  ->  ";
     for (const Wish &s : wishes.second)
-      std::cout << pScenario->intToShift_[s.shift];
+      std::cout << pScenario->shift(s.shift);
     std::cout << std::endl;
   }
   for (const auto &wishes : wishesOn()) {
     std::cout << "      | " << wishes.first << "  ->  ";
     for (const Wish &s : wishes.second)
-      std::cout << pScenario->intToShift_[s.shift];
+      std::cout << pScenario->shift(s.shift);
     std::cout << std::endl;
   }
   std::cout << "# Contract :   ";
   std::cout << "Days [" << pContract_->minConsDaysOff_ << "<"
             << pContract_->maxConsDaysOff_ << "]   ";
-  for (int s = 1; s < pScenario->nbShiftsType_; s++) {
-    std::cout << pScenario->intToShiftType_[s] << " ["
+  for (int s = 1; s < pScenario->nShiftTypes(); s++) {
+    std::cout << pScenario->shiftType(s) << " ["
               << pScenario->minConsShiftsOf(s) << "<"
               << pScenario->maxConsShiftsOf(s) << "]   ";
   }
@@ -675,16 +674,16 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
     isPreprocessedSkills_(false),
     isPreprocessedNurses_(false) {
   // initialize the preprocessed data of the skills
-  for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+  for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
     maxStaffPerSkillNoPenalty_.push_back(-1.0);
     maxStaffPerSkillAvgWork_.push_back(-1.0);
     skillRarity_.push_back(1.0);
   }
 
   // copy the nurses in the live nurses vector
-  for (int i = 0; i < pScenario->nbNurses_; i++) {
+  for (int i = 0; i < pScenario->nNurses(); i++) {
     theLiveNurses_.emplace_back(
-        std::make_shared<LiveNurse>(*(pScenario->theNurses_[i]),
+        std::make_shared<LiveNurse>(*(pScenario->pNurse(i)),
                                     pScenario_,
                                     pDemand_->nDays_,
                                     pDemand_->firstDay_,
@@ -694,7 +693,7 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
   }
 
   // initialize the minimum and maximum number of total working days
-  for (int i = 0; i < pScenario_->nbNurses(); i++) {
+  for (int i = 0; i < pScenario_->nNurses(); i++) {
     // default min and max
     minTotalShifts_.push_back(
         theLiveNurses_[i]->minTotalShifts()
@@ -721,12 +720,12 @@ Solver::~Solver() {}
 // Load a solution in the solver
 //
 void Solver::loadSolution(const vector<Roster> &solution) {
-  if (solution.size() != pScenario_->nbNurses_)
+  if (solution.size() != pScenario_->nNurses())
     Tools::throwError("Solver::loadSolution: there is not one roster "
                       "per nurse in the input solution!");
 
   solution_ = solution;
-  for (int n = 0; n < pScenario_->nbNurses_; n++) {
+  for (int n = 0; n < pScenario_->nNurses(); n++) {
     PLiveNurse pNurse = theLiveNurses_[n];
     pNurse->roster(solution[n]);
     pNurse->buildStates();
@@ -750,7 +749,7 @@ void Solver::preprocessTheNurses() {
 
   maxTotalStaffNoPenalty_ = 0;
   maxTotalStaffAvgWork_ = 0;
-  for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+  for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
     maxStaffPerSkillNoPenalty_[sk] = 0;
     maxStaffPerSkillAvgWork_[sk] = 0;
   }
@@ -784,8 +783,8 @@ void Solver::preprocessTheNurses() {
   //
   Tools::initVector3D(&satisfiedDemand_,
                       nbDays,
-                      pScenario_->nbShifts_,
-                      pScenario_->nbSkills_,
+                      pScenario_->nShifts(),
+                      pScenario_->nSkills(),
                       0);
 
   isPreprocessedNurses_ = true;
@@ -798,7 +797,7 @@ void Solver::specifyNursePositions() {
     // the skills of the nurse need to be compared to the skills of each
     // existing position to determine the position of the nurse
     bool isPosition = true;
-    for (int i = 0; i < pScenario_->nbPositions(); i++) {
+    for (int i = 0; i < pScenario_->nPositions(); i++) {
       PPosition pPosition = pScenario_->pPositions()[i];
       isPosition = true;
       if (pPosition->nbSkills_ == pNurse->nbSkills_) {
@@ -829,7 +828,7 @@ void Solver::specifyNursePositions() {
 void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   // number of days that will be covered after the current demand
   int nbDaysFuture =
-      7 * (pScenario_->nbWeeks() - pScenario_->thisWeek()) - pDemand_->nDays_;
+      7 * (pScenario_->nWeeks() - pScenario_->thisWeek()) - pDemand_->nDays_;
 
   // For each contract, compute the maximum and minimum number of working days
   // that can be done after the current demand without ensuing penalties due to
@@ -837,7 +836,7 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   //
   map<string, int> minWorkDaysFutureNoPenaltyConsDays;
   map<string, int> maxWorkDaysFutureNoPenaltyConsDays;
-  for (const auto &p : pScenario_->pContracts_) {
+  for (const auto &p : pScenario_->pContracts()) {
     // initialization
     string name = p.first;
     PConstContract pContract = p.second;
@@ -893,9 +892,9 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   // the total number of working days without penalty
   for (PLiveNurse pNurse : theLiveNurses_) {
     double demandMinAvgPerWeek =
-        pNurse->minTotalShifts() * 1.0 / pScenario_->nbWeeks();
+        pNurse->minTotalShifts() * 1.0 / pScenario_->nWeeks();
     double demandMaxAvgPerWeek =
-        pNurse->maxTotalShifts() * 1.0 / pScenario_->nbWeeks();
+        pNurse->maxTotalShifts() * 1.0 / pScenario_->nWeeks();
     double demandMinAvgUntilThisDemand = demandMinAvgPerWeek
         * (pScenario_->thisWeek() + pDemand_->nDays_ / 7.0);
     double demandMaxAvgUntilThisDemand = demandMaxAvgPerWeek
@@ -934,7 +933,7 @@ void Solver::preprocessTheSkills() {
   // that have the skill ; the weight of each nurse is its number of skills
   vector<double> nbNursesWeighted;
 
-  for (int sk = 0; sk < pScenario_->nbSkills_; sk++) {
+  for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
     nbNursesWeighted.push_back(.0);
     for (PLiveNurse pNurse : theLiveNurses_)
       if (pNurse->hasSkill(sk))
@@ -947,7 +946,7 @@ void Solver::preprocessTheSkills() {
   }
 
   // update the rarities of the skills in the scenario
-  for (int p = 0; p < pScenario_->nbPositions(); p++)
+  for (int p = 0; p < pScenario_->nPositions(); p++)
     pScenario_->pPosition(p)->updateRarities(skillRarity_);
 
   isPreprocessedSkills_ = true;
@@ -963,29 +962,29 @@ void Solver::sortShuffleTheNurses() {
   vector<vector<PLiveNurse>> nursePerPosition;
 
   // first, sort the position in the order in which the nurses should be treated
-  for (int p = 0; p < pScenario_->nbPositions(); p++) {
+  for (int p = 0; p < pScenario_->nPositions(); p++) {
     positionsSorted.push_back(pScenario_->pPosition(p));
   }
   std::sort(positionsSorted.begin(), positionsSorted.end(), comparePositions);
 
   // then organize the nurses depending on their position
-  for (int p = 0; p < pScenario_->nbPositions(); p++) {
+  for (int p = 0; p < pScenario_->nPositions(); p++) {
     vector<PLiveNurse> emptyVector;
     nursePerPosition.push_back(emptyVector);
   }
-  for (int n = 0; n < pScenario_->nbNurses_; n++) {
+  for (int n = 0; n < pScenario_->nNurses(); n++) {
     PLiveNurse pNurse = theLiveNurses_[n];
     nursePerPosition[pNurse->pPosition()->id()].push_back(pNurse);
   }
 
   // shuffle the nurses that have the same position
-  for (int p = 0; p < pScenario_->nbPositions(); p++) {
+  for (int p = 0; p < pScenario_->nPositions(); p++) {
     std::random_shuffle(nursePerPosition[p].begin(), nursePerPosition[p].end());
   }
 
   // fill the sorted vector of live nurses
   theNursesSorted_.clear();
-  for (int p = 0; p < pScenario_->nbPositions(); p++) {
+  for (int p = 0; p < pScenario_->nPositions(); p++) {
     int id = positionsSorted[p]->id();
     for (unsigned int n = 0; n < nursePerPosition[id].size(); n++) {
       theNursesSorted_.push_back(nursePerPosition[id][n]);
@@ -1014,7 +1013,7 @@ void Solver::preprocessData() {
   std::stable_sort(skillsSorted_.begin(), skillsSorted_.end(), compareSkills);
 
   // sort the shifts (except the shift 0 which must always be rest)
-  ShiftSorter compareShifts(pScenario_->nbForbiddenSuccessors());
+  ShiftSorter compareShifts(pScenario_->nForbiddenSuccessors());
   std::stable_sort(shiftsSorted_.begin(), shiftsSorted_.end(), compareShifts);
 
   // sort the nurses
@@ -1075,19 +1074,19 @@ void Solver::computeWeightsTotalShiftsForStochastic() {
   // The important value to infer the importance of respecting the strict
   // constraints on the total number of working days/week-ends is the remaining
   // number of days/week-ends after the demand currently treated
-  int remainingDays = 7 * pScenario_->nbWeeks() - 7 * (pScenario_->thisWeek())
+  int remainingDays = 7 * pScenario_->nWeeks() - 7 * (pScenario_->thisWeek())
       - pDemand_->nDays_;
-  double factorRemainingDays = remainingDays / (7.0 * pScenario_->nbWeeks());
+  double factorRemainingDays = remainingDays / (7.0 * pScenario_->nWeeks());
 
 
   // number of weekends before the end of the planning
-  int remainingWeekends = pScenario_->nbWeeks() - pScenario_->thisWeek();
+  int remainingWeekends = pScenario_->nWeeks() - pScenario_->thisWeek();
   // portion of these remaining weekends in this demand
   double factorRemainingWeekends =
       (pDemand_->nDays_ / 7) * 1.0 / remainingWeekends;
 
   // Compute the non-penalized intervals and the associated penalties
-  for (int n = 0; n < pScenario_->nbNurses(); n++) {
+  for (int n = 0; n < pScenario_->nNurses(); n++) {
     PLiveNurse pNurse = theLiveNurses_[n];
 
     // compute the interval that must be respected to have a chance of
@@ -1165,7 +1164,7 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy) {
 
   // initialize the non-penalized intervals and the associated penalties
   // for each contract
-  for (int p = 0; p < pScenario_->nbContracts_; ++p) {
+  for (int p = 0; p < pScenario_->nContracts(); ++p) {
     minTotalShiftsContractAvg_.push_back(0);
     maxTotalShiftsContractAvg_.push_back(0);
     weightTotalShiftsContractAvg_.push_back(
@@ -1182,7 +1181,7 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy) {
 
   // Compute the non-penalized intervals and the associated penalties
   // for each contract
-  for (int n = 0; n < pScenario_->nbNurses(); n++) {
+  for (int n = 0; n < pScenario_->nNurses(); n++) {
     PLiveNurse pNurse = theLiveNurses_[n];
     double ratio = pScenario_->weights().WEIGHT_TOTAL_SHIFTS
         * pNurse->pStateIni_->totalTimeWorked_;
@@ -1240,14 +1239,14 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy) {
   }
 
   // round the min/max values of the interval associated to the contract
-  int remainingWeeks = pScenario_->nbWeeks() - pScenario_->thisWeek();
+  int remainingWeeks = pScenario_->nWeeks() - pScenario_->thisWeek();
   int remainingDays = 7 * remainingWeeks;
   int nDaysInHorizon = pDemand_->nDays_;
   int nWeekendsInHorizon = (pDemand_->nDays_ + 1) / 7;
   double ratioDays = nDaysInHorizon * (1.0 / remainingDays);
   double ratioWeekends = nWeekendsInHorizon * (1.0 / remainingWeeks);
 
-  for (int p = 0; p < pScenario_->nbContracts_; ++p) {
+  for (int p = 0; p < pScenario_->nContracts(); ++p) {
     minTotalShiftsContractAvg_[p] =
         Tools::roundWithProbability(minTotalShiftsContractAvg_[p] * ratioDays);
     maxTotalShiftsContractAvg_[p] =
@@ -1259,14 +1258,14 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy) {
     meanPrimalDualCostForContractWE[p] /= 1.0 * nbNursesPerContract[p];
 
     // to penalize some contracts vs the others
-    const string contractName = pScenario_->intToContract_[p];
-    PConstContract pContract = pScenario_->pContracts_.at(contractName);
+    const string &contractName = pScenario_->contract(p);
+    PConstContract pContract = pScenario_->pContract(contractName);
     int lengthStintMin =
         pContract->minConsDaysWork_ + pContract->maxConsDaysOff_;
     // compute the number of days worked, if the nurse works the minimum days
     // without penalties
     int minWorkDaysNoPenalty = pContract->minConsDaysWork_ *
-        (7 * pScenario_->nbWeeks_) / lengthStintMin;
+        (7 * pScenario_->nWeeks()) / lengthStintMin;
     // compute the ratio between the min work days without penalties and the
     // maximum number of shifts
     double ratioMinMax =
@@ -1286,8 +1285,8 @@ void Solver::computeWeightsTotalShiftsForPrimalDual(WeightStrategy strategy) {
       std::cout << "# " << std::endl;
       std::cout << "##################################################"
                 << std::endl;
-      const string contractName = pScenario_->intToContract_[p];
-      std::cout << "# " << (*(pScenario_->pContracts_.at(contractName)))
+      const string &contractName = pScenario_->contract(p);
+      std::cout << "# " << (*(pScenario_->pContract(contractName)))
                 << std::endl;
       std::cout << "# min/max : " << std::endl;
       std::cout << "#    | min total shifts: " << minTotalShiftsContractAvg_[p]
@@ -1331,10 +1330,10 @@ void Solver::computeBoundsAccordingToDemandSize() {
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
   double ratio = pDemand_->nDays_
-      / (7.0 * (pScenario_->nbWeeks_ - pScenario_->thisWeek()));
+      / (7.0 * (pScenario_->nWeeks() - pScenario_->thisWeek()));
 
   // initialize the minimum and maximum number of total working days
-  for (int i = 0; i < pScenario_->nbNurses(); i++) {
+  for (int i = 0; i < pScenario_->nNurses(); i++) {
     // default min and max
     minTotalShifts_[i] = std::floor((theLiveNurses_[i]->minTotalShifts()
         - theLiveNurses_[i]->pStateIni_->totalTimeWorked_) * ratio);
@@ -1421,7 +1420,7 @@ double Solver::computeFractionOfIntegerInCurrentSolution() {
 double Solver::computeFractionalWeekendPenalty() {
   vector3D<double> fracRoster = fractionalRoster();
 
-  int nbWeeks = pScenario_->nbWeeks_ - pScenario_->thisWeek();
+  int nbWeeks = pScenario_->nWeeks() - pScenario_->thisWeek();
   double fractionalWeekendPenalty = 0.0;
   for (int nurse = 0; nurse < nNurses(); nurse++) {
     int nbActiveWeekends = 0;
@@ -1458,8 +1457,8 @@ double Solver::computeSolutionCost(int nbDays) {
   }
 
   double totalCost = 0.0;
-  int nbNurses = pScenario_->nbNurses_;
-  int nbShifts = pScenario_->nbShifts_, nbSkills = pScenario_->nbSkills_;
+  int nbNurses = pScenario_->nNurses();
+  int nbShifts = pScenario_->nShifts(), nbSkills = pScenario_->nSkills();
 
   int nbCons = 0, nbWork = 0, nbRest = 0, nbCov = 0, nbPref = 0, nbWE = 0,
       totalDays = 0, compWE = 0;
@@ -1490,8 +1489,8 @@ double Solver::computeSolutionCost(int nbDays) {
       }
     }
 
-    if (pScenario_->thisWeek() + pScenario_->nbWeeksLoaded()
-        == pScenario_->nbWeeks()) {
+    if (pScenario_->thisWeek() + pScenario_->nWeeksLoaded()
+        == pScenario_->nWeeks()) {
       totalCost += stat.costTotalDays_ + stat.costTotalWeekEnds_;
       totalDays += stat.costTotalDays_;
       compWE += stat.costTotalWeekEnds_;
@@ -1536,14 +1535,14 @@ string Solver::solutionStatisticsToString() {
   // compute the same statistics for each skill and each week
   // compute the total number of assignments and the total minimum and
   // optimum demand
-  vector<int> unusedDays(pScenario_->nbContracts_, 0);
-  vector<int> extraDays(pScenario_->nbContracts_, 0);
-  vector<double> costPrefPerWeek(pScenario_->nbWeeks(), .0);
-  vector<double> costPrefPerContract(pScenario_->nbContracts_, .0);
+  vector<int> unusedDays(pScenario_->nContracts(), 0);
+  vector<int> extraDays(pScenario_->nContracts(), 0);
+  vector<double> costPrefPerWeek(pScenario_->nWeeks(), .0);
+  vector<double> costPrefPerContract(pScenario_->nContracts(), .0);
   vector2D<int> assignmentsPerContractAndWeek;
   Tools::initVector2D(&assignmentsPerContractAndWeek,
-                      pScenario_->nbContracts_,
-                      pScenario_->nbWeeks(),
+                      pScenario_->nContracts(),
+                      pScenario_->nWeeks(),
                       0);
   int totalAssignments = 0;
   for (PLiveNurse pNurse : theLiveNurses_) {
@@ -1555,7 +1554,7 @@ string Solver::solutionStatisticsToString() {
         - pNurse->maxTotalShifts());
     totalAssignments += pNurse->state(nbDays).totalTimeWorked_;
 
-    for (int w = 0; w < pScenario_->nbWeeks(); w++) {
+    for (int w = 0; w < pScenario_->nWeeks(); w++) {
       assignmentsPerContractAndWeek[c][w] +=
           pNurse->state(7 * (w + 1)).totalTimeWorked_
               - pNurse->state(7 * w).totalTimeWorked_;
@@ -1663,12 +1662,12 @@ vector<string> Solver::solutionToString(int nbWeeks) {
 //
 string Solver::solutionToString(int firstDay, int nbDays, int firstWeek) {
   std::stringstream rep;
-  int nbNurses = pScenario_->nbNurses_;
+  int nbNurses = pScenario_->nNurses();
 
   // write to stringstream that can then be printed in any output file
   // follow the template described by the competition
   rep << "SOLUTION" << std::endl;
-  rep << firstWeek << " " << pScenario_->name_ << std::endl;
+  rep << firstWeek << " " << pScenario_->name() << std::endl;
   rep << std::endl;
 
   // compute the total number of assignments that are not rests
@@ -1688,8 +1687,8 @@ string Solver::solutionToString(int firstDay, int nbDays, int firstWeek) {
         rep << theLiveNurses_[n]->name_ << " " << Tools::intToDay(day) << " ";
         if (shift > 0) {
           int skill = theLiveNurses_[n]->roster_.skill(day);
-          rep << pScenario_->intToShift_[shift] << " ";
-          rep << pScenario_->intToSkill_[skill] << std::endl;
+          rep << pScenario_->shift(shift) << " ";
+          rep << pScenario_->skill(skill) << std::endl;
         } else {  // shift < 0 so no shif is assigned
           rep << "Unassigned TBD" << std::endl;
           PLiveNurse pNurse = theLiveNurses_[n];
@@ -1708,8 +1707,8 @@ string Solver::solutionToString(int firstDay, int nbDays, int firstWeek) {
 //
 string Solver::solutionToLogString() {
   std::stringstream rep;
-  int nbNurses = pScenario_->nbNurses_, nbShifts = pScenario_->nbShifts_;
-  int nbSkills = pScenario_->nbSkills_;
+  int nbNurses = pScenario_->nNurses(), nbShifts = pScenario_->nShifts();
+  int nbSkills = pScenario_->nSkills();
   int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nDays_;
   int name_w = 10, shift_w = 2;
   rep << "Complete shift schedule" << std::endl << std::endl;
@@ -1731,7 +1730,7 @@ string Solver::solutionToLogString() {
       int shift = pNurse->roster_.shift(day);
       if (shift != 0) {
         rep << " | " << std::setw(shift_w)
-            << pScenario_->intToShift_[shift].substr(0, shift_w);
+            << pScenario_->shift(shift).substr(0, shift_w);
       } else {
         rep << " | " << string(shift_w, '-');
       }
@@ -1773,8 +1772,8 @@ string Solver::solutionToLogString() {
   for (int n = 0; n < nbNurses; n++) {
     PLiveNurse pNurse = theLiveNurses_[n];
 
-    if (pScenario_->thisWeek() + pScenario_->nbWeeksLoaded()
-        == pScenario_->nbWeeks()) {
+    if (pScenario_->thisWeek() + pScenario_->nWeeksLoaded()
+        == pScenario_->nWeeks()) {
       costTotalDays += pNurse->statCt_.costTotalDays_;
       costTotalWeekEnds += pNurse->statCt_.costTotalWeekEnds_;
     }

@@ -307,7 +307,7 @@ RosterMP::RosterMP(PScenario pScenario,
                    std::vector<State> *pInitState,
                    SolverType solver) :
     MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
-    assignmentCons_(pScenario->nbNurses_) {
+    assignmentCons_(pScenario->nNurses()) {
   lagrangianBoundAvail_ = true;
 }
 
@@ -338,7 +338,7 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
   if (!solution.empty()) {
     const char *baseName("initialRoster");
     // build the roster of each nurse
-    for (int i = 0; i < pScenario_->nbNurses_; ++i) {
+    for (int i = 0; i < pScenario_->nNurses(); ++i) {
       // load the roster of nurse i
       const Roster &roster = solution[i];
       // build the shift vector
@@ -354,50 +354,50 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
 
 std::map<PResource, CostType>
     RosterMP::defaultgeneratePResources(const PLiveNurse &pN) const {
-  PWeights pW = pScenario_->pWeights_;
+  const Weights &w = pScenario_->weights();
 
   std::map<PResource, CostType> mResources = {
       // initialize resource on the total number of working days
       {std::make_shared<SoftTotalShiftDurationResource>(
           pN->minTotalShifts(),
           pN->maxTotalShifts(),
-          pW->WEIGHT_TOTAL_SHIFTS,
-          pW->WEIGHT_TOTAL_SHIFTS,
+          w.WEIGHT_TOTAL_SHIFTS,
+          w.WEIGHT_TOTAL_SHIFTS,
           std::make_shared<AnyWorkShift>(),
           nDays()), TOTAL_WORK_COST},
       // initialize resource on the total number of week-ends
       {std::make_shared<SoftTotalWeekendsResource>(
           pN->maxTotalWeekends(),
-          pW->WEIGHT_TOTAL_WEEKENDS,
+          w.WEIGHT_TOTAL_WEEKENDS,
           nDays()), TOTAL_WEEKEND_COST},
       // initialize resource on the number of consecutive worked days
       {std::make_shared<SoftConsShiftResource>(
           pN->minConsDaysWork(),
           pN->maxConsDaysWork(),
-          pW->WEIGHT_CONS_DAYS_WORK,
-          pW->WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
           std::make_shared<AnyWorkShift>(),
           nDays()), CONS_WORK_COST}
   };
 
   // initialize resources on the number of consecutive shifts of each type
-  for (int st = 0; st < pScenario_->nbShiftsType_; st++) {
+  for (int st = 0; st < pScenario_->nShiftTypes(); st++) {
     shared_ptr<AbstractShift> absShift =
-        std::make_shared<AnyOfTypeShift>(st, pScenario_->intToShiftType_[st]);
+        std::make_shared<AnyOfTypeShift>(st, pScenario_->shiftType(st));
     if (absShift->isWork())
       mResources[std::make_shared<SoftConsShiftResource>(
           pScenario_->minConsShiftsOf(st),
           pScenario_->maxConsShiftsOf(st),
-          pW->WEIGHT_CONS_SHIFTS,
-          pW->WEIGHT_CONS_SHIFTS,
+          w.WEIGHT_CONS_SHIFTS,
+          w.WEIGHT_CONS_SHIFTS,
           absShift,
           nDays())] = CONS_SHIFTS_COST;
     else if (absShift->isRest())
       mResources[std::make_shared<SoftConsShiftResource>(
           pN->minConsDaysOff(),
           pN->maxConsDaysOff(),
-          pW->WEIGHT_CONS_DAYS_WORK,
-          pW->WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
           absShift,
           nDays())] = CONS_REST_COST;
   }
@@ -474,7 +474,7 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
 void RosterMP::buildAssignmentCons(const SolverParam &param) {
   char name[255];
   // build the roster assignment constraint for each nurse
-  for (int i = 0; i < pScenario_->nbNurses_; i++) {
+  for (int i = 0; i < pScenario_->nNurses(); i++) {
     snprintf(name, sizeof(name), "feasibilityAssignmentVar_N%d", i);
     MyVar *feasibilityVar;
     pModel_->createPositiveFeasibilityVar(&feasibilityVar, name);

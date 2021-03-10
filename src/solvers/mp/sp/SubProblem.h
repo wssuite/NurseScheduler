@@ -227,7 +227,7 @@ class SubProblem {
 
   virtual void resetAuthorizations() {
     // set all value to true
-    Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
+    Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nShifts(), true);
   }
 
   // Given an arc, returns the normal travel time (i.e. travel time when

@@ -155,7 +155,7 @@ StochasticSolver::StochasticSolver(PScenario pScenario,
     costPreviousWeeks_(costPreviousWeeks) {
   std::cout << "# New stochastic solver created!" << std::endl;
 
-  int remainingDays = (pScenario_->nbWeeks_ - pScenario_->thisWeek() - 1) * 7;
+  int remainingDays = (pScenario_->nWeeks() - pScenario_->thisWeek() - 1) * 7;
   options_.nDaysEvaluation_ =
       std::min(options_.nDaysEvaluation_, remainingDays);
 
@@ -215,13 +215,13 @@ StochasticSolver::~StochasticSolver() {
 double StochasticSolver::solve(const vector<Roster> &initialSolution) {
   options_.nExtraDaysGenerationDemands_ =
       std::min(options_.nExtraDaysGenerationDemands_,
-               7 * (pScenario_->nbWeeks() - (pScenario_->thisWeek() + 1)));
+               7 * (pScenario_->nWeeks() - (pScenario_->thisWeek() + 1)));
   options_.nDaysEvaluation_ = std::min(options_.nDaysEvaluation_,
-                                       7 * (pScenario_->nbWeeks()
+                                       7 * (pScenario_->nWeeks()
                                            - (pScenario_->thisWeek() + 1)));
   // Special case of the last week -> always to optimality with no time limit
   //
-  if (pScenario_->nbWeeks() - 1 == pScenario_->thisWeek()) {
+  if (pScenario_->nWeeks() - 1 == pScenario_->thisWeek()) {
     (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                    << "] Solving week no. " << pScenario_->thisWeek()
                    << " as the LAST WEEK (hence, to optimality !)" << std::endl;
@@ -267,7 +267,7 @@ double StochasticSolver::solve(const vector<Roster> &initialSolution) {
   if (solution_.empty())
     Tools::throwError("No feasible schedule has been found "
                       "in the available computational time.");
-  for (int n = 0; n < pScenario_->nbNurses_; ++n) {
+  for (int n = 0; n < pScenario_->nNurses(); ++n) {
     theLiveNurses_[n]->roster_ = solution_[n];
     theLiveNurses_[n]->buildStates();
   }
@@ -417,7 +417,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
       options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
   Tools::Timer timerSolve;
   double timeLastSolve = 0.0;
-  int maxNbAddedWeeks = pScenario_->nbWeeks() - (pScenario_->thisWeek() + 1);
+  int maxNbAddedWeeks = pScenario_->nWeeks() - (pScenario_->thisWeek() + 1);
   int nbAddedWeeks = 0;
 
   // Launch the iterative process
@@ -693,9 +693,9 @@ Solver *StochasticSolver::setEvaluationWithInputAlgorithm(
 
   // update the scenario to treat next week
   PPreferences pEmptyPref = std::make_shared<Preferences>(
-      pScenario_->nbNurses(),
+      pScenario_->nNurses(),
       options_.nDaysEvaluation_,
-      pScenario_->nbShifts());
+      pScenario_->nShifts());
   pScen->updateNewWeek(pDemand, pEmptyPref, *stateEndOfSchedule);
 
   switch (options_.evaluationAlgorithm_) {
@@ -740,7 +740,7 @@ bool StochasticSolver::evaluateSchedule(int sched) {
 
   initScheduleEvaluation(sched);
   vector<State> initialStates = finalStates_[nSchedules_ - 1];
-  for (int i = 0; i < pScenario_->nbNurses_; i++)
+  for (int i = 0; i < pScenario_->nNurses(); i++)
     initialStates[i].dayId_ = 0;
 
   int baseCost = pReusableGenerationSolver_->computeSolutionCost(7);
@@ -783,7 +783,7 @@ bool StochasticSolver::evaluateSchedule(int sched) {
 
     if (options_.evaluationCostPerturbation_) {
       if (pReusableEvaluationSolvers_[sched]->nDays()
-          + (7 * pScenario_->thisWeek() + 1) < 7 * pScenario_->nbWeeks_) {
+          + (7 * pScenario_->thisWeek() + 1) < 7 * pScenario_->nWeeks()) {
         pReusableEvaluationSolvers_[sched]->boundsAndWeights(
             options_.evaluationParameters_.weightStrategy_);
 #ifdef COMPARE_EVALUATIONS

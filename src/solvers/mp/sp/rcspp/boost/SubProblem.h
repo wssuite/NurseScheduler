@@ -128,7 +128,7 @@ class SubProblem : public SP {
   std::vector<int> defaultUBs() const {
     return {maxRotationLength_,
             maxTotalDuration_,
-            pScenario_->nbWeeks()};
+            pScenario_->nWeeks()};
   }
 
   // TODO(JO): I moved the definition here, but it seems to be related to

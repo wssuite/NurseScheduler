@@ -31,8 +31,8 @@ RestTree::RestTree(PScenario pScenario, PDemand pDemand, double epsilon) :
     pDemand_(pDemand),
     statsRestByDay_(pDemand_->nDays_),
     statsWorkByDay_(pDemand_->nDays_),
-    statsRestByNurse_(pScenario->nbNurses()),
-    statsWorkByNurse_(pScenario->nbNurses()) {}
+    statsRestByNurse_(pScenario->nNurses()),
+    statsWorkByNurse_(pScenario->nNurses()) {}
 
 // Forbid the shifts (that are already fixed by the previous branching decision)
 // in the generation  of new column.
@@ -51,7 +51,7 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
     if (restNode) {
       if (restNode->pNurse_ == pNurse) {
         if (restNode->rest_) {
-          for (int i = 1; i < pNurse->pScenario_->nbShifts_; ++i)
+          for (int i = 1; i < pNurse->pScenario_->nShifts(); ++i)
             forbidenShifts->insert(pair<int, int>(restNode->day_, i));
         } else {
           forbidenShifts->insert(pair<int, int>(restNode->day_, 0));
@@ -76,7 +76,7 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
       for (PPattern pat : columnsNode->patterns_)
         if (pat->nurseNum_ == pNurse->num_)
           pat->addForbiddenShifts(forbidenShifts,
-                                  pScenario_->nbShifts(),
+                                  pScenario_->nShifts(),
                                   pDemand_);
       continue;
     }
@@ -163,9 +163,9 @@ string RestTree::writeBranchStats() const {
   rep << "Stats by Nurse" << std::endl;
   rep << "\t\t  ";
   for (int n = 0; n < nbNurses; n++) {
-    if (n < 10) rep << "|" << pScenario_->theNurses_[n]->name_ << " ";
+    if (n < 10) rep << "|" << pScenario_->pNurse(n)->name_ << " ";
     else
-      rep << "|" << pScenario_->theNurses_[n]->name_;
+      rep << "|" << pScenario_->pNurse(n)->name_;
   }
   rep << "|" << std::endl;
   rep << writeOneStat("Rest", statsRestByNurse_);
@@ -447,7 +447,7 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
   for (int k = 0; k < nbDays; ++k)
     for (int s = 1; s < nbShifts; ++s) {
       double &dailyScore = dailyShiftScores[s - 1][k];
-      for (int sk = 0; sk < pMaster_->pScenario()->nbSkills(); ++sk) {
+      for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk) {
         double v = pModel_->getVarValue(skillsAllocVars[k][s - 1][sk]);
         dailyScore += std::min(ceil(v) - v, v - floor(v));
       }
@@ -495,7 +495,7 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
   // add the cut
   vector<MyVar *> vars;
   vector<double> coeffs;
-  for (int sk = 0; sk < pMaster_->pScenario()->nbSkills(); ++sk)
+  for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk)
     for (int p : pMaster_->getPositionsForSkill(sk)) {
       vars.push_back(skillsAllocVars[bestDay][bestShift - 1][sk][p]);
       coeffs.push_back(1);
@@ -536,7 +536,7 @@ void DiveBranchingRule::branchOnOptDemand(MyBranchingCandidate *candidate) {
   int nbDays = pMaster_->nDays(), nbShifts = pMaster_->nShifts();
   for (int k = 0; k < nbDays; ++k)
     for (int s = 1; s < nbShifts; ++s) {
-      for (int sk = 0; sk < pMaster_->pScenario()->nbSkills(); ++sk) {
+      for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk) {
         double v = pModel_->getVarValue(optDemandVars[k][s - 1][sk]);
         double score = std::min(ceil(v) - v, v - floor(v));
         if (score > bestScore + pModel_->epsilon()) {

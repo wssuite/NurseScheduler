@@ -145,7 +145,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     // build a vector containing the skills that need to be removed from the
     // scenario.
     vector<int> skillsToRemove;
-    for (int skill = 0; skill < pScenario->nbSkills_; skill++)
+    for (int skill = 0; skill < pScenario->nSkills(); skill++)
       skillsToRemove.push_back(skill);
     for (int skill : skillsVector)
       skillsToRemove.erase(skillsToRemove.begin() + skill);
@@ -154,12 +154,11 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
                      Tools::compareDecreasing);
 
     // shorten the vectors intToSkill and skillToInt to match the list of skills
-    vector<string> intToSkill(pScenario->intToSkill_);
-    map<string, int> skillToInt(pScenario->skillToInt_);
-
-    for (int skill : skillsToRemove) {
-      skillToInt.erase(pScenario->intToSkill_[skill]);
-      intToSkill.erase(intToSkill.begin() + skill);
+    vector<string> intToSkill(pScenario->nSkills());
+    map<string, int> skillToInt(pScenario->skillsToInt());
+    for (int sk : skillsToRemove) {
+      skillToInt.erase(pScenario->skill(sk));
+      intToSkill.erase(intToSkill.begin() + sk);
     }
 
     // create the demand that relates only to input skills
@@ -189,7 +188,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     PPreferences pPreferencesInTheComponent =
         std::make_shared<Preferences>(nursesInTheComponent,
                                       pDemand->nDays_,
-                                      pScenario->nbShifts_);
+                                      pScenario->nShifts());
     PPreferences pPreferences = pScenario->pWeekPreferences();
 
     // only keep the demand of the nurses in the component

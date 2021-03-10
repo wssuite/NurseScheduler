@@ -25,7 +25,7 @@ void SubProblem::build() {
   createArcs();
 
   // Set all status to authorized
-  Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nbShifts_, true);
+  Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nShifts(), true);
   nPathsMin_ = 0;
 }
 
@@ -113,14 +113,14 @@ bool SubProblem::solveRCGraph() {
 void SubProblem::createArcs() {
   // Initialization
   Tools::initVector4D(&arcsFromSource_,
-                      pScenario_->nbShiftsType_,
+                      pScenario_->nShiftTypes(),
                       nDays_,
                       0,
                       0,
                       -1);
   Tools::initVector3D(&principalToPrincipal_,
-                      pScenario_->nbShiftsType_,
-                      pScenario_->nbShiftsType_,
+                      pScenario_->nShiftTypes(),
+                      pScenario_->nShiftTypes(),
                       nDays_,
                       -1);
 
@@ -214,7 +214,7 @@ double SubProblem::historicalCost(int currentShift) const {
 
       // b. The nurse was working on a different shift: if too short,
       // add the corresponding cost
-      int shiftType = pScenario_->shiftIDToShiftTypeID_[currentShift];
+      int shiftType = pScenario_->shiftIDToShiftTypeID(currentShift);
       if (shiftTypeIni != shiftType) {
         int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
         cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_SHIFTS);
@@ -240,7 +240,7 @@ std::vector<int> SubProblem::startConsumption(
       timeDuration = 0;
       size = 0;
     } else {
-      timeDuration += pScenario_->timeDurationToWork_[s];
+      timeDuration += pScenario_->duration(s);
       ++size;
     }
   }
@@ -308,7 +308,7 @@ bool SubProblem::canSuccStartHere(int k, const std::vector<int> &shifts) const {
 void SubProblem::forbidDayShift(int k, int s) {
   SP::forbidDayShift(k, s);
 
-  int sh = pScenario_->shiftIDToShiftTypeID_[s];
+  int sh = pScenario_->shiftIDToShiftTypeID(s);
   principalGraphs_[sh].forbidDayShift(k, s);
 }
 
@@ -316,7 +316,7 @@ void SubProblem::forbidDayShift(int k, int s) {
 void SubProblem::authorizeDayShift(int k, int s) {
   SP::authorizeDayShift(k, s);
 
-  int sh = pScenario_->shiftIDToShiftTypeID_[s];
+  int sh = pScenario_->shiftIDToShiftTypeID(s);
   principalGraphs_[sh].authorizeDayShift(k, s);
 }
 

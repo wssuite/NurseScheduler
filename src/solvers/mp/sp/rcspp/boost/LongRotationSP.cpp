@@ -45,8 +45,8 @@ LongRotationSP::~LongRotationSP() {}
 // Should only be used ONCE (when creating the SubProblem).
 void LongRotationSP::initShortSuccessions() {
   // Primary information needed
-  int nShiftsType = pScenario_->nbShiftsType_;
-  int nShifts = pScenario_->nbShifts_;
+    int nShiftTypes = pScenario_->nShiftTypes();
+  int nShifts = pScenario_->nShifts();
 
   // Put an empty list of size 0 for all data because there exists no
   // succession of length 0/
@@ -56,7 +56,7 @@ void LongRotationSP::initShortSuccessions() {
   baseArcCostOfShortSucc_.emplace_back(vector<double>());
 
   // Initialize the other way round
-  for (int s = 0; s < nShiftsType; s++)
+  for (int s = 0; s < nShiftTypes; s++)
     allShortSuccCDMinByLastShiftCons_.emplace_back(vector2D<int>(
         maxCons(s) + 1));
 
@@ -94,8 +94,8 @@ void LongRotationSP::initShortSuccessions() {
             allSuccSizeC.push_back(newSucc);  // Add it to the possibilities
             lastShiftSucc.push_back(newSh);  // Record its last shift
 
-            int newShTypeID = pScenario_->shiftIDToShiftTypeID_[newSh];
-            int lastShTypeID = pScenario_->shiftIDToShiftTypeID_[lastSh];
+            int newShTypeID = pScenario_->shiftIDToShiftTypeID(newSh);
+            int lastShTypeID = pScenario_->shiftIDToShiftTypeID(lastSh);
 
             // Depending on the previous one, update number of consecutive and
             // cost
@@ -128,8 +128,8 @@ void LongRotationSP::initShortSuccessions() {
             int newNLast = 1;
             double newCost = cost;
 
-            int newShTypeID = pScenario_->shiftIDToShiftTypeID_[newSh];
-            int lastShTypeID = pScenario_->shiftIDToShiftTypeID_[lastSh];
+            int newShTypeID = pScenario_->shiftIDToShiftTypeID(newSh);
+            int lastShTypeID = pScenario_->shiftIDToShiftTypeID(lastSh);
 
             // BUT : add the cost if longer than the maximum allowed
             if (newShTypeID == lastShTypeID) {
@@ -211,9 +211,9 @@ bool LongRotationSP::solveShortRotations() {
 // rotations nodes)
 void LongRotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
-  for (int sh = 1; sh < pScenario_->nbShiftsType_; ++sh) {
+  for (int sh = 1; sh < pScenario_->nShiftTypes(); ++sh) {
     // any shift with the right shit type
-    int s = pScenario_->shiftTypeIDToShiftID_[sh].front();
+    int s = pScenario_->shiftTypeIDToShiftID(sh).front();
     std::vector<int> shifts;
     Tools::initVector(&shifts, minConsDays_, s);
     for (int k = CDMin_ - 1; k < nDays_; k++)
@@ -240,7 +240,7 @@ void LongRotationSP::priceShortSucc() {
   map<int, int> specialArcsSuccId;
   map<int, double> specialArcsCost;
 
-  for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
+  for (int s = 1; s < pScenario_->nShiftTypes(); s++) {
     for (int k = minConsDays_ - 1; k < nDays_; k++) {
       int max_cons = principalGraphs_[s].maxCons();
       for (int n = 0; n <= max_cons; n++) {
@@ -332,10 +332,10 @@ double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
     int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
 
     int firstShift = succ.front();
-    int firstShiftType = pScenario_->shiftIDToShiftTypeID_[firstShift];
+    int firstShiftType = pScenario_->shiftIDToShiftTypeID(firstShift);
     int nConsFirstShift = 0;
     for (int i = 0; i < size
-        && pScenario_->shiftIDToShiftTypeID_[succ[i]] == firstShiftType; i++)
+        && pScenario_->shiftIDToShiftTypeID(succ[i]) == firstShiftType; i++)
       nConsFirstShift++;
 
     // 1. The nurse was resting: pay more only if the rest is too short
@@ -516,8 +516,8 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
   // C. REGULAR COST: CONSECUTIVE SHIFTS
   for (int k = startDate; k <= endDate; k++) {
     int newShift = succ[k - startDate];
-    int shiftType = pScenario_->shiftIDToShiftTypeID_[shift];
-    int newShiftType = pScenario_->shiftIDToShiftTypeID_[newShift];
+    int shiftType = pScenario_->shiftIDToShiftTypeID(shift);
+    int newShiftType = pScenario_->shiftIDToShiftTypeID(newShift);
 
     if (newShiftType == shiftType) {
       consShifts++;
@@ -578,7 +578,7 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
               << pLiveNurse_->name_ << ")" << std::endl;
     std::cout << "# " << startDate << "-";
     for (unsigned int i = 0; i < succ.size(); i++)
-      std::cout << pScenario_->intToShift_[succ[i]].at(0);
+      std::cout << pScenario_->shift(succ[i]).at(0);
     std::cout << std::endl;
     std::cout << "# length " << consDays;
     if (startDate == 0 && pLiveNurse_->pStateIni_->shift_ > 0) {
@@ -639,7 +639,7 @@ void LongRotationSP::printShortSucc() const {
 
 // Prints all active pairs ( arcFromSource - corresponding short successions )
 void LongRotationSP::printShortArcs() const {
-  for (int s = 1; s < pScenario_->nbShiftsType_; s++) {
+  for (int s = 1; s < pScenario_->nShiftTypes(); s++) {
     for (int k = minConsDays_ - 1; k < nDays_; k++) {
       for (int n = 1; n <= principalGraphs_[s].maxCons(); n++) {
         const Arc_Properties &arc_prop = arcsFromSource_[s][k][n].front();
@@ -647,7 +647,7 @@ void LongRotationSP::printShortArcs() const {
           int v = principalGraphs_[s].getNode(k, n);
           std::cout << "# " << g_.shortNameNode(v) << " <- ";
           for (int s : arc_prop.shifts)
-            std::cout << pScenario_->intToShift_[s].at(0);
+            std::cout << pScenario_->shift(s).at(0);
           std::cout << std::endl;
         }
       }

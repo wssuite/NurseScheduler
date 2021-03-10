@@ -431,8 +431,8 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
   // Always solve small problems to optimality
   // This can actually save time
   //
-  if ((pScenario_->nbDays() <= 28 && pScenario_->nbNurses() <= 8)
-      || (pScenario_->nbDays() <= 56 && pScenario_->nbNurses() <= 5)) {
+  if ((pScenario_->nDays() <= 28 && pScenario_->nNurses() <= 8)
+      || (pScenario_->nDays() <= 56 && pScenario_->nNurses() <= 5)) {
     completeParameters_.optimalityLevel(OPTIMALITY);
     objValue_ = solveCompleteHorizon(solution);
     return objValue_;
@@ -517,7 +517,7 @@ double DeterministicSolver::treatResults(Solver *pSolver) {
   // Update nurses' states when a feasible solution has been found
   if (pSolver->isSolutionInteger()) {
     solution_ = pSolver->solution();
-    for (int n = 0; n < pScenario_->nbNurses_; ++n) {
+    for (int n = 0; n < pScenario_->nNurses(); ++n) {
       theLiveNurses_[n]->roster_ = solution_[n];
       theLiveNurses_[n]->buildStates();
     }
@@ -542,7 +542,7 @@ double DeterministicSolver::solveByConnectedPositions() {
       divideScenarioIntoConnectedPositions(pScenario_);
 
   // SOLVE THE PROBLEM COMPONENT-WISE
-  int nbNursesToSolve = pScenario_->nbNurses();
+  int nbNursesToSolve = pScenario_->nNurses();
   std::list<PScenario> scenariosToSolve(scenariosPerComponent.begin(),
                                         scenariosPerComponent.end());
   std::map<PScenario, DeterministicSolver *> solverForScenario;
@@ -555,7 +555,7 @@ double DeterministicSolver::solveByConnectedPositions() {
     // change also the settings to try to consume all the solving time provided
     if (nbNursesToSolve == 0) {
       for (auto pSc : scenariosToSolve)
-        nbNursesToSolve += pSc->nbNurses();
+        nbNursesToSolve += pSc->nNurses();
     }
 
     // retrieve and remove first scenario
@@ -570,7 +570,7 @@ double DeterministicSolver::solveByConnectedPositions() {
     // if no more time left, stop
     if (timeLeft <= 10)
       break;
-    double allowedTime = pScenario->nbNurses() * timeLeft / nbNursesToSolve;
+    double allowedTime = pScenario->nNurses() * timeLeft / nbNursesToSolve;
 
     if (options_.verbose_ > 0) {
       std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
@@ -612,7 +612,7 @@ double DeterministicSolver::solveByConnectedPositions() {
           solver->solution()[pNurse->num_];
 
     // update the number of nurses to solve
-    nbNursesToSolve -= pScenario->nbNurses();
+    nbNursesToSolve -= pScenario->nNurses();
 
     // If not optimal or a timeout has been specified or not trying to
     // solve at optimality,
@@ -634,7 +634,7 @@ double DeterministicSolver::solveByConnectedPositions() {
   }
 
   // update nurses' states
-  for (int n = 0; n < pScenario_->nbNurses_; ++n) {
+  for (int n = 0; n < pScenario_->nNurses(); ++n) {
     solution_.push_back(theLiveNurses_[n]->roster_);
     theLiveNurses_[n]->buildStates();
   }
@@ -902,7 +902,7 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
 
     // unfix every nurse and/or days for next iteration
     //
-    std::vector<bool> isUnfixNurse(pScenario_->nbNurses_, true);
+    std::vector<bool> isUnfixNurse(pScenario_->nNurses(), true);
     pLNSSolver_->unfixNurses(isUnfixNurse);
     pLNSSolver_->resetNursesAvailabilities();
 
@@ -967,8 +967,8 @@ void DeterministicSolver::initializeLNS() {
 void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
                                           DaysSelectionOperator dayOp) {
   // apply the destroy operator
-  std::vector<bool> isFixNurse(pScenario_->nbNurses_, true);
-  std::vector<bool> isFixDay(pScenario_->nbDays(), true);
+  std::vector<bool> isFixNurse(pScenario_->nNurses(), true);
+  std::vector<bool> isFixDay(pScenario_->nDays(), true);
   std::vector<int> randIndVector;
 
   // FIRST SET THE NUMBER OF NURSES AND DAYS THAT MUST BE FIXED
@@ -991,7 +991,7 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
   switch (nurseOp) {
     case NURSES_RANDOM: {
       randIndVector = Tools::drawRandomIndices(
-          nbNursesDestroy, 0, pScenario_->nbNurses_ - 1);
+          nbNursesDestroy, 0, pScenario_->nNurses() - 1);
       for (int ind : randIndVector)
         isFixNurse[ind] = false;
       break;
@@ -1023,7 +1023,7 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
   if (nbDaysDestroy < this->nDays()) {
     // draw the first day of the relaxed interval
     std::vector<double>
-        weightDays(pScenario_->nbDays() - nbDaysDestroy - 1, 1.0);
+        weightDays(pScenario_->nDays() - nbDaysDestroy - 1, 1.0);
     weightDays[0] = 7;
     for (int i = 1; i < std::max(nDays() - nbDaysDestroy - 1, 6); i++) {
       weightDays[i] = 0.1;
