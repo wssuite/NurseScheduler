@@ -33,17 +33,17 @@ using std::vector;
 class SoftConsShiftResource : public SoftBoundedResource {
  public:
   SoftConsShiftResource(int lb, int ub, double lbCost, double ubCost,
-                        const PAbstractShift pShift, int totalNbDays,
+                        const PAbstractShift& pShift, int totalNbDays,
+                        int initialConsumption,
                         std::string _name = "") :
       SoftBoundedResource(_name.empty() ?
                           "Soft Cons "+pShift->name : std::move(_name),
                           lb, ub, lbCost, ubCost),
       pShift_(pShift),
-      totalNbDays_(totalNbDays) {}
+      totalNbDays_(totalNbDays),
+      initialConsumption_(initialConsumption) {}
 
   int getConsumption(const State &initialState) const override;
-
-  int getTotalNbDays() const {return totalNbDays_;}
 
   // the resource needs to be checked for dominance only on nodes
   // corresponding to the one checked in this constraint
@@ -81,12 +81,14 @@ class SoftConsShiftResource : public SoftBoundedResource {
 
   const PAbstractShift pShift_;
   int totalNbDays_;  // Total number of days in the horizon
+  int initialConsumption_ = 0;  // consumption of the resource in the initial
+  // state
 };
 
 class HardConsShiftResource : public HardBoundedResource {
  public:
   HardConsShiftResource(
-      int lb, int ub, const PAbstractShift pShift) :
+      int lb, int ub, const PAbstractShift& pShift) :
       HardBoundedResource("Hard Cons "+pShift->name, lb, ub),
       pShift_(pShift) {}
 
@@ -106,10 +108,6 @@ class HardConsShiftResource : public HardBoundedResource {
                  const PRCArc &pArc) override;
 
   const PAbstractShift pShift_;
-  // TODO(JO): use this member to initialize expanders and improve the worst
-  //  case UB costs in back-expansions
-  int initialConsumption_ = 0;  // consumption of the resource in the initial
-  // state
 };
 
 /*

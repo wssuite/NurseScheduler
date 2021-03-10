@@ -9,10 +9,11 @@
  * full license detail.
  */
 
-#include "RosterMP.h"
+#include "solvers/mp/RosterMP.h"
 
 #include <map>
 #include <memory>
+#include <utility>
 
 #include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
 #include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
@@ -301,17 +302,18 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
 //
 //-----------------------------------------------------------------------------
 
-RosterMP::RosterMP(PScenario pScenario,
+RosterMP::RosterMP(const PScenario& pScenario,
                    PDemand pDemand,
                    PPreferences pPreferences,
                    std::vector<State> *pInitState,
                    SolverType solver) :
-    MasterProblem(pScenario, pDemand, pPreferences, pInitState, solver),
+    MasterProblem(pScenario, std::move(pDemand), std::move(pPreferences),
+        pInitState, solver),
     assignmentCons_(pScenario->nbNurses_) {
   lagrangianBoundAvail_ = true;
 }
 
-RosterMP::~RosterMP() {}
+RosterMP::~RosterMP() = default;
 
 PPattern RosterMP::getPattern(MyVar *var) const {
   return std::make_shared<RosterPattern>(var->getPattern(), pScenario_);
@@ -327,7 +329,7 @@ void RosterMP::build(const SolverParam &param) {
 
   /* Change the branching rule */
   pRule_ = new RosterBranchingRule(this,
-                                   static_cast<RestTree *>(pTree_),
+                                   dynamic_cast<RestTree *>(pTree_),
                                    "branching rule");
   pModel_->addBranchingRule(pRule_);
 }
@@ -377,29 +379,37 @@ std::map<PResource, CostType>
           pW->WEIGHT_CONS_DAYS_WORK,
           pW->WEIGHT_CONS_DAYS_WORK,
           std::make_shared<AnyWorkShift>(),
-          nDays()), CONS_WORK_COST}
+          nDays(),
+          pN->pStateIni_->consDaysWorked_),
+       CONS_WORK_COST}
   };
 
   // initialize resources on the number of consecutive shifts of each type
   for (int st = 0; st < pScenario_->nbShiftsType_; st++) {
     shared_ptr<AbstractShift> absShift =
         std::make_shared<AnyOfTypeShift>(st, pScenario_->intToShiftType_[st]);
-    if (absShift->isWork())
+    if (absShift->isWork()) {
+      int consShiftsInitial =
+          absShift->includes(*pN->pStateIni_->pShift_) ?
+          pN->pStateIni_->consShifts_ : 0;
       mResources[std::make_shared<SoftConsShiftResource>(
           pScenario_->minConsShiftsOf(st),
           pScenario_->maxConsShiftsOf(st),
           pW->WEIGHT_CONS_SHIFTS,
           pW->WEIGHT_CONS_SHIFTS,
           absShift,
-          nDays())] = CONS_SHIFTS_COST;
-    else if (absShift->isRest())
+          nDays(),
+          consShiftsInitial)] = CONS_SHIFTS_COST;
+    } else if (absShift->isRest()) {
       mResources[std::make_shared<SoftConsShiftResource>(
           pN->minConsDaysOff(),
           pN->maxConsDaysOff(),
           pW->WEIGHT_CONS_DAYS_WORK,
           pW->WEIGHT_CONS_DAYS_WORK,
           absShift,
-          nDays())] = CONS_REST_COST;
+          nDays(),
+          pN->pStateIni_->consDaysOff_)] = CONS_REST_COST;
+    }
   }
 
   return mResources;
@@ -448,7 +458,8 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
                                name,
                                roster.cost_,
                                roster.getCompactPattern());
-    for (unsigned int i = 0; i < cons.size(); i++)
+    unsigned int i;
+    for (i = 0; i < static_cast<int>(cons.size()); i++)
       pModel_->addCoefLinear(cons[i], var, coeffs[i]);
   } else {
     /* Roster  assignment constraint s added only for real rosters

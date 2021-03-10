@@ -118,7 +118,7 @@ struct RosterPattern : Pattern {
 //-----------------------------------------------------------------------------
 class RosterMP : public MasterProblem {
  public:
-  RosterMP(PScenario pScenario,
+  RosterMP(const PScenario& pScenario,
            PDemand pDemand,
            PPreferences pPreferences,
            std::vector<State> *pInitState,
