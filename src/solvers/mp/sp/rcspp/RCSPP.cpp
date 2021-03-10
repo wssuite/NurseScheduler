@@ -182,7 +182,7 @@ std::vector<RCSolution> MyRCSPPSolver::solve(double maxReducedCostBound,
       // rosters, we can break, because we got what we were looking for
       // otherwise, we deactivate the most restrictive heuristic and get
       // prepared for a new solution
-      if (nbNegativeLabels <= param_.rcsppMinNegativeLabels_)
+      if (nbNegativeLabels >= param_.rcsppMinNegativeLabels_)
         break;
       else
         prepareForNextExecution(pRcGraph_->pNodes());
