@@ -109,11 +109,7 @@ LiveNurse::LiveNurse(const Nurse &nurse,
                      State *pStateIni,
                      PPreferences pPreferences,
                      int num) :
-    Nurse(num,
-          nurse.name_,
-          nurse.nbSkills_,
-          nurse.skills_,
-          nurse.pContract_),
+    Nurse(num, nurse),
     pScenario_(pScenario),
     nbDays_(nbDays),
     firstDay_(firstDay),
@@ -129,6 +125,13 @@ LiveNurse::LiveNurse(const Nurse &nurse,
     maxAvgWorkDaysNoPenaltyTotalDays_(-1) {
   roster_.init(nbDays, firstDay);
   statCt_.init(nbDays);
+
+  // check if initial state is valid
+  if (!isShiftAvailable(pStateIni->shift_))
+    Tools::throwError("Invalid initial shift %s, "
+                      "as it is not available for nurse %s",
+                      pScenario->shift(pStateIni->shift_).c_str(),
+                      name_.c_str());
 
   // initialize the states at each day
   states_.push_back(*pStateIni);
@@ -800,8 +803,8 @@ void Solver::specifyNursePositions() {
     for (int i = 0; i < pScenario_->nPositions(); i++) {
       PPosition pPosition = pScenario_->pPositions()[i];
       isPosition = true;
-      if (pPosition->nbSkills_ == pNurse->nbSkills_) {
-        for (int i = 0; i < pNurse->nbSkills_; i++) {
+      if (pPosition->nSkills() == pNurse->nSkills()) {
+        for (int i = 0; i < pNurse->nSkills(); i++) {
           if (pNurse->skills_[i] != pPosition->skills_[i]) {
             isPosition = false;
             break;
@@ -938,7 +941,7 @@ void Solver::preprocessTheSkills() {
     for (PLiveNurse pNurse : theLiveNurses_)
       if (pNurse->hasSkill(sk))
         nbNursesWeighted[sk] +=
-            pNurse->maxTotalShifts() * 1.0 / pow(pNurse->nbSkills_, 2);
+            pNurse->maxTotalShifts() * 1.0 / pow(pNurse->nSkills(), 2);
 
     // the skill rarity is the ratio of the the demand for the skill to the
     // weighted number of nurses that have the skill
@@ -1369,11 +1372,11 @@ bool comparePositions(PPosition p1, PPosition p2) {
   } else if (p1->rank() == p2->rank()) {
     // the skillRarity vector is ALWAYS sorted in descending order, because the
     // updateRarities is the only setter for skillRarity and it sorts the vector
-    for (int sk = 0; sk < std::min(p1->nbSkills(), p2->nbSkills()); sk++) {
+    for (int sk = 0; sk < std::min(p1->nSkills(), p2->nSkills()); sk++) {
       if (p1->skillRarity(sk) != p2->skillRarity(sk)) {
         return p1->skillRarity(sk) > p2->skillRarity(sk);
       }
-      return p1->nbSkills() > p2->nbSkills();
+      return p1->nSkills() > p2->nSkills();
     }
   } else {
     return p1->rank() < p2->rank();

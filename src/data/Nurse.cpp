@@ -94,12 +94,11 @@ std::string Contract::toString() {
 
 // Constructor and Destructor
 //
-Position::Position(int index, int nbSkills, std::vector<int> skills) :
+Position::Position(int index, std::vector<int> skills) :
     id_(index),
-    nbSkills_(nbSkills),
     skills_(skills),
-    nbBelow_(0),
-    nbAbove_(0),
+    nBelow_(0),
+    nAbove_(0),
     rank_(0) {
   // Verify that the vecor of skills is sorted
   //
@@ -109,7 +108,7 @@ Position::Position(int index, int nbSkills, std::vector<int> skills) :
           "The skills in a position are not sorted or some skill is repeated!");
     }
   }
-  for (int sk = 0; sk < nbSkills_; sk++) {
+  for (int sk = 0; sk < nSkills(); sk++) {
     skillRarity_.push_back(1.0);
   }
 }
@@ -118,11 +117,11 @@ Position::Position(int index, int nbSkills, std::vector<int> skills) :
 //
 void Position::addBelow(PPosition pPosition) {
   positionsBelow_.push_back(pPosition);
-  nbBelow_++;
+  nBelow_++;
 }
 void Position::addAbove(PPosition pPosition) {
   positionsAbove_.push_back(pPosition);
-  nbAbove_++;
+  nAbove_++;
 }
 
 // Print method
@@ -136,7 +135,7 @@ std::string Position::toString() const {
   // print the rank and the list of skills
   rep << ": rank = " << rank_;
   rep << " ; skills = [ ";
-  for (int i = 0; i < nbSkills_; i++) rep << skills_[i] << " ";
+  for (int i = 0; i < nSkills(); i++) rep << skills_[i] << " ";
   rep << "]\t";
 
   // print the rank
@@ -164,7 +163,7 @@ std::string Position::toString() const {
 // is used only to compare two positions with the same rank
 //
 void Position::updateRarities(std::vector<double> allRarities) {
-  for (int sk = 0; sk < this->nbSkills_; sk++) {
+  for (int sk = 0; sk < this->nSkills(); sk++) {
     skillRarity_[sk] = allRarities[skills_[sk]];
   }
   std::sort(skillRarity_.begin(), skillRarity_.end(), std::greater<double>());
@@ -179,9 +178,9 @@ void Position::updateRarities(std::vector<double> allRarities) {
 //
 int Position::compare(const Position &p) {
   // no possible dominance if both positions have as many skills
-  if (p.nbSkills_ == this->nbSkills_) {
+  if (p.nSkills() == this->nSkills()) {
     return 0;
-  } else if (p.nbSkills_ > this->nbSkills_) {
+  } else if (p.nSkills() > this->nSkills()) {
     // only p can dominate if it has more skills
     // the comparison of the two skill lists is based on the fact that they are
     // both sorted
@@ -195,7 +194,7 @@ int Position::compare(const Position &p) {
       if (*it1 != *it2) return 0;
     }
     return -1;
-  } else if (this->nbSkills_ > p.nbSkills_) {
+  } else if (this->nSkills() > p.nSkills()) {
     // only this position can dominate if it has more skills
     auto it1 = this->skills_.begin();
     for (auto it2 = p.skills_.begin(); it2 != p.skills_.end(); it2++) {
@@ -215,13 +214,10 @@ int Position::compare(const Position &p) {
 // returns true if the position shares at least
 // one skill with the input position
 //
-bool Position::shareSkill(const Position &p) {
-  for (auto it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++) {
-    for (auto it1 = p.skills_.begin(); it1 != p.skills_.end(); it1++) {
-      if (*it1 == *it2) return true;
-    }
-  }
-
+bool Position::shareSkill(const Position &p) const {
+  for (int s : skills_)
+    if (find(p.skills_.begin(), p.skills_.end(), s) != p.skills_.end())
+      return true;
   return false;
 }
 
@@ -229,11 +225,11 @@ bool Position::shareSkill(const Position &p) {
 //
 void Position::resetAbove() {
   positionsAbove_.clear();
-  nbAbove_ = 0;
+  nAbove_ = 0;
 }
 void Position::resetBelow() {
   positionsBelow_.clear();
-  nbBelow_ = 0;
+  nBelow_ = 0;
 }
 
 
@@ -549,22 +545,45 @@ string Preferences::toString(PScenario pScenario) const {
 //
 Nurse::Nurse(int id,
              string name,
-             int nbSkills,
+             int nshifts,
              vector<int> skills,
+             std::vector<int> availableShifts,
              PConstContract contract) :
     num_(id),
-    name_(name),
-    nbSkills_(nbSkills),
-    skills_(skills),
-    pContract_(contract) {
+    name_(std::move(name)),
+    skills_(std::move(skills)),
+    availableShifts_(std::move(availableShifts)),
+    pContract_(std::move(contract)),
+    hasSkill_(skills_.size(), false),
+    isAvailableShifts_(nshifts, false) {
   // Verify that the vector of skills is sorted
   //
-  for (vector<int>::const_iterator it = skills_.begin();
-       it != skills_.end() - 1; ++it)
+  for (auto it = skills_.begin(); it+1 != skills_.end(); ++it)
     if (*it >= *(it + 1))
       Tools::throwError("The skills in a nurse are not sorted "
                         "or some skill is repeated!");
+  for (auto it = availableShifts_.begin(); it+1 != availableShifts_.end(); ++it)
+    if (*it >= *(it + 1))
+      Tools::throwError("The available shifts in a nurse are not sorted "
+                        "or some skill is repeated!");
+
+  // build hasSkill_
+  for (int sk : skills)
+    hasSkill_[sk] = true;
+
+  // build isAvailableShifts_
+  for (int s : availableShifts_)
+    isAvailableShifts_[s] = true;
 }
+
+Nurse::Nurse(int id, const Nurse &nurse) :
+    num_(id),
+    name_(nurse.name_),
+    skills_(nurse.skills_),
+    availableShifts_(nurse.availableShifts_),
+    pContract_(nurse.pContract_),
+    hasSkill_(nurse.hasSkill_),
+    isAvailableShifts_(nurse.isAvailableShifts_) {}
 
 Nurse::~Nurse() {
   // WARNING: Do NOT delete Contract* contract (eventhough it is a pointer.
@@ -574,11 +593,8 @@ Nurse::~Nurse() {
 
 // Check that the nurse has a given skill
 //
-bool Nurse::hasSkill(int skill) const {
-  for (int i = 0; i < nbSkills_; i++) {
-    if (skills_[i] == skill) return true;
-  }
-  return false;
+bool Nurse::hasSkill(int sk) const {
+  return hasSkill_[sk];
 }
 
 // Print method
@@ -588,10 +604,10 @@ string Nurse::toString() const {
   rep << num_ << ": ";
   if (num_ < 10) rep << " ";
   if (num_ < 100) rep << " ";
-  rep << name_ << "\t" << nbSkills_ << " [ ";
-  for (int i = 0; i < nbSkills_; i++) rep << skills_[i] << " ";
+  rep << name_ << "\t" << nSkills() << " [ ";
+  for (int i = 0; i < nSkills(); i++) rep << skills_[i] << " ";
   rep << "]\t";
-  if (nbSkills_ == 1) rep << "\t";
+  if (nSkills() == 1) rep << "\t";
   rep << pContract_->name_;
   return rep.str();
 }

@@ -75,14 +75,15 @@ PScenario ReadWrite::readScenario(string fileName) {
   // declare the attributes that will initialize the Scenario instance
   //
   string name;
-  int nbWeeks = -1, nbSkills = -1, nbShifts = -1, nbShiftsType = -1,
+  int nbWeeks = -1, nSkills = -1, nShifts = -1, nbShiftsType = -1,
       nbContracts = -1, nbNurses = -1;
   vector<string> intToSkill, intToShift, intToShiftType, intToContract;
   map<string, int> skillToInt, shiftToInt, shiftTypeToInt, nurseNameToInt;
   vector<int> minConsShiftType, maxConsShiftType, hoursInShift,
       shiftIDToShiftTypeID, nbForbidShiftSucc;
-  vector2D<int> shiftTypeIDToShiftID;
-  vector2D<int> forbiddenShiftTypeSuccessors, forbiddenShiftSuccessors;
+  vector2D<int> shiftTypeIDToShiftID,
+      forbiddenShiftTypeSuccessors,
+      forbiddenShiftSuccessors;
   vector<PShift> pShifts;
   map<string, PConstContract> contracts;
   vector<PNurse> theNurses;
@@ -108,8 +109,8 @@ PScenario ReadWrite::readScenario(string fileName) {
     } else if (Tools::strEndsWith(title, "SKILLS ")) {
       // Read the number of weeks in scenario
       //
-      file >> nbSkills;
-      for (int i = 0; i < nbSkills; i++) {
+      file >> nSkills;
+      for (int i = 0; i < nSkills; i++) {
         file >> strTmp;
         intToSkill.push_back(strTmp);
         skillToInt.insert(pair<string, int>(strTmp, i));
@@ -190,11 +191,11 @@ PScenario ReadWrite::readScenario(string fileName) {
 
       // Number of shifts
       file >> intTmp;
-      nbShifts = intTmp + 1;
+      nShifts = intTmp + 1;
 
       // Shifts
       //
-      for (int i = 1; i < nbShifts; i++) {
+      for (int i = 1; i < nShifts; i++) {
         // Name
         file >> strTmp;
         intToShift.push_back(strTmp);
@@ -214,7 +215,7 @@ PScenario ReadWrite::readScenario(string fileName) {
     }  else if (Tools::strEndsWith(title, "FORBIDDEN_SHIFT_SUCCESSIONS ")) {
       // Forbidden successions
       //
-      forbiddenShiftSuccessors.resize(nbShifts);
+      forbiddenShiftSuccessors.resize(nShifts);
       // Reading all lines
       int n;
       file >> n;
@@ -279,26 +280,79 @@ PScenario ReadWrite::readScenario(string fileName) {
         intToContract.push_back(contractName);
       }
     } else if (Tools::strEndsWith(title, "NURSES ")) {
+      // Define shifts by default
+      //  to be backward compatible with old style of input file
+      //  (without the SHIFTS section)
+      //  set default shifts
+      if (!foundShift) {
+        nShifts = nbShiftsType;
+        intToShift = intToShiftType;
+        shiftToInt = shiftTypeToInt;
+        shiftTypeIDToShiftID.resize(nbShiftsType);
+        for (int i = 0; i < nbShiftsType; i++) {
+          // 1 as default (could be days, hours, ...) for non rest shift (>0)
+          hoursInShift.push_back(i > 0);
+          shiftIDToShiftTypeID.push_back(i);
+          shiftTypeIDToShiftID[i].push_back(i);
+        }
+      }
       // Read all nurses
       //
       file >> nbNurses;
       for (int i = 0; i < nbNurses; i++) {
         string nurseName, contractName;
-        int nbSkills;
-        vector<int> skills;
+        int n;
+        vector<int> skills, availableShifts;
         // Read everything on the line
         file >> nurseName;
         file >> contractName;
-        file >> nbSkills;
-        for (int j = 0; j < nbSkills; j++) {
+        file >> n;
+        // either a skill, a shift or a shiftType
+        for (int j = 0; j < n; j++) {
           file >> strTmp;
-          skills.push_back(skillToInt.at(strTmp));
+          // if a skill
+          auto it = skillToInt.find(strTmp);
+          if (it != skillToInt.end()) {
+            skills.push_back(it->second);
+            continue;
+          }
+          // if a shift
+          it = shiftToInt.find(strTmp);
+          if (it != shiftToInt.end()) {
+            availableShifts.push_back(it->second);
+            continue;
+          }
+          // if a shift type
+          it = shiftTypeToInt.find(strTmp);
+          if (it != shiftTypeToInt.end()) {
+            for (int s : shiftTypeIDToShiftID[it->second])
+              availableShifts.push_back(s);
+            continue;
+          }
         }
-        // sort the skill indices before initializing the nurse
-        std::sort(skills.begin(), skills.end());
+        // check if skills empty, otherwise sort the skill indices
+        // before initializing the nurse
+        if (skills.empty()) {
+          if (nSkills > 1)
+            Tools::throwError("Several skills have been defined, "
+                              "but none of them were attributed to nurses.");
+          skills = {0};  // add the only skill
+        } else {
+          std::sort(skills.begin(), skills.end());
+        }
+
+        // if no shifts, put all of them, otherwise sort them
+        if (availableShifts.empty()) {
+          for (int s = 0; s < nShifts; s++)
+            availableShifts.push_back(s);
+        } else {
+          availableShifts.push_back(0);  // add the rest shift
+          std::sort(availableShifts.begin(), availableShifts.end());
+        }
 
         theNurses.emplace_back(std::make_shared<Nurse>(
-            i, nurseName, nbSkills, skills, contracts.at(contractName)));
+            i, nurseName, nShifts, skills, availableShifts,
+            contracts.at(contractName)));
         nurseNameToInt.insert(pair<string, int>(nurseName, i));
       }
     } else if (title[title.size()-1] != '\n') {
@@ -307,26 +361,10 @@ PScenario ReadWrite::readScenario(string fileName) {
     }
   }
 
-  //  to be backward compatible with old style of input file
-  //  (without the SHIFTS section)
-  //  set default shifts
-  if (!foundShift) {
-    nbShifts = nbShiftsType;
-    intToShift = intToShiftType;
-    shiftToInt = shiftTypeToInt;
-    shiftTypeIDToShiftID.resize(nbShiftsType);
-    for (int i = 0; i < nbShiftsType; i++) {
-      // 1 as default (could be days, hours, ...) for non rest shift (>0)
-      hoursInShift.push_back(i > 0);
-      shiftIDToShiftTypeID.push_back(i);
-      shiftTypeIDToShiftID[i].push_back(i);
-    }
-  }
-
   // Merge forbidden successors from shift type and shift
-  nbForbidShiftSucc.resize(nbShifts);
-  forbiddenShiftSuccessors.resize(nbShifts);
-  for (int i = 1; i < nbShifts; i++) {
+  nbForbidShiftSucc.resize(nShifts);
+  forbiddenShiftSuccessors.resize(nShifts);
+  for (int i = 1; i < nShifts; i++) {
     // add all the shifts corresponding to a forbidden type successor
     vector<int> &succs = forbiddenShiftSuccessors[i];
     for (int st : forbiddenShiftTypeSuccessors[shiftIDToShiftTypeID[i]])
@@ -342,10 +380,10 @@ PScenario ReadWrite::readScenario(string fileName) {
 
   // Create shift structures
   //
-  for (int i = 0; i < nbShifts; i++) {
+  for (int i = 0; i < nShifts; i++) {
     std::vector<int> successorList;
     vector<int> &f = forbiddenShiftSuccessors[i];
-    for (int s = 0; s < nbShifts; ++s) {
+    for (int s = 0; s < nShifts; ++s) {
       if (find(f.begin(), f.end(), s) == f.end())
         successorList.push_back(s);
     }
@@ -361,17 +399,17 @@ PScenario ReadWrite::readScenario(string fileName) {
 
   // Check that all fields were initialized before initializing the scenario
   //
-  if (nbWeeks == -1 || nbSkills == -1 || nbShifts == -1 || nbContracts == -1
+  if (nbWeeks == -1 || nSkills == -1 || nShifts == -1 || nbContracts == -1
       || nbNurses == -1) {
     Tools::throwError("In readScenario: missing fields in the initialization");
   }
 
   return std::make_shared<Scenario>(name,
                                     nbWeeks,
-                                    nbSkills,
+                                    nSkills,
                                     intToSkill,
                                     skillToInt,
-                                    nbShifts,
+                                    nShifts,
                                     intToShift,
                                     shiftToInt,
                                     hoursInShift,

@@ -392,7 +392,7 @@ class Scenario {
   const std::string &weekName() const { return weekName_; }
   PDemand pWeekDemand() { return pWeekDemand_; }
   int nShifts() const { return nShifts_; }
-  int nShiftTypes() const { return nShiftTypes_; };
+  int nShiftTypes() const { return nShiftTypes_; }
   int nShiftOffRequests() const { return nShiftOffRequests_; }
   int nShiftOnRequests() const { return nShiftOnRequests_; }
   PPreferences pWeekPreferences() { return pWeekPreferences_; }

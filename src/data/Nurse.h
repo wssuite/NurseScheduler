@@ -106,7 +106,7 @@ class Position {
  public:
   // Constructor and Destructor
   //
-  Position(int index, int nbSkills, std::vector<int> skills);
+  Position(int index, std::vector<int> skills);
 
   ~Position() {}
 
@@ -114,10 +114,6 @@ class Position {
   // Index of the position
   //
   const int id_;
-
-  // Number of skills
-  //
-  const int nbSkills_;
 
   // Vector of skills for this position.
   // For simplicity, the skill indices are sorted.
@@ -130,7 +126,7 @@ class Position {
   //
   std::vector<PPosition> positionsBelow_;
   std::vector<PPosition> positionsAbove_;
-  int nbBelow_, nbAbove_;
+  int nBelow_, nAbove_;
 
   // Rarity of the skills that appear in this position
   //
@@ -145,16 +141,16 @@ class Position {
  public:
   // basic getters
   //
-  int id() { return id_; }
-  int nbSkills() { return nbSkills_; }
-  int skill(int sk) { return skills_[sk]; }
-  std::vector<int> skills() { return skills_; }
-  int nbBelow() { return nbBelow_; }
-  int nbAbove() { return nbAbove_; }
-  PPosition positionsBelow(int i) { return positionsBelow_[i]; }
-  PPosition positionsAbove(int i) { return positionsAbove_[i]; }
-  double skillRarity(int sk) { return skillRarity_[sk]; }
-  int rank() { return rank_; }
+  int id() const { return id_; }
+  int nSkills() const { return skills_.size(); }
+  int skill(int sk) const { return skills_[sk]; }
+  const std::vector<int> &skills() const { return skills_; }
+  int nBelow() const { return nBelow_; }
+  int nAbove() const { return nAbove_; }
+  PPosition positionsBelow(int i) const { return positionsBelow_[i]; }
+  PPosition positionsAbove(int i) const { return positionsAbove_[i]; }
+  double skillRarity(int sk) const { return skillRarity_[sk]; }
+  int rank() const { return rank_; }
 
   // basic setters
   //
@@ -176,7 +172,7 @@ class Position {
   // returns true if the position shares at least one skill
   // with the input position
   //
-  bool shareSkill(const Position &p);
+  bool shareSkill(const Position &p) const;
 
   // set positions above and below
   //
@@ -212,9 +208,13 @@ class Nurse {
   // Constructor and destructor
   Nurse(int id,
         std::string name,
-        int nbSkills,
+        int nShifts,
         std::vector<int> skills,
+        std::vector<int> availableShifts,
         PConstContract contract);
+
+  Nurse(int id, const Nurse &nurse);
+
   ~Nurse();
 
   // the constant attributes of the nurses are public
@@ -234,8 +234,10 @@ class Nurse {
   // number of skills and vector of the skills indices
   // for simplicity, the vector of skills is sorted
   //
-  const int nbSkills_;
   const std::vector<int> skills_;
+
+  // available shifts
+  const std::vector<int> availableShifts_;
 
   // Her contract type
   //
@@ -247,10 +249,12 @@ class Nurse {
   // constructor
   // (only getters for these fields)
   //-----------------------------------------------------------------------------
+  std::vector<bool> hasSkill_, isAvailableShifts_;
 
  public:
   // Basic getters
   //
+  int nSkills() const { return skills_.size(); }
   int minTotalShifts() const { return pContract_->minTotalShifts_; }
   int maxTotalShifts() const { return pContract_->maxTotalShifts_; }
   int minConsDaysWork() const { return pContract_->minConsDaysWork_; }
@@ -271,6 +275,7 @@ class Nurse {
   //
   bool hasSkill(int skill) const;
   std::string contractName() { return pContract_->name_; }
+  bool isShiftAvailable(int s) const { return isAvailableShifts_[s]; }
 
   // Display methods: toString
   //

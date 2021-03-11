@@ -178,7 +178,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
         std::make_shared<Demand>(pDemand->nDays_,
                                  pDemand->firstDay_,
                                  pDemand->nShifts_,
-                                 pDemand->nbSkills_,
+                                 pDemand->nSkills_,
                                  pDemand->name_,
                                  minDemand,
                                  optDemand);

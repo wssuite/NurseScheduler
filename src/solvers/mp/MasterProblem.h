@@ -38,8 +38,8 @@
 // TODO(AL): if shifts and shift types do not match, the vector of shifts of
 //  a solution should not contain shift types
 struct RCSolution {
-  RCSolution(int firstDay, const std::vector<int> &shifts, double c) :
-      firstDay(firstDay), shifts(shifts), cost(c) {}
+  RCSolution(int firstDay, std::vector<int> shifts, double c) :
+      firstDay(firstDay), shifts(std::move(shifts)), cost(c) {}
   RCSolution() : firstDay(-1), cost(0) {}
 
   int firstDay;

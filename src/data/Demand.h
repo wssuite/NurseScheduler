@@ -33,7 +33,7 @@ typedef std::shared_ptr<Demand> PDemand;
 class Demand {
  public:
   // generic constructor and destructor
-  Demand() : name_(""), nDays_(0), firstDay_(0), nShifts_(0), nbSkills_(0) {}
+  Demand() : name_(""), nDays_(0), firstDay_(0), nShifts_(0), nSkills_(0) {}
   Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string name,
          vector3D<int> minDemand, vector3D<int> optDemand);
   ~Demand();
@@ -51,7 +51,7 @@ class Demand {
   const int firstDay_;
 
   // number of shifts per day and number of skills to cover
-  const int nShifts_, nbSkills_;
+  const int nShifts_, nSkills_;
 
   // minimum and optimal demand for each day, shift and skill
   //

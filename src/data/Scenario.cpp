@@ -576,14 +576,14 @@ void Scenario::preprocessTheNurses() {
   //
   for (PNurse nurse : pNurses_) {
     bool positionExists = nPositions_ != 0;
-    int nbSkills = nurse->nbSkills_;
+    int nbSkills = nurse->nSkills();
     vector<int> skills = nurse->skills_;
 
     // go through every existing position to see if the position of this nurse
     // has already been created
     for (PPosition pos : pPositions_) {
       positionExists = true;
-      if (pos->nbSkills_ == nbSkills) {
+      if (pos->nSkills() == nbSkills) {
         for (int i = 0; i < nbSkills; i++) {
           if (skills[i] != pos->skills_[i]) {
             positionExists = false;
@@ -598,9 +598,7 @@ void Scenario::preprocessTheNurses() {
 
     // create the position if if doesn't exist
     if (!positionExists) {
-      pPositions_.emplace_back(std::make_shared<Position>(nPositions_,
-                                                          nbSkills,
-                                                          skills));
+      pPositions_.emplace_back(std::make_shared<Position>(nPositions_, skills));
       nPositions_++;
     }
   }
@@ -635,8 +633,8 @@ void Scenario::preprocessTheNurses() {
 
         // go through the positions above the considered position to increment
         // its rank
-        if (pPositions_[i]->nbAbove()) {
-          for (int j = 0; j < pPositions_[i]->nbAbove(); j++) {
+        if (pPositions_[i]->nAbove()) {
+          for (int j = 0; j < pPositions_[i]->nAbove(); j++) {
             int currentRank = pPositions_[i]->rank();
             int newRank = pPositions_[j]->rank() + 1;
             pPositions_[i]->rank(std::max(currentRank, newRank));
@@ -671,8 +669,8 @@ void Scenario::preprocessTheNurses() {
     for (int i = 0; i < nPositions(); i++) {
       PPosition pPosition = pPositions_[i];
       isPosition = true;
-      if (pPosition->nbSkills_ == nurse->nbSkills_) {
-        for (int i = 0; i < nurse->nbSkills_; i++) {
+      if (pPosition->nSkills() == nurse->nSkills()) {
+        for (int i = 0; i < nurse->nSkills(); i++) {
           if (nurse->skills_[i] != pPosition->skills_[i]) {
             isPosition = false;
             break;

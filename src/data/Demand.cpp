@@ -39,7 +39,7 @@ Demand::Demand(int nbDays,
                                           nDays_(nbDays),
                                           firstDay_(firstDay),
                                           nShifts_(nbShifts),
-                                          nbSkills_(nbSkills),
+                                          nSkills_(nbSkills),
                                           minDemand_(minDemand),
                                           optDemand_(optDemand),
                                           minTotal_(0),
@@ -60,14 +60,14 @@ void Demand::preprocessDemand() {
   Tools::initVector(&optPerDay_, nDays_, 0);
   Tools::initVector(&minPerShift_, nShifts_, 0);
   Tools::initVector(&optPerShift_, nShifts_, 0);
-  Tools::initVector(&minPerSkill_, nbSkills_, 0);
-  Tools::initVector(&optPerSkill_, nbSkills_, 0);
-  Tools::initVector(&minHighestPerSkill_, nbSkills_, 0);
-  Tools::initVector(&optHighestPerSkill_, nbSkills_, 0);
+  Tools::initVector(&minPerSkill_, nSkills_, 0);
+  Tools::initVector(&optPerSkill_, nSkills_, 0);
+  Tools::initVector(&minHighestPerSkill_, nSkills_, 0);
+  Tools::initVector(&optHighestPerSkill_, nSkills_, 0);
 
   for (int day = 0; day < nDays_; day++) {
     for (int shift = 1; shift < nShifts_; shift++) {
-      for (int skill = 0; skill < nbSkills_; skill++) {
+      for (int skill = 0; skill < nSkills_; skill++) {
         // update the total demand
         minTotal_ += minDemand_[day][shift][skill];
         optTotal_ += optDemand_[day][shift][skill];
@@ -99,7 +99,7 @@ void Demand::preprocessDemand() {
 // update all the parameters
 void Demand::pushBack(PDemand pDemand) {
   // check if same scenario
-  if ((nShifts_ != pDemand->nShifts_) || (nbSkills_ != pDemand->nbSkills_)) {
+  if ((nShifts_ != pDemand->nShifts_) || (nSkills_ != pDemand->nSkills_)) {
     std::string error = "Demands are not compatible";
     Tools::throwError(error.c_str());
   }
@@ -127,7 +127,7 @@ PDemand Demand::append(PDemand pDemand) {
   PDemand bigDemand = std::make_shared<Demand>(*this);
 
   // check if same scenario
-  if ((nShifts_ != pDemand->nShifts_) || (nbSkills_ != pDemand->nbSkills_)) {
+  if ((nShifts_ != pDemand->nShifts_) || (nSkills_ != pDemand->nSkills_)) {
     std::string error = "Demands are not compatible";
     Tools::throwError(error.c_str());
   }
@@ -176,7 +176,7 @@ void Demand::swapDays(int nbSwaps) {
 //
 void Demand::swapShifts(int nbSwaps) {
   for (int i = 0; i < nbSwaps; i++) {
-    int sk = Tools::randomInt(0, nbSkills_ - 1);
+    int sk = Tools::randomInt(0, nSkills_ - 1);
     int day1 = Tools::randomInt(0, nDays_ - 1);
     int sh1 =
         Tools::randomInt(1, nShifts_ - 1);  // make sure shift 0 is not taken
@@ -227,7 +227,7 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
     while (isAtUpperBound && coTrials < 10 * nbPerturb) {
       day = Tools::randomInt(0, nDays_ - 1);
       sh = Tools::randomInt(1, nShifts_ - 1);
-      sk = Tools::randomInt(0, nbSkills_ - 1);
+      sk = Tools::randomInt(0, nSkills_ - 1);
       isAtUpperBound = (valPerturb >= 0) ? (minDemand_[day][sh][sk]
           >= minHighestPerSkill_[sk]) : false;
       coTrials++;
@@ -248,7 +248,7 @@ PDemand Demand::randomPerturbation() {
   // three different types of perturbations are made
   // the order does not seem to be important
   pDemand->swapDays(nDays_ / 2);
-  pDemand->swapShifts(nDays_ * nbSkills_);
+  pDemand->swapShifts(nDays_ * nSkills_);
   pDemand->perturbShifts(-nDays_, nDays_);
 
   // get the main characteristics of the new demand
@@ -336,7 +336,7 @@ std::string Demand::toString(bool withPreprocessedInfo) {
   rep << "# " << std::endl;
   rep << "# Name of the demand: " << name_ << std::endl;
 
-  rep << "# The demand refers to " << nbSkills_ << " skills for ";
+  rep << "# The demand refers to " << nSkills_ << " skills for ";
   rep << nShifts_ - 1 << " shifts per day on " << nDays_ << " days"
       << std::endl;
   rep << std::endl;
@@ -349,7 +349,7 @@ std::string Demand::toString(bool withPreprocessedInfo) {
   }
   rep << "# " << std::endl;
   for (int sh = 0; sh < nShifts_; sh++) {
-    for (int sk = 0; sk < nbSkills_; sk++) {
+    for (int sk = 0; sk < nSkills_; sk++) {
       // string str = "#   " + Tools::intToShift_[sh] + " "
       // + Scenario::intToSkill_[sk] + " ";
       // rep << str;
@@ -399,7 +399,7 @@ std::string Demand::toString(bool withPreprocessedInfo) {
 
     rep << "# " << std::endl;
     rep << "# Demand per skill" << std::endl;
-    for (int i = 0; i < nbSkills_; i++) {
+    for (int i = 0; i < nSkills_; i++) {
       rep << "#\t\tSkill " << i << ": ";
       rep << "minimum = " << minPerSkill_[i] << " ; optimal = "
           << optPerSkill_[i];
@@ -408,7 +408,7 @@ std::string Demand::toString(bool withPreprocessedInfo) {
 
     rep << "# " << std::endl;
     rep << "# Highest demand per skill for one shift" << std::endl;
-    for (int i = 0; i < nbSkills_; i++) {
+    for (int i = 0; i < nSkills_; i++) {
       rep << "#\t\tSkill " << i << ": ";
       rep << "minimum = " << minHighestPerSkill_[i] << " ; optimal = "
           << optHighestPerSkill_[i];
