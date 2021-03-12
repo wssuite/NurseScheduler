@@ -22,7 +22,8 @@ std::pair<float, float> comparePricing(PDualCosts pDualCosts,
                                        PLiveNurse pNurse,
                                        SubProblem *bSP,
                                        SubProblem *mSP,
-                                       const SubproblemParam &spParam) {
+                                       const SubproblemParam &spParam,
+                                       bool *errorFound) {
   if (spParam.verbose_)
     std::cout << "\n      SOLVE WITH BOOST RCSPP SOLVER : \n" <<std::endl;
 
@@ -52,12 +53,13 @@ std::pair<float, float> comparePricing(PDualCosts pDualCosts,
               "; New pricer value = " << mSP->bestReducedCost() << std::endl;
     /*Tools::throwError("The new pricer does not find the same optimal value "
                       "as Boost");*/
+    *errorFound = true;
   }
 
   return {bSP->cpuInLastSolve(), mSP->cpuInLastSolve()};
 }
 
-float comparePricingToBoost(const MasterProblem *pMaster) {
+float comparePricingToBoost(const MasterProblem *pMaster, bool *errorFound) {
   // solve the pricing problems
   PScenario pScenario = pMaster->pScenario();
   double cpuBoost = 0.0;
@@ -85,13 +87,13 @@ float comparePricingToBoost(const MasterProblem *pMaster) {
 
     // build random dual costs
     PDualCosts pDualCosts = pMaster->buildRandomDualCosts(true);
-    auto p = comparePricing(pDualCosts, pNurse, bSP, mSP, spParam);
+    auto p = comparePricing(pDualCosts, pNurse, bSP, mSP, spParam, errorFound);
     cpuBoost += p.first;
     cpuNew += p.second;
 
     // resolve with new random dual costs
     pDualCosts = pMaster->buildRandomDualCosts(true);
-    p = comparePricing(pDualCosts, pNurse, bSP, mSP, spParam);
+    p = comparePricing(pDualCosts, pNurse, bSP, mSP, spParam, errorFound);
     cpuBoost += p.first;
     cpuNew += p.second;
 
@@ -106,7 +108,10 @@ float comparePricingToBoost(const MasterProblem *pMaster) {
   return cpuBoost/cpuNew;
 }
 
-float test_pricer(const std::string &instance, int verbose = 0, int nTest = 1) {
+float test_pricer(const std::string &instance,
+                  bool *errorFound,
+                  int verbose = 0,
+                  int nTest = 1) {
   // set input path
   std::vector<std::string> p = Tools::tokenize<std::string>(instance, '_');
   InputPaths inputPaths(
@@ -145,7 +150,7 @@ float test_pricer(const std::string &instance, int verbose = 0, int nTest = 1) {
   float cpu = 0;
   std::cout << "CPU reduction factors = ";
   for (int i=0; i < nTest; i++) {
-    float c = comparePricingToBoost(pMaster);
+    float c = comparePricingToBoost(pMaster, errorFound);
     std::cout << c;
     if ((i+1)%10 == 0) std::cout << std::endl << "                        ";
     else
@@ -171,9 +176,10 @@ int main(int argc, char **argv) {
     insts = Tools::tokenize<string>(string(argv[1]), ',');
 
   int n = argc <= 2 ? 30 : std::stoi(argv[2]);
+  bool errorFound = false;
   std::vector<float> cpus;
   for (const string& inst : insts)
-    cpus.push_back(test_pricer(inst, 0, n));
+    cpus.push_back(test_pricer(inst, &errorFound, 0, n));
 
   std::cout << "\n###############################" << std::endl;
   std::cout << "###############################\n" << std::endl;
@@ -182,5 +188,5 @@ int main(int argc, char **argv) {
     std::cout << "\nCPU reduction factor for " << insts[i] << " = "
               << cpus[i] << std::endl;
 
-  return 0;
+  return errorFound;
 }

@@ -68,7 +68,7 @@ fi
 # test pricer if defined
 if [ ! -z ${pricer} ]; then
    ./bin/pricer ${instance_description} ${other_args}
-    exit 0;
+   exit ${PIPESTATUS[0]}
 fi
 
 if [ -z ${dynamic} ]; then
