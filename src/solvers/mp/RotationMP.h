@@ -66,28 +66,23 @@ struct RotationDualCosts : public DualCosts {
 //
 //-----------------------------------------------------------------------------
 
-struct RotationPattern : Pattern {
+struct RotationPattern : public Pattern {
   // Specific constructors and destructors
   //
-  RotationPattern(std::map<int, int> shifts,
-                  const PScenario &pScenario,
-                  int nurseNum = -1,
-                  double cost = DBL_MAX,
-                  double dualCost = DBL_MAX) :
-      Pattern(shifts, pScenario, nurseNum, cost, dualCost),
-      consShiftsCost_(0),
-      consDaysWorkedCost_(0),
-      completeWeekendCost_(0),
-      preferenceCost_(0),
-      initRestCost_(0) {}
 
   RotationPattern(int firstDay,
-                  std::vector<int> shiftSuccession,
-                  const PScenario &pScenario,
-                  int nurseNum = -1,
+                  std::vector<PShift> pShifts,
+                  int nurseNum,
                   double cost = DBL_MAX,
                   double dualCost = DBL_MAX) :
-      Pattern(firstDay, shiftSuccession, pScenario, nurseNum, cost, dualCost),
+      RotationPattern(RCSolution(firstDay, pShifts, cost),
+                      nurseNum, cost, dualCost) {}
+
+  RotationPattern(RCSolution sol,
+                  int nurseNum,
+                  double cost,
+                  double dualCost) :
+      Pattern(std::move(sol), nurseNum, cost, dualCost),
       consShiftsCost_(0),
       consDaysWorkedCost_(0),
       completeWeekendCost_(0),
@@ -236,10 +231,7 @@ class RotationMP : public MasterProblem {
 
   // Functions to generate the resources for a given nurse
   std::map<PResource, CostType>
-  defaultgeneratePResources(const PLiveNurse &pN) const override {
-    Tools::throwError("defaultgeneratePResources is not implemented.");
-    return {};
-  }
+  defaultGeneratePResources(const PLiveNurse &pN) const override;
 
   /*
   * Variables

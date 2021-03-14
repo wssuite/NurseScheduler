@@ -256,7 +256,7 @@ struct DayDisjointComparator : public ColumnsComparator {
 
 struct ShiftDisjointComparator : public ColumnsComparator {
   bool is_disjoint(PPattern col1, PPattern col2) const {
-    return col1->nurseNum_ != col2->nurseNum_
+    return col1->nurseNum() != col2->nurseNum()
         && col1->isShiftDisjointWith(col2);
   }
 };

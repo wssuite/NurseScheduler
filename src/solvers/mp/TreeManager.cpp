@@ -74,7 +74,7 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
     ColumnsNode *columnsNode = dynamic_cast<ColumnsNode *>(currentNode);
     if (columnsNode) {
       for (PPattern pat : columnsNode->patterns_)
-        if (pat->nurseNum_ == pNurse->num_)
+        if (pat->nurseNum() == pNurse->num_)
           pat->addForbiddenShifts(forbidenShifts,
                                   pScenario_->nShifts(),
                                   pDemand_);
@@ -380,7 +380,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
     for (PPattern nodePat : patterns) {
       // do not deactivate if activePat:
       // 1/ applied to a different nurse
-      if (Pattern::nurseNum(var) != nodePat->nurseNum_)
+      if (Pattern::nurseNum(var) != nodePat->nurseNum())
         continue;
       PPattern pat = pMaster_->getPattern(var);
       // 2/ will be used (==nodePat)

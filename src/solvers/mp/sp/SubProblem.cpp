@@ -124,6 +124,10 @@ bool SubProblem::solve(PLiveNurse nurse,
   timerPresolve_.stop();
 
   bool ANS = solveRCGraph();  // Solve the RCSPP on the rcGraph
+
+  timerPostsolve_.start();
+  postprocess();
+  timerPostsolve_.stop();
   timerSolve_.stop();
 
   // and check that all solution respects forbidden shifts
@@ -139,6 +143,10 @@ bool SubProblem::solve(PLiveNurse nurse,
 bool SubProblem::preprocess() {
   // update dual costs
   updateArcDualCosts();
+  return true;
+}
+
+bool SubProblem::postprocess() {
   return true;
 }
 
@@ -218,7 +226,7 @@ void SubProblem::printAllSolutions() const {
   std::cout << "# HERE ARE ALL " << nPaths_
             << " ROTATIONS OF THE CURRENT SOLUTION LIST :" << std::endl;
   for (const RCSolution &sol : theSolutions_)
-    std::cout << sol.toString(pScenario_);
+    std::cout << sol.toString();
   std::cout << "# " << std::endl;
 }
 
@@ -244,10 +252,10 @@ void SubProblem::printForbiddenDayShift() const {
 }
 
 void SubProblem::checkForbiddenDaysAndShifts(const RCSolution &sol) const {
-  int k = sol.firstDay;
-  for (int s : sol.shifts)
-    if (isDayShiftForbidden(k++, s))
+  int k = sol.firstDay();
+  for (const PShift &pS : sol.pShifts())
+    if (isDayShiftForbidden(k++, pS->id))
       Tools::throwError(
-          "A RC solution uses the forbidden day %d and shift %d: %s",
-          k - 1, s, sol.toString(pScenario_).c_str());
+          "A RC solution uses the forbidden day %d and shift %s: %s",
+          k - 1, pS->name.c_str(), sol.toString().c_str());
 }

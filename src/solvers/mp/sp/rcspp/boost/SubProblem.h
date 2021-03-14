@@ -65,14 +65,14 @@ class SubProblem : public SP {
                    std::vector<int> consumptions,
                    ArcType type,
                    int day,
-                   int shift) {
+                   PShift pShift) {
     return g_.addSingleArc(origin,
                            destination,
                            baseCost,
                            consumptions,
                            type,
                            day,
-                           {shift});
+                           {pShift});
   }
 
   void build() override;
@@ -83,19 +83,20 @@ class SubProblem : public SP {
                    std::vector<int> consumptions,
                    ArcType type,
                    int day = -1,
-                   std::vector<int> shifts = {}) {
+                   std::vector<PShift> pShifts = {}) {
     return g_.addSingleArc(origin,
                            destination,
                            baseCost,
                            consumptions,
                            type,
                            day,
-                           shifts);
+                           pShifts);
   }
 
   Penalties initPenalties() const;
 
-  std::vector<int> startConsumption(int day, std::vector<int> shifts) const;
+  std::vector<int> startConsumption(
+      int day, const std::vector<PShift> &pShifts) const;
 
   int maxRotationLength() const { return maxRotationLength_; }
 
@@ -190,7 +191,7 @@ class SubProblem : public SP {
   // any forbidden day-shift
   bool canSuccStartHere(int a) const;
   bool canSuccStartHere(const Arc_Properties &arc_prop) const;
-  bool canSuccStartHere(int k, const std::vector<int> &shifts) const;
+  bool canSuccStartHere(int k, const std::vector<PShift> &shifts) const;
 
   // forbid any arc that authorizes the violation of a consecutive constraint
   void forbidViolationConsecutiveConstraints() override;

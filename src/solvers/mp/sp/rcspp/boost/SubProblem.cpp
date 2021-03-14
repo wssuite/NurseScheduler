@@ -85,7 +85,7 @@ bool SubProblem::solveRCGraph() {
   BoostRCSPPSolver *solver = initRCSSPSolver();
 
   std::vector<RCSolution>
-      solutions = solver->solve(labels_, penalties, sinks);
+      solutions = solver->solve(labels_, penalties, sinks, pScenario_);
   delete solver;
 
   // 2 - Add back all forbidden edges
@@ -96,8 +96,8 @@ bool SubProblem::solveRCGraph() {
     theSolutions_.push_back(sol);
     nPaths_++;
     nFound_++;
-    if (bestReducedCost_ > sol.cost)
-      bestReducedCost_ = sol.cost;
+    if (bestReducedCost_ > sol.cost())
+      bestReducedCost_ = sol.cost();
   }
 
   return !solutions.empty();
@@ -148,7 +148,7 @@ void SubProblem::updateArcDualCosts() {
             double c = 0;
             // if first day -> add the historical costs
             if (k == minConsDays_ - 1)
-              c += historicalCost(arc_prop.shifts.front());
+              c += historicalCost(arc_prop.pShifts.front()->id);
             // if rest shift, just add shift cost
             if (pg.shiftType() == 0)
               c += shiftCost(a);
@@ -159,7 +159,7 @@ void SubProblem::updateArcDualCosts() {
             // For an arc that starts on the first day, must update the
             // consumption based on the historical state
             if (k == minConsDays_ - 1)
-              g_.updateConsumptions(a, startConsumption(k, arc_prop.shifts));
+              g_.updateConsumptions(a, startConsumption(k, arc_prop.pShifts));
           } else {
             g_.forbidArc(a);
           }
@@ -230,17 +230,17 @@ double SubProblem::historicalCost(int currentShift) const {
 }
 
 std::vector<int> SubProblem::startConsumption(
-    int day, std::vector<int> shifts) const {
-  if (pScenario_->isRestShift(shifts.back()))
+    int day, const std::vector<PShift> &pShifts) const {
+  if (pShifts.back()->isRest())
     return {0, 0, 0};
 
   int timeDuration = 0, size = 0;
-  for (int s : shifts) {
-    if (pScenario_->isRestShift(s)) {
+  for (const PShift &pS : pShifts) {
+    if (pS->isRest()) {
       timeDuration = 0;
       size = 0;
     } else {
-      timeDuration += pScenario_->duration(s);
+      timeDuration += pS->duration;
       ++size;
     }
   }
@@ -288,18 +288,19 @@ bool SubProblem::canSuccStartHere(int a) const {
 }
 
 bool SubProblem::canSuccStartHere(const Arc_Properties &arc_prop) const {
-  return canSuccStartHere(arc_prop.day, arc_prop.shifts);
+  return canSuccStartHere(arc_prop.day, arc_prop.pShifts);
 }
 
-bool SubProblem::canSuccStartHere(int k, const std::vector<int> &shifts) const {
+bool SubProblem::canSuccStartHere(
+    int k, const std::vector<PShift> &shifts) const {
   // If the succession with the previous shift (day -1) is not allowed
   if (k == 0 &&
       pScenario_->isForbiddenSuccessorShift_Shift(
-          shifts.front(), pLiveNurse_->pStateIni_->shift_))
+          shifts.front()->id, pLiveNurse_->pStateIni_->shift_))
     return false;
   // If some day-shift is forbidden
-  for (int s : shifts)
-    if (!dayShiftStatus_[k++][s])
+  for (const PShift &pS : shifts)
+    if (!dayShiftStatus_[k++][pS->id])
       return false;
   return true;
 }

@@ -29,14 +29,20 @@
 //
 //-----------------------------------------------------------------------------
 
-struct RosterPattern : Pattern {
+struct RosterPattern : public Pattern {
   // Specific constructors and destructors
-  RosterPattern(const std::vector<int> &shifts,
-                const PScenario &pScenario,
-                int nurseNum = -1,
+  RosterPattern(std::vector<PShift> pShifts,
+                int nurseNum,
                 double cost = DBL_MAX,
                 double dualCost = DBL_MAX) :
-      Pattern(0, shifts, pScenario, nurseNum, cost, dualCost),
+      Pattern(RCSolution(0, pShifts, cost), nurseNum, cost, dualCost),
+      nbWeekends_(-1) {}
+
+  RosterPattern(RCSolution rcSol,
+                int nurseNum,
+                double cost,
+                double dualCost) :
+      Pattern(std::move(rcSol), nurseNum, cost, dualCost),
       nbWeekends_(-1) {}
 
   RosterPattern(const std::vector<double> &compactPattern,
@@ -85,23 +91,23 @@ struct RosterPattern : Pattern {
 
   // Returns true if both columns are disjoint (needRest not used)
   bool isDisjointWith(PPattern pat, bool needRest = true) const override {
-    if (pat->nurseNum_ == nurseNum_)
+    if (pat->nurseNum() == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
-    for (int k = 0; k < stretch_.nDays(); k++)
+    for (int k = 0; k < nDays(); k++)
       // work both
-      if (stretch_.pShift(k)->isWork() && pat->stretch_.pShift(k)->isWork())
+      if (pShift(k)->isWork() && pat->pShift(k)->isWork())
         return false;
     return true;
   };
 
   // Returns true if both columns are disjoint for shifts
   bool isShiftDisjointWith(PPattern pat, bool needRest = true) const override {
-    if (pat->nurseNum_ == nurseNum_)
+    if (pat->nurseNum() == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
-    for (int k = 0; k < stretch_.nDays(); k++) {
-      const PShift &pS1 = stretch_.pShift(k), &pS2 = pat->stretch_.pShift(k);
+    for (int k = 0; k < nDays(); k++) {
+      const PShift &pS1 = pShift(k), &pS2 = pat->pShift(k);
       if (pS1->isWork() && pS2->isWork() && pS1->id == pS2->id)
         return false;  // work on same shift
     }
@@ -179,7 +185,7 @@ class RosterMP : public MasterProblem {
 
   // Functions to generate the resources for a given nurse
   std::map<PResource, CostType>
-  defaultgeneratePResources(const PLiveNurse &pN) const override;
+  defaultGeneratePResources(const PLiveNurse &pN) const override;
 
   /*
   * Constraints

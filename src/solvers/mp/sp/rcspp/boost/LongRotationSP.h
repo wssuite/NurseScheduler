@@ -57,9 +57,9 @@ class LongRotationSP : public RotationSP {
   // Short successions (no starting date) -> those of all length
   // For each size c \in [0,CDMin], contains all allowed short successions of
   // that size (satisfies succession constraints)
-  vector3D<int> allowedShortSuccBySize_;
+  vector3D<PShift> allowedShortSuccBySize_;
   // contains the corresponding last shift performed
-  vector2D<int> lastShiftOfShortSucc_;
+  vector2D<PShift> lastShiftOfShortSucc_;
   // For each size c \in [0,CDMin], for each short rotation of size c,
   // contains the number of consecutive days the last shift has been performed
   vector2D<int> nLastShiftOfShortSucc_;
@@ -83,8 +83,8 @@ class LongRotationSP : public RotationSP {
   bool priceVeryShortRotationsFirstDay();
   bool priceVeryShortRotationsLastDay();
   bool priceVeryShortRotations();
-  int priceVeryShortSameSizeRotations(int k, const vector2D<int> &succs);
-  double costOfVeryShortRotation(int firstDay, const std::vector<int> &succ);
+  int priceVeryShortSameSizeRotations(int k, const vector2D<PShift> &succs);
+  double costOfVeryShortRotation(int firstDay, const std::vector<PShift> &succ);
 
 
   //----------------------------------------------------------------

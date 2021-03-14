@@ -220,7 +220,8 @@ class BoostRCSPPSolver {
 
   std::vector<RCSolution> solve(std::vector<LABEL> labels,
                                 const Penalties &penalties,
-                                std::vector<vertex> sinks);
+                                std::vector<vertex> sinks,
+                                const PScenario &pScenario);
 
  protected:
   RCGraph *rcg_;
@@ -243,7 +244,8 @@ class BoostRCSPPSolver {
       bool printBadPath = true) const;
 
   RCSolution solution(const std::vector<edge> &path,
-                      const spp_res_cont &resource) const;
+                      const spp_res_cont &resource,
+                      const PScenario &pScenario) const;
 
   // modified boost::check_r_c_path function
   bool check_r_c_path(

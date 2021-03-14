@@ -165,7 +165,7 @@ struct RCArc {
 class RCGraph {
  public:
   explicit RCGraph(int nDays, int nShifts) :
-      nDays_(nDays), nShifts_(nShifts), pSource_(nullptr) {
+      nDays_(nDays), nShifts_(nShifts) {
     Tools::initVector3D(&pArcsPerDayShift_, nDays, nShifts, 0);
   }
 
@@ -175,7 +175,7 @@ class RCGraph {
     for (const auto &pN : g.pNodes_) {
       pNodes_.emplace_back(std::make_shared<RCNode>(*pN));
       if (pN->type == SOURCE_NODE) {
-        pSource_ = pNodes_.back();
+        pSources_.push_back(pNodes_.back());
       }
       if (pN->type == SINK_NODE) {
         pSinks_.push_back(pNodes_.back());
@@ -197,8 +197,10 @@ class RCGraph {
   int nNodes() const {return pNodes_.size();}
   const vector<PRCNode>& pNodes() const {return pNodes_;}
   const PRCNode& pNode(int id) const {return pNodes_[id];}
-  PRCNode pSource() const {return pSource_;}
+  const vector<PRCNode> &pSources() const { return pSources_; }
+  PRCNode pSource(int d) const {return pSources_[d];}
   const vector<PRCNode> &pSinks() const { return pSinks_; }
+  PRCNode pSink(int d) const {return pSinks_[d];}
   int nArcs() const {return pArcs_.size();}
   int nDays() const {return nDays_;}
   int nShifts() const {return nShifts_;}
@@ -230,7 +232,7 @@ class RCGraph {
   }
 
   void addResource(const PResource& pR);
-  PRCNode addSingleNode(NodeType type, int day, const PShift& pS);
+  PRCNode addSingleNode(NodeType type, int day, const PAbstractShift& pAS);
 
   PRCArc addSingleArc(PRCNode o, PRCNode d, const Stretch &s, double d1);
 
@@ -270,8 +272,8 @@ class RCGraph {
   // THE GRAPH
   int nDays_, nShifts_;
   vector<PRCNode> pNodes_;
-  PRCNode pSource_;  // source node
-  vector<PRCNode> pSinks_;   // sink nodes
+  // source and sink nodes
+  vector<PRCNode> pSources_, pSinks_;
 
   vector<PRCArc> pArcs_;
   // arcs stored by day and shifts contains within the arc stretch

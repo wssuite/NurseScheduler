@@ -35,18 +35,21 @@
 // Contains a solution of the RCSPP
 //
 //---------------------------------------------------------------------------
-// TODO(AL): if shifts and shift types do not match, the vector of shifts of
-//  a solution should not contain shift types
-struct RCSolution {
-  RCSolution(int firstDay, std::vector<int> shifts, double c) :
-      firstDay(firstDay), shifts(std::move(shifts)), cost(c) {}
-  RCSolution() : firstDay(-1), cost(0) {}
+struct RCSolution : public Stretch {
+  explicit RCSolution(int firstDay = -1,
+                      std::vector<PShift> pShifts = {},
+                      double c = DBL_MAX) :
+      Stretch(firstDay, std::move(pShifts)), cost_(c) {}
 
-  int firstDay;
-  std::vector<int> shifts;
-  double cost;
+  RCSolution(Stretch stretch, double c) :
+      Stretch(std::move(stretch)), cost_(c) {}
 
-  std::string toString(const PScenario &pScenario = nullptr) const;
+  std::string toString() const override;
+
+  double cost() const { return cost_; }
+
+ protected:
+  double cost_;
 };
 
 struct DualCosts {
@@ -92,7 +95,7 @@ typedef std::shared_ptr<Pattern> PPattern;
 
 class MasterProblem;
 
-struct Pattern {
+struct Pattern : public RCSolution {
   /* Static helpers */
   static int nurseNum(const std::vector<double> &pattern) {
     return static_cast<int>(pattern[0]);
@@ -132,24 +135,26 @@ struct Pattern {
     return Pattern::duration(var->getPattern());
   }
 
-  /* class functions */
-  Pattern(int firstDay,
-          const std::vector<int> &shifts,
-          const PScenario &pScenario,
-          int nurseNum = -1,
-          double cost = DBL_MAX,
-          double dualCost = DBL_MAX);
+  // Compare rotations on cost
+  static bool compareCost(PPattern pat1, PPattern pat2);
 
-  Pattern(const std::map<int, int> &shifts,
-          const PScenario &pScenario,
-          int nurseNum = -1,
-          double cost = DBL_MAX,
-          double dualCost = DBL_MAX);
+  // Compare rotations on dual cost
+  static bool compareDualCost(PPattern pat1, PPattern pat2);
+
+  /* class functions */
+  Pattern(RCSolution rcSol,
+          int nurseNum,
+          double cost,
+          double dualCost) :
+          RCSolution(std::move(rcSol)),
+          nurseNum_(nurseNum),
+          reducedCost_(dualCost) {
+    cost_ = cost;
+  }
 
   Pattern(const Pattern &pat, int nurseNum) :
+      RCSolution(pat),
       nurseNum_(nurseNum),
-      stretch_(pat.stretch_),
-      cost_(pat.cost_),
       costs_(pat.costs_),
       reducedCost_(pat.reducedCost_) {
     if (pat.nurseNum_ != nurseNum_) {
@@ -162,9 +167,9 @@ struct Pattern {
 
   virtual ~Pattern() = default;
 
-  virtual bool equals(PPattern pat) const {
+  virtual bool equals(const PPattern &pat) const {
     if (nurseNum_ != pat->nurseNum_) return false;
-    return !(stretch_ != pat->stretch_);
+    return !(*this != *pat);
   }
 
   // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest)
@@ -178,24 +183,12 @@ struct Pattern {
     if (isDisjointWith(pat, needRest))
       return true;
 
-    int commomFirstDay =
-        std::max(stretch_.firstDay(), pat->stretch_.firstDay()),
-        commomLastDay =
-        std::min(stretch_.lastDay(), pat->stretch_.lastDay());
+    int commomFirstDay = std::max(firstDay(), pat->firstDay()),
+        commomLastDay = std::min(lastDay(), pat->lastDay());
     for (int k = commomFirstDay; k <= commomLastDay; ++k)
       if (shift(k) == pat->shift(k)) return false;
 
     return true;
-  }
-
-  virtual std::string toString(int nbDays = -1) const;
-
-  virtual int shift(int day) const {
-    return pShift(day)->id;
-  }
-
-  virtual const PShift& pShift(int day) const {
-    return stretch_.pShift(day-firstDay());
   }
 
   // when branching on this pattern,
@@ -217,7 +210,7 @@ struct Pattern {
     costs_[t] += c;
   }
 
-  double cost(CostType t) const {
+  double costByType(CostType t) const {
     if (t == ROTATION_COST)
       return costs_.at(CONS_SHIFTS_COST) + costs_.at(CONS_WORK_COST) +
           costs_.at(PREFERENCE_COST) + costs_.at(COMPLETE_WEEKEND_COST);
@@ -227,45 +220,47 @@ struct Pattern {
 
   std::string costsToString() const;
 
+  std::string toString() const override;
+
   // need to be able to write the pattern as a vector and
   // to create a new one from it
   virtual std::vector<double> getCompactPattern() const {
     std::vector<double> pattern;
-    pattern.reserve(stretch_.nDays()+10);
+    pattern.reserve(nDays()+10);
     pattern.push_back(nurseNum_);
-    pattern.push_back(stretch_.firstDay());
-    pattern.push_back(stretch_.nDays());
-    for (const PShift& pS : stretch_.pShifts())
+    pattern.push_back(firstDay());
+    pattern.push_back(nDays());
+    for (const PShift& pS : pShifts())
       pattern.push_back(pS->id);
-    pattern.push_back(stretch_.duration());
+    pattern.push_back(duration());
     return pattern;
   }
 
-  int firstDay() const { return stretch_.firstDay(); }
+  int nurseNum() const { return nurseNum_; }
 
-  int lastDay() const { return stretch_.lastDay(); }
+  // need to redefine this function because of the static functions
+  // having the same name
+  int firstDay() const override { return Stretch::firstDay(); }
 
-  int nDays() const { return stretch_.nDays(); }
+  int lastDay() const override { return Stretch::lastDay(); }
 
-  int duration() const { return stretch_.duration(); }
+  int nDays() const override { return Stretch::nDays(); }
 
+  int shift(int day) const override { return Stretch::shift(day); }
+
+  int duration() const override { return Stretch::duration(); }
+
+  double reducedCost() const { return reducedCost_; }
+
+ protected:
   const int nurseNum_;
-  const Stretch stretch_;
 
   // Cost
-  double cost_;
   std::map<CostType, double> costs_;
 
   // Dual cost as found in the subproblem
   double reducedCost_;
 
-  // Compare rotations on cost
-  static bool compareCost(PPattern pat1, PPattern pat2);
-
-  // Compare rotations on dual cost
-  static bool compareDualCost(PPattern pat1, PPattern pat2);
-
- protected:
   PRCLabel pL_ = nullptr;
 };
 
@@ -319,7 +314,7 @@ class MasterProblem : public Solver, public PrintSolution {
   generatePResources(const PLiveNurse &pN) const {
     // if defined, do not use the default function
     if (generatePResourcesFunc_) return generatePResourcesFunc_(pN);
-    return defaultgeneratePResources(pN);
+    return defaultGeneratePResources(pN);
   }
 
   // set the function to override
@@ -472,7 +467,7 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // Functions to generate the default resources for a given nurse
   virtual std::map<PResource, CostType>
-  defaultgeneratePResources(const PLiveNurse &pN) const = 0;
+  defaultGeneratePResources(const PLiveNurse &pN) const = 0;
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //

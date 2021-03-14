@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <utility>
 
+#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
@@ -266,8 +268,7 @@ void RotationPattern::checkReducedCost(const PDualCosts &pCosts,
       if (Tools::isSaturday(k))
         cout << "#   | Weekends      : - "
              << pCosts->workedWeekendCost() << endl;
-    std::cout << toString(pCosts->nDays());
-    cout << "# " << endl;
+    std::cout << toString() << "# " << endl;
 
     // throw an error only when a significant misprice
     // Indeed, if the real reduced cost (reducedCost) is greater than the one
@@ -386,37 +387,32 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
     // load the roster of nurse i
     Roster roster = solution[i];
 
+    int firstDay;
     bool workedLastDay = false;
-    int lastShift = 0;
-    map<int, int> shifts;
+    std::vector<PShift> pShifts;
     // build all the successive rotation of this nurse
     for (int k = 0; k < pDemand_->nDays_; ++k) {
       // shift=0 => rest
-      int shift = roster.shift(k);
+      const PShift &pShift = pScenario_->pShift(roster.shift(k));
       // if work, insert the shift in the map
-      if (shift > 0) {
-        shifts[k] = shift;
-        lastShift = shift;
-        workedLastDay = true;
-      } else if (shift < 0 && lastShift > 0) {
-        shifts[k] = lastShift;
+      if (pShift->isWork()) {
+        if (!workedLastDay) firstDay = k;
+        pShifts[k] = pShift;
         workedLastDay = true;
       } else if (workedLastDay) {
         // if stop to work, build the rotation
-        RotationPattern rotation(shifts, pScenario_, i);
+        RotationPattern rotation(firstDay, pShifts, i);
         rotation.computeCost(this, theLiveNurses_[i]);
         pModel_->addInitialColumn(addRotation(rotation, baseName.c_str()));
-        shifts.clear();
-        lastShift = shift;
+        pShifts.clear();
         workedLastDay = false;
       }
     }
     // if work on the last day, build the rotation
     if (workedLastDay) {
-      RotationPattern rotation(shifts, pScenario_, i);
+      RotationPattern rotation(firstDay, pShifts, i);
       rotation.computeCost(this, theLiveNurses_[i]);
       pModel_->addInitialColumn(addRotation(rotation, baseName.c_str()));
-      shifts.clear();
     }
   }
 }
@@ -528,15 +524,77 @@ PDualCosts RotationMP::buildRandomDualCosts(bool optimalDemandConsidered,
                           10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND));
 }
 
+// Functions to generate the resources for a given nurse
+std::map<PResource, CostType>
+RotationMP::defaultGeneratePResources(const PLiveNurse &pN) const {
+  const Weights &w = pScenario_->weights();
+
+  std::map<PResource, CostType> mResources = {
+//        // initialize resource on the total number of working days
+//        {std::make_shared<SoftTotalShiftDurationResource>(
+//            pN->minTotalShifts(),
+//            pN->maxTotalShifts(),
+//            w.WEIGHT_TOTAL_SHIFTS,
+//            w.WEIGHT_TOTAL_SHIFTS,
+//            std::make_shared<AnyWorkShift>(),
+//            nDays()), TOTAL_WORK_COST},
+//        // initialize resource on the total number of week-ends
+//        {std::make_shared<SoftTotalWeekendsResource>(
+//            pN->maxTotalWeekends(),
+//            w.WEIGHT_TOTAL_WEEKENDS,
+//            nDays()), TOTAL_WEEKEND_COST},
+      // initialize resource on the number of consecutive worked days
+      {std::make_shared<SoftConsShiftResource>(
+          pN->minConsDaysWork(),
+          pN->maxConsDaysWork(),
+          w.WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
+          std::make_shared<AnyWorkShift>(),
+          nDays(),
+          pN->pStateIni_->consDaysWorked_),
+       CONS_WORK_COST}
+  };
+
+  // initialize resources on the number of consecutive shifts of each type
+  for (int st = 0; st < pScenario_->nShiftTypes(); st++) {
+    shared_ptr<AbstractShift> absShift =
+        std::make_shared<AnyOfTypeShift>(st, pScenario_->shiftType(st));
+    if (absShift->isWork()) {
+      int consShiftsInitial =
+          absShift->includes(*pN->pStateIni_->pShift_) ?
+          pN->pStateIni_->consShifts_ : 0;
+      mResources[std::make_shared<SoftConsShiftResource>(
+          pScenario_->minConsShiftsOf(st),
+          pScenario_->maxConsShiftsOf(st),
+          w.WEIGHT_CONS_SHIFTS,
+          w.WEIGHT_CONS_SHIFTS,
+          absShift,
+          nDays(),
+          consShiftsInitial)] = CONS_SHIFTS_COST;
+    } else if (absShift->isRest()) {
+      // needed to evaluate thee historical cost
+      mResources[std::make_shared<SoftConsShiftResource>(
+          pN->minConsDaysOff(),
+          pN->maxConsDaysOff(),
+          w.WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
+          absShift,
+          nDays(),
+          pN->pStateIni_->consDaysOff_)] = CONS_REST_COST;
+    }
+  }
+
+  return mResources;
+}
+
+
 //------------------------------------------------------------------------------
 // Build the variable of the rotation as well as all the affected constraints
 // with their coefficients. if s=-1, the nurse i works on all shifts
 //------------------------------------------------------------------------------
 MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
-  RotationPattern rotation
-      (solution.firstDay, solution.shifts, pScenario_,
-       nurseNum, DBL_MAX, solution.cost);
+  RotationPattern rotation(solution, nurseNum, DBL_MAX, solution.cost());
   rotation.computeCost(this, theLiveNurses_[nurseNum]);
   rotation.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
@@ -552,7 +610,7 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
                                const char *baseName,
                                bool coreVar) {
   // nurse index
-  const int nurseNum = rotation.nurseNum_;
+  const int nurseNum = rotation.nurseNum();
 
   // Column var, its name, and affected constraints with their coefficients
   MyVar *var;
@@ -572,7 +630,7 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
   if (coreVar) {
     pModel_->createPositiveVar(&var,
                                name,
-                               rotation.cost_,
+                               rotation.cost(),
                                rotation.getCompactPattern());
     for (unsigned int i = 0; i < cons.size(); i++)
       pModel_->addCoefLinear(cons[i], var, coeffs[i]);
@@ -596,9 +654,9 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
 
     pModel_->createIntColumn(&var,
                              name,
-                             rotation.cost_,
+                             rotation.cost(),
                              rotation.getCompactPattern(),
-                             rotation.reducedCost_,
+                             rotation.reducedCost(),
                              cons,
                              coeffs);
   }
@@ -667,7 +725,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
           snprintf(name, sizeof(name), "longRestingVars_N%d_%d_%d", i, 0, l);
           pModel_->createPositiveVar(&longRestingVars3_0[l - 1],
                                      name,
-                                     cost + rot.cost_,
+                                     cost + rot.cost(),
                                      rot.getCompactPattern());
           initialStateVars_.push_back(longRestingVars3_0[l - 1]);
           // add this resting arc for each day of rest
@@ -681,7 +739,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
             snprintf(name, sizeof(name), "longRestingVars_N%d_%d_%d", i, 0, l);
             pModel_->createPositiveVar(&longRestingVars3_0[l - 1],
                                        name,
-                                       rot.cost_,
+                                       rot.cost(),
                                        rot.getCompactPattern());
             initialStateVars_.push_back(longRestingVars3_0[l - 1]);
             // add this resting arc for each day of rest
@@ -697,7 +755,7 @@ void RotationMP::buildRotationCons(const SolverParam &param) {
                                      name,
                                      (maxRest) ?
                                      pScenario_->weights().WEIGHT_CONS_DAYS_OFF
-                                         + rot.cost_ : rot.cost_,
+                                         + rot.cost() : rot.cost(),
                                      rot.getCompactPattern());
           initialStateVars_.push_back(longRestingVars3_0[0]);
           // add this resting arc for the first day of rest
@@ -1160,7 +1218,7 @@ double RotationMP::getColumnsCost(CostType costType,
     double value = pModel_->getVarValue(var);
     if (value > epsilon()) {
       RotationPattern rot(var->getPattern(), pScenario_);
-      rot.computeCost(this, theLiveNurses_[rot.nurseNum_]);
+      rot.computeCost(this, theLiveNurses_[rot.nurseNum()]);
       switch (costType) {
         case CONS_SHIFTS_COST: cost += rot.consShiftsCost_ * value;
           break;
@@ -1172,7 +1230,7 @@ double RotationMP::getColumnsCost(CostType costType,
           break;
         case CONS_REST_COST: cost += rot.initRestCost_ * value;
           break;
-        default: cost += rot.cost_ * value;
+        default: cost += rot.cost() * value;
           break;
       }
     }
@@ -1190,23 +1248,26 @@ double RotationMP::getWeekendCost() const {
 }
 
 RotationPattern RotationMP::computeInitStateRotation(const PLiveNurse& pNurse) {
-  // initialize rotation
-  RotationPattern rot = RotationPattern(map<int, int>(), nullptr, pNurse->num_);
-
   // compute cost for previous cons worked shifts and days
+  double consDaysWorkedCost = 0, consShiftsCost = 0;
   int lastShiftType = pNurse->pStateIni_->shiftType_;
   if (lastShiftType > 0) {
     int nbConsWorkedDays = pNurse->pStateIni_->consDaysWorked_;
     int diff = pNurse->minConsDaysWork() - nbConsWorkedDays;
-    rot.consDaysWorkedCost_ +=
+    consDaysWorkedCost +=
         (diff > 0) ? diff * pScenario_->weights().WEIGHT_CONS_DAYS_WORK : 0;
 
     int nbConsShifts = pNurse->pStateIni_->consShifts_;
     int diff2 = pScenario_->minConsShiftsOf(lastShiftType) - nbConsShifts;
-    rot.consShiftsCost_ +=
+    consShiftsCost +=
         (diff2 > 0) ? diff2 * pScenario_->weights().WEIGHT_CONS_SHIFTS : 0;
   }
-  rot.cost_ = rot.consDaysWorkedCost_ + rot.consShiftsCost_;
+  double cost = consDaysWorkedCost + consShiftsCost;
+
+  // initialize rotation
+  RotationPattern rot = RotationPattern(-1, {}, pNurse->num_, cost);
+  rot.consDaysWorkedCost_ = consDaysWorkedCost;
+  rot.consShiftsCost_ = consShiftsCost;
 
   return rot;
 }

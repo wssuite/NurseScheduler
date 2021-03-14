@@ -23,11 +23,6 @@ void spp_res_cont::print(std::ostream &out) const {
     out << "\t\t" << labelsName[l].c_str() << "=" << label_value(l);
   }
   out << std::endl;
-#ifdef DBG
-  RCSolution sol(first_day, shifts_, cost);
-  out << sol.toString();
-  out << "Arc taken: " << pred_arc << std::endl;
-#endif
 }
 
 void spp_res_cont::dominate(const spp_res_cont &res) {
@@ -83,24 +78,9 @@ bool ref_spp::operator()(const Graph &g,
   const Arc_Properties &arc_prop = get(boost::edge_bundle, g)[ed];
   const Vertex_Properties
       &vert_prop = get(boost::vertex_bundle, g)[target(ed, g)];
-#ifdef DBG
-  if (arc_prop.forbidden)
-    return false;
-  if (vert_prop.forbidden)
-    return false;
-#endif
   new_cont->cost = old_cont.cost + arc_prop.cost;
   if (new_cont->first_day == -1) new_cont->first_day = arc_prop.day;
   if (arc_prop.day != -1) new_cont->day = arc_prop.day;
-
-#ifdef DBG
-    new_cont->pred_arc = arc_prop.num;
-    if (!arc_prop.shifts.empty()) {
-      new_cont->shifts_.insert(new_cont->shifts_.end(),
-                               arc_prop.shifts.begin(),
-                               arc_prop.shifts.end());
-    }
-#endif
 
   assert(old_cont.size() == new_cont->size());
 
@@ -293,7 +273,8 @@ BoostRCSPPSolver::BoostRCSPPSolver(
 std::vector<RCSolution> BoostRCSPPSolver::solve(
     std::vector<LABEL> labels,
     const Penalties &penalties,
-    std::vector<vertex> sinks) {
+    std::vector<vertex> sinks,
+    const PScenario &pScenario) {
 
   // 1 - solve the resource constraints shortest path problem
   ref_spp ref(labels);
@@ -327,7 +308,7 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
       if (rc.cost + epsilon_ < maxReducedCostBound_) {
         if (verbose_ >= 4)
           printPath(std::cout, opt_solutions_spp[p], rc);
-        rc_solutions.push_back(solution(opt_solutions_spp[p], rc));
+        rc_solutions.push_back(solution(opt_solutions_spp[p], rc, pScenario));
       }
     }
   }
@@ -363,20 +344,21 @@ bool BoostRCSPPSolver::processPath(
 }
 
 RCSolution BoostRCSPPSolver::solution(const std::vector<edge> &path,
-                                      const spp_res_cont &resource) const {
+                                      const spp_res_cont &resource,
+                                      const PScenario &pScenario) const {
   // All arcs are consecutively considered
   int firstDay = -1;
-  std::vector<int> shifts;
+  std::vector<PShift> shifts;
   for (int j = path.size() - 1; j >= 0; --j) {
     int a = boost::get(&Arc_Properties::num, rcg_->g(), path[j]);
     int day = rcg_->arcDay(a);
-    const std::vector<int> &arcShifts = rcg_->arcShifts(a);
+    const std::vector<PShift> &arcShifts = rcg_->arcShifts(a);
 
     if (day != -1 && !arcShifts.empty()) {
       // if it's the first day
       if (firstDay == -1) firstDay = day;
       // append the shifts
-      for (int s : arcShifts) shifts.push_back(s);
+      for (const PShift &pS : arcShifts) shifts.push_back(pS);
     }
   }
   return RCSolution(firstDay, shifts, resource.cost);
@@ -410,8 +392,8 @@ void BoostRCSPPSolver::printPath(std::ostream &out,
         k++;
       }
     }
-    for (int s : get(&Arc_Properties::shifts, rcg_->g(), path[j])) {
-      out << s << "|";
+    for (const PShift &pS : get(&Arc_Properties::pShifts, rcg_->g(), path[j])) {
+      out << pS->id << "|";
       k++;
     }
   }

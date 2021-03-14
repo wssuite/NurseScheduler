@@ -44,11 +44,17 @@ jobs:
           instance: n005w4_0_1-2-3-3
           ns-args: -g 1470 --sp-type LONG
 
+      - name: n005w4_0_1-2-3-3 BOOST ALL
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-3
+          ns-args: -g 1470 --sp-type ALL --rcspp-type BOOST
+
       - name: n005w4_0_1-2-3-3 ALL
         uses: ./ # Uses an action in the root directory
         with:
           instance: n005w4_0_1-2-3-3
-          ns-args: -g 1470 --sp-type ALL
+          ns-args: -g 1470 --sp-type ALL --rcspp-type DEFAULT
 
       - name: n005w4_0_1-2-3-3 BOOST ROSTER
         uses: ./ # Uses an action in the root directory
@@ -80,11 +86,17 @@ jobs:
           instance: n005w4_0_1-2-3-5
           ns-args: -g 1540 --sp-type LONG
 
+      - name: n005w4_0_1-2-3-5 BOOST ALL
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n005w4_0_1-2-3-5
+          ns-args: -g 1540 --sp-type ALL --rcspp-type BOOST
+
       - name: n005w4_0_1-2-3-5 ALL
         uses: ./ # Uses an action in the root directory
         with:
           instance: n005w4_0_1-2-3-5
-          ns-args: -g 1540 --sp-type ALL
+          ns-args: -g 1540 --sp-type ALL --rcspp-type DEFAULT
 
       - name: n005w4_0_1-2-3-5 BOOST ROSTER
         uses: ./ # Uses an action in the root directory
@@ -158,11 +170,17 @@ jobs:
           instance: new1_0_0-1
           ns-args: -g 1200 -e 0 --sp-type LONG
 
+      - name: new1_0_0-1 BOOST ALL
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: new1_0_0-1
+          ns-args: -g 1200 -e 0 --sp-type ALL --rcspp-type BOOST
+
       - name: new1_0_0-1 ALL
         uses: ./ # Uses an action in the root directory
         with:
           instance: new1_0_0-1
-          ns-args: -g 1200 -e 0 --sp-type ALL
+          ns-args: -g 1200 -e 0 --sp-type ALL --rcspp-type DEFAULT
 
       - name: new1_0_0-1 ROSTER  4 threads
         uses: ./ # Uses an action in the root directory

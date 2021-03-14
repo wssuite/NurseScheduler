@@ -70,13 +70,9 @@ void RotationSP::createArcsSourceToPrincipal() {
       for (int dest : principalGraphs_[sh].getDayNodes(k)) {
         std::vector<int> vec;
         for (int s : pScenario_->shiftTypeIDToShiftID(sh))
-          vec.emplace_back(addSingleArc(origin,
-                                        dest,
-                                        0,
-                                        startConsumption(k, {s}),
-                                        SOURCE_TO_PRINCIPAL,
-                                        k,
-                                        s));
+          vec.emplace_back(addSingleArc(
+              origin, dest, 0, startConsumption(k, {pScenario_->pShift(s)}),
+              SOURCE_TO_PRINCIPAL, k, pScenario_->pShift(s)));
         arcsFromSource_[sh][k].push_back(vec);
       }
 }
@@ -151,7 +147,7 @@ double RotationSP::startWorkCost(int a) const {
   int start = arc_prop.day;
   // test is true when the arc does not match an assignment;
   // it may be then end of a rotation for instance
-  if (arc_prop.shifts.empty())
+  if (arc_prop.pShifts.empty())
     ++start;  // start work the next day as no shift today
   double cost = shiftCost(a);
   // add weekend cost if first day is sunday
@@ -171,10 +167,10 @@ double RotationSP::shiftCost(int a) const {
 
   int k = arc_prop.day;
   // iterate through the shift to update the cost
-  for (int s : arc_prop.shifts) {
-    cost += preferencesCosts_[k][s];
-    if (pScenario_->isWorkShift(s)) {
-      cost -= pCosts_->workedDayShiftCost(k, s);
+  for (const PShift &pS : arc_prop.pShifts) {
+    cost += preferencesCosts_[k][pS->id];
+    if (pS->isWork()) {
+      cost -= pCosts_->workedDayShiftCost(k, pS->id);
       // add weekend cost if working on saturday
       // sunday exception is managed by startWorkCost
       if (Tools::isSaturday(k))
@@ -188,11 +184,11 @@ double RotationSP::shiftCost(int a) const {
 double RotationSP::endWorkCost(int a) const {
   const Arc_Properties &arc_prop  = g_.arc(a);
   double cost = shiftCost(a);
-  int length = arc_prop.shifts.size(), end = arc_prop.day;
+  int length = arc_prop.pShifts.size(), end = arc_prop.day;
   // compute the end of the sequence of shifts
   // length could be equal to 0, but still represents the end of the rotation
   if (length > 1) end += length - 1;
-  if (arc_prop.shifts.empty() || arc_prop.shifts.back())
+  if (arc_prop.pShifts.empty() || arc_prop.pShifts.back())
     cost += endWeekendCosts_[end];
   cost -= pCosts_->endWorkCost(end);
   return cost;

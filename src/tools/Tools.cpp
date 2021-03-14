@@ -315,6 +315,10 @@ bool isLastWeekendDay(int dayId) {
   return isSunday(dayId);
 }
 
+bool isWeekendDayButNotLastOne(int dayId) {
+  return isSaturday(dayId);
+}
+
 int nWeekendsInInterval(int start, int end) {
   int nWeekends = 0;
   bool isCounted = false;

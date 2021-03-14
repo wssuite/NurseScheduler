@@ -70,7 +70,7 @@ int RCGraph::addSingleArc(int o,
                           std::vector<int> consumptions,
                           ArcType type,
                           int day,
-                          std::vector<int> shifts) {
+                          std::vector<PShift> shifts) {
   Arc_Properties a(nArcs_, o, d, type, baseCost, consumptions, day, shifts);
   edge e = add_edge(o, d, a, g_).first;
   arcsDescriptors_.push_back(e);
@@ -174,13 +174,13 @@ std::string RCGraph::printArc(
            arc_prop.day);
   rep << buff;
   for (unsigned int s = 0; static_cast<int>(s) < nShiftsToDisplay; ++s) {
-    if (s < arc_prop.shifts.size())
-      snprintf(buff, sizeof(buff), " %3d", arc_prop.shifts[s]);
+    if (s < arc_prop.pShifts.size())
+      snprintf(buff, sizeof(buff), " %3d", arc_prop.pShifts[s]->id);
     else
       snprintf(buff, sizeof(buff), " %3s", "");
     rep << buff;
   }
-  rep << (nShiftsToDisplay < static_cast<int>(arc_prop.shifts.size()) ? " .."
+  rep << (nShiftsToDisplay < static_cast<int>(arc_prop.pShifts.size()) ? " .."
                                                                         "."
                                                                       : "    ");
   snprintf(buff, sizeof(buff), "  [%20s] -> [%20s]",

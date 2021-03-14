@@ -144,7 +144,7 @@ class SubProblem {
   double bestReducedCost_;
 
   // Timer in presolve and in label setting
-  Tools::Timer timerPresolve_, timerSolve_;
+  Tools::Timer timerPresolve_, timerSolve_, timerPostsolve_;
 
   //----------------------------------------------------------------
   //
@@ -187,6 +187,7 @@ class SubProblem {
 
   // FUNCTIONS -- SOLVE
   virtual bool preprocess();
+  virtual bool postprocess();
 
   virtual bool solveRCGraph() = 0;
 

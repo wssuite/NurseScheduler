@@ -66,7 +66,7 @@ void RosterPattern::computeCost(const MasterProblem *pMaster,
   if (pNurse->needCompleteWeekends()) {
     int k = 0;
     bool rest = false;
-    for (const PShift &pS : stretch_.pShifts()) {
+    for (const PShift &pS : pShifts()) {
       // on sunday, if complete weekend, it's either:
       // work on saturday (rest=false) and sunday
       // rest on saturday (rest=true) and sunday
@@ -81,7 +81,7 @@ void RosterPattern::computeCost(const MasterProblem *pMaster,
   /*
    * Compute preferencesCost
    */
-  for (int k = stretch_.firstDay(); k <= stretch_.lastDay(); ++k) {
+  for (int k = firstDay(); k <= lastDay(); ++k) {
     int level = pNurse->wishesOffLevel(k, shift(k));
     if (level != -1)
       addCost(pScenario->weights().WEIGHT_PREFERENCES_OFF[level],
@@ -129,7 +129,7 @@ void RosterPattern::checkDefaultCost(const MasterProblem *pMaster,
   }
 
   // 2. compute the cost
-  for (const PShift &pS : stretch_.pShifts()) {
+  for (const PShift &pS : pShifts()) {
     // a. same shift type -> increment the counters
     if (lastShiftType == pS->type) {
       if (pS->isWork()) {
@@ -198,7 +198,7 @@ void RosterPattern::checkDefaultCost(const MasterProblem *pMaster,
   int nWeekends = 0;
   int k = 0;
   bool rest = false;
-  for (const PShift &pS : stretch_.pShifts()) {
+  for (const PShift &pS : pShifts()) {
     if (pS->isWork()) {
       if (Tools::isSaturday(k)) {
         nWeekends++;
@@ -232,7 +232,7 @@ void RosterPattern::checkDefaultCost(const MasterProblem *pMaster,
     std::cerr << "# " << std::endl;
     std::cerr << "#   | Base cost     : + " << cost_ << std::endl;
     std::cerr << costsToString();
-    std::cerr << toString(pMaster->nDays());
+    std::cerr << toString();
     std::cerr << "# " << std::endl;
     Tools::throwError("defaultComputeCost and computeCost do not get "
                       "the same result for RosterPattern.");
@@ -277,7 +277,7 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
                   << pCosts->workedDayShiftCost(k, pS->id)
                   << std::endl;
     }
-    std::cerr << toString(pCosts->nDays());
+    std::cerr << toString();
     std::cerr << "# " << std::endl;
 
     // throw an error only when a significant misprice
@@ -344,10 +344,10 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
       // load the roster of nurse i
       const Roster &roster = solution[i];
       // build the shift vector
-      std::vector<int> shifts(nDays());
+      std::vector<PShift> shifts(nDays());
       for (int k = 0; k < nDays(); ++k)
-        shifts[k] = roster.shift(k);
-      RosterPattern pat(shifts, pScenario_, i);
+        shifts[k] = pScenario_->pShift(roster.shift(k));
+      RosterPattern pat(shifts, i);
       pat.computeCost(this, theLiveNurses_[i]);
       pModel_->addInitialColumn(addRoster(pat, baseName));
     }
@@ -355,7 +355,7 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
 }
 
 std::map<PResource, CostType>
-    RosterMP::defaultgeneratePResources(const PLiveNurse &pN) const {
+    RosterMP::defaultGeneratePResources(const PLiveNurse &pN) const {
   const Weights &w = pScenario_->weights();
 
   std::map<PResource, CostType> mResources = {
@@ -421,8 +421,7 @@ std::map<PResource, CostType>
 // if s=-1, the nurse works on all shifts
 MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
-  RosterPattern pat(
-      solution.shifts, pScenario_, nurseNum, DBL_MAX, solution.cost);
+  RosterPattern pat(solution, nurseNum, DBL_MAX, solution.cost());
   pat.computeCost(this, theLiveNurses_[nurseNum]);
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 //  if (useDefaultResources())
@@ -440,7 +439,7 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
                            const char *baseName,
                            bool coreVar) {
   // nurse index
-  const int nurseNum = roster.nurseNum_;
+  const int nurseNum = roster.nurseNum();
 
   // Column var, its name, and affected constraints with their coefficients
   MyVar *var;
@@ -456,7 +455,7 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
   if (coreVar) {
     pModel_->createPositiveVar(&var,
                                name,
-                               roster.cost_,
+                               roster.cost(),
                                roster.getCompactPattern());
     unsigned int i;
     for (i = 0; i < static_cast<int>(cons.size()); i++)
@@ -470,9 +469,9 @@ MyVar *RosterMP::addRoster(const RosterPattern &roster,
 
     pModel_->createIntColumn(&var,
                              name,
-                             roster.cost_,
+                             roster.cost(),
                              roster.getCompactPattern(),
-                             roster.reducedCost_,
+                             roster.reducedCost(),
                              cons,
                              coeffs);
   }
@@ -549,8 +548,8 @@ double RosterMP::getColumnsCost(CostType costType,
     double value = pModel_->getVarValue(var);
     if (value > epsilon()) {
       RosterPattern ros(var->getPattern(), pScenario_);
-      ros.computeCost(this, theLiveNurses_[ros.nurseNum_]);
-      cost += ros.cost(costType) * value;
+      ros.computeCost(this, theLiveNurses_[ros.nurseNum()]);
+      cost += ros.costByType(costType) * value;
     }
   }
   return cost;

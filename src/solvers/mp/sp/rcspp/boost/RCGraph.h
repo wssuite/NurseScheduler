@@ -19,10 +19,11 @@
 #include <utility>
 #include <vector>
 
-#include "tools/Tools.h"
-
 #include <boost/graph/adjacency_list.hpp>
 #include "boost/config.hpp"
+
+#include "tools/Tools.h"
+#include "data/Shift.h"
 
 namespace boostRCSPP {
 
@@ -192,11 +193,11 @@ struct Arc_Properties {
                  double c = 0,
                  std::vector<int> consumptions = {},
                  int day = -1,
-                 std::vector<int> shifts = {},
+                 std::vector<PShift> pShifts = {},
                  bool forbidden = false) :
       num(n), origin(origin), destination(destination),
       type(ty), cost(c), initialCost(c), consumptions(consumptions),
-      day(day), shifts(shifts), forbidden(forbidden) {}
+      day(day), pShifts(pShifts), forbidden(forbidden) {}
 
   // id
   int num;
@@ -215,7 +216,7 @@ struct Arc_Properties {
   std::vector<int> consumptions;
 
   int day;  // day
-  std::vector<int> shifts;  // shifts id
+  std::vector<PShift> pShifts;  // shifts id
   bool forbidden;
 
   int consumption(LABEL l) const {
@@ -350,7 +351,7 @@ class RCGraph {
                    std::vector<int> consumptions,
                    ArcType type,
                    int day = -1,
-                   std::vector<int> shifts = {});
+                   std::vector<PShift> shifts = {});
 
   int addPricingArc(int origin,
                     int destination,
@@ -395,8 +396,8 @@ class RCGraph {
     return get(&Arc_Properties::initialCost, g_, arcsDescriptors_[a]);
   }
 
-  const std::vector<int> &arcShifts(int a) const {
-    return get(&Arc_Properties::shifts, g_, arcsDescriptors_[a]);
+  const std::vector<PShift> &arcShifts(int a) const {
+    return get(&Arc_Properties::pShifts, g_, arcsDescriptors_[a]);
   }
 
   int arcDay(int a) const {
@@ -418,8 +419,8 @@ class RCGraph {
                consumptions);
   }
 
-  void updateShifts(int a, const std::vector<int> &shifts) {
-    boost::put(&Arc_Properties::shifts, g_, arcsDescriptors_[a], shifts);
+  void updateShifts(int a, const std::vector<PShift> &pShifts) {
+    boost::put(&Arc_Properties::pShifts, g_, arcsDescriptors_[a], pShifts);
   }
 
   void updateCost(int a, double cost) {

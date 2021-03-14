@@ -84,13 +84,15 @@ class LabelPool {
  * Class containing the label correcting algorithm to solve the RCSPP
  */
 
-class MyRCSPPSolver {
+class RCSPPSolver {
  public:
-  explicit MyRCSPPSolver(RCGraph *pRcGraph,
-                         const SubproblemParam &param);
+  explicit RCSPPSolver(RCGraph *pRcGraph,
+                       const SubproblemParam &param);
 
   // set the initial label at the source of the graph
-  void setSourceLabel(const PRCLabel& pL) {pLSource_ = pL;}
+  void setSourceLabels(const std::vector<PRCLabel> &pLabels) {
+    pLSources_ = pLabels;
+  }
 
   // reset the solver state without acting on the graph
   void reset(const SubproblemParam& p) {
@@ -176,7 +178,11 @@ class MyRCSPPSolver {
                             const PRCNode &pN);
 
   // Create a solution object given a label coming from a sink node
+#ifdef DBG
+  static RCSolution createSolution(const PRCLabel& finalLabel, bool print);
+#else
   static RCSolution createSolution(const PRCLabel& finalLabel);
+#endif
 
   // Check if a label can produce a path to a sink node with negative cost
   bool hasPotentialImprovingPathToSinks(const PRCLabel &pl, const PRCNode& pN,
@@ -231,8 +237,8 @@ class MyRCSPPSolver {
   PRCLabelFactory pFactory_;
   // Temporary pool of labels
   LabelPool labelPool_;
-    // Initial label at the source of the graph
-  PRCLabel pLSource_;
+  // Initial label at the source of the graph
+  vector<PRCLabel> pLSources_;
   // Non-dominated labels at each node of the graph
   vector2D<PRCLabel> pExpandedLabelsPerNode_;
   // Non-dominated labels that will be expanded at each node of the graph

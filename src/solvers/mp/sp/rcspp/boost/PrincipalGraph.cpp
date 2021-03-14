@@ -78,7 +78,7 @@ void PrincipalGraph::build() {
                                    getConsumption(k + 1, shiftID),
                                    SHIFT_TO_SAMESHIFT,
                                    k + 1,
-                                   shiftID);
+                                   pScenario->pShift(shiftID));
         arcsShiftToSameShift_[k][nCons][s] = a;
       }
     }
@@ -94,7 +94,7 @@ void PrincipalGraph::build() {
                                  getConsumption(k + 1, shiftID),
                                  REPEATSHIFT,
                                  k + 1,
-                                 shiftID);
+                                 pScenario->pShift(shiftID));
       arcsRepeatShift_[k][s] = a;
     }
 
@@ -135,7 +135,7 @@ std::vector<int> PrincipalGraph::getConsumption(int day, int shift) const {
 bool PrincipalGraph::checkFeasibilityEntranceArc(
     const Arc_Properties &arc_prop,
     int level) const {
-  if (!checkIfShiftBelongsHere(arc_prop.shifts.back(), true))
+  if (!checkIfShiftBelongsHere(arc_prop.pShifts.back()->id, true))
     return false;
 
   // find which level should be reached
@@ -143,19 +143,18 @@ bool PrincipalGraph::checkFeasibilityEntranceArc(
   if (arc_prop.day == 0) {
     sh = pSP_->liveNurse()->pStateIni_->shiftType_;
     n = pSP_->liveNurse()->pStateIni_->consShifts_;
-    if (arc_prop.shifts.empty()) {
+    if (arc_prop.pShifts.empty()) {
       std::cerr << "Arc must contain at least a shift when starting the first "
                    "to take into account the historical state." << std::endl;
       return false;
     }
   }
 
-  for (int s : arc_prop.shifts) {
-    int new_sh = pSP_->scenario()->shiftIDToShiftTypeID(s);
-    if (new_sh == sh) ++n;
+  for (const PShift &pS : arc_prop.pShifts) {
+    if (pS->type == sh) ++n;
     else
       n = 1;
-    sh = new_sh;
+    sh = pS->type;
   }
   if (n > max_cons_)
     n = max_cons_;

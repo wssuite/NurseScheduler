@@ -46,86 +46,28 @@ using std::endl;
 
 
 // print a rc solution
-std::string RCSolution::toString(const PScenario &pScenario) const {
+std::string RCSolution::toString() const {
   std::stringstream buff;
-  buff << "RC solution of cost " << cost
-       << " starting on day " << firstDay << ":" << std::endl;
-  for (int k = 0; k < firstDay; k++) buff << "|     ";
-
-  char buffer[500];
-  if (pScenario == nullptr) {
-    for (int s : shifts) {
-      snprintf(buffer, sizeof(buffer), "| -:%2d", s);
-      buff << buffer;
-    }
-  } else {
-    for (int s : shifts) {
-      snprintf(buffer, sizeof(buffer), "|%2d:%2d",
-               pScenario->shiftIDToShiftTypeID(s), s);
-      buff << buffer;
-    }
-  }
-  buff << "|" << std::endl;
+  buff << "RC solution of cost " << cost_ << "; " << Stretch::toString();
   return buff.str();
 }
 
 // P a t t e r n   s t a t i c   m e t h o d s
-
-Stretch getStretch(int firstDay,
-                   const std::vector<int> &shifts,
-                   const PScenario &pScenario) {
-  std::vector<PShift> pShifts;
-  pShifts.reserve(shifts.size());
-  for (int s : shifts) pShifts.emplace_back(pScenario->pShift(s));
-  return Stretch(pShifts, firstDay);
-}
-
-Stretch getStretch(const std::vector<double> &pattern,
-                   const PScenario &pScenario) {
-  int firstDay = Pattern::firstDay(pattern),
-      length = Pattern::nDays(pattern);
+std::vector<PShift> getPShifts(const std::vector<double> &pattern,
+                               const PScenario &pScenario) {
+  int length = Pattern::nDays(pattern);
   std::vector<PShift> pShifts(length);
   for (int k = 0; k < length; k++)
     pShifts[k] = pScenario->pShift(static_cast<int>(pattern[k + 3]));
-  return Stretch(pShifts, firstDay);
+  return pShifts;
 }
-
-Stretch getStretch(const std::map<int, int> &shifts,
-                   const PScenario &pScenario) {
-  if (shifts.empty()) return Stretch(vector<PShift>(), -1);
-  // find first day
-  int firstDay = shifts.begin()->first;
-  for (const auto &p : shifts)
-    if (p.first < firstDay) firstDay = p.first;
-  // build the vector of PShifts
-  std::vector<PShift> pShifts(shifts.size());
-  for (const auto &p : shifts)
-    pShifts[p.first - firstDay] = pScenario->pShift(p.second);
-  return Stretch(pShifts, firstDay);
-}
-
-Pattern::Pattern(int firstDay,
-                 const std::vector<int> &shifts,
-                 const PScenario &pScenario,
-                 int nurseNum,
-                 double cost,
-                 double dualCost) :
-    nurseNum_(nurseNum), stretch_(getStretch(firstDay, shifts, pScenario)),
-    cost_(cost), reducedCost_(dualCost) {}
-
-Pattern::Pattern(const std::map<int, int> &shifts,
-                 const PScenario &pScenario,
-                 int nurseNum,
-                 double cost,
-                 double dualCost) :
-    nurseNum_(nurseNum), stretch_(getStretch(shifts, pScenario)),
-    cost_(cost), reducedCost_(dualCost) {}
 
 Pattern::Pattern(const std::vector<double> &pattern,
                  const PScenario &pScenario) :
+    RCSolution(Pattern::firstDay(pattern),
+               getPShifts(pattern, pScenario),
+               DBL_MAX),
     nurseNum_(Pattern::nurseNum(pattern)),
-    stretch_(getStretch(pattern, pScenario)),
-    cost_(DBL_MAX),
     reducedCost_(DBL_MAX) {}
 
 void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
@@ -137,10 +79,8 @@ void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
   // create origin, destination and arc
   PRCNode pSource = std::make_shared<RCNode>(
       0, SOURCE_NODE, firstDay(), initialState.pShift_),
-      pSink = std::make_shared<RCNode>(
-      1, SINK_NODE, nDays(), pShift(lastDay()));
-  PRCArc pArc = std::make_shared<RCArc>(
-      0, pSource, pSink, stretch_, 0, TO_SINK);
+      pSink = std::make_shared<RCNode>(1, SINK_NODE, nDays(), pShifts_.back());
+  PRCArc pArc = std::make_shared<RCArc>(0, pSource, pSink, *this, 0, TO_SINK);
   // create resources
   // map that associates a PRessource to its cost type
   auto mResources =
@@ -151,7 +91,7 @@ void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
   // create expander for stretch
   double c = pArc->cost;
   for (const auto &pR : pResources) {
-    pR->initialize(*pSource->pAShift, stretch_, pArc);
+    pR->initialize(*pSource->pAShift, *this, pArc);
     addCost(pArc->cost-c, mResources[pR]);
     c = pArc->cost;
   }
@@ -185,21 +125,12 @@ std::string Pattern::costsToString() const {
   return rep.str();
 }
 
-std::string Pattern::toString(int nbDays) const {
-  if (nbDays == -1) nbDays = lastDay()+1;
+std::string Pattern::toString() const {
   std::stringstream rep;
-  rep << "#   | PATTERN: N=" << nurseNum_ << "  cost=" << cost_
-      << "  dualCost=" << reducedCost_ << "  firstDay=" << firstDay()
-      << "  length=" << nDays() << "  duration=" << duration() << std::endl;
-  rep << "#   |";
-  std::vector<PShift> allTasks(nbDays);
-  for (int k = 0; k < nbDays; ++k) {
-    if (k < firstDay() || k > lastDay() || pShift(k)->isRest())
-      rep << "   |";
-    else
-      rep << pShift(k)->type << ":" << pShift(k)->id << "|";
-  }
-  rep << std::endl;
+  rep << "PATTERN: N=" << nurseNum_
+      << "cost=" << std::setprecision(2) << cost_
+      << "  dualCost=" << std::setprecision(2) << reducedCost_ << "; "
+      << Stretch::toString();
   return rep.str();
 }
 
@@ -504,7 +435,7 @@ void MasterProblem::filterColumnsBasedOnAvailability() {
     PPattern pat = getPattern(var);
     bool feasible = true;
     for (int k = pat->firstDay(); k <= pat->lastDay(); k++)
-      if (!isNurseAvailableOnDayShift(pat->nurseNum_, k, pat->shift(k))) {
+      if (!isNurseAvailableOnDayShift(pat->nurseNum(), k, pat->shift(k))) {
         feasible = false;
         break;
       }
@@ -655,7 +586,7 @@ void MasterProblem::storeSolution() {
   for (MyVar *var : pModel_->getActiveColumns()) {
     if (pModel_->getVarValue(var) > epsilon()) {
       PPattern pat = getPattern(var);
-      PLiveNurse pNurse = theLiveNurses_[pat->nurseNum_];
+      PLiveNurse pNurse = theLiveNurses_[pat->nurseNum()];
       for (int k = pat->firstDay(); k <= pat->lastDay(); ++k) {
         int s = pat->shift(k);
         if (s == 0) continue;  // nothing to do
@@ -728,8 +659,7 @@ std::string MasterProblem::currentSolToString() const {
     std::stringstream rep;
     rep << var->getNurseNum() << ": " << v << std::endl;
     PPattern pat = getPattern(var);
-    rep << pat->toString(nDays())
-        << std::endl;
+    rep << pat->toString() << std::endl;
   }
 
   // print the solutions
@@ -739,8 +669,7 @@ std::string MasterProblem::currentSolToString() const {
       double v = pModel_->getVarValue(var);
       rep << var->getNurseNum() << ": " << v << std::endl;
       PPattern pat = getPattern(var);
-      rep << pat->toString(nDays())
-          << std::endl;
+      rep << pat->toString() << std::endl;
     }
   return rep.str();
 }
@@ -763,7 +692,7 @@ vector3D<double> MasterProblem::fractionalRoster() const {
     double value = pModel_->getVarValue(var);
     if (value < epsilon()) continue;
     PPattern pat = getPattern(var);
-    vector2D<double> &fractionalRoster2 = fractionalRoster[pat->nurseNum_];
+    vector2D<double> &fractionalRoster2 = fractionalRoster[pat->nurseNum()];
     for (int k = pat->firstDay(); k <= pat->lastDay(); ++k)
       fractionalRoster2[k][pat->shift(k)] += value;
   }
@@ -1003,7 +932,7 @@ int MasterProblem::addSkillsCoverageConsToCol(vector<MyCons *> *cons,
                                               const Pattern &pat) const {
   int nbCons(0);
 
-  int p = theLiveNurses_[pat.nurseNum_]->pPosition()->id_;
+  int p = theLiveNurses_[pat.nurseNum()]->pPosition()->id_;
   for (int k = pat.firstDay(); k <= pat.lastDay(); ++k) {
     int s = pat.shift(k);
     if (pScenario_->isAnyShift(s)) {

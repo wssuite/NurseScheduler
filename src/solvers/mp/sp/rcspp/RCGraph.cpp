@@ -44,6 +44,7 @@ std::vector<PRCNode> RCGraph::sortNodes() const {
   // compute the depth of each node from the sinks
   vector<int> depths(nNodes(), 0);
   std::list<PRCNode> nodesToProcess(pSinks_.begin(), pSinks_.end());
+  int maxDepth = -1;
   while (!nodesToProcess.empty()) {
     PRCNode pN = nodesToProcess.front();  // retrieve first node
     nodesToProcess.pop_front();  // remove first node
@@ -56,13 +57,17 @@ std::vector<PRCNode> RCGraph::sortNodes() const {
         nodesToProcess.push_back(pArc->origin);
       }
     }
+    // update max depth
+    if (depth > maxDepth)
+      maxDepth = depth;
+
     if (depth > nNodes())
       Tools::throwError("The RC graph is cyclic.");
   }
 
-  // order the nodes starting from the source
+  // order the nodes starting from the deepest nodee
   std::vector<PRCNode> sortedNodes;
-  int depth = depths[pSource_->id];
+  int depth = maxDepth;
   for (; depth >= 0; depth--) {
     // find all nodes of the right depth
     for (int i = 0; i < depths.size(); i++)
@@ -77,17 +82,14 @@ void RCGraph::addResource(const PResource& pR) {
   pResources_.push_back(pR);
 }
 
-PRCNode RCGraph::addSingleNode(NodeType type, int day, const PShift& pS) {
-  pNodes_.emplace_back(std::make_shared<RCNode>(pNodes_.size(), type, day, pS));
-
-  if (type == SINK_NODE) {
+PRCNode RCGraph::addSingleNode(
+    NodeType type, int day, const PAbstractShift& pAS) {
+  pNodes_.emplace_back(
+      std::make_shared<RCNode>(pNodes_.size(), type, day, pAS));
+  if (type == SINK_NODE)  // if a sink
     pSinks_.push_back(pNodes_.back());
-  } else if (type == SOURCE_NODE) {
-    // TODO(AL): use a vector of sources instead of one source
-    if (pSource_ != nullptr) Tools::throwError("A source is already defined");
-    pSource_ = pNodes_.back();
-  }
-
+  else if (type == SOURCE_NODE)  // if a source
+    pSources_.push_back(pNodes_.back());
   return pNodes_.back();
 }
 
@@ -104,8 +106,8 @@ PRCArc RCGraph::addSingleArc(PRCNode o,
   pArc->origin->outArcs.push_back(pArcs_.back());
   // add the arc to pArcsPerDayShift_ for each day/shift of the stretch
   const Stretch &st = pArc->stretch;
-  for (int k = 0; k < st.nDays(); k++)
-    pArcsPerDayShift_[st.firstDay()+k][st.pShift(k)->id].push_back(pArc);
+  for (int k = st.firstDay(); k <= st.lastDay(); k++)
+    pArcsPerDayShift_[k][st.pShift(k)->id].push_back(pArc);
   return pArc;
 }
 

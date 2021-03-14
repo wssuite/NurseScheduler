@@ -9,8 +9,8 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_MP_SP_ROSTERSP_H_
-#define SRC_SOLVERS_MP_SP_ROSTERSP_H_
+#ifndef SRC_SOLVERS_MP_SP_ROTATIONSP_H_
+#define SRC_SOLVERS_MP_SP_ROTATIONSP_H_
 
 #include <vector>
 
@@ -18,28 +18,31 @@
 
 /**
  * Class describing the subproblems that appear in a branch-and-price
- * approach based on the decomposition by rosters
+ * approach based on the decomposition by rotations
  * The main functions are to build a RCSPP graph and call an RCSPP solver to
  * get the optimal path in the graph
  */
-class RosterSP : public RCSPPSubProblem {
+class RotationSP : public RCSPPSubProblem {
  public:
-  RosterSP(PScenario scenario,
-           int nbDays,
-           PLiveNurse nurse,
-           std::vector<PResource> pResources,
-           const SubproblemParam &param);
+  RotationSP(PScenario scenario,
+             int nbDays,
+             PLiveNurse nurse,
+             std::vector<PResource> pResources,
+             const SubproblemParam &param);
 
  protected:
   // get the dual cost of a given stretch
-  double dualCost(const Stretch &s, PAbstractShift pAS) override;
+  double dualCost(const Stretch &stretch, PAbstractShift pAS) override;
 
   void createNodes(RCGraph *pRCGraph) override;
   void createArcs(RCGraph *pRCGraph) override;
 
-  // create the initial label that will be expanded from the source to the
-  // sink(s)
+  // create the initial label that will be expanded from the sources to the
+  // sinks
   void createInitialLabels() override;
+
+  // remove last shift from solution if a rest shift
+  bool postprocess() override;
 };
 
-#endif  // SRC_SOLVERS_MP_SP_ROSTERSP_H_
+#endif  // SRC_SOLVERS_MP_SP_ROTATIONSP_H_

@@ -147,22 +147,47 @@ struct AnyOfTypeShift : public AbstractShift {
  */
 class Stretch {
  public:
-  Stretch(const PShift& pShift, int firstDay) :
+  explicit Stretch(int firstDay = -1) : firstDay_(firstDay), duration_(0) {}
+
+  Stretch(int firstDay, const PShift& pShift) :
       firstDay_(firstDay),
       pShifts_({pShift}),
       duration_(pShift->duration) {}
 
-  Stretch(vector<PShift> pShifts, int firstDay) :
+  Stretch(int firstDay, vector<PShift> pShifts) :
       firstDay_(firstDay),
       pShifts_(std::move(pShifts)),
       duration_(computeDuration()) {}
 
-  int firstDay() const { return firstDay_; }
-  int nDays() const { return pShifts_.size(); }
-  int lastDay() const { return firstDay_+ pShifts_.size() - 1; }
-  const PShift& pShift(int ind) const { return pShifts_.at(ind); }
-  const vector<PShift> &pShifts() const { return pShifts_; }
-  int duration() const { return duration_; }
+
+  virtual ~Stretch() = default;
+
+  virtual int firstDay() const { return firstDay_; }
+  virtual int nDays() const { return pShifts_.size(); }
+  virtual int lastDay() const { return firstDay_+ pShifts_.size() - 1; }
+  virtual const PShift& pShift(int day) const {
+    return pShifts_.at(day-firstDay());
+  }
+  virtual const vector<PShift> &pShifts() const { return pShifts_; }
+  virtual int shift(int day) const { return pShift(day)->id; }
+  virtual int duration() const { return duration_; }
+
+  virtual void addFront(const Stretch& stretch) {
+    firstDay_ = stretch.firstDay_;
+    duration_ += stretch.duration_;
+    pShifts_.insert(
+        pShifts_.begin(), stretch.pShifts_.begin(), stretch.pShifts_.end());
+  }
+
+  virtual void addBack(const Stretch& stretch) {
+    duration_ += stretch.duration_;
+    pShifts_.insert(
+        pShifts_.end(), stretch.pShifts_.begin(), stretch.pShifts_.end());
+  }
+
+  virtual void eraseBack() {
+    pShifts_.erase(pShifts_.end()-1);
+  }
 
   bool operator!=(const Stretch &stretch) const {
     if (firstDay() != stretch.firstDay()) return true;
@@ -174,11 +199,21 @@ class Stretch {
     return false;
   }
 
+  virtual std::string toString() const {
+    std::stringstream buff;
+    buff << "Stretch starting on day " << firstDay_ << ":" << std::endl;
+    for (int k = 0; k < firstDay_; k++) buff << "|     ";
+    for (const PShift &pS : pShifts_)
+      buff << "|" << std::setw(5) << pS->name.substr(0, 5);
+    buff << "|" << std::endl;
+    return buff.str();
+  }
+
  protected:
-  const int firstDay_;
-  const vector<PShift> pShifts_;
+  int firstDay_;
+  vector<PShift> pShifts_;
   // Time duration (in a certain unit: day, hours, half-hours, ...)
-  const int duration_;
+  int duration_;
 
   int computeDuration() {
     int d = 0;

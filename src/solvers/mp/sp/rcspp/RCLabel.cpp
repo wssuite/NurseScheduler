@@ -114,7 +114,13 @@ void RCLabel::copy(const RCLabel &l) {
 
 std::string RCLabel::toString() const {
   std::stringstream rep;
-  rep << "Label: cost=" << cost() << std::endl;
+  rep << "Label: cost=" << cost();
+#ifdef DBG
+  if (consShiftCost_) rep << ", consShiftCost=" << consShiftCost_;
+  if (totalShiftCost_) rep << ", totalShiftCost=" << totalShiftCost_;
+  if (totalWeekendCost_) rep << ", totalWeekendCost=" << totalWeekendCost_;
+#endif
+  rep << std::endl;
   if (pInArc_) rep << "Arc in: " << pInArc_->toString() << std::endl;
   if (pOutArc_) rep << "Arc out: " << pOutArc_->toString() << std::endl;
 //  rep << "Ressources:" << std::endl;

@@ -304,6 +304,7 @@ bool isWeekend(int dayId);
 bool isFirstWeekDay(int dayId);
 bool isFirstWeekendDay(int dayId);
 bool isLastWeekendDay(int dayId);
+bool isWeekendDayButNotLastOne(int dayId);
 int nWeekendsInInterval(int startDate, int endDate);
 
 // High resolution timer class to profile the performance of the algorithms
