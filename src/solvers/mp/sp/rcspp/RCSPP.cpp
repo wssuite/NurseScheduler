@@ -111,13 +111,13 @@ void LabelPool::sort() {
   std::sort(begin(), end(), LabelCostIncreasing());
 }
 
-RCSPPSolver::RCSPPSolver(RCGraph *pRcGraph,
-                         const SubproblemParam &param) :
+RCSPPSolver::RCSPPSolver(PRCGraph pRcGraph,
+                         SubproblemParam param) :
     pRcGraph_(pRcGraph),
     pFactory_(std::make_shared<RCLabelFactory>()),
     labelPool_(pFactory_, 100),
     bestPrimalBound_(0.0),
-    param_(param),
+    param_(std::move(param)),
     maxReducedCostBound_(0),
     nb_max_paths_(1),
     total_number_of_nondominated_labels_(0),
@@ -198,7 +198,8 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound,
   for (const auto& pL : pLabelsSinks) {
     if (pL->cost() + param_.epsilon_ < maxReducedCostBound_) {
 #ifdef DBG
-      RCSolution solution = createSolution(pL, finalSolutions.empty());
+//      RCSolution solution = createSolution(pL, finalSolutions.empty());
+      RCSolution solution = createSolution(pL, false);
 #else
       RCSolution solution = createSolution(pL);
 #endif
@@ -594,7 +595,7 @@ RCSolution RCSPPSolver::createSolution(const PRCLabel &finalLabel) {
   while (pL->getPreviousLabel() != nullptr) {
     stretch.addFront(pL->getInArc()->stretch);
 #ifdef DBG
-    if (print) std::cout << pL->toString() << std::endl;
+    if (print) std::cout << pL->toString(pRcGraph_->pResources()) << std::endl;
 #endif
     pL = pL->getPreviousLabel();
   }

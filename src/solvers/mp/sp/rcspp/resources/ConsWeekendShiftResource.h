@@ -34,15 +34,14 @@ class SoftConsWeekendShiftResource : public SoftBoundedResource {
  public:
   SoftConsWeekendShiftResource(
       int lb, int ub, double lbCost, double ubCost,
-      const PAbstractShift pShift, int totalNbDays = 0) :
+      const PAbstractShift pShift, int totalNbDays, bool cyclic = false) :
       SoftBoundedResource("Soft Weekend Cons "+pShift->name,
                           lb, ub, lbCost, ubCost),
-      pShift_(pShift),
-      totalNbDays_(totalNbDays) {}
+      pShift_(pShift), cyclic_(cyclic) {
+    totalNbDays_ = totalNbDays;
+  }
 
   int getConsumption(const State &initialState) const override;
-
-  int getTotalNbDays() const {return totalNbDays_;}
 
   // the resource needs to be checked for dominance only on nodes
   // corresponding to the one checked in this constraint
@@ -62,18 +61,26 @@ class SoftConsWeekendShiftResource : public SoftBoundedResource {
                  const PRCArc &pArc) override;
 
   const PAbstractShift pShift_;
-  int totalNbDays_;  // Total number of days in the horizon
+  bool cyclic_;  // true of solving the cyclic version
 };
 
 class HardConsWeekendShiftResource : public HardBoundedResource {
  public:
-  HardConsWeekendShiftResource(int lb, int ub, const PAbstractShift pShift) :
+  HardConsWeekendShiftResource(
+      int lb, int ub, const PAbstractShift pShift,
+      int totalNbDays, bool cyclic = false) :
       HardBoundedResource("Hard Weekend Cons "+pShift->name, lb, ub),
-      pShift_(pShift) {}
+      pShift_(pShift), cyclic_(cyclic) {
+    totalNbDays_ = totalNbDays;
+  }
 
   int getConsumption(const State &initialState) const override;
 
   bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
+
+  bool dominates(const PRCLabel &pL1,
+                 const PRCLabel &pL2,
+                 double *cost = nullptr) override;
 
  protected:
   // initialize the expander on a given arc
@@ -82,6 +89,7 @@ class HardConsWeekendShiftResource : public HardBoundedResource {
                  const PRCArc &pArc) override;
 
   const PAbstractShift pShift_;
+  bool cyclic_;  // true of solving the cyclic version
 };
 
 /*
@@ -91,13 +99,15 @@ class HardConsWeekendShiftResource : public HardBoundedResource {
 struct ConsWeekendShiftExpander : public Expander {
   ConsWeekendShiftExpander(int rId, bool start, bool reset,
                            int consBeforeReset, int consAfterReset,
-                           bool arcToSink, int nDaysLeft = 0) :
-      Expander(rId), arcToSink(arcToSink),
+                           bool cyclic, bool arcToSink, int nWeekendsAfter) :
+      Expander(rId),
+      arcToSink(arcToSink),
       start(start),
       reset(reset),
       consBeforeReset(consBeforeReset),
       consAfterReset(consAfterReset),
-      nDaysLeft(nDaysLeft) {}
+      nWeekendsAfter(nWeekendsAfter),
+      cyclic(cyclic) {}
 
  protected:
   bool arcToSink;  // true if the target of the arc is a sink node
@@ -105,7 +115,11 @@ struct ConsWeekendShiftExpander : public Expander {
   bool reset;  // true if resource is reset on the arc
   int consBeforeReset;  // resource consumption before resetting the arc
   int consAfterReset;  // resource consumption after resetting the arc
-  int nDaysLeft;  // total number of days left after the end of the stretch
+  // number of weekends after the end of the stretch,
+  // if only a portion of a weekend is left (e.g., only sunday),
+  // it counts +1 if not already consumed
+  int nWeekendsAfter;
+  bool cyclic;  // true of solving the cyclic version
 };
 
 
@@ -115,15 +129,17 @@ struct SoftConsWeekendShiftExpander : public ConsWeekendShiftExpander {
                                bool reset,
                                int consBeforeReset,
                                int consAfterReset,
-                               bool arcToSink,
-                               int nDaysLeft = 0):
+                               bool cyclic,
+                               bool arcToSink = false,
+                               int nWeekendsAfter = 0):
       ConsWeekendShiftExpander(resource.id(),
                                start,
                                reset,
                                consBeforeReset,
                                consAfterReset,
+                               cyclic,
                                arcToSink,
-                               nDaysLeft),
+                               nWeekendsAfter),
       resource_(resource) {}
 
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
@@ -139,13 +155,17 @@ struct HardConsWeekendShiftExpander : public ConsWeekendShiftExpander {
                                bool reset,
                                int consBeforeReset,
                                int consAfterReset,
-                               int nDaysLeft = 0):
+                               bool cyclic,
+                               bool arcToSink = false,
+                               int nWeekendsAfter = 0):
       ConsWeekendShiftExpander(resource.id(),
                                start,
                                reset,
                                consBeforeReset,
                                consAfterReset,
-                               nDaysLeft),
+                               cyclic,
+                               arcToSink,
+                               nWeekendsAfter),
       resource_(resource) {}
 
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;

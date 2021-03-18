@@ -60,6 +60,31 @@ void RosterPattern::computeCost(const MasterProblem *pMaster,
   cost_ = 0;
   computeResourcesCosts(pMaster, *pNurse->pStateIni_);
 
+  // if cyclic roster -> set the first day to 0 and remove last rest shift
+  if (pScenario->isCyclic()) {
+#ifdef DBG
+    if (pShifts_.back()->isWork())
+      Tools::throwError(
+          "A cyclic roster cannot work on the last day before being erased.");
+#endif
+    eraseBack();  // erase last rest shift
+#ifdef DBG
+    if (pShifts_.back()->isRest())
+      Tools::throwError(
+          "A cyclic roster cannot rest on the last day before being rotated "
+          "back to a normal roster.");
+#endif
+    // put the last n shifts at the start of the roster
+    rotate(firstDay());
+  }
+#ifdef DBG
+  if (firstDay() != 0)
+    Tools::throwError("A roster cannot have a first day different of 0");
+  if (nDays() != pMaster->nDays())
+    Tools::throwError("A roster cannot have a length "
+                      "that is different than the number of days.");
+#endif
+
   /*
    * Compute complete weekend
    */
@@ -288,7 +313,7 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
     // subproblem could under estimate the real cost. These paths won't be
     // found when the subproblems are solved at optimality, but could  be
     // present when using heuristics.
-    if (reducedCost_ < reducedCost + 1e-3)
+//    if (reducedCost_ < reducedCost + 1e-3)
       Tools::throwError("Invalid pricing of a roster.");
   }
 }
@@ -424,13 +449,12 @@ MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   RosterPattern pat(solution, nurseNum, DBL_MAX, solution.cost());
   pat.computeCost(this, theLiveNurses_[nurseNum]);
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
-//  if (useDefaultResources())
-//    pat.checkDefaultCost(this, theLiveNurses_[nurseNum]);
 #ifdef DBG
+  if (useDefaultResources() && !pScenario_->isCyclic())
+    pat.checkDefaultCost(this, theLiveNurses_[nurseNum]);
   PDualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
   pat.checkReducedCost(costs, pPricer_->isLastRunOptimal());
-  std::vector<double> pattern = pat.getCompactPattern();
-  checkIfPatternAlreadyPresent(pattern);
+  checkIfPatternAlreadyPresent(pat.getCompactPattern());
 #endif
   return addRoster(pat, "roster", false);
 }

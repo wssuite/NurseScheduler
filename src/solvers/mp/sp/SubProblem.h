@@ -34,7 +34,7 @@ class SubProblem {
   SubProblem(PScenario scenario,
              int nDays,
              PLiveNurse pNurse,
-             const SubproblemParam &param);
+             SubproblemParam param);
   virtual ~SubProblem();
 
   // Constructor that sets the subproblem of any nurse with a given
@@ -52,7 +52,7 @@ class SubProblem {
 
   // Solve : Returns TRUE if negative reduced costs path were found;
   // FALSE otherwise.
-  bool solve(
+  virtual bool solve(
       PLiveNurse nurse,
       const PDualCosts &costs,
       const SubproblemParam &param,
@@ -210,7 +210,7 @@ class SubProblem {
   virtual void forbidViolationConsecutiveConstraints() = 0;
 
   // Know if node
-  bool isDayShiftForbidden(int k, int s) const {
+  virtual bool isDayShiftForbidden(int k, int s) const {
     return !dayShiftStatus_[k][s];
   }
 

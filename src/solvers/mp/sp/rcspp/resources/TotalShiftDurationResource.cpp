@@ -16,13 +16,11 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const Stretch &stretch,
                            const PRCArc &pArc,
                            const R &r) {
-  // we only need to count the number of corresponding shift
+  // if nothing happens
+  if (stretch.nDays() == 0)
+    return nullptr;
 
-  // number of days before the start of the stretch (beware that indices of
-  // days start at 0)
-  int nDaysBefore = stretch.firstDay();
-  // Number of days left since the day of the target node of the arc
-  int nDaysLeft = r.totalNbDays() - stretch.lastDay() - 1;
+  // we only need to count the number of corresponding shift
   int consumption = 0;
   for (const auto &pShift : stretch.pShifts())
     if (r.pShift()->includes(*pShift)) {
@@ -31,9 +29,12 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
         consumption += pShift->duration;
     }
 
-  // if nothing happens
-  if (stretch.nDays() == 0)
-    return nullptr;
+  // number of days before the start of the stretch (beware that indices of
+  // days start at 0)
+  std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
+  int nDaysBefore = firstLastDays.first - r.firstDay();
+  // Number of days left since the day of the target node of the arc
+  int nDaysLeft = r.totalNbDays() + r.firstDay() - firstLastDays.second - 1;
 
   return std::make_shared<E>(
       r, consumption, nDaysBefore, nDaysLeft, pArc->target->type == SINK_NODE);

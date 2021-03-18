@@ -42,6 +42,7 @@ struct RCArc;
 
 struct ResourceValues {
   int consumption = 0;  // consumption of the resource
+  int cyclicConsumption = -1;  // consumption at the beginning of the cycle
   bool readyToConsume = true;  // can be set to false if consumption must
   // be prevented on next arc (e.g. for worked week-end counts)
   double worstLbCost = .0;  // worst costs due to soft lower bound
@@ -96,10 +97,14 @@ class RCLabel {
   double baseCost() const { return baseCost_; }
   double dualCost() const { return dualCost_; }
   double consShiftCost() const { return consShiftCost_; }
+  double consWeekendShiftCost() const { return consWeekendShiftCost_; }
   double totalShiftCost() const { return totalShiftCost_; }
   double totalWeekendCost() const { return totalWeekendCost_; }
   void addConsShiftCost(double c) {
     consShiftCost_ += c;
+  }
+  void addConsWeekendShiftCost(double c) {
+    consWeekendShiftCost_ += c;
   }
   void addTotalShiftCost(double c) {
     totalShiftCost_ += c;
@@ -159,7 +164,7 @@ class RCLabel {
     return pr1->cost() < pr2->cost();
   }
 
-  std::string toString() const;
+  std::string toString(const vector<PResource> &pResources = {}) const;
 
  private:
   int num_;  // Id of the label
@@ -180,6 +185,7 @@ class RCLabel {
   double baseCost_;  // current part of the cost due to base cost
   double dualCost_;  // current part of the cost due to dual cost
   double consShiftCost_;  // current cumulated cost due to consecutive shifts
+  double consWeekendShiftCost_;
   double totalShiftCost_;  // current cumulated cost due to total shifts
   double totalWeekendCost_;  // current cumulated cost due to worked weekends
 #endif
@@ -319,12 +325,34 @@ class Resource {
 
   virtual int getConsumption(const State &initialState) const = 0;
 
+  int totalNbDays() const { return totalNbDays_; }
+
+  void totalNbDays(int totalNbDays) { totalNbDays_ = totalNbDays; }
+
+  int firstDay() const { return firstDay_; }
+
+  void firstDay(int firstDay) { firstDay_ = firstDay; }
+
+  std::pair<int, int> getFirstLastDays(const Stretch &stretch) const {
+    int firstDay = stretch.firstDay(), lastDay = stretch.lastDay();
+    // if solving a cyclic problem, the first/last could be before the first day
+    // of the horizon
+    if (firstDay < firstDay_)
+      firstDay += totalNbDays();
+    if (lastDay < firstDay_)
+      lastDay += totalNbDays();
+    return {firstDay, lastDay};
+  }
+
   const std::string name;   // name of the resource
 
  protected:
   int id_;  // id of the resource
   // allow to switch between two different domination functions is necessary
   bool useDefaultDomination_ = true;
+  int firstDay_ = 0;  // First day of the horizon
+  int totalNbDays_ = 0;  // Total number of days in the horizon
+
 
   virtual PExpander init(const AbstractShift &prevAShift,
                          const Stretch &stretch,

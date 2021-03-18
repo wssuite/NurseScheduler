@@ -31,7 +31,7 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
   int narg = 1;
   while (narg < argc) {
     std::cout << "arg = " << argv[narg] << " " << argv[narg + 1] << std::endl;
-    // Attention usine a gaz: problem with the java simulator that add quote
+    // problem with the java simulator that add quote
     // marks in the arguments, which messes with the open file methods
     // the code below is here to remove these quote marks
     //
@@ -114,10 +114,11 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   std::string dataDir = "", instanceName = "", solutionPath = "", logPath = "",
       paramFile = "";
   std::string SPType = "", RCSPPType = "";
-  int historyIndex = 0, randSeed = 0,
+  int historyIndex = -1, randSeed = 0,
       nTreads = -1, SPStrategy = -1, verbose = -1;
   std::vector<int> weekIndices;
   double timeOut = -1;
+  bool cyclic = false;
 
   // Read the arguments and store them in inputPaths
   //
@@ -178,6 +179,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--rcspp-type")) {
       RCSPPType = str;
       narg += 2;
+    } else if (!strcmp(argv[narg], "--cyclic")) {
+      cyclic = true;
+      narg += 1;
     } else {
       Tools::throwError(
           "main: the argument (%s) does not match the expected list!",
@@ -185,25 +189,41 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     }
   }
 
+  if (cyclic && historyIndex >= 0)
+    Tools::throwError("If cyclic option is enable, you can't use "
+                      "an historical state for the nurses.");
+
   // Initialize the input paths
   //
-  InputPaths *pInputPaths =
-      new InputPaths(dataDir,
-                     instanceName,
-                     historyIndex,
-                     weekIndices,
-                     solutionPath,
-                     logPath,
-                     paramFile,
-                     timeOut,
-                     verbose,
-                     randSeed,
-                     SPType,
-                     SPStrategy,
-                     RCSPPType,
-                     nTreads);
+  // if cyclic, do not enter any history
+  if (cyclic) return new InputPaths(dataDir,
+                                    instanceName,
+                                    weekIndices,
+                                    solutionPath,
+                                    logPath,
+                                    paramFile,
+                                    timeOut,
+                                    verbose,
+                                    randSeed,
+                                    SPType,
+                                    SPStrategy,
+                                    RCSPPType,
+                                    nTreads);
 
-  return pInputPaths;
+  return new InputPaths(dataDir,
+                        instanceName,
+                        historyIndex,
+                        weekIndices,
+                        solutionPath,
+                        logPath,
+                        paramFile,
+                        timeOut,
+                        verbose,
+                        randSeed,
+                        SPType,
+                        SPStrategy,
+                        RCSPPType,
+                        nTreads);
 }
 
 /******************************************************************************

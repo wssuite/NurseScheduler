@@ -30,7 +30,7 @@ class RCSPPSubProblem : public SubProblem {
                   int nbDays,
                   PLiveNurse nurse,
                   std::vector<PResource> pResources,
-                  const SubproblemParam &param);
+                  SubproblemParam param);
 
   // FUNCTIONS -- SOLVE
   // run preprocessing algorithms, e.g., for pre-computing bounds on the
@@ -41,8 +41,8 @@ class RCSPPSubProblem : public SubProblem {
   // paths from a given sink node to all the other nodes (in the reverse
   // direction of the arcs) and from the nodes of a given day (i.e., a given
   // level of the acyclic graph) to every other nodes.
-  vector<double> minCostPathToSinksAcyclic(const RCGraph *pRCGraph);
-  vector<double> minCostPathFromGivenDayAcyclic(const RCGraph *pRCGraph,
+  vector<double> minCostPathToSinksAcyclic(const PRCGraph &pRCGraph);
+  vector<double> minCostPathFromGivenDayAcyclic(const PRCGraph &pRCGraph,
                                                 int sourceDay);
 
   //------------------------------------------------
@@ -66,24 +66,24 @@ class RCSPPSubProblem : public SubProblem {
 
 
   // Principal method for the enumeration of sub paths in the rcGraph
-  void enumerateSubPaths(RCGraph *pRcGraph);
+  void enumerateSubPaths(const PRCGraph &pRCGraph);
 
   // Enumeration of sub paths from the source node
-  void enumerateConsShiftTypeFromSource(RCGraph *pRCGraph);
+  void enumerateConsShiftTypeFromSource(const PRCGraph &pRCGraph);
 
   // Enumeration of sub paths from a PRINCIPAL_NETWORK node in the rcGraph
   // for a given day and for a given shift
-  void enumerateConsShiftType(RCGraph *pRCGraph,
+  void enumerateConsShiftType(const PRCGraph &pRCGraph,
                               const PShift& pS,
                               int day);
 
   // Update of the costs of the existing arcs by adding a supplement cost
   // corresponding to penalties due to the soft bounds of the consecutive
   // shifts resources
-  void updateOfExistingArcsCost(RCGraph *pRCGraph);
+  void updateOfExistingArcsCost(const PRCGraph &pRCGraph);
 
  protected:
-  RCGraph rcGraph_;
+  PRCGraph pRCGraph_;
   std::vector<PResource> pResources_;
   vector2D<PRCNode> pNodesPerDay_;  // list of nodes for each day
   shared_ptr<RCSPPSolver> pRcsppSolver_;  // Solver
@@ -110,7 +110,7 @@ class RCSPPSubProblem : public SubProblem {
   Tools::Timer timerComputeMinCostFromSink_;
 
   // create an arc from origin to target with the stretch {ps} starting on day
-  PRCArc addSingleArc(RCGraph* pRCGraph,
+  PRCArc addSingleArc(const PRCGraph &pRCGraph,
                       const PRCNode &pOrigin,
                       const PRCNode &pTarget,
                       const PShift &pS,
@@ -121,7 +121,7 @@ class RCSPPSubProblem : public SubProblem {
   double baseCost(const Stretch &stretch, PAbstractShift pPrevShift);
 
   // get the dual cost of a given stretch
-  virtual double dualCost(const Stretch &s, PAbstractShift pAS) = 0;
+  virtual double dualCost(const PRCArc &pArc) = 0;
 
   // recover the base costs due to preferences and incomplete weekends
   void initStructuresForSolve() override {
@@ -130,19 +130,19 @@ class RCSPPSubProblem : public SubProblem {
 
   // create the resource constrained graph: create nodes, arcs and resources
   void build() override;
-  void build(RCGraph *pRCGraph);
+  void build(const PRCGraph &pRCGraph);
 
   void createNodes() override {
-    this->createNodes(&rcGraph_);
+    this->createNodes(pRCGraph_);
   }
-  virtual void createNodes(RCGraph *pRCGraph) = 0;
+  virtual void createNodes(const PRCGraph &pRCGraph) = 0;
 
-  virtual void createArcs(RCGraph *pRCGraph) = 0;
+  virtual void createArcs(const PRCGraph &pRCGraph) = 0;
   void createArcs() override {
-    this->createArcs(&rcGraph_);
+    this->createArcs(pRCGraph_);
   }
 
-  void createResources(RCGraph *pRCGraph);
+  void createResources(const PRCGraph &pRCGraph);
 
   // create the RCSPP solver
   void createRCSPPSolver();

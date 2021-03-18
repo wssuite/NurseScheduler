@@ -78,11 +78,13 @@ void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
     costs_[(CostType)t] = 0;
   // create origin, destination and arc
   PRCNode pSource = std::make_shared<RCNode>(
-      0, SOURCE_NODE, firstDay(), initialState.pShift_),
-      pSink = std::make_shared<RCNode>(1, SINK_NODE, nDays(), pShifts_.back());
-  PRCArc pArc = std::make_shared<RCArc>(0, pSource, pSink, *this, 0, TO_SINK);
+      0, SOURCE_NODE, firstDay() - 1, initialState.pShift_),
+      pSink = std::make_shared<RCNode>(
+          1, SINK_NODE, firstDay() + nDays() - 1, pShifts_.back());
+  PRCArc pArc = std::make_shared<RCArc>(
+      0, pSource, pSink, *this, firstDay(), TO_SINK);
   // create resources
-  // map that associates a PRessource to its cost type
+  // map that associates a PResource to its cost type
   auto mResources =
       pMaster->generatePResources(pMaster->liveNurses()[nurseNum_]);
   // create a vector of resources with the resource indices pointing
@@ -110,6 +112,8 @@ std::string Pattern::costsToString() const {
   std::stringstream rep;
   rep << "#       | Consecutive shifts  : "
       << costs_.at(CONS_SHIFTS_COST) << std::endl;
+  rep << "#       | Consecutive weekend shifts  : "
+      << costs_.at(CONS_WEEKEND_SHIFTS_COST) << std::endl;
   rep << "#       | Consecutive days off: "
       << costs_.at(CONS_REST_COST) << std::endl;
   rep << "#       | Consecutive days    : "
@@ -983,6 +987,11 @@ string MasterProblem::costsConstrainstsToString() const {
            "",
            "Cons. shifts costs",
            getColumnsCost(CONS_SHIFTS_COST));
+  snprintf(buffer, sizeof(buffer),
+           "%5s%-35s %10.0f \n",
+           "",
+           "Cons. weekend shifts costs",
+           getColumnsCost(CONS_WEEKEND_SHIFTS_COST));
   rep << buffer;
   snprintf(buffer, sizeof(buffer),
            "%5s%-35s %10.0f \n",

@@ -186,7 +186,21 @@ class Stretch {
   }
 
   virtual void eraseBack() {
-    pShifts_.erase(pShifts_.end()-1);
+    duration_ -= pShifts_.back()->duration;
+    pShifts_.erase(--pShifts_.end());
+  }
+
+  // rotate of n days the stretch: put the n last shifts in front
+  virtual void rotate(int n) {
+    int length = pShifts_.size();
+    vector<PShift> toInsert(pShifts_.end() - n, pShifts_.end());
+    pShifts_.insert(pShifts_.begin(), toInsert.begin(), toInsert.end());
+    firstDay_ -= n;
+#ifdef DBG
+    if (firstDay_ < 0) Tools::throwError("stretch has a negative first day. "
+                                         "Too many shifts have been rotated.");
+#endif
+    pShifts_.resize(length);
   }
 
   bool operator!=(const Stretch &stretch) const {
@@ -204,7 +218,10 @@ class Stretch {
     buff << "Stretch starting on day " << firstDay_ << ":" << std::endl;
     for (int k = 0; k < firstDay_; k++) buff << "|     ";
     for (const PShift &pS : pShifts_)
-      buff << "|" << std::setw(5) << pS->name.substr(0, 5);
+      if (pS->isRest())
+        buff << "|" << SHIFT_PAD;
+      else
+        buff << "|" << std::setw(SHIFT_PAD) << pS->name.substr(0, SHIFT_PAD);
     buff << "|" << std::endl;
     return buff.str();
   }

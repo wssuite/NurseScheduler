@@ -99,12 +99,6 @@ int main(int argc, char **argv) {
   std::cout << "# SOLVE THE PROBLEM WITH DETERMINISTIC DEMAND" << std::endl;
   std::cout << "Number of arguments= " << argc << std::endl;
 
-  // Detect errors in the number of arguments
-  //
-  if (argc % 2 != 1) {
-    Tools::throwError("main: There should be an even number of arguments!");
-  }
-
   // Retrieve the file names in arguments
   //
   InputPaths *pInputPaths = 0;

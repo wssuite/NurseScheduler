@@ -40,7 +40,9 @@
 #include <condition_variable>  // NOLINT (suppress cpplint error)
 
 static const int DEBUG = 1;
+static const int SHIFT_PAD = 3;
 static const char REST_SHIFT[] = "None";
+static const char REST_DISPLAY[] = " - ";  // should be of the size of pad
 static const int DECIMALS = 3;  // precision when printing floats
 static const int NB_SHIFT_UNLIMITED = 28;
 
@@ -305,6 +307,7 @@ bool isFirstWeekDay(int dayId);
 bool isFirstWeekendDay(int dayId);
 bool isLastWeekendDay(int dayId);
 bool isWeekendDayButNotLastOne(int dayId);
+bool isWeekendDayButNotFirstOne(int dayId);
 int nWeekendsInInterval(int startDate, int endDate);
 
 // High resolution timer class to profile the performance of the algorithms

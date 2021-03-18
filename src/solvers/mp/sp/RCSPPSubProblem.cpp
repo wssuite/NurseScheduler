@@ -26,12 +26,12 @@ RCSPPSubProblem::RCSPPSubProblem(
     int nbDays,
     PLiveNurse nurse,
     std::vector<PResource> pResources,
-    const SubproblemParam &param) :
+    SubproblemParam param) :
     SubProblem(std::move(scenario),
                nbDays,
                std::move(nurse),
-               param),
-    rcGraph_(nbDays, pScenario_->nShifts()),
+               std::move(param)),
+    pRCGraph_(std::make_shared<RCGraph>(nbDays, pScenario_->nShifts())),
     pResources_(std::move(pResources)),
     pRcsppSolver_(nullptr),
     timerEnumerationOfSubPath_(),
@@ -40,7 +40,7 @@ RCSPPSubProblem::RCSPPSubProblem(
                                pScenario_->nShifts(), nullptr);
 }
 
-void RCSPPSubProblem::build(RCGraph *pRCGraph) {
+void RCSPPSubProblem::build(const PRCGraph &pRCGraph) {
   pRCGraph->reset();
   // initialize the graph structure and base costs
   createNodes(pRCGraph);
@@ -49,7 +49,7 @@ void RCSPPSubProblem::build(RCGraph *pRCGraph) {
 
 void RCSPPSubProblem::build() {
   SubProblem::initStructuresForSolve();
-  this->build(&rcGraph_);
+
   // set the status of all arcs to authorized
   Tools::initVector2D(&dayShiftStatus_, nDays_, pScenario_->nShifts(), true);
   nPathsMin_ = 0;
@@ -76,47 +76,36 @@ void RCSPPSubProblem::build() {
       consShiftsUbCosts_.at(st) = pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
     }
   }
-  // resources
-  createResources(&rcGraph_);
 
-  if (param_.rcsppEnumSubpaths_) {
-    timerEnumerationOfSubPath_.start();
-    // Enumeration of sub paths in the rcGraph
-    enumerateSubPaths(&rcGraph_);
-    timerEnumerationOfSubPath_.stop();
-    std::cout << " - Total time spent in enumeration of sub-paths:  " <<
-              timerEnumerationOfSubPath_.dSinceStart() << std::endl;
-  }
-
-  // Initialization of each expander of each arc corresponding to each
-  // resource
-  rcGraph_.initializeExpanders();
-
-  // create solver
-  createRCSPPSolver();
+  // build the graph
+  this->build(pRCGraph_);
 
   // preprocess graph
   preprocessRCGraph();
+
+  // create solver
+  createRCSPPSolver();
 }
 
-void RCSPPSubProblem::enumerateSubPaths(RCGraph *pRcGraph) {
+void RCSPPSubProblem::enumerateSubPaths(const PRCGraph &pRCGraph) {
   // First, we enumerate sub paths from the source node taking account the
   // history of the current nurse
-  enumerateConsShiftTypeFromSource(pRcGraph);
+  enumerateConsShiftTypeFromSource(pRCGraph);
 
   // Then, we enumerate sub paths from a PRINCIPAL_NETWORK node in the rcGraph
   // corresponding to a given day and to a given shift
   for (int d = 0; d < nDays_ - 1; ++d)
     for (const auto& pS : pScenario_->pShifts())
-      enumerateConsShiftType(pRcGraph, pS, d);
+      enumerateConsShiftType(pRCGraph, pS, d);
 
   // Finally, the costs of the arcs which existed before the enumeration
   // process are modified
-  updateOfExistingArcsCost(pRcGraph);
+  updateOfExistingArcsCost(pRCGraph);
 }
 
 
-void RCSPPSubProblem::enumerateConsShiftTypeFromSource(RCGraph *pRCGraph) {
+void RCSPPSubProblem::enumerateConsShiftTypeFromSource(
+    const PRCGraph &pRCGraph) {
 /*  // Recovery of the last shift performed by the current nurse (It can be a
   // worked shift or a rest shift). This is the 'initial Shift'.
   State* initialState = this->pLiveNurse_->pStateIni_;
@@ -198,7 +187,7 @@ void RCSPPSubProblem::enumerateConsShiftTypeFromSource(RCGraph *pRCGraph) {
   }*/
 }
 
-void RCSPPSubProblem::enumerateConsShiftType(RCGraph *pRCGraph,
+void RCSPPSubProblem::enumerateConsShiftType(const PRCGraph &pRCGraph,
                                              const PShift& pS,
                                              int day) {
 //  // All arcs that will be added will have as origin the node corresponding to
@@ -244,7 +233,7 @@ void RCSPPSubProblem::enumerateConsShiftType(RCGraph *pRCGraph,
 }
 
 
-void RCSPPSubProblem::updateOfExistingArcsCost(RCGraph *pRCGraph) {
+void RCSPPSubProblem::updateOfExistingArcsCost(const PRCGraph &pRCGraph) {
 //  // Recovery of the last shift performed by the current nurse (It can be a
 //  // worked shift or a rest shift). This is the 'initial Shift'.
 //  State* initialState = this->pLiveNurse_->pStateIni_;
@@ -309,7 +298,7 @@ void RCSPPSubProblem::updateOfExistingArcsCost(RCGraph *pRCGraph) {
 //  }
 }
 
-PRCArc RCSPPSubProblem::addSingleArc(RCGraph* pRCGraph,
+PRCArc RCSPPSubProblem::addSingleArc(const PRCGraph &pRCGraph,
                                      const PRCNode &pOrigin,
                                      const PRCNode &pTarget,
                                      const PShift &pS,
@@ -339,22 +328,39 @@ double RCSPPSubProblem::baseCost(
   return cost;
 }
 
-void RCSPPSubProblem::createResources(RCGraph *pRCGraph) {
+void RCSPPSubProblem::createResources(const PRCGraph &pRCGraph) {
   pRCGraph->clearResources();
   for (const PResource& pR : pResources_)
     pRCGraph->addResource(pR);
 }
 
 void RCSPPSubProblem::createRCSPPSolver() {
-  pRcsppSolver_ = std::make_shared<RCSPPSolver>(&rcGraph_, param_);
+  pRcsppSolver_ = std::make_shared<RCSPPSolver>(pRCGraph_, param_);
 }
 
 void RCSPPSubProblem::preprocessRCGraph() {
+  // resources
+  createResources(pRCGraph_);
+
+  if (param_.rcsppEnumSubpaths_) {
+    timerEnumerationOfSubPath_.start();
+    // Enumeration of sub paths in the rcGraph
+    enumerateSubPaths(pRCGraph_);
+    timerEnumerationOfSubPath_.stop();
+    std::cout << " - Total time spent in enumeration of sub-paths:  " <<
+              timerEnumerationOfSubPath_.dSinceStart() << std::endl;
+  }
+
+  // Initialization of each expander of each arc corresponding to each
+  // resource
+  pRCGraph_->initializeExpanders();
+
+  // initialize the label
   initializeResources();
 }
 
 void RCSPPSubProblem::initializeResources() {
-  rcGraph_.initializeDominance();
+  pRCGraph_->initializeDominance();
 }
 
 bool RCSPPSubProblem::preprocess() {
@@ -365,14 +371,15 @@ bool RCSPPSubProblem::preprocess() {
   //  options
   if (param_.rcsppEnumSubpathsForMinCostToSinks_) {
     if (!param_.rcsppEnumSubpaths_ && param_.rcsppMinCostToSinks_) {
-      RCGraph enumGraph(rcGraph_.nDays(), rcGraph_.nShifts());
-      build(&enumGraph);
-      createResources(&enumGraph);
-      for (const auto &pA : enumGraph.pArcs())
+      PRCGraph pEnumGraph =
+          std::make_shared<RCGraph>(pRCGraph_->nDays(), pRCGraph_->nShifts());
+      build(pEnumGraph);
+      createResources(pEnumGraph);
+      for (const auto &pA : pEnumGraph->pArcs())
         updateArcDualCost(pA);
       timerEnumerationOfSubPath_.start();
       // Enumeration of sub paths in the rcGraph
-      enumerateSubPaths(&enumGraph);
+      enumerateSubPaths(pEnumGraph);
       timerEnumerationOfSubPath_.stop();
       std::cout << " - Total time spent in enumeration of sub-paths:  " <<
                 timerEnumerationOfSubPath_.dSinceStart() << std::endl;
@@ -381,7 +388,7 @@ bool RCSPPSubProblem::preprocess() {
       // Computation of the costs of the shortest paths from each sink node
       // to all the other nodes in the rcGraph
       pRcsppSolver_->setMinimumCostToSinks(
-          minCostPathToSinksAcyclic(&enumGraph));
+          minCostPathToSinksAcyclic(pEnumGraph));
       timerComputeMinCostFromSink_.stop();
       std::cout << " - Total time spent in computing minimum paths costs from "
                    "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
@@ -396,7 +403,7 @@ bool RCSPPSubProblem::preprocess() {
     timerComputeMinCostFromSink_.start();
     // Computation of the costs of the shortest paths from each sink node
     // to all the other nodes in the rcGraph
-    pRcsppSolver_->setMinimumCostToSinks(minCostPathToSinksAcyclic(&rcGraph_));
+    pRcsppSolver_->setMinimumCostToSinks(minCostPathToSinksAcyclic(pRCGraph_));
     timerComputeMinCostFromSink_.stop();
     std::cout << " - Total time spent in computing minimum paths costs from "
                  "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
@@ -404,7 +411,7 @@ bool RCSPPSubProblem::preprocess() {
   }
   if (param_.verbose_ >= 4) {
     // print graph with updated costs
-    rcGraph_.printSummaryOfGraph();
+    pRCGraph_->printSummaryOfGraph();
   }
 
   // resetLabels solver in case it is not the first time it is called
@@ -418,7 +425,7 @@ bool RCSPPSubProblem::preprocess() {
 //  enumeration function is functional again
 
 vector<double> RCSPPSubProblem::minCostPathToSinksAcyclic(
-    const RCGraph *pRCGraph) {
+    const PRCGraph &pRCGraph) {
   // Initialization of all the costs of the shortest paths at infinity
   double inf = std::numeric_limits<double>::infinity();
   vector<double> shortestPathToSinks(pRCGraph->nNodes(), inf);
@@ -483,7 +490,7 @@ vector<double> RCSPPSubProblem::minCostPathToSinksAcyclic(
 // TODO(JO): verify the computation with enumerated subpath once the
 //  enumeration function is functional again
 vector<double> RCSPPSubProblem::minCostPathFromGivenDayAcyclic(
-    const RCGraph *pRCGraph, int sourceDay) {
+    const PRCGraph &pRCGraph, int sourceDay) {
   // Initialization of all the costs of the shortest paths at infinity
   double inf = std::numeric_limits<double>::infinity();
   vector<double> minimumCost(pRCGraph->nNodes(), inf);
@@ -550,13 +557,13 @@ vector<double> RCSPPSubProblem::minCostPathFromGivenDayAcyclic(
 }
 
 void RCSPPSubProblem::updateArcDualCosts() {
-  for (const auto& pA : rcGraph_.pArcs())
+  for (const auto& pA : pRCGraph_->pArcs())
     updateArcDualCost(pA);
 }
 
 void RCSPPSubProblem::updateArcDualCost(const PRCArc &pA) {
   pA->resetDualCost();
-  pA->addDualCost(dualCost(pA->stretch, pA->origin->pAShift));
+  pA->addDualCost(dualCost(pA));
 }
 
 bool RCSPPSubProblem::solveRCGraph() {
@@ -597,17 +604,17 @@ bool RCSPPSubProblem::solveRCGraph() {
 // Forbids a day-shift couple
 void RCSPPSubProblem::forbidDayShift(int k, int s) {
   SubProblem::forbidDayShift(k, s);
-  rcGraph_.forbidDayShift(k, s);
+  pRCGraph_->forbidDayShift(k, s);
 }
 
 // (re)Authorizes the day-shift couple
 void RCSPPSubProblem::authorizeDayShift(int k, int s) {
   SubProblem::authorizeDayShift(k, s);
-  rcGraph_.authorizeDayShift(k, s);
+  pRCGraph_->authorizeDayShift(k, s);
 }
 
 // Reset all authorizations to true
 void RCSPPSubProblem::resetAuthorizations() {
   SubProblem::resetAuthorizations();
-  rcGraph_.resetAuthorizationsArcs();
+  pRCGraph_->resetAuthorizationsArcs();
 }

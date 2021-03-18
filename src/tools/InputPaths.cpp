@@ -59,3 +59,38 @@ InputPaths::InputPaths(const std::string &dataDir,
     weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
         std::to_string(week) + ".txt");
 }
+
+InputPaths::InputPaths(const std::string &dataDir,
+                       const std::string &instanceName,
+                       std::vector<int> weekIndices,
+                       const std::string &solutionPath,
+                       const std::string &logPath,
+                       const std::string &paramFile,
+                       double timeOut,
+                       int verbose,
+                       int randSeed,
+                       const std::string &SPType,
+                       int SPStrategy,
+                       const std::string &RCSPPType,
+                       int nThreads) :
+    instance_(instanceName),
+    weekIndices_(weekIndices),
+    solutionPath_(solutionPath),
+    logPath_(logPath),
+    paramFile_(paramFile),
+    verbose_(verbose),
+    randSeed_(randSeed),
+    timeOut_(timeOut),
+    SPType_(SPType),
+    SPStrategy_(SPStrategy),
+    RCSPPType_(RCSPPType),
+    nThreads_(nThreads) {
+  std::string instanceDir = dataDir + instanceName + "/";
+  // initialize the scenario and history file names
+  scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
+
+  // initialize the file names for each week demand
+  for (int week : weekIndices)
+    weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
+        std::to_string(week) + ".txt");
+}

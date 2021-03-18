@@ -18,15 +18,16 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const PRCArc &pArc,
                            const R &r) {
   // check if expander is active
-  if (!Tools::nWeekendsInInterval(stretch.firstDay(), stretch.lastDay()))
+  std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
+  if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
     return nullptr;
 
   // Computing the number of weekends after the last day of the stretch
-  int start = stretch.lastDay()+1, end = r.totalNbDays()-1;
+  int start = firstLastDays.second+1, end = r.firstDay() + r.totalNbDays() - 1;
   int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
 
   // Computing the number of weekends before the first day of the stretch
-  start = 0, end = stretch.firstDay() - 1;
+  start = r.firstDay(), end = firstLastDays.first - 1;
   int nWeekendsBefore = Tools::nWeekendsInInterval(start, end);
 
   return std::make_shared<E>(

@@ -189,8 +189,11 @@ class RCGraph {
       for (int s=0; s < nShifts_; s++)
         for (const PRCArc &pA : g.pArcsPerDayShift_[k][s])
           pArcsPerDayShift_[k][s].push_back(pArc(pA->id));
-    forbiddenNodes_ = g.forbiddenNodes_;
-    forbiddenArcs_ = g.forbiddenArcs_;
+
+    for (const PRCNode &pN : g.pForbiddenNodes_)
+      pForbiddenNodes_.insert(pNode(pN->id));
+    for (const PRCArc &pA : g.pForbiddenArcs_)
+      pForbiddenArcs_.insert(pArc(pA->id));
   }
 
   // Getters of private attributes
@@ -212,6 +215,7 @@ class RCGraph {
   int nResources() const {return pResources_.size();}
   const vector<PResource> &pResources() const;
   PRCArc getArc(const PRCNode& origin, const PRCNode& target) const;
+  const std::set<PRCArc>& pForbiddenArcs() const { return pForbiddenArcs_; }
 
   void reset() {
     clearResources();
@@ -280,11 +284,12 @@ class RCGraph {
   vector3D<PRCArc> pArcsPerDayShift_;
 
  protected:
-  std::set<int> forbiddenNodes_;
-  std::set<int> forbiddenArcs_;
+  std::set<PRCNode> pForbiddenNodes_;
+  std::set<PRCArc> pForbiddenArcs_;
 
   // RESOURCES
   vector<PResource> pResources_;
 };
+typedef shared_ptr<RCGraph> PRCGraph;
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCGRAPH_H_

@@ -86,8 +86,8 @@ class LabelPool {
 
 class RCSPPSolver {
  public:
-  explicit RCSPPSolver(RCGraph *pRcGraph,
-                       const SubproblemParam &param);
+  explicit RCSPPSolver(PRCGraph pRcGraph,
+                       SubproblemParam param);
 
   // set the initial label at the source of the graph
   void setSourceLabels(const std::vector<PRCLabel> &pLabels) {
@@ -179,9 +179,9 @@ class RCSPPSolver {
 
   // Create a solution object given a label coming from a sink node
 #ifdef DBG
-  static RCSolution createSolution(const PRCLabel& finalLabel, bool print);
+  RCSolution createSolution(const PRCLabel& finalLabel, bool print);
 #else
-  static RCSolution createSolution(const PRCLabel& finalLabel);
+  RCSolution createSolution(const PRCLabel& finalLabel);
 #endif
 
   // Check if a label can produce a path to a sink node with negative cost
@@ -232,7 +232,7 @@ class RCSPPSolver {
 
  private:
   // Graph where the RCSPP is solved
-  const RCGraph *pRcGraph_;
+  const PRCGraph pRcGraph_;
   // Factory to create labels
   PRCLabelFactory pFactory_;
   // Temporary pool of labels

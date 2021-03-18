@@ -11,37 +11,38 @@
 
 #include "solvers/mp/sp/RosterSP.h"
 
+#include <list>
 #include <memory>
 #include <utility>
 
-RosterSP::RosterSP(PScenario scenario,
-                   int nbDays,
+RosterSP::RosterSP(PScenario pScenario,
+                   int nDays,
                    PLiveNurse nurse,
                    std::vector<PResource> pResources,
-                   const SubproblemParam &param) :
-    RCSPPSubProblem(std::move(scenario),
-                    nbDays,
+                   SubproblemParam param) :
+    RCSPPSubProblem(std::move(pScenario),
+                    nDays,
                     std::move(nurse),
                     std::move(pResources),
                     std::move(param)) {}
 
 
-void RosterSP::createNodes(RCGraph *pRCGraph) {
+void RosterSP::createNodes(const PRCGraph &pRCGraph) {
   pRCGraph->addSingleNode(SOURCE_NODE, -1, pLiveNurse_->pStateIni_->pShift_);
   // principal network is from day 0 to day nDays_-2
-  for (int d = 0; d < nDays_ - 1; ++d)
+  for (int d = 0; d < nDays_ - 1 ; ++d)
     for (const auto& pShift : pScenario_->pShifts())
       pNodesPerDay_[d][pShift->id] =
           pRCGraph->addSingleNode(PRINCIPAL_NETWORK, d, pShift);
 
   // every shift on the last day is a sink
-  for (const auto& pShift : pScenario_->pShifts())
+  for (const auto &pShift : pScenario_->pShifts())
     pNodesPerDay_[nDays_ - 1][pShift->id] =
         pRCGraph->addSingleNode(SINK_NODE, nDays_ - 1, pShift);
 }
 
 
-void RosterSP::createArcs(RCGraph* pRCGraph) {
+void RosterSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from source to first day
   PShift pShiftIni = pScenario_->pShift(pLiveNurse_->pStateIni_->shift_);
   for (auto shiftId : pShiftIni->successors) {
@@ -59,22 +60,20 @@ void RosterSP::createArcs(RCGraph* pRCGraph) {
       for (int succId : pS->successors) {
         if (!pLiveNurse_->isShiftAvailable(succId)) continue;
         PRCNode pTarget = pNodesPerDay_[d][succId];
-        addSingleArc(pRCGraph, pOrigin, pTarget,
-                     pScenario_->pShift(succId), d);
+        addSingleArc(pRCGraph, pOrigin, pTarget, pScenario_->pShift(succId), d);
       }
     }
   }
 }
 
-double RosterSP::dualCost(
-    const Stretch &stretch, PAbstractShift prevAShift) {
+double RosterSP::dualCost(const PRCArc &pArc) {
   double dualCost = 0;
-  int curDay = stretch.firstDay();
   // if start, add constant
-  if (curDay == 0)
+  if (pArc->origin->type == SOURCE_NODE)
     dualCost -= pCosts_->constant();
   // iterate through the shift to update the cost
-  for (const auto& pS : stretch.pShifts()) {
+  int curDay = pArc->stretch.firstDay();
+  for (const auto& pS : pArc->stretch.pShifts()) {
     if (pS->isWork())
       dualCost -= pCosts_->workedDayShiftCost(curDay, pS->id);
     curDay++;
@@ -83,8 +82,8 @@ double RosterSP::dualCost(
 }
 
 void RosterSP::createInitialLabels() {
-  auto pL = std::make_shared<RCLabel>(rcGraph_.pResources(),
-                                      *pLiveNurse_->pStateIni_);
-  pL->setNode(rcGraph_.pSource(0));
+  PRCLabel pL = std::make_shared<RCLabel>(pRCGraph_->pResources(),
+                                          *pLiveNurse_->pStateIni_);
+  pL->setNode(pRCGraph_->pSource(0));
   pRcsppSolver_->setSourceLabels({pL});
 }

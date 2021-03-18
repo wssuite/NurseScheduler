@@ -26,7 +26,7 @@ RotationSP::RotationSP(PScenario scenario,
                     std::move(param)) {}
 
 
-void RotationSP::createNodes(RCGraph *pRCGraph) {
+void RotationSP::createNodes(const PRCGraph &pRCGraph) {
   // create a source for every day except last one (from -1 to nDays_-2)
   const PAbstractShift &pRestShift = pScenario_->pShift(0);
   for (int d = -1; d < nDays_ - 1; d++)
@@ -52,13 +52,13 @@ void RotationSP::createNodes(RCGraph *pRCGraph) {
 }
 
 
-void RotationSP::createArcs(RCGraph* pRCGraph) {
+void RotationSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from sources
   const PShift &pRestShift = pScenario_->pShift(0);
   // previous shift is rest except for the first day
   PShift prevS = pScenario_->pShift(pLiveNurse_->pStateIni_->shift_);
   int day = 0;
-  for (const PRCNode &pSource : rcGraph_.pSources()) {
+  for (const PRCNode &pSource : pRCGraph_->pSources()) {
     for (auto shiftId : prevS->successors) {
       if (shiftId == 0) continue;  // no resting arc from the source, must work
       if (!pLiveNurse_->isShiftAvailable(shiftId)) continue;
@@ -86,18 +86,18 @@ void RotationSP::createArcs(RCGraph* pRCGraph) {
     }
 }
 
-double RotationSP::dualCost(
-    const Stretch &stretch, PAbstractShift prevAShift) {
+double RotationSP::dualCost(const PRCArc &pArc) {
   double dualCost = 0;
-  int curDay = stretch.firstDay();
-  // add start cost if previous shift is a rest or if first day
-  if (prevAShift->isRest() || stretch.firstDay() == 0)
+  int curDay = pArc->stretch.firstDay();
+  // add start cost if starting from a source
+  if (pArc->origin->type == SOURCE_NODE)
     dualCost -= pCosts_->startWorkCost(curDay);
   // iterate through the shift to update the cost
   // true if previous shift worked on weekend
+  PAbstractShift prevAShift = pArc->origin->pAShift;
   bool weekendWorked = prevAShift->isWork() && (curDay > 0)
       && Tools::isWeekendDayButNotLastOne(curDay-1);
-  for (const auto& pS : stretch.pShifts()) {
+  for (const auto& pS : pArc->stretch.pShifts()) {
     if (pS->isWork()) {
       dualCost -= pCosts_->workedDayShiftCost(curDay, pS->id);
       // check if working on weekend
@@ -115,30 +115,34 @@ double RotationSP::dualCost(
     prevAShift = pS;
   }
   curDay--;  // last day
-  // add end cost for the previous day
-  if (prevAShift->isRest())
-    dualCost -= pCosts_->endWorkCost(curDay-1);
-  // add end cost if last day
-  else if (curDay == nDays_ - 1)
+
+  // add end cost
+  if (pArc->target->type == SINK_NODE) {
+    // if rest on the previous shift, end cost for the previous day
+    // otherwise, it's the last day
+    if (prevAShift->isRest())
+      --curDay;
+    // add end cost
     dualCost -= pCosts_->endWorkCost(curDay);
+  }
 
   return dualCost;
 }
 
 void RotationSP::createInitialLabels() {
-  std::vector<PRCLabel> pLabels(rcGraph_.pSources().size());
+  std::vector<PRCLabel> pLabels(pRCGraph_->pSources().size());
   int d = -1;
-  for (const PRCNode &pSource : rcGraph_.pSources()) {
+  for (const PRCNode &pSource : pRCGraph_->pSources()) {
     PRCLabel pL;
     // if initial day, use initial state
     if (d == -1) {
       pL = std::make_shared<RCLabel>(
-          rcGraph_.pResources(), *pLiveNurse_->pStateIni_);
+          pRCGraph_->pResources(), *pLiveNurse_->pStateIni_);
     } else {
       // state corresponding to the min rest shift done if any
       int nCons = pLiveNurse_->minConsDaysOff();
       State state(d, 0, 0, 0, nCons, nCons, 0, 0);
-      pL = std::make_shared<RCLabel>(rcGraph_.pResources(), state);
+      pL = std::make_shared<RCLabel>(pRCGraph_->pResources(), state);
     }
     pL->setNode(pSource);
     pLabels[++d] = pL;  // increment before as d starts at -1

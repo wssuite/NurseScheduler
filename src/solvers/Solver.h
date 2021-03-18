@@ -388,6 +388,7 @@ enum CostType {
   // CONS_SHIFTS_COST, CONS_WORK_COST, COMPLETE_WEEKEND_COST, PREFERENCE_COST
   ROTATION_COST,
   CONS_SHIFTS_COST,  // consecutive shifts constraint
+  CONS_WEEKEND_SHIFTS_COST,  // consecutive weekend shifts constraint
   CONS_WORK_COST,  // consecutive worked shifts constraint
   COMPLETE_WEEKEND_COST,  // cost of not working a complete weekend
   PREFERENCE_COST,  // cost of not respecting nurses' preferences

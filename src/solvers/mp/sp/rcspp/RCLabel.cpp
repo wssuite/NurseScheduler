@@ -24,6 +24,7 @@ RCLabel::RCLabel(): num_(-1),
   baseCost_ = 0;
   dualCost_ = 0;
   consShiftCost_ = 0;
+  consWeekendShiftCost_ = 0;
   totalShiftCost_ = 0;
   totalWeekendCost_ = 0;
 #endif
@@ -57,6 +58,7 @@ void RCLabel::setAsNext(const PRCLabel &pLPrevious, const PRCArc &pArc) {
   baseCost_ = pLPrevious->baseCost();
   dualCost_ = pLPrevious->dualCost();
   consShiftCost_ = pLPrevious->consShiftCost();
+  consWeekendShiftCost_ = pLPrevious->consWeekendShiftCost();
   totalShiftCost_ = pLPrevious->totalShiftCost();
   totalWeekendCost_ = pLPrevious->totalWeekendCost();
 #endif
@@ -76,6 +78,7 @@ void RCLabel::setAsPrevious(const shared_ptr<RCLabel> &pLNext,
   baseCost_ = pLNext->baseCost();
   dualCost_ = pLNext->dualCost();
   consShiftCost_ = pLNext->consShiftCost();
+  consWeekendShiftCost_ = pLNext->consWeekendShiftCost();
   totalShiftCost_ = pLNext->totalShiftCost();
   totalWeekendCost_ = pLNext->totalWeekendCost();
 #endif
@@ -107,23 +110,40 @@ void RCLabel::copy(const RCLabel &l) {
   baseCost_ = l.baseCost_;
   dualCost_ = l.dualCost_;
   consShiftCost_ = l.consShiftCost_;
+  consWeekendShiftCost_ = l.consWeekendShiftCost_;
   totalShiftCost_ = l.totalShiftCost_;
   totalWeekendCost_ = l.totalWeekendCost_;
 #endif
 }
 
-std::string RCLabel::toString() const {
+std::string RCLabel::toString(const vector<PResource> &pResources) const {
   std::stringstream rep;
   rep << "Label: cost=" << cost();
 #ifdef DBG
-  if (consShiftCost_) rep << ", consShiftCost=" << consShiftCost_;
-  if (totalShiftCost_) rep << ", totalShiftCost=" << totalShiftCost_;
-  if (totalWeekendCost_) rep << ", totalWeekendCost=" << totalWeekendCost_;
+  if (consShiftCost_ > 1e-3)
+    rep << ", consShiftCost="
+        << std::setprecision(DECIMALS) << consShiftCost_;
+  if (consWeekendShiftCost_ > 1e-3)
+    rep << ", consWeekendShiftCost="
+        << std::setprecision(DECIMALS) << consWeekendShiftCost_;
+  if (totalShiftCost_ > 1e-3)
+    rep << ", totalShiftCost="
+        << std::setprecision(DECIMALS) << totalShiftCost_;
+  if (totalWeekendCost_ > 1e-3)
+    rep << ", totalWeekendCost="
+        << std::setprecision(DECIMALS) << totalWeekendCost_;
 #endif
+  if (!pResources.empty()) {
+    rep << ", Resources:";
+    for (const auto &pR : pResources) {
+      int c = resourceValues_[pR->id()].consumption;
+      if (c)
+        rep << " " << pR->name << "=" << c << ",";
+    }
+  }
   rep << std::endl;
   if (pInArc_) rep << "Arc in: " << pInArc_->toString() << std::endl;
   if (pOutArc_) rep << "Arc out: " << pOutArc_->toString() << std::endl;
-//  rep << "Ressources:" << std::endl;
   return rep.str();
 }
 
@@ -154,7 +174,7 @@ bool BoundedResource::dominates(const PRCLabel &pL1,
                                 double *cost) {
   double conso1 = pL1->getConsumption(id_), conso2 = pL2->getConsumption(id_);
   if (conso1 == conso2) return true;
-  if (conso1 <= conso2) return conso1 >= lb_;
+  if (conso1 < conso2) return conso1 >= lb_;
   return false;
 }
 

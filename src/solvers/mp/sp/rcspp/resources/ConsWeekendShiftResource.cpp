@@ -25,17 +25,12 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
                                              const Stretch &stretch,
                                              const PRCArc &pArc) {
   // check if expander is active
-  if (!Tools::nWeekendsInInterval(stretch.firstDay(), stretch.lastDay()))
+  std::pair<int, int> firstLastDays = getFirstLastDays(stretch);
+  if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
     return nullptr;
 
   // we need to count the number of times the considered shift appears at the
   // beginning of the arc's stretch
-
-  // number of days before the start of the stretch (beware that indices of
-  // days start at 0)
-  int nDaysBefore = stretch.firstDay();
-  // Number of days left since the day of the target node of the arc
-  int nDaysLeft = totalNbDays_ - stretch.lastDay() - 1;
   bool reset = false;
   int consBeforeReset = 0;
   int consAfterReset = 0;
@@ -43,7 +38,7 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
 
   // Look at consecutive shifts before reset (a different shift)
   auto itShift = stretch.pShifts().begin();
-  int day = stretch.firstDay();
+  int day = firstLastDays.first;
   bool weekendCounted =
       Tools::isWeekend(day-1) && pShift_->includes(prevAShift);
   for (; itShift != stretch.pShifts().end(); itShift++, day++) {
@@ -102,25 +97,53 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
     }
   }
 
-  // add cost o base cost of the arc
-  pArc->addBaseCost(cost);
-
   // if nothing before and after reset and no reset (price previous consumption)
   // -> initialize nothing
   if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
     return nullptr;
 
+  // Computing the number of weekends after the last day of the stretch
+  int start = firstLastDays.second+1, end = totalNbDays()-1;
+  int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
+  // check if we need to remove current weekend
+  if (Tools::isWeekendDayButNotLastOne(firstLastDays.second))
+    if (pShift_->includes(*stretch.pShifts().back()))
+      --nWeekendsAfter;
+
+//  // Computing the number of weekends before the first day of the stretch
+//  start = firstDay(), end = firstLastDays.first - 1;
+//  int nWeekendsBefore = Tools::nWeekendsInInterval(start, end);
+//  // check if we need to remove current weekend
+//  if (Tools::isWeekendDayButNotFirstOne(firstLastDays.second))
+//    if (pShift_->includes(*stretch.pShifts().front()))
+//      --nWeekendsBefore;
+
+  if (cyclic_ && nWeekendsAfter == 0)
+    consAfterReset += consBeforeReset;
+
+  if (consAfterReset > ub_) {
+    cost += getUbCost(consAfterReset);
+    consBeforeReset =  ub_;
+  }
+
+  // add cost o base cost of the arc
+  pArc->addBaseCost(cost);
+
   // if the stretch ends with the considered, we get a non-zero number of
   // consecutive shifts after replenishment
   return std::make_shared<SoftConsWeekendShiftExpander>(
-      *this, reset, consBeforeReset, consAfterReset,
-      pArc->target->type == SINK_NODE, nDaysBefore, nDaysLeft);
+      *this, false, reset, consBeforeReset, consAfterReset, cyclic_,
+      pArc->target->type == SINK_NODE, nWeekendsAfter);
 }
 
 bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
                                           ResourceValues *vChild) {
   // consumption before resetting resource if any reset
   vChild->consumption += consBeforeReset;
+
+  // if cyclic, add the initial consumption when close to the end
+  if (cyclic && nWeekendsAfter == 0 && !reset && vChild->cyclicConsumption > 0)
+    vChild->consumption += vChild->cyclicConsumption;
 
   // pay for excess of consumption due to this expansion
   // pay attention that consumptions in the label of the source should not
@@ -129,7 +152,7 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
     pLChild->addCost(
         resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
 #ifdef DBG
-    pLChild->addConsShiftCost(
+    pLChild->addConsWeekendShiftCost(
         resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
 #endif
     // beware: we never need to store a consumption larger than the upper bound
@@ -141,17 +164,28 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
     vChild->worstUbCost =
-        resource_.getWorstUbCost(vChild->consumption, nDaysLeft);
+        resource_.getWorstUbCost(vChild->consumption, nWeekendsAfter);
+    if (cyclic && vChild->cyclicConsumption > 0)
+      vChild->worstUbCost += resource_.getUbCost() * vChild->cyclicConsumption;
     return true;
   }
 
+  // if cyclic, add the initial consumption when close to the end
+  if (cyclic && nWeekendsAfter == 0 && vChild->cyclicConsumption > 0)
+    vChild->consumption += vChild->cyclicConsumption;
+
   // pay for violations of soft bounds when resetting a resource
   // Should check if the resource has been consumed on last weekend
-  if (vChild->consumption  > 0)
+  if (vChild->consumption  > 0) {
     pLChild->addCost(resource_.getLbCost(vChild->consumption));
 #ifdef DBG
-  pLChild->addConsShiftCost(resource_.getLbCost(vChild->consumption));
+    pLChild->addConsWeekendShiftCost(resource_.getLbCost(vChild->consumption));
 #endif
+  }
+
+  // initialize cyclicConsumption on the first reset
+  if (vChild->cyclicConsumption == -1)
+    vChild->cyclicConsumption = vChild->consumption;
 
   // set new consumption to what is consumed after resetting
   vChild->consumption = consAfterReset;
@@ -161,7 +195,9 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
     vChild->worstUbCost =
-        resource_.getWorstUbCost(vChild->consumption, nDaysLeft);
+        resource_.getWorstUbCost(vChild->consumption, nWeekendsAfter);
+    if (cyclic && vChild->cyclicConsumption > 0)
+      vChild->worstUbCost += resource_.getUbCost() * vChild->cyclicConsumption;
   } else {
     vChild->worstLbCost = .0;
     vChild->worstUbCost = .0;
@@ -188,6 +224,11 @@ int HardConsWeekendShiftResource::getConsumption(
 PExpander HardConsWeekendShiftResource::init(const AbstractShift &prevAShift,
                                              const Stretch &stretch,
                                              const PRCArc &pArc) {
+  // check if expander is active
+  std::pair<int, int> firstLastDays = getFirstLastDays(stretch);
+  if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
+    return nullptr;
+
   // we need to count the number of times the considered shift appears in
   // the arc's stretch on a weekend
   bool reset = false;
@@ -197,7 +238,7 @@ PExpander HardConsWeekendShiftResource::init(const AbstractShift &prevAShift,
 
   // Look at consecutive shifts before reset (a different shift)
   auto itShift = stretch.pShifts().begin();
-  int day = stretch.firstDay();
+  int day = firstLastDays.first;
   bool weekendCounted =
       Tools::isWeekend(day-1) && pShift_->includes(prevAShift);
   for (; itShift != stretch.pShifts().end(); itShift++, day++) {
@@ -247,6 +288,7 @@ PExpander HardConsWeekendShiftResource::init(const AbstractShift &prevAShift,
             // different shifts
             Tools::throwError("RCSPP arc is infeasible");
           }
+          consAfterReset = 0;
         } else {
           // reset flag
           weekendCounted = false;
@@ -260,17 +302,79 @@ PExpander HardConsWeekendShiftResource::init(const AbstractShift &prevAShift,
   if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
     return nullptr;
 
+  // Computing the number of weekends after the last day of the stretch
+  int start = firstLastDays.second+1, end = totalNbDays()-1;
+  int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
+  // check if we need to remove current weekend
+  if (Tools::isWeekendDayButNotLastOne(firstLastDays.second))
+    if (pShift_->includes(*stretch.pShifts().back()))
+      --nWeekendsAfter;
+
+  if (cyclic_ && nWeekendsAfter == 0)
+    consAfterReset += consBeforeReset;
+
   if (consAfterReset > ub_)
     Tools::throwError("RCSPP arc is infeasible");
 
   // if the stretch ends with the considered, we get a non-zero number of
   // consecutive shifts after replenishment
   return std::make_shared<HardConsWeekendShiftExpander>(
-      *this, false, reset, consBeforeReset, consAfterReset, cost);
+      *this, false, reset, consBeforeReset, consAfterReset,
+      cyclic_, false, nWeekendsAfter);
 }
+
+bool HardConsWeekendShiftResource::dominates(
+    const PRCLabel &pL1, const PRCLabel &pL2, double *cost) {
+  if (!cyclic_) return BoundedResource::dominates(pL1, pL2, cost);
+  const auto &v1 = pL1->getResourceValues(id_),
+      &v2 = pL2->getResourceValues(id_);
+  if (v1.consumption > v2.consumption) return false;
+  int c1 = v1.consumption + v1.cyclicConsumption,
+      c2 = v2.consumption + v2.cyclicConsumption;
+  if (v1.consumption == v2.consumption) return c1 <= c2;
+  if (v1.consumption < lb_) return false;
+  return c1 <= c2;
+}
+
 
 bool HardConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
                                           ResourceValues *vChild) {
+  // consumption before resetting resource if any reset
+  vChild->consumption += consBeforeReset;
+
+  // if cyclic, add the initial consumption when close to the end
+  if (cyclic && nWeekendsAfter == 0 && !reset && vChild->cyclicConsumption > 0)
+    vChild->consumption += vChild->cyclicConsumption;
+
+  // detect infeasibility due to upper bound
+  if (vChild->consumption > resource_.getUb())
+    return false;
+
+  // if resetting counter
+  if (reset) {
+    // initialize cyclicConsumption on the first reset
+    if (vChild->cyclicConsumption == -1)
+      vChild->cyclicConsumption = vChild->consumption;
+    // expansion is infeasible if consumption lower than bound at reset
+    if (vChild->consumption  > 0 && vChild->consumption < resource_.getLb())
+      return false;
+    // set new consumption to what is consumed after resetting
+    vChild->consumption = consAfterReset;
+  }
+
+  // if cyclic, add the initial consumption when close to the end
+  if (cyclic && nWeekendsAfter == 0 && vChild->cyclicConsumption > 0) {
+    vChild->consumption += vChild->cyclicConsumption;
+    // detect infeasibility due to upper bound
+    if (vChild->consumption > resource_.getUb())
+      return false;
+  }
+
+  return true;
+}
+
+bool HardConsWeekendShiftExpander::expandBack(const PRCLabel &pLChild,
+                                              ResourceValues *vChild) {
   Tools::throwError("Not implemented.");
   return false;
 }

@@ -32,10 +32,10 @@ class RotationSP : public RCSPPSubProblem {
 
  protected:
   // get the dual cost of a given stretch
-  double dualCost(const Stretch &stretch, PAbstractShift pAS) override;
+  double dualCost(const PRCArc &pArc) override;
 
-  void createNodes(RCGraph *pRCGraph) override;
-  void createArcs(RCGraph *pRCGraph) override;
+  void createNodes(const PRCGraph &pRCGraph) override;
+  void createArcs(const PRCGraph &pRCGraph) override;
 
   // create the initial label that will be expanded from the sources to the
   // sinks

@@ -160,17 +160,17 @@ void RCGraph::authorizeDayShift(int k, int s) {
 
 void RCGraph::forbidArc(const PRCArc &pA) {
   pA->forbidden = true;
-  forbiddenArcs_.insert(pA->id);
+  pForbiddenArcs_.insert(pA);
 }
 
 // Authorize a node / arc
 void RCGraph::authorizeArc(const PRCArc &pA) {
   pA->forbidden = false;
-  forbiddenArcs_.erase(pA->id);
+  pForbiddenArcs_.erase(pA);
 }
 
 void RCGraph::resetAuthorizationsArcs() {
-  for (int a : forbiddenArcs_)
-    pArc(a)->forbidden = false;
-  forbiddenArcs_.clear();
+  for (const auto &pArc : pForbiddenArcs_)
+    pArc->forbidden = false;
+  pForbiddenArcs_.clear();
 }

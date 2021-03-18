@@ -37,12 +37,11 @@ class SoftTotalShiftDurationResource : public SoftBoundedResource {
       SoftBoundedResource("Soft Total "+pShift->name,
                           lb, ub, lbCost, ubCost),
       pShift_(pShift),
-      totalNbDays_(totalNbDays),
-      defaultDuration_(defaultDuration) {}
+      defaultDuration_(defaultDuration) {
+    totalNbDays_ = totalNbDays;
+  }
 
   int getConsumption(const State &initialState) const override;
-
-  int totalNbDays() const { return totalNbDays_; }
 
   bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
 
@@ -59,7 +58,6 @@ class SoftTotalShiftDurationResource : public SoftBoundedResource {
 
  private:
   const PAbstractShift pShift_;
-  int totalNbDays_;  // Total number of days in the horizon
   int defaultDuration_;  // if defined, override duration of the PShift
 };
 
@@ -70,12 +68,11 @@ class HardTotalShiftDurationResource : public HardBoundedResource {
       int totalNbDays, int defaultDuration = -1) :
       HardBoundedResource("Hard Total "+pShift->name, lb, ub),
       pShift_(pShift),
-      totalNbDays_(totalNbDays),
-      defaultDuration_(defaultDuration) {}
+      defaultDuration_(defaultDuration) {
+    totalNbDays_ = totalNbDays;
+  }
 
   int getConsumption(const State &initialState) const override;
-
-  int totalNbDays() const { return totalNbDays_; }
 
   bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
 
@@ -92,7 +89,6 @@ class HardTotalShiftDurationResource : public HardBoundedResource {
 
  private:
   const PAbstractShift pShift_;
-  int totalNbDays_;  // Total number of days in the horizon
   int defaultDuration_;  // if defined, override duration of the PShift
 };
 

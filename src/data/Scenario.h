@@ -96,7 +96,8 @@ class State {
             consWeekendWorked_(0),
             consWeekendOff_(0),
             shiftType_(0),
-            pShift_(nullptr) {}
+            shift_(0),
+            pShift_(std::make_shared<Shift>(0, 0)) {}
   ~State();
 
   // Constructor with attributes
@@ -114,8 +115,10 @@ class State {
       consDaysWorked_(consDaysWorked),
       consShifts_(consShifts),
       consDaysOff_(consDaysOff),
-      consWeekendWorked_(0),
-      consWeekendOff_(0),
+      consWeekendWorked_(Tools::nWeekendsInInterval(dayId - consDaysWorked + 1,
+                                                    dayId)),
+      consWeekendOff_(Tools::nWeekendsInInterval(dayId - consDaysOff + 1,
+                                                 dayId)),
       shiftType_(shiftType),
       shift_(shift),
       pShift_(std::make_shared<Shift>(shift, shiftType)) {}
@@ -310,6 +313,10 @@ class Scenario {
   // Initial historical state of the nurses
   //
   std::vector<State> initialState_;
+  // True when the rosters created must be cyclic
+  // When activated, the initial states are all default values
+  bool cyclic_ = false;
+
   // range of the weeks that are being scheduled
   //
   int thisWeek_;
@@ -435,6 +442,15 @@ class Scenario {
         ANS = p.consDaysWorked_;
     }
     return ANS;
+  }
+
+  void enableCyclic() {
+    initialState_.resize(nNurses_);
+    cyclic_ = true;
+  }
+
+  bool isCyclic() const {
+    return cyclic_;
   }
 
   // getters for the attributes of the nurses

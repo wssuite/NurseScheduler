@@ -24,18 +24,18 @@
  */
 class RosterSP : public RCSPPSubProblem {
  public:
-  RosterSP(PScenario scenario,
+  RosterSP(PScenario pScenario,
            int nbDays,
            PLiveNurse nurse,
            std::vector<PResource> pResources,
-           const SubproblemParam &param);
+           SubproblemParam param);
 
  protected:
   // get the dual cost of a given stretch
-  double dualCost(const Stretch &s, PAbstractShift pAS) override;
+  double dualCost(const PRCArc &pArc) override;
 
-  void createNodes(RCGraph *pRCGraph) override;
-  void createArcs(RCGraph *pRCGraph) override;
+  void createNodes(const PRCGraph &pRCGraph) override;
+  void createArcs(const PRCGraph &pRCGraph) override;
 
   // create the initial label that will be expanded from the source to the
   // sink(s)

@@ -37,14 +37,14 @@ using std::vector;
 //  of the pattern
 class SoftTotalWeekendsResource : public SoftBoundedResource {
  public:
-  SoftTotalWeekendsResource(int ub, double ubCost, int totalNbDays = 0) :
-      SoftBoundedResource("Soft Weekend Total work", 0, ub, 0, ubCost),
-      totalNbDays_(totalNbDays) {}
+  SoftTotalWeekendsResource(int ub, double ubCost, int totalNbDays) :
+      SoftBoundedResource("Soft Weekend Total work", 0, ub, 0, ubCost) {
+    totalNbDays_ = totalNbDays;
+  }
 
   // instantiate TotalWeekEndLabel
   int getConsumption(const State &initialState) const override;
 
-  int totalNbDays() const { return totalNbDays_; }
 
   double getWorstLbCost(int consumption) const override {
     return .0;
@@ -55,9 +55,6 @@ class SoftTotalWeekendsResource : public SoftBoundedResource {
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
                  const PRCArc &pArc) override;
-
- private:
-  int totalNbDays_;  // Total number of days in the horizon
 };
 
 /**
@@ -97,23 +94,20 @@ struct SoftTotalWeekendsExpander : public Expander {
 
 class HardTotalWeekendsResource : public HardBoundedResource {
  public:
-  HardTotalWeekendsResource(int lb, int ub, int totalNbDays = 0) :
-      HardBoundedResource("Hard Weekend Total work", lb, ub),
-      totalNbDays_(totalNbDays) {}
+  HardTotalWeekendsResource(int lb, int ub, int totalNbDays) :
+      HardBoundedResource("Hard Weekend Total work", lb, ub) {
+    totalNbDays_ = totalNbDays;
+  }
 
   // instantiate TotalWeekEndLabel
   int getConsumption(const State &initialState) const override;
 
-  int totalNbDays() const { return totalNbDays_; }
 
  protected:
   // initialize the expander on a given arc
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
                  const PRCArc &pArc) override;
-
- private:
-  int totalNbDays_;  // Total number of days in the horizon
 };
 
 /**

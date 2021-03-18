@@ -623,6 +623,12 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
 // Read the history file
 //
 void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
+  if (strHistoryFile.empty()) {
+    std::cout << "Cyclic option is enable, so no history file is loaded."
+              << std::endl;
+    pScenario->enableCyclic();
+    return;
+  }
   // open the file
   std::fstream file;
   std::cout << "Reading " << strHistoryFile << std::endl;

@@ -685,14 +685,14 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
 
   // copy the nurses in the live nurses vector
   for (int i = 0; i < pScenario->nNurses(); i++) {
-    theLiveNurses_.emplace_back(
-        std::make_shared<LiveNurse>(*(pScenario->pNurse(i)),
-                                    pScenario_,
-                                    pDemand_->nDays_,
-                                    pDemand_->firstDay_,
-                                    &(*pInitState_)[i],
-                                    pPreferences_,
-                                    i));
+    theLiveNurses_.emplace_back(std::make_shared<LiveNurse>(
+        *(pScenario->pNurse(i)),
+        pScenario_,
+        pDemand_->nDays_,
+        pDemand_->firstDay_,
+        &(*pInitState_)[i],
+        pPreferences_,
+        i));
   }
 
   // initialize the minimum and maximum number of total working days

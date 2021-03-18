@@ -102,10 +102,21 @@ void State::addDayToState(const State &prevState,
     // Total weekends worked:
     // +1 IF : new day is a Sunday and the nurse works
     // on prevState.pShift_ or newShift
-    if (Tools::isSunday(dayId_ - 1) && (newShiftType || prevState.shiftType_))
-      totalWeekendsWorked_ = prevState.totalWeekendsWorked_ + 1;
-    else
+    if (Tools::isSunday(prevState.dayId_)) {
+      if (newShiftType || prevState.shiftType_) {
+        totalWeekendsWorked_ = prevState.totalWeekendsWorked_ + 1;
+        consWeekendWorked_ = prevState.consWeekendWorked_ + 1;
+        consWeekendOff_ = 0;
+      } else {
+        totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+        consWeekendOff_ = prevState.consWeekendOff_ + 1;
+        consWeekendWorked_ = 0;
+      }
+    } else {
       totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+      consWeekendWorked_ = prevState.consWeekendWorked_;
+      consWeekendOff_ = prevState.consWeekendOff_;
+    }
 
     // Consecutives : +1 iff it is the same as the previous one
     consShifts_ = (newShiftType && newShiftType == prevState.shiftType_) ?
@@ -126,9 +137,15 @@ void State::addDayToState(const State &prevState,
       totalTimeWorked_ = prevState.totalTimeWorked_ + timeWorked
           + (prevState.consDaysWorked_ > 0 ? (-prevShiftType)
                                            : 0);  // SERGEB ??????
-      totalWeekendsWorked_ =
-          Tools::isSunday(dayId_) ? prevState.totalWeekendsWorked_ + 1
-                                  : prevState.totalWeekendsWorked_;
+      if (Tools::isSunday(prevState.dayId_)) {
+        totalWeekendsWorked_ = prevState.totalWeekendsWorked_ + 1;
+        consWeekendWorked_ = prevState.consWeekendWorked_ + 1;
+        consWeekendOff_ = 0;
+      } else {
+        totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
+        consWeekendWorked_ = prevState.consWeekendWorked_;
+        consWeekendOff_ = prevState.consWeekendOff_;
+      }
       consDaysWorked_ =
           (prevState.consDaysWorked_ > 0) ? (prevState.consDaysWorked_ + 1
               - prevShiftType) : 1;
@@ -137,6 +154,13 @@ void State::addDayToState(const State &prevState,
       shiftType_ = newShiftType;
       shift_ = newShift;
     } else {
+      if (Tools::isSunday(prevState.dayId_)) {
+        consWeekendOff_ = prevState.consWeekendOff_ + 1;
+        consWeekendWorked_ = 0;
+      } else {
+        consWeekendWorked_ = prevState.consWeekendWorked_;
+        consWeekendOff_ = prevState.consWeekendOff_;
+      }
       totalTimeWorked_ = prevState.totalTimeWorked_;
       totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
       consDaysWorked_ = 0;
@@ -149,7 +173,7 @@ void State::addDayToState(const State &prevState,
   }
 
   // increment the day index
-  dayId_ = prevState.dayId_ + 1;
+  dayId_ = prevState.dayId_ + 1;  // increment the day index
 }
 
 // Display method: toString

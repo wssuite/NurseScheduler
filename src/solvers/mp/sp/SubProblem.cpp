@@ -57,11 +57,11 @@ SubProblem::SubProblem(PScenario scenario,
 SubProblem::SubProblem(PScenario scenario,
                        int nDays,
                        PLiveNurse pNurse,
-                       const SubproblemParam& param) :
+                       SubproblemParam param) :
     pScenario_(std::move(scenario)), nDays_(nDays),
     pContract_(pNurse->pContract_),
     pLiveNurse_(pNurse),
-    param_(param) {
+    param_(std::move(param)) {
   int max = 0;
   for (auto s : pScenario_->pShifts())
     if (s->duration > max) max = s->duration;

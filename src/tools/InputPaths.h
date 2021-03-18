@@ -39,6 +39,20 @@ class InputPaths {
              const std::string &RCSPPType = "",
              int nThreads = -1);
 
+  InputPaths(const std::string &dataDir,
+             const std::string &instanceName,
+             std::vector<int> weekIndices,
+             const std::string &solutionPath = "",
+             const std::string &logPath = "",
+             const std::string &paramFile = "",
+             double timeOut = -1,
+             int verbose = -1,
+             int randSeed = 0,
+             const std::string &SPType = "",
+             int SPStrategy = -1,
+             const std::string &RCSPPType = "",
+             int nThreads = -1);
+
  protected:
   std::string instance_;
   std::string scenario_;

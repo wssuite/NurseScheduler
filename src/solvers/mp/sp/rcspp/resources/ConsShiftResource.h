@@ -40,8 +40,9 @@ class SoftConsShiftResource : public SoftBoundedResource {
                           "Soft Cons "+pShift->name : std::move(_name),
                           lb, ub, lbCost, ubCost),
       pShift_(pShift),
-      totalNbDays_(totalNbDays),
-      initialConsumption_(initialConsumption) {}
+      initialConsumption_(initialConsumption) {
+    totalNbDays_ = totalNbDays;
+  }
 
   int getConsumption(const State &initialState) const override;
 
@@ -80,7 +81,6 @@ class SoftConsShiftResource : public SoftBoundedResource {
                  const PRCArc &pArc) override;
 
   const PAbstractShift pShift_;
-  int totalNbDays_;  // Total number of days in the horizon
   int initialConsumption_ = 0;  // consumption of the resource in the initial
   // state
 };
@@ -88,9 +88,11 @@ class SoftConsShiftResource : public SoftBoundedResource {
 class HardConsShiftResource : public HardBoundedResource {
  public:
   HardConsShiftResource(
-      int lb, int ub, const PAbstractShift& pShift) :
+      int lb, int ub, const PAbstractShift& pShift, int totalNbDays) :
       HardBoundedResource("Hard Cons "+pShift->name, lb, ub),
-      pShift_(pShift) {}
+      pShift_(pShift) {
+    totalNbDays_ = totalNbDays;
+  }
 
   int getConsumption(const State &initialState) const override;
 

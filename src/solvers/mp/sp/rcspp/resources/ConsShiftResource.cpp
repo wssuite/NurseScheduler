@@ -26,12 +26,6 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
                                       const PRCArc &pArc) {
   // we need to count the number of times the considered shift appears at the
   // beginning of the arc's stretch
-
-  // number of days before the start of the stretch (beware that indices of
-  // days start at 0)
-  int nDaysBefore = stretch.firstDay() + initialConsumption_;
-  // Number of days left since the day of the target node of the arc
-  int nDaysLeft = totalNbDays_ - stretch.lastDay() - 1;
   bool reset = false;
   int consBeforeReset = 0;
   int consAfterReset = 0;
@@ -88,6 +82,13 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
   // -> initialize nothing
   if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
     return nullptr;
+
+  // number of days before the start of the stretch (beware that indices of
+  // days start at 0)
+  std::pair<int, int> firstLastDays = getFirstLastDays(stretch);
+  int nDaysBefore = firstLastDays.first + initialConsumption_;
+  // Number of days left since the day of the target node of the arc
+  int nDaysLeft = totalNbDays_ + firstDay_ - firstLastDays.second - 1;
 
   // if the stretch ends with the considered, we get a non-zero number of
   // consecutive shifts after replenishment

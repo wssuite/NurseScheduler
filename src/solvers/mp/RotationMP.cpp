@@ -256,11 +256,11 @@ void RotationPattern::checkReducedCost(const PDualCosts &pCosts,
     cout << "#       | Initial rest      : " << initRestCost_ << endl;
 
     for (int k = firstDay(); k <= lastDay(); ++k)
-      cout << "#   | Work day-shift: - "
+      cout << "#   | Work day-shift " << k << ": - "
            << pCosts->workedDayShiftCost(k, shift(k)) << endl;
-    cout << "#   | Start work    : - " << pCosts->startWorkCost(firstDay())
-         << endl;
-    cout << "#   | Finish Work   : - "
+    cout << "#   | Start work    " << firstDay() << ": - "
+         << pCosts->startWorkCost(firstDay()) << endl;
+    cout << "#   | Finish Work   " << lastDay() << ": - "
          << pCosts->endWorkCost(lastDay()) << endl;
     if (Tools::isSunday(firstDay()))
       cout << "#   | Weekends      : - " << pCosts->workedWeekendCost() << endl;
