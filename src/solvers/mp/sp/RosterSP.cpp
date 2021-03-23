@@ -15,6 +15,8 @@
 #include <memory>
 #include <utility>
 
+#include "solvers/mp/sp/rcspp/boost/RosterSP.h"
+
 RosterSP::RosterSP(PScenario pScenario,
                    int nDays,
                    PLiveNurse nurse,
@@ -86,4 +88,55 @@ void RosterSP::createInitialLabels() {
                                           *pLiveNurse_->pStateIni_);
   pL->setNode(pRCGraph_->pSource(0));
   pRcsppSolver_->setSourceLabels({pL});
+}
+
+void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
+  /************************************************
+   * Compute all the costs of a roster:
+   ************************************************/
+#ifdef DBG
+  double cost = rcSol->cost();
+#endif
+  /*
+  * Compute resources costs
+  */
+  computeResourcesCosts(*pLiveNurse_->pStateIni_, pMaster, rcSol);
+
+  /*
+   * Compute complete weekend
+   */
+  if (pLiveNurse_->needCompleteWeekends()) {
+    int k = 0;
+    bool rest = false;
+    for (const PShift &pS : rcSol->pShifts()) {
+      // on sunday, if complete weekend, it's either:
+      // work on saturday (rest=false) and sunday
+      // rest on saturday (rest=true) and sunday
+      if (Tools::isSunday(k) && (rest ^ pS->isRest()))
+        rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+                       COMPLETE_WEEKEND_COST);
+      rest = pS->isRest();
+      k++;
+    }
+  }
+
+  computePreferencesCost(rcSol);
+
+#ifdef DBG
+  if (std::abs(cost - rcSol->cost()) > 1e-3) {
+    std::cerr << "# " << std::endl;
+    std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
+              << std::endl;
+    std::cerr << rcSol->costsToString();
+    std::cerr << rcSol->toString();
+    std::cerr << "# " << std::endl;
+    Tools::throwError("RosterSP::computeCost does not get the same cost.");
+  }
+
+  // check with boost if default resources
+  if (pMaster->useDefaultResources()) {
+    boostRCSPP::RosterSP sp(pScenario_, nDays(), pLiveNurse_);
+    sp.computeCost(nullptr, rcSol);
+  }
+#endif
 }

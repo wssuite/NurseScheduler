@@ -113,6 +113,11 @@ class RCPricer : public MyPricer {
   SubProblem *retrieveSubproblem(const PLiveNurse &pNurse,
                                  const SubproblemParam &spParam);
 
+  SubProblem *buildSubproblem(const PLiveNurse &pNurse,
+                              const SubproblemParam &spParam) const;
+
+  void computeCost(Pattern *pat) const;
+
   // METHODS - Forbidden shifts, nurses, starting days, etc.
   //
   // !!! WARNING !!! : SOME METHODS ARE NOT YET IMPLEMENTED IN THE SUBPROBLEM

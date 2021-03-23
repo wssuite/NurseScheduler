@@ -45,11 +45,58 @@ using std::cout;
 using std::endl;
 
 
-// print a rc solution
 std::string RCSolution::toString() const {
-  std::stringstream buff;
-  buff << "RC solution of cost " << cost_ << "; " << Stretch::toString();
-  return buff.str();
+  std::stringstream rep;
+  rep.setf(std::ios_base::fixed, std::ios_base::floatfield);
+  rep << "RCSolution: ";
+  if (cost_ < DBL_MAX - 1) rep << "cost=" << std::setprecision(0) << cost_;
+  if (reducedCost_ < DBL_MAX - 1)
+    rep << "  dualCost=" << std::setprecision(2) << reducedCost_;
+  rep << "; " << Stretch::toString();
+  return rep.str();
+}
+
+std::string RCSolution::costsToString() const {
+  if (costs_.empty()) {
+    std::cout << "WARNING: costs are not computed by cost types." << std::endl;
+    return "";
+  }
+  std::stringstream rep;
+  rep.setf(std::ios_base::fixed, std::ios_base::floatfield);
+  rep.precision(0);
+  rep << "#       | Cons. shifts     : "
+      << costs_.at(CONS_SHIFTS_COST) << std::endl;
+  rep << "#       | Cons. weekend    : "
+      << costs_.at(CONS_WEEKEND_SHIFTS_COST) << std::endl;
+  rep << "#       | Cons. days off   : "
+      << costs_.at(CONS_REST_COST) << std::endl;
+  rep << "#       | Cons. days       : "
+      << costs_.at(CONS_WORK_COST) << std::endl;
+  rep << "#       | Complete weekends: "
+      << costs_.at(COMPLETE_WEEKEND_COST) << std::endl;
+  rep << "#       | Preferences      : "
+      << costs_.at(PREFERENCE_COST) << std::endl;
+  rep << "#       | Worked days      : "
+      << costs_.at(TOTAL_WORK_COST) << std::endl;
+  rep << "#       | Worked weekend   : "
+      << costs_.at(TOTAL_WEEKEND_COST) << std::endl;
+  return rep.str();
+}
+
+// Compare rotations on cost
+bool RCSolution::compareCost(
+    const RCSolution &sol1, const RCSolution &sol2) {
+  if (sol1.cost_ == DBL_MAX || sol2.cost_ == DBL_MAX)
+    Tools::throwError("Pattern cost not computed.");
+  return (sol1.cost_ < sol2.cost_);
+}
+
+// Compare rotations on dual cost
+bool RCSolution::compareReducedCost(
+    const RCSolution &sol1, const RCSolution &sol2) {
+  if (sol1.reducedCost_ == DBL_MAX || sol2.reducedCost_ == DBL_MAX)
+    Tools::throwError("Pattern dual cost not computed.");
+  return (sol1.reducedCost_ < sol2.reducedCost_);
 }
 
 // P a t t e r n   s t a t i c   m e t h o d s
@@ -62,96 +109,17 @@ std::vector<PShift> getPShifts(const std::vector<double> &pattern,
   return pShifts;
 }
 
-Pattern::Pattern(const std::vector<double> &pattern,
-                 const PScenario &pScenario) :
-    RCSolution(Pattern::firstDay(pattern),
-               getPShifts(pattern, pScenario),
-               DBL_MAX),
-    nurseNum_(Pattern::nurseNum(pattern)),
-    reducedCost_(DBL_MAX) {}
-
-void Pattern::computeResourcesCosts(const MasterProblem *pMaster,
-                                    const State &initialState) {
-  // reset costs
-  costs_.clear();
-  for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
-    costs_[(CostType)t] = 0;
-  // create origin, destination and arc
-  PRCNode pSource = std::make_shared<RCNode>(
-      0, SOURCE_NODE, firstDay() - 1, initialState.pShift_),
-      pSink = std::make_shared<RCNode>(
-          1, SINK_NODE, firstDay() + nDays() - 1, pShifts_.back());
-  PRCArc pArc = std::make_shared<RCArc>(
-      0, pSource, pSink, *this, firstDay(), TO_SINK);
-  // create resources
-  // map that associates a PResource to its cost type
-  auto mResources =
-      pMaster->generatePResources(pMaster->liveNurses()[nurseNum_]);
-  // create a vector of resources with the resource indices pointing
-  // to their position in the vector
-  auto pResources = pMaster->pResources(mResources);
-  // create expander for stretch
-  double c = pArc->cost;
-  for (const auto &pR : pResources) {
-    pR->initialize(*pSource->pAShift, *this, pArc);
-    addCost(pArc->cost-c, mResources[pR]);
-    c = pArc->cost;
-  }
-  // expand
-  pL_ = std::make_shared<RCLabel>(pResources, initialState);
-  c = pL_->cost();
-  for (const auto &pE : pArc->expanders) {
-    ResourceValues &v = pL_->getResourceValues(pE->resourceId);
-    pE->expand(pL_, &v);
-    addCost(pL_->cost()-c, mResources[pResources[pE->resourceId]]);
-    c = pL_->cost();
-  }
-}
-
-std::string Pattern::costsToString() const {
-  std::stringstream rep;
-  rep << "#       | Consecutive shifts  : "
-      << costs_.at(CONS_SHIFTS_COST) << std::endl;
-  rep << "#       | Consecutive weekend shifts  : "
-      << costs_.at(CONS_WEEKEND_SHIFTS_COST) << std::endl;
-  rep << "#       | Consecutive days off: "
-      << costs_.at(CONS_REST_COST) << std::endl;
-  rep << "#       | Consecutive days    : "
-      << costs_.at(CONS_WORK_COST) << std::endl;
-  rep << "#       | Complete weekends   : "
-      << costs_.at(COMPLETE_WEEKEND_COST) << std::endl;
-  rep << "#       | Preferences         : "
-      << costs_.at(PREFERENCE_COST) << std::endl;
-  rep << "#       | Worked days         : "
-      << costs_.at(TOTAL_WORK_COST) << std::endl;
-  rep << "#       | Worked weekend  : "
-      << costs_.at(TOTAL_WEEKEND_COST) << std::endl;
-  return rep.str();
-}
+Pattern::Pattern(MyVar *var, const PScenario &pScenario) :
+    RCSolution(Pattern::firstDay(var->getPattern()),
+               getPShifts(var->getPattern(), pScenario),
+               var->getCost()),
+    nurseNum_(Pattern::nurseNum(var->getPattern())) {}
 
 std::string Pattern::toString() const {
   std::stringstream rep;
-  rep << "PATTERN: N=" << nurseNum_
-      << "cost=" << std::setprecision(2) << cost_
-      << "  dualCost=" << std::setprecision(2) << reducedCost_ << "; "
-      << Stretch::toString();
+  rep << "Nurse " << nurseNum_ << " - " << RCSolution::toString();
   return rep.str();
 }
-
-// Compare rotations on cost
-bool Pattern::compareCost(PPattern pat1, PPattern pat2) {
-  if (pat1->cost_ == DBL_MAX || pat2->cost_ == DBL_MAX)
-    Tools::throwError("Pattern cost not computed.");
-  return (pat1->cost_ < pat2->cost_);
-}
-
-// Compare rotations on dual cost
-bool Pattern::compareDualCost(PPattern pat1, PPattern pat2) {
-  if (pat1->reducedCost_ == DBL_MAX || pat2->reducedCost_ == DBL_MAX)
-    Tools::throwError("Pattern dual cost not computed.");
-  return (pat1->reducedCost_ < pat2->reducedCost_);
-}
-
 
 //-----------------------------------------------------------------------------
 //
@@ -163,12 +131,9 @@ bool Pattern::compareDualCost(PPattern pat1, PPattern pat2) {
 
 // Default constructor
 MasterProblem::MasterProblem(PScenario pScenario,
-                             PDemand pDemand,
-                             PPreferences pPreferences,
-                             vector<State> *pInitState,
                              SolverType solverType) :
 
-    Solver(pScenario, pDemand, pPreferences, pInitState),
+    Solver(pScenario),
     PrintSolution(),
     pModel_(nullptr),
     positionsPerSkill_(pScenario->nSkills()),
@@ -183,7 +148,8 @@ MasterProblem::MasterProblem(PScenario pScenario,
     minDemandCons_(pDemand_->nDays_),
     optDemandCons_(pDemand_->nDays_),
     numberOfNursesByPositionCons_(pScenario->nPositions()),
-    feasibleSkillsAllocCons_(pDemand_->nDays_) {
+    feasibleSkillsAllocCons_(pDemand_->nDays_),
+    pResourceCostTypes_(pScenario->nNurses()) {
   // build the model
   this->initializeSolver(solverType);
 }
@@ -407,12 +373,12 @@ void MasterProblem::fixAvailabilityBasedOnSolution(
   // then get the solution and set to true only the shift belonging to
   // a solution
   vector3D<double> roster = fractionalRoster();
-  for (int n = 0; n < nNurses(); ++n)
-    for (int k = 0; k <= nDays(); ++k)
-      if (fixDays[k]) {
+  for (int k = 0; k <= nDays(); ++k)
+    if (fixDays[k]) {
+      for (int n = 0; n < nNurses(); ++n)
         for (int s = 0; s < nShifts(); ++s)
           availableNursesDaysShifts[n][k][s] = roster[n][k][s] > epsilon();
-      }
+    }
 
   nursesAvailabilities(availableNursesDaysShifts);
 }
@@ -599,6 +565,11 @@ void MasterProblem::storeSolution() {
         for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
           if (skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_]
               > epsilon()) {
+#ifdef DBG
+            if (!pNurse->hasSkill(sk))
+              Tools::throwError("Trying to assign a skill "
+                                "that the nurse hasn't.");
+#endif
             pNurse->roster_.assignTask(k, s, sk);
             skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_]--;
             assigned = true;
@@ -634,6 +605,11 @@ void MasterProblem::storeSolution() {
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
+void MasterProblem::computePatternCost(Pattern *pat) const {
+  auto pP = dynamic_cast<RCPricer*>(pPricer_);
+  pP->computeCost(pat);
+}
+
 
 void MasterProblem::save(const vector<int> &weekIndices, string outfile) {
   storeSolution();
@@ -970,6 +946,25 @@ void MasterProblem::updateDemand(PDemand pDemand) {
         minDemandCons_[k][s - 1][sk]->setLhs(pDemand_->minDemand_[k][s][sk]);
         optDemandCons_[k][s - 1][sk]->setLhs(pDemand_->optDemand_[k][s][sk]);
       }
+}
+
+// return the costs of all active columns associated to the type
+double MasterProblem::getColumnsCost(CostType costType) const {
+  return getColumnsCost(costType, pModel_->getActiveColumns());
+}
+
+double MasterProblem::getColumnsCost(CostType costType,
+                                const std::vector<MyVar *> &vars) const {
+  double cost = 0;
+  for (MyVar *var : vars) {
+    double value = pModel_->getVarValue(var);
+    if (value > epsilon()) {
+      PPattern pat = getPattern(var);
+      computePatternCost(pat.get());
+      cost += pat->costByType(costType) * value;
+    }
+  }
+  return cost;
 }
 
 string MasterProblem::costsConstrainstsToString() const {

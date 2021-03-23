@@ -72,7 +72,7 @@ void setStochasticSolverOptions(StochasticSolverOptions *options,
   generationParameters.printEverySolution_ = false;
   generationParameters.outfile_ = solPath;
   generationParameters.logfile_ = logSolver;
-  generationParameters.absoluteGap_ = 5;
+  generationParameters.maxAbsoluteGap_ = 5;
   generationParameters.minRelativeGap_ = .05;
   generationParameters.relativeGap_ = .1;
   generationParameters.nbDiveIfMinGap_ = 1;
@@ -88,7 +88,7 @@ void setStochasticSolverOptions(StochasticSolverOptions *options,
   evaluationParameters.printEverySolution_ = false;
   // evaluationParameters.outfile_ = "";
   evaluationParameters.logfile_ = logSolver;
-  evaluationParameters.absoluteGap_ = 5;
+  evaluationParameters.maxAbsoluteGap_ = 5;
   evaluationParameters.minRelativeGap_ = .05;
   evaluationParameters.relativeGap_ = .1;
   evaluationParameters.nbDiveIfMinGap_ = 1;
@@ -145,12 +145,9 @@ StochasticSolver::StochasticSolver(PScenario pScenario,
                                    StochasticSolverOptions options,
                                    vector<PDemand> demandHistory,
                                    double costPreviousWeeks) :
-    Solver(pScenario,
-           pScenario->pWeekDemand(),
-           pScenario->pWeekPreferences(),
-           pScenario->pInitialState()),
+    Solver(pScenario),
     options_(options),
-    demandHistory_(demandHistory),
+    demandHistory_(std::move(demandHistory)),
     pReusableGenerationSolver_(nullptr),
     costPreviousWeeks_(costPreviousWeeks) {
   std::cout << "# New stochastic solver created!" << std::endl;
@@ -604,13 +601,11 @@ void StochasticSolver::generateAllEvaluationDemands() {
 // Return a solver with the algorithm specified for schedule GENERATION
 Solver *StochasticSolver::setGenerationSolverWithInputAlgorithm(
     PDemand pDemand) {
+  PScenario pScenario = std::make_shared<Scenario>(*pScenario_);
+  pScenario->linkWithDemand(std::move(pDemand));
   switch (options_.generationAlgorithm_) {
     case GENCOL:
-      return new RotationMP(pScenario_,
-                            pDemand,
-                            pScenario_->pWeekPreferences(),
-                            pScenario_->pInitialState(),
-                            S_CLP);
+      return new RotationMP(pScenario, S_CLP);
     default:Tools::throwError("The algorithm is not handled yet");
       break;
   }
@@ -696,33 +691,16 @@ Solver *StochasticSolver::setEvaluationWithInputAlgorithm(
       pScenario_->nNurses(),
       options_.nDaysEvaluation_,
       pScenario_->nShifts());
-  pScen->updateNewWeek(pDemand, pEmptyPref, *stateEndOfSchedule);
+  pScen->updateNewWeek(std::move(pDemand), pEmptyPref, *stateEndOfSchedule);
 
   switch (options_.evaluationAlgorithm_) {
     case GENCOL:
-      pSolver = new RotationMP(pScen,
-                               pDemand,
-                               pEmptyPref,
-                               stateEndOfSchedule,
-                               S_CLP);
+      pSolver = new RotationMP(pScen, S_CLP);
       break;
     default:Tools::throwError("The algorithm is not handled yet");
       break;
   }
   return pSolver;
-}
-
-// Initialization
-void StochasticSolver::initScheduleEvaluation(int sched) {
-  // Extend pEvaluationSolvers_
-  vector<Solver *> v;
-//  for (int j = 0; j < options_.nEvaluationDemands_; j++) {
-//    Solver *s;
-//    v.push_back(s);
-//  }
-//  pEvaluationSolvers_.push_back(v);
-  Solver *so(0);
-  pReusableEvaluationSolvers_.push_back(so);
 }
 
 // Evaluate 1 schedule on all evaluation instances
@@ -738,7 +716,6 @@ bool StochasticSolver::evaluateSchedule(int sched) {
   }
 #endif
 
-  initScheduleEvaluation(sched);
   vector<State> initialStates = finalStates_[nSchedules_ - 1];
   for (int i = 0; i < pScenario_->nNurses(); i++)
     initialStates[i].dayId_ = 0;
@@ -770,8 +747,9 @@ bool StochasticSolver::evaluateSchedule(int sched) {
                    << " over evaluation demand no. " << j << std::endl;
 
     if (j == 0) {
-      pReusableEvaluationSolvers_[sched] = setEvaluationWithInputAlgorithm(
-          pEvaluationDemands_[j], &initialStates);
+      pReusableEvaluationSolvers_.push_back(
+          setEvaluationWithInputAlgorithm(
+              pEvaluationDemands_[j], &initialStates));
     }
 
 #ifdef COMPARE_EVALUATIONS
@@ -958,14 +936,12 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy) {
 
 Solver *StochasticSolver::setSubSolverWithInputAlgorithm(
     PDemand pDemand, Algorithm algorithm) {
-  Solver *pSolver(nullptr);
+  Solver *pSolver;
+  PScenario pScen = std::make_shared<Scenario>(*pScenario_);
+  pScen->linkWithDemand(std::move(pDemand));
   switch (algorithm) {
     case GENCOL:
-      pSolver = new RotationMP(pScenario_,
-                               pDemand,
-                               pScenario_->pWeekPreferences(),
-                               pScenario_->pInitialState(),
-                               S_CLP);
+      pSolver = new RotationMP(pScen, S_CLP);
       break;
     default:Tools::throwError("The algorithm is not handled yet");
       break;

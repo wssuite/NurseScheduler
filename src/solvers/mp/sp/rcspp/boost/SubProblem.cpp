@@ -92,12 +92,13 @@ bool SubProblem::solveRCGraph() {
   g_.restoreForbiddenArcsToBoost(arcs_removed);
 
   // Extract the best reduced cost
-  for (const RCSolution &sol : solutions) {
+  for (RCSolution &sol : solutions) {
+    computeCost(nullptr, &sol);
     theSolutions_.push_back(sol);
     nPaths_++;
     nFound_++;
-    if (bestReducedCost_ > sol.cost())
-      bestReducedCost_ = sol.cost();
+    if (bestReducedCost_ > sol.reducedCost())
+      bestReducedCost_ = sol.reducedCost();
   }
 
   return !solutions.empty();

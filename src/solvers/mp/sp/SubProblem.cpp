@@ -46,12 +46,13 @@ SubProblem::SubProblem() :
 
 SubProblem::SubProblem(PScenario scenario,
                        int nDays,
-                       PConstContract contract,
-                       vector<State> *pInitState) :
-    pScenario_(scenario), nDays_(nDays), pContract_(contract) {
+                       PConstContract contract) :
+    pScenario_(std::move(scenario)),
+    nDays_(nDays),
+    pContract_(std::move(contract)) {
   int max = pScenario_->maxDuration();
   maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
-  if (pInitState) init(*pInitState);
+  init(*pScenario_->pInitialState());
 }
 
 SubProblem::SubProblem(PScenario scenario,
@@ -63,9 +64,10 @@ SubProblem::SubProblem(PScenario scenario,
     pLiveNurse_(pNurse),
     param_(std::move(param)) {
   int max = 0;
-  for (auto s : pScenario_->pShifts())
-    if (s->duration > max) max = s->duration;
+  for (const auto &pS : pScenario_->pShifts())
+    if (pS->duration > max) max = pS->duration;
   maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
+  init(*pScenario_->pInitialState());
 }
 
 SubProblem::~SubProblem() {}
@@ -258,4 +260,20 @@ void SubProblem::checkForbiddenDaysAndShifts(const RCSolution &sol) const {
       Tools::throwError(
           "A RC solution uses the forbidden day %d and shift %s: %s",
           k - 1, pS->name.c_str(), sol.toString().c_str());
+}
+
+void SubProblem::computePreferencesCost(RCSolution *rcSol) const {
+  /*
+ * Compute preferencesCost
+ */
+  for (int k = rcSol->firstDay(); k <= rcSol->lastDay(); ++k) {
+    int level = pLiveNurse_->wishesOffLevel(k, rcSol->shift(k));
+    if (level != -1)
+      rcSol->addCost(pScenario_->weights().WEIGHT_PREFERENCES_OFF[level],
+                     PREFERENCE_COST);
+    level = pLiveNurse_->wishesOnLevel(k, rcSol->shift(k));
+    if (level != -1)
+      rcSol->addCost(pScenario_->weights().WEIGHT_PREFERENCES_ON[level],
+                     PREFERENCE_COST);
+  }
 }

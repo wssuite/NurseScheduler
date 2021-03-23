@@ -24,8 +24,11 @@ class RosterSP : public SubProblem {
   // but NOT THE COST
   RosterSP(PScenario scenario,
                 int nbDays,
-                PConstContract contract,
-                std::vector<State> *pInitState);
+                PConstContract contract);
+
+  RosterSP(PScenario scenario,
+           int nbDays,
+           PLiveNurse pNurse);
 
   virtual ~RosterSP();
 
@@ -34,6 +37,8 @@ class RosterSP : public SubProblem {
   double shiftCost(int a) const override;
 
   double endWorkCost(int a) const override;
+
+  void computeCost(MasterProblem *, RCSolution *rcSol) const override;
 
  protected:
   //----------------------------------------------------------------

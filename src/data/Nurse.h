@@ -209,6 +209,7 @@ class Nurse {
   Nurse(int id,
         std::string name,
         int nShifts,
+        int nSkills,
         std::vector<int> skills,
         std::vector<int> availableShifts,
         PConstContract contract);

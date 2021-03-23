@@ -149,7 +149,7 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
   // pay attention that consumptions in the label of the source should not
   // exceed the upper bounds
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addCost(
+    pLChild->addBaseCost(
         resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
 #ifdef DBG
     pLChild->addConsWeekendShiftCost(
@@ -177,7 +177,7 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
   // pay for violations of soft bounds when resetting a resource
   // Should check if the resource has been consumed on last weekend
   if (vChild->consumption  > 0) {
-    pLChild->addCost(resource_.getLbCost(vChild->consumption));
+    pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
 #ifdef DBG
     pLChild->addConsWeekendShiftCost(resource_.getLbCost(vChild->consumption));
 #endif

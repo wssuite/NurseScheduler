@@ -546,6 +546,7 @@ string Preferences::toString(PScenario pScenario) const {
 Nurse::Nurse(int id,
              string name,
              int nshifts,
+             int nSkills,
              vector<int> skills,
              std::vector<int> availableShifts,
              PConstContract contract) :
@@ -554,7 +555,7 @@ Nurse::Nurse(int id,
     skills_(std::move(skills)),
     availableShifts_(std::move(availableShifts)),
     pContract_(std::move(contract)),
-    hasSkill_(skills_.size(), false),
+    hasSkill_(nSkills, false),
     isAvailableShifts_(nshifts, false) {
   // Verify that the vector of skills is sorted
   //
@@ -568,7 +569,7 @@ Nurse::Nurse(int id,
                         "or some skill is repeated!");
 
   // build hasSkill_
-  for (int sk : skills)
+  for (int sk : skills_)
     hasSkill_[sk] = true;
 
   // build isAvailableShifts_

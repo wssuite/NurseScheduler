@@ -175,6 +175,11 @@ class RCSPPSubProblem : public SubProblem {
 
   // run the actual solution of the RCSPP once every preprocessing is done
   bool solveRCGraph() override;
+
+  // compute the cost of a given rcSol
+  void computeResourcesCosts(const State &initialState,
+                             MasterProblem *pMaster,
+                             RCSolution *rcSol) const;
 };
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPPSUBPROBLEM_H_

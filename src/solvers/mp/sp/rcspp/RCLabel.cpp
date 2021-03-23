@@ -19,7 +19,8 @@ RCLabel::RCLabel(): num_(-1),
                     pOutArc_(nullptr),
                     pPreviousLabel_(nullptr),
                     pNextLabel_(nullptr),
-                    cost_(0) {
+                    cost_(0),
+                    baseCost_(0) {
 #ifdef DBG
   baseCost_ = 0;
   dualCost_ = 0;
@@ -48,6 +49,7 @@ RCLabel::RCLabel(const RCLabel &l): RCLabel() {
 
 void RCLabel::setAsNext(const PRCLabel &pLPrevious, const PRCArc &pArc) {
   cost_ = pLPrevious->cost();
+  baseCost_ = pLPrevious->baseCost();
   resourceValues_ = pLPrevious->allResourceValues();
   pNode_ = pArc->target;
   pInArc_ = pArc;
@@ -68,6 +70,7 @@ void RCLabel::setAsPrevious(const shared_ptr<RCLabel> &pLNext,
                             const shared_ptr<RCArc> &pArc) {
   pNextLabel_ = pLNext;
   cost_ = pLNext->cost();
+  baseCost_ = pLNext->baseCost();
   resourceValues_ = pLNext->allResourceValues();
   pNode_ = pArc->origin;
   pInArc_ = nullptr;
@@ -89,6 +92,7 @@ void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
   pPreviousLabel_ = pLForward->getPreviousLabel();
   pNextLabel_ = pLBackward->getNextLabel();
   cost_ = pLForward->cost() + pLBackward->cost();
+  baseCost_ = pLForward->baseCost() + pLBackward->baseCost();
   resourceValues_ = pLForward->allResourceValues();
   for (auto& r : resourceValues_) {
     r.consumption = 0;
@@ -100,6 +104,7 @@ void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
 
 void RCLabel::copy(const RCLabel &l) {
   cost_ = l.cost_;
+  baseCost_ = l.baseCost_;
   resourceValues_ = l.resourceValues_;
   pNode_ = l.pNode_;
   pInArc_ = l.pInArc_;
@@ -118,7 +123,7 @@ void RCLabel::copy(const RCLabel &l) {
 
 std::string RCLabel::toString(const vector<PResource> &pResources) const {
   std::stringstream rep;
-  rep << "Label: cost=" << cost();
+  rep << "Label: cost=" << cost() << ", baseCost=" << baseCost();
 #ifdef DBG
   if (consShiftCost_ > 1e-3)
     rep << ", consShiftCost="
@@ -199,8 +204,8 @@ bool SoftBoundedResource::merge(const ResourceValues &vForward,
                                 ResourceValues *vMerged,
                                 const PRCLabel &pLMerged) {
   vMerged->consumption = vForward.consumption + vBack.consumption;
-  pLMerged->addCost(getUbCost(vMerged->consumption));
-  pLMerged->addCost(getLbCost(vMerged->consumption));
+  pLMerged->addBaseCost(getUbCost(vMerged->consumption));
+  pLMerged->addBaseCost(getLbCost(vMerged->consumption));
   return true;
 }
 

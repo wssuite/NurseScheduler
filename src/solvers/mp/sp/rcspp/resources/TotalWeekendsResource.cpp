@@ -73,14 +73,14 @@ bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
   pLChild->addTotalWeekendCost(resource_.getUbCost(vChild->consumption));
 #endif
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addCost(resource_.getUbCost(vChild->consumption));
+    pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
 
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
   }
 
   if (arcToSink_) {
-    pLChild->addCost(resource_.getLbCost(vChild->consumption));
+    pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
 #ifdef DBG
     pLChild->addTotalWeekendCost(resource_.getLbCost(vChild->consumption));
 #endif
@@ -118,7 +118,7 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
   // check UB cost at every node, but LB cost only when merging with the
   // initial label
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addCost(resource_.getUbCost(vChild->consumption));
+    pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
 
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();

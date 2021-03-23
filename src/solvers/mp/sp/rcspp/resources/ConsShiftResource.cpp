@@ -113,7 +113,7 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
   // pay attention that consumptions in the label of the source should not
   // exceed the upper bounds
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addCost(
+    pLChild->addBaseCost(
         resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
 #ifdef DBG
     pLChild->addConsShiftCost(
@@ -140,7 +140,7 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
 #endif
 
   // pay for violations of soft bounds when resetting a resource
-  pLChild->addCost(resource_.getLbCost(vChild->consumption));
+  pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
 #ifdef DBG
   pLChild->addConsShiftCost(resource_.getLbCost(vChild->consumption));
 #endif
@@ -181,10 +181,10 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
       // pay lower bound consumption only if the consecutive shifts did not end
       // at a sink
       if (vChild->consumption < nDaysLeft + 1)
-        pLChild->addCost(resource_.getLbCost(vChild->consumption));
+        pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
       // pay for excess of consumption at reset
       if (vChild->consumption > resource_.getUb()) {
-        pLChild->addCost(
+        pLChild->addBaseCost(
             resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
       }
     }
@@ -193,7 +193,7 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
   }
   // pay for excess of consumption due to this expansion
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addCost(
+    pLChild->addBaseCost(
         resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
     // beware: we never need to store a consumption larger than the upper
     // bound
@@ -206,7 +206,7 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
     // pay lower bound consumption only if the consecutive shifts did not end
     // at a sink
     if (vChild->consumption != nDaysLeft + 1)
-      pLChild->addCost(resource_.getLbCost(vChild->consumption));
+      pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
     vChild->consumption = 0;
     vChild->worstLbCost = 0;
     vChild->worstUbCost = 0;

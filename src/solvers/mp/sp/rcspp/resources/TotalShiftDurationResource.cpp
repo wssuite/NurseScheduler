@@ -37,7 +37,8 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   int nDaysLeft = r.totalNbDays() + r.firstDay() - firstLastDays.second - 1;
 
   return std::make_shared<E>(
-      r, consumption, nDaysBefore, nDaysLeft, pArc->target->type == SINK_NODE);
+      r, consumption, nDaysBefore * r.maxDuration(),
+      nDaysLeft  * r.maxDuration(), pArc->target->type == SINK_NODE);
 }
 
 int SoftTotalShiftDurationResource::getConsumption(
@@ -59,7 +60,7 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
     vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
-                                                   nDaysLeft);
+                                                   maxDurationLeft);
     return true;
   }
 
@@ -68,7 +69,7 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
 
   // pay for excess of consumption due to this expansion
   if (vChild->consumption  > resource_.getUb()) {
-    pLChild->addCost(resource_.getUbCost(vChild->consumption));
+    pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
 #ifdef DBG
     pLChild->addTotalShiftCost(resource_.getUbCost(vChild->consumption));
 #endif
@@ -76,7 +77,7 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
     vChild->consumption = resource_.getUb();
   }
   if (arcToSink_ && vChild->consumption < resource_.getLb()) {
-    pLChild->addCost(resource_.getLbCost(vChild->consumption));
+    pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
 #ifdef DBG
     pLChild->addTotalShiftCost(resource_.getLbCost(vChild->consumption));
 #endif
@@ -85,7 +86,7 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
   // Setting 'worst case cost'
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
-                                                 nDaysLeft);
+                                                 maxDurationLeft);
 
   return true;
 }
@@ -96,7 +97,7 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
 
   // pay for excess of consumption due to this expansion
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addCost(resource_.getUbCost(vChild->consumption));
+    pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
 
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
@@ -106,7 +107,7 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
   // Setting 'worst case cost'
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost =
-      resource_.getWorstUbCost(vChild->consumption, nDaysBefore);
+      resource_.getWorstUbCost(vChild->consumption, maxDurationBefore);
 
   return true;
 }
@@ -135,7 +136,7 @@ bool HardTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
 
   // if will reach the end while remaining lower than LB -> return false
   // otherwise true
-  return vChild->consumption + nDaysLeft >= resource_.getLb();
+  return vChild->consumption + maxDurationLeft >= resource_.getLb();
 }
 
 bool HardTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,

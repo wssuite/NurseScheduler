@@ -40,10 +40,7 @@ using std::pair;
 //-----------------------------------------------------------------------------
 
 DeterministicSolver::DeterministicSolver(PScenario pScenario) :
-    Solver(pScenario,
-           pScenario->pWeekDemand(),
-           pScenario->pWeekPreferences(),
-           pScenario->pInitialState()),
+    Solver(pScenario),
     pCompleteSolver_(nullptr),
     pRollingSolver_(nullptr),
     pLNSSolver_(nullptr) {
@@ -55,10 +52,7 @@ DeterministicSolver::DeterministicSolver(PScenario pScenario) :
 
 DeterministicSolver::DeterministicSolver(PScenario pScenario,
                                          const InputPaths &inputPaths) :
-    Solver(pScenario,
-           pScenario->pWeekDemand(),
-           pScenario->pWeekPreferences(),
-           pScenario->pInitialState()),
+    Solver(pScenario),
     pCompleteSolver_(nullptr), pRollingSolver_(nullptr), pLNSSolver_(nullptr) {
   std::cout << "# New deterministic solver created!" << std::endl;
 
@@ -478,8 +472,7 @@ double DeterministicSolver::solveCompleteHorizon(
   //
   bool firstSolve = !pCompleteSolver_;
   delete pCompleteSolver_;
-  pCompleteSolver_ = setSolverWithInputAlgorithm(pDemand_,
-                                                 options_.solutionAlgorithm_,
+  pCompleteSolver_ = setSolverWithInputAlgorithm(options_.solutionAlgorithm_,
                                                  completeParameters_);
   pCompleteSolver_->solve(completeParameters_, solution);
   if (options_.verbose_ > 0 && pCompleteSolver_->isSolutionInteger()) {
@@ -660,8 +653,7 @@ double DeterministicSolver::solveWithRollingHorizon(
   //
   bool firstSolve = !pRollingSolver_;
   delete pRollingSolver_;
-  pRollingSolver_ = setSolverWithInputAlgorithm(pDemand_,
-                                                options_.solutionAlgorithm_,
+  pRollingSolver_ = setSolverWithInputAlgorithm(options_.solutionAlgorithm_,
                                                 rollingParameters_);
   pRollingSolver_->solution(solution);
 
@@ -740,8 +732,8 @@ double DeterministicSolver::solveWithRollingHorizon(
       pRollingSolver_->isSolutionInteger()) {
     double UB = computeSolutionCost();
     // If UB is not optimal over the whole horizon
-    if (UB > LB + rollingParameters_.absoluteGap_ -
-        pRollingSolver_->epsilon())
+    if (UB + pRollingSolver_->epsilon()
+        > LB + rollingParameters_.optimalAbsoluteGap_)
       pRollingSolver_->status(FEASIBLE);
   }
 
@@ -1128,25 +1120,17 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 
 // Return a solver with the input algorithm
 Solver *DeterministicSolver::setSolverWithInputAlgorithm(
-    PDemand pDemand, Algorithm algorithm, const SolverParam &param) {
+    Algorithm algorithm, const SolverParam &param) {
   Solver *pSolver = nullptr;
   switch (algorithm) {
     case GENCOL:
       switch (param.sp_type_) {
         case LONG_ROTATION:
         case ALL_ROTATION:
-          pSolver = new RotationMP(pScenario_,
-                                   pDemand,
-                                   pScenario_->pWeekPreferences(),
-                                   pScenario_->pInitialState(),
-                                   options_.MySolverType_);
+          pSolver = new RotationMP(pScenario_, options_.MySolverType_);
           break;
         case ROSTER:
-          pSolver = new RosterMP(pScenario_,
-                                 pDemand,
-                                 pScenario_->pWeekPreferences(),
-                                 pScenario_->pInitialState(),
-                                 options_.MySolverType_);
+          pSolver = new RosterMP(pScenario_, options_.MySolverType_);
           break;
         default:Tools::throwError("The subproblem type is not handled yet");
       }

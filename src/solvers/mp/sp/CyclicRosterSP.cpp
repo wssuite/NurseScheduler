@@ -107,6 +107,37 @@ void OffsetRosterSP::createArcs(const PRCGraph &pRCGraph) {
   }
 }
 
+bool OffsetRosterSP::postprocess() {
+  for (RCSolution &sol : theSolutions_) {
+#ifdef DBG
+    if (sol.firstDay() != firstDay_)
+      Tools::throwError("The RC solution and the offset grapb do not start "
+                        "on the same day.");
+    if (sol.pShifts().back()->isWork())
+      Tools::throwError(
+          "A cyclic roster cannot work on the last day before being erased.");
+#endif
+    sol.eraseBack();  // erase last rest shift
+#ifdef DBG
+    if (sol.pShifts().back()->isRest())
+      Tools::throwError(
+          "A cyclic roster cannot rest on the last day before being rotated "
+          "back to a normal roster.");
+#endif
+    // put the last n shifts at the start of the roster
+    sol.rotate(sol.firstDay());
+
+#ifdef DBG
+    if (sol.firstDay() != 0)
+      Tools::throwError("A roster cannot have a first day different of 0");
+    if (nDays() != sol.nDays())
+      Tools::throwError("A roster cannot have a length "
+                        "that is different than the number of days.");
+#endif
+  }
+  return true;
+}
+
 CyclicRosterSP::CyclicRosterSP(PScenario pScenario,
                    int nDays,
                    PLiveNurse nurse,
@@ -179,4 +210,108 @@ POffsetRosterSP CyclicRosterSP::popOffsetFront() {
   POffsetRosterSP pSP = offsetSPs_.front();
   offsetSPs_.pop_front();
   return pSP;
+}
+
+void CyclicRosterSP::computeCost(
+    MasterProblem *pMaster, RCSolution *rcSol) const {
+  // check if need to rotate
+  bool rotate = rcSol->firstDay() == 0 && rcSol->pShifts().front()->isWork();
+#ifdef DBG
+  if (rcSol->pShifts().front()->isWork())
+    Tools::throwError(
+        "A cyclic roster cannot work on the first day before being rotated.");
+  if (rcSol->pShifts().back()->isWork())
+    Tools::throwError(
+        "A cyclic roster cannot work on the last day before being erased.");
+#endif
+
+  if (rotate) {
+    // Find the first rest day to rotate and put the first day on a rest.
+    int fDay = 0;
+    for (const PShift &pS : rcSol->pShifts()) {
+      if (pS->isRest()) break;
+      ++fDay;
+    }
+    // rotate to set the first day to fDay
+    rcSol->rotate(-fDay-1);
+    // add a rest shift at the end
+    rcSol->addBack(Stretch(rcSol->lastDay(), pScenario_->pShift(0)));
+  }
+
+#ifdef DBG
+  double cost = rcSol->cost();
+#endif
+  /*
+  * Compute resources costs
+  */
+  computeResourcesCosts(*pLiveNurse_->pStateIni_, pMaster, rcSol);
+
+  /*
+ * Compute complete weekend
+ */
+  if (pLiveNurse_->needCompleteWeekends()) {
+    int k = rcSol->firstDay();
+    bool rest = false;
+    for (const PShift &pS : rcSol->pShifts()) {
+      // on sunday, if complete weekend, it's either:
+      // work on saturday (rest=false) and sunday
+      // rest on saturday (rest=true) and sunday
+      if (Tools::isSunday(k) && (rest ^ pS->isRest()))
+        rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+                       COMPLETE_WEEKEND_COST);
+      rest = pS->isRest();
+      k++;
+    }
+  }
+
+  /*
+   * Compute preferencesCost
+   */
+  for (int k = rcSol->firstDay(); k <= rcSol->lastDay(); ++k) {
+    int level =
+        pLiveNurse_->wishesOffLevel(k % rcSol->nDays(), rcSol->shift(k));
+    if (level != -1)
+      rcSol->addCost(pScenario_->weights().WEIGHT_PREFERENCES_OFF[level],
+                     PREFERENCE_COST);
+    level = pLiveNurse_->wishesOnLevel(k % rcSol->nDays(), rcSol->shift(k));
+    if (level != -1)
+      rcSol->addCost(pScenario_->weights().WEIGHT_PREFERENCES_ON[level],
+                     PREFERENCE_COST);
+  }
+#ifdef DBG
+  if (std::abs(cost - rcSol->cost()) > 1e-3) {
+    std::cerr << "# " << std::endl;
+    std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
+              << std::endl;
+    std::cerr << rcSol->costsToString();
+    std::cerr << rcSol->toString();
+    std::cerr << "# " << std::endl;
+    Tools::throwError("RosterSP::computeCost does not get the same cost.");
+  }
+#endif
+
+  if (rotate) {
+#ifdef DBG
+    if (rcSol->pShifts().back()->isWork())
+      Tools::throwError(
+          "A cyclic roster cannot work on the last day before being erased.");
+#endif
+    rcSol->eraseBack();  // erase last rest shift
+#ifdef DBG
+    if (rcSol->pShifts().back()->isRest())
+      Tools::throwError(
+          "A cyclic roster cannot rest on the last day before being rotated "
+          "back to a normal roster.");
+#endif
+    // put the last n shifts at the start of the roster
+    rcSol->rotate(rcSol->firstDay());
+
+#ifdef DBG
+    if (rcSol->firstDay() != 0)
+      Tools::throwError("A roster cannot have a first day different of 0");
+    if (nDays() != pMaster->nDays())
+      Tools::throwError("A roster cannot have a length "
+                        "that is different than the number of days.");
+#endif
+  }
 }

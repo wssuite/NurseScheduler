@@ -198,9 +198,13 @@ string RestTree::writeOneStat(string name,
 void RestTree::reset() {
   MyTree::reset();
   statsRestByDay_.clear();
+  statsRestByDay_.resize(pDemand_->nDays_);
   statsWorkByDay_.clear();
+  statsWorkByDay_.resize(pDemand_->nDays_);
   statsRestByNurse_.clear();
+  statsRestByNurse_.resize(pScenario_->nNurses());
   statsWorkByNurse_.clear();
+  statsWorkByNurse_.resize(pScenario_->nNurses());
   statsCols_.first = 0;
   statsCols_.second = 0;
 }
@@ -319,7 +323,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
       continue;
     }
     if (value > pModel_->epsilon())
-      candidates.push_back(pair<MyVar *, double>(var, 1 - value));
+      candidates.emplace_back(pair<MyVar *, double>(var, 1 - value));
   }
 
   stable_sort(
@@ -327,7 +331,7 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
 
   // Try the branching that mimics the heuristic
   if (pModel_->getParameters().branchColumnUntilValue_) {
-    if (candidates.size() > 0) {
+    if (!candidates.empty()) {
       double valueLeft = 1 - pModel_->epsilon();
       for (pair<MyVar *, double> &p : candidates) {
         if (p.second > valueLeft)
@@ -431,11 +435,12 @@ bool DiveBranchingRule::branching_candidates(MyBranchingCandidate *candidate) {
 void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
   // try to find a fractional coverage which is surrounded by
   // fractional coverage
-  // count only to 90% the other variables
+  // count only to a certain ratio (discount) of the other variables
   // Need a certain score to branch:
   // if minScore > .5, the fractional coverage is surrounded by other fractional
-  double discount = .9, minScore = .6;
-  const vector4D<MyVar *> &skillsAllocVars = pMaster_->getSkillsAllocVars();
+  double discount = .7, minScore = pModel_->epsilon();
+  const vector4D<MyVar*> &skillsAllocVars = pMaster_->getSkillsAllocVars();
+  const vector3D<MyCons*> &optDemandCons = pMaster_->getOptDemandCons();
 
   // find best variable on which to branch: the closest to .5 and surrounded
   // by fractional on the same shift: the day before and after for any skill
@@ -447,44 +452,47 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
   for (int k = 0; k < nbDays; ++k)
     for (int s = 1; s < nbShifts; ++s) {
       double &dailyScore = dailyShiftScores[s - 1][k];
-      for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk) {
-        double v = pModel_->getVarValue(skillsAllocVars[k][s - 1][sk]);
-        dailyScore += std::min(ceil(v) - v, v - floor(v));
-      }
+      double v = pModel_->getVarValue(skillsAllocVars[k][s - 1]);
+      double frac = std::min(ceil(v) - v, v - floor(v));
+      dailyScore += frac;
     }
   // 2 - find best one
-  int bestDay = -1, bestShift = -1, bestSkill = -1;
+  int bestDay = -1, bestShift = -1;
   double bestScore = 0;
   for (int s = 1; s < nbShifts; ++s) {
+    const auto &dailyScores = dailyShiftScores[s - 1];
     double dailyScore = 0;  // score on the day
     for (int k = 0; k < nbDays; ++k) {
       // update prevScore with previous dailyScore
       double prevScore = dailyScore;
       // score on current day and next one
-      dailyScore = dailyShiftScores[s - 1][k];
+      dailyScore = dailyScores[k];
       // if 0 -> no fractional variable -> go to next day
-      if (dailyScore == 0) continue;
-      double nextScore = k < nbDays - 1 ? dailyShiftScores[s - 1][k + 1] : 0;
-      double score = discount * (prevScore + dailyScore + nextScore);
-//      for (int sk = 0; sk < pMaster_->getScenario()->nbSkills(); ++sk) {
-//        // count at 100% current day and skill
-//        double v = pModel_->getVarValue(skillsAllocVars[k][s - 1][sk]);
-//        double sc = (1 - discount) * std::min(ceil(v) - v, v - floor(v));
+      if (dailyScore < pModel_->epsilon()) continue;
+      double nextScore = k < nbDays - 1 ? dailyScores[k + 1] : 0;
+      double score = dailyScore + discount * (prevScore + nextScore);
       // check if best
       if (score > bestScore) {
         bestScore = score;
         bestDay = k;
         bestShift = s;
-//          bestSkill = sk;
-//        }
       }
     }
   }
 
   // if did not find enough fractional coverage -> stop
-  if (bestScore < minScore) return;
+  if (bestScore < minScore) {
+#ifdef DBG
+    std::cout << pMaster_->currentSolToString() << std::endl;
+    std::cout << pMaster_->allocationToString() << std::endl;
+    std::cout << pMaster_->coverageToString() << std::endl;
+#endif
+    return;
+  }
 
+#ifdef DBG
   std::cout << pMaster_->coverageToString() << std::endl;
+#endif
 
   // otherwise, build children
   int indexFloor = candidate->createNewChild(),
@@ -503,8 +511,8 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
 
   // create a new cons
   char name[50];
-  snprintf(name, sizeof(name), "CoverageCons_%d_%d_%d",
-           bestDay, bestShift, bestSkill);
+  snprintf(name, sizeof(name), "CoverageCons_%d_%d",
+           bestDay, bestShift);
   MyCons *cut;
   pModel_->createCutLinear(
       &cut, name, 0, pMaster_->nNurses(), vars, coeffs);
@@ -512,7 +520,7 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
   /* update candidate */
   int index = candidate->addNewBranchingCons(cut);
   double v = pModel_->getVarValue(
-      skillsAllocVars[bestDay][bestShift - 1]);  // [bestSkill]
+      skillsAllocVars[bestDay][bestShift - 1]);
   floorNode.setRhs(index, floor(v));
   ceilNode.setLhs(index, ceil(v));
 
@@ -546,7 +554,14 @@ void DiveBranchingRule::branchOnOptDemand(MyBranchingCandidate *candidate) {
       }
     }
 
-  if (bestVar == nullptr) return;
+  if (bestVar == nullptr) {
+#ifdef DBG
+    std::cout << pMaster_->currentSolToString() << std::endl;
+    std::cout << pMaster_->allocationToString() << std::endl;
+    std::cout << pMaster_->coverageToString() << std::endl;
+#endif
+    return;
+  }
 
   // otherwise, build children
   int indexFloor = candidate->createNewChild(),

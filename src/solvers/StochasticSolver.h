@@ -262,8 +262,6 @@ class StochasticSolver : public Solver {
   // Return a solver with the algorithm specified for schedule EVALUATION
   Solver *setEvaluationWithInputAlgorithm(
       PDemand pDemand, std::vector<State> *stateEndOfSchedule);
-  // Initialization
-  void initScheduleEvaluation(int sched);
   // Evaluate 1 schedule and store the corresponding detailed results
   // (returns false if time has run out)
   bool evaluateSchedule(int sched);

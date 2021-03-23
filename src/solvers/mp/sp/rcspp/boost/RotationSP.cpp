@@ -11,14 +11,22 @@
 
 #include "RotationSP.h"
 
+#include <algorithm>
+
 namespace boostRCSPP {
 
 RotationSP::RotationSP(PScenario scenario,
                                  int nbDays,
-                                 PConstContract contract,
-                                 std::vector<State> *pInitState) :
-    SubProblem(scenario, nbDays, contract, pInitState) {
+                                 PConstContract contract) :
+    SubProblem(scenario, nbDays, contract) {
   labels_ = {CONS_DAYS};
+}
+
+RotationSP::RotationSP(PScenario scenario,
+                       int nbDays,
+                       PLiveNurse pNurse) :
+    RotationSP(scenario, nbDays, pNurse->pContract_) {
+  pLiveNurse_ = pNurse;
 }
 
 RotationSP::~RotationSP() {}
@@ -192,6 +200,143 @@ double RotationSP::endWorkCost(int a) const {
     cost += endWeekendCosts_[end];
   cost -= pCosts_->endWorkCost(end);
   return cost;
+}
+
+void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
+  /************************************************
+   * Compute all the costs of a rotation:
+   ************************************************/
+#ifdef DBG
+  double cost = rcSol->cost();
+#endif
+  rcSol->resetCosts();
+
+  // if first day of the planning, check on the past, otherwise 0 (rest)
+  int lastShiftType = (rcSol->firstDay() == 0) ?
+      pLiveNurse_->pStateIni_->shiftType_ : -1;
+  // nbConsShift = number of consecutive shift
+  // if first day of the planning, check on the past, otherwise 0
+  int nbConsShifts = (rcSol->firstDay() == 0) ?
+      pLiveNurse_->pStateIni_->consShifts_ : 0;
+
+  // nbConsWorked = number of consecutive worked days
+  // if first day of the planning, check on the past , otherwise 0
+  int nbConsDaysWorked =
+      (rcSol->firstDay() == 0) ? pLiveNurse_->pStateIni_->consDaysWorked_ : 0;
+
+  /*
+   * Compute consShiftCost
+   */
+
+  // if the initial shift has already exceeded the max, substract now the cost
+  // that will be readd later
+  if ((rcSol->firstDay() == 0) && (lastShiftType > 0) &&
+      (nbConsShifts > pScenario_->maxConsShiftsOf(lastShiftType))) {
+    rcSol->addCost(-(nbConsShifts - pScenario_->maxConsShiftsOf(lastShiftType))
+                       * pScenario_->weights().WEIGHT_CONS_SHIFTS,
+                   CONS_SHIFTS_COST);
+  }
+
+  for (int k = rcSol->firstDay(); k <= rcSol->lastDay(); ++k) {
+    const PShift &pS = rcSol->pShift(k);
+    if (lastShiftType == pS->type) {
+      nbConsShifts++;
+      continue;
+    }
+    if (lastShiftType > 0) {
+      int diff =
+          std::max(pScenario_->minConsShiftsOf(lastShiftType) - nbConsShifts,
+                   nbConsShifts - pScenario_->maxConsShiftsOf(lastShiftType));
+      if (diff > 0)
+        rcSol->addCost(diff * pScenario_->weights().WEIGHT_CONS_SHIFTS,
+                       CONS_SHIFTS_COST);
+    }
+    // initialize nbConsShifts and lastShift
+    nbConsShifts = 1;
+    lastShiftType = pS->type;
+  }
+
+  // compute consShiftsCost for the last shift
+  if (lastShiftType > 0) {
+    int diff =
+        std::max((rcSol->lastDay()+1 == nDays()) ? 0 :
+                 pScenario_->minConsShiftsOf(lastShiftType) - nbConsShifts,
+                 nbConsShifts - pScenario_->maxConsShiftsOf(lastShiftType));
+    if (diff > 0)
+      rcSol->addCost(diff * pScenario_->weights().WEIGHT_CONS_SHIFTS,
+                     CONS_SHIFTS_COST);
+  }
+
+
+  /*
+   * Compute consDaysWorkedCost
+   */
+
+  // if already worked too much
+  double diffDays =
+      nbConsDaysWorked - pLiveNurse_->pContract_->maxConsDaysWork_;
+  rcSol->addCost(diffDays > 0 ?
+                 -diffDays * pScenario_->weights().WEIGHT_CONS_DAYS_WORK : 0,
+                 CONS_WORK_COST);
+
+  nbConsDaysWorked += rcSol->nDays();
+  // check if nbConsDaysWorked < min, if finishes on last day, does not count
+  // nbConsDaysWorked > 0, normally should always be the case,
+  // but could for the initial variables of the rotation graph
+  if (nbConsDaysWorked > 0 && nbConsDaysWorked < pLiveNurse_->minConsDaysWork()
+      && rcSol->lastDay() + 1 < nDays())
+    rcSol->addCost((pLiveNurse_->minConsDaysWork() - nbConsDaysWorked)
+                       * pScenario_->weights().WEIGHT_CONS_DAYS_WORK,
+                   CONS_WORK_COST);
+  else if (nbConsDaysWorked > pLiveNurse_->maxConsDaysWork())
+    // check if nbConsDaysWorked > max
+    rcSol->addCost((nbConsDaysWorked - pLiveNurse_->maxConsDaysWork())
+                       * pScenario_->weights().WEIGHT_CONS_DAYS_WORK,
+                   CONS_WORK_COST);
+
+  /*
+   * Compute completeWeekendCost
+   */
+  if (pLiveNurse_->needCompleteWeekends()) {
+    // if first day is a Sunday, the saturday is not worked
+    if (Tools::isSunday(rcSol->firstDay()))
+      rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+          COMPLETE_WEEKEND_COST);
+    // if last day + 1 is a Sunday, the sunday is not worked
+    if (Tools::isSunday(rcSol->lastDay()+1))
+      rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+                     COMPLETE_WEEKEND_COST);
+  }
+
+  computePreferencesCost(rcSol);
+
+  /*
+   * Compute initial resting cost if rotation not empty
+   * (used to price initial rest arcs)
+   */
+  if (rcSol->firstDay() == 0 && rcSol->nDays() > 0 &&
+      pLiveNurse_->pStateIni_->shiftType_ == 0) {
+    int diff =
+        pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
+    rcSol->addCost(
+        (diff > 0) ? diff * pScenario_->weights().WEIGHT_CONS_DAYS_OFF : 0,
+        CONS_REST_COST);
+  }
+
+  /*
+   * Compute the sum of the cost and stores it in cost_
+   */
+#ifdef DBG
+  if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > 1e-3) {
+    std::cerr << "# " << std::endl;
+    std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
+              << std::endl;
+    std::cerr << rcSol->costsToString();
+    std::cerr << rcSol->toString();
+    std::cerr << "# " << std::endl;
+    Tools::throwError("boostRCSPP::computeCost does not get the same cost.");
+  }
+#endif
 }
 
 }  // namespace boostRCSPP

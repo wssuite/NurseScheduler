@@ -43,227 +43,6 @@ void RosterPattern::addForbiddenShifts(
       forbidenShifts->insert(std::pair<int, int>(day, i));
 }
 
-void RosterPattern::computeCost(const MasterProblem *pMaster,
-                                const PLiveNurse &pNurse) {
-  // check if pNurse points to a nurse
-  if (nurseNum_ == -1)
-    Tools::throwError("LiveNurse = NULL");
-
-  /************************************************
- * Compute all the costs of a roster:
- ************************************************/
-  PScenario pScenario = pMaster->pScenario();
-
-  /*
-  * Compute resources costs
-  */
-  cost_ = 0;
-  computeResourcesCosts(pMaster, *pNurse->pStateIni_);
-
-  // if cyclic roster -> set the first day to 0 and remove last rest shift
-  if (pScenario->isCyclic()) {
-#ifdef DBG
-    if (pShifts_.back()->isWork())
-      Tools::throwError(
-          "A cyclic roster cannot work on the last day before being erased.");
-#endif
-    eraseBack();  // erase last rest shift
-#ifdef DBG
-    if (pShifts_.back()->isRest())
-      Tools::throwError(
-          "A cyclic roster cannot rest on the last day before being rotated "
-          "back to a normal roster.");
-#endif
-    // put the last n shifts at the start of the roster
-    rotate(firstDay());
-  }
-#ifdef DBG
-  if (firstDay() != 0)
-    Tools::throwError("A roster cannot have a first day different of 0");
-  if (nDays() != pMaster->nDays())
-    Tools::throwError("A roster cannot have a length "
-                      "that is different than the number of days.");
-#endif
-
-  /*
-   * Compute complete weekend
-   */
-  if (pNurse->needCompleteWeekends()) {
-    int k = 0;
-    bool rest = false;
-    for (const PShift &pS : pShifts()) {
-      // on sunday, if complete weekend, it's either:
-      // work on saturday (rest=false) and sunday
-      // rest on saturday (rest=true) and sunday
-      if (Tools::isSunday(k) && (rest ^ pS->isRest()))
-        addCost(pScenario->weights().WEIGHT_COMPLETE_WEEKEND,
-                COMPLETE_WEEKEND_COST);
-      rest = pS->isRest();
-      k++;
-    }
-  }
-
-  /*
-   * Compute preferencesCost
-   */
-  for (int k = firstDay(); k <= lastDay(); ++k) {
-    int level = pNurse->wishesOffLevel(k, shift(k));
-    if (level != -1)
-      addCost(pScenario->weights().WEIGHT_PREFERENCES_OFF[level],
-              PREFERENCE_COST);
-    level = pNurse->wishesOnLevel(k, shift(k));
-    if (level != -1)
-      addCost(pScenario->weights().WEIGHT_PREFERENCES_ON[level],
-              PREFERENCE_COST);
-  }
-}
-
-void RosterPattern::checkDefaultCost(const MasterProblem *pMaster,
-                                     const PLiveNurse &pNurse) const {
-  // check if pNurse points to a nurse
-  if (nurseNum_ == -1)
-    Tools::throwError("LiveNurse = NULL");
-
-  /************************************************
-   * Compute all the costs of a roster:
-   ************************************************/
-  PScenario pScenario = pMaster->pScenario();
-
-  // initialize costs
-  double cost = 0;
-
-  /*
-   * Compute initial cost
-   */
-
-  // initial state of the nurse
-  int lastShiftType = pNurse->pStateIni_->shiftType_;
-  int nbConsShifts = pNurse->pStateIni_->consShifts_;
-  int nbConsDaysWorked = pNurse->pStateIni_->consDaysWorked_;
-  int nbConsDaysOff = pNurse->pStateIni_->consDaysOff_;
-
-  // 1. if the initial shift has already exceeded the max,
-  // fix these values to the UB to not pay it twice
-  if (lastShiftType > 0) {  // was working
-    if (nbConsShifts > pScenario->maxConsShiftsOf(lastShiftType))
-      nbConsShifts = pScenario->maxConsShiftsOf(lastShiftType);
-    if (nbConsDaysWorked > pNurse->maxConsDaysWork())
-      nbConsDaysWorked = pNurse->maxConsDaysWork();
-  } else if (nbConsShifts > pNurse->maxConsDaysOff()) {
-    nbConsDaysOff = pNurse->maxConsDaysOff();
-  }
-
-  // 2. compute the cost
-  for (const PShift &pS : pShifts()) {
-    // a. same shift type -> increment the counters
-    if (lastShiftType == pS->type) {
-      if (pS->isWork()) {
-        nbConsShifts++;
-        nbConsDaysWorked++;
-      } else {
-        nbConsDaysOff++;
-      }
-      continue;
-    }
-    // b. different shift type -> add the corresponding cost
-    // i) goes to rest
-    if (pS->isRest()) {
-      // compute cost
-      cost += pScenario->consShiftTypeCost(lastShiftType, nbConsShifts);
-      cost += pNurse->consDaysCost(nbConsDaysWorked);
-      // update counters
-      nbConsShifts = 0;
-      nbConsDaysWorked = 0;
-      nbConsDaysOff = 1;
-    } else if (lastShiftType == 0) {
-      // ii) goes to work
-      // compute cost
-      cost += pNurse->consDaysOffCost(nbConsDaysOff);
-      // update counters
-      nbConsDaysOff = 0;
-      nbConsDaysWorked = 1;
-      nbConsShifts = 1;
-    } else {
-      // iii) continue to work on a different shift
-      // compute cost
-      cost += pScenario->consShiftTypeCost(lastShiftType, nbConsShifts);
-      // update counters
-      nbConsShifts = 1;
-      nbConsDaysWorked++;
-    }
-    // update
-    lastShiftType = pS->type;
-  }
-
-  // pay the max for last day
-  if (nbConsDaysOff > pNurse->maxConsDaysOff())
-    cost += pNurse->consDaysOffCost(nbConsDaysOff);
-  if (lastShiftType > 0
-      && nbConsShifts > pScenario->maxConsShiftsOf(lastShiftType))
-    cost += pScenario->consShiftTypeCost(lastShiftType, nbConsShifts);
-  if (nbConsDaysWorked > pNurse->maxConsDaysWork())
-    cost += pNurse->consDaysCost(nbConsDaysWorked);
-
-  /*
-   * Compute preferencesCost
-   */
-
-  for (int k = firstDay(); k <= lastDay(); ++k) {
-    int level = pNurse->wishesOffLevel(k, shift(k));
-    if (level != -1)
-      cost += pScenario->weights().WEIGHT_PREFERENCES_OFF[level];
-    level = pNurse->wishesOnLevel(k, shift(k));
-    if (level != -1)
-      cost += pScenario->weights().WEIGHT_PREFERENCES_ON[level];
-  }
-
-  /*
-   * Compute time duration and complete weekend
-   */
-  int nWeekends = 0;
-  int k = 0;
-  bool rest = false;
-  for (const PShift &pS : pShifts()) {
-    if (pS->isWork()) {
-      if (Tools::isSaturday(k)) {
-        nWeekends++;
-      } else if (rest && Tools::isSunday(k)) {
-        nWeekends++;
-        if (pNurse->needCompleteWeekends())
-          cost += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
-      }
-      rest = false;
-    } else {
-      if (pNurse->needCompleteWeekends() && !rest && Tools::isSunday(k))
-        cost += pScenario->weights().WEIGHT_COMPLETE_WEEKEND;
-      rest = true;
-    }
-    k++;
-  }
-
-  if (pNurse->minTotalShifts() - duration() > 0)
-    cost += pScenario->weights().WEIGHT_TOTAL_SHIFTS
-        * (pNurse->minTotalShifts() - duration());
-  if (duration() - pNurse->maxTotalShifts() > 0)
-    cost += pScenario->weights().WEIGHT_TOTAL_SHIFTS
-        * (duration() - pNurse->maxTotalShifts());
-  cost += pNurse->totalWeekendCost(nWeekends);
-
-  if (std::abs(cost - cost_) > 1e-3) {
-    std::cerr << "# " << std::endl;
-    std::cerr << "# " << std::endl;
-    std::cerr << "Bad cost: " << cost_ << " != " << cost
-              << std::endl;
-    std::cerr << "# " << std::endl;
-    std::cerr << "#   | Base cost     : + " << cost_ << std::endl;
-    std::cerr << costsToString();
-    std::cerr << toString();
-    std::cerr << "# " << std::endl;
-    Tools::throwError("defaultComputeCost and computeCost do not get "
-                      "the same result for RosterPattern.");
-  }
-}
-
 void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
                                      bool printBadPricing) {
   // check if pNurse points to a nurse
@@ -328,12 +107,8 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
 //-----------------------------------------------------------------------------
 
 RosterMP::RosterMP(const PScenario& pScenario,
-                   PDemand pDemand,
-                   PPreferences pPreferences,
-                   std::vector<State> *pInitState,
                    SolverType solver) :
-    MasterProblem(pScenario, std::move(pDemand), std::move(pPreferences),
-        pInitState, solver),
+    MasterProblem(pScenario, solver),
     assignmentCons_(pScenario->nNurses()) {
   lagrangianBoundAvail_ = true;
 }
@@ -341,7 +116,7 @@ RosterMP::RosterMP(const PScenario& pScenario,
 RosterMP::~RosterMP() = default;
 
 PPattern RosterMP::getPattern(MyVar *var) const {
-  return std::make_shared<RosterPattern>(var->getPattern(), pScenario_);
+  return std::make_shared<RosterPattern>(var, pScenario_);
 }
 
 // Main method to build the rostering problem for a given input
@@ -373,7 +148,7 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
       for (int k = 0; k < nDays(); ++k)
         shifts[k] = pScenario_->pShift(roster.shift(k));
       RosterPattern pat(shifts, i);
-      pat.computeCost(this, theLiveNurses_[i]);
+      computePatternCost(&pat);
       pModel_->addInitialColumn(addRoster(pat, baseName));
     }
   }
@@ -391,7 +166,8 @@ std::map<PResource, CostType>
           w.WEIGHT_TOTAL_SHIFTS,
           w.WEIGHT_TOTAL_SHIFTS,
           std::make_shared<AnyWorkShift>(),
-          nDays()), TOTAL_WORK_COST},
+          nDays(),
+          pScenario()->maxDuration()), TOTAL_WORK_COST},
       // initialize resource on the total number of week-ends
       {std::make_shared<SoftTotalWeekendsResource>(
           pN->maxTotalWeekends(),
@@ -446,12 +222,10 @@ std::map<PResource, CostType>
 // if s=-1, the nurse works on all shifts
 MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
-  RosterPattern pat(solution, nurseNum, DBL_MAX, solution.cost());
-  pat.computeCost(this, theLiveNurses_[nurseNum]);
+  RosterPattern pat(solution, nurseNum);
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
-  if (useDefaultResources() && !pScenario_->isCyclic())
-    pat.checkDefaultCost(this, theLiveNurses_[nurseNum]);
+  computePatternCost(&pat);
   PDualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
   pat.checkReducedCost(costs, pPricer_->isLastRunOptimal());
   checkIfPatternAlreadyPresent(pat.getCompactPattern());
@@ -558,25 +332,6 @@ double RosterMP::computeLagrangianBound(double objVal) const {
   for (double v : pPricer_->getLastMinReducedCosts())
     sumRedCost += v;
   return objVal + sumRedCost;
-}
-
-// return the costs of all active columns associated to the type
-double RosterMP::getColumnsCost(CostType costType) const {
-  return getColumnsCost(costType, pModel_->getActiveColumns());
-}
-
-double RosterMP::getColumnsCost(CostType costType,
-                                const std::vector<MyVar *> &vars) const {
-  double cost = 0;
-  for (MyVar *var : vars) {
-    double value = pModel_->getVarValue(var);
-    if (value > epsilon()) {
-      RosterPattern ros(var->getPattern(), pScenario_);
-      ros.computeCost(this, theLiveNurses_[ros.nurseNum()]);
-      cost += ros.costByType(costType) * value;
-    }
-  }
-  return cost;
 }
 
 double RosterMP::getDaysCost() const {

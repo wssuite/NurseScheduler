@@ -361,7 +361,7 @@ RCSolution BoostRCSPPSolver::solution(const std::vector<edge> &path,
       for (const PShift &pS : arcShifts) shifts.push_back(pS);
     }
   }
-  return RCSolution(firstDay, shifts, resource.cost);
+  return RCSolution(firstDay, shifts, DBL_MAX, resource.cost);
 }
 
 // Print the path (arcs, nodes, cost of each arc in the current network, etc.)

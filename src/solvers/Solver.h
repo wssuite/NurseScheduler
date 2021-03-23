@@ -545,10 +545,10 @@ class SolverParam {
 
   /* PARAMETERS OF THE BRANCH AND BOUND */
   // relative and absolute gap (with the current LB)
-  // if sol below absoluteGap_, we stop immediately (the difference between two
-  // solution costs is at least 5);
-  // if sol below minRelativeGap_, we stop after nbDiveIfMinGap_*dive without
-  // new incumbent;
+  // if sol below optimalAbsoluteGap_, we stop immediately
+  // (the difference between two solution costs is at least 5) -> optimal
+  // if sol below absoluteGap_, we stop immediately;
+  // if sol below minRelativeGap_, we stop immediately;
   // if sol over relativeGap_, we stop after nbDiveIfRelGap_*dive without new
   // incumbent.
   // the two last conditions are respected just for certain strategy.
@@ -556,7 +556,8 @@ class SolverParam {
   // maxRelativeLPGapToKeepChild_:
   // if the gap between the tree best lb and the node lb is higher than
   // this gap -> backtrack
-  double absoluteGap_ = 5;
+  double optimalAbsoluteGap_ = 5;
+  double maxAbsoluteGap_ = 5;
   double minRelativeGap_ = .05;
   double relativeGap_ = .1;
   double maxRelativeLPGapToKeepChild_ = .05;
@@ -679,8 +680,7 @@ class Solver {
   virtual ~Solver();
 
   // Specific constructor
-  Solver(PScenario pScenario, PDemand pDemand,
-         PPreferences pPreferences, std::vector<State> *pInitState);
+  explicit Solver(PScenario pScenario);
 
   // Main method to solve the rostering problem for a given input and an
   // initial solution

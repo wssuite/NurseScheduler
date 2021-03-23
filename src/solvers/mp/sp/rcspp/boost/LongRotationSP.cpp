@@ -31,12 +31,18 @@ namespace boostRCSPP {
 // Constructors and destructor
 LongRotationSP::LongRotationSP(PScenario scenario,
                                int nbDays,
-                               PConstContract contract,
-                               vector<State> *pInitState) :
-    RotationSP(scenario, nbDays, contract, pInitState) {
+                               PConstContract contract) :
+    RotationSP(scenario, nbDays, contract) {
   minConsDays_ = contract->minConsDaysWork_;
   initShortSuccessions();
   build();
+}
+
+LongRotationSP::LongRotationSP(PScenario scenario,
+                               int nbDays,
+                               PLiveNurse pNurse) :
+    LongRotationSP(scenario, nbDays, pNurse->pContract_) {
+  pLiveNurse_ = pNurse;
 }
 
 LongRotationSP::~LongRotationSP() {}
@@ -50,10 +56,10 @@ void LongRotationSP::initShortSuccessions() {
 
   // Put an empty list of size 0 for all data because there exists no
   // succession of length 0/
-  allowedShortSuccBySize_.emplace_back(vector2D<PShift>());
-  lastShiftOfShortSucc_.emplace_back(vector<PShift>());
-  nLastShiftOfShortSucc_.emplace_back(vector<int>());
-  baseArcCostOfShortSucc_.emplace_back(vector<double>());
+  allowedShortSuccBySize_.emplace_back();
+  lastShiftOfShortSucc_.emplace_back();
+  nLastShiftOfShortSucc_.emplace_back();
+  baseArcCostOfShortSucc_.emplace_back();
 
   // Initialize the other way round
   for (int s = 0; s < nShiftTypes; s++)
@@ -451,7 +457,8 @@ int LongRotationSP::priceVeryShortSameSizeRotations(
   for (const vector<PShift> &succ : succs) {
     double redCost = costOfVeryShortRotation(k, succ);
     if (redCost + param_.epsilon_ < maxReducedCostBound_) {
-      theSolutions_.emplace_back(k, succ, redCost);
+      theSolutions_.emplace_back(RCSolution(k, succ, DBL_MAX, redCost));
+      computeCost(nullptr, &theSolutions_.back());
       nPaths_++;
       nVeryShortFound_++;
       nFound++;

@@ -319,9 +319,9 @@ bool RCSPPSolver::expand(
       return false;
     }
   }
-  pLChild->addCost(pArc->baseCost + pArc->dualCost);
-#ifdef DBG
   pLChild->addBaseCost(pArc->baseCost);
+  pLChild->addCost(pArc->dualCost);
+#ifdef DBG
   pLChild->addDualCost(pArc->dualCost);
 #endif
   return true;
@@ -605,7 +605,7 @@ RCSolution RCSPPSolver::createSolution(const PRCLabel &finalLabel) {
     stretch.addBack(pL->getOutArc()->stretch);
     pL = pL->getNextLabel();
   }
-  return RCSolution(stretch, finalLabel->cost());
+  return RCSolution(stretch, finalLabel->baseCost(), finalLabel->cost());
 }
 
 
@@ -798,9 +798,9 @@ bool RCSPPSolver::expandBack(
       return false;
     }
   }
-  pLPrevious->addCost(pArc->baseCost + pArc->dualCost);
-#ifdef DBG
   pLPrevious->addBaseCost(pArc->baseCost);
+  pLPrevious->addCost(pArc->dualCost);
+#ifdef DBG
   pLPrevious->addDualCost(pArc->dualCost);
 #endif
   return true;

@@ -24,8 +24,12 @@ class RotationSP : public SubProblem {
 
   RotationSP(PScenario scenario,
              int nbDays,
-             PConstContract contract,
-             std::vector<State> *pInitState);
+             PConstContract contract);
+
+  RotationSP(PScenario scenario,
+             int nbDays,
+             PLiveNurse pNurse);
+
 
   virtual ~RotationSP();
 
@@ -34,6 +38,8 @@ class RotationSP : public SubProblem {
   double shiftCost(int a) const override;
 
   double endWorkCost(int a) const override;
+
+  void computeCost(MasterProblem *, RCSolution *rcSol) const override;
 
  protected:
   // Index: (shiftType, day) of origin

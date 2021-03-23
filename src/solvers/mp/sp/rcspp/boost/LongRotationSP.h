@@ -27,8 +27,11 @@ class LongRotationSP : public RotationSP {
   // but NOT THE COST
   LongRotationSP(PScenario scenario,
                  int nbDays,
-                 PConstContract contract,
-                 std::vector<State> *pInitState);
+                 PConstContract contract);
+
+  LongRotationSP(PScenario scenario,
+                 int nbDays,
+                 PLiveNurse pNurse);
 
   double startWorkCost(int a) const override;
 

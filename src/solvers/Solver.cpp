@@ -614,7 +614,7 @@ void SubproblemParam::initSubproblemParam(int strategy,
 //
 void SolverParam::optimalityLevel(OptimalityLevel level) {
   switch (level) {
-    case UNTIL_FEASIBLE: absoluteGap_ = 5;
+    case UNTIL_FEASIBLE: maxAbsoluteGap_ = optimalAbsoluteGap_;
       minRelativeGap_ = 1e-4;
       relativeGap_ = .1;
       nbDiveIfMinGap_ = 1;
@@ -623,7 +623,7 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       solveToOptimality_ = false;
       stopAfterXSolution_ = 1;
       break;
-    case TWO_DIVES: absoluteGap_ = 5;
+    case TWO_DIVES: maxAbsoluteGap_ = optimalAbsoluteGap_;
       minRelativeGap_ = 1e-4;
       relativeGap_ = .1;
       nbDiveIfMinGap_ = 1;
@@ -632,7 +632,7 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       solveToOptimality_ = false;
       stopAfterXSolution_ = 999999;
       break;
-    case REPEATED_DIVES: absoluteGap_ = 5;
+    case REPEATED_DIVES: maxAbsoluteGap_ = optimalAbsoluteGap_;
       minRelativeGap_ = 1e-4;
       relativeGap_ = .02;
       nbDiveIfMinGap_ = 1;
@@ -641,7 +641,7 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       solveToOptimality_ = false;
       stopAfterXSolution_ = 9999999;
       break;
-    case OPTIMALITY: absoluteGap_ = 5;
+    case OPTIMALITY: maxAbsoluteGap_ = optimalAbsoluteGap_;
       minRelativeGap_ = 1e-4;
       relativeGap_ = 1e-4;
       nbDiveIfMinGap_ = 1;
@@ -663,12 +663,11 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
 //
 //-----------------------------------------------------------------------------
 // Specific constructor
-Solver::Solver(PScenario pScenario, PDemand pDemand,
-               PPreferences pPreferences, vector<State> *pInitState) :
+Solver::Solver(PScenario pScenario) :
     pScenario_(pScenario),
-    pDemand_(pDemand),
-    pPreferences_(pPreferences),
-    pInitState_(pInitState),
+    pDemand_(pScenario->pWeekDemand()),
+    pPreferences_(pScenario->pWeekPreferences()),
+    pInitState_(pScenario->pInitialState()),
     // create the timer that records the life time of the solver and start it
     timerTotal_(true),
     status_(UNSOLVED),
@@ -676,6 +675,15 @@ Solver::Solver(PScenario pScenario, PDemand pDemand,
     maxTotalStaffNoPenalty_(-1),
     isPreprocessedSkills_(false),
     isPreprocessedNurses_(false) {
+  if (pDemand_ == nullptr)
+    Tools::throwError("Scenario cannot be initialized "
+                      "with a nullptr for the demand.");
+  if (pPreferences_ == nullptr)
+    Tools::throwError("Scenario cannot be initialized "
+                      "with a nullptr for the preferences.");
+  if (pInitState_ == nullptr)
+    Tools::throwError("Scenario cannot be initialized "
+                      "with a nullptr for the initial states.");
   // initialize the preprocessed data of the skills
   for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
     maxStaffPerSkillNoPenalty_.push_back(-1.0);
@@ -1454,7 +1462,7 @@ double Solver::computeFractionalWeekendPenalty() {
 double Solver::computeSolutionCost(int nbDays) {
   if (!useDefaultResources()) {
     std::cout << "WARNING: computeSolutionCost() works only with the default "
-                 "resources. Instead, the direct cost soluyion will be used."
+                 "resources. Instead, the direct cost solution will be used."
               << std::endl;
     return solutionCost_;
   }

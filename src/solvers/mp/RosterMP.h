@@ -35,24 +35,14 @@ struct RosterPattern : public Pattern {
                 int nurseNum,
                 double cost = DBL_MAX,
                 double dualCost = DBL_MAX) :
-      Pattern(RCSolution(0, pShifts, cost), nurseNum, cost, dualCost),
-      nbWeekends_(-1) {}
+      Pattern(RCSolution(0, pShifts, cost, dualCost), nurseNum) {}
 
-  RosterPattern(RCSolution rcSol,
-                int nurseNum,
-                double cost,
-                double dualCost) :
-      Pattern(std::move(rcSol), nurseNum, cost, dualCost),
-      nbWeekends_(-1) {}
+  RosterPattern(RCSolution rcSol, int nurseNum) :
+      Pattern(std::move(rcSol), nurseNum) {}
 
-  RosterPattern(const std::vector<double> &compactPattern,
+  RosterPattern(MyVar *var,
                 const PScenario &pScenario) :
-      Pattern(compactPattern, pScenario),
-      nbWeekends_(static_cast<int>(compactPattern.back())) {}
-
-  RosterPattern(const RosterPattern &roster, int nurseNum) :
-      Pattern(roster, nurseNum),
-      nbWeekends_(roster.nbWeekends_) {}
+      Pattern(var, pScenario) {}
 
   ~RosterPattern() = default;
 
@@ -66,24 +56,11 @@ struct RosterPattern : public Pattern {
   // Level of the branch and bound tree where the rotation has been generated
   int treeLevel_ = 0;
 
-  int nbWeekends_;
-
   // compact the rotation in a vector
   std::vector<double> getCompactPattern() const override {
     std::vector<double> pattern = Pattern::getCompactPattern();
-    pattern.push_back(nbWeekends_);
     return pattern;
   }
-
-  // Compute the cost of a roster
-  void computeCost(const MasterProblem *pMaster,
-      const PLiveNurse &pNurse) override;
-
-  // direct computation of the cost without the resources when using the
-  // default version of the resources.
-  // Verify that the same cost is indeed found
-  void checkDefaultCost(const MasterProblem *pMaster,
-                        const PLiveNurse &pNurse) const;
 
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem
@@ -125,9 +102,6 @@ struct RosterPattern : public Pattern {
 class RosterMP : public MasterProblem {
  public:
   RosterMP(const PScenario& pScenario,
-           PDemand pDemand,
-           PPreferences pPreferences,
-           std::vector<State> *pInitState,
            SolverType solver);
   virtual ~RosterMP();
 
@@ -171,11 +145,6 @@ class RosterMP : public MasterProblem {
   int addRosterConsToCol(std::vector<MyCons *> *cons,
                          std::vector<double> *coeffs,
                          int i);
-
-  // return the costs of all active columns associated to the type
-  double getColumnsCost(CostType costType) const override;
-  double getColumnsCost(CostType costType,
-                        const std::vector<MyVar *> &vars) const;
 
   double getDaysCost() const override;
   double getWeekendCost() const override;

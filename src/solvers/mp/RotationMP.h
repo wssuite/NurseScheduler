@@ -14,6 +14,7 @@
 
 #include "MasterProblem.h"
 
+#include <algorithm>
 #include <climits>  // for INT_MAX
 
 #include <set>
@@ -75,36 +76,14 @@ struct RotationPattern : public Pattern {
                   int nurseNum,
                   double cost = DBL_MAX,
                   double dualCost = DBL_MAX) :
-      RotationPattern(RCSolution(firstDay, pShifts, cost),
-                      nurseNum, cost, dualCost) {}
+      RotationPattern(RCSolution(firstDay, pShifts, cost, dualCost),
+                      nurseNum) {}
 
-  RotationPattern(RCSolution sol,
-                  int nurseNum,
-                  double cost,
-                  double dualCost) :
-      Pattern(std::move(sol), nurseNum, cost, dualCost),
-      consShiftsCost_(0),
-      consDaysWorkedCost_(0),
-      completeWeekendCost_(0),
-      preferenceCost_(0),
-      initRestCost_(0) {}
+  RotationPattern(RCSolution sol, int nurseNum) :
+      Pattern(std::move(sol), nurseNum) {}
 
-  explicit RotationPattern(const std::vector<double> &compactPattern,
-                           const PScenario &pScenario) :
-      Pattern(compactPattern, pScenario),
-      consShiftsCost_(0),
-      consDaysWorkedCost_(0),
-      completeWeekendCost_(0),
-      preferenceCost_(0),
-      initRestCost_(0) {}
-
-  RotationPattern(const RotationPattern &rotation, int nurseNum) :
-      Pattern(rotation, nurseNum),
-      consShiftsCost_(rotation.consShiftsCost_),
-      consDaysWorkedCost_(rotation.consDaysWorkedCost_),
-      completeWeekendCost_(rotation.completeWeekendCost_),
-      preferenceCost_(rotation.preferenceCost_),
-      initRestCost_(rotation.initRestCost_) {}
+  RotationPattern(MyVar *var, const PScenario &pScenario) :
+      Pattern(var, pScenario) {}
 
   ~RotationPattern() {}
 
@@ -119,17 +98,8 @@ struct RotationPattern : public Pattern {
                           int nbShifts,
                           PDemand pDemand) const override;
 
-  // Cost
-  //
-  double consShiftsCost_, consDaysWorkedCost_, completeWeekendCost_,
-      preferenceCost_, initRestCost_;
-
   // Level of the branch and bound tree where the rotation has been generated
   int treeLevel_ = 0;
-
-  // Compute the cost of a rotation
-  void computeCost(const MasterProblem *pMaster,
-                   const PLiveNurse &pNurse) override;
 
   //  Compute the dual cost of a rotation
   void checkReducedCost(const PDualCosts &costs, bool printBadPricing = true);
@@ -145,9 +115,6 @@ struct RotationPattern : public Pattern {
 class RotationMP : public MasterProblem {
  public:
   RotationMP(const PScenario& pScenario,
-             PDemand pDemand,
-             PPreferences pPreferences,
-             std::vector<State> *pInitState,
              SolverType solver);
   virtual ~RotationMP();
 
@@ -190,10 +157,6 @@ class RotationMP : public MasterProblem {
                      const char *baseName,
                      bool coreVar = false);
 
-  // compute and add the last rotation finishing on the day just before
-  // the first one
-  RotationPattern computeInitStateRotation(const PLiveNurse& pNurse);
-
   /* Build each set of constraints
    * Add also the coefficient of a column for each set */
   void buildRotationCons(const SolverParam &parameters);
@@ -213,8 +176,7 @@ class RotationMP : public MasterProblem {
 
   // return the costs of all active columns associated to the type
   double getColumnsCost(CostType costType) const override;
-  double getColumnsCost(CostType costType,
-                        const std::vector<MyVar *> &vars) const;
+  double getInitialStateCost(CostType costType) const;
 
   double getDaysCost() const override;
   double getWeekendCost() const override;
@@ -228,6 +190,12 @@ class RotationMP : public MasterProblem {
 
   PDualCosts buildRandomDualCosts(bool optimalDemandConsidered,
                                   int NDaysShifts) const override;
+
+  // return the value V used to choose the number of columns on which to branch.
+  // Choose as many columns as possible such that: sum (1 - value(column)) < V
+  double getBranchColumnValueMax() const override {
+    return std::max(1.0, pScenario_->nWeeks() / 2.0);
+  }
 
   // Functions to generate the resources for a given nurse
   std::map<PResource, CostType>
@@ -244,6 +212,7 @@ class RotationMP : public MasterProblem {
   vector3D<MyVar *> longRestingVars_;
   // stores all the initial rotations finishing on the first day
   std::vector<MyVar *> initialStateVars_;
+  std::vector<RotationPattern> initialStateRotations_;
 
   // count the number of missing worked days per nurse
   std::vector<MyVar *> minWorkedDaysVars_;

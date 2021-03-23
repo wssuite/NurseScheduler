@@ -38,18 +38,55 @@
 struct RCSolution : public Stretch {
   explicit RCSolution(int firstDay = -1,
                       std::vector<PShift> pShifts = {},
-                      double c = DBL_MAX) :
-      Stretch(firstDay, std::move(pShifts)), cost_(c) {}
+                      double cost = DBL_MAX,
+                      double reducedCost = DBL_MAX) :
+      Stretch(firstDay, std::move(pShifts)),
+      cost_(cost),
+      reducedCost_(reducedCost) {}
 
-  RCSolution(Stretch stretch, double c) :
-      Stretch(std::move(stretch)), cost_(c) {}
+  RCSolution(Stretch stretch, double cost, double reducedCost) :
+      Stretch(std::move(stretch)),
+      cost_(cost),
+      reducedCost_(reducedCost) {}
 
   std::string toString() const override;
 
   double cost() const { return cost_; }
 
+  double reducedCost() const { return reducedCost_; }
+
+  void addCost(double c, CostType t)  {
+    cost_ += c;
+    costs_[t] += c;
+  }
+
+  double costByType(CostType t) const {
+    if (t == ROTATION_COST)
+      return costs_.at(CONS_SHIFTS_COST) + costs_.at(CONS_WORK_COST) +
+          costs_.at(PREFERENCE_COST) + costs_.at(COMPLETE_WEEKEND_COST);
+    else
+      return costs_.at(t);
+  }
+
+  std::string costsToString() const;
+
+  void resetCosts() {
+    cost_ = 0;
+    costs_.clear();
+    for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
+      costs_[(CostType)t] = 0;
+  }
+
+  // Compare rotations on cost
+  static bool compareCost(const RCSolution &sol1, const RCSolution &sol2);
+
+  // Compare rotations on dual cost
+  static bool compareReducedCost(
+      const RCSolution &sol1, const RCSolution &sol2);
+
  protected:
-  double cost_;
+  double cost_, reducedCost_;
+  std::map<CostType, double> costs_;
 };
 
 struct DualCosts {
@@ -135,35 +172,13 @@ struct Pattern : public RCSolution {
     return Pattern::duration(var->getPattern());
   }
 
-  // Compare rotations on cost
-  static bool compareCost(PPattern pat1, PPattern pat2);
-
-  // Compare rotations on dual cost
-  static bool compareDualCost(PPattern pat1, PPattern pat2);
-
   /* class functions */
   Pattern(RCSolution rcSol,
-          int nurseNum,
-          double cost,
-          double dualCost) :
+          int nurseNum) :
           RCSolution(std::move(rcSol)),
-          nurseNum_(nurseNum),
-          reducedCost_(dualCost) {
-    cost_ = cost;
-  }
+          nurseNum_(nurseNum) {}
 
-  Pattern(const Pattern &pat, int nurseNum) :
-      RCSolution(pat),
-      nurseNum_(nurseNum),
-      costs_(pat.costs_),
-      reducedCost_(pat.reducedCost_) {
-    if (pat.nurseNum_ != nurseNum_) {
-      cost_ = DBL_MAX;
-      reducedCost_ = DBL_MAX;
-    }
-  }
-
-  Pattern(const std::vector<double> &pattern, const PScenario &pScenario);
+  Pattern(MyVar *var, const PScenario &pScenario);
 
   virtual ~Pattern() = default;
 
@@ -198,28 +213,6 @@ struct Pattern : public RCSolution {
       int nbShifts,
       PDemand pDemand) const = 0;
 
-  // compute the cost of a pattern based on the master
-  virtual void computeCost(const MasterProblem *pMaster,
-                           const PLiveNurse &pNurse) = 0;
-
-  void computeResourcesCosts(const MasterProblem *pMaster,
-                             const State &initialState);
-
-  void addCost(double c, CostType t)  {
-    cost_ += c;
-    costs_[t] += c;
-  }
-
-  double costByType(CostType t) const {
-    if (t == ROTATION_COST)
-      return costs_.at(CONS_SHIFTS_COST) + costs_.at(CONS_WORK_COST) +
-          costs_.at(PREFERENCE_COST) + costs_.at(COMPLETE_WEEKEND_COST);
-    else
-      return costs_.at(t);
-  }
-
-  std::string costsToString() const;
-
   std::string toString() const override;
 
   // need to be able to write the pattern as a vector and
@@ -250,18 +243,8 @@ struct Pattern : public RCSolution {
 
   int duration() const override { return Stretch::duration(); }
 
-  double reducedCost() const { return reducedCost_; }
-
  protected:
   const int nurseNum_;
-
-  // Cost
-  std::map<CostType, double> costs_;
-
-  // Dual cost as found in the subproblem
-  double reducedCost_;
-
-  PRCLabel pL_ = nullptr;
 };
 
 //-----------------------------------------------------------------------------
@@ -276,9 +259,6 @@ class MasterProblem : public Solver, public PrintSolution {
  public:
   // Specific constructor and destructor
   MasterProblem(PScenario pScenario,
-                PDemand pDemand,
-                PPreferences pPreferences,
-                std::vector<State> *pInitState,
                 SolverType solver);
   ~MasterProblem();
 
@@ -304,17 +284,24 @@ class MasterProblem : public Solver, public PrintSolution {
   // retrieve the object represented ny the  vector pattern
   virtual PPattern getPattern(MyVar *var) const = 0;
 
+  void computePatternCost(Pattern *pat) const;
+
   // create the resources used for the sub problem
-  std::vector<PResource> createPResources(const PLiveNurse &pN) const {
+  std::vector<PResource> createPResources(const PLiveNurse &pN) {
     return pResources(generatePResources(pN));
   }
 
   // create resources and the map that associates a PRessource to its cost type
   virtual std::map<PResource, CostType>
-  generatePResources(const PLiveNurse &pN) const {
-    // if defined, do not use the default function
-    if (generatePResourcesFunc_) return generatePResourcesFunc_(pN);
-    return defaultGeneratePResources(pN);
+  generatePResources(const PLiveNurse &pN) {
+    if (pResourceCostTypes_[pN->num_].empty()) {
+      // if defined, do not use the default function
+      if (generatePResourcesFunc_)
+        pResourceCostTypes_[pN->num_] = generatePResourcesFunc_(pN);
+      else
+        pResourceCostTypes_[pN->num_] = defaultGeneratePResources(pN);
+    }
+    return pResourceCostTypes_[pN->num_];
   }
 
   // set the function to override
@@ -336,6 +323,10 @@ class MasterProblem : public Solver, public PrintSolution {
       pResources.push_back(p.first);
     }
     return pResources;
+  }
+
+  CostType resourceCostType(const PResource &pR, const PLiveNurse &pN) const {
+    return pResourceCostTypes_[pN->num_].at(pR);
   }
 
   // throw an error if pattern is already present as an active column
@@ -384,9 +375,7 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
-  virtual double getBranchColumnValueMax() const {
-    return std::max(1.0, pScenario_->nWeeks() / 2.0);
-  }
+  virtual double getBranchColumnValueMax() const = 0;
 
   //------------------------------------------------
   // Solution with rolling horizon process
@@ -442,13 +431,17 @@ class MasterProblem : public Solver, public PrintSolution {
   const char *PB_NAME = "GenCol";
   int solvingTime;
 
-  const vector3D<MyVar *> &getOptDemandVars() { return optDemandVars_; }
+  const vector3D<MyVar *> &getOptDemandVars() const { return optDemandVars_; }
 
-  const vector4D<MyVar *> &getSkillsAllocVars() { return skillsAllocVars_; }
+  const vector4D<MyVar *> &getSkillsAllocVars() const {
+    return skillsAllocVars_;
+  }
 
   const std::vector<int> &getPositionsForSkill(int sk) const {
     return positionsPerSkill_[sk];
   }
+
+  const vector3D<MyCons *> &getOptDemandCons() const { return optDemandCons_; }
 
   /* Display functions */
   std::string costsConstrainstsToString() const override;
@@ -468,6 +461,8 @@ class MasterProblem : public Solver, public PrintSolution {
   // Functions to generate the default resources for a given nurse
   virtual std::map<PResource, CostType>
   defaultGeneratePResources(const PLiveNurse &pN) const = 0;
+
+  vector<std::map<PResource, CostType>> pResourceCostTypes_;
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
@@ -535,7 +530,10 @@ class MasterProblem : public Solver, public PrintSolution {
   }
 
   // return the costs of all active columns associated to the type
-  virtual double getColumnsCost(CostType costType) const = 0;
+  // return the costs of all active columns associated to the type
+  virtual double getColumnsCost(CostType costType) const;
+  double getColumnsCost(CostType costType,
+                        const std::vector<MyVar *> &vars) const;
 
   virtual double getDaysCost() const = 0;
   virtual double getWeekendCost() const = 0;

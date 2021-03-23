@@ -157,7 +157,7 @@ struct VarNode : public MyNode {
 
 struct CoverageNode : public MyNode {
   CoverageNode(int index, MyNode *pParent,
-      const char * cutName, double lhs, double rhs) :
+      string cutName, double lhs, double rhs) :
       MyNode(index, pParent),
     cutName_(cutName),
     lhs_(lhs),
@@ -172,7 +172,7 @@ struct CoverageNode : public MyNode {
   }
 
   // number of nurse on which we have branched. pNumberOfNurses_ can be 0
-  const char * cutName_;
+  const string cutName_;
   const double lhs_, rhs_;
 };
 

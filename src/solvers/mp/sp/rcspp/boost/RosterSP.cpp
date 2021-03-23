@@ -25,11 +25,17 @@ namespace boostRCSPP {
 // Constructors and destructor
 RosterSP::RosterSP(PScenario scenario,
                    int nbDays,
-                   PConstContract contract,
-                   vector<State> *pInitState) :
-    SubProblem(scenario, nbDays, contract, pInitState) {
+                   PConstContract contract) :
+    SubProblem(scenario, nbDays, contract) {
   labels_ = {CONS_DAYS, DAYS, WEEKEND};
   build();
+}
+
+RosterSP::RosterSP(PScenario scenario,
+                   int nbDays,
+                   PLiveNurse pNurse) :
+    RosterSP(scenario, nbDays, pNurse->pContract_) {
+  pLiveNurse_ = pNurse;
 }
 
 RosterSP::~RosterSP() {}
@@ -200,6 +206,146 @@ double RosterSP::endWorkCost(int a) const {
   if (arc_prop.pShifts.empty() || arc_prop.pShifts.back())
     cost += endWeekendCosts_[end];
   return cost;
+}
+
+void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
+  /************************************************
+   * Compute all the costs of a roster:
+   ************************************************/
+#ifdef DBG
+  double cost = rcSol->cost();
+#endif
+  /*
+   * Compute initial cost
+   */
+  rcSol->resetCosts();
+  // initial state of the nurse
+  int lastShiftType = pLiveNurse_->pStateIni_->shiftType_;
+  int nbConsShifts = pLiveNurse_->pStateIni_->consShifts_;
+  int nbConsDaysWorked = pLiveNurse_->pStateIni_->consDaysWorked_;
+  int nbConsDaysOff = pLiveNurse_->pStateIni_->consDaysOff_;
+
+  // 1. if the initial shift has already exceeded the max,
+  // fix these values to the UB to not pay it twice
+  if (lastShiftType > 0) {  // was working
+    if (nbConsShifts > pScenario_->maxConsShiftsOf(lastShiftType))
+      nbConsShifts = pScenario_->maxConsShiftsOf(lastShiftType);
+    if (nbConsDaysWorked > pLiveNurse_->maxConsDaysWork())
+      nbConsDaysWorked = pLiveNurse_->maxConsDaysWork();
+  } else if (nbConsShifts > pLiveNurse_->maxConsDaysOff()) {
+    nbConsDaysOff = pLiveNurse_->maxConsDaysOff();
+  }
+
+  // 2. compute the cost
+  for (const PShift &pS : rcSol->pShifts()) {
+    // a. same shift type -> increment the counters
+    if (lastShiftType == pS->type) {
+      if (pS->isWork()) {
+        nbConsShifts++;
+        nbConsDaysWorked++;
+      } else {
+        nbConsDaysOff++;
+      }
+      continue;
+    }
+    // b. different shift type -> add the corresponding cost
+    // i) goes to rest
+    if (pS->isRest()) {
+      // compute cost
+      rcSol->addCost(
+          pScenario_->consShiftTypeCost(lastShiftType, nbConsShifts),
+          CONS_SHIFTS_COST);
+      rcSol->addCost(
+          pLiveNurse_->consDaysCost(nbConsDaysWorked), CONS_WORK_COST);
+      // update counters
+      nbConsShifts = 0;
+      nbConsDaysWorked = 0;
+      nbConsDaysOff = 1;
+    } else if (lastShiftType == 0) {
+      // ii) goes to work
+      // compute cost
+      rcSol->addCost(
+          pLiveNurse_->consDaysOffCost(nbConsDaysOff), CONS_REST_COST);
+      // update counters
+      nbConsDaysOff = 0;
+      nbConsDaysWorked = 1;
+      nbConsShifts = 1;
+    } else {
+      // iii) continue to work on a different shift
+      // compute cost
+      rcSol->addCost(
+          pScenario_->consShiftTypeCost(lastShiftType, nbConsShifts),
+          CONS_SHIFTS_COST);
+      // update counters
+      nbConsShifts = 1;
+      nbConsDaysWorked++;
+    }
+    // update
+    lastShiftType = pS->type;
+  }
+
+  // pay the max for last day
+  if (nbConsDaysOff > pLiveNurse_->maxConsDaysOff())
+    rcSol->addCost(
+        pLiveNurse_->consDaysOffCost(nbConsDaysOff), CONS_REST_COST);
+  if (lastShiftType > 0
+      && nbConsShifts > pScenario_->maxConsShiftsOf(lastShiftType))
+    rcSol->addCost(
+        pScenario_->consShiftTypeCost(lastShiftType, nbConsShifts),
+        CONS_SHIFTS_COST);
+  if (nbConsDaysWorked > pLiveNurse_->maxConsDaysWork())
+    rcSol->addCost(
+        pLiveNurse_->consDaysCost(nbConsDaysWorked), CONS_WORK_COST);
+
+  computePreferencesCost(rcSol);
+
+  /*
+   * Compute time duration and complete weekend
+   */
+  int nWeekends = 0;
+  int k = 0;
+  bool rest = false;
+  for (const PShift &pS : rcSol->pShifts()) {
+    if (pS->isWork()) {
+      if (Tools::isSaturday(k)) {
+        nWeekends++;
+      } else if (rest && Tools::isSunday(k)) {
+        nWeekends++;
+        if (pLiveNurse_->needCompleteWeekends())
+          rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+                         COMPLETE_WEEKEND_COST);
+      }
+      rest = false;
+    } else {
+      if (pLiveNurse_->needCompleteWeekends() && !rest && Tools::isSunday(k))
+        rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+                       COMPLETE_WEEKEND_COST);
+      rest = true;
+    }
+    k++;
+  }
+
+  if (pLiveNurse_->minTotalShifts() - rcSol->duration() > 0)
+    rcSol->addCost(pScenario_->weights().WEIGHT_TOTAL_SHIFTS
+        * (pLiveNurse_->minTotalShifts() - rcSol->duration()),
+        TOTAL_WORK_COST);
+  if (rcSol->duration() - pLiveNurse_->maxTotalShifts() > 0)
+    rcSol->addCost(pScenario_->weights().WEIGHT_TOTAL_SHIFTS
+        * (rcSol->duration() - pLiveNurse_->maxTotalShifts()),
+        TOTAL_WORK_COST);
+  rcSol->addCost(pLiveNurse_->totalWeekendCost(nWeekends), TOTAL_WEEKEND_COST);
+
+#ifdef DBG
+  if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > 1e-3) {
+    std::cerr << "# " << std::endl;
+    std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
+              << std::endl;
+    std::cerr << rcSol->costsToString();
+    std::cerr << rcSol->toString();
+    std::cerr << "# " << std::endl;
+    Tools::throwError("boostRCSPP::computeCost does not get the same cost.");
+  }
+#endif
 }
 
 }  // namespace boostRCSPP

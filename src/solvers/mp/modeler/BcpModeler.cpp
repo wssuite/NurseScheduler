@@ -475,7 +475,7 @@ bool BcpLpModel::doStop(const BCP_vec<BCP_var *> &vars) {
   // fathom if the true lower bound greater than current upper bound
   return pModel_->getObjective() -
       getLpProblemPointer()->node->true_lower_bound <
-      pModel_->getParameters().absoluteGap_ - pModel_->epsilon();
+      pModel_->getParameters().optimalAbsoluteGap_ - pModel_->epsilon();
 }
 
 //// store the LP results
@@ -551,7 +551,7 @@ void BcpLpModel::restore_feasibility(const BCP_lp_result &lpres,
                                      const BCP_vec<BCP_cut *> &cuts,
                                      BCP_vec<BCP_var *> &vars_to_add,
                                      BCP_vec<BCP_col *> &cols_to_add) {
-  writeLP("infeasible");
+  writeMPS("infeasible");
   std::cout << "Infeasible LP: LP model written in infeasible.lp" << std::endl;
   // dive is finished
   // DBG dive_ = false;
@@ -831,8 +831,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     if (column_generated && pModel_->getParameters().isLagrangianFathom_ &&
         (pModel_->getParameters().isLagrangianFathomRootNode_
             || current_index() > 0)
-        && pModel_->getBestUB() - lagLb
-            < pModel_->getParameters().absoluteGap_ - pModel_->epsilon()) {
+        && pModel_->getBestUB() - lagLb + pModel_->epsilon()
+            < pModel_->getParameters().optimalAbsoluteGap_) {
       // update lb with worst bound as fathoming
       pModel_->updateNodeLB(pModel_->getBestUB());
       if (pModel_->getParameters().printBcpSummary_)
@@ -880,7 +880,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     // Bug needs to be found
     if (!isStabActive && !pModel_->updateNodeLB(lb)) {
       std::cerr << "The best LB has decreased." << std::endl;
-      writeLP("model_" + std::to_string(current_index()));
+      writeMPS("model_" + std::to_string(current_index()));
     }
     // update true_lower_bound, as we reach the end of the column generation
     getLpProblemPointer()->node->true_lower_bound = lb;
@@ -910,8 +910,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     return BCP_DoNotBranch_Fathomed;
 
   // fathom if greater than current upper bound
-  if (pModel_->getObjective() - lpres.objval()
-      < pModel_->getParameters().absoluteGap_ - pModel_->epsilon())
+  if (pModel_->getObjective() - lpres.objval() + pModel_->epsilon()
+      < pModel_->getParameters().optimalAbsoluteGap_)
     return BCP_DoNotBranch_Fathomed;
 
   // if not currently diving with the same rule as in the heuristic,
@@ -1067,9 +1067,6 @@ void BcpLpModel::find_infeasibility(
   }
 
   const double etol = p->param(BCP_lp_par::IntegerTolerance);
-  std::cout << "Tolerance: " << etol << std::endl;
-  std::cout << "-----------------------------------------------------------"
-            << std::endl;
   const double *x = lpres.x();
   const int varnum = vars.size();
   const double etol1 = 1 - etol;
@@ -1467,7 +1464,7 @@ int BcpModeler::solve(bool relaxation) {
   } catch (const Tools::NSException &e) {
     std::cerr << "Current LP solution:" << std::endl;
     std::cerr << pMaster_->currentSolToString() << std::endl;
-    writeLP("model");
+    writeMPS("model");
     std::cerr << e.what() << std::endl;
     if (bcpSolutions_.empty()) getMaster()->status(INFEASIBLE);
     else
@@ -1652,12 +1649,23 @@ void BcpModeler::addCurrentBcpSol(bool isInteger) {
     }
   }
 
+  bool foundColumn = false;
   for (MyVar *var : getActiveColumns()) {
     double v = getVarValue(var);
     if (v > epsilon()) {
       vars.push_back(var);
       values.push_back(v);
+      foundColumn = true;
     }
+  }
+
+  if (!foundColumn) {
+    for (size_t i = 0; i < vars.size(); i++)
+      std::cout << vars[i]->name_ << ": " << values[i] << std::endl;
+    std::cout << pMaster_->coverageToString() << std::endl;
+    std::cout << pMaster_->allocationToString() << std::endl;
+    std::cout << pMaster_->currentSolToString() << std::endl;
+    Tools::throwError("BCP found a solution without an active column !");
   }
 
   addBcpSol(getLastObj(), vars, values, isInteger);
@@ -1704,7 +1712,7 @@ void BcpModeler::addBcpSol(double objValue,
     bcpSolutions_.push_back(mySol);
     // if the solution improves the upper bound, record the new upper bound and
     // load the integer solution
-    if (pTree_->getBestUB() > objValue + epsilon()) {
+    if (objValue + epsilon() < pTree_->getBestUB()) {
       pTree_->setBestUB(objValue);
       // print the solution in a text file
       if (parameters_.printEverySolution_ && isInteger) {
@@ -1939,10 +1947,13 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars) {
 
   // check stopping criteria
   if (pTree_->getBestUB() - pTree_->getBestLB()
-      < parameters_.absoluteGap_ - epsilon()) {
-    updateNodeLB(getBestUB());  // update with ub as optimal
+      < parameters_.optimalAbsoluteGap_ - epsilon()) {
+//    // update with ub as optimal if solution is integer
+//    if (getObjective() > std::max(getCurrentLB(), getBestUB()) - epsilon())
+//      updateNodeLB(getBestUB());
     pMaster_->status(OPTIMAL);
-    printf("BCP STOPPED: absolute gap < %.2f.\n", parameters_.absoluteGap_);
+    printf("BCP STOPPED: optimal absolute gap < %.2f.\n",
+           parameters_.optimalAbsoluteGap_);
   } else if (getMaster()->timerTotal()->dSinceStart()
       > getParameters().maxSolvingTimeSeconds_) {
     pMaster_->status(TIME_LIMIT);
@@ -1955,6 +1966,10 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars) {
     // check the number of solutions
     pMaster_->status(FEASIBLE);
     printf("BCP STOPPED: %d solutions have been founded.\n", nbSolutions());
+  } else if (pTree_->getBestUB() - pTree_->getBestLB()
+      < parameters_.maxAbsoluteGap_ - epsilon()) {
+    pMaster_->status(FEASIBLE);
+    printf("BCP STOPPED: absolute gap < %.2f.\n", parameters_.maxAbsoluteGap_);
   } else if (pTree_->getBestUB() - pTree_->getBestLB()
       < parameters_.minRelativeGap_ * pTree_->getBestLB() - epsilon()) {
     pMaster_->status(FEASIBLE);
@@ -2009,9 +2024,13 @@ void BcpModeler::stop() {
  *************/
 
 int BcpModeler::writeProblem(string fileName) const {
-  return writeLP(fileName);
+  return writeMPS(fileName) + writeLP(fileName);
 }
 
 int BcpModeler::writeLP(string fileName) const {
   return pBcp_->writeLP(fileName);
+}
+
+int BcpModeler::writeMPS(string fileName) const {
+  return pBcp_->writeMPS(fileName);
 }

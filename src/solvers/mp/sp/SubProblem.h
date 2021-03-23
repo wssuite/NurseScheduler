@@ -42,8 +42,7 @@ class SubProblem {
   // COST
   SubProblem(PScenario scenario,
              int nbDays,
-             PConstContract contract,
-             std::vector<State> *pInitState);
+             PConstContract contract);
 
   // Initialization function for all global variables (not those of the rcspp)
   virtual void init(const std::vector<State> &pInitState);
@@ -87,6 +86,9 @@ class SubProblem {
   void printForbiddenDayShift() const;
 
   void checkForbiddenDaysAndShifts(const RCSolution &sol) const;
+
+  virtual void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const = 0;
+  void computePreferencesCost(RCSolution *rcSol) const;
 
  protected:
   //----------------------------------------------------------------

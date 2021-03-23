@@ -59,7 +59,7 @@ std::pair<float, float> comparePricing(PDualCosts pDualCosts,
   return {bSP->cpuInLastSolve(), mSP->cpuInLastSolve()};
 }
 
-float comparePricingToBoost(const MasterProblem *pMaster, bool *errorFound) {
+float comparePricingToBoost(MasterProblem *pMaster, bool *errorFound) {
   // solve the pricing problems
   PScenario pScenario = pMaster->pScenario();
   double cpuBoost = 0.0;
@@ -74,10 +74,7 @@ float comparePricingToBoost(const MasterProblem *pMaster, bool *errorFound) {
                             pMaster->parameters());
     // retrieve a boost subproblem
     SubProblem *bSP =
-        new boostRCSPP::RosterSP(pScenario,
-                                 pScenario->nDays(),
-                                 pNurse->pContract_,
-                                 pScenario->pInitialState());
+        new boostRCSPP::RosterSP(pScenario, pScenario->nDays(), pNurse);
     bSP->build();
     // Solve with my solver under development
     SubProblem *mSP =
@@ -142,7 +139,6 @@ float test_pricer(const std::string &instance,
   auto pMaster =
       dynamic_cast<MasterProblem *>(
           pSolver->setSolverWithInputAlgorithm(
-              pScenario->pWeekDemand(),
               pSolver->getOptions().solutionAlgorithm_,
               param));
   pMaster->initialize(param);

@@ -193,7 +193,9 @@ class Stretch {
   // rotate of n days the stretch: put the n last shifts in front
   virtual void rotate(int n) {
     int length = pShifts_.size();
-    vector<PShift> toInsert(pShifts_.end() - n, pShifts_.end());
+    auto start = pShifts_.end() - n;
+    if (n < 0)  start -= length;
+    vector<PShift> toInsert(start, pShifts_.end());
     pShifts_.insert(pShifts_.begin(), toInsert.begin(), toInsert.end());
     firstDay_ -= n;
 #ifdef DBG
@@ -219,7 +221,7 @@ class Stretch {
     for (int k = 0; k < firstDay_; k++) buff << "|     ";
     for (const PShift &pS : pShifts_)
       if (pS->isRest())
-        buff << "|" << SHIFT_PAD;
+        buff << "|" << REST_DISPLAY;
       else
         buff << "|" << std::setw(SHIFT_PAD) << pS->name.substr(0, SHIFT_PAD);
     buff << "|" << std::endl;

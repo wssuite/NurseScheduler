@@ -351,7 +351,7 @@ PScenario ReadWrite::readScenario(string fileName) {
         }
 
         theNurses.emplace_back(std::make_shared<Nurse>(
-            i, nurseName, nShifts, skills, availableShifts,
+            i, nurseName, nShifts, nSkills, skills, availableShifts,
             contracts.at(contractName)));
         nurseNameToInt.insert(pair<string, int>(nurseName, i));
       }
@@ -892,7 +892,7 @@ std::string ReadWrite::readSolverOptions(string strOptionFile,
       file >> options->printEverySolution_;
     }
     if (!strcmp(title.c_str(), "absoluteGap")) {
-      file >> options->absoluteGap_;
+      file >> options->maxAbsoluteGap_;
     }
     if (!strcmp(title.c_str(), "minRelativeGap")) {
       file >> options->minRelativeGap_;
@@ -1060,10 +1060,7 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
   // to cover the demand
   //
   ReadWrite::readHistory(historyFile, pScen);
-  Solver *pSolver = new Solver(pScen,
-                               pScen->pWeekDemand(),
-                               pScen->pWeekPreferences(),
-                               pScen->pInitialState());
+  Solver *pSolver = new Solver(pScen);
   pSolver->preprocessTheNurses();
 
   // Write a summary  of the advanced data computed for the demands

@@ -326,7 +326,7 @@ struct MyBranchingCandidate {
   MyBranchingCandidate() = default;
 
   int createNewChild() {
-    children_.emplace_back(MyBranchingNode());
+    children_.emplace_back();
     initialize(&children_.back());
     return children_.size() - 1;
   }
@@ -483,9 +483,8 @@ struct MyNode {
                 << ") is smaller than its parent one (" << bestLB_ << ")."
                 << std::endl;
       increased = false;
-    } else {
-      bestLB_ = newLB;
     }
+    bestLB_ = newLB;
     processed_ = true;
     // if not root
     if (pParent_) {
@@ -603,9 +602,9 @@ struct MyTree {
     // this would be called once at the end of the first dive
     if (!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
       diveLength_ = 1 + diveDepth_;
-#ifdef DBG
+//  #ifdef DBG
     if (currentNode_) std::cout << currentNode_->write() << std::endl;
-#endif
+//  #endif
   }
 
   /* clear tree */
@@ -1404,6 +1403,14 @@ class Modeler {
 
   virtual double getDual(MyCons *cons, bool transformed = false) const = 0;
 
+  template<typename V>
+  double getDual(const std::vector<V> &vector) const {
+    double value = 0;
+    for (const V &vect : vector)
+      value += getDual(vect);
+    return value;
+  }
+
   std::vector<double> getDuals(const std::vector<MyCons *> &cons,
                                bool transformed = false) const {
     std::vector<double> dualValues(cons.size());
@@ -1516,6 +1523,8 @@ class Modeler {
   virtual int writeProblem(std::string fileName) const = 0;
 
   virtual int writeLP(std::string fileName) const = 0;
+
+  virtual int writeMPS(std::string fileName) const = 0;
 
   virtual void toString(MyObject *obj) const {
     std::cout << obj->name_ << std::endl;

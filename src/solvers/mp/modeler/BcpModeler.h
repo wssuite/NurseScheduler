@@ -461,6 +461,8 @@ class BcpModeler : public CoinModeler {
 
   int writeLP(std::string fileName) const override;
 
+  int writeMPS(std::string fileName) const override;
+
   /*
    * Class own methods and parameters
    */
@@ -1071,6 +1073,13 @@ class BcpLpModel : public BCP_lp_user {
     return 0;
   }
 
+  int writeMPS(std::string fileName) {
+    std::cout << "LP model saved in " << fileName << ".mps" << std::endl;
+    if (getLpProblemPointer())
+      getLpProblemPointer()->lp_solver->writeMps(fileName.c_str());
+    return 0;
+  }
+
   // getters/setters
   BCP_lp_statistics getTimeStats() {
     return getLpProblemPointer()->stat;
@@ -1400,6 +1409,15 @@ class BcpInitialize : public USER_initialize {
 
   int writeLP(std::string fileName) const {
     if (pLpModel_) return pLpModel_->writeLP(fileName);
+    std::cout
+        << "WARNING: BCP cannot write the model as the LP solver "
+           "has not been initialized."
+        << std::endl;
+    return 1;
+  }
+
+  int writeMPS(std::string fileName) const {
+    if (pLpModel_) return pLpModel_->writeMPS(fileName);
     std::cout
         << "WARNING: BCP cannot write the model as the LP solver "
            "has not been initialized."

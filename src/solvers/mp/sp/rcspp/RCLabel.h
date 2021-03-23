@@ -86,6 +86,13 @@ class RCLabel {
 
   void addCost(double c) { cost_ += c; }
 
+  double baseCost() const { return baseCost_; }
+
+  void addBaseCost(double c) {
+    baseCost_ += c;
+    cost_ += c;
+  }
+
   void setAsNext(const shared_ptr<RCLabel> &pLPrevious,
                  const shared_ptr<RCArc> &pArc);
   void setAsPrevious(const shared_ptr<RCLabel> &pLNext,
@@ -94,7 +101,6 @@ class RCLabel {
                    const shared_ptr<RCLabel> &pLBackward);
 
 #ifdef DBG
-  double baseCost() const { return baseCost_; }
   double dualCost() const { return dualCost_; }
   double consShiftCost() const { return consShiftCost_; }
   double consWeekendShiftCost() const { return consWeekendShiftCost_; }
@@ -111,9 +117,6 @@ class RCLabel {
   }
   void addTotalWeekendCost(double c) {
     totalWeekendCost_ += c;
-  }
-  void addBaseCost(double c) {
-    baseCost_ += c;
   }
   void addDualCost(double c) {
     dualCost_ += c;
@@ -177,12 +180,12 @@ class RCLabel {
   // was expanded in forward propagation
   shared_ptr<RCLabel> pNextLabel_;  // Label from which the current one
   // was backward expanded
-  double cost_;   // current cumulated cost of the label
+  double cost_;   // current cummulated cost of the label
+  double baseCost_;  // cost without the dual values
   vector<ResourceValues> resourceValues_;   // vector containing all the
   // resource values
 
 #ifdef DBG
-  double baseCost_;  // current part of the cost due to base cost
   double dualCost_;  // current part of the cost due to dual cost
   double consShiftCost_;  // current cumulated cost due to consecutive shifts
   double consWeekendShiftCost_;

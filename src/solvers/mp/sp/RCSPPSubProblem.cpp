@@ -576,7 +576,7 @@ bool RCSPPSubProblem::solveRCGraph() {
 
   // Extract the best reduced cost
   if (!theSolutions_.empty())
-    bestReducedCost_ = theSolutions_[0].cost();
+    bestReducedCost_ = theSolutions_.front().reducedCost();
 
 #ifdef DBG
   /*
@@ -617,4 +617,36 @@ void RCSPPSubProblem::authorizeDayShift(int k, int s) {
 void RCSPPSubProblem::resetAuthorizations() {
   SubProblem::resetAuthorizations();
   pRCGraph_->resetAuthorizationsArcs();
+}
+
+void RCSPPSubProblem::computeResourcesCosts(
+    const State &initialState,
+    MasterProblem *pMaster,
+    RCSolution *rcSol) const {
+  // reset costs
+  rcSol->resetCosts();
+  // create origin, destination and arc
+  PRCNode pSource = std::make_shared<RCNode>(
+      0, SOURCE_NODE, rcSol->firstDay() - 1, initialState.pShift_),
+      pSink = std::make_shared<RCNode>(
+      1, SINK_NODE, rcSol->firstDay() + nDays() - 1, rcSol->pShifts().back());
+  PRCArc pArc = std::make_shared<RCArc>(
+      0, pSource, pSink, *rcSol, rcSol->firstDay(), TO_SINK);
+  // create expander for stretch
+  double c = pArc->cost;
+  for (const auto &pR : pResources_) {
+    pR->initialize(*pSource->pAShift, *rcSol, pArc);
+    rcSol->addCost(pArc->cost-c, pMaster->resourceCostType(pR, pLiveNurse_));
+    c = pArc->cost;
+  }
+  // expand
+  PRCLabel pL = std::make_shared<RCLabel>(pResources_, initialState);
+  c = pL->cost();
+  for (const auto &pE : pArc->expanders) {
+    ResourceValues &v = pL->getResourceValues(pE->resourceId);
+    pE->expand(pL, &v);
+    rcSol->addCost(pL->cost()-c, pMaster->resourceCostType(
+        pResources_[pE->resourceId], pLiveNurse_));
+    c = pL->cost();
+  }
 }

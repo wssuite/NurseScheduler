@@ -14,6 +14,8 @@
 #include <memory>
 #include <utility>
 
+#include "solvers/mp/sp/rcspp/boost/RotationSP.h"
+
 RotationSP::RotationSP(PScenario scenario,
                        int nbDays,
                        PLiveNurse nurse,
@@ -159,4 +161,59 @@ bool RotationSP::postprocess() {
                         "a rest shift when not ending on the last");
   }
   return true;
+}
+
+void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
+  // check with boost if default resources
+  if (pMaster->useDefaultResources()) {
+    boostRCSPP::RotationSP sp(pScenario_, nDays(), pLiveNurse_);
+    sp.computeCost(nullptr, rcSol);
+  } else {
+    Tools::throwError("Not implemented.");
+  }
+//  /************************************************
+//   * Compute all the costs of a roster:
+//   ************************************************/
+//  #ifdef DBG
+//  double cost = rcSol->cost();
+//  #endif
+//  /*
+//  * Compute resources costs
+//  */
+//  computeResourcesCosts(*pLiveNurse_->pStateIni_, pMaster, rcSol);
+//
+//  /*
+//   * Compute complete weekend
+//   */
+//  if (pLiveNurse_->needCompleteWeekends()) {
+//    int k = 0;
+//    bool rest = false;
+//    for (const PShift &pS : rcSol->pShifts()) {
+//      // on sunday, if complete weekend, it's either:
+//      // work on saturday (rest=false) and sunday
+//      // rest on saturday (rest=true) and sunday
+//      if (Tools::isSunday(k) && (rest ^ pS->isRest()))
+//        rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+//                       COMPLETE_WEEKEND_COST);
+//      rest = pS->isRest();
+//      k++;
+//    }
+//  }
+//
+//  computePreferencesCost(rcSol);
+//
+//  #ifdef DBG
+//  if (std::abs(cost - rcSol->cost()) > 1e-3) {
+//    std::cerr << "# " << std::endl;
+//    std::cerr << "# " << std::endl;
+//    std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
+//              << std::endl;
+//    std::cerr << "# " << std::endl;
+//    std::cerr << "#   | Base cost     : + " << rcSol->cost() << std::endl;
+//    std::cerr << rcSol->costsToString();
+//    std::cerr << rcSol->toString();
+//    std::cerr << "# " << std::endl;
+//    Tools::throwError("RosterSP::computeCost does not get the same cost.");
+//  }
+//  #endif
 }

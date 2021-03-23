@@ -30,18 +30,8 @@ class SubProblem : public SP {
  public:
   SubProblem(): SP() {}
 
-  SubProblem(PScenario scenario,
-                  int nDays,
-                  PLiveNurse pNurse,
-                  const SubproblemParam &param):
-      SP(scenario, nDays, pNurse, param),
-      CDMin_(pNurse->minConsDaysWork()),
-      minConsDays_(1),
-      maxRotationLength_(nDays) {}
-
-  SubProblem(PScenario scenario, int nDays, PConstContract contract,
-                  std::vector<State> *pInitState):
-      SP(scenario, nDays, contract, pInitState),
+  SubProblem(PScenario scenario, int nDays, PConstContract contract):
+      SP(scenario, nDays, contract),
       CDMin_(contract->minConsDaysWork_),
       minConsDays_(1),
       maxRotationLength_(nDays) {}

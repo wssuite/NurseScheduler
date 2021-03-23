@@ -244,11 +244,7 @@ Solver *setSolverWithInputAlgorithm(PScenario pScen, Algorithm algorithm) {
   switch (algorithm) {
     case GENCOL:
       // DBG: add solver type as option: S_CLP, S_GUROBI ...
-      pSolver = new RotationMP(pScen,
-                               pScen->pWeekDemand(),
-                               pScen->pWeekPreferences(),
-                               pScen->pInitialState(),
-                               S_CLP);
+      pSolver = new RotationMP(pScen, S_CLP);
       break;
     default: Tools::throwError("The algorithm is not handled yet");
       break;
@@ -286,10 +282,7 @@ void displaySolutionMultipleWeeks(string dataDir,
   // load the solution in a new solver
   PScenario pScen =
       initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
-  Solver *pSolver = new Solver(pScen,
-                               pScen->pWeekDemand(),
-                               pScen->pWeekPreferences(),
-                               pScen->pInitialState());
+  Solver *pSolver = new Solver(pScen);
   pSolver->loadSolution(solution);
 
   // write the log file for all the weeks
@@ -328,10 +321,7 @@ void displaySolutionMultipleWeeks(InputPaths inputPaths,
 
   // load the solution in a new solver
   PScenario pScen = initializeMultipleWeeks(inputPaths);
-  Solver *pSolver = new Solver(pScen,
-                               pScen->pWeekDemand(),
-                               pScen->pWeekPreferences(),
-                               pScen->pInitialState());
+  Solver *pSolver = new Solver(pScen);
   pSolver->loadSolution(solution);
 
   // write the log file for all the weeks

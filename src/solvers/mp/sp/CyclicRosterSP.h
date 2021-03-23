@@ -50,6 +50,10 @@ class OffsetRosterSP : public RosterSP {
 
   void build() override;
 
+  // remove last shift from solution and
+  // rotate it to put back the first day to 0
+  bool postprocess() override;
+
  protected:
   void createNodes(const PRCGraph &pRCGraph) override;
   void createArcs(const PRCGraph &pRCGraph) override;
@@ -80,6 +84,8 @@ class CyclicRosterSP : public RosterSP {
       const SubproblemParam &param,
       const std::set<std::pair<int, int>> &forbiddenDayShifts = {},
       double redCostBound = 0) override;
+
+  void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const override;
 
  protected:
   // offset is used to generate cyclic rosters
