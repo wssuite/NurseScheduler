@@ -1,3 +1,3 @@
 certifi==2020.4.5.1
 ortools==7.3.7083
-PyYAML==5.3.1
+PyYAML==5.4
