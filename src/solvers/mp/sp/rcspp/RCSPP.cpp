@@ -19,11 +19,10 @@
 #include "solvers/mp/RCPricer.h"
 
 int dominate(const PRCLabel &pL1,
-             const PRCLabel &pL2,
-             const vector<PResource> &resources) {
+             const PRCLabel &pL2) {
   // Improved domination
   double cost1 = pL1->cost(), cost2 = pL2->cost();
-  for (const auto &r : resources) {
+  for (const auto &r : pL1->getNode()->activeResources) {
     // if at anytime cost1 > cost2, return false
     if (cost1 > cost2) return 0;
     // if pL1 doesn't dominate pL2 on resource r, stop
@@ -40,14 +39,13 @@ int dominate(const PRCLabel &pL1,
 // - 1 if domination with every constraint
 // - 2 if domination when LBs are ignored but not with every constraint
 int dominateNoLB(const PRCLabel &pL1,
-                 const PRCLabel &pL2,
-                 const vector<PResource> &resources)  {
+                 const PRCLabel &pL2)  {
   // We implement only improved domination for DSSR
   double cost1noLB = pL1->cost(), costOfLBs = 0;
   double cost2 = pL2->cost();
   // if cost1 > cost2, return false
   if (cost1noLB > cost2) return 0;
-  for (const auto &r : resources) {
+  for (const auto &r : pL1->getNode()->activeResources) {
     // if hard resource, just check both bounds
     if (r->isHard()) {
       if (!r->dominates(pL1, pL2)) return 0;
@@ -112,18 +110,28 @@ void LabelPool::sort() {
 }
 
 RCSPPSolver::RCSPPSolver(PRCGraph pRcGraph,
-                         SubproblemParam param) :
+                         SubProblemParam param) :
     pRcGraph_(pRcGraph),
     pFactory_(std::make_shared<RCLabelFactory>()),
     labelPool_(pFactory_, 100),
     bestPrimalBound_(0.0),
     param_(std::move(param)),
     maxReducedCostBound_(0),
-    nb_max_paths_(1),
     total_number_of_nondominated_labels_(0),
     number_of_infeasible_deleted_labels_(0),
     total_number_of_generated_labels_(0),
-    total_number_of_dominations_(0) {}
+    total_number_of_dominations_(0) {
+  // if we are not solving to optimality and rcsppMinNegativeLabels_ has is
+  // default value, override it based on the number of columns to generate
+  if (!param_.rcsppToOptimality_) {
+    if (param_.rcsppMinNegativeLabels_ == -1)
+      param_.rcsppMinNegativeLabels_ = static_cast<int>(round(
+          param_.spMinColumnsRatioForIncrease_ * param_.nbMaxColumnsToAdd_));
+    if (param_.rcsppMaxNegativeLabels_ == -1)
+      param_.rcsppMaxNegativeLabels_ = static_cast<int>(round(
+          param_.spColumnsRatioForNumberPaths_ * param_.nbMaxColumnsToAdd_));
+  }
+}
 
 void RCSPPSolver::resetLabels() {
   pExpandedLabelsPerNode_.clear();
@@ -135,10 +143,8 @@ void RCSPPSolver::resetLabels() {
   pLabelsNoExpandPerNode_.resize(nNodes);
 }
 
-std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound,
-                                           int nb_max_paths) {
+std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound) {
   maxReducedCostBound_ = maxReducedCostBound;
-  nb_max_paths_ = nb_max_paths;
 
   // Displaying of the activated options for the algorithm
   displaySolveInputInfo();
@@ -159,13 +165,11 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound,
                         destinationLabels.begin(),
                         destinationLabels.end());
     // Sorting by increasing cost all the labels of the sink nodes
-    int nbNegativeLabels = getNbNegativeCostLabels(pLabelsSinks,
-                                                   &bestPrimalBound_);
+    int nLabels = getNbLabelsBelowMaxBound(pLabelsSinks, &bestPrimalBound_);
     if (param_.verbose_ >= 3) {
-      std::cout << "Current best primal bound = " << bestPrimalBound_ <<
-                std::endl;
-      std::cout << "Number of negative cost labels = " << nbNegativeLabels <<
-                std::endl;
+      std::cout << "Current best primal bound = "
+                << bestPrimalBound_ << std::endl;
+      std::cout << "Number of negative cost labels = " << nLabels << std::endl;
     }
 
     if (param_.rcsppToOptimality_) {
@@ -181,7 +185,7 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound,
       // rosters, we can break, because we got what we were looking for
       // otherwise, we deactivate the most restrictive heuristic and get
       // prepared for a new solution
-      if (nbNegativeLabels >= param_.rcsppMinNegativeLabels_)
+      if (nLabels >= param_.rcsppMinNegativeLabels_)
         break;
       else
         prepareForNextExecution(pRcGraph_->pNodes());
@@ -331,10 +335,8 @@ bool RCSPPSolver::expand(
 void RCSPPSolver::checkDominationsWithPreviousLabels(
     const vector<PRCLabel>::iterator &begin,
     const vector<PRCLabel>::iterator &end,
-    const vector<PResource> &resources,
     int (*domFunction)(const PRCLabel &,
-                       const PRCLabel &,
-                       const vector<PResource> &),
+                       const PRCLabel &),
     vector<int> *domStatus,
     vector<int> *domStatusNoExpand) {
 
@@ -361,7 +363,7 @@ void RCSPPSolver::checkDominationsWithPreviousLabels(
     // check if the expanded labels dominate the newly generated ones
     for (const auto& pL2 : expandedLabels) {
       total_number_of_dominations_++;
-      status = domFunction(pL2, *itL1, resources);
+      status = domFunction(pL2, *itL1);
       *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
       if (*itD1 == 1) break;
     }
@@ -370,7 +372,7 @@ void RCSPPSolver::checkDominationsWithPreviousLabels(
     // check if the non-expanded labels dominate the newly generated ones
     for (const auto& pL2 : labelsNoExpand) {
       total_number_of_dominations_++;
-      status = domFunction(pL2, *itL1, resources);
+      status = domFunction(pL2, *itL1);
       *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
       if (*itD1 == 1) break;
     }
@@ -384,7 +386,7 @@ void RCSPPSolver::checkDominationsWithPreviousLabels(
          ++itD2, ++itL2) {
       if (*itD2 == 1) continue;
       total_number_of_dominations_++;
-      status = domFunction(*itL1, *itL2, resources);
+      status = domFunction(*itL1, *itL2);
       *itD2 = (status == 1) ? 1 : std::max(*itD2, status);
     }
   }
@@ -393,10 +395,8 @@ void RCSPPSolver::checkDominationsWithPreviousLabels(
 void RCSPPSolver::checkDominationsPairwise
     (const vector<PRCLabel>::iterator &begin,
      const vector<PRCLabel>::iterator &end,
-     const vector<PResource> &resources,
      int (*domFunction)(const PRCLabel &,
-                        const PRCLabel &,
-                        const vector<PResource> &),
+                        const PRCLabel &),
      vector<int> *domStatus) {
   // compare newly generated labels pairwise for domination
   auto itL1 = begin;
@@ -411,7 +411,7 @@ void RCSPPSolver::checkDominationsPairwise
       if (*itD2 == 1) continue;
 
       total_number_of_dominations_++;
-      status = domFunction(*itL1, *itL2, resources);
+      status = domFunction(*itL1, *itL2);
       *itD2 = (status == 1) ? 1 : std::max(*itD2, status);
     }
     itL2 = itL1 + 1;
@@ -420,7 +420,7 @@ void RCSPPSolver::checkDominationsPairwise
         if (*itD2 == 1) continue;
 
         total_number_of_dominations_++;
-        status = domFunction(*itL2, *itL1, resources);
+        status = domFunction(*itL2, *itL1);
         *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
         if (*itD1 == 1) break;
 
@@ -434,7 +434,7 @@ void RCSPPSolver::checkDominationsPairwise
         if (*itD2 == 1) continue;
 
         total_number_of_dominations_++;
-        status = domFunction(*itL2, *itL1, resources);
+        status = domFunction(*itL2, *itL1);
         *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
         if (*itD1 == 1) break;
       }
@@ -447,8 +447,7 @@ void RCSPPSolver::checkAllDominations(
     const vector<PRCLabel>::iterator &begin,
     const vector<PRCLabel>::iterator &end,
     int (*domFunction)(const PRCLabel &,
-                       const PRCLabel &,
-                       const vector<PResource> &),
+                       const PRCLabel &),
     vector<int> *domStatus,
     vector<int> *domStatusNoExpand) {
   // if no labels, returns
@@ -461,25 +460,20 @@ void RCSPPSolver::checkAllDominations(
 
   // compute active resources
   auto pN = (*begin)->getNode();
-  vector<PResource> activeResources;
-  activeResources.reserve(pRcGraph_->nResources());
   for (const auto &pR : pRcGraph_->pResources()) {
     if (param_.rcsppImprovedDomination_) pR->useAltenativeDomination();
     else
       pR->useDefaultDomination();
-    if (pR->isActive(pN->day, *pN->pAShift))
-      activeResources.push_back(pR);
   }
 
   // check for domination between the newly generated labels and those that
   // are already stored at the node
   checkDominationsWithPreviousLabels(begin, end,
-                                     activeResources,
                                      domFunction,
                                      domStatus, domStatusNoExpand);
 
   // compare newly generated labels pairwise for domination
-  checkDominationsPairwise(begin, end, activeResources, domFunction, domStatus);
+  checkDominationsPairwise(begin, end, domFunction, domStatus);
 }
 
 
@@ -555,6 +549,7 @@ void RCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
     // if we have expanded only a  small subset of labels at each node, we did
     // not perform any domination, so we just start the algorithm over
     param_.rcsppNbToExpand_ = 0;
+    if (!param_.rcsppDssr_) param_.rcsppToOptimality_ = true;
     for (const auto &pN : nodes) {
       if (pN->type != SOURCE_NODE) {
         pLabelsToExpandPerNode_[pN->id].clear();
@@ -565,6 +560,7 @@ void RCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
     // expansion and domination information we got during the execution and
     // warm-start the new execution of the label-setting algorithm
     param_.rcsppDssr_ = false;
+    param_.rcsppToOptimality_ = true;
     // move the labels that were expanded to the list of expanded labels
     for (const auto &pN : nodes) {
       std::vector<PRCLabel>
@@ -617,12 +613,12 @@ bool RCSPPSolver::hasPotentialImprovingPathToSinks(
   return pl->cost() + minimumCostToSinks_[pN->id] < primalBound;
 }
 
-int RCSPPSolver::getNbNegativeCostLabels(const vector<PRCLabel> &labels,
-                                         double *pMinCost) {
+int RCSPPSolver::getNbLabelsBelowMaxBound(const vector<PRCLabel> &labels,
+                                          double *pMinCost) {
   *pMinCost = 0;
   int nbNegativeCosts = 0;
   for (const auto &pL : labels) {
-    if (pL->cost() <= -param_.epsilon_) {
+    if (pL->cost() <= maxReducedCostBound_ - param_.epsilon_) {
       nbNegativeCosts++;
       *pMinCost = std::min(*pMinCost, pL->cost());
     }

@@ -28,7 +28,7 @@ class RotationSP : public RCSPPSubProblem {
              int nbDays,
              PLiveNurse nurse,
              std::vector<PResource> pResources,
-             const SubproblemParam &param);
+             const SubProblemParam &param);
 
   void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const override;
 

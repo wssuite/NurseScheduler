@@ -13,8 +13,12 @@
 
 #include <algorithm>
 #include <map>
+#include <set>
+#include <utility>
 
 namespace boostRCSPP {
+
+const int SubProblem::maxSubproblemStrategyLevel_ = 3;
 
 void SubProblem::build() {
   g_ = RCGraph(nDays_);
@@ -29,13 +33,86 @@ void SubProblem::build() {
   nPathsMin_ = 0;
 }
 
+
+void SubProblem::initSubproblemParam(int strategy) {
+  maxRotationLength_ = pLiveNurse_->maxConsDaysWork();
+  param_.rcsppMinNegativeLabels_ = static_cast<int>(round(
+      param_.spMinColumnsRatioForIncrease_ * param_.nbMaxColumnsToAdd_));
+  int nb_max_path = static_cast<int>(round(
+      param_.spColumnsRatioForNumberPaths_ * param_.nbMaxColumnsToAdd_));
+  param_.strategyLevel_ = strategy;
+  switch (strategy) {
+    // 0 -> [Heuristic large search]
+    //  short = all,
+    //  min   = 0,
+    //  max   = CD_max+3
+    //
+    case 0:param_.search_strategy_ = SP_BEST_FIRST;
+      param_.rcsppMaxNegativeLabels_ = nb_max_path;
+      param_.violateConsecutiveConstraints_ = true;
+      param_.shortRotationsStrategy_ = 3;
+      maxRotationLength_ += 3;
+      break;
+
+      // 1 -> [Exact legal only]
+      //  short = first and last day,
+      //  min   = CD_min,
+      //  max   = CD_max
+      //
+    case 1:param_.search_strategy_ = SP_BREADTH_FIRST;
+      param_.rcsppMaxNegativeLabels_ = -1;
+      param_.violateConsecutiveConstraints_ = false;
+      param_.shortRotationsStrategy_ = 2;
+      maxRotationLength_ += 0;
+      break;
+
+      // 2 -> [Exact above legal]
+      //  short = all,
+      //  min   = 0,
+      //  max   = CD_max+2
+      //
+    case 2:param_.search_strategy_ = SP_BREADTH_FIRST;
+      param_.rcsppMaxNegativeLabels_ = -1;
+      param_.violateConsecutiveConstraints_ = true;
+      param_.shortRotationsStrategy_ = 3;
+      maxRotationLength_ += 2;
+      break;
+
+      // 3 -> [Exact exhaustive search]
+      //  short = all,
+      //  min   = 0,
+      //  max   = LARGE
+      //
+    case 3:param_.search_strategy_ = SP_BREADTH_FIRST;
+      param_.rcsppMaxNegativeLabels_ = -1;
+      param_.violateConsecutiveConstraints_ = true;
+      param_.shortRotationsStrategy_ = 3;
+      maxRotationLength_ =
+          pLiveNurse_->pStateIni_->consDaysWorked_ + pLiveNurse_->nbDays_;
+      break;
+    default:  // UNKNOWN STRATEGY
+      std::cout << "# Unknown strategy for the subproblem (" << strategy << ")"
+                << std::endl;
+      break;
+  }
+}
+
+void SubProblem::updateParameters(bool masterFeasible) {
+  // if backtracking -> restart at 0
+  int diff = param_.strategyLevel_ - defaultStrategy_;
+  if (!masterFeasible || diff <= 1) initSubproblemParam(defaultStrategy_);
+  else
+    // otherwise, just try previous level if more than 2 levels
+    initSubproblemParam(param_.strategyLevel_ - 1);
+}
+
 BoostRCSPPSolver *SubProblem::initRCSSPSolver() {
   return new BoostRCSPPSolver(&g_,
                               maxReducedCostBound_,
                               param_.verbose_,
                               param_.epsilon_,
                               param_.search_strategy_,
-                              param_.rcsppMinNegativeLabels_,
+                              param_.rcsppMaxNegativeLabels_,
                               nullptr);
 }
 
@@ -59,6 +136,32 @@ Penalties SubProblem::initPenalties() const {
   }
 
   return penalties;
+}
+
+bool SubProblem::solve() {
+  bool ANS = false;
+  vector<int> forbiddenArcs;
+  while (!ANS) {
+    // Maximum rotations length: update the bounds on the nodes if needed
+    updatedMaxRotationLengthOnNodes(
+        std::min(nDays_ + maxOngoingDaysWorked_,
+            std::max(pContract_->maxConsDaysWork_, param_.maxRotationLength_)));
+
+    for (int a : forbiddenArcs) g().authorizeArc(a);
+    forbiddenArcs.clear();
+
+    if (!param_.violateConsecutiveConstraints_)
+      forbiddenArcs = forbidViolationConsecutiveConstraints();
+
+    ANS = SP::solve();
+
+    if (param_.strategyLevel_ == maxSubproblemStrategyLevel_)
+      break;
+    // update strategy
+    if (theSolutions_.size() < param_.rcsppMinNegativeLabels_)
+      initSubproblemParam(param_.strategyLevel_+1);
+  }
+  return ANS;
 }
 
 // shortest path problem is to be solved
@@ -97,11 +200,11 @@ bool SubProblem::solveRCGraph() {
     theSolutions_.push_back(sol);
     nPaths_++;
     nFound_++;
-    if (bestReducedCost_ > sol.reducedCost())
+    if (sol.reducedCost() < bestReducedCost_)
       bestReducedCost_ = sol.reducedCost();
   }
 
-  return !solutions.empty();
+  return !theSolutions_.empty();
 }
 
 //--------------------------------------------
@@ -331,9 +434,13 @@ void SubProblem::resetAuthorizations() {
 }
 
 // forbid any arc that authorizes the violation of a consecutive constraint
-void SubProblem::forbidViolationConsecutiveConstraints() {
-  for (PrincipalGraph &pg : principalGraphs_)
-    pg.forbidViolationConsecutiveConstraints();
+vector<int> SubProblem::forbidViolationConsecutiveConstraints() {
+  vector<int> forbiddenArcs;
+  for (PrincipalGraph &pg : principalGraphs_) {
+    vector<int> fArcs = pg.forbidViolationConsecutiveConstraints();
+    forbiddenArcs.insert(forbiddenArcs.end(), fArcs.begin(), fArcs.end());
+  }
+  return forbiddenArcs;
 }
 
 }  // namespace boostRCSPP

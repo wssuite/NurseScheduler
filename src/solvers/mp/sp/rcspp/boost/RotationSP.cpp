@@ -16,17 +16,11 @@
 namespace boostRCSPP {
 
 RotationSP::RotationSP(PScenario scenario,
-                                 int nbDays,
-                                 PConstContract contract) :
-    SubProblem(scenario, nbDays, contract) {
+                       int nDays,
+                       PLiveNurse pNurse,
+                       SubProblemParam param) :
+    SubProblem(scenario, nDays, pNurse, param) {
   labels_ = {CONS_DAYS};
-}
-
-RotationSP::RotationSP(PScenario scenario,
-                       int nbDays,
-                       PLiveNurse pNurse) :
-    RotationSP(scenario, nbDays, pNurse->pContract_) {
-  pLiveNurse_ = pNurse;
 }
 
 RotationSP::~RotationSP() {}

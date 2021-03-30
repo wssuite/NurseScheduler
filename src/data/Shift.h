@@ -39,7 +39,11 @@ struct AbstractShift {
     std::cout << name << std::endl;
   }
 
-  virtual bool includes(const AbstractShift &) = 0;
+  virtual bool includes(const AbstractShift &) const = 0;
+
+  bool equals(const AbstractShift & s) const {
+    return includes(s) && s.includes(*this);
+  }
 
   const string name;
 };
@@ -55,18 +59,12 @@ struct Shift : public AbstractShift {
             successors(vector<int>()),
             minCons(0),
             maxCons(99) {}
-  Shift(int id, int type) : AbstractShift(),
-                            id(id),
-                            type(type),
-                            duration(0),
-                            successors(vector<int>()),
-                            minCons(0),
-                            maxCons(99) {}
+
   Shift(string str,
         int i,
         int t,
-        int time = 0,
-        vector<int> list = vector<int>(),
+        int time,
+        vector<int> list,
         int m = 0,
         int M = 99) : AbstractShift(std::move(str)),
                       id(i),
@@ -96,7 +94,9 @@ struct Shift : public AbstractShift {
   bool isShift(int i) const override { return i == id; }
   bool isType(int t) const override { return t == type; }
   int workTime() const override { return duration; }
-  bool includes(const AbstractShift &s) override { return s.isShift(id); }
+  bool includes(const AbstractShift &s) const override {
+    return s.isShift(id);
+  }
 
   const int id;
   const int type;
@@ -114,7 +114,7 @@ struct AnyWorkShift : public AbstractShift {
   bool isWork() const override { return true; }
   bool isType(int t) const override { return true; }
   bool isAnyWork() const override {return true;}
-  bool includes(const AbstractShift &s) override { return s.isWork(); }
+  bool includes(const AbstractShift &s) const override { return s.isWork(); }
 };
 
 struct AnyOfTypeShift : public AbstractShift {
@@ -127,7 +127,9 @@ struct AnyOfTypeShift : public AbstractShift {
   bool isRest() const override { return type == 0; }
   bool isAnyOfType(int t) const override { return type == t; }
   bool isType(int t) const override { return t == type; }
-  bool includes(const AbstractShift &s) override { return s.isType(type); }
+  bool includes(const AbstractShift &s) const override {
+    return s.isType(type);
+  }
 
   const int type;
 };

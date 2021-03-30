@@ -231,21 +231,25 @@ void PrincipalGraph::authorizeDayShift(int k, int s) {
 }
 
 // forbid any arc that authorizes the violation of a consecutive constraint
-void PrincipalGraph::forbidViolationConsecutiveConstraints() {
-  if (pSP_ == nullptr) return;
+vector<int> PrincipalGraph::forbidViolationConsecutiveConstraints() {
+  if (pSP_ == nullptr) return {};
 
   // forbid the arcs that allow to violate the min consecutive constraint
+  vector<int> forbiddenArcs;
   int minCons = pSP_->minCons(shift_type_);
   for (auto &endArcs : arcsShiftToEndsequence_)
     for (int n = 1; n < minCons; n++)
-      pSP_->g().forbidArc(endArcs[n]);
+      if (pSP_->g().forbidArc(endArcs[n]))
+        forbiddenArcs.push_back(endArcs[n]);
 
   // forbid the arcs that allow to violate the max consecutive constraint if
   // not unlimited
   if (!pSP_->isUnlimited(shift_type_))
     for (auto &repeatArc : arcsRepeatShift_)
       for (int a : repeatArc)
-        pSP_->g().forbidArc(a);
+        if (pSP_->g().forbidArc(a))
+          forbiddenArcs.push_back(a);
+  return forbiddenArcs;
 }
 
 bool PrincipalGraph::checkIfShiftBelongsHere(int s, bool print_err) const {

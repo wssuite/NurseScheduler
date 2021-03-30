@@ -13,6 +13,8 @@
 #define SRC_SOLVERS_MP_SP_RCSPP_BOOST_SUBPROBLEM_H_
 
 #include <algorithm>
+#include <set>
+#include <utility>
 #include <vector>
 
 #include <boost/graph/adjacency_list.hpp>
@@ -28,13 +30,18 @@ namespace boostRCSPP {
 
 class SubProblem : public SP {
  public:
-  SubProblem(): SP() {}
-
-  SubProblem(PScenario scenario, int nDays, PConstContract contract):
-      SP(scenario, nDays, contract),
-      CDMin_(contract->minConsDaysWork_),
+  SubProblem(PScenario scenario,
+             int nDays,
+             PLiveNurse pNurse,
+             SubProblemParam param):
+      SP(std::move(scenario), nDays, std::move(pNurse), std::move(param)),
+      CDMin_(pLiveNurse_->minConsDaysWork()),
       minConsDays_(1),
-      maxRotationLength_(nDays) {}
+      maxRotationLength_(nDays),
+      defaultStrategy_(param_.strategyLevel_) {
+    // set initial strategy
+    initSubproblemParam(defaultStrategy_);
+  }
 
   RCGraph &g() { return g_; }
 
@@ -66,6 +73,18 @@ class SubProblem : public SP {
   }
 
   void build() override;
+
+  bool solve() override;
+
+  static const int maxSubproblemStrategyLevel_;
+
+  void initSubproblemParam(int strategy);
+
+  void updateParameters(bool masterFeasible) override;
+
+  bool isLastRunOptimal() const override {
+    return param_.strategyLevel_ == maxSubproblemStrategyLevel_;
+  }
 
   int addSingleArc(int origin,
                    int destination,
@@ -122,12 +141,9 @@ class SubProblem : public SP {
             pScenario_->nWeeks()};
   }
 
-  // TODO(JO): I moved the definition here, but it seems to be related to
-  //  rotations rather than to rosters and rotations. This also impacts the
-  //  solution method of SubProblem, which calls this method
   // Updates the maximum arrival time at all nodes so that the maximum length
   // of a rotation is updated.
-  void updatedMaxRotationLengthOnNodes(int maxRotationLength) override;
+  void updatedMaxRotationLengthOnNodes(int maxRotationLength);
 
   virtual double startWorkCost(int a) const = 0;
 
@@ -167,6 +183,8 @@ class SubProblem : public SP {
   // arcs to main sink
   std::vector<int> arcsTosink_;
 
+  int defaultStrategy_;
+
   // Creates all arcs of the rcspp
   void createArcs() override;
 
@@ -184,7 +202,7 @@ class SubProblem : public SP {
   bool canSuccStartHere(int k, const std::vector<PShift> &shifts) const;
 
   // forbid any arc that authorizes the violation of a consecutive constraint
-  void forbidViolationConsecutiveConstraints() override;
+  vector<int> forbidViolationConsecutiveConstraints();
 
   // Forbid a node / arc
   void forbidDayShift(int k, int s) override;

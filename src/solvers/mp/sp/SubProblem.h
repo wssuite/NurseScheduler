@@ -34,15 +34,8 @@ class SubProblem {
   SubProblem(PScenario scenario,
              int nDays,
              PLiveNurse pNurse,
-             SubproblemParam param);
+             SubProblemParam param);
   virtual ~SubProblem();
-
-  // Constructor that sets the subproblem of any nurse with a given
-  // contract : this correctly sets the resource (time + bounds), but NOT THE
-  // COST
-  SubProblem(PScenario scenario,
-             int nbDays,
-             PConstContract contract);
 
   // Initialization function for all global variables (not those of the rcspp)
   virtual void init(const std::vector<State> &pInitState);
@@ -52,9 +45,7 @@ class SubProblem {
   // Solve : Returns TRUE if negative reduced costs path were found;
   // FALSE otherwise.
   virtual bool solve(
-      PLiveNurse nurse,
       const PDualCosts &costs,
-      const SubproblemParam &param,
       const std::set<std::pair<int, int>> &forbiddenDayShifts = {},
       double redCostBound = 0);
 
@@ -76,9 +67,17 @@ class SubProblem {
 
   int nFound() const { return nFound_; }
 
+  const PLiveNurse &pLiveNurse() const { return pLiveNurse_; }
+
   double bestReducedCost() const { return bestReducedCost_; }
 
   double cpuInLastSolve() { return timerSolve_.dSinceStart(); }
+
+  virtual bool isLastRunOptimal() const = 0;
+
+  // reset parameters of the subproblems. Used to give a change to the solver
+  // to change their parameters. It will be used after a node has been fathomed
+  virtual void updateParameters(bool masterFeasible) = 0;
 
   // Print and check functions.
   void printAllSolutions() const;
@@ -154,7 +153,7 @@ class SubProblem {
   //
   //----------------------------------------------------------------
 
-  SubproblemParam param_;
+  SubProblemParam param_;
 
   //-----------------------
   // THE BASE COSTS
@@ -188,6 +187,7 @@ class SubProblem {
   virtual void updateArcDualCosts() = 0;
 
   // FUNCTIONS -- SOLVE
+  virtual bool solve();
   virtual bool preprocess();
   virtual bool postprocess();
 
@@ -207,9 +207,6 @@ class SubProblem {
 
   // Authorizes some days / shifts
   void authorize(const std::set<std::pair<int, int> > &forbiddenDayShifts);
-
-  // forbid any arc that authorizes the violation of a consecutive constraint
-  virtual void forbidViolationConsecutiveConstraints() = 0;
 
   // Know if node
   virtual bool isDayShiftForbidden(int k, int s) const {
@@ -237,8 +234,6 @@ class SubProblem {
   // authorized).
   // Test for random forbidden day-shift
   std::set<std::pair<int, int> > randomForbiddenShifts(int nbForbidden);
-
-  virtual void updatedMaxRotationLengthOnNodes(int maxRotationLength) {}
 };
 
 #endif  // SRC_SOLVERS_MP_SP_SUBPROBLEM_H_

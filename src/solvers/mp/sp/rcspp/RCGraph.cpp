@@ -18,7 +18,7 @@ void RCGraph::initializeExpanders() {
   vector<PResource> softResources;
   softResources.reserve(nResources());
   // initialize hard resources first
-  for (const auto &pR : pResources_) {
+  for (const auto &pR : pNonEnumResources_) {
     if (!pR->isHard()) {
       softResources.push_back(pR);
       continue;
@@ -34,10 +34,12 @@ void RCGraph::initializeExpanders() {
 }
 
 void RCGraph::initializeDominance() {
-  for (const auto &pN : pNodes_)
-    for (const auto &pR : pResources_)
+  for (const auto &pN : pNodes_) {
+    pN->activeResources.clear();
+    for (const auto &pR : pNonEnumResources_)
       if (pR->isActive(pN->day, *pN->pAShift))
-        pN->indActiveResources.push_back(pR->id());
+        pN->activeResources.push_back(pR);
+  }
 }
 
 std::vector<PRCNode> RCGraph::sortNodes() const {
@@ -80,6 +82,7 @@ std::vector<PRCNode> RCGraph::sortNodes() const {
 void RCGraph::addResource(const PResource& pR) {
   pR->setId(pResources_.size());
   pResources_.push_back(pR);
+  pNonEnumResources_.push_back(pR);
 }
 
 PRCNode RCGraph::addSingleNode(
@@ -133,8 +136,17 @@ void RCGraph::printAllArcs() const {
     std::cout << std::endl;
   }
 }
+
 const vector<PResource> &RCGraph::pResources() const {
   return pResources_;
+}
+
+const vector<PResource> &RCGraph::pNonEnumResources() const {
+  return pNonEnumResources_;
+}
+
+void RCGraph::pNonEnumResources(const vector<PResource> &pNonEnumResources) {
+  pNonEnumResources_ = pNonEnumResources;
 }
 
 PRCArc RCGraph::getArc(const PRCNode& origin, const PRCNode& target) const {

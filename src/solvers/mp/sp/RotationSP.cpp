@@ -20,7 +20,7 @@ RotationSP::RotationSP(PScenario scenario,
                        int nbDays,
                        PLiveNurse nurse,
                        std::vector<PResource> pResources,
-                       const SubproblemParam &param) :
+                       const SubProblemParam &param) :
     RCSPPSubProblem(std::move(scenario),
                     nbDays,
                     std::move(nurse),
@@ -143,7 +143,7 @@ void RotationSP::createInitialLabels() {
     } else {
       // state corresponding to the min rest shift done if any
       int nCons = pLiveNurse_->minConsDaysOff();
-      State state(d, 0, 0, 0, nCons, nCons, 0, 0);
+      State state(d, 0, 0, 0, nCons, nCons, pScenario_->pShift(0));
       pL = std::make_shared<RCLabel>(pRCGraph_->pResources(), state);
     }
     pL->setNode(pSource);
@@ -166,7 +166,7 @@ bool RotationSP::postprocess() {
 void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   // check with boost if default resources
   if (pMaster->useDefaultResources()) {
-    boostRCSPP::RotationSP sp(pScenario_, nDays(), pLiveNurse_);
+    boostRCSPP::RotationSP sp(pScenario_, nDays(), pLiveNurse_, param_);
     sp.computeCost(nullptr, rcSol);
   } else {
     Tools::throwError("Not implemented.");

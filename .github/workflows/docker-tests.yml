@@ -162,7 +162,7 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n035w4_1_1-7-1-8
-          ns-args: -g 1300-1600 -t 300 --n-threads 4
+          ns-args: -g 1280-1600 -t 300 --n-threads 4
 
       - name: new1_0_0-1 LONG
         uses: ./ # Uses an action in the root directory

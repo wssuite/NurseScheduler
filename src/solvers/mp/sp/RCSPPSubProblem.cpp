@@ -18,7 +18,6 @@
 #include <utility>
 
 #include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
-#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
 #include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
 
 RCSPPSubProblem::RCSPPSubProblem(
@@ -26,18 +25,20 @@ RCSPPSubProblem::RCSPPSubProblem(
     int nbDays,
     PLiveNurse nurse,
     std::vector<PResource> pResources,
-    SubproblemParam param) :
+    SubProblemParam param) :
     SubProblem(std::move(scenario),
                nbDays,
                std::move(nurse),
                std::move(param)),
     pRCGraph_(std::make_shared<RCGraph>(nbDays, pScenario_->nShifts())),
+    pEnumGraph_(nullptr),
     pResources_(std::move(pResources)),
     pRcsppSolver_(nullptr),
     timerEnumerationOfSubPath_(),
     timerComputeMinCostFromSink_() {
   Tools::initVector2D<PRCNode>(&pNodesPerDay_, nDays_,
                                pScenario_->nShifts(), nullptr);
+  fixParameters();
 }
 
 void RCSPPSubProblem::build(const PRCGraph &pRCGraph) {
@@ -88,214 +89,191 @@ void RCSPPSubProblem::build() {
 }
 
 void RCSPPSubProblem::enumerateSubPaths(const PRCGraph &pRCGraph) {
-  // First, we enumerate sub paths from the source node taking account the
-  // history of the current nurse
-  enumerateConsShiftTypeFromSource(pRCGraph);
-
-  // Then, we enumerate sub paths from a PRINCIPAL_NETWORK node in the rcGraph
-  // corresponding to a given day and to a given shift
-  for (int d = 0; d < nDays_ - 1; ++d)
-    for (const auto& pS : pScenario_->pShifts())
-      enumerateConsShiftType(pRCGraph, pS, d);
+  // We enumerate all of the sub paths starting from any node of the network
+  for (const PRCNode &pOrigin : pRCGraph->pNodes())
+    enumerateConsShiftType(pRCGraph, pOrigin);
 
   // Finally, the costs of the arcs which existed before the enumeration
   // process are modified
   updateOfExistingArcsCost(pRCGraph);
+
+  // set the resources that has not been enumerate
+  vector<PResource> pNonEnumResources;
+  for (const PResource &pR : pResources_) {
+    auto pSR = std::dynamic_pointer_cast<SoftConsShiftResource>(pR);
+    // if a soft const shift resource and the abstract is indeed a shift,
+    // the resource has been enumerated (i.e., do not count AnyWorkShift
+    // for example).
+    if (pSR && dynamic_cast<AnyOfTypeShift*>(pSR->pAShift().get())) continue;
+    pNonEnumResources.push_back(pR);
+  }
+  pRCGraph->pNonEnumResources(pNonEnumResources);
 }
 
-
-void RCSPPSubProblem::enumerateConsShiftTypeFromSource(
-    const PRCGraph &pRCGraph) {
-/*  // Recovery of the last shift performed by the current nurse (It can be a
-  // worked shift or a rest shift). This is the 'initial Shift'.
-  State* initialState = this->pLiveNurse_->pStateIni_;
-  PShift pShiftIni = pScenario_->pShifts_[initialState->shift_];
+void RCSPPSubProblem::enumerateConsShiftType(
+    const PRCGraph &pRCGraph, const PRCNode &pOrigin) {
+  // Recovery of the last shift performed by the current nurse.
+  // This is the 'initial Shift'.
+  PShift pShiftIni = std::dynamic_pointer_cast<Shift>(pOrigin->pAShift);
+  if (!pShiftIni) Tools::throwError("Enumerate works only with graph where "
+                                    "the nodes represent a shift.");
 
   // Recovery of the number of times the last shift was completed by the
   // current nurse (It's either a worked shift or a rest shift). This value
   // is stored in the variable 'initialConsumption'.
   int initialConsumption(0);
-  if (pShiftIni->isRest())
-    initialConsumption = initialState->consDaysOff_;
-  else if (pShiftIni->isWork())
-    initialConsumption = initialState->consShifts_;
+  double initialBaseCost(0);
+  if (pOrigin->day == -1) {
+    if (pShiftIni->isRest())
+      initialConsumption = pLiveNurse_->pStateIni_->consDaysOff_;
+    else if (pShiftIni->isWork())
+      initialConsumption = pLiveNurse_->pStateIni_->consShifts_;
+    // Arc cost due to penalty of soft lower bound of the initial shift
+    // will be added only if working on a different type of shift
+    initialBaseCost = consShiftsLbCosts_.at(pShiftIni->id) *
+        std::max(0, (consShiftsLbs_.at(pShiftIni->id) - initialConsumption));
+  }
 
-  // All following arcs added will have the source node as their origin
-  PRCNode pOrigin = pRCGraph->pSource();
+  // All following arcs added will have pOrigin node as their origin
   // Iterate through all the possible successor shifts of the initial shift
   for (auto indSuccessorShift : pShiftIni->successors) {
-    // The successor shift is either of the same type as the initial shift or
-    // of a different type. The two cases are treated separately in order to
-    // take account the initial consumption of the last shift performed.
+    // The successor shift is either of the same type as the initial shift
+    // if starting from day -1 or of a different type.
+    // 1- Compute the initial consumption of this shift type:
+    // either 0 or initialConsumption if from source.
+    int initialC(0);
+    double initialBCost(0);
     if (indSuccessorShift == pShiftIni->id) {
-      for (int d{1}; d <= consShiftsUbs_.at(pShiftIni->id) -
-          initialConsumption - 1 && d < pScenario_->nbDays() ; d++) {
-        // Target node of the arc that will be added
-        PRCNode pTarget = pNodesPerDayShift_[d][indSuccessorShift];
-
-        // Creation of the stretch of the arc that will be added
-        vector<PShift> vecShift(d+1, nullptr);
-        for (size_t i = 0; i < d+1; i++)
-          vecShift.at(i) = std::make_shared<Shift>(*pTarget->pAShift);
-        Stretch stretch(vecShift, 0);
-
-        // Recovery of the base cost of the arc stretch (taking account the
-        // previous shift)
-        double bCost = baseCost(stretch, pOrigin->pAShift);
-
-        // Arc cost due to penalty of soft lower bound of the corresponding
-        // shift (this initial shift)
-        bCost += consShiftsLbCosts_.at(pShiftIni->id) *
-            std::max(0, consShiftsLbs_.at(pShiftIni->id) -
-                initialConsumption - 1 - d);
-
-        // The new arc is added to the rcGraph with its corresponding costs
-        PRCArc pArc =
-            pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
-      }
+      // Can work on the same shift only if starting from day -1.
+      // Otherwise, the stretch must change of shift type
+      if (pOrigin->day != -1) continue;
+      // set the initial consumption
+      initialC = initialConsumption;
     } else {
-      for (int d{1}; d <= consShiftsUbs_.at(indSuccessorShift)-1 && d <
-          pScenario_->nbDays(); d++) {
-        // Target node of the arc that will be added
-        PRCNode pTarget = pNodesPerDayShift_[d][indSuccessorShift];
-
-        // Creation of the stretch of the arc that will be added
-        vector<PShift> vecShift(d+1, nullptr);
-        for (size_t i = 0; i < d+1; i++)
-          vecShift.at(i) = std::make_shared<Shift>(*pTarget->pAShift);
-        Stretch stretch(vecShift, 0);
-
-        // Recovery of the base cost of the arc stretch (taking account the
-        // previous shift)
-       double bCost = baseCost(stretch, pOrigin->pAShift);
-
-        // Arc cost due to penalty of soft lower bound of the corresponding
-        // shift
-        bCost += std::max(0, consShiftsLbs_.at(indSuccessorShift) - d - 1)
-            * consShiftsLbCosts_.at(indSuccessorShift);
-
-        // Arc cost due to penalty of soft lower bound of the initial
-        // shift
-        bCost += consShiftsLbCosts_.at(pShiftIni->id) *
-           std::max(0, (consShiftsLbs_.at(pShiftIni->id)-initialConsumption));
-
-        // The new arc is added to the rcGraph with its corresponding costs
-        PRCArc pArc =
-            pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
-      }
+      // Arc cost due to penalty of soft lower bound of the initial
+      // shift if on a different shift and if was starting from day -1
+      initialBCost = initialBaseCost;
     }
-  }*/
-}
 
-void RCSPPSubProblem::enumerateConsShiftType(const PRCGraph &pRCGraph,
-                                             const PShift& pS,
-                                             int day) {
-//  // All arcs that will be added will have as origin the node corresponding to
-//  // the day and to the shift given in parameter
-//  PRCNode pOrigin = pNodesPerDayShift_[day][pS->id];
-//
-//  // Iterate through all the possible successor shifts of the origin node's
-//  // shift
-//  for (auto indSuccessorShift : pS->successors) {
-//    // New arcs will be added only toward nodes whose shift is different from
-//    // the origin node's one
-//    if (pS->id != indSuccessorShift) {
-//      for (int d = day+2; d <= day + consShiftsUbs_.at(indSuccessorShift)
-//          && d < pScenario_->nbDays(); d++) {
-//        // Target node of the arc that will be added
-//        PRCNode pTarget = pNodesPerDayShift_[d][indSuccessorShift];
-//
-//        // Creation of the stretch of the arc that will be added
-//        vector<PShift> vecShift(d-day, nullptr);
-//        for (size_t i = 0; i < d-day; i++)
-//          vecShift.at(i) = std::make_shared<Shift>(*pTarget->pShift);
-//        Stretch stretch(vecShift, day+1, d-day);
-//
-//        // Recovery of the base cost of the arc stretch (taking  into account
-//        // the previous shift)
-//        double bCost = baseCost(stretch, pOrigin->pShift);
-//
-//        // The arc cost due to penalty of soft lower bound of the
-//        // corresponding shift is added only if the target node is not
-//        // a sink node
-//        if (pTarget->type != SINK_NODE) {
-//          int missingDays = consShiftsLbs_.at(indSuccessorShift) - (d - day);
-//          if (missingDays > 0)
-//            bCost += consShiftsLbCosts_.at(indSuccessorShift) * missingDays;
-//        }
-//
-//        // The new arc is added to the rcGraph with its corresponding costs
-//        PRCArc pArc =
-//            pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
-//      }
-//    }
-//  }
+    // 2- compute all possible stretch length of size <= UB or
+    // UB - initialC if starting from day -1 and on the same initial shift
+    PRCNode pTarget = pOrigin;
+    vector<PShift> vecShift;
+    vecShift.reserve(consShiftsUbs_.at(pShiftIni->id));
+    for (int d{1}; d <= consShiftsUbs_.at(indSuccessorShift) - initialC &&
+        d < pScenario_->nDays() - pOrigin->day; d++) {
+      // Target node of the arc that will be added
+      PShift pShift;
+      for (const PRCArc &pArc : pTarget->outArcs) {
+        pShift = std::dynamic_pointer_cast<Shift>(pArc->target->pAShift);
+#ifdef DBG
+        if (!pShift)
+          Tools::throwError("Enumerate works only with graph where"
+                            " the nodes represent a shift.");
+#endif
+        if (pShift->id == indSuccessorShift) {
+          pTarget = pArc->target;
+          break;
+        }
+      }
+
+      // Creation of the stretch of the arc that will be added
+      vecShift.push_back(pShift);  // add one more same shift to the stretch
+      Stretch stretch(pOrigin->day+1, vecShift);
+
+      // we do not add the first sub path as it already exists in the graph
+      if (d == 1) continue;
+
+      // Recovery of the base cost of the arc stretch (taking account the
+      // previous shift, i.e. the initial shift)
+      double bCost = baseCost(stretch, pOrigin->pAShift);
+
+      // Arc cost due to penalty of soft lower bound of the corresponding
+      // shift (added only if the target node is not a sink node).
+      // Also, add initialC in case of starting from day -1, generally it's 0.
+      if (pTarget->type != SINK_NODE)
+        bCost += consShiftsLbCosts_.at(indSuccessorShift)
+            * std::max(0, consShiftsLbs_.at(indSuccessorShift)
+                - stretch.nDays() - initialC);
+
+      // Arc cost due to penalty of soft lower bound of the initial shift :
+      // generally 0
+      bCost += initialBCost;
+
+      // The new arc is added to the rcGraph with its corresponding costs
+      PRCArc pArc = pRCGraph->addSingleArc(pOrigin, pTarget, stretch, bCost);
+    }
+  }
 }
 
 
 void RCSPPSubProblem::updateOfExistingArcsCost(const PRCGraph &pRCGraph) {
-//  // Recovery of the last shift performed by the current nurse (It can be a
-//  // worked shift or a rest shift). This is the 'initial Shift'.
-//  State* initialState = this->pLiveNurse_->pStateIni_;
-//  PShift pShiftIni = pScenario_->pShifts_[initialState->shift_];
-//
-//  // Recovery of the number of times the last shift was completed by the
-//  // current nurse (It's either a worked shift or a rest shift). This value
-//  // is stored in the variable 'initialConsumption'.
-//  int initialConsumption(0);
-//  if (pShiftIni->isWork())
-//    initialConsumption = initialState->consShifts_;
-//  else if (pShiftIni->isRest())
-//    initialConsumption = initialState->consDaysOff_;
-//
-//  // Iterate through all the arcs of the rcGraph which weren't added during
-//  // the enumeration process (only the 'non-enumerated' arcs).
-//  for (const auto &arc : pRCGraph->pArcs()) {
-//    if (!arc->isEnumeratedArc()) {
-//      // Arcs coming from the source node are treated separately from the
-//      // others.
-//      if (arc->origin->id != 0) {
-//        if (arc->origin->pShift->id == arc->target->pShift->id) {
-//          // If the arc links two nodes with the same shift type, the cost due
-//          // to the violation of soft upper bound of the corresponding shifts
-//          // is added to the base cost of the arc.
-//          arc->addBaseCost(consShiftsUbCosts_.at(arc->origin->pShift->id));
-//        } else {
-//          // Otherwise, the cost due to the violation of the soft lower bound
-//          // of the target node's shifts is added to the base cost of the arc
-//          // (Only if the target node is not a sink node)
-//          if (arc->target->type != SINK_NODE &&
-//              consShiftsLbs_.at(arc->target->pShift->id) >= 2)
-//            arc->addBaseCost(consShiftsLbCosts_.at(arc->target->pShift->id) *
-//                (consShiftsLbs_.at(arc->target->pShift->id)-1));
-//        }
-//      } else {
-//        if (arc->target->pShift->id == pShiftIni->id) {
-//          // If the arc links two nodes with the same shift type,
-//          // the costs due to the violation of soft bounds of
-//          // the initial shift (taking account the initial consumption) are
-//          // added to the base cost of the arc.
-//          if (initialConsumption + 1 < consShiftsLbs_.at(pShiftIni->id) )
-//            arc->addBaseCost(consShiftsLbCosts_.at(pShiftIni->id) *
-//                (consShiftsLbs_.at(pShiftIni->id) - initialConsumption - 1));
-//          if (initialConsumption + 1 > consShiftsUbs_.at(pShiftIni->id))
-//            arc->addBaseCost(consShiftsUbCosts_.at(pShiftIni->id) *
-//                (initialConsumption+1 - consShiftsUbs_.at(pShiftIni->id)));
-//        } else {
-//          // Otherwise, the cost due to the violation of the soft lower bound
-//          // of the target node's shifts and the cost due to the violation of
-//          // the soft lower bound of the initial shift (taking account the
-//          // initial consumption) is added to the base cost of the arc
-//          if (consShiftsLbs_.at(arc->target->pShift->id) >= 2)
-//            arc->addBaseCost(consShiftsLbCosts_.at(arc->target->pShift->id) *
-//                (consShiftsLbs_.at(arc->target->pShift->id)- 1));
-//          if (initialConsumption < consShiftsLbs_.at(pShiftIni->id))
-//            arc->addBaseCost(consShiftsLbCosts_.at(pShiftIni->id) *
-//                (consShiftsLbs_.at(pShiftIni->id)-initialConsumption));
-//        }
-//      }
-//    }
-//  }
+  // Recovery of the last shift performed by the current nurse (It can be a
+  // worked shift or a rest shift). This is the 'initial Shift'.
+  State* pInitialState = this->pLiveNurse_->pStateIni_;
+  PShift pShiftIni = pInitialState->pShift_;
+
+  // Recovery of the number of times the last shift was completed by the
+  // current nurse (It's either a worked shift or a rest shift). This value
+  // is stored in the variable 'initialConsumption'.
+  int initialConsumption(0);
+  if (pShiftIni->isWork())
+    initialConsumption = pInitialState->consShifts_;
+  else if (pShiftIni->isRest())
+    initialConsumption = pInitialState->consDaysOff_;
+
+  // Iterate through all the arcs of the rcGraph which weren't added during
+  // the enumeration process (only the 'non-enumerated' arcs).
+  for (const auto &pArc : pRCGraph->pArcs()) {
+    if (pArc->isEnumeratedArc()) continue;
+
+    PShift pOShift = std::dynamic_pointer_cast<Shift>(pArc->origin->pAShift),
+        pTShift = std::dynamic_pointer_cast<Shift>(pArc->target->pAShift);
+    // Arcs coming from the source node are treated separately from the
+    // others.
+    if (pArc->origin->day != -1) {
+      if (pOShift->id == pTShift->id) {
+        // If the arc links two nodes with the same shift type, the cost due
+        // to the violation of soft upper bound of the corresponding shifts
+        // is added to the base cost of the arc.
+        pArc->addBaseCost(consShiftsUbCosts_.at(pOShift->id));
+      } else {
+        // Otherwise, the cost due to the violation of the soft lower bound
+        // of the target node's shifts is added to the base cost of the arc
+        // (Only if the target node is not a sink node)
+        if (pArc->target->type != SINK_NODE &&
+            consShiftsLbs_.at(pTShift->id) >= 2)
+          pArc->addBaseCost(consShiftsLbCosts_.at(pTShift->id) *
+              (consShiftsLbs_.at(pTShift->id) - 1));
+      }
+      continue;
+    }
+
+    // Otherwise, starting from day -1
+    if (pTShift->id == pShiftIni->id) {
+      // If the arc links two nodes with the same shift type,
+      // the costs due to the violation of soft bounds of
+      // the initial shift (taking account the initial consumption) are
+      // added to the base cost of the arc.
+      if (initialConsumption + 1 < consShiftsLbs_.at(pShiftIni->id) )
+        pArc->addBaseCost(consShiftsLbCosts_.at(pShiftIni->id) *
+            (consShiftsLbs_.at(pShiftIni->id) - initialConsumption - 1));
+      if (initialConsumption + 1 > consShiftsUbs_.at(pShiftIni->id))
+        pArc->addBaseCost(consShiftsUbCosts_.at(pShiftIni->id) *
+            (initialConsumption+1 - consShiftsUbs_.at(pShiftIni->id)));
+    } else {
+      // Otherwise, the cost due to the violation of the soft lower bound
+      // of the target node's shifts and the cost due to the violation of
+      // the soft lower bound of the initial shift (taking account the
+      // initial consumption) is added to the base cost of the arc
+      if (consShiftsLbs_.at(pTShift->id) >= 2)
+        pArc->addBaseCost(consShiftsLbCosts_.at(pTShift->id) *
+            (consShiftsLbs_.at(pTShift->id)- 1));
+      if (initialConsumption < consShiftsLbs_.at(pShiftIni->id))
+        pArc->addBaseCost(consShiftsLbCosts_.at(pShiftIni->id) *
+            (consShiftsLbs_.at(pShiftIni->id)-initialConsumption));
+    }
+  }
 }
 
 PRCArc RCSPPSubProblem::addSingleArc(const PRCGraph &pRCGraph,
@@ -347,8 +325,21 @@ void RCSPPSubProblem::preprocessRCGraph() {
     // Enumeration of sub paths in the rcGraph
     enumerateSubPaths(pRCGraph_);
     timerEnumerationOfSubPath_.stop();
-    std::cout << " - Total time spent in enumeration of sub-paths:  " <<
-              timerEnumerationOfSubPath_.dSinceStart() << std::endl;
+//    std::cout << " - Total time spent in enumeration of sub-paths:  " <<
+//              timerEnumerationOfSubPath_.dSinceStart() << std::endl;
+  }
+
+  if (param_.rcsppEnumSubpathsForMinCostToSinks_) {
+    pEnumGraph_ = std::make_shared<RCGraph>(
+        pRCGraph_->nDays(), pRCGraph_->nShifts());
+    build(pEnumGraph_);
+    createResources(pEnumGraph_);
+    timerEnumerationOfSubPath_.start();
+    // Enumeration of sub paths in the rcGraph
+    enumerateSubPaths(pEnumGraph_);
+    timerEnumerationOfSubPath_.stop();
+//      std::cout << " - Total time spent in enumeration of sub-paths:  " <<
+//                timerEnumerationOfSubPath_.dSinceStart() << std::endl;
   }
 
   // Initialization of each expander of each arc corresponding to each
@@ -363,51 +354,52 @@ void RCSPPSubProblem::initializeResources() {
   pRCGraph_->initializeDominance();
 }
 
+void RCSPPSubProblem::updateParameters(bool masterFeasible) {
+  // re-create a solver with the initial parameters
+  createRCSPPSolver();
+}
+
+void RCSPPSubProblem::fixParameters() {
+  if (param_.rcsppEnumSubpathsForMinCostToSinks_ &&
+      (param_.rcsppEnumSubpaths_  || !param_.rcsppMinCostToSinks_)) {
+    std::cout << "Warning: rcsppEnumSubpathsForMinCostToSinks has no point"
+                 " if rcsppEnumSubpaths is on or rcsppMinCostToSinks is "
+                 "off: it has been turned off" << std::endl;
+    param_.rcsppEnumSubpathsForMinCostToSinks_ = false;
+  }
+  if (param_.rcsppNbToExpand_ > 0 && param_.rcsppDssr_) {
+    std::cout << "Warning: rcsppNbToExpand_ and rcsppDssr_ do not work really "
+                 "well together." << std::endl;
+  }
+}
+
 bool RCSPPSubProblem::preprocess() {
   // update dual costs
   updateArcDualCosts();
 
-  // TODO(JO): create a method that checks the validity and compatibility of
-  //  options
   if (param_.rcsppEnumSubpathsForMinCostToSinks_) {
-    if (!param_.rcsppEnumSubpaths_ && param_.rcsppMinCostToSinks_) {
-      PRCGraph pEnumGraph =
-          std::make_shared<RCGraph>(pRCGraph_->nDays(), pRCGraph_->nShifts());
-      build(pEnumGraph);
-      createResources(pEnumGraph);
-      for (const auto &pA : pEnumGraph->pArcs())
+      if (pEnumGraph_ == nullptr)
+        Tools::throwError("Enum graph has not been built.");
+      for (const auto &pA : pEnumGraph_->pArcs())
         updateArcDualCost(pA);
-      timerEnumerationOfSubPath_.start();
-      // Enumeration of sub paths in the rcGraph
-      enumerateSubPaths(pEnumGraph);
-      timerEnumerationOfSubPath_.stop();
-      std::cout << " - Total time spent in enumeration of sub-paths:  " <<
-                timerEnumerationOfSubPath_.dSinceStart() << std::endl;
-
       timerComputeMinCostFromSink_.start();
       // Computation of the costs of the shortest paths from each sink node
       // to all the other nodes in the rcGraph
       pRcsppSolver_->setMinimumCostToSinks(
-          minCostPathToSinksAcyclic(pEnumGraph));
+          minCostPathToSinksAcyclic(pEnumGraph_));
       timerComputeMinCostFromSink_.stop();
-      std::cout << " - Total time spent in computing minimum paths costs from "
-                   "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
-                std::endl;
-    } else {
-      std::cout << "Warning: rcsppEnumSubpathsForMinCostToSinks has no point"
-                   " if rcsppEnumSubpaths is on or rcsppMinCostToSinks is "
-                   "off: it has been turned off" << std::endl;
-      param_.rcsppEnumSubpathsForMinCostToSinks_ = false;
-    }
+//     std::cout << " - Total time spent in computing minimum paths costs from "
+//                  "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
+//                std::endl;
   } else if (param_.rcsppMinCostToSinks_) {
     timerComputeMinCostFromSink_.start();
     // Computation of the costs of the shortest paths from each sink node
     // to all the other nodes in the rcGraph
     pRcsppSolver_->setMinimumCostToSinks(minCostPathToSinksAcyclic(pRCGraph_));
     timerComputeMinCostFromSink_.stop();
-    std::cout << " - Total time spent in computing minimum paths costs from "
-                 "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
-              std::endl;
+//    std::cout << " - Total time spent in computing minimum paths costs from "
+//                 "sinks: " << timerComputeMinCostFromSink_.dSinceStart() <<
+//              std::endl;
   }
   if (param_.verbose_ >= 4) {
     // print graph with updated costs
@@ -415,7 +407,7 @@ bool RCSPPSubProblem::preprocess() {
   }
 
   // resetLabels solver in case it is not the first time it is called
-  pRcsppSolver_->reset(param_);
+  pRcsppSolver_->reset();
   pRcsppSolver_->initializeLabels();
 
   return true;
@@ -567,12 +559,14 @@ void RCSPPSubProblem::updateArcDualCost(const PRCArc &pA) {
 }
 
 bool RCSPPSubProblem::solveRCGraph() {
+  // fix parameters
+  fixParameters();
+
   // create the first label on the source node
   createInitialLabels();
 
   // Solution of the RCSPP obtained with the RCSPP Solver
-  theSolutions_ = pRcsppSolver_->solve(maxReducedCostBound_,
-                                       param_.rcsppMinNegativeLabels_);
+  theSolutions_ = pRcsppSolver_->solve(maxReducedCostBound_);
 
   // Extract the best reduced cost
   if (!theSolutions_.empty())

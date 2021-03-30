@@ -19,6 +19,8 @@
 #include "solvers/mp/RosterMP.h"
 #include "InitializeSolver.h"
 #include "solvers/mp/modeler/BcpModeler.h"
+#include "tools/ReadWrite.h"
+
 
 // #define COMPARE_EVALUATIONS
 
@@ -44,7 +46,9 @@ DeterministicSolver::DeterministicSolver(PScenario pScenario) :
     pCompleteSolver_(nullptr),
     pRollingSolver_(nullptr),
     pLNSSolver_(nullptr) {
+#ifdef DBG
   std::cout << "# New deterministic solver created!" << std::endl;
+#endif
 
   // The nurses must be preprocessed to use their positions
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
@@ -54,7 +58,9 @@ DeterministicSolver::DeterministicSolver(PScenario pScenario,
                                          const InputPaths &inputPaths) :
     Solver(pScenario),
     pCompleteSolver_(nullptr), pRollingSolver_(nullptr), pLNSSolver_(nullptr) {
+#ifdef DBG
   std::cout << "# New deterministic solver created!" << std::endl;
+#endif
 
   // The nurses must be preprocessed to use their positions
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
@@ -62,7 +68,9 @@ DeterministicSolver::DeterministicSolver(PScenario pScenario,
   // set the options of the deterministic solver
   // (the corresponding method needs to be changed manually for tests)
   //
+#ifdef DBG
   std::cout << "# Set the options" << std::endl;
+#endif
   this->initializeOptions(inputPaths);
   std::cout << std::endl;
 
@@ -137,9 +145,9 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   }
 
   if (inputPaths.SPStrategy() >= 0) {
-    completeParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
-    rollingParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
-    lnsParameters_.sp_default_strategy_ = inputPaths.SPStrategy();
+    completeParameters_.spParam_.strategyLevel_ = inputPaths.SPStrategy();
+    rollingParameters_.spParam_.strategyLevel_ = inputPaths.SPStrategy();
+    lnsParameters_.spParam_.strategyLevel_ = inputPaths.SPStrategy();
   }
 
   if (!inputPaths.RCSPPType().empty()) {
@@ -147,14 +155,6 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
     completeParameters_.rcspp_type_ = t;
     rollingParameters_.rcspp_type_ = t;
     lnsParameters_.rcspp_type_ = t;
-    if (t == LABEL_SETTING) {
-      completeParameters_.sp_default_strategy_ =
-          SubproblemParam::maxSubproblemStrategyLevel_;
-      rollingParameters_.sp_default_strategy_ =
-          SubproblemParam::maxSubproblemStrategyLevel_;
-      lnsParameters_.sp_default_strategy_ =
-          SubproblemParam::maxSubproblemStrategyLevel_;
-    }
   }
 
   // set the number of threads
@@ -169,15 +169,8 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
   // open the file
   //
   std::fstream file;
-  std::string fileName = inputPaths.paramFile();
-  std::cout << "Reading " << fileName << std::endl;
-  file.open(fileName.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read the file " << fileName << std::endl;
-    throw Tools::myException(
-        "readOptionsFromFile: The input file was not opened properly!",
-        __LINE__);
-  }
+  ReadWrite::openFile(inputPaths.paramFile(), &file);
+
 
   // go through all the lines of the parameter file
   std::string title;
@@ -226,8 +219,9 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
       std::string solverName;
       file >> solverName;
       options_.MySolverType_ = SolverTypesByName[solverName];
-      // DBG
+#ifdef DBG
       std::cout << "LP solver :" << solverName << std::endl;
+#endif
     } else if (Tools::strEndsWith(title, "verbose")) {
       file >> options_.verbose_;
     } else if (Tools::strEndsWith(title, "isStabilization")) {
@@ -294,29 +288,13 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
       file >> strOpt;
       completeParameters_.optimalityLevel(stringToOptimalityLevel[strOpt]);
     } else if (Tools::strEndsWith(title, "spDefaultStrategy")) {
-      file >> completeParameters_.sp_default_strategy_;
-      lnsParameters_.sp_default_strategy_ =
-          completeParameters_.sp_default_strategy_;
-      rollingParameters_.sp_default_strategy_ =
-          completeParameters_.sp_default_strategy_;
+      file >> completeParameters_.spParam_.strategyLevel_;
     } else if (Tools::strEndsWith(title, "spNbRotationsPerNurse")) {
-      file >> completeParameters_.sp_nbrotationspernurse_;
-      lnsParameters_.sp_nbrotationspernurse_ =
-          completeParameters_.sp_nbrotationspernurse_;
-      rollingParameters_.sp_nbrotationspernurse_ =
-          completeParameters_.sp_nbrotationspernurse_;
+      file >> completeParameters_.spParam_.sp_nbrotationspernurse_;
     } else if (Tools::strEndsWith(title, "spNbNursesToPrice")) {
-      file >> completeParameters_.sp_nbnursestoprice_;
-      lnsParameters_.sp_nbnursestoprice_ =
-          completeParameters_.sp_nbnursestoprice_;
-      rollingParameters_.sp_nbnursestoprice_ =
-          completeParameters_.sp_nbnursestoprice_;
+      file >> completeParameters_.spParam_.sp_nbnursestoprice_;
     } else if (Tools::strEndsWith(title, "spMaxReducedCostBound")) {
-      file >> completeParameters_.sp_max_reduced_cost_bound_;
-      lnsParameters_.sp_max_reduced_cost_bound_ =
-          completeParameters_.sp_max_reduced_cost_bound_;
-      rollingParameters_.sp_max_reduced_cost_bound_ =
-          completeParameters_.sp_max_reduced_cost_bound_;
+      file >> completeParameters_.spParam_.sp_max_reduced_cost_bound_;
     } else if (Tools::strEndsWith(title, "rcsppToOptimality")) {
       file >> completeParameters_.spParam_.rcsppToOptimality_;
     } else if (Tools::strEndsWith(title, "rcsppSortLabels")) {
@@ -343,6 +321,8 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
       file >> completeParameters_.spParam_.rcsppWithRotationGraph_;
     }
   }
+  lnsParameters_.spParam_ = completeParameters_.spParam_;
+  rollingParameters_.spParam_ = completeParameters_.spParam_;
 }
 
 //----------------------------------------------------------------------------

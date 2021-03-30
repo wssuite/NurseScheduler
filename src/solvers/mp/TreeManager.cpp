@@ -269,11 +269,13 @@ double ScoreVarBestExpectedLBImprovement::score(
 /* Constructs the branching rule object. */
 DiveBranchingRule::DiveBranchingRule(MasterProblem *master,
                                      RestTree *tree,
-                                     const char *name) :
+                                     const char *name,
+                                     bool randomSwapOfChilfren) :
     MyBranchingRule(name),
     pMaster_(master),
     tree_(tree),
-    pModel_(master->getModel()) {
+    pModel_(master->getModel()),
+    randomSwapOfChilfren_(randomSwapOfChilfren) {
   // either ScoreVarCloseHalf or ScoreVarBestExpectedLBImprovement
   scoreFunc_ = std::unique_ptr<ScoreVar>(
       new ScoreVarCloseHalf(this));
@@ -529,7 +531,7 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
   tree_->pushBackNewDemandNode(name, ceil(v), cut->getRhs());
 
   // Here : random swap to decide the order of the siblings
-  randomSwapLastChildren(candidate);
+  randomSwapLastChildrenIfEnable(candidate);
 }
 
 //-----------------------------------------------------------------------------
@@ -580,7 +582,7 @@ void DiveBranchingRule::branchOnOptDemand(MyBranchingCandidate *candidate) {
   tree_->pushBackNewVarNode(bestVar, ceil(v), bestVar->getUB());
 
   // Here : random swap to decide the order of the siblings
-  randomSwapLastChildren(candidate);
+  randomSwapLastChildrenIfEnable(candidate);
 }
 
 //-----------------------------------------------------------------------------
@@ -633,7 +635,7 @@ void DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
   tree_->pushBackNewRestNode(pBestNurse, bestDay, false);
 
   // Here : random swap to decide the order of the siblings
-  randomSwapLastChildren(candidate);
+  randomSwapLastChildrenIfEnable(candidate);
 }
 
 
@@ -739,29 +741,36 @@ void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
     // create and build the nodes
     int index1 = candidate->createNewChild(),
         index2 = candidate->createNewChild();
-    MyBranchingNode &node1 = candidate->getChild(index1),
-        &node2 = candidate->getChild(index2);
+    MyBranchingNode *restNode = &candidate->getChild(index1),
+        *workNode = &candidate->getChild(index2);
     buildRestNodesCut(candidate,
                       pBestNurse,
                       bestDay,
                       false,
-                      canRest ? &node1 : &node2,
-                      canRest ? &node2 : &node1);
+                      restNode,
+                      workNode);
 
     // Find the columns to deactivate
     deactivateColumns(candidate,
                       pBestNurse->num_,
                       bestDay,
                       forbiddenShifts,
-                      &node1,
-                      &node2);
+                      // principal node:
+                      // rest node if can rest, work node otherwise
+                      canRest ? restNode : workNode,
+                      canRest ? workNode : restNode);  // complementary node
 
     // add the node to the tree
-    tree_->pushBackNewShiftNode(pBestNurse, bestDay, !canRest, forbiddenShifts);
-    tree_->pushBackNewShiftNode(pBestNurse,
-                                bestDay,
-                                canRest,
-                                complementaryShifts);
+    // rest node : some work shifts are forbidden
+    // If canRest is true, just work shift are in the forbiddenShifts
+    tree_->pushBackNewShiftNode(
+        pBestNurse, bestDay, false,
+        canRest ? forbiddenShifts : complementaryShifts);
+    // work node : rest shift is forbidden
+    // If canRest is true, the rest shift is in the complementaryShifts
+    tree_->pushBackNewShiftNode(
+        pBestNurse, bestDay, true,
+        canRest ? complementaryShifts : forbiddenShifts);
   }
 }
 

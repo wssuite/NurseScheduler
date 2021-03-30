@@ -22,7 +22,7 @@ OffsetRosterSP::OffsetRosterSP(PScenario pScenario,
                                int nDays,
                                PLiveNurse nurse,
                                std::vector<PResource> pResources,
-                               SubproblemParam param) :
+                               SubProblemParam param) :
     RosterSP(std::move(pScenario),
              nDays,
              std::move(nurse),
@@ -142,7 +142,7 @@ CyclicRosterSP::CyclicRosterSP(PScenario pScenario,
                    int nDays,
                    PLiveNurse nurse,
                    std::vector<PResource> pResources,
-                   SubproblemParam param) :
+                   SubProblemParam param) :
     RosterSP(std::move(pScenario),
              nDays,
              std::move(nurse),
@@ -178,9 +178,7 @@ void CyclicRosterSP::build() {
 // Solve : Returns TRUE if negative reduced costs path were found;
 // FALSE otherwise.
 bool CyclicRosterSP::solve(
-    PLiveNurse nurse,
     const PDualCosts &costs,
-    const SubproblemParam &param,
     const std::set<std::pair<int, int>> &forbiddenDayShifts,
     double redCostBound) {
   // resolve SPs while ont of them produces at least solution or
@@ -188,7 +186,7 @@ bool CyclicRosterSP::solve(
   POffsetRosterSP pSP = popOffsetFront();
   std::list<POffsetRosterSP> offsetSolved = {pSP};
   timerSolve_.start();
-  while (!pSP->solve(nurse, costs, param, forbiddenDayShifts, redCostBound) &&
+  while (!pSP->solve(costs, forbiddenDayShifts, redCostBound) &&
       !offsetSPs_.empty()) {
     // update offsets
     pSP = popOffsetFront();

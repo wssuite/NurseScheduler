@@ -24,18 +24,12 @@ namespace boostRCSPP {
 
 // Constructors and destructor
 RosterSP::RosterSP(PScenario scenario,
-                   int nbDays,
-                   PConstContract contract) :
-    SubProblem(scenario, nbDays, contract) {
+                   int nDays,
+                   PLiveNurse pNurse,
+                   SubProblemParam param) :
+    SubProblem(scenario, nDays, pNurse, param) {
   labels_ = {CONS_DAYS, DAYS, WEEKEND};
   build();
-}
-
-RosterSP::RosterSP(PScenario scenario,
-                   int nbDays,
-                   PLiveNurse pNurse) :
-    RosterSP(scenario, nbDays, pNurse->pContract_) {
-  pLiveNurse_ = pNurse;
 }
 
 RosterSP::~RosterSP() {}
@@ -56,7 +50,7 @@ BoostRCSPPSolver *RosterSP::initRCSSPSolver() {
                               param_.verbose_,
                               param_.epsilon_,
                               param_.search_strategy_,
-                              param_.rcsppMinNegativeLabels_,
+                              param_.rcsppMaxNegativeLabels_,
                               postProcess);
 }
 

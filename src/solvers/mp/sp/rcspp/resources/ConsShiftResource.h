@@ -39,7 +39,7 @@ class SoftConsShiftResource : public SoftBoundedResource {
       SoftBoundedResource(_name.empty() ?
                           "Soft Cons "+pShift->name : std::move(_name),
                           lb, ub, lbCost, ubCost),
-      pShift_(pShift),
+      pAShift_(pShift),
       initialConsumption_(initialConsumption) {
     totalNbDays_ = totalNbDays;
   }
@@ -49,10 +49,10 @@ class SoftConsShiftResource : public SoftBoundedResource {
   // the resource needs to be checked for dominance only on nodes
   // corresponding to the one checked in this constraint
   bool isActive(int dayId, const AbstractShift &aShift) const override {
-    return pShift_->includes(aShift);
+    return pAShift_->includes(aShift);
   }
 
-  bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
+  bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
 
   // the worst case is when compared with a label of consumption 0
   // that will reach ub_: so we will pay consumption penalties.
@@ -75,33 +75,39 @@ class SoftConsShiftResource : public SoftBoundedResource {
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 
+  const PAbstractShift &pAShift() const { return pAShift_; }
+
  protected:
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
                  const PRCArc &pArc) override;
 
-  const PAbstractShift pShift_;
+  const PAbstractShift pAShift_;
   int initialConsumption_ = 0;  // consumption of the resource in the initial
   // state
 };
+
+typedef shared_ptr<SoftConsShiftResource> PSoftConsShiftResource;
 
 class HardConsShiftResource : public HardBoundedResource {
  public:
   HardConsShiftResource(
       int lb, int ub, const PAbstractShift& pShift, int totalNbDays) :
       HardBoundedResource("Hard Cons "+pShift->name, lb, ub),
-      pShift_(pShift) {
+      pAShift_(pShift) {
     totalNbDays_ = totalNbDays;
   }
 
   int getConsumption(const State &initialState) const override;
 
-  bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
+  bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
 
   bool merge(const ResourceValues &vForward,
              const ResourceValues &vBack,
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
+
+  const PAbstractShift &pAShift() const { return pAShift_; }
 
  protected:
   // initialize the expander on a given arc
@@ -109,8 +115,10 @@ class HardConsShiftResource : public HardBoundedResource {
                  const Stretch &stretch,
                  const PRCArc &pArc) override;
 
-  const PAbstractShift pShift_;
+  const PAbstractShift pAShift_;
 };
+
+typedef shared_ptr<HardConsShiftResource> PHardConsShiftResource;
 
 /*
  * Expanders for the  resources

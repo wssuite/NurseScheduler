@@ -300,7 +300,10 @@ struct ScoreVarBestExpectedLBImprovement : ScoreVar {
 
 class DiveBranchingRule : public MyBranchingRule {
  public:
-  DiveBranchingRule(MasterProblem *master, RestTree *tree, const char *name);
+  DiveBranchingRule(MasterProblem *master,
+                    RestTree *tree,
+                    const char *name,
+                    bool randomSwapOfChilfren = false);
   virtual ~DiveBranchingRule() {}
 
   /* compute branching decisions */
@@ -352,6 +355,10 @@ class DiveBranchingRule : public MyBranchingRule {
   // store dual costs
   std::vector<PDualCosts> pDualCosts_;
 
+  // random swap
+  // if true randomly swap children before inserting them in the tree
+  bool randomSwapOfChilfren_;
+
   std::unique_ptr<ScoreVar> scoreFunc_;
 
   // branching decisions to test
@@ -375,7 +382,8 @@ class DiveBranchingRule : public MyBranchingRule {
                          MyBranchingNode *complementaryNode) const;
 
 
-  void randomSwapLastChildren(MyBranchingCandidate *candidate) {
+  void randomSwapLastChildrenIfEnable(MyBranchingCandidate *candidate) {
+    if (!randomSwapOfChilfren_) return;
     // Here : random choice to decide the order of the children
     if (Tools::randomInt(0, 1)) {
       candidate->swapLastChildren();

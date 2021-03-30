@@ -23,12 +23,9 @@ class RosterSP : public SubProblem {
   // Constructor that correctly sets the resource (time + bounds),
   // but NOT THE COST
   RosterSP(PScenario scenario,
-                int nbDays,
-                PConstContract contract);
-
-  RosterSP(PScenario scenario,
-           int nbDays,
-           PLiveNurse pNurse);
+           int nDays,
+           PLiveNurse pNurse,
+           SubProblemParam param);
 
   virtual ~RosterSP();
 

@@ -80,7 +80,7 @@ class PrincipalGraph : public SubGraph {
   }
 
   // forbid any arc that authorizes the violation of a consecutive constraint
-  void forbidViolationConsecutiveConstraints();
+  vector<int> forbidViolationConsecutiveConstraints();
 
   void checkInitialization() const {
     if (!pSP_) Tools::throwError("PrincipalGraph is not initialized");

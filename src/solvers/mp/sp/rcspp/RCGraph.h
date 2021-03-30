@@ -73,7 +73,7 @@ struct RCNode {
   PAbstractShift pAShift;
   vector<PRCArc> inArcs;  // pointers to the arcs entering in this node
   vector<PRCArc> outArcs;  // pointers to the arcs exiting in this node
-  vector<int> indActiveResources;
+  vector<PResource> activeResources;
 };
 
 typedef shared_ptr<RCNode> PRCNode;
@@ -214,6 +214,8 @@ class RCGraph {
   }
   int nResources() const {return pResources_.size();}
   const vector<PResource> &pResources() const;
+  const vector<PResource> &pNonEnumResources() const;
+  void pNonEnumResources(const vector<PResource> &pNonEnumResources);
   PRCArc getArc(const PRCNode& origin, const PRCNode& target) const;
   const std::set<PRCArc>& pForbiddenArcs() const { return pForbiddenArcs_; }
 
@@ -233,6 +235,7 @@ class RCGraph {
 
   void clearResources() {
     pResources_.clear();
+    pNonEnumResources_.clear();
   }
 
   void addResource(const PResource& pR);
@@ -288,7 +291,9 @@ class RCGraph {
   std::set<PRCArc> pForbiddenArcs_;
 
   // RESOURCES
-  vector<PResource> pResources_;
+  // Non enum resources contains all the resources that has not been enumerated
+  // in the RC graph when enable
+  vector<PResource> pResources_, pNonEnumResources_;
 };
 typedef shared_ptr<RCGraph> PRCGraph;
 

@@ -534,81 +534,12 @@ void SolverParam::verbose(int v) {
   }
 }
 
-const int SubproblemParam::maxSubproblemStrategyLevel_ = 3;
-
-// TODO(JO): it seems that param_ is not initialized at the same time as the
-//  subproblem. This can be very annoying if parameters are needed. Always
-//  need to check whether they have been initialized or not
-SubproblemParam::SubproblemParam(int strategy, PLiveNurse pNurse,
+SubProblemParam::SubProblemParam(PLiveNurse pNurse,
                                  const SolverParam& param):
-                                 SubproblemParam(param.spParam_) {
-  initSubproblemParam(strategy, pNurse, param);
-}
-
-void SubproblemParam::initSubproblemParam(int strategy,
-                                          PLiveNurse pNurse,
-                                          const SolverParam& param) {
+    SubProblemParam(param.spParam_) {
   verbose_ = param.verbose_;
   epsilon_ = param.epsilon_;
-  maxRotationLength_ = pNurse->maxConsDaysWork();
-  int nb_max_path = static_cast<int>(round(
-      param.sp_columns_ratio_for_number_paths_ * param.nbMaxColumnsToAdd_));
-  switch (strategy) {
-    // 0 -> [Heuristic large search]
-    //  short = all,
-    //  min   = 0,
-    //  max   = CD_max+3
-    //
-    case 0:search_strategy_ = SP_BEST_FIRST;
-      rcsppMinNegativeLabels_ = nb_max_path;
-      violateConsecutiveConstraints_ = true;
-      shortRotationsStrategy_ = 3;
-      maxRotationLength_ += 3;
-      break;
-
-    // 1 -> [Exact legal only]
-    //  short = first and last day,
-    //  min   = CD_min,
-    //  max   = CD_max
-    //
-    case 1:search_strategy_ = SP_BREADTH_FIRST;
-      rcsppMinNegativeLabels_ = -1;
-      violateConsecutiveConstraints_ = false;
-      shortRotationsStrategy_ = 2;
-      maxRotationLength_ += 0;
-      break;
-
-    // 2 -> [Exact above legal]
-    //  short = all,
-    //  min   = 0,
-    //  max   = CD_max+2
-    //
-    case 2:search_strategy_ = SP_BREADTH_FIRST;
-      rcsppMinNegativeLabels_ = -1;
-      violateConsecutiveConstraints_ = true;
-      shortRotationsStrategy_ = 3;
-      maxRotationLength_ += 2;
-      break;
-
-    // 3 -> [Exact exhaustive search]
-    //  short = all,
-    //  min   = 0,
-    //  max   = LARGE
-    //
-    case 3:search_strategy_ = SP_BREADTH_FIRST;
-      rcsppMinNegativeLabels_ = -1;
-      violateConsecutiveConstraints_ = true;
-      shortRotationsStrategy_ = 3;
-      maxRotationLength_ =
-          pNurse->pStateIni_->consDaysWorked_ + pNurse->nbDays_;
-      break;
-    default:  // UNKNOWN STRATEGY
-      std::cout << "# Unknown strategy for the subproblem (" << strategy << ")"
-                << std::endl;
-      break;
-  }
 }
-
 
 // Set the parameters relative to the optimality level
 //

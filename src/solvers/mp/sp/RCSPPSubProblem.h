@@ -19,6 +19,8 @@
 #include "solvers/mp/sp/rcspp/RCGraph.h"
 #include "solvers/mp/sp/rcspp/RCSPP.h"
 
+#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
+
 /**
  * General class describing the subproblems that appear in a branch-and-price
  * approach. Contains many functions that are usefull for any decomposittions
@@ -30,12 +32,25 @@ class RCSPPSubProblem : public SubProblem {
                   int nbDays,
                   PLiveNurse nurse,
                   std::vector<PResource> pResources,
-                  SubproblemParam param);
+                  SubProblemParam param);
 
   // FUNCTIONS -- SOLVE
   // run preprocessing algorithms, e.g., for pre-computing bounds on the
   // minimum cost to the sink(s) and on the minimum consumption of resources
   bool preprocess() override;
+
+  // reset parameters of the subproblems. Used to give a change to the solver
+  // to change their parameters. It will be used after a node has been fathomed
+  void updateParameters(bool masterFeasible) override;
+
+  // verify that all the parameters are compatible.
+  // If not, turn off some of them.
+  void fixParameters();
+
+  // always solved at optimality
+  bool isLastRunOptimal() const override {
+    return pRcsppSolver_ && pRcsppSolver_->isLastRunOptimal();
+  }
 
   // Algorithms adapted to acyclic graphs computing the costs of the shortest
   // paths from a given sink node to all the other nodes (in the reverse
@@ -68,14 +83,28 @@ class RCSPPSubProblem : public SubProblem {
   // Principal method for the enumeration of sub paths in the rcGraph
   void enumerateSubPaths(const PRCGraph &pRCGraph);
 
-  // Enumeration of sub paths from the source node
-  void enumerateConsShiftTypeFromSource(const PRCGraph &pRCGraph);
+  // enumerate the subpath for a given type of consecutive constraint
+  void enumerateSubPaths(const PRCGraph &pRCGraph,
+                         const PHardConsShiftResource &pHR,
+                         const PSoftConsShiftResource &pSR);
 
-  // Enumeration of sub paths from a PRINCIPAL_NETWORK node in the rcGraph
-  // for a given day and for a given shift
-  void enumerateConsShiftType(const PRCGraph &pRCGraph,
-                              const PShift& pS,
-                              int day);
+  // enumerate the subpath for a given type of consecutive constraint and arc
+  void enumerateConsArcs(const PRCGraph &pRCGraph,
+                         const PHardConsShiftResource &pHR,
+                         const PSoftConsShiftResource &pSR,
+                         const PRCArc &pArc);
+
+  // Enumeration of sub paths from the pOrigin node
+  void enumerateConsShiftType(const PRCGraph &pRCGraph, const PRCNode &pOrigin);
+
+//  // Enumeration of sub paths from the source node
+//  void enumerateConsShiftTypeFromSource(const PRCGraph &pRCGraph);
+//
+//  // Enumeration of sub paths from a PRINCIPAL_NETWORK node in the rcGraph
+//  // for a given day and for a given shift
+//  void enumerateConsShiftType(const PRCGraph &pRCGraph,
+//                              const PShift& pS,
+//                              int day);
 
   // Update of the costs of the existing arcs by adding a supplement cost
   // corresponding to penalties due to the soft bounds of the consecutive
@@ -83,7 +112,7 @@ class RCSPPSubProblem : public SubProblem {
   void updateOfExistingArcsCost(const PRCGraph &pRCGraph);
 
  protected:
-  PRCGraph pRCGraph_;
+  PRCGraph pRCGraph_, pEnumGraph_;
   std::vector<PResource> pResources_;
   vector2D<PRCNode> pNodesPerDay_;  // list of nodes for each day
   shared_ptr<RCSPPSolver> pRcsppSolver_;  // Solver
@@ -161,9 +190,6 @@ class RCSPPSubProblem : public SubProblem {
   // create the initial label that will be expanded from the source(s) to the
   // sink(s)
   virtual void createInitialLabels() = 0;
-
-  // forbid any arc that authorizes the violation of a consecutive constraint
-  void forbidViolationConsecutiveConstraints() override {};
 
   // Forbid a node / arc
   void forbidDayShift(int k, int s) override;

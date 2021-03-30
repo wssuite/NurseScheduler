@@ -11,6 +11,8 @@
 
 #include "MasterProblem.h"
 
+#include <list>
+
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
@@ -553,33 +555,75 @@ void MasterProblem::storeSolution() {
   for (PLiveNurse pNurse : theLiveNurses_)
     pNurse->roster_.reset();
 
-  for (MyVar *var : pModel_->getActiveColumns()) {
-    if (pModel_->getVarValue(var) > epsilon()) {
+  std::list<MyVar*> activeColumns(
+      pModel_->getActiveColumns().begin(), pModel_->getActiveColumns().end());
+  int size = activeColumns.size(), n = 0;
+  while (!activeColumns.empty()) {
+    MyVar *var = activeColumns.front();
+    activeColumns.pop_front();
+    ++n;
+    double v = pModel_->getVarValue(var);
+    if (v > epsilon()) {
       PPattern pat = getPattern(var);
       PLiveNurse pNurse = theLiveNurses_[pat->nurseNum()];
+      bool fractional = v < 1 - epsilon();
+      // if first round, do not process fractional columns
+      // store them for next round
+      if (fractional && n < size) {
+        activeColumns.push_back(var);
+        continue;
+      }
       for (int k = pat->firstDay(); k <= pat->lastDay(); ++k) {
+        if (fractional && !isRelaxDay(k))
+          Tools::throwError("Column has a fractional value (%.2f) while "
+                            "it should be integer: %s.",
+                            v, pat->toString().c_str());
         int s = pat->shift(k);
         if (s == 0) continue;  // nothing to do
         // assign a skill to the nurse for the shift
         bool assigned = false;
+        double vday = v;
         for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
           if (skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_]
               > epsilon()) {
 #ifdef DBG
-            if (!pNurse->hasSkill(sk))
-              Tools::throwError("Trying to assign a skill "
-                                "that the nurse hasn't.");
+            if (!pNurse->hasSkill(sk)) {
+              std::cout << currentSolToString() << std::endl;
+              std::cout << allocationToString() << std::endl;
+              std::cout << coverageToString() << std::endl;
+              Tools::throwError(
+                  "Trying to assign skill %s that Nurse %d (%s) hasn't.",
+                  pScenario_->skill(sk).c_str(),
+                  pNurse->num_, pNurse->name_.c_str());
+            }
 #endif
-            pNurse->roster_.assignTask(k, s, sk);
-            skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_]--;
             assigned = true;
-            break;
+            pNurse->roster_.assignTask(k, s, sk);
+            if (skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_] >
+                vday - epsilon()) {
+              skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_] -= vday;
+              break;
+            }
+            vday -= skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_];
+            skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_] = 0;
+            if (!fractional)
+              printf("Nurse %d (%s) must be allocated to  different skills as "
+                     "the coverage is fractional (%.2f) on day %d "
+                     "on shift %d (%s) for the skill %s.",
+                     pNurse->num_, pNurse->name_.c_str(),
+                     skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_],
+                     k, s, pScenario_->shift(s).c_str(),
+                     pScenario_->skill(sk).c_str());
           }
-        if (!assigned)
-          Tools::throwError("No skill found for Nurse %d on day %d on shift %d",
-                            pNurse->num_,
-                            k,
-                            s);
+        if (!assigned) {
+          std::cout << currentSolToString() << std::endl;
+          std::cout << allocationToString() << std::endl;
+          std::cout << coverageToString() << std::endl;
+          Tools::throwError(
+              "No skill found for Nurse %d (%s) on day %d on shift %d (%s)",
+              pNurse->num_, pNurse->name_.c_str(),
+              k, s, pScenario_->shift(s).c_str());
+        }
       }
     }
   }
@@ -588,8 +632,15 @@ void MasterProblem::storeSolution() {
     for (int s = 0; s < pScenario_->nShifts() - 1; ++s)
       for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
         for (double v : skillsAllocation[k][s][sk])
-          if (v > epsilon())
-            Tools::throwError("Some allocation are not covered.");
+          if (v > epsilon()) {
+            std::cout << currentSolToString() << std::endl;
+            std::cout << allocationToString() << std::endl;
+            std::cout << coverageToString() << std::endl;
+            Tools::throwError(
+                "Allocation on day %d on shift %d (%s) for skill %s is not "
+                "covered.", k, s, pScenario_->shift(s).c_str(),
+                pScenario_->skill(sk).c_str());
+          }
 
   // build the states of each nurse
   solution_.clear();

@@ -628,7 +628,8 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result &lpres,
   bool after_fathom = (currentNodelpIteration_ == 1);
   // max reduced cost of a rotation that would be added to MP (a tolerance is
   // substracted in the SP)
-  double maxReducedCost = pModel_->getParameters().sp_max_reduced_cost_bound_;
+  double maxReducedCost =
+      pModel_->getParameters().spParam_.sp_max_reduced_cost_bound_;
   vector<MyVar *> generatedColumns = pModel_->pricing(maxReducedCost,
                                                       before_fathom,
                                                       after_fathom,

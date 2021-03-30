@@ -20,18 +20,14 @@ namespace boostRCSPP {
 
 class LongRotationSP : public RotationSP {
  public:
-  LongRotationSP() = default;
   virtual ~LongRotationSP();
 
   // Constructor that correctly sets the resource (time + bounds),
   // but NOT THE COST
   LongRotationSP(PScenario scenario,
-                 int nbDays,
-                 PConstContract contract);
-
-  LongRotationSP(PScenario scenario,
-                 int nbDays,
-                 PLiveNurse pNurse);
+                 int nDays,
+                 PLiveNurse pNurse,
+                 SubProblemParam param);
 
   double startWorkCost(int a) const override;
 

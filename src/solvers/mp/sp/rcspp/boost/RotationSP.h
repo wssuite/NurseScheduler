@@ -20,15 +20,10 @@ namespace boostRCSPP {
 
 class RotationSP : public SubProblem {
  public:
-  RotationSP() = default;
-
   RotationSP(PScenario scenario,
-             int nbDays,
-             PConstContract contract);
-
-  RotationSP(PScenario scenario,
-             int nbDays,
-             PLiveNurse pNurse);
+             int nDays,
+             PLiveNurse pNurse,
+             SubProblemParam param);
 
 
   virtual ~RotationSP();

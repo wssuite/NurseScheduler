@@ -46,27 +46,14 @@ SubProblem::SubProblem() :
 
 SubProblem::SubProblem(PScenario scenario,
                        int nDays,
-                       PConstContract contract) :
-    pScenario_(std::move(scenario)),
-    nDays_(nDays),
-    pContract_(std::move(contract)) {
-  int max = pScenario_->maxDuration();
-  maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
-  init(*pScenario_->pInitialState());
-}
-
-SubProblem::SubProblem(PScenario scenario,
-                       int nDays,
                        PLiveNurse pNurse,
-                       SubproblemParam param) :
+                       SubProblemParam param) :
     pScenario_(std::move(scenario)), nDays_(nDays),
     pContract_(pNurse->pContract_),
     pLiveNurse_(pNurse),
     param_(std::move(param)) {
-  int max = 0;
-  for (const auto &pS : pScenario_->pShifts())
-    if (pS->duration > max) max = pS->duration;
-  maxTotalDuration_ = max * nDays;  // working everyday on the longest shift
+  // working everyday on the longest shift
+  maxTotalDuration_ = pScenario_->maxDuration() * nDays;
   init(*pScenario_->pInitialState());
 }
 
@@ -92,33 +79,26 @@ void SubProblem::init(const vector<State> &initStates) {
 // Solve :
 // Returns TRUE if negative reduced costs path were found;
 // FALSE otherwise.
-bool SubProblem::solve(PLiveNurse nurse,
-                       const PDualCosts &costs,
-                       const SubproblemParam &param,
+bool SubProblem::solve(const PDualCosts &costs,
                        const std::set<std::pair<int, int>> &forbiddenDayShifts,
                        double redCostBound) {
   bestReducedCost_ = 0;
   nFound_ = 0;
-  param_ = param;
   maxReducedCostBound_ = redCostBound;  // Cost bound
-  pLiveNurse_ = nurse;  // Store the new nurse
   pCosts_ = costs;  // Store the new cost
-
-  // Maximum rotations length: update the bounds on the nodes if needed
-  updatedMaxRotationLengthOnNodes(std::min(
-      nDays_ + maxOngoingDaysWorked_, std::max(pContract_->maxConsDaysWork_,
-                                               param_.maxRotationLength_)));
 
   resetAuthorizations();  // Reset authorizations
   resetSolutions();  // Delete all already existing solutions
   initStructuresForSolve();  // Initialize structures
   forbid(forbiddenDayShifts);  // Forbid arcs
-  if (!param.violateConsecutiveConstraints_)
-    forbidViolationConsecutiveConstraints();
 
   // Set to true if you want to display contract + preferences (for debug)
 //  if (false) pLiveNurse_->printContractAndPreferences(pScenario_);
 
+  return solve();
+}
+
+bool SubProblem::solve() {
   timerSolve_.start();
   // Set of operation applied on the rcGraph to prepare the solving
   timerPresolve_.start();

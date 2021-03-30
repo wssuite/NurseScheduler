@@ -97,7 +97,7 @@ class State {
             consWeekendOff_(0),
             shiftType_(0),
             shift_(0),
-            pShift_(std::make_shared<Shift>(0, 0)) {}
+            pShift_(nullptr) {}
   ~State();
 
   // Constructor with attributes
@@ -107,8 +107,7 @@ class State {
         int consDaysWorked,
         int consShifts,
         int consDaysOff,
-        int shiftType,
-        int shift) :
+        const PShift &pShift) :
       dayId_(dayId),
       totalTimeWorked_(totalTimeWorked),
       totalWeekendsWorked_(totalWeekendsWorked),
@@ -119,9 +118,9 @@ class State {
                                                     dayId)),
       consWeekendOff_(Tools::nWeekendsInInterval(dayId - consDaysOff + 1,
                                                  dayId)),
-      shiftType_(shiftType),
-      shift_(shift),
-      pShift_(std::make_shared<Shift>(shift, shiftType)) {}
+      shiftType_(pShift->type),
+      shift_(pShift->id),
+      pShift_(pShift) {}
 
   // Function that appends a new day worked on a given shiftType
   // to the previous ones

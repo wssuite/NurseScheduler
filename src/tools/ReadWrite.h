@@ -123,6 +123,9 @@ class ReadWrite {
   static void writeConstantWidth(std::ostream &out, int width, const T output);
 
 
+  static void openFile(const string &fileName, std::fstream *file);
+
+
   //--------------------------------------------------------------------------
 };
 

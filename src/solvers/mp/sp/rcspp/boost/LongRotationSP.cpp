@@ -30,19 +30,13 @@ namespace boostRCSPP {
 
 // Constructors and destructor
 LongRotationSP::LongRotationSP(PScenario scenario,
-                               int nbDays,
-                               PConstContract contract) :
-    RotationSP(scenario, nbDays, contract) {
-  minConsDays_ = contract->minConsDaysWork_;
+                               int nDays,
+                               PLiveNurse pNurse,
+                               SubProblemParam param) :
+    RotationSP(scenario, nDays, pNurse, param) {
+  minConsDays_ = pLiveNurse_->minConsDaysWork();
   initShortSuccessions();
   build();
-}
-
-LongRotationSP::LongRotationSP(PScenario scenario,
-                               int nbDays,
-                               PLiveNurse pNurse) :
-    LongRotationSP(scenario, nbDays, pNurse->pContract_) {
-  pLiveNurse_ = pNurse;
 }
 
 LongRotationSP::~LongRotationSP() {}

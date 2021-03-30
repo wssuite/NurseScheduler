@@ -21,7 +21,7 @@ RosterSP::RosterSP(PScenario pScenario,
                    int nDays,
                    PLiveNurse nurse,
                    std::vector<PResource> pResources,
-                   SubproblemParam param) :
+                   SubProblemParam param) :
     RCSPPSubProblem(std::move(pScenario),
                     nDays,
                     std::move(nurse),
@@ -135,7 +135,7 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
 
   // check with boost if default resources
   if (pMaster->useDefaultResources()) {
-    boostRCSPP::RosterSP sp(pScenario_, nDays(), pLiveNurse_);
+    boostRCSPP::RosterSP sp(pScenario_, nDays(), pLiveNurse_, param_);
     sp.computeCost(nullptr, rcSol);
   }
 #endif

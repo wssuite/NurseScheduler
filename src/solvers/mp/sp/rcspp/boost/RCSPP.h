@@ -117,10 +117,10 @@ class dominance_spp {
       penalties_.addLabel(l, penalties);
   }
 
-  bool operator()(spp_res_cont *res_cont_1,
-                  const spp_res_cont *res_cont_2) const;
+  virtual bool operator()(spp_res_cont *res_cont_1,
+                          const spp_res_cont *res_cont_2) const;
 
- private:
+ protected:
   // Penalties that fit the order and the size of the labels considered
   Penalties penalties_;
   double epsilon_;
@@ -129,6 +129,18 @@ class dominance_spp {
                       const spp_res_cont &res_cont_2) const;
 
   double worstPenalty(int i, int level1, int level2) const;
+};
+
+// default dominance class: just compare resource values
+class default_dominance_spp : public dominance_spp {
+ public:
+  default_dominance_spp(std::vector<LABEL> labels,
+                         const Penalties &penalties,
+                         double epsilon) :
+                         dominance_spp(labels, penalties, epsilon) {}
+
+  bool operator()(spp_res_cont *res_cont_1,
+                  const spp_res_cont *res_cont_2) const override;
 };
 
 // Comparator for the priority queue used by boost to process the labels.
@@ -168,6 +180,11 @@ struct SpplabelBestFirstComparator {
 //    by dominance)
 // 2. starts with the ones with the smallest cost (return true if cost1 > cost2)
 struct SpplabelDominantFirstComparator {
+  bool operator()(const Spplabel &splabel1, const Spplabel &splabel2) const;
+};
+
+// use default operator<
+struct SpplabelDefaultComparator {
   bool operator()(const Spplabel &splabel1, const Spplabel &splabel2) const;
 };
 
@@ -298,8 +315,10 @@ class BoostRCSPPSolver {
                                     SpplabelDominantFirstComparator());
         break;
       default:
-        Tools::throwError("Spplabel comparator not defined for the "
-                          "search strategy chosen");
+        r_c_shortest_paths_dispatch(g, s, t,
+                                    opt_solutions_spp, pareto_opt_rcs_spp,
+                                    rc, ref, dominance, la, vis,
+                                    SpplabelDefaultComparator());
     }
   }
 

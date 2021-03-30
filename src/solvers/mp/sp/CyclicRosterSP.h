@@ -46,7 +46,7 @@ class OffsetRosterSP : public RosterSP {
                  int nbDays,
                  PLiveNurse nurse,
                  std::vector<PResource> pResources,
-                 SubproblemParam param);
+                 SubProblemParam param);
 
   void build() override;
 
@@ -72,18 +72,15 @@ class CyclicRosterSP : public RosterSP {
                  int nbDays,
                  PLiveNurse nurse,
                  std::vector<PResource> pResources,
-                 SubproblemParam param);
+                 SubProblemParam param);
 
   void build() override;
 
   // Solve : Returns TRUE if negative reduced costs path were found;
   // FALSE otherwise.
-  bool solve(
-      PLiveNurse nurse,
-      const PDualCosts &costs,
-      const SubproblemParam &param,
-      const std::set<std::pair<int, int>> &forbiddenDayShifts = {},
-      double redCostBound = 0) override;
+  bool solve(const PDualCosts &costs,
+             const std::set<std::pair<int, int>> &forbiddenDayShifts = {},
+             double redCostBound = 0) override;
 
   void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const override;
 

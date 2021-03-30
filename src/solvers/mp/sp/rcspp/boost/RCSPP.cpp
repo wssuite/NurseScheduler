@@ -185,6 +185,18 @@ double dominance_spp::worstPenalty(int l, int level1, int level2) const {
   }
 }
 
+// default dominance class: just compare resource values
+bool default_dominance_spp::operator()(
+    spp_res_cont *res_cont_1, const spp_res_cont *res_cont_2) const {
+  if (res_cont_1->cost > res_cont_2->cost + epsilon_) return false;
+  for (int l = 0; l < res_cont_1->size(); l++) {
+    int l1 = res_cont_1->label_value(l), l2 = res_cont_2->label_value(l);
+    if (l1 > l2) return false;
+    if (l1 < l2 && l1 < penalties_.minLevel(l)) return false;
+  }
+  return true;
+}
+
 // Comparator for the priority queue used by boost to process the labels.
 // Note that the Compare parameter of a priority queue is defined such that
 // it returns true if its first argument comes before its second argument in
@@ -254,6 +266,12 @@ bool SpplabelDominantFirstComparator::operator()(
       > splabel2->cumulated_resource_consumption.cost + 1e-5;
 }
 
+bool SpplabelDefaultComparator::operator()(
+    const Spplabel &splabel1,
+    const Spplabel &splabel2) const {
+  return splabel1 <= splabel2;
+}
+
 BoostRCSPPSolver::BoostRCSPPSolver(
     RCGraph *rcg,
     double maxReducedCostBound,
@@ -279,6 +297,7 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
   // 1 - solve the resource constraints shortest path problem
   ref_spp ref(labels);
   dominance_spp dominance(labels, penalties, epsilon_);
+//  default_dominance_spp dominance(labels, penalties, epsilon_);
   vector2D<edge> opt_solutions_spp;
   std::vector<spp_res_cont> pareto_opt_rcs_spp;
   rc_spp_visitor vis(nb_max_paths_,
@@ -296,7 +315,7 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
       dominance,
       std::allocator<boost::r_c_shortest_paths_label<Graph, spp_res_cont> >(),
       &vis,  // boost::default_r_c_shortest_paths_visitor(),
-      strategy_);
+      strategy_);  // strategy_    SP_DEFAULT
 
   // 2 - Post process the solutions
   // process paths if needed (process_solution is not used)

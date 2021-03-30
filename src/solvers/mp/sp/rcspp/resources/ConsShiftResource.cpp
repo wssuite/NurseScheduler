@@ -12,11 +12,11 @@
 #include "ConsShiftResource.h"
 
 int SoftConsShiftResource::getConsumption(const State & initialState) const {
-  if (pShift_->isAnyWork())
+  if (pAShift_->isAnyWork())
     return initialState.consDaysWorked_;
-  if (pShift_->isRest())
+  if (pAShift_->isRest())
     return initialState.consDaysOff_;
-  if (pShift_->includes(*initialState.pShift_))
+  if (pAShift_->includes(*initialState.pShift_))
     return initialState.consShifts_;
   return 0;
 }
@@ -35,26 +35,26 @@ PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
   auto itShift = stretch.pShifts().begin();
   for (; itShift != stretch.pShifts().end(); itShift++) {
     // same shift ->increment consBeforeReset
-    if (pShift_->includes(**itShift)) {
+    if (pAShift_->includes(**itShift)) {
       consBeforeReset += 1;
       continue;
     }
     // reset ? either was working on this shift just before or
     // has already worked some same shifts here
-    reset = pShift_->includes(prevAShift) || consBeforeReset > 0;
+    reset = pAShift_->includes(prevAShift) || consBeforeReset > 0;
     break;
   }
 
   // The arc starts the consumption of the resource if the previous shift is
   // not included in the resource abstract shift, and if the resource shift
   // is consumed before reset
-  bool start = (!pShift_->includes(prevAShift)) && (consBeforeReset > 0);
+  bool start = (!pAShift_->includes(prevAShift)) && (consBeforeReset > 0);
 
   // then compute the penalty due to consecutive shifts inside the stretch
   // -> after reset
   for (; itShift != stretch.pShifts().end(); itShift++) {
     // same shift
-    if (pShift_->includes(**itShift)) {
+    if (pAShift_->includes(**itShift)) {
       consAfterReset++;
     } else {
       // different shifts
@@ -228,11 +228,11 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
 }
 
 int HardConsShiftResource::getConsumption(const State &  initialState) const {
-  if (pShift_->isAnyWork())
+  if (pAShift_->isAnyWork())
     return initialState.consDaysWorked_;
-  if (pShift_->isRest())
+  if (pAShift_->isRest())
     return initialState.consDaysOff_;
-  if (pShift_->includes(*initialState.pShift_))
+  if (pAShift_->includes(*initialState.pShift_))
     return initialState.consShifts_;
   return 0;
 }
@@ -248,9 +248,9 @@ PExpander HardConsShiftResource::init(const AbstractShift &prevAShift,
 
   auto itShift = stretch.pShifts().begin();
   for (; itShift != stretch.pShifts().end(); itShift++) {
-    if (pShift_->includes(**itShift)) {
+    if (pAShift_->includes(**itShift)) {
       consBeforeReset += 1;
-    } else if (pShift_->includes(prevAShift) || consBeforeReset >= 1) {
+    } else if (pAShift_->includes(prevAShift) || consBeforeReset >= 1) {
       reset = true;
       break;
     }
@@ -263,14 +263,14 @@ PExpander HardConsShiftResource::init(const AbstractShift &prevAShift,
   // The arc starts the consumption of the resource if the previous shift is
   // not included in the resource abstract shift, and if the resource shift
   // is consumed before reset
-  bool start = (!pShift_->includes(prevAShift)) && (consBeforeReset > 0);
+  bool start = (!pAShift_->includes(prevAShift)) && (consBeforeReset > 0);
 
   if (consBeforeReset > ub_)
     Tools::throwError("RCSPP arc is infeasible");
 
   // then compute the penalty due to consecutive shifts inside the stretch
   for (; itShift != stretch.pShifts().end(); itShift++) {
-    if (pShift_->includes(**itShift)) {
+    if (pAShift_->includes(**itShift)) {
       consAfterReset++;
     } else {
       if (!consAfterReset) continue;

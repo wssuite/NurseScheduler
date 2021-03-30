@@ -427,14 +427,20 @@ class RCGraph {
     boost::put(&Arc_Properties::cost, g_, arcsDescriptors_[a], cost);
   }
 
-  void forbidArc(int a) {
+  bool forbidArc(int a) {
+    if (arcForbidden(a))
+      return false;
     boost::put(&Arc_Properties::forbidden, g_, arcsDescriptors_[a], true);
     forbiddenArcs_.insert(a);
+    return true;
   }
 
-  void authorizeArc(int a) {
+  bool authorizeArc(int a) {
+    if (!arcForbidden(a))
+      return false;
     boost::put(&Arc_Properties::forbidden, g_, arcsDescriptors_[a], false);
     forbiddenArcs_.erase(a);
+    return true;
   }
 
   void resetAuthorizations();

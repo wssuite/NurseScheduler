@@ -77,18 +77,12 @@ class RCPricer : public MyPricer {
 
   // Stats on the number of subproblems solved and successfully solved
   int nbSPTried_;
-  int nbSPSolvedWithSuccess_;
+  int nSPSolvedWithSuccess_;
 
   // SETTINGS - Options for forbidden shifts, nurses, starting days, etc.
   std::vector<std::set<std::pair<int, int> >> nursesForbiddenShifts_;
   std::set<std::pair<int, int> > forbiddenShifts_;
   std::set<int> forbiddenNursesIds_;
-
-  // SETTINGS - Options for the neighborhood. need of an original to reset at
-  // the end of each node when optimality has been reached.
-  // Here, we could have all the parameters as fields
-  // but they would be too many.
-  std::vector<int> currentSubproblemStrategy_;  // by nurse
 
   // store the min reduced cost find for each subproblem solved
   std::vector<double> minReducedCosts_;
@@ -103,7 +97,7 @@ class RCPricer : public MyPricer {
     allNewColumns_.clear();
     forbiddenShifts_.clear();
     optimal_ = true;  // will be set to false whenever possible
-    nbSPSolvedWithSuccess_ = 0;
+    nSPSolvedWithSuccess_ = 0;
     nbSPTried_ = 0;
     Tools::initVector(&minReducedCosts_, pMaster_->nNurses(), -DBL_MAX);
     minReducedCost_ = 0;
@@ -111,10 +105,10 @@ class RCPricer : public MyPricer {
 
   // Retrieve the right subproblem
   SubProblem *retrieveSubproblem(const PLiveNurse &pNurse,
-                                 const SubproblemParam &spParam);
+                                 const SubProblemParam &spParam);
 
   SubProblem *buildSubproblem(const PLiveNurse &pNurse,
-                              const SubproblemParam &spParam) const;
+                              const SubProblemParam &spParam) const;
 
   void computeCost(Pattern *pat) const;
 
@@ -123,18 +117,26 @@ class RCPricer : public MyPricer {
   // !!! WARNING !!! : SOME METHODS ARE NOT YET IMPLEMENTED IN THE SUBPROBLEM
   // (ALTHOUGH THE NECESSARY STRUCTURES MAY ALREADY BE THERE !!!
   //
-  // update current nurse strategy and reduced costs based on the solutions
-  // found.
-  // return true if the strategy has been updated
-  bool updateCurrentStrategyAndRedCost(PLiveNurse pNurse,
-                                       const std::vector<RCSolution> &solutions,
-                                       bool disjointForbidden);
+  // update reduced costs based on the solutions found.
+  void updateRedCost(SubProblem *pSP,
+                     const std::vector<RCSolution> &solutions,
+                     bool disjointForbidden);
 
   // add nurses to nursesToSolve_ in the reverse order
   template<typename T>
-  void reversePushBackNurses(T *array) {
-    std::reverse(array->begin(), array->end());  // reverse array
-    nursesToSolve_.insert(nursesToSolve_.end(), array->begin(), array->end());
+  void reversePushBackNurses(vector<T> *vec) {
+    std::reverse(vec->begin(), vec->end());  // reverse array
+    nursesToSolve_.insert(nursesToSolve_.end(), vec->begin(), vec->end());
+  }
+
+  template<typename T>
+  void reverseOrderPushBackNurses(vector<T> *vec,
+                                  const std::map<T, int> &order) {
+    std::stable_sort(vec->begin(), vec->end(),
+                     [&order](const T &v1, const T &v2) {
+                       return order.at(v1) > order.at(v2);
+                     });
+    nursesToSolve_.insert(nursesToSolve_.end(), vec->begin(), vec->end());
   }
 
   // Shifts

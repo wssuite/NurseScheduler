@@ -87,7 +87,7 @@ class LabelPool {
 class RCSPPSolver {
  public:
   explicit RCSPPSolver(PRCGraph pRcGraph,
-                       SubproblemParam param);
+                       SubProblemParam param);
 
   // set the initial label at the source of the graph
   void setSourceLabels(const std::vector<PRCLabel> &pLabels) {
@@ -95,12 +95,12 @@ class RCSPPSolver {
   }
 
   // reset the solver state without acting on the graph
-  void reset(const SubproblemParam& p) {
-    setParams(p);
+  void reset() {
     resetLabels();
   }
   void resetLabels();
-  void setParams(const SubproblemParam& p) {
+
+  void setParams(const SubProblemParam& p) {
     param_ = p;
   }
 
@@ -125,8 +125,11 @@ class RCSPPSolver {
 
   // Solve the resource constrained shortest path problem in the RCGraph
   // using a label correcting algorithm
-  std::vector<RCSolution> solve(double maxReducedCostBound,
-                                int nb_max_paths);
+  std::vector<RCSolution> solve(double maxReducedCostBound);
+
+  bool isLastRunOptimal() const {
+    return param_.rcsppToOptimality_;
+  }
 
   // forward label-setting algorithm on the input list of topologically
   // sorted nodes, until the input day is reached
@@ -145,8 +148,7 @@ class RCSPPSolver {
   void checkAllDominations(const vector<PRCLabel>::iterator &begin,
                            const vector<PRCLabel>::iterator &end,
                            int (*domFunction)(const PRCLabel &,
-                                              const PRCLabel &,
-                                              const vector<PResource> &),
+                                              const PRCLabel &),
                            vector<int> *domStatus,
                            vector<int> *domStatusNoExpand);
 
@@ -155,19 +157,15 @@ class RCSPPSolver {
   void checkDominationsWithPreviousLabels(
       const vector<PRCLabel>::iterator &begin,
       const vector<PRCLabel>::iterator &end,
-      const vector<PResource> &resources,
       int (*domFunction)(const PRCLabel &,
-                         const PRCLabel &,
-                         const vector<PResource> &),
+                         const PRCLabel &),
       vector<int> *domStatus,
       vector<int> *domStatusNoExpand);
   // check for pairwise domination between the newly expanded labels
   void checkDominationsPairwise(const vector<PRCLabel>::iterator &begin,
                                 const vector<PRCLabel>::iterator &end,
-                                const vector<PResource> &resources,
                                 int (*domFunction)(const PRCLabel &,
-                                                   const PRCLabel &,
-                                                   const vector<PResource> &),
+                                                   const PRCLabel &),
                                 vector<int> *domStatus);
 
   // select the non-dominated labels that should be expanded
@@ -190,8 +188,8 @@ class RCSPPSolver {
 
   // get the number of negative cost labels in the input vector and update
   // the value of the input minimum cost pointer
-  int getNbNegativeCostLabels(const vector<PRCLabel> &labels,
-                              double *pMinCost);
+  int getNbLabelsBelowMaxBound(const vector<PRCLabel> &labels,
+                               double *pMinCost);
 
   // if a heuristic label-setting was just executed and either optimality was
   // required or no negative-cost roster was found, we update the lsts of
@@ -250,11 +248,9 @@ class RCSPPSolver {
   // Cost of the best path found until now
   double bestPrimalBound_;
   // Parameters of the solver
-  SubproblemParam param_;
+  SubProblemParam param_;
   // verbose
   double maxReducedCostBound_;
-  // Maximal number of optimal path conserved after the algorithm's execution
-  int nb_max_paths_;
   // Total number of not dominated labels during the algorithm's execution
   int total_number_of_nondominated_labels_;
   // Total number of labels deleted due to the minimum cost from sinks strategy

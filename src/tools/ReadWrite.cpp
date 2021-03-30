@@ -57,18 +57,8 @@ std::map<std::string, RankingStrategy> stringToRankingStrategy =
 // Read the scenario file and store the content in a Scenario instance
 //
 PScenario ReadWrite::readScenario(string fileName) {
-  // open the file
   std::fstream file;
-  std::cout << "Reading " << fileName << std::endl;
-  file.open(fileName.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read the file " << fileName << std::endl;
-    std::cout << "The input file was not opened properly!" << std::endl;
-
-    throw Tools::myException("The input file was not opened properly!",
-                             __LINE__);
-  }
-
+  openFile(fileName, &file);
   string title;
   string strTmp;
   int intTmp;
@@ -465,14 +455,8 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
                          PDemand *pDemand, PPreferences *pPref) {
   // open the file
   std::fstream file;
-  std::cout << "Reading " << strWeekFile << std::endl;
-  file.open(strWeekFile.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read the file " << strWeekFile << std::endl;
-    std::cout << "The input file was not opened properly!" << std::endl;
-    throw Tools::myException("The input file was not opened properly!",
-                             __LINE__);
-  }
+  openFile(strWeekFile, &file);
+
 
   string title;
   string strTmp;
@@ -617,7 +601,9 @@ void ReadWrite::readWeek(std::string strWeekFile, PScenario pScenario,
                                       weekName,
                                       minWeekDemand,
                                       optWeekDemand);
+#ifdef DBG
   std::cout << "Demand created" << std::endl;
+#endif
 }
 
 // Read the history file
@@ -631,12 +617,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
   }
   // open the file
   std::fstream file;
-  std::cout << "Reading " << strHistoryFile << std::endl;
-  file.open(strHistoryFile.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read " << strHistoryFile << std::endl;
-    Tools::throwError("The input file was not opened properly!");
-  }
+  openFile(strHistoryFile, &file);
 
   string title;
   string strTmp;
@@ -695,8 +676,7 @@ void ReadWrite::readHistory(std::string strHistoryFile, PScenario pScenario) {
                          consDaysWorked,
                          consShifts,
                          consRest,
-                         pScenario->shiftIDToShiftTypeID(shiftId),
-                         shiftId);
+                         pScenario->pShift(shiftId));
         initialState.push_back(nurseState);
       }
     }
@@ -714,12 +694,8 @@ int ReadWrite::readCustom(string strCustomInputFile,
                           vector<PDemand> *demandHistory) {
   // open the file
   std::fstream file;
-  std::cout << "Reading " << strCustomInputFile << std::endl;
-  file.open(strCustomInputFile.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read " << strCustomInputFile << std::endl;
-    Tools::throwError("The input file was not opened properly!");
-  }
+  openFile(strCustomInputFile, &file);
+
 
   string title;
   int nbWeeks;
@@ -763,12 +739,7 @@ void ReadWrite::writeCustom(string strCustomOutputFile,
   // open the custom input file
   // we want the content of the input custom file in the custom output file
   std::fstream file;
-  std::cout << "Reading " << strCustomInputFile << std::endl;
-  file.open(strCustomInputFile.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read " << strCustomInputFile << std::endl;
-    Tools::throwError("The input file was not opened properly!");
-  }
+  openFile(strCustomInputFile, &file);
 
   string title;
   int nbWeeks;
@@ -803,12 +774,8 @@ std::string ReadWrite::readStochasticSolverOptions(
 
   // open the file
   std::fstream file;
-  std::cout << "Reading " << strOptionFile << std::endl;
-  file.open(strOptionFile.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read " << strOptionFile << std::endl;
-    Tools::throwError("The input file was not opened properly!");
-  }
+  openFile(strOptionFile, &file);
+
 
   string title;
 
@@ -871,12 +838,7 @@ std::string ReadWrite::readSolverOptions(string strOptionFile,
                                          SolverParam *options) {
   // open the file
   std::fstream file;
-  std::cout << "Reading " << strOptionFile << std::endl;
-  file.open(strOptionFile.c_str(), std::fstream::in);
-  if (!file.is_open()) {
-    std::cout << "While trying to read " << strOptionFile << std::endl;
-    Tools::throwError("The input file was not opened properly!");
-  }
+  openFile(strOptionFile, &file);
 
   string title;
 
@@ -954,12 +916,8 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(
 
     // open the week solution file
     std::fstream file;
-    std::cout << "Reading " << strSolFile << std::endl;
-    file.open(strSolFile.c_str(), std::fstream::in);
-    if (!file.is_open()) {
-      std::cout << "While trying to read " << strSolFile << std::endl;
-      Tools::throwError("The input file was not opened properly!");
-    }
+    openFile(strSolFile, &file);
+
     string title;
 
     // parse the file until reaching the number of assignments
@@ -1276,4 +1234,17 @@ void ReadWrite::compareDemands(string inputDir, string logFile) {
     logStream.endl();
   }
   logStream.endl();
+}
+
+void ReadWrite::openFile(const string &fileName, std::fstream *file) {
+  // open the file
+#ifdef DBG
+  std::cout << "Reading " << fileName << std::endl;
+#endif
+  file->open(fileName.c_str(), std::fstream::in);
+  if (!file->is_open()) {
+    std::cout << "While trying to read the file " << fileName << std::endl;
+    std::cout << "The input file was not opened properly!" << std::endl;
+    Tools::throwError("The input file was not opened properly!");
+  }
 }
