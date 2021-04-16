@@ -100,13 +100,19 @@ PRCArc RCGraph::addSingleArc(PRCNode o,
                              PRCNode d,
                              const Stretch &s,
                              double cost) {
+#ifdef DBG
+  if (o->id == d->id) Tools::throwError(
+        "It is forbidden to create loop arc for an acyclic graph. "
+        "Creating an arc with the same origin and destination: %s",
+        o->toString().c_str());
+#endif
   pArcs_.emplace_back(std::make_shared<RCArc>(
       pArcs_.size(), std::move(o), std::move(d), s, cost));
   // Adding the id of the last arc created in the vector of the incident
   // arcs ids of the target node
   PRCArc pArc = pArcs_.back();
-  pArc->target->inArcs.push_back(pArcs_.back());
-  pArc->origin->outArcs.push_back(pArcs_.back());
+  pArc->target->inArcs.push_back(pArc);
+  pArc->origin->outArcs.push_back(pArc);
   // add the arc to pArcsPerDayShift_ for each day/shift of the stretch
   const Stretch &st = pArc->stretch;
   for (int k = st.firstDay(); k <= st.lastDay(); k++)

@@ -13,11 +13,11 @@
 
 int SoftConsShiftResource::getConsumption(const State & initialState) const {
   if (pAShift_->isAnyWork())
-    return initialState.consDaysWorked_;
+    return std::min(ub_, initialState.consDaysWorked_);
   if (pAShift_->isRest())
-    return initialState.consDaysOff_;
+    return std::min(ub_, initialState.consDaysOff_);
   if (pAShift_->includes(*initialState.pShift_))
-    return initialState.consShifts_;
+    return std::min(ub_, initialState.consShifts_);
   return 0;
 }
 

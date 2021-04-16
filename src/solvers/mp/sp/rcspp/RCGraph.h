@@ -63,8 +63,14 @@ struct RCNode {
   bool isWorkNode() {return pAShift->isWork();}
 
   void print() const {
-    std::cout << "Id: " << id << ", type: " << type << ", day: " <<
-              day << ", shift: " << pAShift->name;
+    std::cout << toString();
+  }
+
+  std::string toString() const {
+    std::stringstream rep;
+    rep << "Id: " << id << ", type: " << type << ", day: " <<
+        day << ", shift: " << pAShift->name;
+    return rep.str();
   }
 
   const int id;
@@ -295,6 +301,7 @@ class RCGraph {
   // in the RC graph when enable
   vector<PResource> pResources_, pNonEnumResources_;
 };
+
 typedef shared_ptr<RCGraph> PRCGraph;
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCGRAPH_H_

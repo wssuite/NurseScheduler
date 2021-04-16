@@ -145,7 +145,7 @@ bool SubProblem::solve() {
     // Maximum rotations length: update the bounds on the nodes if needed
     updatedMaxRotationLengthOnNodes(
         std::min(nDays_ + maxOngoingDaysWorked_,
-            std::max(pContract_->maxConsDaysWork_, param_.maxRotationLength_)));
+            std::max(pContract_->maxConsDaysWork_, maxRotationLength_)));
 
     for (int a : forbiddenArcs) g().authorizeArc(a);
     forbiddenArcs.clear();
@@ -278,7 +278,7 @@ void SubProblem::updateArcDualCosts() {
 // (should be called wisely)
 double SubProblem::historicalCost(int currentShift) const {
   double cost = 0;
-  int shiftTypeIni = pLiveNurse_->pStateIni_->shiftType_;
+  int shiftTypeIni = pLiveNurse_->pStateIni_->pShift_->type;
   int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
   int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
 
@@ -297,7 +297,7 @@ double SubProblem::historicalCost(int currentShift) const {
       int diff = pLiveNurse_->minConsDaysWork() - nConsWorkIni;
       cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
 
-      int diff2 = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
+      int diff2 = pScenario_->minConsShiftsOfType(shiftTypeIni) - nConsShiftIni;
       cost += std::max(.0, diff2 * pScenario_->weights().WEIGHT_CONS_SHIFTS);
     }
   } else {
@@ -320,9 +320,11 @@ double SubProblem::historicalCost(int currentShift) const {
       // add the corresponding cost
       int shiftType = pScenario_->shiftIDToShiftTypeID(currentShift);
       if (shiftTypeIni != shiftType) {
-        int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
+        int diff =
+            pScenario_->minConsShiftsOfType(shiftTypeIni) - nConsShiftIni;
         cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_SHIFTS);
-      } else if (nConsShiftIni >= pScenario_->maxConsShiftsOf(shiftTypeIni)) {
+      } else if (nConsShiftIni >=
+          pScenario_->maxConsShiftsOfType(shiftTypeIni)) {
         // c. If working on the same shift type, need to update the
         // consecutive shift cost just if exceeding the max
         cost += pScenario_->weights().WEIGHT_CONS_SHIFTS;
@@ -398,9 +400,7 @@ bool SubProblem::canSuccStartHere(const Arc_Properties &arc_prop) const {
 bool SubProblem::canSuccStartHere(
     int k, const std::vector<PShift> &shifts) const {
   // If the succession with the previous shift (day -1) is not allowed
-  if (k == 0 &&
-      pScenario_->isForbiddenSuccessorShift_Shift(
-          shifts.front()->id, pLiveNurse_->pStateIni_->shift_))
+  if (k == 0 && !shifts.front()->canSucceed(*pLiveNurse_->pStateIni_->pShift_))
     return false;
   // If some day-shift is forbidden
   for (const PShift &pS : shifts)

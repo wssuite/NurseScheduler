@@ -163,6 +163,8 @@ class LiveNurse : public Nurse {
   // Data of the the particular period the live nurse is going to work
   //----------------------------------------------------------------------------
   int nbDays_, firstDay_;
+  // WARNING: used to identify the original nurse when having sub scenario
+  // You should normally use the field num_ of the nurse class
   const int nurseNum_;
 
   // Initial state
@@ -428,7 +430,7 @@ struct SubProblemParam {
   // violateConsecutiveConstraints_ are set according to the value of the
   // strategy argument in initSubProblemParam to adopt a more or less
   // agressive attitude
-  SPSearchStrategy search_strategy_ = SP_BEST_FIRST;
+  SPSearchStrategy search_strategy_ = SP_BREADTH_FIRST;
 
   // true -> authorize the violation of the consecutive constraints
   // false -> forbid any arc that authorized to violate the consecutive
@@ -442,9 +444,6 @@ struct SubProblemParam {
   // 2 -> day-0 and last-day short rotations only
   // 3 -> all short rotations
   int shortRotationsStrategy_ = 3;
-
-  // maximal length for a rotation
-  int maxRotationLength_ = 10;
 
   // TODO(JO): we never questioned this option, I think that we could remove the
   //  option and the alternative code that corresponds to the false value
@@ -513,12 +512,10 @@ struct SubProblemParam {
   bool rcsppWithRotationGraph_ = false;
 
   // Getters for the class fields
-  int maxRotationLength() { return maxRotationLength_; }
   int shortRotationsStrategy() { return shortRotationsStrategy_; }
   bool oneSinkNodePerLastDay() { return oneSinkNodePerLastDay_; }
 
   // Setters
-  void maxRotationLength(int value) { maxRotationLength_ = value; }
   void shortRotationsStrategy(int value) { shortRotationsStrategy_ = value; }
   void oneSinkNodePerLastDay(bool value) { oneSinkNodePerLastDay_ = value; }
 };

@@ -152,9 +152,20 @@ class RosterMP : public MasterProblem {
   /* retrieve the dual values */
   double getConstantDualvalue(PLiveNurse pNurse) const override;
 
-  // Functions to generate the resources for a given nurse
-  std::map<PResource, CostType>
-  defaultGeneratePResources(const PLiveNurse &pN) const override;
+  // split the resources between the master and the subproblem
+  // must initialize spResources_
+  void splitPResources() override {
+    // put all the resources in the sub problem
+    spResources_.clear();
+    for (const auto &m : pResources_) {
+      vector<PResource> pResources;
+      for (const auto &p : m) {
+        p.first->setId(pResources.size());
+        pResources.push_back(p.first);
+      }
+      spResources_.push_back(pResources);
+    }
+  }
 
   /*
   * Constraints

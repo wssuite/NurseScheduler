@@ -9,6 +9,8 @@
  * full license detail.
  */
 
+#include "solvers/mp/RotationMP.h"
+#include "solvers/mp/RosterMP.h"
 #include "solvers/mp/sp/RosterSP.h"
 #include "solvers/mp/sp/RotationSP.h"
 #include "solvers/mp/sp/rcspp/boost/RosterSP.h"
@@ -20,12 +22,14 @@
 
 #define DBG_AG
 
-std::pair<float, float> comparePricing(PDualCosts pDualCosts,
+std::pair<float, float> comparePricing(MasterProblem *pMaster,
                                        PLiveNurse pNurse,
                                        SubProblem *bSP,
                                        SubProblem *mSP,
                                        const SubProblemParam &spParam,
                                        bool *errorFound) {
+  PDualCosts pDualCosts = pMaster->buildRandomDualCosts(true);
+
   if (spParam.verbose_)
     std::cout << "\n      SOLVE WITH BOOST RCSPP SOLVER : \n" <<std::endl;
 
@@ -55,6 +59,24 @@ std::pair<float, float> comparePricing(PDualCosts pDualCosts,
               "; New pricer value = " << mSP->bestReducedCost() << std::endl;
     /*Tools::throwError("The new pricer does not find the same optimal value "
                       "as Boost");*/
+    vector<RCSolution> bSols = bSP->getSolutions(), mSols = mSP->getSolutions();
+    RCSolution::sort(&bSols);
+    RCSolution::sort(&mSols);
+    std::cout << bSols.front().toString();
+    std::cout << mSols.front().toString();
+#ifdef DBG
+    if (pMaster->parameters().sp_type_ == ROSTER) {
+      RosterPattern bPat(bSols.front(), 0);
+      bPat.checkReducedCost(pDualCosts);
+      RosterPattern mPat(mSols.front(), 0);
+      mPat.checkReducedCost(pDualCosts);
+    } else {
+      RotationPattern bPat(bSols.front(), 0);
+      bPat.checkReducedCost(pDualCosts);
+      RotationPattern mPat(mSols.front(), 0);
+      mPat.checkReducedCost(pDualCosts);
+    }
+#endif
     *errorFound = true;
   }
 
@@ -81,12 +103,12 @@ float comparePricingToBoost(
       bSP = new boostRCSPP::RosterSP(
           pScenario, pScenario->nDays(), pNurse, spParam);
       mSP = new RosterSP(pScenario, pScenario->nDays(), pNurse,
-                         pMaster->createPResources(pNurse), spParam);
+                         pMaster->getSPResources(pNurse), spParam);
     } else {
       bSP = new boostRCSPP::RotationSP(
           pScenario, pScenario->nDays(), pNurse, spParam);
       mSP = new RotationSP(pScenario, pScenario->nDays(), pNurse,
-                           pMaster->createPResources(pNurse), spParam);
+                           pMaster->getSPResources(pNurse), spParam);
     }
     bSP->build();
     mSP->build();
@@ -94,9 +116,7 @@ float comparePricingToBoost(
     // build random dual costs
     float cpu = 0;
     for (int i=0; i < nTest; i++) {
-      PDualCosts pDualCosts = pMaster->buildRandomDualCosts(true);
-      auto p =
-          comparePricing(pDualCosts, pNurse, bSP, mSP, spParam, errorFound);
+      auto p = comparePricing(pMaster, pNurse, bSP, mSP, spParam, errorFound);
       cpu += p.first/p.second;
     }
     cpu /= nTest;

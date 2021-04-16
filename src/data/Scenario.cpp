@@ -75,35 +75,34 @@ State::~State() {}
 // RqJO: I slghtly modified the method to take into account the possibility to
 // add in the state that no task has been assigned on this day
 //
-void State::addDayToState(const State &prevState,
-                          int newShiftType,
-                          int newShift,
-                          int timeWorked) {
+void State::addDayToState(const State &prevState, const PShift &pS) {
   //  int  timeWorked = 1;               // days worked
   //  int  timeWorked = timeDurationToWork_[newShift];      // hours worked
 
   // Total shifts worked if it is a worked day
-  totalTimeWorked_ =
-      prevState.totalTimeWorked_ + (newShiftType > 0 ? timeWorked : 0);
+  totalTimeWorked_ = prevState.totalTimeWorked_ + pS->duration;
 
   // index of the previous shift
-  int prevShiftType = prevState.shiftType_;
+  int prevShiftType = prevState.pShift_->type;
 
   // Treat the case in which no shift is assigned to the nurse on this day
-  if (newShiftType < 0) {
+  if (pS->type < 0) {
     totalWeekendsWorked_ = prevState.totalWeekendsWorked_;
     consShifts_ = prevState.consShifts_;
     consDaysWorked_ = prevState.consDaysWorked_;
     consDaysOff_ = prevState.consDaysOff_;
+    pShift_ = pS;
 
-    shiftType_ = prevShiftType < 0 ? prevShiftType - 1 : -1;
-    shift_ = 0;
-  } else if (prevShiftType >= 0) {
+    // increment the day index
+    dayId_ = prevState.dayId_ + 1;
+    return;
+  }
+  if (prevShiftType >= 0) {
     // Total weekends worked:
     // +1 IF : new day is a Sunday and the nurse works
     // on prevState.pShift_ or newShift
     if (Tools::isSunday(prevState.dayId_)) {
-      if (newShiftType || prevState.shiftType_) {
+      if (pS->isWork() || prevState.pShift_->isWork()) {
         totalWeekendsWorked_ = prevState.totalWeekendsWorked_ + 1;
         consWeekendWorked_ = prevState.consWeekendWorked_ + 1;
         consWeekendOff_ = 0;
@@ -119,22 +118,19 @@ void State::addDayToState(const State &prevState,
     }
 
     // Consecutives : +1 iff it is the same as the previous one
-    consShifts_ = (newShiftType && newShiftType == prevState.shiftType_) ?
-                  prevState.consShifts_ + 1 : (newShiftType ? 1 : 0);
+    consShifts_ = (pS->isWork() && pS->type == prevShiftType) ?
+                  prevState.consShifts_ + 1 : (pS->type ? 1 : 0);
 
     // Consecutive Days Worked :
     // +1 if the new one is worked (!=0), 0 if it is a rest (==0)
-    consDaysWorked_ = newShiftType ? (prevState.consDaysWorked_ + 1) : 0;
+    consDaysWorked_ = pS->isWork() ? (prevState.consDaysWorked_ + 1) : 0;
 
     // Consecutive Days off :
     // +1 if the new one is off (==0), 0 if it is worked (!=0)
-    consDaysOff_ = newShiftType ? 0 : (prevState.consDaysOff_ + 1);
-
-    shiftType_ = newShiftType;
-    shift_ = newShift;
+    consDaysOff_ = pS->isWork() ? 0 : (prevState.consDaysOff_ + 1);
   } else {  // the previous shift was not assigned but this one is
-    if (newShiftType > 0) {
-      totalTimeWorked_ = prevState.totalTimeWorked_ + timeWorked
+    if (pS->isWork()) {
+      totalTimeWorked_ = prevState.totalTimeWorked_ + pS->duration
           + (prevState.consDaysWorked_ > 0 ? (-prevShiftType)
                                            : 0);  // SERGEB ??????
       if (Tools::isSunday(prevState.dayId_)) {
@@ -151,8 +147,6 @@ void State::addDayToState(const State &prevState,
               - prevShiftType) : 1;
       consShifts_ = 1;
       consDaysOff_ = 0;
-      shiftType_ = newShiftType;
-      shift_ = newShift;
     } else {
       if (Tools::isSunday(prevState.dayId_)) {
         consWeekendOff_ = prevState.consWeekendOff_ + 1;
@@ -167,11 +161,11 @@ void State::addDayToState(const State &prevState,
       consShifts_ = 0;
       consDaysOff_ = (prevState.consDaysOff_ > 0) ? (prevState.consDaysOff_ + 1
           - prevShiftType) : 1;
-      shiftType_ = newShiftType;
-      shift_ = newShift;
     }
   }
 
+  // update shift
+  pShift_ = pS;
   // increment the day index
   dayId_ = prevState.dayId_ + 1;  // increment the day index
 }
@@ -180,12 +174,12 @@ void State::addDayToState(const State &prevState,
 //
 string State::toString() {
   std::stringstream rep;
-  rep << totalTimeWorked_ << " " << totalWeekendsWorked_ << " " << shiftType_
-      << " ";
-  if (shiftType_) rep << consShifts_ << " " << consDaysWorked_;
+  rep << totalTimeWorked_ << " " << totalWeekendsWorked_ << " "
+      << pShift_->type << " ";
+  if (pShift_->isWork()) rep << consShifts_ << " " << consDaysWorked_;
   else
     rep << "0 0";
-  if (shiftType_) rep << " 0";
+  if (pShift_->isWork()) rep << " 0";
   else
     rep << " " << consShifts_;
   rep << std::endl;
@@ -399,24 +393,24 @@ bool Scenario::isCompleteWeekendsOf(int whichNurse) const {
 
 // return the min/max consecutive shifts of the same type as the argument
 
-int Scenario::minConsShiftsOfTypeOf(int whichShift) const {
+int Scenario::minConsShifts(int whichShift) const {
   int shiftType = shiftIDToShiftTypeID_[whichShift];
-  return minConsShiftsOf(shiftType);
+  return minConsShiftsOfType(shiftType);
 }
 
-int Scenario::maxConsShiftsOfTypeOf(int whichShift) const {
+int Scenario::maxConsShifts(int whichShift) const {
   int shiftType = shiftIDToShiftTypeID_[whichShift];
-  return maxConsShiftsOf(shiftType);
+  return maxConsShiftsOfType(shiftType);
 }
 
-int Scenario::minConsShiftsOf(int whichShiftType) const {
+int Scenario::minConsShiftsOfType(int whichShiftType) const {
   if (whichShiftType == 0)
     Tools::throwError(
         "Behavior not defined for a rest shift. Please use minConsDaysOffOf.");
   return minConsShiftType_[whichShiftType];
 }
 
-int Scenario::maxConsShiftsOf(int whichShiftType) const {
+int Scenario::maxConsShiftsOfType(int whichShiftType) const {
   if (whichShiftType == 0)
     Tools::throwError(
         "Behavior not defined for a rest shift. Please use maxConsDaysOffOf.");
@@ -480,8 +474,8 @@ string Scenario::toString() const {
     rep << "#                  \t= ";
     rep << i << ":" << intToShift_[i];
     if (i > 0)
-      rep << " \t(" << minConsShiftsOfTypeOf(i) << ","
-          << maxConsShiftsOfTypeOf(i) << ")";
+      rep << " \t(" << minConsShifts(i) << ","
+          << maxConsShifts(i) << ")";
     rep << std::endl;
   }
   rep << "# " << std::endl;
@@ -565,13 +559,13 @@ string Scenario::toString() const {
       rep << "#\t\t\t" << pNurses_[n]->name_ << " ";
       State s = initialState_[n];
       rep << s.totalTimeWorked_ << " " << s.totalWeekendsWorked_ << " "
-          << intToShiftType_[s.shiftType_] << " ";
-      if (s.shiftType_) {
+          << intToShiftType_[s.pShift_->type] << " ";
+      if (s.pShift_->isWork()) {
         rep << s.consShifts_ << " " << s.consDaysWorked_;
       } else {
         rep << "0 0";
       }
-      if (s.shiftType_) rep << " 0";
+      if (s.pShift_->isWork()) rep << " 0";
       else
         rep << " " << s.consShifts_;
       rep << std::endl;

@@ -11,6 +11,7 @@
 
 #include "solvers/mp/RCPricer.h"
 
+#include <algorithm>
 #include <string>
 
 #include "solvers/mp/sp/CyclicRosterSP.h"
@@ -192,8 +193,8 @@ vector<MyVar *> RCPricer::pricing(double bound,
           std::vector<RCSolution> sols = sub2->getSolutions();
           delete sub2;
 
-          sortGeneratedSolutions(&solutions);
-          sortGeneratedSolutions(&sols);
+          RCSolution::sort(&solutions);
+          RCSolution::sort(&sols);
           if (!sols.empty() || !solutions.empty()) {
             if (sols.empty() ^ solutions.empty()) {
               if (!solutions.empty())
@@ -396,7 +397,7 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
             pScenario_, nbDays_, pNurse, spParam);
       else
         subProblem = new RotationSP(pScenario_, nbDays_, pNurse,
-                                    pMaster_->createPResources(pNurse),
+                                    pMaster_->getSPResources(pNurse),
                                     spParam);
       break;
     }
@@ -406,11 +407,11 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
             pScenario_, nbDays_, pNurse, spParam);
       else if (pScenario_->isCyclic())
         subProblem = new CyclicRosterSP(pScenario_, nbDays_, pNurse,
-                                        pMaster_->createPResources(pNurse),
+                                        pMaster_->getSPResources(pNurse),
                                         spParam);
       else
         subProblem = new RosterSP(pScenario_, nbDays_, pNurse,
-                                  pMaster_->createPResources(pNurse),
+                                  pMaster_->getSPResources(pNurse),
                                   spParam);
       break;
     }
@@ -471,10 +472,7 @@ int RCPricer::addColumnsToMaster(int nurseNum,
 // could try something else (involving disjoint columns for ex.)
 void RCPricer::sortGeneratedSolutions(
     std::vector<RCSolution> *solutions) const {
-  std::stable_sort(solutions->begin(), solutions->end(),
-                   [](const RCSolution &sol1, const RCSolution &sol2) {
-                     return sol1.reducedCost() < sol2.reducedCost();
-                   });
+  RCSolution::sort(solutions);
 }
 
 // ------------------------------------------

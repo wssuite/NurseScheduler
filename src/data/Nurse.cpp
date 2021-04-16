@@ -545,7 +545,7 @@ string Preferences::toString(PScenario pScenario) const {
 //
 Nurse::Nurse(int id,
              string name,
-             int nshifts,
+             int nShifts,
              int nSkills,
              vector<int> skills,
              std::vector<int> availableShifts,
@@ -556,9 +556,8 @@ Nurse::Nurse(int id,
     availableShifts_(std::move(availableShifts)),
     pContract_(std::move(contract)),
     hasSkill_(nSkills, false),
-    isAvailableShifts_(nshifts, false) {
+    isAvailableShifts_(nShifts, false) {
   // Verify that the vector of skills is sorted
-  //
   for (auto it = skills_.begin(); it+1 != skills_.end(); ++it)
     if (*it >= *(it + 1))
       Tools::throwError("The skills in a nurse are not sorted "

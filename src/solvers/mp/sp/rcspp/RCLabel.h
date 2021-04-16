@@ -389,6 +389,7 @@ class BoundedResource : public Resource {
   int lb_ = 0;
   int ub_ = 0;
 };
+typedef shared_ptr<BoundedResource> PBoundedResource;
 
 /**
  * Bounded resource where both lower and upper bounds are soft

@@ -17,6 +17,9 @@
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
 #include "solvers/mp/sp/rcspp/RCGraph.h"
+#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
 
 
 #ifdef USE_CPLEX
@@ -245,6 +248,7 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
   if (rebuild) {
     pModel_->clear();
     this->build(param_);
+    if (param_.isStabilization_) initAllStabVariable(param_);
   } else {
     pModel_->reset();
   }
@@ -311,6 +315,9 @@ void MasterProblem::initialize(const SolverParam &param,
 
 // build the rostering problem
 void MasterProblem::build(const SolverParam &param) {
+  /* initialize resources */
+  createPResources();
+
   /* Skills coverage constraints */
   buildSkillsCoverageCons(param);
 
@@ -331,6 +338,80 @@ void MasterProblem::build(const SolverParam &param) {
     pRule_ = new DiveBranchingRule(this, pTree, "branching rule");
     pModel_->addBranchingRule(pRule_);
   }
+}
+
+void MasterProblem::createPResources() {
+  pResources_.clear();
+  // create the resources for all nurses
+  for (const PLiveNurse &pN : theLiveNurses_)
+    pResources_.push_back(generatePResources(pN));
+  // split the resources between the master and the subproblem
+  // must initialize spResources_
+  splitPResources();
+}
+
+// Functions to generate the resources for a given nurse
+std::map<PResource, CostType>
+MasterProblem::defaultGeneratePResources(const PLiveNurse &pN) const {
+  const Weights &w = pScenario_->weights();
+
+  std::map<PResource, CostType> mResources = {
+      // initialize resource on the total number of working days
+      {std::make_shared<SoftTotalShiftDurationResource>(
+          pN->minTotalShifts(),
+          pN->maxTotalShifts(),
+          w.WEIGHT_TOTAL_SHIFTS,
+          w.WEIGHT_TOTAL_SHIFTS,
+          std::make_shared<AnyWorkShift>(),
+          nDays(),
+          pScenario_->maxDuration()), TOTAL_WORK_COST},
+      // initialize resource on the total number of week-ends
+      {std::make_shared<SoftTotalWeekendsResource>(
+          pN->maxTotalWeekends(),
+          w.WEIGHT_TOTAL_WEEKENDS,
+          nDays()), TOTAL_WEEKEND_COST},
+      // initialize resource on the number of consecutive worked days
+      {std::make_shared<SoftConsShiftResource>(
+          pN->minConsDaysWork(),
+          pN->maxConsDaysWork(),
+          w.WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
+          std::make_shared<AnyWorkShift>(),
+          nDays(),
+          pN->pStateIni_->consDaysWorked_),
+       CONS_WORK_COST}
+  };
+
+  // initialize resources on the number of consecutive shifts of each type
+  for (int st = 0; st < pScenario_->nShiftTypes(); st++) {
+    shared_ptr<AbstractShift> absShift =
+        std::make_shared<AnyOfTypeShift>(st, pScenario_->shiftType(st));
+    if (absShift->isWork()) {
+      int consShiftsInitial =
+          absShift->includes(*pN->pStateIni_->pShift_) ?
+          pN->pStateIni_->consShifts_ : 0;
+      mResources[std::make_shared<SoftConsShiftResource>(
+          pScenario_->minConsShiftsOfType(st),
+          pScenario_->maxConsShiftsOfType(st),
+          w.WEIGHT_CONS_SHIFTS,
+          w.WEIGHT_CONS_SHIFTS,
+          absShift,
+          nDays(),
+          consShiftsInitial)] = CONS_SHIFTS_COST;
+    } else if (absShift->isRest()) {
+      // needed to evaluate thee historical cost
+      mResources[std::make_shared<SoftConsShiftResource>(
+          pN->minConsDaysOff(),
+          pN->maxConsDaysOff(),
+          w.WEIGHT_CONS_DAYS_WORK,
+          w.WEIGHT_CONS_DAYS_WORK,
+          absShift,
+          nDays(),
+          pN->pStateIni_->consDaysOff_)] = CONS_REST_COST;
+    }
+  }
+
+  return mResources;
 }
 
 //------------------------------------------------
@@ -553,7 +634,7 @@ void MasterProblem::storeSolution() {
 
   // build the rosters
   for (PLiveNurse pNurse : theLiveNurses_)
-    pNurse->roster_.reset();
+    pNurse->roster_.reset(pScenario_->pRestShift());
 
   std::list<MyVar*> activeColumns(
       pModel_->getActiveColumns().begin(), pModel_->getActiveColumns().end());
@@ -598,7 +679,7 @@ void MasterProblem::storeSolution() {
             }
 #endif
             assigned = true;
-            pNurse->roster_.assignTask(k, s, sk);
+            pNurse->roster_.assignTask(k, pScenario_->pShift(s), sk);
             if (skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_] >
                 vday - epsilon()) {
               skillsAllocation[k][s - 1][sk][pNurse->pPosition_->id_] -= vday;
@@ -683,24 +764,19 @@ std::string MasterProblem::currentSolToString() const {
 //  rep << coverageToString();
   // fetch the active columns and store them by nurses
   vector2D<MyVar *> colsByNurses(pScenario_->nNurses());
-  for (MyVar *var : pModel_->getActiveColumns()) {
-    double v = pModel_->getVarValue(var);
-    if (v < epsilon()) continue;
-    colsByNurses[var->getNurseNum()].push_back(var);
-    std::stringstream rep;
-    rep << var->getNurseNum() << ": " << v << std::endl;
-    PPattern pat = getPattern(var);
-    rep << pat->toString() << std::endl;
-  }
+  for (MyVar *var : pModel_->getActiveColumns())
+    if (pModel_->getVarValue(var) > epsilon())
+      colsByNurses[var->getNurseNum()].push_back(var);
 
   // print the solutions
   std::stringstream rep;
   for (const auto &vec : colsByNurses)
     for (MyVar *var : vec) {
       double v = pModel_->getVarValue(var);
-      rep << var->getNurseNum() << ": " << v << std::endl;
+      rep << "N" << var->getNurseNum() << ": " << v << std::endl;
       PPattern pat = getPattern(var);
-      rep << pat->toString() << std::endl;
+      computePatternCost(pat.get());
+      rep << pat->toString();
     }
   return rep.str();
 }
@@ -891,13 +967,6 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
                                     vars1,
                                     coeffs1);
 
-        // STAB:Add stabilization variable
-        if (param.isStabilization_) {
-          snprintf(name, sizeof(name), "stabMinDemand_%d_%d_%d", k, s, sk);
-          addStabVariables(
-              param, name, minDemandCons_[k][s - 1][sk], false, true);
-        }
-
         // adding variables and building optimal demand constraints
         vars1.push_back(optDemandVars_[k][s - 1][sk]);
         coeffs1.push_back(1);
@@ -907,13 +976,6 @@ void MasterProblem::buildSkillsCoverageCons(const SolverParam &param) {
                                     pDemand_->optDemand_[k][s][sk],
                                     vars1,
                                     coeffs1);
-
-        // STAB:Add stabilization variable
-        if (param.isStabilization_) {
-          snprintf(name, sizeof(name), "stabOptDemand_%d_%d_%d", k, s, sk);
-          addStabVariables(
-              param, name, optDemandCons_[k][s - 1][sk], false, true);
-        }
       }
 
       for (int p = 0; p < pScenario_->nPositions(); p++) {
@@ -1222,6 +1284,16 @@ double MasterProblem::computeApproximateDualUB(double objVal) const {
 // Operations research 53.6 (2005): 1007-1023.
 //
 //---------------------------------------------------------------------------
+
+// STAB: Add stabilization variable
+void MasterProblem::initAllStabVariable(const SolverParam &param) {
+  for (MyCons *con : pModel_->getCoreCons()) {
+    std::string name = "stab_" + std::string(con->name_);
+    addStabVariables(param, name.c_str(), con,
+                     con->getRhs() < pModel_->getInfinity(),
+                     con->getLhs() > -pModel_->getInfinity());
+  }
+}
 
 // Add stabilization variables z for the box [b_, b+] with the penalties c
 // if getting outside of the box:

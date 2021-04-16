@@ -207,7 +207,7 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
 
   // if first day of the planning, check on the past, otherwise 0 (rest)
   int lastShiftType = (rcSol->firstDay() == 0) ?
-      pLiveNurse_->pStateIni_->shiftType_ : -1;
+      pLiveNurse_->pStateIni_->pShift_->type : -1;
   // nbConsShift = number of consecutive shift
   // if first day of the planning, check on the past, otherwise 0
   int nbConsShifts = (rcSol->firstDay() == 0) ?
@@ -225,10 +225,11 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   // if the initial shift has already exceeded the max, substract now the cost
   // that will be readd later
   if ((rcSol->firstDay() == 0) && (lastShiftType > 0) &&
-      (nbConsShifts > pScenario_->maxConsShiftsOf(lastShiftType))) {
-    rcSol->addCost(-(nbConsShifts - pScenario_->maxConsShiftsOf(lastShiftType))
-                       * pScenario_->weights().WEIGHT_CONS_SHIFTS,
-                   CONS_SHIFTS_COST);
+      (nbConsShifts > pScenario_->maxConsShiftsOfType(lastShiftType))) {
+    rcSol->addCost(
+        -(nbConsShifts - pScenario_->maxConsShiftsOfType(lastShiftType))
+            * pScenario_->weights().WEIGHT_CONS_SHIFTS,
+        CONS_SHIFTS_COST);
   }
 
   for (int k = rcSol->firstDay(); k <= rcSol->lastDay(); ++k) {
@@ -238,9 +239,9 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
       continue;
     }
     if (lastShiftType > 0) {
-      int diff =
-          std::max(pScenario_->minConsShiftsOf(lastShiftType) - nbConsShifts,
-                   nbConsShifts - pScenario_->maxConsShiftsOf(lastShiftType));
+      int diff = std::max(
+          pScenario_->minConsShiftsOfType(lastShiftType) - nbConsShifts,
+          nbConsShifts - pScenario_->maxConsShiftsOfType(lastShiftType));
       if (diff > 0)
         rcSol->addCost(diff * pScenario_->weights().WEIGHT_CONS_SHIFTS,
                        CONS_SHIFTS_COST);
@@ -254,8 +255,8 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   if (lastShiftType > 0) {
     int diff =
         std::max((rcSol->lastDay()+1 == nDays()) ? 0 :
-                 pScenario_->minConsShiftsOf(lastShiftType) - nbConsShifts,
-                 nbConsShifts - pScenario_->maxConsShiftsOf(lastShiftType));
+                 pScenario_->minConsShiftsOfType(lastShiftType) - nbConsShifts,
+                 nbConsShifts - pScenario_->maxConsShiftsOfType(lastShiftType));
     if (diff > 0)
       rcSol->addCost(diff * pScenario_->weights().WEIGHT_CONS_SHIFTS,
                      CONS_SHIFTS_COST);
@@ -309,7 +310,7 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
    * (used to price initial rest arcs)
    */
   if (rcSol->firstDay() == 0 && rcSol->nDays() > 0 &&
-      pLiveNurse_->pStateIni_->shiftType_ == 0) {
+      pLiveNurse_->pStateIni_->pShift_->isRest()) {
     int diff =
         pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
     rcSol->addCost(

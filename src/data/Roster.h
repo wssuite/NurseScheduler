@@ -45,17 +45,17 @@ class Roster {
 
   // Constructor form no particular planning
   //
-  Roster(int nbDays, int firstDay);
+  Roster(int nbDays, int firstDay, const PShift &pSDefault);
 
   // Constructor: initialize planning from an input set of shifts for the nurse
   //
-  Roster(int nbDays, int firstDay, const std::vector<int> &shifts);
+  Roster(int nbDays, int firstDay, const std::vector<PShift> &shifts);
 
   // Constructor: initialize planning from an input set of shifts and skills
   //
   Roster(int nbDays,
          int firstDay,
-         const std::vector<int> &shifts,
+         const std::vector<PShift> &shifts,
          const std::vector<int> &skills);
 
   // Destructor
@@ -76,7 +76,7 @@ class Roster {
   // the vector contains exactly one element per day
   // the shift 0 corresponds to a rest
   //
-  std::vector<int> shifts_;
+  std::vector<PShift> pShifts_;
 
   // vector containing for each day the shift assigned to the nurse
   // the vector contains exactly one element per day
@@ -86,19 +86,21 @@ class Roster {
 
  public:
   // Basic getters
-  //
   int firstDay() const { return firstDay_; }
   int nbDays() const { return nbDays_; }
-  int shift(int day) const { return shifts_[day]; }
+  const PShift & pShift(int day) const { return pShifts_[day]; }
+  const vector<PShift> & pShifts() const { return pShifts_; }
   int skill(int day) const { return skills_[day]; }
+  const vector<int> &skills() const { return skills_; }
 
   // initialize the roster
   //
-  void init(int nbDays, int firstDay, int shiftDefault = 0);
+  void init(
+      int nbDays, int firstDay, const PShift &pSDefault, int shiftDefault = 0);
 
   // re-inialize the roster
   //
-  void reset();
+  void reset(const PShift &pSDefault);
 
   // get a vector of consecutive states that will result from applying the
   // the roster from a given initial state
@@ -107,7 +109,7 @@ class Roster {
 
   // assign a task at on a given day
   //
-  void assignTask(int day, int shift, int skill = 0);
+  void assignTask(int day, const PShift &pS, int skill = 0);
 
   // add a roster at the end of the roster
   //

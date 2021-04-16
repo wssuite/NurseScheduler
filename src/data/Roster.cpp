@@ -19,15 +19,15 @@ using std::pair;
 
 // Constructor: initialize planning from nothing
 //
-Roster::Roster(int nbDays, int firstDay) {
+Roster::Roster(int nbDays, int firstDay, const PShift &pSDefault) {
   // initialize the roster with a rest week
-  init(nbDays, firstDay);
+  init(nbDays, firstDay, pSDefault);
 }
 
 // Constructor: initialize planning from an input set of shifts for the nurse
 //
-Roster::Roster(int nbDays, int firstDay, const vector<int> &shifts) :
-    nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
+Roster::Roster(int nbDays, int firstDay, const vector<PShift> &shifts) :
+    nbDays_(nbDays), firstDay_(firstDay), pShifts_(shifts) {
   // initialize the states at each day
   // states_.push_back(initialState);
   // for (int day = 0; day < nbDays_; day++) {
@@ -43,9 +43,9 @@ Roster::Roster(int nbDays, int firstDay, const vector<int> &shifts) :
 //
 Roster::Roster(int nbDays,
                int firstDay,
-               const std::vector<int> &shifts,
+               const std::vector<PShift> &shifts,
                const std::vector<int> &skills) :
-    nbDays_(nbDays), firstDay_(firstDay), shifts_(shifts) {
+    nbDays_(nbDays), firstDay_(firstDay), pShifts_(shifts) {
   // set the skill assignment
   for (int day = 0; day < nbDays_; day++) skills_.push_back(skills[day]);
 }
@@ -55,21 +55,20 @@ Roster::~Roster() {}
 
 // initialize the roster
 //
-void Roster::init(int nbDays, int firstDay, int skillDefault) {
+void Roster::init(
+    int nbDays, int firstDay, const PShift &pSDefault, int skillDefault) {
   nbDays_ = nbDays;
   firstDay_ = firstDay;
-
-  // initialize the vectors of skills and shifts
-  for (int day = 0; day < nbDays_; day++) skills_.push_back(skillDefault);
-  for (int day = 0; day < nbDays_; day++) shifts_.push_back(0);
+  pShifts_.resize(nbDays, pSDefault);
+  skills_.resize(nbDays, skillDefault);
 }
 
 // re-inialize the roster
 //
-void Roster::reset() {
+void Roster::reset(const PShift &pSDefault) {
   skills_.clear();
-  shifts_.clear();
-  init(nbDays_, firstDay_);
+  pShifts_.clear();
+  init(nbDays_, firstDay_, pSDefault);
 }
 
 // get a vector of consecutive states that will result from applying the
@@ -82,11 +81,7 @@ vector<State> Roster::getStates(const State &stateIni, PScenario pScenario) {
   states.push_back(stateIni);
   for (int day = 0; day < nbDays_; day++) {
     State nextState;
-    int shiftType = pScenario->shiftIDToShiftTypeID(shifts_[day]);
-    nextState.addDayToState(states[day],
-                            shiftType,
-                            shifts_[day],
-                            pScenario_->duration(shifts_[day]));
+    nextState.addDayToState(states[day], pShifts_[day]);
     states.push_back(nextState);
   }
 
@@ -95,8 +90,8 @@ vector<State> Roster::getStates(const State &stateIni, PScenario pScenario) {
 
 // assign a task at on a given day
 //
-void Roster::assignTask(int day, int shift, int skill) {
-  shifts_[day] = shift;
+void Roster::assignTask(int day, const PShift &pS, int skill) {
+  pShifts_[day] = pS;
   skills_[day] = skill;
 }
 
@@ -111,7 +106,7 @@ void Roster::push_back(const Roster &roster) {
   } else {
     nbDays_ += roster.nbDays();
     for (int day = 0; day < roster.nbDays(); day++) {
-      shifts_.push_back(roster.shift(day));
+      pShifts_.push_back(roster.pShift(day));
       skills_.push_back(roster.skill(day));
     }
   }
@@ -125,14 +120,8 @@ void Roster::push_back(const Roster &roster) {
 // copy the input roster
 //
 void Roster::copy(const Roster &roster) {
-  firstDay_ = roster.firstDay();
-  nbDays_ = roster.nbDays();
-  if (!shifts_.empty()) {
-    shifts_.clear();
-    skills_.clear();
-  }
-  for (int day = 0; day < nbDays_; day++) {
-    shifts_.push_back(roster.shift(day));
-    skills_.push_back(roster.skill(day));
-  }
+  firstDay_ = roster.firstDay_;
+  nbDays_ = roster.nbDays_;
+  pShifts_ = roster.pShifts_;
+  skills_ = roster.skills_;
 }

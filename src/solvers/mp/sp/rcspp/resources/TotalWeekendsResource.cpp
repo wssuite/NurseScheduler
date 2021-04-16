@@ -40,7 +40,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
 
 int SoftTotalWeekendsResource::getConsumption(
     const State & initialState) const {
-  return initialState.totalWeekendsWorked_;
+  return std::min(ub_, initialState.totalWeekendsWorked_);
 }
 
 PExpander SoftTotalWeekendsResource::init(const AbstractShift &prevAShift,

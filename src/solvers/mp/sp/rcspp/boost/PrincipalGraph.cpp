@@ -141,7 +141,7 @@ bool PrincipalGraph::checkFeasibilityEntranceArc(
   // find which level should be reached
   int sh = -1, n = 0;
   if (arc_prop.day == 0) {
-    sh = pSP_->liveNurse()->pStateIni_->shiftType_;
+    sh = pSP_->liveNurse()->pStateIni_->pShift_->type;
     n = pSP_->liveNurse()->pStateIni_->consShifts_;
     if (arc_prop.pShifts.empty()) {
       std::cerr << "Arc must contain at least a shift when starting the first "

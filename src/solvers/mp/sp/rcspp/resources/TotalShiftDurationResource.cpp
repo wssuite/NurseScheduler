@@ -43,7 +43,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
 
 int SoftTotalShiftDurationResource::getConsumption(
     const State &initialState) const {
-  return initialState.totalTimeWorked_;
+  return std::min(ub_, initialState.totalTimeWorked_);
 }
 
 PExpander SoftTotalShiftDurationResource::init(const AbstractShift &prevAShift,

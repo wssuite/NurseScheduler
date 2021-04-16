@@ -214,16 +214,16 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
    */
   rcSol->resetCosts();
   // initial state of the nurse
-  int lastShiftType = pLiveNurse_->pStateIni_->shiftType_;
+  PShift lastPShift = pLiveNurse_->pStateIni_->pShift_;
   int nbConsShifts = pLiveNurse_->pStateIni_->consShifts_;
   int nbConsDaysWorked = pLiveNurse_->pStateIni_->consDaysWorked_;
   int nbConsDaysOff = pLiveNurse_->pStateIni_->consDaysOff_;
 
   // 1. if the initial shift has already exceeded the max,
   // fix these values to the UB to not pay it twice
-  if (lastShiftType > 0) {  // was working
-    if (nbConsShifts > pScenario_->maxConsShiftsOf(lastShiftType))
-      nbConsShifts = pScenario_->maxConsShiftsOf(lastShiftType);
+  if (lastPShift->isWork()) {  // was working
+    if (nbConsShifts > pScenario_->maxConsShiftsOfType(lastPShift->type))
+      nbConsShifts = pScenario_->maxConsShiftsOfType(lastPShift->type);
     if (nbConsDaysWorked > pLiveNurse_->maxConsDaysWork())
       nbConsDaysWorked = pLiveNurse_->maxConsDaysWork();
   } else if (nbConsShifts > pLiveNurse_->maxConsDaysOff()) {
@@ -233,7 +233,7 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   // 2. compute the cost
   for (const PShift &pS : rcSol->pShifts()) {
     // a. same shift type -> increment the counters
-    if (lastShiftType == pS->type) {
+    if (lastPShift->type == pS->type) {
       if (pS->isWork()) {
         nbConsShifts++;
         nbConsDaysWorked++;
@@ -247,7 +247,7 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
     if (pS->isRest()) {
       // compute cost
       rcSol->addCost(
-          pScenario_->consShiftTypeCost(lastShiftType, nbConsShifts),
+          pScenario_->consShiftTypeCost(lastPShift->type, nbConsShifts),
           CONS_SHIFTS_COST);
       rcSol->addCost(
           pLiveNurse_->consDaysCost(nbConsDaysWorked), CONS_WORK_COST);
@@ -255,7 +255,7 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
       nbConsShifts = 0;
       nbConsDaysWorked = 0;
       nbConsDaysOff = 1;
-    } else if (lastShiftType == 0) {
+    } else if (lastPShift->isRest()) {
       // ii) goes to work
       // compute cost
       rcSol->addCost(
@@ -268,24 +268,24 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
       // iii) continue to work on a different shift
       // compute cost
       rcSol->addCost(
-          pScenario_->consShiftTypeCost(lastShiftType, nbConsShifts),
+          pScenario_->consShiftTypeCost(lastPShift->type, nbConsShifts),
           CONS_SHIFTS_COST);
       // update counters
       nbConsShifts = 1;
       nbConsDaysWorked++;
     }
     // update
-    lastShiftType = pS->type;
+    lastPShift = pS;
   }
 
   // pay the max for last day
   if (nbConsDaysOff > pLiveNurse_->maxConsDaysOff())
     rcSol->addCost(
         pLiveNurse_->consDaysOffCost(nbConsDaysOff), CONS_REST_COST);
-  if (lastShiftType > 0
-      && nbConsShifts > pScenario_->maxConsShiftsOf(lastShiftType))
+  if (lastPShift->isWork()
+      && nbConsShifts > pScenario_->maxConsShiftsOfType(lastPShift->type))
     rcSol->addCost(
-        pScenario_->consShiftTypeCost(lastShiftType, nbConsShifts),
+        pScenario_->consShiftTypeCost(lastPShift->type, nbConsShifts),
         CONS_SHIFTS_COST);
   if (nbConsDaysWorked > pLiveNurse_->maxConsDaysWork())
     rcSol->addCost(

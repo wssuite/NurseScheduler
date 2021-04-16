@@ -21,6 +21,8 @@
 #include "data/Shift.h"
 #include "Demand.h"
 
+static const int REST_SHIFT_ID = 0;
+
 // the penalties for violating the soft constraints on the nurses' schedules
 // are in the problem definition
 // they are set as static constant values in case they need to be shared with
@@ -95,8 +97,6 @@ class State {
             consDaysOff_(0),
             consWeekendWorked_(0),
             consWeekendOff_(0),
-            shiftType_(0),
-            shift_(0),
             pShift_(nullptr) {}
   ~State();
 
@@ -118,8 +118,6 @@ class State {
                                                     dayId)),
       consWeekendOff_(Tools::nWeekendsInInterval(dayId - consDaysOff + 1,
                                                  dayId)),
-      shiftType_(pShift->type),
-      shift_(pShift->id),
       pShift_(pShift) {}
 
   // Function that appends a new day worked on a given shiftType
@@ -130,10 +128,7 @@ class State {
   // Function that appends a new day worked on a given shiftType
   // to an input state to update this state
   //
-  void addDayToState(const State &prevState,
-                     int newShiftType,
-                     int newShift,
-                     int timeWorked);
+  void addDayToState(const State &prevState, const PShift &pS);
 
 
   // Function that appends a new day worked on a given shift
@@ -173,10 +168,6 @@ class State {
   // A negative value -d means that the nurse has not been assigned a task for
   // the last d days
   //
-  int shiftType_;
-
-  int shift_;
-
   PShift pShift_;
 };
 
@@ -363,7 +354,26 @@ class Scenario {
 
   const std::string &shift(int i) const { return intToShift_[i]; }
   int shift(const std::string &s) const { return shiftToInt_.at(s); }
-  const PShift &pShift(int s) { return pShifts_[s]; }
+  const PShift &pRestShift() const { return pShifts_[REST_SHIFT_ID]; }
+  const PShift &pAnyWorkShift() const {
+    for (const auto &pS : pShifts_)
+      if (pS->isWork())
+        return pS;
+    Tools::throwError("There is no work shift defined.");
+    return pShifts_.back();
+  }
+  const PShift &pAnyWorkShift(const std::vector<int> &shifts) const {
+    for (int s : shifts)
+      if (pShift(s)->isWork())
+        return pShift(s);
+    Tools::throwError(
+        "There is no work shift defined within the given vector.");
+    return pShift(shifts.back());
+  }
+  const PShift &pShift(int s) const { return pShifts_[s]; }
+  const PShift &pShift(const std::string &s) const {
+    return pShifts_[shift(s)];
+  }
   const vector<PShift> &pShifts() const { return pShifts_; }
 
   const std::string &skill(int i) const { return intToSkill_[i]; }
@@ -437,7 +447,7 @@ class Scenario {
   int maxConDaysWorkedInHistory() const {
     int ANS = 0;
     for (auto p : initialState_) {
-      if ((p.consDaysWorked_ > ANS) && (p.shiftType_ > 0))
+      if ((p.consDaysWorked_ > ANS) && (p.pShift_->isWork()))
         ANS = p.consDaysWorked_;
     }
     return ANS;
@@ -465,27 +475,27 @@ class Scenario {
 
   // getters for consecutive type of shifts
 
-  int minConsShiftsOfTypeOf(int whichShift) const;
-  int maxConsShiftsOfTypeOf(int whichShift) const;
+  int minConsShifts(int whichShift) const;
+  int maxConsShifts(int whichShift) const;
 
-  int minConsShiftsOf(int whichShiftType) const;
-  int maxConsShiftsOf(int whichShiftType) const;
+  int minConsShiftsOfType(int whichShiftType) const;
+  int maxConsShiftsOfType(int whichShiftType) const;
 
   // Cost function for consecutive identical shifts
   //
   double consShiftCost(int sh, int n) const {
-    if (minConsShiftsOfTypeOf(sh) - n > 0)
-      return (pWeights_->WEIGHT_CONS_SHIFTS * (minConsShiftsOfTypeOf(sh) - n));
-    if (n - maxConsShiftsOfTypeOf(sh) > 0)
-      return (pWeights_->WEIGHT_CONS_SHIFTS * (n - maxConsShiftsOfTypeOf(sh)));
+    if (minConsShifts(sh) - n > 0)
+      return (pWeights_->WEIGHT_CONS_SHIFTS * (minConsShifts(sh) - n));
+    if (n - maxConsShifts(sh) > 0)
+      return (pWeights_->WEIGHT_CONS_SHIFTS * (n - maxConsShifts(sh)));
     return 0;
   }
 
   double consShiftTypeCost(int sh, int n) const {
-    if (minConsShiftsOf(sh) - n > 0)
-      return (pWeights_->WEIGHT_CONS_SHIFTS * (minConsShiftsOf(sh) - n));
-    if (n - maxConsShiftsOf(sh) > 0)
-      return (pWeights_->WEIGHT_CONS_SHIFTS * (n - maxConsShiftsOf(sh)));
+    if (minConsShiftsOfType(sh) - n > 0)
+      return (pWeights_->WEIGHT_CONS_SHIFTS * (minConsShiftsOfType(sh) - n));
+    if (n - maxConsShiftsOfType(sh) > 0)
+      return (pWeights_->WEIGHT_CONS_SHIFTS * (n - maxConsShiftsOfType(sh)));
     return 0;
   }
 

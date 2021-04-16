@@ -61,13 +61,13 @@ void OffsetRosterSP::createNodes(const PRCGraph &pRCGraph) {
     }
 
   // create a last rest sink at the end
-  pRCGraph->addSingleNode(SINK_NODE, firstDay_, pScenario_->pShift(0));
+  pRCGraph->addSingleNode(SINK_NODE, firstDay_, pScenario_->pRestShift());
 }
 
 
 void OffsetRosterSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from source to first day
-  PShift pShiftIni = pScenario_->pShift(pLiveNurse_->pStateIni_->shift_);
+  PShift pShiftIni = pLiveNurse_->pStateIni_->pShift_;
   for (auto shiftId : pShiftIni->successors) {
     if (!pLiveNurse_->isShiftAvailable(shiftId)) continue;
     PRCNode pN = pNodesPerDay_[0][shiftId];
@@ -103,7 +103,7 @@ void OffsetRosterSP::createArcs(const PRCGraph &pRCGraph) {
     if (pOrigin == nullptr)
       continue;
     addSingleArc(pRCGraph, pOrigin, pRCGraph->pSink(0),
-                 pScenario_->pShift(0), firstDay_);
+                 pScenario_->pRestShift(), firstDay_);
   }
 }
 
@@ -117,7 +117,7 @@ bool OffsetRosterSP::postprocess() {
       Tools::throwError(
           "A cyclic roster cannot work on the last day before being erased.");
 #endif
-    sol.eraseBack();  // erase last rest shift
+    sol.popBack();  // erase last rest shift
 #ifdef DBG
     if (sol.pShifts().back()->isRest())
       Tools::throwError(
@@ -233,7 +233,7 @@ void CyclicRosterSP::computeCost(
     // rotate to set the first day to fDay
     rcSol->rotate(-fDay-1);
     // add a rest shift at the end
-    rcSol->addBack(Stretch(rcSol->lastDay(), pScenario_->pShift(0)));
+    rcSol->pushBack(Stretch(rcSol->lastDay(), pScenario_->pRestShift()));
   }
 
 #ifdef DBG
@@ -294,7 +294,7 @@ void CyclicRosterSP::computeCost(
       Tools::throwError(
           "A cyclic roster cannot work on the last day before being erased.");
 #endif
-    rcSol->eraseBack();  // erase last rest shift
+    rcSol->popBack();  // erase last rest shift
 #ifdef DBG
     if (rcSol->pShifts().back()->isRest())
       Tools::throwError(

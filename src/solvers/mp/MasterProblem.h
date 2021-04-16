@@ -84,6 +84,13 @@ struct RCSolution : public Stretch {
   static bool compareReducedCost(
       const RCSolution &sol1, const RCSolution &sol2);
 
+  static void sort(std::vector<RCSolution> *solutions) {
+    std::stable_sort(solutions->begin(), solutions->end(),
+                     [](const RCSolution &sol1, const RCSolution &sol2) {
+                       return sol1.reducedCost() < sol2.reducedCost();
+                     });
+  }
+
  protected:
   double cost_, reducedCost_;
   std::map<CostType, double> costs_;
@@ -173,6 +180,8 @@ struct Pattern : public RCSolution {
   }
 
   /* class functions */
+  Pattern(): nurseNum_(-1) {}
+
   Pattern(RCSolution rcSol,
           int nurseNum) :
           RCSolution(std::move(rcSol)),
@@ -285,45 +294,6 @@ class MasterProblem : public Solver, public PrintSolution {
   virtual PPattern getPattern(MyVar *var) const = 0;
 
   void computePatternCost(Pattern *pat) const;
-
-  // create the resources used for the sub problem
-  std::vector<PResource> createPResources(const PLiveNurse &pN) {
-    return pResources(generatePResources(pN));
-  }
-
-  // create resources and the map that associates a PRessource to its cost type
-  virtual std::map<PResource, CostType>
-  generatePResources(const PLiveNurse &pN) {
-    if (pResourceCostTypes_[pN->num_].empty()) {
-      // if defined, do not use the default function
-      if (generatePResourcesFunc_)
-        pResourceCostTypes_[pN->num_] = generatePResourcesFunc_(pN);
-      else
-        pResourceCostTypes_[pN->num_] = defaultGeneratePResources(pN);
-    }
-    return pResourceCostTypes_[pN->num_];
-  }
-
-  // set the function to override
-  // the default resource generation function defaultgeneratePResources
-  void setGeneratePResourcesFunction(
-      const std::function<std::map<PResource, CostType>(
-          const PLiveNurse &)> &f) {
-    generatePResourcesFunc_ = f;
-  }
-
-  // create a vector of resources with the resource indices pointing
-  // to their position in the vector
-  std::vector<PResource> pResources(
-      const std::map<PResource, CostType> &mResources) const {
-    std::vector<PResource> pResources;
-    pResources.reserve(mResources.size());
-    for (const auto &p : mResources) {
-      p.first->setId(pResources.size());
-      pResources.push_back(p.first);
-    }
-    return pResources;
-  }
 
   CostType resourceCostType(const PResource &pR, const PLiveNurse &pN) const {
     return pResourceCostTypes_[pN->num_].at(pR);
@@ -448,6 +418,10 @@ class MasterProblem : public Solver, public PrintSolution {
   std::string allocationToString(bool printInteger = true) const;
   std::string coverageToString(bool printInteger = true) const;
 
+  vector<PResource> getSPResources(const PLiveNurse &pN) const {
+    return spResources_[pN->num_];
+  }
+
  protected:
   Modeler *pModel_;
   vector2D<int> positionsPerSkill_;  // link positions to skills
@@ -458,9 +432,34 @@ class MasterProblem : public Solver, public PrintSolution {
   SolverType solverType_;  // which solver is used
   bool lagrangianBoundAvail_ = false;
 
+  // PResources for the subproblems
+  vector<std::map<PResource, CostType>> pResources_;
+  vector2D<PResource> spResources_;
+
+  // create the resources used for the sub problem
+  void createPResources();
+
+  // split the resources between the master and the subproblem
+  // must initialize spResources_
+  virtual void splitPResources() = 0;
+
   // Functions to generate the default resources for a given nurse
   virtual std::map<PResource, CostType>
-  defaultGeneratePResources(const PLiveNurse &pN) const = 0;
+  defaultGeneratePResources(const PLiveNurse &pN) const;
+
+  // create resources and the map that associates a PRessource to its cost type
+  // create resources and the map that associates a PRessource to its cost type
+  virtual std::map<PResource, CostType>
+  generatePResources(const PLiveNurse &pN) {
+    if (pResourceCostTypes_[pN->num_].empty()) {
+      // if defined, do not use the default function
+      if (generatePResourcesFunc_)
+        pResourceCostTypes_[pN->num_] = generatePResourcesFunc_(pN);
+      else
+        pResourceCostTypes_[pN->num_] = defaultGeneratePResources(pN);
+    }
+    return pResourceCostTypes_[pN->num_];
+  }
 
   vector<std::map<PResource, CostType>> pResourceCostTypes_;
 
@@ -616,11 +615,7 @@ class MasterProblem : public Solver, public PrintSolution {
   // if primal constraint is >= -> create just plus var
   // WARNING: they are inactive at the beginning
   //
-  void addStabVariables(const SolverParam &param,
-                        const char *name,
-                        MyCons *cons,
-                        bool LECons,
-                        bool GECons);
+  void initAllStabVariable(const SolverParam &param);
 
   // STAB
   // Multiply the upper bound of the input variable by the input factor
@@ -637,6 +632,13 @@ class MasterProblem : public Solver, public PrintSolution {
   void updateVarCostInSolver(MyVar *pVar,
                              OsiSolverInterface *solver,
                              double value);
+
+ private:
+  void addStabVariables(const SolverParam &param,
+                        const char *name,
+                        MyCons *cons,
+                        bool LECons,
+                        bool GECons);
 };
 
 #endif  // SRC_SOLVERS_MP_MASTERPROBLEM_H_

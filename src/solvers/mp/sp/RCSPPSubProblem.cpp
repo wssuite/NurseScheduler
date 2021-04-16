@@ -66,8 +66,8 @@ void RCSPPSubProblem::build() {
   for (int st = 0; st < pScenario_->nShiftTypes(); st++) {
     shared_ptr<AbstractShift> absShift = std::make_shared<AnyOfTypeShift>(st);
     if (absShift->isWork()) {
-      consShiftsLbs_.at(st) = pScenario_->minConsShiftsOf(st);
-      consShiftsUbs_.at(st) = pScenario_->maxConsShiftsOf(st);
+      consShiftsLbs_.at(st) = pScenario_->minConsShiftsOfType(st);
+      consShiftsUbs_.at(st) = pScenario_->maxConsShiftsOfType(st);
       consShiftsLbCosts_.at(st) = pScenario_->weights().WEIGHT_CONS_SHIFTS;
       consShiftsUbCosts_.at(st) = pScenario_->weights().WEIGHT_CONS_SHIFTS;
     } else if (absShift->isRest()) {
@@ -91,7 +91,7 @@ void RCSPPSubProblem::build() {
 void RCSPPSubProblem::enumerateSubPaths(const PRCGraph &pRCGraph) {
   // We enumerate all of the sub paths starting from any node of the network
   for (const PRCNode &pOrigin : pRCGraph->pNodes())
-    enumerateConsShiftType(pRCGraph, pOrigin);
+      enumerateConsShiftType(pRCGraph, pOrigin);
 
   // Finally, the costs of the arcs which existed before the enumeration
   // process are modified
@@ -162,8 +162,11 @@ void RCSPPSubProblem::enumerateConsShiftType(
     vecShift.reserve(consShiftsUbs_.at(pShiftIni->id));
     for (int d{1}; d <= consShiftsUbs_.at(indSuccessorShift) - initialC &&
         d < pScenario_->nDays() - pOrigin->day; d++) {
+      // if sink, stop
+      if (pTarget->type == SINK_NODE) break;
       // Target node of the arc that will be added
       PShift pShift;
+      bool succFound = false;
       for (const PRCArc &pArc : pTarget->outArcs) {
         pShift = std::dynamic_pointer_cast<Shift>(pArc->target->pAShift);
 #ifdef DBG
@@ -173,9 +176,13 @@ void RCSPPSubProblem::enumerateConsShiftType(
 #endif
         if (pShift->id == indSuccessorShift) {
           pTarget = pArc->target;
+          succFound = true;
           break;
         }
       }
+
+      // if successor not found, break
+      if (!succFound) break;
 
       // Creation of the stretch of the arc that will be added
       vecShift.push_back(pShift);  // add one more same shift to the stretch
@@ -623,14 +630,14 @@ void RCSPPSubProblem::computeResourcesCosts(
   PRCNode pSource = std::make_shared<RCNode>(
       0, SOURCE_NODE, rcSol->firstDay() - 1, initialState.pShift_),
       pSink = std::make_shared<RCNode>(
-      1, SINK_NODE, rcSol->firstDay() + nDays() - 1, rcSol->pShifts().back());
+      1, SINK_NODE, rcSol->lastDay(), rcSol->pShifts().back());
   PRCArc pArc = std::make_shared<RCArc>(
       0, pSource, pSink, *rcSol, rcSol->firstDay(), TO_SINK);
   // create expander for stretch
   double c = pArc->cost;
   for (const auto &pR : pResources_) {
     pR->initialize(*pSource->pAShift, *rcSol, pArc);
-    rcSol->addCost(pArc->cost-c, pMaster->resourceCostType(pR, pLiveNurse_));
+    rcSol->addCost(pArc->cost - c, pMaster->resourceCostType(pR, pLiveNurse_));
     c = pArc->cost;
   }
   // expand
@@ -639,7 +646,7 @@ void RCSPPSubProblem::computeResourcesCosts(
   for (const auto &pE : pArc->expanders) {
     ResourceValues &v = pL->getResourceValues(pE->resourceId);
     pE->expand(pL, &v);
-    rcSol->addCost(pL->cost()-c, pMaster->resourceCostType(
+    rcSol->addCost(pL->cost() - c, pMaster->resourceCostType(
         pResources_[pE->resourceId], pLiveNurse_));
     c = pL->cost();
   }

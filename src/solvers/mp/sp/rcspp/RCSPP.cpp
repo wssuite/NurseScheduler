@@ -584,21 +584,21 @@ RCSolution RCSPPSolver::createSolution(const PRCLabel &finalLabel) {
   // Backtrack from the label
   PRCLabel pL = finalLabel;
   Stretch stretch(finalLabel->getNode()->day);
-#ifdef DBG
-  if (print)
-    std::cout << "===========================================" << std::endl;
-#endif
+// #ifdef DBG
+//  if (print)
+//    std::cout << "===========================================" << std::endl;
+// #endif
   while (pL->getPreviousLabel() != nullptr) {
-    stretch.addFront(pL->getInArc()->stretch);
-#ifdef DBG
-    if (print) std::cout << pL->toString(pRcGraph_->pResources()) << std::endl;
-#endif
+    stretch.pushFront(pL->getInArc()->stretch);
+// #ifdef DBG
+//   if (print) std::cout << pL->toString(pRcGraph_->pResources()) << std::endl;
+// #endif
     pL = pL->getPreviousLabel();
   }
   // "Track forward" from the label if some backward expansion
   pL = finalLabel;
   while (pL->getNextLabel() != nullptr) {
-    stretch.addBack(pL->getOutArc()->stretch);
+    stretch.pushBack(pL->getOutArc()->stretch);
     pL = pL->getNextLabel();
   }
   return RCSolution(stretch, finalLabel->baseCost(), finalLabel->cost());

@@ -46,8 +46,7 @@ void RosterSP::createNodes(const PRCGraph &pRCGraph) {
 
 void RosterSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from source to first day
-  PShift pShiftIni = pScenario_->pShift(pLiveNurse_->pStateIni_->shift_);
-  for (auto shiftId : pShiftIni->successors) {
+  for (auto shiftId : pLiveNurse_->pStateIni_->pShift_->successors) {
     if (!pLiveNurse_->isShiftAvailable(shiftId)) continue;
     PRCNode pN = pNodesPerDay_[0][shiftId];
     addSingleArc(

@@ -14,6 +14,7 @@
 #include <memory>
 #include <utility>
 
+#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
 #include "solvers/mp/sp/rcspp/boost/RotationSP.h"
 
 RotationSP::RotationSP(PScenario scenario,
@@ -25,12 +26,27 @@ RotationSP::RotationSP(PScenario scenario,
                     nbDays,
                     std::move(nurse),
                     std::move(pResources),
-                    std::move(param)) {}
+                    std::move(param)) {
+  // check resources: rotation SP handles only ConsShift resources
+  for (const PResource &pR : pResources_) {
+    if (pR->isHard()) {
+      auto *pHR = dynamic_cast<HardConsShiftResource*>(pR.get());
+      if (pHR == nullptr)
+        Tools::throwError("Rotation SP does not support hard resource %s",
+                          pR->name.c_str());
+    } else {
+      auto *pHR = dynamic_cast<SoftConsShiftResource*>(pR.get());
+      if (pHR == nullptr)
+        Tools::throwError("Rotation SP does not support soft resource %s",
+                          pR->name.c_str());
+    }
+  }
+}
 
 
 void RotationSP::createNodes(const PRCGraph &pRCGraph) {
   // create a source for every day except last one (from -1 to nDays_-2)
-  const PAbstractShift &pRestShift = pScenario_->pShift(0);
+  const PAbstractShift &pRestShift = pScenario_->pRestShift();
   for (int d = -1; d < nDays_ - 1; d++)
     pRCGraph->addSingleNode(
         SOURCE_NODE, d,
@@ -56,9 +72,9 @@ void RotationSP::createNodes(const PRCGraph &pRCGraph) {
 
 void RotationSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from sources
-  const PShift &pRestShift = pScenario_->pShift(0);
+  const PShift &pRestShift = pScenario_->pRestShift();
   // previous shift is rest except for the first day
-  PShift prevS = pScenario_->pShift(pLiveNurse_->pStateIni_->shift_);
+  PShift prevS = pLiveNurse_->pStateIni_->pShift_;
   int day = 0;
   for (const PRCNode &pSource : pRCGraph_->pSources()) {
     for (auto shiftId : prevS->successors) {
@@ -143,7 +159,7 @@ void RotationSP::createInitialLabels() {
     } else {
       // state corresponding to the min rest shift done if any
       int nCons = pLiveNurse_->minConsDaysOff();
-      State state(d, 0, 0, 0, nCons, nCons, pScenario_->pShift(0));
+      State state(d, 0, 0, 0, nCons, nCons, pScenario_->pRestShift());
       pL = std::make_shared<RCLabel>(pRCGraph_->pResources(), state);
     }
     pL->setNode(pSource);
@@ -155,7 +171,7 @@ void RotationSP::createInitialLabels() {
 bool RotationSP::postprocess() {
   for (RCSolution &sol : theSolutions_) {
     if (sol.pShifts().back()->isRest())
-      sol.eraseBack();
+      sol.popBack();
     else if (sol.lastDay() + 1 < nDays_)
       Tools::throwError("Rotation SP should produce solutions that end with "
                         "a rest shift when not ending on the last");
@@ -164,56 +180,75 @@ bool RotationSP::postprocess() {
 }
 
 void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
-  // check with boost if default resources
-  if (pMaster->useDefaultResources()) {
-    boostRCSPP::RotationSP sp(pScenario_, nDays(), pLiveNurse_, param_);
-    sp.computeCost(nullptr, rcSol);
+  /************************************************
+   * Compute all the costs of a roster:
+   ************************************************/
+  #ifdef DBG
+  double cost = rcSol->cost();
+  #endif
+  /*
+  * Compute resources costs
+  */
+  // if previous day is the initial state of the nurse
+  State state;
+  if (rcSol->firstDay() == 0) {
+    state = *pLiveNurse_->pStateIni_;
   } else {
-    Tools::throwError("Not implemented.");
+    // create a fake initial state
+    int nCons = pLiveNurse_->minConsDaysOff();
+    state = State(
+        rcSol->firstDay() - 1, 0, 0, 0, nCons, nCons, pScenario_->pRestShift());
   }
-//  /************************************************
-//   * Compute all the costs of a roster:
-//   ************************************************/
-//  #ifdef DBG
-//  double cost = rcSol->cost();
-//  #endif
-//  /*
-//  * Compute resources costs
-//  */
-//  computeResourcesCosts(*pLiveNurse_->pStateIni_, pMaster, rcSol);
-//
-//  /*
-//   * Compute complete weekend
-//   */
-//  if (pLiveNurse_->needCompleteWeekends()) {
-//    int k = 0;
-//    bool rest = false;
-//    for (const PShift &pS : rcSol->pShifts()) {
-//      // on sunday, if complete weekend, it's either:
-//      // work on saturday (rest=false) and sunday
-//      // rest on saturday (rest=true) and sunday
-//      if (Tools::isSunday(k) && (rest ^ pS->isRest()))
-//        rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
-//                       COMPLETE_WEEKEND_COST);
-//      rest = pS->isRest();
-//      k++;
-//    }
-//  }
-//
-//  computePreferencesCost(rcSol);
-//
-//  #ifdef DBG
-//  if (std::abs(cost - rcSol->cost()) > 1e-3) {
-//    std::cerr << "# " << std::endl;
-//    std::cerr << "# " << std::endl;
-//    std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
-//              << std::endl;
-//    std::cerr << "# " << std::endl;
-//    std::cerr << "#   | Base cost     : + " << rcSol->cost() << std::endl;
-//    std::cerr << rcSol->costsToString();
-//    std::cerr << rcSol->toString();
-//    std::cerr << "# " << std::endl;
-//    Tools::throwError("RosterSP::computeCost does not get the same cost.");
-//  }
-//  #endif
+  // add a rest shift at the end of the stretch to ensure
+  // that all resources are priced (only if not the last day)
+  bool restShiftAdded  = false;
+  if (rcSol->pShifts().back()->isWork() &&
+      rcSol->lastDay() < pMaster->nDays() - 1) {
+    rcSol->pushBack(pScenario_->pRestShift());
+    restShiftAdded = true;
+  }
+  computeResourcesCosts(state, pMaster, rcSol);
+
+  /*
+   * Compute complete weekend
+   */
+  if (pLiveNurse_->needCompleteWeekends()) {
+    int k = rcSol->firstDay();
+    bool rest = state.pShift_->isRest();
+    for (const PShift &pS : rcSol->pShifts()) {
+      // on sunday, if complete weekend, it's either:
+      // work on saturday (rest=false) and sunday
+      // rest on saturday (rest=true) and sunday
+      if (Tools::isSunday(k) && (rest ^ pS->isRest()))
+        rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
+                       COMPLETE_WEEKEND_COST);
+      rest = pS->isRest();
+      k++;
+    }
+  }
+
+  computePreferencesCost(rcSol);
+
+  if (restShiftAdded) rcSol->popBack();
+
+#ifdef DBG
+  if (std::abs(cost - rcSol->cost()) > 1e-3) {
+    std::cerr << "# " << std::endl;
+    std::cerr << "# " << std::endl;
+    std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
+              << std::endl;
+    std::cerr << "# " << std::endl;
+    std::cerr << "#   | Base cost     : + " << rcSol->cost() << std::endl;
+    std::cerr << rcSol->costsToString();
+    std::cerr << rcSol->toString();
+    std::cerr << "# " << std::endl;
+    Tools::throwError("RosterSP::computeCost does not get the same cost.");
+
+    // check with boost if default resources
+    if (pMaster->useDefaultResources()) {
+      boostRCSPP::RotationSP sp(pScenario_, nDays(), pLiveNurse_, param_);
+      sp.computeCost(nullptr, rcSol);
+    }
+  }
+  #endif
 }

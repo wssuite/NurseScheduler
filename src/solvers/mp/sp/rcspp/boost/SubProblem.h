@@ -112,22 +112,22 @@ class SubProblem : public SP {
   // Returns true if the corresponding shift has no maximum limit of
   // consecutive worked days
   bool isUnlimited(int shift_type) const {
-    int maxCons = shift_type ? pScenario_->maxConsShiftsOf(shift_type)
+    int maxCons = shift_type ? pScenario_->maxConsShiftsOfType(shift_type)
                              : pContract_->maxConsDaysOff_;
     return maxCons
         >= std::min(nDays_ + maxOngoingDaysWorked_, NB_SHIFT_UNLIMITED);
   }
 
   int minCons(int shift_type) const {
-    return shift_type ? pScenario_->minConsShiftsOf(shift_type)
+    return shift_type ? pScenario_->minConsShiftsOfType(shift_type)
                       : pContract_->minConsDaysOff_;
   }
 
   int maxCons(int shift_type) const {
     if (isUnlimited(shift_type))
-      return shift_type ? pScenario_->minConsShiftsOf(shift_type)
+      return shift_type ? pScenario_->minConsShiftsOfType(shift_type)
                         : pContract_->minConsDaysOff_;
-    return shift_type ? pScenario_->maxConsShiftsOf(shift_type)
+    return shift_type ? pScenario_->maxConsShiftsOfType(shift_type)
                       : pContract_->maxConsDaysOff_;
   }
 

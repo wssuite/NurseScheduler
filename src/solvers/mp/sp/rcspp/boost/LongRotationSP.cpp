@@ -138,7 +138,7 @@ void LongRotationSP::initShortSuccessions() {
             // BUT : add the cost if longer than the maximum allowed
             if (newShTypeID == lastShTypeID) {
               newNLast += nLast;
-              if (newNLast >= pScenario_->maxConsShiftsOfTypeOf(newSh))
+              if (newNLast >= pScenario_->maxConsShifts(newSh))
                 newCost += pScenario_->consShiftCost(lastSh, nLast);
             } else {
               newCost += pScenario_->consShiftCost(lastSh, nLast);
@@ -277,7 +277,7 @@ void LongRotationSP::priceShortSucc() {
             // -> the correct arc is stored and will be updated at the end
             // (as it could be updated again after)
             if (k == CDMin_ - 1 && CDMin_ < max_cons && n == CDMin_
-                && s == pLiveNurse_->pStateIni_->shiftType_) {
+                && s == pLiveNurse_->pStateIni_->pShift_->type) {
               // a. Determine the destination of that arc
               int nConsWithPrev =
                   CDMin_ + pLiveNurse_->pStateIni_->consShifts_;
@@ -331,7 +331,7 @@ double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
 
   // B. COST: SPECIAL CASE FOR THE FIRST DAY
   if (startDate == 0) {
-    int shiftTypeIni = pLiveNurse_->pStateIni_->shiftType_;
+    int shiftTypeIni = pLiveNurse_->pStateIni_->pShift_->type;
     int nConsWorkIni = pLiveNurse_->pStateIni_->consDaysWorked_;
     int nConsShiftIni = pLiveNurse_->pStateIni_->consShifts_;
 
@@ -353,7 +353,8 @@ double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
       // a. (i)   The nurse was working on a different shift: if too short,
       // add the corresponding cost
       if (shiftTypeIni != firstShiftType) {
-        int diff = pScenario_->minConsShiftsOf(shiftTypeIni) - nConsShiftIni;
+        int diff =
+            pScenario_->minConsShiftsOfType(shiftTypeIni) - nConsShiftIni;
         if (diff > 0) ANS += diff * pScenario_->weights().WEIGHT_CONS_SHIFTS;
       } else if (nConsFirstShift < size) {
         // a. (ii)  The nurse was working on the same shift AND the short
@@ -363,7 +364,7 @@ double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
         //    state if > max
         //  - Add the consecutive cost for all shifts
         int diffShift =
-            nConsShiftIni - pScenario_->maxConsShiftsOf(shiftTypeIni);
+            nConsShiftIni - pScenario_->maxConsShiftsOfType(shiftTypeIni);
         // max penalty paid in the previous week that will be repaid
         if (diffShift > 0)
           ANS -= diffShift * pScenario_->weights().WEIGHT_CONS_SHIFTS;
@@ -377,7 +378,8 @@ double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
         // rotation only contains that shift:
         // recompute the cost -> easier, just the max cons shift
         ANS = 0;
-        if (size + nConsShiftIni >= pScenario_->maxConsShiftsOf(shiftTypeIni))
+        if (size + nConsShiftIni >=
+            pScenario_->maxConsShiftsOfType(shiftTypeIni))
           ANS += pScenario_->consShiftTypeCost(shiftTypeIni,
                                                nConsFirstShift + nConsShiftIni);
       }
@@ -485,13 +487,13 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
   // A. SPECIAL CASE OF THE FIRST DAY
   if (startDate == 0) {
     // The nurse was working
-    if (pLiveNurse_->pStateIni_->shift_ > 0) {
+    if (pLiveNurse_->pStateIni_->pShift_->isWork()) {
       if (pScenario_->isForbiddenSuccessorShift_Shift(
-          succ[0]->id, pLiveNurse_->pStateIni_->shift_))
+          succ[0]->id, pLiveNurse_->pStateIni_->pShift_->type))
         return DBL_MAX;
 
       // Change initial values
-      shift = pLiveNurse_->pStateIni_->shift_;
+      shift = pLiveNurse_->pStateIni_->pShift_->id;
       consShifts = pLiveNurse_->pStateIni_->consShifts_;
       consDays += pLiveNurse_->pStateIni_->consDaysWorked_;
       // If worked too much, subtract the already counted surplus
@@ -501,7 +503,7 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
               * pScenario_->weights().WEIGHT_CONS_DAYS_WORK;
       consShiftsRegCost -=
           std::max(0, pLiveNurse_->pStateIni_->consShifts_
-              - pScenario_->maxConsShiftsOfTypeOf(shift))
+              - pScenario_->maxConsShifts(shift))
               * pScenario_->weights().WEIGHT_CONS_SHIFTS;
     } else {
       // The nurse was resting
@@ -534,7 +536,7 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
     }
     if (k == endDate &&
         (k < nDays_ - 1
-            || consShifts > pScenario_->maxConsShiftsOfTypeOf(shift)))
+            || consShifts > pScenario_->maxConsShifts(shift)))
       consShiftsRegCost += pScenario_->consShiftCost(shift, consShifts);
   }
 
@@ -586,7 +588,7 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
       std::cout << succ[i]->name.at(0);
     std::cout << std::endl;
     std::cout << "# length " << consDays;
-    if (startDate == 0 && pLiveNurse_->pStateIni_->shift_ > 0) {
+    if (startDate == 0 && pLiveNurse_->pStateIni_->pShift_->isWork()) {
       std::cout << " (incl. " << pLiveNurse_->pStateIni_->consDaysWorked_
                 << " before planing horizon)";
     }

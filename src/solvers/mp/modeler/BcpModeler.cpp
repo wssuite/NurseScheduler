@@ -888,7 +888,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   }
 
 #ifdef DBG
-  // pModel_->pMaster_->printCurrentSolToString();
+//   std::cout << pModel_->pMaster_->costsConstrainstsToString() << std::endl;
 #endif
 
   // if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE

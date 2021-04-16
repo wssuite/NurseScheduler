@@ -97,6 +97,15 @@ struct Shift : public AbstractShift {
   bool includes(const AbstractShift &s) const override {
     return s.isShift(id);
   }
+  bool canPrecede(const Shift &succShift) const {
+    for (int s : successors)
+      if (s == succShift.id)
+        return true;
+    return false;
+  }
+  bool canSucceed(const Shift &prevShift) const {
+    return prevShift.canPrecede(*this);
+  }
 
   const int id;
   const int type;
@@ -174,20 +183,25 @@ class Stretch {
   virtual int shift(int day) const { return pShift(day)->id; }
   virtual int duration() const { return duration_; }
 
-  virtual void addFront(const Stretch& stretch) {
+  virtual void pushFront(const Stretch &stretch) {
     firstDay_ = stretch.firstDay_;
     duration_ += stretch.duration_;
     pShifts_.insert(
         pShifts_.begin(), stretch.pShifts_.begin(), stretch.pShifts_.end());
   }
 
-  virtual void addBack(const Stretch& stretch) {
+  virtual void pushBack(const Stretch &stretch) {
     duration_ += stretch.duration_;
     pShifts_.insert(
         pShifts_.end(), stretch.pShifts_.begin(), stretch.pShifts_.end());
   }
 
-  virtual void eraseBack() {
+  virtual void pushBack(const PShift &pS) {
+    duration_ += pS->duration;
+    pShifts_.push_back(pS);
+  }
+
+  virtual void popBack() {
     duration_ -= pShifts_.back()->duration;
     pShifts_.erase(--pShifts_.end());
   }
@@ -219,8 +233,10 @@ class Stretch {
 
   virtual std::string toString() const {
     std::stringstream buff;
-    buff << "Stretch starting on day " << firstDay_ << ":" << std::endl;
-    for (int k = 0; k < firstDay_; k++) buff << "|     ";
+    buff << "Stretch starting on day " << firstDay_
+         << " (length=" << nDays() << ", duration=" << duration() << "):"
+         << std::endl;
+    for (int k = 0; k < firstDay_; k++) buff << "|  ";
     for (const PShift &pS : pShifts_)
       if (pS->isRest())
         buff << "|" << REST_DISPLAY;

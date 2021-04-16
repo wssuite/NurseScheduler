@@ -16,12 +16,16 @@
 
 #include <algorithm>
 #include <climits>  // for INT_MAX
-
 #include <set>
 #include <map>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "solvers/mp/sp/rcspp/RCGraph.h"
+#include "solvers/mp/sp/rcspp/resources/ConsWeekendShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
 
 struct RotationDualCosts : public DualCosts {
  public:
@@ -159,13 +163,46 @@ class RotationMP : public MasterProblem {
 
   /* Build each set of constraints
    * Add also the coefficient of a column for each set */
-  void buildRotationCons(const SolverParam &parameters);
-  int addRotationConsToCol(std::vector<MyCons *> *cons,
-                           std::vector<double> *coeffs,
-                           int i,
-                           int k,
-                           bool firstDay,
-                           bool lastDay);
+  void buildRotationGraph(const SolverParam &param);
+  void createRotationNodes(const PRCGraph &pG, const PLiveNurse &pN);
+  void createRotationArcs(const PRCGraph &pG, const PLiveNurse &pN);
+  void addRotationRestCost(const PRCArc &pArc, const PLiveNurse &pN);
+  void createRotationArcsVars(const PRCGraph &pG, const PLiveNurse &pN);
+  void createRotationNodesCons(const PRCGraph &pG, const PLiveNurse &pN);
+  void addRotationConsToCol(const RotationPattern &pRot,
+                            std::vector<MyCons *> *cons,
+                            std::vector<double> *coeffs);
+
+  // compute the minimum and maximum consecutive rests based on the resources
+  // LBs and UBs. Return the value of the LB and the linear cost associated.
+  std::pair<int, double> minConsRest(const PLiveNurse &pN);
+  std::pair<int, double> maxConsRest(const PLiveNurse &pN);
+
+//  void buildRotationCons(const SolverParam &parameters);
+//  int addRotationConsToCol(std::vector<MyCons *> *cons,
+//                           std::vector<double> *coeffs,
+//                           int i,
+//                           int k,
+//                           bool firstDay,
+//                           bool lastDay);
+
+
+  void buildResourceCons(const SolverParam &param);
+  void buildConsWeekendShiftResourceCons(
+      HardConsWeekendShiftResource *pHR,
+      SoftConsWeekendShiftResource *pSR,
+      const LiveNurse &pN) {
+    Tools::throwError("Soft/HardConsWeekendShiftResource not "
+                      "supported as a master");
+  }
+  void buildTotalShiftDurationResourceCons(
+      HardTotalShiftDurationResource *pHR,
+      SoftTotalShiftDurationResource *pSR,
+      const LiveNurse &pN);
+  void buildTotalWeekendsResourceCons(
+      HardTotalWeekendsResource *pHR,
+      SoftTotalWeekendsResource *pSR,
+      const LiveNurse &pN);
 
   void buildMinMaxCons(const SolverParam &parameters);
   int addMinMaxConsToCol(std::vector<MyCons *> *cons,
@@ -191,28 +228,36 @@ class RotationMP : public MasterProblem {
   PDualCosts buildRandomDualCosts(bool optimalDemandConsidered,
                                   int NDaysShifts) const override;
 
+  // separate the resources between the ones that will be managed by
+  // the master, the master rotation graph, and the sub problems
+  // must initialize spResources_
+  void splitPResources() override;
+
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
   double getBranchColumnValueMax() const override {
     return std::max(1.0, pScenario_->nWeeks() / 2.0);
   }
 
-  // Functions to generate the resources for a given nurse
-  std::map<PResource, CostType>
-  defaultGeneratePResources(const PLiveNurse &pN) const override;
-
+  /*
+   * RPresources
+   */
+  vector2D<PBoundedResource> masterConstraintResources_,
+      masterRotationGraphResources_;
   /*
   * Variables
   */
+  // rotation graph for each nurse
+  vector<PRCGraph> pRotationGraphs_;
+  vector2D<PRCNode> firstRestNodes_, maxRestNodes_;
   // stores all the arcs that are resting on a day for each nurse
   vector3D<MyVar *> restsPerDay_;
   // binary variables for the resting arcs in the rotation network
-  vector2D<MyVar *> restingVars_;
-  // binary variables for the resting arcs in the rotation network
-  vector3D<MyVar *> longRestingVars_;
-  // stores all the initial rotations finishing on the first day
-  std::vector<MyVar *> initialStateVars_;
-  std::vector<RotationPattern> initialStateRotations_;
+  vector2D<MyVar *> restVars_;
+  vector3D<MyVar*> resourcesVars;
+
+  // stores all the initial solution finishing on the first day
+  std::vector<RCSolution> initialStateRCSolutions_;
 
   // count the number of missing worked days per nurse
   std::vector<MyVar *> minWorkedDaysVars_;
@@ -239,14 +284,19 @@ class RotationMP : public MasterProblem {
   /*
   * Constraints
   */
-  // transmission of the flow on the resting nodes
+  // transmission of the flow on rotation graph nodes
   // initialization of the flow constraint at the first position of
   // each restFlowCons_[i] (i=nurse)
-  vector2D<MyCons *> restFlowCons_;
-  // transmission of the flow on the working nodes
-  // end of the flow constraint at the last position of each
-  // workFlowCons_[i] (i=nurse)
-  vector2D<MyCons *> workFlowCons_;
+  vector2D<MyCons *> restCons_;
+
+//  // transmission of the flow on the resting nodes
+//  // initialization of the flow constraint at the first position of
+//  // each restFlowCons_[i] (i=nurse)
+//  vector2D<MyCons *> restFlowCons_;
+//  // transmission of the flow on the working nodes
+//  // end of the flow constraint at the last position of each
+//  // workFlowCons_[i] (i=nurse)
+//  vector2D<MyCons *> workFlowCons_;
 
   // count the number of missing worked days per nurse
   std::vector<MyCons *> minWorkedDaysCons_;

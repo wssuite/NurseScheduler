@@ -447,7 +447,7 @@ struct MyNode {
              bestLB_(LARGE_SCORE),
              processed_(false),
              gap_(LARGE_SCORE),
-             highestGap_(0),
+             smallestGap_(LARGE_SCORE),
              depth_(0),
              bestLagLB_(-LARGE_SCORE),
              lastLagLB_(-LARGE_SCORE) {}
@@ -457,7 +457,7 @@ struct MyNode {
       bestLB_(pParent->bestLB_),
       processed_(false),
       gap_(LARGE_SCORE),
-      highestGap_(0),
+      smallestGap_(LARGE_SCORE),
       depth_(pParent->depth_ + 1),
       bestLagLB_(pParent->bestLagLB_),
       lastLagLB_(pParent->bestLB_) {}
@@ -476,12 +476,12 @@ struct MyNode {
     // if not root and the LB is decreasing -> error.
     // BUG: need to be found. For the moment, return false
     bool increased = true;
-    if (pParent_ && bestLB_ > newLB + 1e-2) {
-//      Tools::throwException("The node lower bound (%.2f) is smaller than "
-//                            "its parent one (%.2f).", newLB, bestLB_);
+    if (pParent_ && pParent_->bestLB_ > newLB + 1e-2) {
+//      Tools::throwException("The node lower bound (%.2f) is smaller than its "
+//                            "parent one (%.2f).", newLB, pParent_->bestLB_);
       std::cerr << "The node lower bound (" << newLB
-                << ") is smaller than its parent one (" << bestLB_ << ")."
-                << std::endl;
+                << ") is smaller than its parent one ("
+                << pParent_->bestLB_ << ")." << std::endl;
       increased = false;
     }
     bestLB_ = newLB;
@@ -489,7 +489,8 @@ struct MyNode {
     // if not root
     if (pParent_) {
       double parentGap = (bestLB_ - pParent_->bestLB_) / pParent_->bestLB_;
-      if (parentGap > pParent_->highestGap_) pParent_->highestGap_ = parentGap;
+      if (parentGap < pParent_->smallestGap_)
+        pParent_->smallestGap_ = parentGap;
     }
     return increased;
   }
@@ -508,7 +509,7 @@ struct MyNode {
       return LARGE_SCORE;
 
     // otherwise compare the current gap
-    return pParent_->highestGap_;
+    return pParent_->smallestGap_;
   }
 
   // The quality of a node is used to sort the candidate list
@@ -551,7 +552,7 @@ struct MyNode {
   bool processed_;
   // gap: between bestLB_ and current best lb
   // highest gap: between the bestLB_ and the computed bestLB_ of the children
-  double gap_, highestGap_;
+  double gap_, smallestGap_;
   int depth_;
 
   // STAB : best lagrangian bound obtained at this node

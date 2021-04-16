@@ -115,6 +115,8 @@ PScenario ReadWrite::readScenario(string fileName) {
       // IMPORTANT : INSERT REST SHIFT !!!!!!
       // It is given 0 and 99 as bounds so that they never perturbate the cost
       //
+      if (REST_SHIFT_ID != 0)
+        Tools::throwError("Scenario reader works only with REST_SHIFT_ID = 0.");
       intToShiftType.push_back(REST_SHIFT);
       shiftTypeToInt.insert(pair<string, int>(REST_SHIFT, 0));
       minConsShiftType.push_back(0);
@@ -170,6 +172,8 @@ PScenario ReadWrite::readScenario(string fileName) {
 
       // IMPORTANT : INSERT REST SHIFT !!!!!!
       //
+      if (REST_SHIFT_ID != 0)
+        Tools::throwError("Scenario reader works only with REST_SHIFT_ID = 0.");
       intToShift.push_back(REST_SHIFT);
       shiftToInt.insert(pair<string, int>(REST_SHIFT, 0));
       hoursInShift.push_back(0);
@@ -896,16 +900,17 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(
     vector<std::string> strWeekSolFiles, PScenario pScenario) {
   int nbWeeks = strWeekSolFiles.size();
   string strNurse, strDay, strShift, strSkill;
-  int nurse, day, shift, skill;
+  int nurse, day, skill;
+  PShift pS;
 
 
-  // initialize the solution
+  // initialize the solution with rest shifts
   vector<Roster> solution;
   for (int n = 0; n < pScenario->nNurses(); n++) {
-    vector<int> shifts(7 * nbWeeks, 0);
+    vector<PShift> pShifts(7 * nbWeeks, pScenario->pRestShift());
     vector<int> skills(7 * nbWeeks, -1);
 
-    Roster roster(7 * nbWeeks, 0, shifts, skills);
+    Roster roster(7 * nbWeeks, 0, pShifts, skills);
     solution.push_back(roster);
   }
 
@@ -936,10 +941,10 @@ vector<Roster> ReadWrite::readSolutionMultipleWeeks(
       file >> strNurse >> strDay >> strShift >> strSkill;
       nurse = pScenario->nurse(strNurse);
       day = firstDay + Tools::dayToInt(strDay);
-      shift = pScenario->shift(strShift);
+      pS = pScenario->pShift(strShift);
       skill = pScenario->skill(strSkill);
 
-      solution[nurse].assignTask(day, shift, skill);
+      solution[nurse].assignTask(day, pS, skill);
     }
   }
 

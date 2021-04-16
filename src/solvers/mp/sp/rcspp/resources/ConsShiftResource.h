@@ -54,6 +54,8 @@ class SoftConsShiftResource : public SoftBoundedResource {
 
   bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
 
+  const PAbstractShift &pShift() const { return pAShift_; }
+
   // the worst case is when compared with a label of consumption 0
   // that will reach ub_: so we will pay consumption penalties.
   // As soon as a consumption exceeds the ub, each extra shift is immediately
@@ -101,6 +103,8 @@ class HardConsShiftResource : public HardBoundedResource {
   int getConsumption(const State &initialState) const override;
 
   bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
+
+  const PAbstractShift &pShift() const { return pAShift_; }
 
   bool merge(const ResourceValues &vForward,
              const ResourceValues &vBack,

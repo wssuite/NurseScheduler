@@ -15,9 +15,9 @@
 int SoftConsWeekendShiftResource::getConsumption(
     const State & initialState) const {
   if (pShift_->isAnyWork())
-    return initialState.consWeekendWorked_;
+    return std::min(ub_, initialState.consWeekendWorked_);
   if (pShift_->isRest())
-    return initialState.consWeekendOff_;
+    return std::min(ub_, initialState.consWeekendOff_);
   return 0;
 }
 

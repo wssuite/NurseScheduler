@@ -15,9 +15,6 @@
 #include <memory>
 #include <utility>
 
-#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
-#include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
-#include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
 #include "solvers/mp/TreeManager.h"
 
 
@@ -141,79 +138,11 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
     const char *baseName("initialRoster");
     // build the roster of each nurse
     for (int i = 0; i < pScenario_->nNurses(); ++i) {
-      // load the roster of nurse i
-      const Roster &roster = solution[i];
-      // build the shift vector
-      std::vector<PShift> shifts(nDays());
-      for (int k = 0; k < nDays(); ++k)
-        shifts[k] = pScenario_->pShift(roster.shift(k));
-      RosterPattern pat(shifts, i);
+      RosterPattern pat(solution[i].pShifts(), i);
       computePatternCost(&pat);
       pModel_->addInitialColumn(addRoster(pat, baseName));
     }
   }
-}
-
-std::map<PResource, CostType>
-    RosterMP::defaultGeneratePResources(const PLiveNurse &pN) const {
-  const Weights &w = pScenario_->weights();
-
-  std::map<PResource, CostType> mResources = {
-      // initialize resource on the total number of working days
-      {std::make_shared<SoftTotalShiftDurationResource>(
-          pN->minTotalShifts(),
-          pN->maxTotalShifts(),
-          w.WEIGHT_TOTAL_SHIFTS,
-          w.WEIGHT_TOTAL_SHIFTS,
-          std::make_shared<AnyWorkShift>(),
-          nDays(),
-          pScenario()->maxDuration()), TOTAL_WORK_COST},
-      // initialize resource on the total number of week-ends
-      {std::make_shared<SoftTotalWeekendsResource>(
-          pN->maxTotalWeekends(),
-          w.WEIGHT_TOTAL_WEEKENDS,
-          nDays()), TOTAL_WEEKEND_COST},
-      // initialize resource on the number of consecutive worked days
-      {std::make_shared<SoftConsShiftResource>(
-          pN->minConsDaysWork(),
-          pN->maxConsDaysWork(),
-          w.WEIGHT_CONS_DAYS_WORK,
-          w.WEIGHT_CONS_DAYS_WORK,
-          std::make_shared<AnyWorkShift>(),
-          nDays(),
-          pN->pStateIni_->consDaysWorked_),
-       CONS_WORK_COST}
-  };
-
-  // initialize resources on the number of consecutive shifts of each type
-  for (int st = 0; st < pScenario_->nShiftTypes(); st++) {
-    shared_ptr<AbstractShift> absShift =
-        std::make_shared<AnyOfTypeShift>(st, pScenario_->shiftType(st));
-    if (absShift->isWork()) {
-      int consShiftsInitial =
-          absShift->includes(*pN->pStateIni_->pShift_) ?
-          pN->pStateIni_->consShifts_ : 0;
-      mResources[std::make_shared<SoftConsShiftResource>(
-          pScenario_->minConsShiftsOf(st),
-          pScenario_->maxConsShiftsOf(st),
-          w.WEIGHT_CONS_SHIFTS,
-          w.WEIGHT_CONS_SHIFTS,
-          absShift,
-          nDays(),
-          consShiftsInitial)] = CONS_SHIFTS_COST;
-    } else if (absShift->isRest()) {
-      mResources[std::make_shared<SoftConsShiftResource>(
-          pN->minConsDaysOff(),
-          pN->maxConsDaysOff(),
-          w.WEIGHT_CONS_DAYS_WORK,
-          w.WEIGHT_CONS_DAYS_WORK,
-          absShift,
-          nDays(),
-          pN->pStateIni_->consDaysOff_)] = CONS_REST_COST;
-    }
-  }
-
-  return mResources;
 }
 
 // Create a new rotation variable
@@ -292,11 +221,6 @@ void RosterMP::buildAssignmentCons(const SolverParam &param) {
                                 1,
                                 {feasibilityVar},
                                 {1});
-    // STAB:Add stabilization variable
-    if (param.isStabilization_) {
-      snprintf(name, sizeof(name), "stabAssignment_%i", i);
-      addStabVariables(param, name, assignmentCons_[i], true, true);
-    }
   }
 }
 
