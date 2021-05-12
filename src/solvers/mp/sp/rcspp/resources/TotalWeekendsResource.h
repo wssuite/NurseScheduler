@@ -35,10 +35,33 @@ using std::vector;
 //  pattern of days, and adding methods that detect if a day is in the
 //  pattern, if it is the first day of the pattern and if it is the last day
 //  of the pattern
-class SoftTotalWeekendsResource : public SoftBoundedResource {
+class TotalWeekend {
  public:
-  SoftTotalWeekendsResource(int ub, double ubCost, int totalNbDays) :
-      SoftBoundedResource("Soft Weekend Total work", 0, ub, 0, ubCost) {
+  TotalWeekend(const PAbstractShift pShift, BoundedResource *pR) :
+      pShift_(pShift), pR_(pR) {}
+
+  int computeConsumption(const Stretch &stretch,
+                         bool *ready) const;
+
+  int computeBackConsumption(const Stretch &stretch,
+                             bool *ready) const;
+
+  const PAbstractShift pShift() const { return pShift_; }
+
+  BoundedResource *pResource() const { return pR_; }
+
+ protected:
+  const PAbstractShift pShift_;
+  BoundedResource *pR_;
+};
+
+class SoftTotalWeekendsResource :
+    public SoftBoundedResource, public TotalWeekend {
+ public:
+  SoftTotalWeekendsResource(
+      int ub, double ubCost, const PAbstractShift &pShift, int totalNbDays) :
+      SoftBoundedResource("Soft Weekend Total work", 0, ub, 0, ubCost),
+      TotalWeekend(pShift, this) {
     totalNbDays_ = totalNbDays;
   }
 
@@ -63,11 +86,13 @@ class SoftTotalWeekendsResource : public SoftBoundedResource {
 struct SoftTotalWeekendsExpander : public Expander {
   SoftTotalWeekendsExpander(const SoftTotalWeekendsResource& resource,
                             Stretch stretch,
+                            int consumption,
                             int nWeekendsBefore,
                             int nWeekendsAfter,
                             bool arcToSink) :
       Expander(resource.id()),
       resource_(resource),
+      consumption_(consumption),
       nWeekendsBefore_(nWeekendsBefore),
       nWeekendsAfter_(nWeekendsAfter),
       stretch_(std::move(stretch)),
@@ -80,6 +105,8 @@ struct SoftTotalWeekendsExpander : public Expander {
 
  protected:
   const SoftTotalWeekendsResource& resource_;
+  int consumption_;
+  bool startOnWeekend_, endOnWeekend_;
   // number of weekends before and including the first day of the stretch;
   // if only a portion of a weekend is left (e.g., only sunday), it counts +1
   int nWeekendsBefore_;
@@ -92,16 +119,18 @@ struct SoftTotalWeekendsExpander : public Expander {
 
 
 
-class HardTotalWeekendsResource : public HardBoundedResource {
+class HardTotalWeekendsResource :
+    public HardBoundedResource, public TotalWeekend {
  public:
-  HardTotalWeekendsResource(int lb, int ub, int totalNbDays) :
-      HardBoundedResource("Hard Weekend Total work", lb, ub) {
+  HardTotalWeekendsResource(
+      int lb, int ub, const PAbstractShift &pShift, int totalNbDays) :
+      HardBoundedResource("Hard Weekend Total work", lb, ub),
+      TotalWeekend(pShift, this) {
     totalNbDays_ = totalNbDays;
   }
 
   // instantiate TotalWeekEndLabel
   int getConsumption(const State &initialState) const override;
-
 
  protected:
   // initialize the expander on a given arc
@@ -116,10 +145,12 @@ class HardTotalWeekendsResource : public HardBoundedResource {
 struct HardTotalWeekendsExpander : public Expander {
   HardTotalWeekendsExpander(const HardTotalWeekendsResource& resource,
                             Stretch stretch,
+                            int consumption,
                             int nWeekendsBefore,
                             int nWeekendsAfter,
                             bool arcToSink) :
       Expander(resource.id()),
+      consumption_(consumption),
       resource_(resource),
       nWeekendsBefore_(nWeekendsBefore),
       nWeekendsAfter_(nWeekendsAfter),
@@ -133,6 +164,7 @@ struct HardTotalWeekendsExpander : public Expander {
 
  protected:
   const HardTotalWeekendsResource& resource_;
+  int consumption_;
   // number of weekends before and including the first day of the stretch;
   // if only a portion of a weekend is left (e.g., only sunday), it counts +1
   int nWeekendsBefore_;

@@ -34,7 +34,7 @@ class SoftConsWeekendShiftResource : public SoftBoundedResource {
  public:
   SoftConsWeekendShiftResource(
       int lb, int ub, double lbCost, double ubCost,
-      const PAbstractShift pShift, int totalNbDays, bool cyclic = false) :
+      const PAbstractShift &pShift, int totalNbDays, bool cyclic = false) :
       SoftBoundedResource("Soft Weekend Cons "+pShift->name,
                           lb, ub, lbCost, ubCost),
       pShift_(pShift), cyclic_(cyclic) {
@@ -55,6 +55,10 @@ class SoftConsWeekendShiftResource : public SoftBoundedResource {
     return ubCost_ * std::min(consumption, ub_);
   }
 
+  bool isCyclic() const { return cyclic_; }
+
+  const PAbstractShift &pShift() const { return pShift_; }
+
  protected:
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
@@ -67,7 +71,7 @@ class SoftConsWeekendShiftResource : public SoftBoundedResource {
 class HardConsWeekendShiftResource : public HardBoundedResource {
  public:
   HardConsWeekendShiftResource(
-      int lb, int ub, const PAbstractShift pShift,
+      int lb, int ub, const PAbstractShift &pShift,
       int totalNbDays, bool cyclic = false) :
       HardBoundedResource("Hard Weekend Cons "+pShift->name, lb, ub),
       pShift_(pShift), cyclic_(cyclic) {
@@ -81,6 +85,10 @@ class HardConsWeekendShiftResource : public HardBoundedResource {
   bool dominates(const PRCLabel &pL1,
                  const PRCLabel &pL2,
                  double *cost = nullptr) override;
+
+  bool isCyclic() const { return cyclic_; }
+
+  const PAbstractShift &pShift() const { return pShift_; }
 
  protected:
   // initialize the expander on a given arc

@@ -38,7 +38,8 @@ def run_travis(build=True, tag=None, script=None, pipe=subprocess.PIPE):
 
 def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE):
     if docker:
-        run_cmd('docker build -t {} .'.format(tag))
+        if not run_cmd('docker build -t {} .'.format(tag)):
+            return
         run = 'docker run --rm {}'.format(tag)
     else:
         run = './docker-entrypoint.sh'

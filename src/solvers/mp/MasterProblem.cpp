@@ -326,15 +326,19 @@ void MasterProblem::build(const SolverParam &param) {
    */
   if (solverType_ != S_CBC) {
     /* Rotation pricer */
+    if (pPricer_) delete pPricer_;
     pPricer_ = new RCPricer(this, "pricer", param);
     pModel_->addPricer(pPricer_);
 
     /* Tree */
-    RestTree *pTree = new RestTree(pScenario_, pDemand_, param.epsilon_);
+    if (pTree_) delete pTree_;
+    RestTree *pTree =
+        new RestTree(pScenario_, pDemand_, param.epsilon_, param.verbose_ > 0);
     pTree_ = pTree;
     pModel_->addTree(pTree_);
 
     /* Branching rule */
+    if (pRule_) delete pRule_;
     pRule_ = new DiveBranchingRule(this, pTree, "branching rule");
     pModel_->addBranchingRule(pRule_);
   }
@@ -354,21 +358,22 @@ void MasterProblem::createPResources() {
 std::map<PResource, CostType>
 MasterProblem::defaultGeneratePResources(const PLiveNurse &pN) const {
   const Weights &w = pScenario_->weights();
-
+  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
   std::map<PResource, CostType> mResources = {
       // initialize resource on the total number of working days
       {std::make_shared<SoftTotalShiftDurationResource>(
-          pN->minTotalShifts(),
-          pN->maxTotalShifts(),
-          w.WEIGHT_TOTAL_SHIFTS,
-          w.WEIGHT_TOTAL_SHIFTS,
-          std::make_shared<AnyWorkShift>(),
+          minTotalShifts_[pN->num_],
+          maxTotalShifts_[pN->num_],
+          weightTotalShiftsMin_[pN->num_],
+          weightTotalShiftsMax_[pN->num_],
+          pWork,
           nDays(),
           pScenario_->maxDuration()), TOTAL_WORK_COST},
       // initialize resource on the total number of week-ends
       {std::make_shared<SoftTotalWeekendsResource>(
-          pN->maxTotalWeekends(),
-          w.WEIGHT_TOTAL_WEEKENDS,
+          maxTotalWeekends_[pN->num_],
+          weightTotalWeekendsMax_[pN->num_],
+          pWork,
           nDays()), TOTAL_WEEKEND_COST},
       // initialize resource on the number of consecutive worked days
       {std::make_shared<SoftConsShiftResource>(
@@ -376,7 +381,7 @@ MasterProblem::defaultGeneratePResources(const PLiveNurse &pN) const {
           pN->maxConsDaysWork(),
           w.WEIGHT_CONS_DAYS_WORK,
           w.WEIGHT_CONS_DAYS_WORK,
-          std::make_shared<AnyWorkShift>(),
+          pWork,
           nDays(),
           pN->pStateIni_->consDaysWorked_),
        CONS_WORK_COST}

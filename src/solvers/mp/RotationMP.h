@@ -136,15 +136,15 @@ class RotationMP : public MasterProblem {
   // currently stored in the model
   vector3D<double> fractionalRoster() const override;
 
-  const std::vector<MyVar *> &getMinWorkedDaysVars() const {
-    return minWorkedDaysVars_;
-  }
-  const std::vector<MyVar *> &getMaxWorkedDaysVars() const {
-    return maxWorkedDaysVars_;
-  }
-  const std::vector<MyVar *> &getMaxWorkedWeekendVars() const {
-    return maxWorkedWeekendVars_;
-  }
+//  const std::vector<MyVar *> &getMinWorkedDaysVars() const {
+//    return minWorkedDaysVars_;
+//  }
+//  const std::vector<MyVar *> &getMaxWorkedDaysVars() const {
+//    return maxWorkedDaysVars_;
+//  }
+//  const std::vector<MyVar *> &getMaxWorkedWeekendVars() const {
+//    return maxWorkedWeekendVars_;
+//  }
 
  protected:
   // Main method to build the rostering problem for a given input
@@ -204,12 +204,19 @@ class RotationMP : public MasterProblem {
       SoftTotalWeekendsResource *pSR,
       const LiveNurse &pN);
 
-  void buildMinMaxCons(const SolverParam &parameters);
-  int addMinMaxConsToCol(std::vector<MyCons *> *cons,
-                         std::vector<double> *coeffs,
-                         int i,
-                         int nbDays,
-                         int nbWeekends);
+  std::pair<vector<MyVar*>, vector<MyCons*>> buildBoundedResourceCons(
+      HardBoundedResource *pHR, SoftBoundedResource *pSR, const LiveNurse &pN);
+
+  void addResourceConsToCol(const RotationPattern &rotation,
+                            std::vector<MyCons *> *cons,
+                            std::vector<double> *coeffs);
+
+  void buildDynamicCons(const SolverParam &param);
+  int addDynamicConsToCol(std::vector<MyCons *> *cons,
+                          std::vector<double> *coeffs,
+                          int i,
+                          int nbDays,
+                          int nbWeekends);
 
   // return the costs of all active columns associated to the type
   double getColumnsCost(CostType costType) const override;
@@ -244,6 +251,17 @@ class RotationMP : public MasterProblem {
    */
   vector2D<PBoundedResource> masterConstraintResources_,
       masterRotationGraphResources_;
+
+  // variables associated to the resources
+  std::vector<std::map<TotalShiftDuration*, vector<MyVar*>>>
+      totalShiftDurationVars_;
+  std::vector<std::map<TotalWeekend*, vector<MyVar*>>> totalWeekendVars_;
+
+  // constraints associated to resources
+  std::vector<std::map<TotalShiftDuration*, vector<MyCons*>>>
+      totalShiftDurationCons_;
+  std::vector<std::map<TotalWeekend*, vector<MyCons*>>> totalWeekendCons_;
+
   /*
   * Variables
   */
@@ -258,13 +276,6 @@ class RotationMP : public MasterProblem {
 
   // stores all the initial solution finishing on the first day
   std::vector<RCSolution> initialStateRCSolutions_;
-
-  // count the number of missing worked days per nurse
-  std::vector<MyVar *> minWorkedDaysVars_;
-  // count the number of exceeding worked days per nurse
-  std::vector<MyVar *> maxWorkedDaysVars_;
-  // count the number of exceeding worked weekends per nurse
-  std::vector<MyVar *> maxWorkedWeekendVars_;
 
   // count the number of missing worked days from average per nurse
   std::vector<MyVar *> minWorkedDaysAvgVars_;
@@ -289,21 +300,6 @@ class RotationMP : public MasterProblem {
   // each restFlowCons_[i] (i=nurse)
   vector2D<MyCons *> restCons_;
 
-//  // transmission of the flow on the resting nodes
-//  // initialization of the flow constraint at the first position of
-//  // each restFlowCons_[i] (i=nurse)
-//  vector2D<MyCons *> restFlowCons_;
-//  // transmission of the flow on the working nodes
-//  // end of the flow constraint at the last position of each
-//  // workFlowCons_[i] (i=nurse)
-//  vector2D<MyCons *> workFlowCons_;
-
-  // count the number of missing worked days per nurse
-  std::vector<MyCons *> minWorkedDaysCons_;
-  // count the number of exceeding worked days per nurse
-  std::vector<MyCons *> maxWorkedDaysCons_;
-  // count the number of exceeding worked weekends per nurse
-  std::vector<MyCons *> maxWorkedWeekendCons_;
   // count the total number of weekends that will be penalized
   MyCons *sumMaxWorkedWeekendCons_;
 

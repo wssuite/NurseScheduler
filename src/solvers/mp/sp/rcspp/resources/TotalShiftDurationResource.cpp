@@ -11,6 +11,14 @@
 
 #include "TotalShiftDurationResource.h"
 
+int TotalShiftDuration::computeConsumption(const Stretch &stretch) const {
+  int consumption = 0;
+  for (const auto &pShift : stretch.pShifts())
+    if (pShift_->includes(*pShift))
+      consumption += duration(pShift);
+  return consumption;
+}
+
 template<typename E, typename R>
 shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const Stretch &stretch,
@@ -21,13 +29,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
     return nullptr;
 
   // we only need to count the number of corresponding shift
-  int consumption = 0;
-  for (const auto &pShift : stretch.pShifts())
-    if (r.pShift()->includes(*pShift)) {
-      if (r.hasDefaultDuration()) consumption += r.defaultDuration();
-      else
-        consumption += pShift->duration;
-    }
+  int consumption = r.computeConsumption(stretch);
 
   // number of days before the start of the stretch (beware that indices of
   // days start at 0)
@@ -56,16 +58,16 @@ PExpander SoftTotalShiftDurationResource::init(const AbstractShift &prevAShift,
 
 bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
                                             ResourceValues *vChild) {
-  if (consumption == 0 && !arcToSink_) {
+  if (consumption_ == 0 && !arcToSink_) {
     // Setting 'worst case cost'
     vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
     vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
-                                                   maxDurationLeft);
+                                                   maxDurationLeft_);
     return true;
   }
 
   // update consumption
-  vChild->consumption += consumption;
+  vChild->consumption += consumption_;
 
   // pay for excess of consumption due to this expansion
   if (vChild->consumption  > resource_.getUb()) {
@@ -86,14 +88,14 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
   // Setting 'worst case cost'
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
-                                                 maxDurationLeft);
+                                                 maxDurationLeft_);
 
   return true;
 }
 bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
                                                 ResourceValues *vChild) {
   // update consumption
-  vChild->consumption += consumption;
+  vChild->consumption += consumption_;
 
   // pay for excess of consumption due to this expansion
   if (vChild->consumption > resource_.getUb()) {
@@ -107,7 +109,7 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
   // Setting 'worst case cost'
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost =
-      resource_.getWorstUbCost(vChild->consumption, maxDurationBefore);
+      resource_.getWorstUbCost(vChild->consumption, maxDurationBefore_);
 
   return true;
 }
@@ -128,7 +130,7 @@ PExpander HardTotalShiftDurationResource::init(const AbstractShift &prevAShift,
 bool HardTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
                                             ResourceValues *vChild) {
   // update consumption
-  vChild->consumption += consumption;
+  vChild->consumption += consumption_;
 
   // if exceed UB
   if (vChild->consumption  > resource_.getUb())
@@ -136,13 +138,13 @@ bool HardTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
 
   // if will reach the end while remaining lower than LB -> return false
   // otherwise true
-  return vChild->consumption + maxDurationLeft >= resource_.getLb();
+  return vChild->consumption + maxDurationLeft_ >= resource_.getLb();
 }
 
 bool HardTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
                                                 ResourceValues *vChild) {
   // update consumption
-  vChild->consumption += consumption;
+  vChild->consumption += consumption_;
 
   // if exceed UB return false, but do not check LB at this stage, only when
   // merging labels with the label at source

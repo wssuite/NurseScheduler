@@ -139,25 +139,19 @@ void RotationPattern::checkReducedCost(const PDualCosts &pCosts,
 RotationMP::RotationMP(const PScenario& pScenario,
                        SolverType solver) :
     MasterProblem(pScenario, solver),
+    totalShiftDurationVars_(pScenario->nNurses()),
+    totalWeekendVars_(pScenario->nNurses()),
+    totalShiftDurationCons_(pScenario->nNurses()),
+    totalWeekendCons_(pScenario->nNurses()),
     restsPerDay_(pScenario->nNurses()),
     restVars_(pScenario->nNurses()),
     initialStateRCSolutions_(pScenario->nNurses()),
-//    longRestingVars_(pScenario->nNurses()),
-    minWorkedDaysVars_(pScenario->nNurses()),
-    maxWorkedDaysVars_(pScenario->nNurses()),
-    maxWorkedWeekendVars_(pScenario->nNurses()),
     minWorkedDaysAvgVars_(pScenario->nNurses()),
     maxWorkedDaysAvgVars_(pScenario->nNurses()),
     maxWorkedWeekendAvgVars_(pScenario_->nNurses()),
     minWorkedDaysContractAvgVars_(pScenario->nContracts()),
     maxWorkedDaysContractAvgVars_(pScenario->nContracts()),
     maxWorkedWeekendContractAvgVars_(pScenario_->nContracts()),
-
-//    restFlowCons_(pScenario->nNurses()),
-//    workFlowCons_(pScenario->nNurses()),
-    minWorkedDaysCons_(pScenario->nNurses()),
-    maxWorkedDaysCons_(pScenario->nNurses()),
-    maxWorkedWeekendCons_(pScenario->nNurses()),
     minWorkedDaysAvgCons_(pScenario->nNurses()),
     maxWorkedDaysAvgCons_(pScenario->nNurses()),
     maxWorkedWeekendAvgCons_(pScenario_->nNurses()),
@@ -211,10 +205,12 @@ void RotationMP::build(const SolverParam &param) {
 
   /* Rotation constraints */
   buildRotationGraph(param);
-//  buildRotationCons(param);
 
   /* Min/Max constraints */
-  buildMinMaxCons(param);
+  buildResourceCons(param);
+
+  /* Dynamic constraints */
+  buildDynamicCons(param);
 }
 
 // Build the columns corresponding to the initial solution
@@ -273,10 +269,7 @@ vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
   const int i = pNurse->num_;
   const int p = pNurse->pContract_->id_;
 
-  /* Min/Max constraints */
-  double minWorkedDays = pModel_->getDual(minWorkedDaysCons_[i], true);
-  double maxWorkedDays = pModel_->getDual(maxWorkedDaysCons_[i], true);
-
+  /* Dynamic constraints */
   double minWorkedDaysAvg =
       isMinWorkedDaysAvgCons_[i] ?
       pModel_->getDual(minWorkedDaysAvgCons_[i], true) : 0.0;
@@ -292,15 +285,21 @@ vector2D<double> RotationMP::getShiftsDualValues(PLiveNurse pNurse) const {
       pModel_->getDual(maxWorkedDaysContractAvgCons_[p], true) : 0.0;
 
   /* Min/Max constraints */
-  double d = minWorkedDays + minWorkedDaysAvg + minWorkedDaysContractAvg;
-  d += maxWorkedDays + maxWorkedDaysAvg + maxWorkedDaysContractAvg;
+  double dynamicDual = minWorkedDaysAvg + minWorkedDaysContractAvg
+      + maxWorkedDaysAvg + maxWorkedDaysContractAvg;
+
 
   for (int k = 0; k < nDays(); ++k) {
     vector<double> &dualValues2 = dualValues[k];
     for (const PShift &pS : pScenario_->pShifts()) {
       if (pS->isRest()) continue;
-      // adjust the dual in function of the time duration of the shift
-      dualValues2[pS->id - 1] += d * pS->duration;
+      // adjust the dual if the resource is active and
+      // in function of the time duration of the shift
+      double d = dynamicDual * pS->duration;
+      for (const auto &p : totalShiftDurationCons_[pNurse->num_])
+        if (p.first->pResource()->isActive(k, *pS))
+          d += pModel_->getDual(p.second) * p.first->duration(pS);
+      dualValues2[pS->id - 1] += d;
     }
   }
 
@@ -315,7 +314,6 @@ vector<double> RotationMP::getStartWorkDualValues(
 
   // get dual value associated to the origin node in the graph,
   // i.e. the node on the previous day : either the source or a maxRest node
-//  dualValues[0] = pModel_->getDual(restFlowCons_[i][0], true);
   dualValues[0] = pModel_->getDual(restCons_[i][pG->pSource(0)->id], true);
 
   // get dual values associated to the work flow constraints
@@ -323,7 +321,6 @@ vector<double> RotationMP::getStartWorkDualValues(
   for (int k = 1; k < nDays(); ++k)
     dualValues[k] = pModel_->getDual(
         restCons_[i][maxRestNodes_[i][k - 1]->id], true);
-//    dualValues[k] = pModel_->getDual(workFlowCons_[i][k - 1], true);
 
   return dualValues;
 }
@@ -340,23 +337,20 @@ const {
   for (int k = 0; k < nDays(); ++k)
     dualValues[k] = -pModel_->getDual(
         restCons_[i][firstRestNodes_[i][k]->id], true);
-//    dualValues[k] = -pModel_->getDual(restFlowCons_[i][k + 1], true);
-//
-//  // get dual value associated to the sink
-//  dualValues[nDays() - 1] =
-//      pModel_->getDual(workFlowCons_[i][nDays() - 1], true);
 
   return dualValues;
 }
 
 double RotationMP::getWorkedWeekendDualValue(const PLiveNurse& pNurse) const {
   int id = pNurse->num_;
-  double dualVal = pModel_->getDual(maxWorkedWeekendCons_[id], true);
+  double dualVal = 0;
   if (isMaxWorkedWeekendAvgCons_[id])
     dualVal += pModel_->getDual(maxWorkedWeekendAvgCons_[id], true);
   if (isMaxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_])
     dualVal += pModel_->getDual(
         maxWorkedWeekendContractAvgCons_[pNurse->pContract_->id_], true);
+  for (const auto &p : totalWeekendCons_[pNurse->num_])
+    dualVal += pModel_->getDual(p.second);
   return dualVal;
 }
 
@@ -472,10 +466,14 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
   vector<MyCons *> cons;
   vector<double> coeffs;
 
-  /* Min/Max constraints */
+  /* resource constraints */
+  addResourceConsToCol(rotation, &cons, &coeffs);
+
+  /* Dynamic constraints */
   int nbWeekends = Tools::nWeekendsInInterval(rotation.firstDay(),
                                               rotation.lastDay());
-  addMinMaxConsToCol(&cons, &coeffs, nurseNum, rotation.duration(), nbWeekends);
+  addDynamicConsToCol(
+      &cons, &coeffs, nurseNum, rotation.duration(), nbWeekends);
 
   /* Skills coverage constraints */
   addSkillsCoverageConsToCol(&cons, &coeffs, rotation);
@@ -490,21 +488,9 @@ MyVar *RotationMP::addRotation(const RotationPattern &rotation,
       pModel_->addCoefLinear(cons[i], var, coeffs[i]);
   } else {
     /* Rotation constraints
-      They are added only for real rotations to be sure that the artificial variables
-      can always be used to create a feasible solution
+      They are added only for real rotations to be sure that
+      the artificial variables can always be used to create a feasible solution
      */
-//    addRotationConsToCol(&cons,
-//                         &coeffs,
-//                         nurseNum,
-//                         rotation.firstDay(),
-//                         true,
-//                         false);
-//    addRotationConsToCol(&cons,
-//                         &coeffs,
-//                         nurseNum,
-//                         rotation.lastDay(),
-//                         false,
-//                         true);
     addRotationConsToCol(rotation, &cons, &coeffs);
 
     pModel_->createIntColumn(&var,
@@ -596,7 +582,7 @@ std::pair<int, double> RotationMP::minConsRest(const PLiveNurse &pN) {
 
 std::pair<int, double> RotationMP::maxConsRest(const PLiveNurse &pN) {
   int maxR = 1;
-  double cost;
+  double cost = 0;
   for (const auto &pR : masterRotationGraphResources_[pN->num_]) {
     if (pR->isHard()) {
       // Override UB if define a real bound
@@ -801,387 +787,140 @@ void RotationMP::buildResourceCons(const SolverParam &param) {
   }
 }
 
+std::pair<vector<MyVar*>, vector<MyCons*>>
+RotationMP::buildBoundedResourceCons(
+    HardBoundedResource *pHR, SoftBoundedResource *pSR, const LiveNurse &pN) {
+  char name[255];
+  vector<double> coeffs;
+  vector<MyVar*> vars;
+  vector<MyCons*> cons;
+  // compute bounds and slacks
+  int lb = 0, ub = INT_MAX, lb_slack = 0, ub_slack = 0;
+  bool lb_soft = false, ub_soft = false;
+  // update bounds
+  if (pHR) {
+    lb = pHR->getLb();
+    ub = pHR->getUb();
+  }
+  if (pSR) {
+    if (pSR->getLb() > lb) {
+      // update slack
+      lb_soft = true;
+      lb_slack = pSR->getLb() - lb;
+      lb = pSR->getLb();
+    }
+    if (pSR->getUb() < ub) {
+      // update slack
+      ub_soft = true;
+      // if no hard constraint on the UB, the slack is not bounded
+      ub_slack = ub < INT_MAX ? ub - pSR->getUb() : INT_MAX;
+      ub = pSR->getUb();
+    }
+  }
+
+  /* create constraints and slack variables if soft constraint */
+  const char* cName = pSR ? pSR->name.c_str() : pHR->name.c_str();
+  MyCons *pC;
+  // LB slack and constraint
+  if (lb_soft) {
+    vector<MyVar*> lbVars;
+    vector<double>  lbCoeffs;
+    if (pSR) {
+      MyVar *vLB;
+      snprintf(name, sizeof(name), "%s_lb_N%d_slack", cName, pN.num_);
+      pModel_->createPositiveVar(&vLB, name, pSR->getLbCost(), {}, 0, lb_slack);
+      lbVars = {vLB}; lbCoeffs = {1};
+      vars.push_back(vLB);
+    }
+    snprintf(name, sizeof(name), "%s_lb_N%d", cName, pN.num_);
+    pModel_->createGEConsLinear(&pC, name, lb, lbVars, lbCoeffs);
+    cons.push_back(pC);
+  }
+  // UB slack and constraint
+  if (ub_soft) {
+    vector<MyVar*> ubVars;
+    vector<double>  ubCoeffs;
+    if (pSR) {
+      MyVar *vUB;
+      snprintf(name, sizeof(name), "%s_ub_N%d_slack", cName, pN.num_);
+      pModel_->createPositiveVar(&vUB, name, pSR->getUbCost(), {}, 0, ub_slack);
+      ubVars = {vUB}; ubCoeffs = {-1};
+      vars.push_back(vUB);
+    }
+    snprintf(name, sizeof(name), "%s_ub_N%d", cName, pN.num_);
+    pModel_->createLEConsLinear(&pC, name, ub, ubVars, ubCoeffs);
+    cons.push_back(pC);
+  }
+
+  return {vars, cons};
+}
+
 void RotationMP::buildTotalShiftDurationResourceCons(
     HardTotalShiftDurationResource *pHR,
     SoftTotalShiftDurationResource *pSR,
     const LiveNurse &pN) {
-//  char name[255];
-//  vector<double> coeffs;
-//  vector<MyVar*> vars;
-//  // compute LB and slack
-//  double lb = 0, lb_slack = 0;
-//  // if hard LB
-//  if (pHR) lb = pHR->getLb();
-//  if(pSR) {  // if soft LB
-//    if (pSR->getLb() > lb) {
-//      // update slack to take into account the hard constraint
-//      lb_slack = pSR->getLb() - lb;
-//      // update LB
-//      lb =
-//    }
-//  }
-//  if (pHR) {
-//    if (pHR->getLb() > )
-//  }
-//  if(pSR) {
-//    MyVar *vLB;
-//    snprintf(name, sizeof(name), "%s_lb_N%d", pSR->name.c_str(), pN.num_);
-//    pModel_->createPositiveVar(&minWorkedDaysVars_[i],
-//                               name,
-//                               weightTotalShiftsMin_[i]);
-//  }
-//
-//  snprintf(name, sizeof(name), "minWorkedDaysCons_N%d", i);
-//  pModel_->createGEConsLinear(&minWorkedDaysCons_[i],
-//                              name,
-//                              minTotalShifts_[i],
-//                              {minWorkedDaysVars_[i]},
-//                              {1});
-//
-//  /* max worked days constraint */
-//  snprintf(name, sizeof(name), "maxWorkedDaysVar_N%d", i);
-//  pModel_->createPositiveVar(&maxWorkedDaysVars_[i],
-//                             name,
-//                             weightTotalShiftsMax_[i]);
-//  snprintf(name, sizeof(name), "maxWorkedDaysCons_N%d", i);
-//  pModel_->createLEConsLinear(&maxWorkedDaysCons_[i],
-//                              name,
-//                              maxTotalShifts_[i],
-//                              {maxWorkedDaysVars_[i]},
-//                              {-1});
+  auto p = buildBoundedResourceCons(pHR, pSR, pN);
+  TotalShiftDuration *pR = pHR;
+  if (!pR) pR = pSR;
+  totalShiftDurationVars_[pN.num_][pR] = p.first;
+  totalShiftDurationCons_[pN.num_][pR] = p.second;
 }
 
 void RotationMP::buildTotalWeekendsResourceCons(
     HardTotalWeekendsResource *pHR,
     SoftTotalWeekendsResource *pSR,
     const LiveNurse &pN) {
+  auto p = buildBoundedResourceCons(pHR, pSR, pN);
+  TotalWeekend *pR = pHR;
+  if (!pR) pR = pSR;
+  totalWeekendVars_[pN.num_][pR] = p.first;
+  totalWeekendCons_[pN.num_][pR] = p.second;
 }
 
-//  void RotationMP::buildRotationCons(const SolverParam &param) {
-//  char name[255];
-//    const Weights &w = pScenario_->weights();
-//    // build the rotation network for each nurse
-//  for (int i = 0; i < pScenario_->nNurses(); i++) {
-//    int minConsDaysOff(theLiveNurses_[i]->minConsDaysOff()),
-//        maxConsDaysOff(theLiveNurses_[i]->maxConsDaysOff()),
-//        initConsDaysOff(theLiveNurses_[i]->pStateIni_->consDaysOff_);
-//    // =true if we have to compute a cost for resting days exceeding the
-//    // maximum allowed
-//    // =false otherwise
-//    bool const maxRest = (maxConsDaysOff < nDays() + initConsDaysOff);
-//    // number of long resting arcs as function of maxRest
-//    int const nbLongRestingArcs((maxRest) ? maxConsDaysOff : minConsDaysOff);
-//    // first day when a rest arc exists =
-//    // nbLongRestingArcs - number of consecutive worked days in the past
-//    int const firstRestArc(std::min(
-//        std::max(0, nbLongRestingArcs - initConsDaysOff),
-//        nDays() - 1));
-//    // first day when a restingVar exists: at minimun 1
-//    // if firstRestArc=0, the first resting arc is a longRestingVar
-//    int const indexStartRestArc = std::max(1, firstRestArc);
-//    // number of resting arcs
-//    int const nbRestingArcs(nDays() - indexStartRestArc);
-//
-//    // initialize vectors
-//    vector<vector<MyVar *> > restsPerDay2(nDays());
-//    vector<MyVar *> restingVars2(nbRestingArcs);
-//    vector<vector<MyVar *> > longRestingVars2(nDays());
-//    vector<MyCons *> restFlowCons2(nDays());
-//    vector<MyCons *> workFlowCons2(nDays());
-//    vector<MyVar *> stabRestFlowPlus2(nDays());
-//    vector<MyVar *> stabRestFlowMinus2(nDays());
-//    vector<MyVar *> stabWorkFlowPlus2(nDays());
-//    vector<MyVar *> stabWorkFlowMinus2(nDays());
-//
-//    /*****************************************
-//     * Creating arcs
-//     *****************************************/
-//    for (int k = 0; k < nDays(); ++k) {
-//      /*****************************************
-//       * first long resting arcs
-//       *****************************************/
-//      if (k == 0) {
-//        // number of min long resting arcs
-//        int nbMinRestArcs(std::max(0, minConsDaysOff - initConsDaysOff));
-//
-//        // initialize rotation and set costs
-//        // compute and add the last rotation finishing on the day just before
-//        // the first one
-//        RotationPattern rot(0, {}, i);
-//        computePatternCost(&rot);
-//        // add the max LB penalty (i.e., no rest)
-//        rot.addCost(nbMinRestArcs * w.WEIGHT_CONS_DAYS_OFF, CONS_REST_COST);
-//
-//        // initialize vectors
-//        // Must have a minimum of one long resting arcs
-//        vector<MyVar *> longRestingVars3_0(indexStartRestArc);
-//
-//        // create minRest arcs
-//        for (int l = 1; l <= nbMinRestArcs; ++l) {
-//          rot.addCost(-w.WEIGHT_CONS_DAYS_OFF, CONS_REST_COST);
-//          snprintf(name, sizeof(name), "longRestingVars_N%d_%d_%d", i, 0, l);
-//          pModel_->createPositiveVar(&longRestingVars3_0[l - 1],
-//                                     name,
-//                                     rot.cost(),
-//                                     rot.getCompactPattern());
-//          initialStateVars_.push_back(longRestingVars3_0[l - 1]);
-//          initialStateRotations_.push_back(rot);
-//          // add this resting arc for each day of rest
-//          for (int k1 = 0; k1 < l; ++k1)
-//            restsPerDay2[k1].push_back(longRestingVars3_0[l - 1]);
-//        }
-//
-//        // create maxRest arcs, if maxRest=true
-//        if (maxRest) {
-//          for (int l = 1 + nbMinRestArcs; l <= firstRestArc; ++l) {
-//           snprintf(name, sizeof(name), "longRestingVars_N%d_%d_%d", i, 0, l);
-//            pModel_->createPositiveVar(&longRestingVars3_0[l - 1],
-//                                       name,
-//                                       rot.cost(),
-//                                       rot.getCompactPattern());
-//            initialStateVars_.push_back(longRestingVars3_0[l - 1]);
-//            initialStateRotations_.push_back(rot);
-//            // add this resting arc for each day of rest
-//            for (int k1 = 0; k1 < l; ++k1)
-//              restsPerDay2[k1].push_back(longRestingVars3_0[l - 1]);
-//          }
-//        }
-//
-//        // create the only resting arc (same as a short resting arcs)
-//        if (firstRestArc == 0) {
-//          if (maxRest) rot.addCost(w.WEIGHT_CONS_DAYS_OFF, CONS_REST_COST);
-//          snprintf(name, sizeof(name), "restingVars_N%d_%d_%d", i, 0, 1);
-//          pModel_->createPositiveVar(&longRestingVars3_0[0],
-//                                     name,
-//                                     rot.cost(),
-//                                     rot.getCompactPattern());
-//          initialStateVars_.push_back(longRestingVars3_0[0]);
-//          initialStateRotations_.push_back(rot);
-//          // add this resting arc for the first day of rest
-//          restsPerDay2[0].push_back(longRestingVars3_0[0]);
-//        }
-//        // store vectors
-//        longRestingVars2[0] = longRestingVars3_0;
-//      } else {
-//        /*****************************************
-//         * long resting arcs without the first ones
-//         *****************************************/
-//        // n umber of long resting arcs
-//        // = min(nbLongRestingArcs, number of possible long resting arcs)
-//        int nbLongRestingArcs2(std::min(nbLongRestingArcs, nDays() - k));
-//        // initialize cost
-//        // if the arc finishes the last day, the cost is 0.
-//        // Indeed it will be computed on the next planning
-//        double cost = minConsDaysOff * w.WEIGHT_CONS_DAYS_OFF;
-//
-//        // initialize vectors
-//        vector<MyVar *> longRestingVars3(nbLongRestingArcs2);
-//
-//        // create minRest arcs
-//        for (int l = 1; l <= minConsDaysOff; ++l) {
-//          bool doBreak = false;
-//          cost -= w.WEIGHT_CONS_DAYS_OFF;
-//          snprintf(name,
-//                   sizeof(name),
-//                   "longRestingVars_N%d_%d_%d",
-//                   i,
-//                   k,
-//                   k + l);
-//          // if arc ends before the last day: normal cost
-//          if (l < nDays() - k) {
-//            pModel_->createPositiveVar(&longRestingVars3[l - 1], name, cost);
-//          } else {
-//            // otherwise, arc finishes on last day
-//            // so: cost=0 and we break the loop
-//            pModel_->createPositiveVar(&longRestingVars3[l - 1], name, 0);
-//            doBreak = true;
-//          }
-//          // add this resting arc for each day of rest
-//          for (int k1 = k; k1 < k + l; ++k1)
-//            restsPerDay2[k1].push_back(longRestingVars3[l - 1]);
-//          if (doBreak)
-//            break;
-//        }
-//        // create maxRest arcs, if maxRest=true
-//        if (maxRest) {
-//          for (int l = 1 + minConsDaysOff; l <= maxConsDaysOff; ++l) {
-//            // if exceed last days, break
-//            if (l > nDays() - k)
-//              break;
-//            snprintf(name,
-//                     sizeof(name),
-//                     "longRestingVars_N%d_%d_%d",
-//                     i,
-//                     k,
-//                     k + l);
-//            pModel_->createPositiveVar(&longRestingVars3[l - 1], name, 0);
-//            // add this resting arc for each day of rest
-//            for (int k1 = k; k1 < k + l; ++k1)
-//              restsPerDay2[k1].push_back(longRestingVars3[l - 1]);
-//          }
-//        }
-//        // store vectors
-//        longRestingVars2[k] = longRestingVars3;
-//      }
-//      /*****************************************
-//       * short resting arcs
-//       *****************************************/
-//      if (k >= indexStartRestArc) {
-//        snprintf(name, sizeof(name), "restingVars_N%d_%d_%d", i, k, k + 1);
-//        pModel_->createPositiveVar(
-//            &restingVars2[k - indexStartRestArc], name,
-//            (maxRest) ? w.WEIGHT_CONS_DAYS_OFF : 0);
-//        // add this resting arc for this day of rest
-//        restsPerDay2[k].push_back(restingVars2[k - indexStartRestArc]);
-//      }
-//    }
-//
-//    /*****************************************
-//     * Resting nodes constraints
-//     *****************************************/
-//    for (int k = 0; k < nDays(); ++k) {
-//      vector<double> coeffs(longRestingVars2[k].size());
-//      for (unsigned int l = 0; l < longRestingVars2[k].size(); ++l)
-//        coeffs[l] = 1;
-//      snprintf(name, sizeof(name), "restingNodes_N%d_%d", i, k);
-//      // Create flow constraints. out flow = 1 if source node (k=0)
-//      pModel_->createEQConsLinear(&restFlowCons2[k], name, (k == 0) ? 1 : 0,
-//                                  longRestingVars2[k], coeffs);
-//    }
-//
-//    /*****************************************
-//     * Working nodes constraints
-//     *****************************************/
-//    for (int k = 1; k <= nDays(); ++k) {
-//      // take the min between the number of long resting arcs and
-//      // the number of possible in arcs
-//      int nbLongRestingArcs2 = std::min(nbLongRestingArcs, k);
-//
-//      vector<MyVar *> vars;
-//      vector<double> coeffs;
-//      // add long resting arcs
-//      for (int l = 0; l < nbLongRestingArcs2; ++l) {
-//        // if the long resting arc starts on the source node,
-//        // check if there exists such an arc
-//        if ((l > k - 1) || (l >= longRestingVars2[k - 1 - l].size()))
-//          break;
-//        vars.push_back(longRestingVars2[k - 1 - l][l]);
-//        // compute in-flow for the sink
-//        if (k == nDays()) coeffs.push_back(1);
-//        else  // compute out-flow
-//          coeffs.push_back(-1);
-//      }
-//      // add resting arcs
-//      if (k == indexStartRestArc) {
-//        // just 1 out, if first restingVar
-//        // compute out-flow
-//        vars.push_back(restingVars2[0]);
-//        coeffs.push_back(1);
-//      } else if (k == nDays()) {
-//        // just 1 in, if last resting arcs
-//        // compute in-flow for the sink
-//        vars.push_back(restingVars2[restingVars2.size() - 1]);
-//        coeffs.push_back(1);
-//      } else if (k > indexStartRestArc) {
-//        // 2 otherwise: 1 in and 1 out
-//        // compute out-flow
-//        vars.push_back(restingVars2[k - 1 - indexStartRestArc]);
-//        coeffs.push_back(-1);
-//        vars.push_back(restingVars2[k - indexStartRestArc]);
-//        coeffs.push_back(1);
-//      }
-//      snprintf(name, sizeof(name), "workingNodes_N%d_%d", i, k);
-//
-//      // Create flow constraints. in flow = 1 if sink node
-//      // (k==pDemand_->nbDays_)
-//      pModel_->createEQConsLinear(&workFlowCons2[k - 1],
-//                                  name,
-//                                  (k == nDays()) ? 1 : 0,
-//                                  vars,
-//                                  coeffs);
-//    }
-//
-//    // store vectors
-//    restsPerDay_[i] = restsPerDay2;
-//    restVars_[i] = restingVars2;
-//    longRestingVars_[i] = longRestingVars2;
-//    restFlowCons_[i] = restFlowCons2;
-//    workFlowCons_[i] = workFlowCons2;
-//  }
-//  }
-//
-//  int RotationMP::addRotationConsToCol(vector<MyCons *> *cons,
-//                                     vector<double> *coeffs,
-//                                     int i,
-//                                     int k,
-//                                     bool firstDay,
-//                                     bool lastDay) {
-//  // check if the rotation starts on day k
-//  if (firstDay) {
-//    // compute out-flow
-//    coeffs->push_back(1.0);
-//    // add to source constraint
-//    if (k == 0)
-//      cons->push_back(restFlowCons_[i][0]);
-//    else
-//      // add to work node constraint
-//      cons->push_back(workFlowCons_[i][k - 1]);
-//
-//    return 1;
-//  } else if (lastDay) {
-//    // check if the rotation finishes on day k
-//    // add to sink constraint
-//    // compute in-flow
-//    if (k == nDays() - 1) {
-//      coeffs->push_back(1.0);
-//      cons->push_back(workFlowCons_[i][nDays() - 1]);
-//    } else {
-//      // add to rest node constraint
-//      // compute out-flow
-//      coeffs->push_back(-1.0);
-//      cons->push_back(restFlowCons_[i][k + 1]);
-//    }
-//
-//    return 1;
-//  }
-//
-//  return 0;
-//  }
+void RotationMP::addResourceConsToCol(const RotationPattern &rotation,
+                                      std::vector<MyCons *> *cons,
+                                      std::vector<double> *coeffs) {
+  const PLiveNurse &pN = theLiveNurses_[rotation.nurseNum()];
+  // if previous day is the initial state of the nurse
+  PAbstractShift prevAShift;
+  if (rotation.firstDay() == 0)
+    prevAShift = pN->pStateIni_->pShift_;
+  // otherwise, it's a rest shift
+  else
+    prevAShift =  pScenario_->pRestShift();
+
+  for (const auto &p : totalShiftDurationCons_[rotation.nurseNum()]) {
+    int c = p.first->computeConsumption(rotation);
+    for (MyCons *pC : p.second) {
+      cons->push_back(pC);
+      coeffs->push_back(c);
+    }
+    assert(c == rotation.duration());
+  }
+
+  for (const auto &p : totalWeekendCons_[rotation.nurseNum()]) {
+    PShift prevS = rotation.firstDay() == 0 ?
+        pN->pStateIni_->pShift_ : pScenario_->pRestShift();
+    bool ready = !p.first->pShift()->includes(*prevS);
+    int c = p.first->computeConsumption(rotation, &ready);
+    for (MyCons *pC : p.second) {
+      cons->push_back(pC);
+      coeffs->push_back(c);
+    }
+    assert(c == Tools::nWeekendsInInterval(rotation.firstDay(),
+                                           rotation.lastDay()));
+    assert(p.second.size() == 1);
+  }
+}
 
 /*
- * Min/Max constraints
+ * Dynamic constraints
  */
-void RotationMP::buildMinMaxCons(const SolverParam &param) {
+void RotationMP::buildDynamicCons(const SolverParam &param) {
   char name[255];
   for (int i = 0; i < pScenario_->nNurses(); i++) {
-    /* min worked days constraint */
-    snprintf(name, sizeof(name), "minWorkedDaysVar_N%d", i);
-    pModel_->createPositiveVar(&minWorkedDaysVars_[i],
-                               name,
-                               weightTotalShiftsMin_[i]);
-    snprintf(name, sizeof(name), "minWorkedDaysCons_N%d", i);
-    pModel_->createGEConsLinear(&minWorkedDaysCons_[i],
-                                name,
-                                minTotalShifts_[i],
-                                {minWorkedDaysVars_[i]},
-                                {1});
-
-    /* max worked days constraint */
-    snprintf(name, sizeof(name), "maxWorkedDaysVar_N%d", i);
-    pModel_->createPositiveVar(&maxWorkedDaysVars_[i],
-                               name,
-                               weightTotalShiftsMax_[i]);
-    snprintf(name, sizeof(name), "maxWorkedDaysCons_N%d", i);
-    pModel_->createLEConsLinear(&maxWorkedDaysCons_[i],
-                                name,
-                                maxTotalShifts_[i],
-                                {maxWorkedDaysVars_[i]},
-                                {-1});
-
     // add constraints on the total number of shifts to satisfy bounds that
     // correspond to the global bounds averaged over the weeks
-    //
-    // STAB: not implemented there yet
     if (!minTotalShiftsAvg_.empty() && !maxTotalShiftsAvg_.empty()
         && !weightTotalShiftsAvg_.empty()) {
       // only add the constraint if is tighter than the already added constraint
@@ -1192,12 +931,19 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
                                    weightTotalShiftsAvg_[i]);
 
         snprintf(name, sizeof(name), "minWorkedDaysAvgCons_N%d", i);
+        vector<MyVar*> vars = {minWorkedDaysAvgVars_[i]};
+        vector<double> coeffs = {1};
+        // if a LB constraint
+        if (minTotalShifts_[i] > 0) {
+          vars.push_back(totalShiftDurationVars_[i].begin()->second.at(0));
+          coeffs.push_back(1);
+        }
         pModel_->createGEConsLinear(
             &minWorkedDaysAvgCons_[i],
             name,
             minTotalShiftsAvg_[i],
-            {minWorkedDaysVars_[i], minWorkedDaysAvgVars_[i]},
-            {1, 1});
+            vars,
+            coeffs);
 
         isMinWorkedDaysAvgCons_[i] = true;
       }
@@ -1209,28 +955,18 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
                                    weightTotalShiftsAvg_[i]);
 
         snprintf(name, sizeof(name), "maxWorkedDaysAvgCons_N%d", i);
+        MyVar *maxWorkedDaysVar =
+            totalShiftDurationVars_[i].begin()->second.back();
         pModel_->createLEConsLinear(
             &maxWorkedDaysAvgCons_[i],
             name,
             maxTotalShiftsAvg_[i],
-            {maxWorkedDaysVars_[i], maxWorkedDaysAvgVars_[i]},
+            {maxWorkedDaysVar, maxWorkedDaysAvgVars_[i]},
             {-1, -1});
 
         isMaxWorkedDaysAvgCons_[i] = true;
       }
     }
-
-    snprintf(name, sizeof(name), "maxWorkedWeekendVar_N%d", i);
-    pModel_->createPositiveVar(&maxWorkedWeekendVars_[i],
-                               name,
-                               weightTotalWeekendsMax_[i]);
-
-    snprintf(name, sizeof(name), "maxWorkedWeekendCons_N%d", i);
-    pModel_->createLEConsLinear(&maxWorkedWeekendCons_[i],
-                                name,
-                                maxTotalWeekends_[i],
-                                {maxWorkedWeekendVars_[i]},
-                                {-1});
 
     // STAB: not implemented there yet
     if (!maxTotalWeekendsAvg_.empty() && !weightTotalWeekendsAvg_.empty()
@@ -1241,12 +977,13 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
                                  name,
                                  weightTotalWeekendsAvg_[i]);
       snprintf(name, sizeof(name), "maxWorkedWeekendAvgCons_N%d", i);
+      MyVar *maxWorkedWeekendVar = totalWeekendVars_[i].begin()->second.at(0);
       pModel_->createLEConsLinear(
           &maxWorkedWeekendAvgCons_[i],
           name,
           maxTotalWeekendsAvg_[i]
               - theLiveNurses_[i]->pStateIni_->totalWeekendsWorked_,
-          {maxWorkedWeekendVars_[i], maxWorkedWeekendAvgVars_[i]},
+          {maxWorkedWeekendVar, maxWorkedWeekendAvgVars_[i]},
           {-1, -1});
 
       isMaxWorkedWeekendAvgCons_[i] = true;
@@ -1303,19 +1040,13 @@ void RotationMP::buildMinMaxCons(const SolverParam &param) {
   }
 }
 
-int RotationMP::addMinMaxConsToCol(vector<MyCons *> *cons,
-                                   vector<double> *coeffs,
-                                   int i,
-                                   int nbDays,
-                                   int nbWeekends) {
+int RotationMP::addDynamicConsToCol(vector<MyCons *> *cons,
+                                    vector<double> *coeffs,
+                                    int i,
+                                    int nbDays,
+                                    int nbWeekends) {
   int nbCons(0);
   int p = theLiveNurses_[i]->pContract_->id_;
-  ++nbCons;
-  cons->push_back(minWorkedDaysCons_[i]);
-  coeffs->push_back(nbDays);
-  ++nbCons;
-  cons->push_back(maxWorkedDaysCons_[i]);
-  coeffs->push_back(nbDays);
   if (isMinWorkedDaysAvgCons_[i]) {
     ++nbCons;
     cons->push_back(minWorkedDaysAvgCons_[i]);
@@ -1338,10 +1069,6 @@ int RotationMP::addMinMaxConsToCol(vector<MyCons *> *cons,
   }
 
   if (nbWeekends) {
-    ++nbCons;
-    cons->push_back(maxWorkedWeekendCons_[i]);
-    coeffs->push_back(nbWeekends);
-
     if (isMaxWorkedWeekendAvgCons_[i]) {
       ++nbCons;
       cons->push_back(maxWorkedWeekendAvgCons_[i]);
@@ -1380,12 +1107,11 @@ double RotationMP::getColumnsCost(CostType costType) const {
 }
 
 double RotationMP::getDaysCost() const {
-  return pModel_->getTotalCost(minWorkedDaysVars_) +
-      pModel_->getTotalCost(maxWorkedDaysVars_);
+  return pModel_->getTotalCost(totalShiftDurationVars_);
 }
 
 double RotationMP::getWeekendCost() const {
-  return pModel_->getTotalCost(maxWorkedWeekendVars_);
+  return pModel_->getTotalCost(totalWeekendVars_);
 }
 
 double RotationMP::getInitialStateCost(CostType costType) const {

@@ -260,7 +260,8 @@ class LabelCostDecreasing{
  * through an arc
  */
 struct Expander {
-  explicit Expander(int rId): resourceId(rId) {}
+  explicit Expander(int rId, int consumption = 0):
+      resourceId(rId) {}
   virtual ~Expander() = default;
 
   // TODO(AL) : can we remove vChild as accessible from pLChild ?
@@ -300,9 +301,9 @@ class Resource {
 
   int id() const { return id_; }
 
-  void initialize(const AbstractShift &prevAShift,
-                  const Stretch &stretch,
-                  const shared_ptr<RCArc> &pArc);
+  PExpander initialize(const AbstractShift &prevAShift,
+                       const Stretch &stretch,
+                       const shared_ptr<RCArc> &pArc);
 
   virtual bool dominates(const PRCLabel &pL1,
                          const PRCLabel &pL2,
@@ -455,6 +456,7 @@ class SoftBoundedResource : public BoundedResource {
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 };
+typedef shared_ptr<SoftBoundedResource> PSoftBoundedResource;
 
 /**
  * Bounded resource where both lower and upper bounds are hard
@@ -475,5 +477,6 @@ class HardBoundedResource : public BoundedResource {
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 };
+typedef shared_ptr<HardBoundedResource> PHardBoundedResource;
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCLABEL_H_

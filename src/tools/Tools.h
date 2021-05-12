@@ -254,6 +254,11 @@ const T &get(const std::vector<T> &v, int i) {
   return v[v.size() + i];
 }
 
+template<class T>
+void insert_back(std::vector<T> *v1, const std::vector<T> &v2) {
+  v1->insert(v1->end(), v2.begin(), v2.end());
+}
+
 // Returns an integer with random value (uniform) within [minVal, maxVal]
 //
 int randomInt(int minVal, int maxVal);

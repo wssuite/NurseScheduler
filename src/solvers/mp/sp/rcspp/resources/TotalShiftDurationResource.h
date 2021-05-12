@@ -29,7 +29,38 @@ using std::vector;
  * Resource corresponding to the soft min/max constraints on the total
  * number of occurrences of a given abstract shift
  */
-class SoftTotalShiftDurationResource : public SoftBoundedResource {
+class TotalShiftDuration {
+ public:
+  TotalShiftDuration(const PAbstractShift pShift,
+                     int maxDuration,
+                     int defaultDuration,
+                     BoundedResource *pR) :
+      pShift_(pShift),
+      maxDuration_(maxDuration),
+      defaultDuration_(defaultDuration),
+      pR_(pR) {}
+
+  int computeConsumption(const Stretch &stretch) const;
+
+  const PAbstractShift pShift() const { return pShift_; }
+
+  int maxDuration() const { return maxDuration_; }
+
+  BoundedResource *pResource() const { return pR_; }
+
+  int duration(const PShift &pS) const {
+    return defaultDuration_ >= 0 ? defaultDuration_ : pS->duration;
+  }
+
+ protected:
+  const PAbstractShift pShift_;
+  int maxDuration_;  // maximum duration of a shift
+  int defaultDuration_;  // if defined, override duration of the PShift
+  BoundedResource *pR_;
+};
+
+class SoftTotalShiftDurationResource :
+    public SoftBoundedResource, public TotalShiftDuration {
  public:
   SoftTotalShiftDurationResource(int lb, int ub, double lbCost, double ubCost,
                                  const PAbstractShift pShift,
@@ -38,59 +69,35 @@ class SoftTotalShiftDurationResource : public SoftBoundedResource {
                                  int defaultDuration = -1) :
       SoftBoundedResource("Soft Total "+pShift->name,
                           lb, ub, lbCost, ubCost),
-      pShift_(pShift),
-      maxDuration_(maxDuration),
-      defaultDuration_(defaultDuration) {
+      TotalShiftDuration(pShift, maxDuration, defaultDuration, this) {
     totalNbDays_ = totalNbDays;
   }
 
   int getConsumption(const State &initialState) const override;
 
   bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
-
-  const PAbstractShift pShift() const { return pShift_; }
-
-  int maxDuration() const { return maxDuration_; }
-
-  bool hasDefaultDuration() const { return defaultDuration_ != -1; }
-
-  int defaultDuration() const { return defaultDuration_; }
 
  protected:
   // initialize the expander on a given arc
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
                  const PRCArc &pArc) override;
-
- private:
-  const PAbstractShift pShift_;
-  int maxDuration_;  // maximum duration of a shift
-  int defaultDuration_;  // if defined, override duration of the PShift
 };
 
-class HardTotalShiftDurationResource : public HardBoundedResource {
+class HardTotalShiftDurationResource :
+    public HardBoundedResource, public TotalShiftDuration {
  public:
   HardTotalShiftDurationResource(
       int lb, int ub, const PAbstractShift pShift,
       int totalNbDays, int maxDuration, int defaultDuration = -1) :
       HardBoundedResource("Hard Total "+pShift->name, lb, ub),
-      pShift_(pShift),
-      maxDuration_(maxDuration),
-      defaultDuration_(defaultDuration) {
+      TotalShiftDuration(pShift, maxDuration, defaultDuration, this) {
     totalNbDays_ = totalNbDays;
   }
 
   int getConsumption(const State &initialState) const override;
 
   bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
-
-  const PAbstractShift pShift() const { return pShift_; }
-
-  int maxDuration() const { return maxDuration_; }
-
-  bool hasDefaultDuration() const { return defaultDuration_ != -1; }
-
-  int defaultDuration() const { return defaultDuration_; }
 
  protected:
   // initialize the expander on a given arc
@@ -117,9 +124,9 @@ struct SoftTotalShiftDurationExpander : public Expander {
                                  bool arcToSink) :
       Expander(resource.id()),
       resource_(resource),
-      consumption(consumption),
-      maxDurationBefore(maxDurationBefore),
-      maxDurationLeft(maxDurationLeft),
+      consumption_(consumption),
+      maxDurationBefore_(maxDurationBefore),
+      maxDurationLeft_(maxDurationLeft),
       arcToSink_(arcToSink) {}
 
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
@@ -127,9 +134,9 @@ struct SoftTotalShiftDurationExpander : public Expander {
 
  protected:
   const SoftTotalShiftDurationResource& resource_;
-  int consumption;
-  int maxDurationBefore;  // total duration before the start of the stretch
-  int maxDurationLeft;  // total duration left after the end of the stretch
+  int consumption_;
+  int maxDurationBefore_;  // total duration before the start of the stretch
+  int maxDurationLeft_;  // total duration left after the end of the stretch
   bool arcToSink_;  // true if the target of the arc is a sink node
 };
 
@@ -141,9 +148,8 @@ struct HardTotalShiftDurationExpander : public Expander {
                                  bool arcToSink) :
       Expander(resource.id()),
       resource_(resource),
-      consumption(consumption),
-      maxDurationBefore(maxDurationBefore),
-      maxDurationLeft(maxDurationLeft),
+      maxDurationBefore_(maxDurationBefore),
+      maxDurationLeft_(maxDurationLeft),
       arcToSink_(arcToSink) {}
 
   bool expand(const PRCLabel &pLChild, ResourceValues *vChild) override;
@@ -151,9 +157,9 @@ struct HardTotalShiftDurationExpander : public Expander {
 
  protected:
   const HardTotalShiftDurationResource& resource_;
-  int consumption;
-  int maxDurationBefore;  // total duration before the start of the stretch
-  int maxDurationLeft;  // total duration left after the end of the stretch
+  int consumption_;
+  int maxDurationBefore_;  // total duration before the start of the stretch
+  int maxDurationLeft_;  // total duration left after the end of the stretch
   bool arcToSink_;  // true if the target of the arc is a sink node
 };
 

@@ -79,14 +79,16 @@ class SoftConsShiftResource : public SoftBoundedResource {
 
   const PAbstractShift &pAShift() const { return pAShift_; }
 
+  const int initialConsumption() const { return initialConsumption_; }
+
  protected:
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
                  const PRCArc &pArc) override;
 
   const PAbstractShift pAShift_;
-  int initialConsumption_ = 0;  // consumption of the resource in the initial
-  // state
+  // consumption of the resource in the initial state
+  int initialConsumption_ = 0;
 };
 
 typedef shared_ptr<SoftConsShiftResource> PSoftConsShiftResource;
@@ -94,8 +96,11 @@ typedef shared_ptr<SoftConsShiftResource> PSoftConsShiftResource;
 class HardConsShiftResource : public HardBoundedResource {
  public:
   HardConsShiftResource(
-      int lb, int ub, const PAbstractShift& pShift, int totalNbDays) :
-      HardBoundedResource("Hard Cons "+pShift->name, lb, ub),
+      int lb, int ub, const PAbstractShift& pShift, int totalNbDays,
+      int initialConsumption, std::string _name = "") :
+      HardBoundedResource(_name.empty() ?
+                          "Hard Cons "+pShift->name : std::move(_name),
+                          lb, ub),
       pAShift_(pShift) {
     totalNbDays_ = totalNbDays;
   }
@@ -113,6 +118,8 @@ class HardConsShiftResource : public HardBoundedResource {
 
   const PAbstractShift &pAShift() const { return pAShift_; }
 
+  const int initialConsumption() const { return initialConsumption_; }
+
  protected:
   // initialize the expander on a given arc
   PExpander init(const AbstractShift &prevAShift,
@@ -120,6 +127,8 @@ class HardConsShiftResource : public HardBoundedResource {
                  const PRCArc &pArc) override;
 
   const PAbstractShift pAShift_;
+  // consumption of the resource in the initial state
+  int initialConsumption_ = 0;
 };
 
 typedef shared_ptr<HardConsShiftResource> PHardConsShiftResource;
@@ -132,7 +141,8 @@ struct ConsShiftExpander : public Expander {
   ConsShiftExpander(int rId, bool start, bool reset,
                     int consBeforeReset, int consAfterReset,
                     bool arcToSink, int nDaysBefore = 0, int nDaysLeft = 0) :
-      Expander(rId), arcToSink(arcToSink),
+      Expander(rId),
+      arcToSink(arcToSink),
       start(start),
       reset(reset),
       consBeforeReset(consBeforeReset),

@@ -53,14 +53,13 @@ void setStochasticSolverOptions(StochasticSolverOptions *options,
   options->withResolveForEvaluation_ = true;
   options->evaluationAlgorithm_ = GENCOL;
   options->rankingStrategy_ = RK_SCORE;
-  options->totalTimeLimitSeconds_ = timeout;
   options->nExtraDaysGenerationDemands_ = 7;
   options->nEvaluationDemands_ = 2;
   options->nDaysEvaluation_ = 14;
   options->nGenerationDemandsMax_ = 100;
   options->logfile_ = logStochastic;
-  options->rankingStrategy_ = RK_MEAN;
-  options->demandingEvaluation_ = true;
+  options->rankingStrategy_ = RK_SCORE;
+  options->demandingEvaluation_ = false;
   options->verbose_ = 0;
 #ifdef DBG
   options->verbose_ = 1;
@@ -163,6 +162,12 @@ StochasticSolver::StochasticSolver(PScenario pScenario,
   options_.generationParameters_.verbose_ = options_.verbose_;
   options_.evaluationParameters_.verbose_ = options_.verbose_;
 
+  if (options_.rankingStrategy_ == RK_SCORE && options_.demandingEvaluation_) {
+    options_.demandingEvaluation_ = false;
+    std::cout <<"Deactivate parameter demandingEvaluation_ as it is not "
+                "compatible with the ranking strategy RK_SCORE." << std::endl;
+  }
+
   bestScore_ = LARGE_SCORE;
   bestSchedule_ = -1;
   nGenerationDemands_ = 0;
@@ -238,6 +243,8 @@ double StochasticSolver::solve(const vector<Roster> &initialSolution) {
                    << "] Solving week no. " << pScenario_->thisWeek()
                    << " with GENERATION-EVALUATION." << std::endl;
     solveOneWeekGenerationEvaluation();
+    (*pLogStream_) << "# Best is schedule n°" << bestSchedule_
+                   << " (score: " << bestScore_ << ")" << std::endl;
   } else if (options_.withIterativeDemandIncrease_) {
     // B. Iterative increase in the demand
     (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
@@ -344,15 +351,16 @@ void StochasticSolver::solveOneWeekGenerationEvaluation() {
       int newBestSchedule = -1;
       double newBestScore = LARGE_SCORE;
       double bestBaseCost = 0;
+      double minGap = options_.demandingEvaluation_ ?
+          pScenario_->weights().WEIGHT_OPTIMAL_DEMAND : epsilon();
       for (int i = 0; i < nSchedules_; i++) {
-        if ((options_.demandingEvaluation_ && theScores_[i] + 30 < newBestScore)
-            || (!options_.demandingEvaluation_
-                && theScores_[i] < newBestScore)) {
+        if (theScores_[i] + minGap < newBestScore) {
           newBestScore = theScores_[i];
           newBestSchedule = i;
           bestBaseCost = theBaseCosts_[i];
-        } else if (theScores_[i] == newBestScore
-            && theBaseCosts_[i] < bestBaseCost) {
+        } else if (!options_.demandingEvaluation_ &&
+            theScores_[i] < newBestScore + epsilon()
+            && theBaseCosts_[i] + epsilon() < bestBaseCost) {
           newBestScore = theScores_[i];
           newBestSchedule = i;
           bestBaseCost = theBaseCosts_[i];
@@ -571,11 +579,10 @@ void StochasticSolver::generateAllEvaluationDemands() {
   pEvaluationDemands_ = dg.generatePerturbedDemands();
   // Initialize structures for scores
   for (int j = 0; j < options_.nEvaluationDemands_; j++) {
-    map<double, set<int> > m;
-    schedulesFromObjectiveByEvaluationDemand_.push_back(m);
+    schedulesFromObjectiveByEvaluationDemand_.emplace_back();
 
 #ifdef COMPARE_EVALUATIONS
-    schedulesFromObjectiveByEvaluationDemandGreedy_.push_back(m);
+    schedulesFromObjectiveByEvaluationDemandGreedy_.emplace_back();
 #endif
 
     (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
@@ -720,7 +727,7 @@ bool StochasticSolver::evaluateSchedule(int sched) {
   for (int i = 0; i < pScenario_->nNurses(); i++)
     initialStates[i].dayId_ = 0;
 
-  int baseCost = pReusableGenerationSolver_->computeSolutionCost(7);
+  double baseCost = pReusableGenerationSolver_->computeSolutionCost(7);
   theBaseCosts_.push_back(baseCost);
 
   // set the time per evaluation to the ratio of the time left
@@ -759,6 +766,8 @@ bool StochasticSolver::evaluateSchedule(int sched) {
     options_.evaluationAlgorithm_ = GENCOL;
 #endif
 
+    // TODO(AL): if some parameters are different between evaluations for a
+    //  given schedule,  the resolve method won't take them into account
     if (options_.evaluationCostPerturbation_) {
       if (pReusableEvaluationSolvers_[sched]->nDays()
           + (7 * pScenario_->thisWeek() + 1) < 7 * pScenario_->nWeeks()) {
@@ -809,31 +818,10 @@ bool StochasticSolver::evaluateSchedule(int sched) {
 
     // Insert the solution cost and solution
     //
-    // If already in the costs -> add it to the set of schedules
-    // that found that cost
-    if (schedulesFromObjectiveByEvaluationDemand_[j].find(currentCost)
-        != schedulesFromObjectiveByEvaluationDemand_[j].end()) {
-      schedulesFromObjectiveByEvaluationDemand_[j].at(
-          currentCost).insert(sched);
-    } else {
-      // Otherwise, add a new pair
-      set<int> s;
-      s.insert(sched);
-      schedulesFromObjectiveByEvaluationDemand_[j].insert(
-          pair<double, set<int> >(currentCost, s));
-    }
+    int roundC = static_cast<int>(round(currentCost));
+    schedulesFromObjectiveByEvaluationDemand_[j][roundC].insert(sched);
 #ifdef COMPARE_EVALUATIONS
-    if (schedulesFromObjectiveByEvaluationDemandGreedy_[j].find(
-        currentCostGreedy) !=
-        schedulesFromObjectiveByEvaluationDemandGreedy_[j].end()) {
-      schedulesFromObjectiveByEvaluationDemandGreedy_[j].at(
-          currentCostGreedy).insert(sched);
-    } else {
-      set<int> s;
-      s.insert(sched);
-      schedulesFromObjectiveByEvaluationDemandGreedy_[j].insert(
-          pair<double, set<int> >(currentCostGreedy, s));
-    }
+    schedulesFromObjectiveByEvaluationDemandGreedy_[j][roundC].insert(sched);
 #endif
   }
 
@@ -864,8 +852,7 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy) {
         (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                        << "] Solution costs for demand no. " << j << std::endl;
         int localRank = 1;
-        map<double, set<int> > localCosts =
-            schedulesFromObjectiveByEvaluationDemand_[j];
+        const auto &localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
         for (auto it = localCosts.begin(); it != localCosts.end(); ++it) {
           for (int sched : it->second) {
             theNewScores[sched] += localRank + (it->second.size() - 1)
@@ -884,9 +871,8 @@ void StochasticSolver::updateRankingsAndScores(RankingStrategy strategy) {
       for (int j = 0; j < options_.nEvaluationDemands_; j++) {
         (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                        << "] Solution costs for demand no. " << j << std::endl;
-        map<double, set<int> >
-            localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
-        for (pair<double, set<int> > p : localCosts)
+        const auto &localCosts = schedulesFromObjectiveByEvaluationDemand_[j];
+        for (const auto &p : localCosts)
           for (int sched : p.second) {
             theNewScores[sched] +=
                 static_cast<int>(p.first / options_.nEvaluationDemands_);

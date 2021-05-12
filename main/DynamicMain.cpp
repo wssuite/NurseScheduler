@@ -148,6 +148,8 @@ pair<double, int> testMultipleWeeksStochastic(string dataDir,
 
     demandHistory.push_back(pScen->pWeekDemand());
 
+    std::cout << pScen->toString() << std::endl;
+
     StochasticSolver *pSolver = new StochasticSolver(pScen,
                                                      stochasticSolverOptions,
                                                      demandHistory,

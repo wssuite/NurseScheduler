@@ -152,12 +152,13 @@ std::string RCLabel::toString(const vector<PResource> &pResources) const {
   return rep.str();
 }
 
-void Resource::initialize(const AbstractShift &prevAShift,
-                          const Stretch &stretch,
-                          const PRCArc &pArc) {
+PExpander Resource::initialize(const AbstractShift &prevAShift,
+                               const Stretch &stretch,
+                               const PRCArc &pArc) {
   PExpander pE = init(prevAShift, stretch, pArc);
   if (pE != nullptr)
-    pArc->expanders.push_back(std::move(pE));
+    pArc->expanders.push_back(pE);
+  return pE;
 }
 
 bool Resource::dominates(const PRCLabel &pL1,

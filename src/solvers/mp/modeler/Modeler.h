@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 
+#include <cassert>
 #include <cfloat>
 #include <iostream>
 #include <fstream>
@@ -566,7 +567,7 @@ struct MyNode {
 };
 
 struct MyTree {
-  explicit MyTree(double epsilon)
+  explicit MyTree(double epsilon, bool printCurrentNode = true)
       : epsilon_(epsilon),
         tree_size_(0),
         nb_nodes_processed_(0),
@@ -576,6 +577,7 @@ struct MyTree {
         min_depth_(0),
         nb_nodes_since_dive_(0),
         currentNode_(nullptr),
+        printCurrentNode_(printCurrentNode),
         best_lb_in_root(LARGE_SCORE),
         best_lb(LARGE_SCORE),
         best_ub(LARGE_SCORE) {}
@@ -604,7 +606,8 @@ struct MyTree {
     if (!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
       diveLength_ = 1 + diveDepth_;
 //  #ifdef DBG
-    if (currentNode_) std::cout << currentNode_->write() << std::endl;
+    if (currentNode_ && printCurrentNode_)
+      std::cout << currentNode_->write() << std::endl;
 //  #endif
   }
 
@@ -813,6 +816,8 @@ struct MyTree {
       diveLength_, min_depth_, nb_nodes_since_dive_;
   // current node
   MyNode *currentNode_;
+  // print current node every time it has been changed
+  bool printCurrentNode_;
 
   // best lb in root and current best lb
   double best_lb_in_root, best_lb;
@@ -981,6 +986,7 @@ class Modeler {
     if (column_added)
       Tools::throwError("Cannot create variable %s, as some columns have "
                         "already been generated.", var_name);
+    assert(lb <= ub);
     createVar(var,
               var_name,
               var_count++,
@@ -1073,6 +1079,7 @@ class Modeler {
                        double score) {
     // set flag column_added to true
     column_added = true;
+    assert(lb <= ub);
     createColumnVar(var,
                     var_name,
                     var_count++,
@@ -1172,6 +1179,7 @@ class Modeler {
     if (cut_added)
       Tools::throwError("Cannot create constraint %s, as some cuts "
                         "have already been generated.", con_name);
+    assert(lhs <= rhs);
     createConsLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
     coreCons_.push_back(*cons);
     addObject(*cons);
@@ -1220,6 +1228,7 @@ class Modeler {
                        std::vector<double> coeffs = {}) {
     // set flag cut_added to true
     cut_added = true;
+    assert(lhs <= rhs);
     createCutLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
     registerObject(*cons);
   }
@@ -1432,6 +1441,7 @@ class Modeler {
 
   // compute the total cost of MyObject* in the solution
   virtual double getTotalCost(MyVar *var, bool print = false) const {
+    if (var == nullptr) return 0;
     double value = getVarValue(var);
     if (print && value > epsilon())
       std::cout << var->name_ << ": " << value << "*" << var->getCost()
@@ -1444,8 +1454,16 @@ class Modeler {
   double getTotalCost(const std::map<MyVar *, T> &map0,
                       bool print = false) const {
     double value = 0;
-    for (const std::pair<MyObject *, T> &var : map0)
+    for (const std::pair<MyVar *, T> &var : map0)
       value += getTotalCost(var.first, print);
+    return value;
+  }
+
+  template<typename T, typename V>
+  double getTotalCost(const std::map<T, V> &m, bool print = false) const {
+    double value = 0;
+    for (const auto &p : m)
+      value += getTotalCost(p.second, print);
     return value;
   }
 

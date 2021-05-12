@@ -11,6 +11,91 @@
 
 #include "ConsShiftResource.h"
 
+template<typename E, typename R>
+shared_ptr<E> initExpander(const AbstractShift &prevAShift,
+                           const Stretch &stretch,
+                           const PRCArc &pArc,
+                           const R &r,
+                           const std::function<double(int)> &getCost) {
+  // we need to count the number of times the considered shift appears at the
+  // beginning of the arc's stretch
+  bool reset = false;
+  int consBeforeReset = 0;
+  int consAfterReset = 0;
+  double cost = 0;
+
+  // Look at consecutive shifts before reset (a different shift)
+  auto itShift = stretch.pShifts().begin();
+  for (; itShift != stretch.pShifts().end(); itShift++) {
+    // same shift ->increment consBeforeReset
+    if (r.pShift()->includes(**itShift)) {
+      consBeforeReset += 1;
+      continue;
+    }
+    // reset ? either was working on this shift just before or
+    // has already worked some same shifts here
+    reset = r.pShift()->includes(prevAShift) || consBeforeReset > 0;
+    break;
+  }
+
+  if (consBeforeReset > r.getUb()) {
+    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+    cost += getCost(consBeforeReset);
+    consBeforeReset = r.getUb();
+  }
+
+  // then compute the penalty due to consecutive shifts inside the stretch
+  // -> after reset
+  for (; itShift != stretch.pShifts().end(); itShift++) {
+    // same shift
+    if (r.pShift()->includes(**itShift)) {
+      consAfterReset++;
+    } else {
+      // different shifts
+      if (consAfterReset == 0) continue;
+      if (consAfterReset < r.getLb() || consAfterReset > r.getUb()) {
+        if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+        cost += getCost(consAfterReset);
+      }
+      consAfterReset = 0;
+    }
+  }
+
+  // pay for excess of consumption
+  // pay attention that consumptions in the label of the source should not
+  // exceed the upper bounds
+  if (consAfterReset > r.getUb()) {
+    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+    cost += getCost(consAfterReset);
+    consAfterReset = r.getUb();
+  }
+
+  // add cost to base cost of the arc
+  pArc->addBaseCost(cost);
+
+  // if nothing before and after reset and no reset (price previous consumption)
+  // -> initialize nothing
+  if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
+    return nullptr;
+
+  // The arc starts the consumption of the resource if the previous shift is
+  // not included in the resource abstract shift, and if the resource shift
+  // is consumed before reset
+  bool start = (!r.pShift()->includes(prevAShift)) && (consBeforeReset > 0);
+  // number of days before the start of the stretch (beware that indices of
+  // days start at 0)
+  std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
+  int nDaysBefore = firstLastDays.first + r.initialConsumption();
+  // Number of days left since the day of the target node of the arc
+  int nDaysLeft = r.totalNbDays() + r.firstDay() - firstLastDays.second - 1;
+
+  // if the stretch ends with the considered, we get a non-zero number of
+  // consecutive shifts after replenishment
+  return std::make_shared<E>(
+      r, start, reset, consBeforeReset, consAfterReset,
+      pArc->target->type == SINK_NODE, nDaysBefore, nDaysLeft);
+}
+
 int SoftConsShiftResource::getConsumption(const State & initialState) const {
   if (pAShift_->isAnyWork())
     return std::min(ub_, initialState.consDaysWorked_);
@@ -24,78 +109,13 @@ int SoftConsShiftResource::getConsumption(const State & initialState) const {
 PExpander SoftConsShiftResource::init(const AbstractShift &prevAShift,
                                       const Stretch &stretch,
                                       const PRCArc &pArc) {
-  // we need to count the number of times the considered shift appears at the
-  // beginning of the arc's stretch
-  bool reset = false;
-  int consBeforeReset = 0;
-  int consAfterReset = 0;
-  double cost = 0;
-
-  // Look at consecutive shifts before reset (a different shift)
-  auto itShift = stretch.pShifts().begin();
-  for (; itShift != stretch.pShifts().end(); itShift++) {
-    // same shift ->increment consBeforeReset
-    if (pAShift_->includes(**itShift)) {
-      consBeforeReset += 1;
-      continue;
-    }
-    // reset ? either was working on this shift just before or
-    // has already worked some same shifts here
-    reset = pAShift_->includes(prevAShift) || consBeforeReset > 0;
-    break;
-  }
-
-  // The arc starts the consumption of the resource if the previous shift is
-  // not included in the resource abstract shift, and if the resource shift
-  // is consumed before reset
-  bool start = (!pAShift_->includes(prevAShift)) && (consBeforeReset > 0);
-
-  // then compute the penalty due to consecutive shifts inside the stretch
-  // -> after reset
-  for (; itShift != stretch.pShifts().end(); itShift++) {
-    // same shift
-    if (pAShift_->includes(**itShift)) {
-      consAfterReset++;
-    } else {
-      // different shifts
-      if (consAfterReset == 0) continue;
-      if (consAfterReset < lb_)
-        cost += lbCost_ * (lb_ - consAfterReset);
-      else if (consAfterReset > ub_)
-        cost += ubCost_ * (consAfterReset - ub_);
-      consAfterReset = 0;
-    }
-  }
-
-  // pay for excess of consumption
-  // pay attention that consumptions in the label of the source should not
-  // exceed the upper bounds
-  if (consAfterReset > ub_) {
-    cost += ubCost_ * (consAfterReset - ub_);
-    consAfterReset = ub_;
-  }
-
-  // add cost to base cost of the arc
-  pArc->addBaseCost(cost);
-
-  // if nothing before and after reset and no reset (price previous consumption)
-  // -> initialize nothing
-  if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
-    return nullptr;
-
-  // number of days before the start of the stretch (beware that indices of
-  // days start at 0)
-  std::pair<int, int> firstLastDays = getFirstLastDays(stretch);
-  int nDaysBefore = firstLastDays.first + initialConsumption_;
-  // Number of days left since the day of the target node of the arc
-  int nDaysLeft = totalNbDays_ + firstDay_ - firstLastDays.second - 1;
-
-  // if the stretch ends with the considered, we get a non-zero number of
-  // consecutive shifts after replenishment
-  return std::make_shared<SoftConsShiftExpander>(
-      *this, start, reset, consBeforeReset, consAfterReset,
-      pArc->target->type == SINK_NODE, nDaysBefore, nDaysLeft);
+  return initExpander<SoftConsShiftExpander,
+                      SoftConsShiftResource>(
+      prevAShift, stretch, pArc, *this, [this](int c) {
+        return this->getCost(c);
+      });
 }
+
 bool SoftConsShiftResource::merge(const ResourceValues &vForward,
                                   const ResourceValues &vBack,
                                   ResourceValues *vMerged,
@@ -240,54 +260,10 @@ int HardConsShiftResource::getConsumption(const State &  initialState) const {
 PExpander HardConsShiftResource::init(const AbstractShift &prevAShift,
                                       const Stretch &stretch,
                                       const PRCArc &pArc) {
-  // we need to count the number of times the considered shift appears at the
-  // beginning of the arc's stretch
-  bool reset = false;
-  int consBeforeReset = 0;
-  int consAfterReset = 0;
-
-  auto itShift = stretch.pShifts().begin();
-  for (; itShift != stretch.pShifts().end(); itShift++) {
-    if (pAShift_->includes(**itShift)) {
-      consBeforeReset += 1;
-    } else if (pAShift_->includes(prevAShift) || consBeforeReset >= 1) {
-      reset = true;
-      break;
-    }
-  }
-
-  // if inactive, initialize nothing
-  if (consBeforeReset == 0 && !reset)
-    return nullptr;
-
-  // The arc starts the consumption of the resource if the previous shift is
-  // not included in the resource abstract shift, and if the resource shift
-  // is consumed before reset
-  bool start = (!pAShift_->includes(prevAShift)) && (consBeforeReset > 0);
-
-  if (consBeforeReset > ub_)
-    Tools::throwError("RCSPP arc is infeasible");
-
-  // then compute the penalty due to consecutive shifts inside the stretch
-  for (; itShift != stretch.pShifts().end(); itShift++) {
-    if (pAShift_->includes(**itShift)) {
-      consAfterReset++;
-    } else {
-      if (!consAfterReset) continue;
-      if (consAfterReset < lb_ || consAfterReset > ub_)
-        Tools::throwError("RCSPP arc is infeasible");
-      consAfterReset = 0;
-    }
-  }
-  if (consAfterReset > ub_)
-    Tools::throwError("RCSPP arc is infeasible");
-
-  // if the stretch ends with the considered, we get a non-zero number of
-  // consecutive shifts after replenishment
-  return std::make_shared<HardConsShiftExpander>(
-      *this, start, reset, consBeforeReset, consAfterReset,
-      pArc->target->type == SINK_NODE);
+  return initExpander<HardConsShiftExpander, HardConsShiftResource>(
+      prevAShift, stretch, pArc, *this, nullptr);
 }
+
 bool HardConsShiftResource::merge(const ResourceValues &vForward,
                                   const ResourceValues &vBack,
                                   ResourceValues *vMerged,

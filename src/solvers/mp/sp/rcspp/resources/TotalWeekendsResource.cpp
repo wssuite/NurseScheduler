@@ -11,12 +11,61 @@
 
 #include "TotalWeekendsResource.h"
 
+int TotalWeekend::computeConsumption(const Stretch &stretch,
+                                     bool *ready) const {
+  // go through the days of the stretch and count the weekends that have not
+  // been counted yet
+  int consumption = 0;
+  auto itShift = stretch.pShifts().begin();
+  // reset weekend flag
+  if (!Tools::isWeekend(stretch.firstDay())) *ready = true;
+  for (int i = stretch.firstDay(); i <= stretch.lastDay(); i++, itShift++) {
+    // if a weekend
+    if (Tools::isWeekend(i)) {
+      // check if working on this day and
+      // if weekend has not been already counted
+      if (*ready && pShift_->includes(**itShift)) {
+        consumption++;
+        *ready = false;
+      }
+      // reset weekend flag
+      if (Tools::isLastWeekendDay(i))
+        *ready = true;
+    }
+  }
+  return consumption;
+}
+
+int TotalWeekend::computeBackConsumption(const Stretch &stretch,
+                                         bool *ready) const {
+  // go through the days of the stretch in reverse and
+  // count the weekends that have not been counted yet
+  int consumption = 0;
+  auto itShift = stretch.pShifts().rbegin();
+  int i = stretch.lastDay();
+  for (; i >= stretch.firstDay(); i--, itShift++) {
+    // if a weekend
+    if (Tools::isWeekend(i)) {
+      // check if working on this day and
+      // if weekend has not been already counted
+      if (*ready && pShift_->includes(**itShift)) {
+        consumption++;
+        *ready = false;
+      }
+      // reset weekend flag
+      if (Tools::isFirstWeekendDay(i))
+        *ready = true;
+    }
+  }
+  return consumption;
+}
 
 template<typename E, typename R>
 shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const Stretch &stretch,
                            const PRCArc &pArc,
-                           const R &r) {
+                           const R &r,
+                           const std::function<double(int)> &ubCost) {
   // check if expander is active
   std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
   if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
@@ -30,9 +79,20 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   start = r.firstDay(), end = firstLastDays.first - 1;
   int nWeekendsBefore = Tools::nWeekendsInInterval(start, end);
 
+  int consumption = 0;
+//      r.computeConsumption(firstLastDays.first, stretch, prevAShift);
+//  if (consumption > r.getUb()) {
+//    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+//    pArc->addBaseCost(ubCost(consumption));
+//
+//   // beware: we never need to store a consumption larger than the upper bound
+//    consumption = r.getUb();
+//  }
+
   return std::make_shared<E>(
       r,
       stretch,
+      consumption,
       nWeekendsBefore,
       nWeekendsAfter,
       pArc->target->type == SINK_NODE);
@@ -47,33 +107,21 @@ PExpander SoftTotalWeekendsResource::init(const AbstractShift &prevAShift,
                                           const Stretch &stretch,
                                           const PRCArc &pArc) {
   return initExpander<SoftTotalWeekendsExpander, SoftTotalWeekendsResource>(
-      prevAShift, stretch, pArc, *this);
+      prevAShift, stretch, pArc, *this, [this](int c) {
+        return this->getUbCost(c);
+      });
 }
 
 bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
                                        ResourceValues *vChild) {
-  // go through the days of the stretch and count the weekends that have not
-  // been counted yet
-  auto itShift = stretch_.pShifts().begin();
-  for (int i = stretch_.firstDay(); i <= stretch_.lastDay(); i++, itShift++) {
-    // if a weekend
-    if (Tools::isWeekend(i)) {
-      // check if working on this day and
-      // if weekend has not been already counted
-      if ((*itShift)->isWork() && vChild->readyToConsume) {
-        vChild->consumption++;
-        vChild->readyToConsume = false;
-      }
-      // reset weekend flag
-      if (Tools::isLastWeekendDay(i))
-        vChild->readyToConsume = true;
-    }
-  }
-#ifdef DBG
-  pLChild->addTotalWeekendCost(resource_.getUbCost(vChild->consumption));
-#endif
+  vChild->consumption +=
+      resource_.computeConsumption(stretch_, &vChild->readyToConsume);
+
   if (vChild->consumption > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
+#ifdef DBG
+    pLChild->addTotalWeekendCost(resource_.getUbCost(vChild->consumption));
+#endif
 
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
@@ -97,28 +145,16 @@ bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
 
 bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
                                            ResourceValues *vChild) {
-  // The number of non-working weekends remaining is either given by the
-  // number of Saturdays or given by the number of Sundays
-  auto itShift = stretch_.pShifts().rbegin();
-  int i = stretch_.lastDay();
-  for (; i >= stretch_.firstDay(); i--, itShift++) {
-    // if a weekend
-    if (Tools::isWeekend(i)) {
-      // check if working on this day and
-      // if weekend has not been already counted
-      if ((*itShift)->isWork() && vChild->readyToConsume) {
-        vChild->consumption++;
-        vChild->readyToConsume = false;
-      }
-      // reset weekend flag
-      if (Tools::isFirstWeekendDay(i))
-        vChild->readyToConsume = true;
-    }
-  }
+  vChild->consumption +=
+      resource_.computeBackConsumption(stretch_, &vChild->readyToConsume);
+
   // check UB cost at every node, but LB cost only when merging with the
   // initial label
   if (vChild->consumption > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
+#ifdef DBG
+    pLChild->addTotalWeekendCost(resource_.getUbCost(vChild->consumption));
+#endif
 
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
@@ -142,28 +178,13 @@ PExpander HardTotalWeekendsResource::init(const AbstractShift &prevAShift,
                                           const Stretch &stretch,
                                           const PRCArc &pArc) {
   return initExpander<HardTotalWeekendsExpander, HardTotalWeekendsResource>(
-      prevAShift, stretch, pArc, *this);
+      prevAShift, stretch, pArc, *this, nullptr);
 }
 
 bool HardTotalWeekendsExpander::expand(const PRCLabel &pLChild,
                                        ResourceValues *vChild) {
-  // go through the days of the stretch and count the weekends that have not
-  // been counted yet
-  auto itShift = stretch_.pShifts().begin();
-  for (int i = stretch_.firstDay(); i <= stretch_.lastDay(); i++, itShift++) {
-    // if a weekend
-    if (Tools::isWeekend(i)) {
-      // check if working on this day and
-      // if weekend has not been already counted
-      if ((*itShift)->isWork() && vChild->readyToConsume) {
-        vChild->consumption++;
-        vChild->readyToConsume = false;
-      }
-      // reset weekend flag
-      if (Tools::isLastWeekendDay(i))
-        vChild->readyToConsume = true;
-    }
-  }
+  vChild->consumption +=
+      resource_.computeConsumption(stretch_, &vChild->readyToConsume);
 
   if (vChild->consumption > resource_.getUb())
     return false;
@@ -175,24 +196,8 @@ bool HardTotalWeekendsExpander::expand(const PRCLabel &pLChild,
 
 bool HardTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
                                            ResourceValues *vChild) {
-  // The number of non-working weekends remaining is either given by the
-  // number of Saturdays or given by the number of Sundays
-  auto itShift = stretch_.pShifts().rbegin();
-  int i = stretch_.lastDay();
-  for (; i >= stretch_.firstDay(); i--, itShift++) {
-    // if a weekend
-    if (Tools::isWeekend(i)) {
-      // check if working on this day and
-      // if weekend has not been already counted
-      if ((*itShift)->isWork() && vChild->readyToConsume) {
-        vChild->consumption++;
-        vChild->readyToConsume = false;
-      }
-      // reset weekend flag
-      if (Tools::isFirstWeekendDay(i))
-        vChild->readyToConsume = true;
-    }
-  }
+  vChild->consumption +=
+      resource_.computeBackConsumption(stretch_, &vChild->readyToConsume);
 
   return vChild->consumption <= resource_.getUb();
 }

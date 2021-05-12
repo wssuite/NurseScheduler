@@ -214,7 +214,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
               std::cout << std::endl << "Both best solutions:" << std::endl;
               std::cout << solutions.front().toString() << std::endl;
               std::cout << sols.front().toString() << std::endl;
-              Tools::throwError("The subproblems haven't find "
+              Tools::throwError("The subproblems haven't found "
                                 "the same best reduced costs.");
             }
           }

@@ -246,9 +246,9 @@ class StochasticSolver : public Solver {
   // Evaluation
   vector2D<Solver *> pEvaluationSolvers_;
   std::vector<Solver *> pReusableEvaluationSolvers_;
-  std::vector<std::map<double, std::set<int> > >
+  std::vector<std::map<int, std::set<int> > >
       schedulesFromObjectiveByEvaluationDemand_;
-  std::vector<std::map<double, std::set<int> > >
+  std::vector<std::map<int, std::set<int> > >
       schedulesFromObjectiveByEvaluationDemandGreedy_;
   // Scores
   std::vector<double> theScores_;

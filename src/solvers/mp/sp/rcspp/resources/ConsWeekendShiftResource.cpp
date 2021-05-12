@@ -12,25 +12,19 @@
 #include "ConsWeekendShiftResource.h"
 
 
-int SoftConsWeekendShiftResource::getConsumption(
-    const State & initialState) const {
-  if (pShift_->isAnyWork())
-    return std::min(ub_, initialState.consWeekendWorked_);
-  if (pShift_->isRest())
-    return std::min(ub_, initialState.consWeekendOff_);
-  return 0;
-}
-
-PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
-                                             const Stretch &stretch,
-                                             const PRCArc &pArc) {
+template<typename E, typename R>
+shared_ptr<E> initExpander(const AbstractShift &prevAShift,
+                           const Stretch &stretch,
+                           const PRCArc &pArc,
+                           const R &r,
+                           const std::function<double(int)> &getCost) {
   // check if expander is active
-  std::pair<int, int> firstLastDays = getFirstLastDays(stretch);
+  std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
   if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
     return nullptr;
 
-  // we need to count the number of times the considered shift appears at the
-  // beginning of the arc's stretch
+  // we need to count the number of times the considered shift appears in
+  // the arc's stretch on a weekend
   bool reset = false;
   int consBeforeReset = 0;
   int consAfterReset = 0;
@@ -40,15 +34,13 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
   auto itShift = stretch.pShifts().begin();
   int day = firstLastDays.first;
   bool weekendCounted =
-      Tools::isWeekend(day-1) && pShift_->includes(prevAShift);
+      Tools::isWeekend(day-1) && r.pShift()->includes(prevAShift);
   for (; itShift != stretch.pShifts().end(); itShift++, day++) {
     if (Tools::isWeekend(day)) {
-      if (pShift_->includes(**itShift)) {
-        // on a weekend and same shift not counted -> increment consAfterReset
-        if (!weekendCounted) {
+      // on a weekend and same shift not counted -> increment consAfterReset
+      if (r.pShift()->includes(**itShift) && !weekendCounted) {
           consBeforeReset++;
           weekendCounted = true;
-        }
       }
       if (Tools::isLastWeekendDay(day)) {
         // On last weekend day check if some bounds should be checked
@@ -64,30 +56,34 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
     }
   }
 
-  // if already exceeding UB -> pay immediately the current excess
-  if (consBeforeReset > ub_) {
-    cost += getUbCost(consBeforeReset);
-    consBeforeReset =  ub_;
+  // if already exceeding UB
+  if (consBeforeReset > r.getUb()) {
+    // either infeasible
+    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+    // if feasible -> pay immediately the current excess
+    cost += getCost(consBeforeReset);
+    consBeforeReset =  r.getUb();
   }
 
   // then compute the penalty due to consecutive shifts inside the stretch
-  // -> after reset (should be a monday)
+  // (should be a monday)
   weekendCounted = false;
   for (; itShift != stretch.pShifts().end(); itShift++, day++) {
     if (Tools::isWeekend(day)) {
-      if (pShift_->includes(**itShift)) {
-        // on a weekend and same shift not counted -> increment consAfterReset
-        if (!weekendCounted) {
+      // on a weekend and same shift not counted -> increment consAfterReset
+      if (r.pShift()->includes(**itShift) && !weekendCounted) {
           consAfterReset++;
           weekendCounted = true;
-        }
       }
       if (Tools::isLastWeekendDay(day)) {
         // On last weekend day check if some bounds should be checked
+        // if different shifts during whole weekend
         if (!weekendCounted) {
-          // different shifts during whole weekend
           if (consAfterReset == 0) continue;
-          cost += getCost(consAfterReset);
+          if (consAfterReset < r.getLb() || consAfterReset > r.getUb()) {
+            if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+            cost += getCost(consAfterReset);
+          }
           consAfterReset = 0;
         } else {
           // reset flag
@@ -103,37 +99,49 @@ PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
     return nullptr;
 
   // Computing the number of weekends after the last day of the stretch
-  int start = firstLastDays.second+1, end = totalNbDays()-1;
+  int start = firstLastDays.second+1, end = r.totalNbDays()-1;
   int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
   // check if we need to remove current weekend
   if (Tools::isWeekendDayButNotLastOne(firstLastDays.second))
-    if (pShift_->includes(*stretch.pShifts().back()))
+    if (r.pShift()->includes(*stretch.pShifts().back()))
       --nWeekendsAfter;
 
-//  // Computing the number of weekends before the first day of the stretch
-//  start = firstDay(), end = firstLastDays.first - 1;
-//  int nWeekendsBefore = Tools::nWeekendsInInterval(start, end);
-//  // check if we need to remove current weekend
-//  if (Tools::isWeekendDayButNotFirstOne(firstLastDays.second))
-//    if (pShift_->includes(*stretch.pShifts().front()))
-//      --nWeekendsBefore;
-
-  if (cyclic_ && nWeekendsAfter == 0)
+  if (r.isCyclic() && nWeekendsAfter == 0)
     consAfterReset += consBeforeReset;
 
-  if (consAfterReset > ub_) {
-    cost += getUbCost(consAfterReset);
-    consBeforeReset =  ub_;
+  if (consAfterReset > r.getUb()) {
+    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+    cost += getCost(consAfterReset);
+    consAfterReset = r.getUb();
   }
 
-  // add cost o base cost of the arc
+  // add cost to base cost of the arc (cost != 0 if resource is soft
   pArc->addBaseCost(cost);
 
   // if the stretch ends with the considered, we get a non-zero number of
   // consecutive shifts after replenishment
-  return std::make_shared<SoftConsWeekendShiftExpander>(
-      *this, false, reset, consBeforeReset, consAfterReset, cyclic_,
-      pArc->target->type == SINK_NODE, nWeekendsAfter);
+  return std::make_shared<E>(
+      r, false, reset, consBeforeReset, consAfterReset,
+      r.isCyclic(), false, nWeekendsAfter);
+}
+
+int SoftConsWeekendShiftResource::getConsumption(
+    const State & initialState) const {
+  if (pShift_->isAnyWork())
+    return std::min(ub_, initialState.consWeekendWorked_);
+  if (pShift_->isRest())
+    return std::min(ub_, initialState.consWeekendOff_);
+  return 0;
+}
+
+PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
+                                             const Stretch &stretch,
+                                             const PRCArc &pArc) {
+  return initExpander<SoftConsWeekendShiftExpander,
+                      SoftConsWeekendShiftResource>(
+      prevAShift, stretch, pArc, *this, [this](int c) {
+    return this->getCost(c);
+  });
 }
 
 bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
@@ -224,103 +232,9 @@ int HardConsWeekendShiftResource::getConsumption(
 PExpander HardConsWeekendShiftResource::init(const AbstractShift &prevAShift,
                                              const Stretch &stretch,
                                              const PRCArc &pArc) {
-  // check if expander is active
-  std::pair<int, int> firstLastDays = getFirstLastDays(stretch);
-  if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
-    return nullptr;
-
-  // we need to count the number of times the considered shift appears in
-  // the arc's stretch on a weekend
-  bool reset = false;
-  int consBeforeReset = 0;
-  int consAfterReset = 0;
-  double cost = 0;
-
-  // Look at consecutive shifts before reset (a different shift)
-  auto itShift = stretch.pShifts().begin();
-  int day = firstLastDays.first;
-  bool weekendCounted =
-      Tools::isWeekend(day-1) && pShift_->includes(prevAShift);
-  for (; itShift != stretch.pShifts().end(); itShift++, day++) {
-    if (Tools::isWeekend(day)) {
-      if (pShift_->includes(**itShift)) {
-        // on a weekend and same shift not counted -> increment consAfterReset
-        if (!weekendCounted) {
-          consBeforeReset++;
-          weekendCounted = true;
-        }
-      }
-      if (Tools::isLastWeekendDay(day)) {
-        // On last weekend day check if some bounds should be checked
-        if (!weekendCounted) {
-          // different shifts during whole weekend
-          reset = true;
-          break;
-        } else {
-          // reset flag
-          weekendCounted = false;
-        }
-      }
-    }
-  }
-
-  if (consBeforeReset > ub_)
-    Tools::throwError("RCSPP arc is infeasible");
-
-  // then compute the penalty due to consecutive shifts inside the stretch
-  // (should be a monday)
-  weekendCounted = false;
-  for (; itShift != stretch.pShifts().end(); itShift++, day++) {
-    if (Tools::isWeekend(day)) {
-      if (pShift_->includes(**itShift)) {
-        // on a weekend and same shift not counted -> increment consAfterReset
-        if (!weekendCounted) {
-          consAfterReset++;
-          weekendCounted = true;
-        }
-      }
-      if (Tools::isLastWeekendDay(day)) {
-        // On last weekend day check if some bounds should be checked
-        if (!weekendCounted) {
-          // different shifts during whole weekend
-          if (consAfterReset > 0 &&
-              (consAfterReset < lb_ || consAfterReset > ub_)) {
-            // different shifts
-            Tools::throwError("RCSPP arc is infeasible");
-          }
-          consAfterReset = 0;
-        } else {
-          // reset flag
-          weekendCounted = false;
-        }
-      }
-    }
-  }
-
-  // if nothing before and after reset and no reset (price previous consumption)
-  // -> initialize nothing
-  if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
-    return nullptr;
-
-  // Computing the number of weekends after the last day of the stretch
-  int start = firstLastDays.second+1, end = totalNbDays()-1;
-  int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
-  // check if we need to remove current weekend
-  if (Tools::isWeekendDayButNotLastOne(firstLastDays.second))
-    if (pShift_->includes(*stretch.pShifts().back()))
-      --nWeekendsAfter;
-
-  if (cyclic_ && nWeekendsAfter == 0)
-    consAfterReset += consBeforeReset;
-
-  if (consAfterReset > ub_)
-    Tools::throwError("RCSPP arc is infeasible");
-
-  // if the stretch ends with the considered, we get a non-zero number of
-  // consecutive shifts after replenishment
-  return std::make_shared<HardConsWeekendShiftExpander>(
-      *this, false, reset, consBeforeReset, consAfterReset,
-      cyclic_, false, nWeekendsAfter);
+  return initExpander<HardConsWeekendShiftExpander,
+                      HardConsWeekendShiftResource>(
+      prevAShift, stretch, pArc, *this, nullptr);
 }
 
 bool HardConsWeekendShiftResource::dominates(

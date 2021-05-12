@@ -25,8 +25,11 @@ using std::set;
 //
 //////////////////////////////////////////////////////////////
 
-RestTree::RestTree(PScenario pScenario, PDemand pDemand, double epsilon) :
-    MyTree(epsilon),
+RestTree::RestTree(PScenario pScenario,
+                   PDemand pDemand,
+                   double epsilon,
+                   bool printCurrentNode) :
+    MyTree(epsilon, printCurrentNode),
     pScenario_(pScenario),
     pDemand_(pDemand),
     statsRestByDay_(pDemand_->nDays_),

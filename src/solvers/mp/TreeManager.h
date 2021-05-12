@@ -178,7 +178,8 @@ struct CoverageNode : public MyNode {
 
 
 struct RestTree : public MyTree {
-  RestTree(PScenario pScenario, PDemand pDemand, double epsilon);
+  RestTree(PScenario pScenario, PDemand pDemand,
+           double epsilon, bool printCurrentNode);
 
   void addForbiddenShifts(PLiveNurse pNurse,
                           std::set<std::pair<int, int> > *forbidenShifts);

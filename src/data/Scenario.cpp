@@ -118,8 +118,7 @@ void State::addDayToState(const State &prevState, const PShift &pS) {
     }
 
     // Consecutives : +1 iff it is the same as the previous one
-    consShifts_ = (pS->isWork() && pS->type == prevShiftType) ?
-                  prevState.consShifts_ + 1 : (pS->type ? 1 : 0);
+    consShifts_ = (pS->type == prevShiftType) ? prevState.consShifts_ + 1 : 1;
 
     // Consecutive Days Worked :
     // +1 if the new one is worked (!=0), 0 if it is a rest (==0)
@@ -181,7 +180,7 @@ string State::toString() {
     rep << "0 0";
   if (pShift_->isWork()) rep << " 0";
   else
-    rep << " " << consShifts_;
+    rep << " " << consDaysOff_;
   rep << std::endl;
   return rep.str();
 }

@@ -53,6 +53,7 @@ struct Weights {
       WEIGHT_TOTAL_SHIFTS(weightTotalShifts),
       WEIGHT_TOTAL_WEEKENDS(weightTotalWeekends) {}
 
+
   const double WEIGHT_OPTIMAL_DEMAND = 30;
   const double WEIGHT_CONS_SHIFTS = 15;
   const double WEIGHT_CONS_DAYS_WORK = 30;
