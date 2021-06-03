@@ -237,38 +237,6 @@ double ScoreVarCloseHalf::score(PLiveNurse pNurse,
   return sc;
 }
 
-double ScoreVarBestExpectedLBImprovement::score(
-    PLiveNurse pNurse,
-    int day,
-    const std::vector<int> &shifts,
-    const std::vector<double> &values) const {
-  if (shifts.size() != values.size())
-    Tools::throwError("Shifts and  Values vectors do not have the same size.");
-  // choose the variable that yields the biggest expected improvement
-  // compute reduced cost associated to the shift
-  PDualCosts pDCosts = pRule->getPDualCosts()[pNurse->num_];
-  // look at the worst dual costs for the shifts
-  double ceilCost = DBL_MAX, floorCost = 0;
-  for (int i = 0; i < shifts.size(); i++) {
-    int s = shifts[i];
-    double v = values[i];
-    double dc = pDCosts->constant() + pDCosts->workedDayShiftCost(day, s);
-    // add worked weekend dual cost if working, otherwise remove it
-    if (Tools::isWeekend(day))
-      dc += pDCosts->workedWeekendCost() * (s ? 1 : -1);
-    // use absolute value
-    dc = std::fabs(dc);
-    // if use shift -> not using the other shifts -> worst case
-    double ceilDC = dc * (ceil(v) - v);
-    if (ceilDC < ceilCost) ceilCost = ceilDC;
-    // if not using shift -> all the shifts won't be used -> just add them
-    floorCost += dc * (v - floor(v));
-  }
-
-  // return the worst (closest to 0)
-  return std::min(std::fabs(floorCost), std::fabs(ceilCost));
-}
-
 /* Constructs the branching rule object. */
 DiveBranchingRule::DiveBranchingRule(MasterProblem *master,
                                      RestTree *tree,
@@ -277,7 +245,7 @@ DiveBranchingRule::DiveBranchingRule(MasterProblem *master,
     MyBranchingRule(name),
     pMaster_(master),
     tree_(tree),
-    pModel_(master->getModel()),
+    pModel_(master->pModel()),
     randomSwapOfChilfren_(randomSwapOfChilfren) {
   // either ScoreVarCloseHalf or ScoreVarBestExpectedLBImprovement
   scoreFunc_ = std::unique_ptr<ScoreVar>(
@@ -303,8 +271,9 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
                       "the branching rule is not chosen properly!");
 
   for (MyVar *var : pModel_->getActiveColumns()) {
-    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
-    if (pMaster_->isFixNurse(var->getNurseNum())) continue;
+//    // Several columns are kept -> so could remain fractional
+//    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
+//    if (pMaster_->isFixNurse(var->getNurseNum())) continue;
 
     // ROLLING/LNS: do not branch on relaxed columns
     // check if all days are relaxed
@@ -417,12 +386,6 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
 }
 
 bool DiveBranchingRule::branching_candidates(MyBranchingCandidate *candidate) {
-  // store the dual costs, can be useful when deciding branching decisions
-  pDualCosts_.clear();
-  pDualCosts_.reserve(pMaster_->nNurses());
-  for (PLiveNurse pNurse : pMaster_->liveNurses())
-    pDualCosts_.emplace_back(pMaster_->buildDualCosts(pNurse));
-
   // test each branching decision and stop if a candidate has been found
   int nChildren = candidate->getChildren().size();
   for (auto f : branchFunctions_) {
@@ -457,7 +420,7 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
   for (int k = 0; k < nbDays; ++k)
     for (int s = 1; s < nbShifts; ++s) {
       double &dailyScore = dailyShiftScores[s - 1][k];
-      double v = pModel_->getVarValue(skillsAllocVars[k][s - 1]);
+      double v = pModel_->getVarValue(skillsAllocVars[k][s]);
       double frac = std::min(ceil(v) - v, v - floor(v));
       dailyScore += frac;
     }
@@ -507,12 +470,12 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
 
   // add the cut
   vector<MyVar *> vars;
-  vector<double> coeffs;
+  const auto allocVars = skillsAllocVars[bestDay][bestShift];
   for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk)
-    for (int p : pMaster_->getPositionsForSkill(sk)) {
-      vars.push_back(skillsAllocVars[bestDay][bestShift - 1][sk][p]);
-      coeffs.push_back(1);
-    }
+    for (MyVar *v : allocVars[sk])
+      if (v) vars.push_back(v);
+  vector<double> coeffs(vars.size(), 1);
+
 
   // create a new cons
   char name[50];
@@ -524,8 +487,7 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
 
   /* update candidate */
   int index = candidate->addNewBranchingCons(cut);
-  double v = pModel_->getVarValue(
-      skillsAllocVars[bestDay][bestShift - 1]);
+  double v = pModel_->getVarValue(skillsAllocVars[bestDay][bestShift]);
   floorNode.setRhs(index, floor(v));
   ceilNode.setLhs(index, ceil(v));
 
@@ -598,8 +560,9 @@ void DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
   double bestScore = -DBL_MAX;
 
   for (PLiveNurse pNurse : pMaster_->liveNurses()) {
-    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
-    if (pMaster_->isFixNurse(pNurse->num_)) continue;
+//    // Several columns are kept -> so could remain fractional
+//    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
+//    if (pMaster_->isFixNurse(pNurse->num_)) continue;
 
     for (int k = 0; k < pMaster_->nDays(); ++k) {
       // ROLLING/LNS: do not branch on a relaxed day
@@ -658,8 +621,9 @@ void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
 
   // search for the best branching decision (set of shifts the closest to .5)
   for (PLiveNurse pNurse : pMaster_->liveNurses()) {
-    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
-    if (pMaster_->isFixNurse(pNurse->num_)) continue;
+//    // Several columns are kept -> so could remain fractional
+//    // ROLLING/LNS: do not branch on a nurse whose columns are fixed
+//    if (pMaster_->isFixNurse(pNurse->num_)) continue;
 
     for (int k = 0; k < pMaster_->nDays(); ++k) {
       // ROLLING/LNS: do not branch on a relaxed day
@@ -675,7 +639,7 @@ void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
         // check if solution is fractional
         if (pModel_->epsilon() < val && val < 1 - pModel_->epsilon())
           isFractional = true;
-        fractionalNurseDay.push_back({s, -val});
+        fractionalNurseDay.emplace_back(s, -val);
       }
       // if not fractional, continue
       if (!isFractional)
@@ -897,8 +861,4 @@ MasterProblem *DiveBranchingRule::getMaster() const {
 
 Modeler *DiveBranchingRule::getModel() const {
   return pModel_;
-}
-
-const vector<PDualCosts> &DiveBranchingRule::getPDualCosts() const {
-  return pDualCosts_;
 }

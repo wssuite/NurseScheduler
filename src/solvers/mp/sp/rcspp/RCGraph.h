@@ -134,7 +134,7 @@ struct RCArc {
 
   void addDualCost(double c) {
     dualCost += c;
-    cost += c;
+    cost -= c;
   }
 
   void addBaseCost(double c) {

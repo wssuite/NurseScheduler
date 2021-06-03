@@ -16,6 +16,7 @@
 #include <utility>
 
 #include "solvers/mp/TreeManager.h"
+#include "solvers/mp/sp/SubProblem.h"
 
 
 //-----------------------------------------------------------------------------
@@ -40,8 +41,8 @@ void RosterPattern::addForbiddenShifts(
       forbidenShifts->insert(std::pair<int, int>(day, i));
 }
 
-void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
-                                     bool printBadPricing) {
+void RosterPattern::checkReducedCost(const DualCosts &dualCosts,
+                                     bool printBadPricing) const {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
@@ -49,18 +50,12 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
   /************************************************
    * Compute all the dual costs of the roster:
    ************************************************/
-  double reducedCost = cost_ - pCosts->constant();
-  for (int k = firstDay(); k <= lastDay(); ++k) {
-    const PShift &pS = pShift(k);
-    /* Working dual cost */
-    if (pS->isWork())
-      reducedCost -= pCosts->workedDayShiftCost(k, pS->id);
-  }
+  double reducedCost = cost_ - dualCosts.getCost(nurseNum_, *this, nullptr);
 
   // Display: set to true if you want to display the details of the cost
-  if (std::fabs(reducedCost_ - reducedCost) / (1 - reducedCost) > 1e-3) {
+  if (std::fabs(reducedCost_ - reducedCost) / (1 - reducedCost) > EPSILON) {
     // if do not print and not throwing an error
-    if (!printBadPricing && reducedCost_ > reducedCost + 1e-3) return;
+    if (!printBadPricing && reducedCost_ > reducedCost + EPSILON) return;
 
     std::cerr << "# " << std::endl;
     std::cerr << "# " << std::endl;
@@ -70,14 +65,7 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
     std::cerr << "#   | Base cost     : + " << cost_ << std::endl;
     std::cerr << costsToString();
 
-    std::cerr << "#   | Constant: - " << pCosts->constant() << std::endl;
-    for (int k = firstDay(); k <= lastDay(); ++k) {
-      const PShift &pS = pShift(k);
-      if (pS->isWork())
-        std::cerr << "#   | Work day-shift " << k << ": - "
-                  << pCosts->workedDayShiftCost(k, pS->id)
-                  << std::endl;
-    }
+    std::cerr << dualCosts.toString(nurseNum_, *this);
     std::cerr << toString();
     std::cerr << "# " << std::endl;
 
@@ -89,7 +77,7 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
     // subproblem could under estimate the real cost. These paths won't be
     // found when the subproblems are solved at optimality, but could  be
     // present when using heuristics.
-//    if (reducedCost_ < reducedCost + 1e-3)
+//    if (reducedCost_ < reducedCost + EPSILON)
       Tools::throwError("Invalid pricing of a roster.");
   }
 }
@@ -105,12 +93,13 @@ void RosterPattern::checkReducedCost(const PDualCosts &pCosts,
 
 RosterMP::RosterMP(const PScenario& pScenario,
                    SolverType solver) :
-    MasterProblem(pScenario, solver),
-    assignmentCons_(pScenario->nNurses()) {
+    MasterProblem(pScenario, solver) {
   lagrangianBoundAvail_ = true;
 }
 
-RosterMP::~RosterMP() = default;
+RosterMP::~RosterMP() {
+  delete assignmentConstraint_;
+}
 
 PPattern RosterMP::getPattern(MyVar *var) const {
   return std::make_shared<RosterPattern>(var, pScenario_);
@@ -119,7 +108,7 @@ PPattern RosterMP::getPattern(MyVar *var) const {
 // Main method to build the rostering problem for a given input
 void RosterMP::build(const SolverParam &param) {
   /* Roster assignment constraints */
-  buildAssignmentCons(param);
+  assignmentConstraint_ = new RosterAssignmentConstraint(this);
 
   /* build the rest of the model */
   MasterProblem::build(param);
@@ -140,7 +129,7 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
     for (int i = 0; i < pScenario_->nNurses(); ++i) {
       RosterPattern pat(solution[i].pShifts(), i);
       computePatternCost(&pat);
-      pModel_->addInitialColumn(addRoster(pat, baseName));
+      pModel_->addInitialColumn(createColumn(pat, baseName));
     }
   }
 }
@@ -155,81 +144,11 @@ MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   pat.treeLevel_ = pModel_->getCurrentTreeLevel();
 #ifdef DBG
   computePatternCost(&pat);
-  PDualCosts costs = buildDualCosts(theLiveNurses_[nurseNum]);
-  pat.checkReducedCost(costs, pPricer_->isLastRunOptimal());
+  DualCosts dualCosts(this);
+  pat.checkReducedCost(dualCosts, pPricer_->isLastRunOptimal());
   checkIfPatternAlreadyPresent(pat.getCompactPattern());
 #endif
-  return addRoster(pat, "roster", false);
-}
-
-MyVar *RosterMP::addRoster(const RosterPattern &roster,
-                           const char *baseName,
-                           bool coreVar) {
-  // nurse index
-  const int nurseNum = roster.nurseNum();
-
-  // Column var, its name, and affected constraints with their coefficients
-  MyVar *var;
-  char name[255];
-  std::vector<MyCons *> cons;
-  std::vector<double> coeffs;
-
-  /* Skills coverage constraints */
-  addSkillsCoverageConsToCol(&cons, &coeffs, roster);
-
-  /* add variable to model */
-  snprintf(name, sizeof(name), "%s_N%d", baseName, nurseNum);
-  if (coreVar) {
-    pModel_->createPositiveVar(&var,
-                               name,
-                               roster.cost(),
-                               roster.getCompactPattern());
-    unsigned int i;
-    for (i = 0; i < static_cast<int>(cons.size()); i++)
-      pModel_->addCoefLinear(cons[i], var, coeffs[i]);
-  } else {
-    /* Roster  assignment constraint s added only for real rosters
-     * to be sure that the artificial variables can always be used to create
-     * a feasible solution
-     */
-    addRosterConsToCol(&cons, &coeffs, nurseNum);
-
-    pModel_->createIntColumn(&var,
-                             name,
-                             roster.cost(),
-                             roster.getCompactPattern(),
-                             roster.reducedCost(),
-                             cons,
-                             coeffs);
-  }
-  return var;
-}
-
-/* Build each set of constraints
- * Add also the coefficient of a column for each set
- */
-void RosterMP::buildAssignmentCons(const SolverParam &param) {
-  char name[255];
-  // build the roster assignment constraint for each nurse
-  for (int i = 0; i < pScenario_->nNurses(); i++) {
-    snprintf(name, sizeof(name), "feasibilityAssignmentVar_N%d", i);
-    MyVar *feasibilityVar;
-    pModel_->createPositiveFeasibilityVar(&feasibilityVar, name);
-    snprintf(name, sizeof(name), "assignmentCons_N%d", i);
-    pModel_->createEQConsLinear(&assignmentCons_[i],
-                                name,
-                                1,
-                                {feasibilityVar},
-                                {1});
-  }
-}
-
-int RosterMP::addRosterConsToCol(std::vector<MyCons *> *cons,
-                                 std::vector<double> *coeffs,
-                                 int i) {
-  cons->push_back(assignmentCons_[i]);
-  coeffs->push_back(1);
-  return 1;
+  return createColumn(pat, "roster");
 }
 
 // get a reference to the restsPerDay_ for a Nurse
@@ -246,7 +165,7 @@ std::vector<MyVar *> RosterMP::getRestVarsPerDay(PLiveNurse pNurse,
 
 // compute the lagrangian bound
 double RosterMP::computeLagrangianBound(double objVal) const {
-  if (!stabCheckStoppingCriterion()) {
+  if (!pModel_->stab().stabCheckStoppingCriterion()) {
     std::cerr << "Cannot compute a lagrangian bound when stabilization "
                  "variables are present in the solution." << std::endl;
     return -LARGE_SCORE;
@@ -264,9 +183,4 @@ double RosterMP::getDaysCost() const {
 
 double RosterMP::getWeekendCost() const {
   return getColumnsCost(TOTAL_WEEKEND_COST);
-}
-
-/* retrieve the dual values */
-double RosterMP::getConstantDualvalue(PLiveNurse pNurse) const {
-  return pModel_->getDual(assignmentCons_[pNurse->num_]);
 }

@@ -20,6 +20,8 @@
 #include <utility>
 #include <vector>
 
+#include "solvers/mp/constraints/AssignmentConstraints.h"
+
 //-----------------------------------------------------------------------------
 //
 //  S t r u c t   R o s t e r C o l u m n
@@ -64,7 +66,8 @@ struct RosterPattern : public Pattern {
 
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem
-  void checkReducedCost(const PDualCosts &costs, bool printBadPricing = true);
+  void checkReducedCost(const DualCosts &dualCosts,
+                        bool printBadPricing = true) const override;
 
   // Returns true if both columns are disjoint (needRest not used)
   bool isDisjointWith(PPattern pat, bool needRest = true) const override {
@@ -130,27 +133,8 @@ class RosterMP : public MasterProblem {
   // If empty, add artificial columns
   void initializeSolution(const std::vector<Roster> &solution) override;
 
-  // Create a new rotation variable
-  // add the correct constraints and coefficients for the nurse i working
-  // on a rotation
-  // if s=-1, the nurse works on all shifts
-  MyVar *addRoster(const RosterPattern &rotation,
-                   const char *baseName,
-                   bool coreVar = false);
-
-  /* Build each set of constraints
-   * Add also the coefficient of a column for each set
-   */
-  void buildAssignmentCons(const SolverParam &parameters);
-  int addRosterConsToCol(std::vector<MyCons *> *cons,
-                         std::vector<double> *coeffs,
-                         int i);
-
   double getDaysCost() const override;
   double getWeekendCost() const override;
-
-  /* retrieve the dual values */
-  double getConstantDualvalue(PLiveNurse pNurse) const override;
 
   // split the resources between the master and the subproblem
   // must initialize spResources_
@@ -171,7 +155,7 @@ class RosterMP : public MasterProblem {
   * Constraints
   */
   // Ensure that is nurse has a roster assigned to her
-  std::vector<MyCons *> assignmentCons_;
+  RosterAssignmentConstraint *assignmentConstraint_;
 };
 
 #endif  // SRC_SOLVERS_MP_ROSTERMP_H_

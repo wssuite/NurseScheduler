@@ -20,13 +20,17 @@
 #include <utility>
 #include <vector>
 
-
 #include "solvers/mp/sp/rcspp/RCLabel.h"
 #include "solvers/Solver.h"
 #include "tools/Tools.h"
 #include "data/Nurse.h"
 #include "solvers/mp/modeler/Modeler.h"
-#include "OsiSolverInterface.hpp"
+#include "solvers/mp/modeler/Stabilization.h"
+#include "solvers/mp/constraints/ConstraintsMP.h"
+
+
+// forward declaration
+class MasterProblem;
 
 //---------------------------------------------------------------------------
 //
@@ -96,48 +100,11 @@ struct RCSolution : public Stretch {
   std::map<CostType, double> costs_;
 };
 
-struct DualCosts {
- public:
-  DualCosts(vector2D<double> workedShiftsCosts,
-            double constant) :
-      workedShiftsCosts_(std::move(workedShiftsCosts)),
-      constant_(constant) {}
-  virtual ~DualCosts() = default;
-
-  // GETTERS
-  //
-  virtual int nDays() const {
-    return workedShiftsCosts_.size();
-  }
-  virtual double workedDayShiftCost(int day, int shift) const {
-    return shift == 0 ? 0 : workedShiftsCosts_[day][shift - 1];
-  }
-  virtual double startWorkCost(int day) const { return 0; }
-  virtual double endWorkCost(int day) const { return 0; }
-  virtual double workedWeekendCost() const { return 0; }
-  virtual double constant() const { return constant_; }
-
- protected:
-  // TODO(JO): this indexation is VERY confusing and prone to error. Since we
-  //  have decided to treat rest shifts as any shift, we should never have to
-  //  assume that the rest shift is the one with index 0 (except in the
-  //  isWork()/isRest() functions. And we could still include a cost for the
-  //  rest shift in this vector, with a zero value.
-  //  AL: indeed, but at the same time, it's protected and
-  //  the workedDayShiftCost method takes care of that. The rest shift not 0
-  //  would be fixed another time
-  // Indexed by : (day, shift) !! 0 = shift 1 !!
-  vector2D<double> workedShiftsCosts_;
-
-  // constant part of the reduced cost
-  double constant_;
-};
-typedef std::shared_ptr<DualCosts> PDualCosts;
 
 struct Pattern;
 typedef std::shared_ptr<Pattern> PPattern;
 
-class MasterProblem;
+struct DualCosts;
 
 struct Pattern : public RCSolution {
   /* Static helpers */
@@ -238,6 +205,10 @@ struct Pattern : public RCSolution {
     return pattern;
   }
 
+  //  Compute the dual cost of a column
+  virtual void checkReducedCost(const DualCosts &dualCosts,
+                                bool printBadPricing = true) const = 0;
+
   int nurseNum() const { return nurseNum_; }
 
   // need to redefine this function because of the static functions
@@ -306,11 +277,11 @@ class MasterProblem : public Solver, public PrintSolution {
                                                  int day) const = 0;
 
   // get the pointer to the model
-  Modeler *getModel() {
+  Modeler * pModel() const {
     return pModel_;
   }
 
-  MyPricer *getPricer() {
+  MyPricer * pPricer() {
     return pPricer_;
   }
 
@@ -330,19 +301,6 @@ class MasterProblem : public Solver, public PrintSolution {
   // currently stored in the model
   vector3D<double> fractionalRoster() const override;
 
-  // build a DualCosts structure
-  virtual PDualCosts buildDualCosts(PLiveNurse pNurse) const;
-
-  // build a random DualCosts structure
-  // If the option 'optimalDemandConsidered' is selected, the dual costs will
-  // randomly represent the optimal demand over all the horizon. Otherwise,
-  // the dual costs will be created totally randomly.
-  virtual PDualCosts buildRandomDualCosts(
-      bool optimalDemandConsidered = false, int NDaysShifts = 10) const;
-
-  vector2D<double> getRandomWorkedDualCosts(
-      bool optimalDemandConsidered, int NDaysShifts) const;
-
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
   virtual double getBranchColumnValueMax() const = 0;
@@ -361,16 +319,12 @@ class MasterProblem : public Solver, public PrintSolution {
   void fixAvailabilityBasedOnSolution(
       const std::vector<bool> &fixDays) override;
 
-  // set the available days per nurse
-  void nursesAvailabilities(
-      const vector3D<bool> &availableNursesDaysShifts) override;
-
-  // remove any column that does not respect the availabilities
-  void filterColumnsBasedOnAvailability();
-
   // fix/unfix all the variables corresponding to the input vector of nurses
   void fixNurses(const std::vector<bool> &isFixNurse) override;
   void unfixNurses(const std::vector<bool> &isUnfixNurse) override;
+
+  // remove any column that does not respect the availabilities
+  void filterInitialColumnsBasedOnAvailability();
 
   // Solve the problem with a method that allows for a warm start
   double rollingSolve(const SolverParam &parameters,
@@ -401,17 +355,21 @@ class MasterProblem : public Solver, public PrintSolution {
   const char *PB_NAME = "GenCol";
   int solvingTime;
 
-  const vector3D<MyVar *> &getOptDemandVars() const { return optDemandVars_; }
+  const vector3D<MyVar *> &getOptDemandVars() const {
+    return optDemandConstraint_->getVariables();
+  }
+
+  const vector3D<MyVar *> &getNursePositionCountVars() const {
+    return nursePositionCountConstraint_->getVariables();
+  }
 
   const vector4D<MyVar *> &getSkillsAllocVars() const {
-    return skillsAllocVars_;
+    return allocationConstraint_->getVariables();
   }
 
-  const std::vector<int> &getPositionsForSkill(int sk) const {
-    return positionsPerSkill_[sk];
+  const vector3D<MyCons *> &getOptDemandCons() const {
+    return optDemandConstraint_->getConstraints();
   }
-
-  const vector3D<MyCons *> &getOptDemandCons() const { return optDemandCons_; }
 
   /* Display functions */
   std::string costsConstrainstsToString() const override;
@@ -424,8 +382,6 @@ class MasterProblem : public Solver, public PrintSolution {
 
  protected:
   Modeler *pModel_;
-  vector2D<int> positionsPerSkill_;  // link positions to skills
-  vector2D<int> skillsPerPosition_;  // link skills to positions
   MyPricer *pPricer_;  // prices the rotations
   MyTree *pTree_;  // store the tree information
   MyBranchingRule *pRule_;  // choose the variables on which we should branch
@@ -468,41 +424,36 @@ class MasterProblem : public Solver, public PrintSolution {
   // IMPORTANT:  WORKED DAYS CAN ALSO BE USED WORKED HOURS
   //
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  /*
-  * Variables
-  */
-
-  // count the number of missing nurse to reach the optimal
-  vector3D<MyVar *> optDemandVars_;
-  // count the number of nurses by position on each day, shift
-  vector3D<MyVar *> numberOfNursesByPositionVars_;
-  // makes the allocation of the skills
-  vector4D<MyVar *> skillsAllocVars_;
 
   /*
-  * Constraints
+  * Master Problem Constraints
   */
+  NursePositionCountConstraint *nursePositionCountConstraint_;
+  AllocationConstraint *allocationConstraint_;
+  DemandConstraint *minDemandConstraint_, *optDemandConstraint_;
 
-// ensure a minimal coverage per day, per shift, per skill
-  vector3D<MyCons *> minDemandCons_;
-  // count the number of missing nurse to reach the optimal
-  vector3D<MyCons *> optDemandCons_;
-  // ensure there are enough nurses for numberOfNursesByPositionVars_
-  vector3D<MyCons *> numberOfNursesByPositionCons_;
-  // ensures that each nurse works with the good skill
-  vector3D<MyCons *> feasibleSkillsAllocCons_;
+  // vector containing the constraints that are involved
+  // in the column generation
+  vector<ConstraintMP*> columnConstraints_;
 
-  // STAB
-  // Stabilization variables for each constraint
-  // Two variables are needed for equality constraints and one for inequalities
-  // The constraints on average values are not stabilized yet
-  // The position and allocation constraints do not require stabilization
+ public:
+  const vector<ConstraintMP*> & columnConstraints() const {
+    return columnConstraints_;
+  }
 
-  // ensure a minimal coverage per day, per shift, per skill
-  vector3D<MyVar *> stabMinDemandPlus_;
-  // count the number of missing nurse to reach the optimal
-  vector3D<MyVar *> stabOptDemandPlus_;
+  void addColumnConstraint(ConstraintMP* pC) {
+    columnConstraints_.push_back(pC);
+  }
 
+  // add the column to the problem
+  MyVar *createColumn(const Pattern &col, const char *baseName);
+
+  // add a given constraint to the column
+  void addConstoCol(std::vector<MyCons *> *cons,
+                    std::vector<double> *coeffs,
+                    const Pattern &col) const;
+
+ protected:
   /*
   * Methods
   */
@@ -516,7 +467,7 @@ class MasterProblem : public Solver, public PrintSolution {
   // Provide an initial solution to the solver
   virtual void initializeSolution(const std::vector<Roster> &solution) = 0;
 
-  // solve method to catch execption
+  // solve method to catch exception
   void solveWithCatch();
 
   // solve a solution in the output
@@ -540,105 +491,6 @@ class MasterProblem : public Solver, public PrintSolution {
   // update the demand with a new one of the same size
   // change the rhs of the constraints minDemandCons_ and optDemandCons_
   void updateDemand(PDemand pDemand);
-
-  /* Build each set of constraints
-   * Add also the coefficient of a column for each set
-   */
-  void buildSkillsCoverageCons(const SolverParam &parameters);
-  int addSkillsCoverageConsToCol(std::vector<MyCons *> *cons,
-                                 std::vector<double> *coeffs,
-                                 const Pattern &pat) const;
-
-  /* retrieve the dual values */
-  virtual vector2D<double> getShiftsDualValues(PLiveNurse pNurse) const;
-  virtual double getConstantDualvalue(PLiveNurse pNurse) const;
-
-  //---------------------------------------------------------------------------
-  //
-  // STAB: Methods required to implement stabilization in the column generation
-  //
-  // Ref: Lübbecke, Marco E., and Jacques Desrosiers.
-  // "Selected topics in column generation."
-  // Operations research 53.6 (2005): 1007-1023.
-  //
-  //---------------------------------------------------------------------------
-
- public:
-// STAB
-// Update the stabilization variables based on the dual solution
-// 1- When the dual lays inside the box:
-//     - increase the penalty of the duals (the bound for the primal)
-//     - decrease the radius of the duals (the cost for the primal).
-// 2- When the dual lays outside the box:
-//     - decrease the penalty of the duals (the bound for the primal)
-//     - increase the radius of the duals (the cost for the primal).
-// When a dual solution (of the original problem) of better quality
-// is obtained, recenter the box.
-// The issue here is that the  dual solution is not available as the lagrangian
-// bound needs to be computed (and available) and all sub problems need to
-// have been solved to optimality.
-// Instead, the solution is recenter when asked (recenter=true).
-// Currently, the box is recentered when no more columns are generated.
-  void stabUpdate(OsiSolverInterface *solver, bool recenter = true);
-
-  // STAB
-  // initialize the stabilization variables and center them on the current duals
-  void stabInitializeBoundAndCost(OsiSolverInterface *solver);
-
-  // STAB
-  // deactivate the stabilization variables
-  void stabDeactivateBoundAndCost(OsiSolverInterface *solver);
-
-  // STAB
-  // Check the stopping criterion of the relaxation solution specific to the
-  // the stabilization
-  // The point is that current solution can be infeasible if  stabilization
-  // variables are non zero
-  bool stabCheckStoppingCriterion() const;
-
-  // STAB
-  // return the current cost of the stabilization variables
-  double getStabCost() const;
-
- private:
-  std::vector<MyVar *> stabVariablesPlus_, stabVariablesMinus_;
-  // constraints associated with each two stab variables
-  std::vector<MyCons *> stabConstraints_;
-  std::vector<double> stabBoxCenters_;
-
- protected:
-  // Add stabilization variables z for the box [b_, b+] with the penalties c
-  // if getting outside of the box:
-  // dual = obj += - c_+ z_+ - c_- z_-, s.t.: b_- - z_-<= Pi <= b_+ + z_+
-  // primal = obj += -b_- y_- + b_+ y_+, s.t.: y_- <= c_-, y_+ <= c_+
-  // if primal constraint is <= -> create just minus var
-  // if primal constraint is >= -> create just plus var
-  // WARNING: they are inactive at the beginning
-  //
-  void initAllStabVariable(const SolverParam &param);
-
-  // STAB
-  // Multiply the upper bound of the input variable by the input factor
-  void multiplyUbInSolver(MyVar *pVar,
-                          OsiSolverInterface *solver,
-                          double factor);
-  // Set the bound of the input variable to the input value
-  void updateVarUbInSolver(MyVar *pVar,
-                           OsiSolverInterface *solver,
-                           double value);
-
-  // STAB
-  // Set the cost of the input variable to the input value
-  void updateVarCostInSolver(MyVar *pVar,
-                             OsiSolverInterface *solver,
-                             double value);
-
- private:
-  void addStabVariables(const SolverParam &param,
-                        const char *name,
-                        MyCons *cons,
-                        bool LECons,
-                        bool GECons);
 };
 
 #endif  // SRC_SOLVERS_MP_MASTERPROBLEM_H_

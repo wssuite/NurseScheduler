@@ -401,6 +401,7 @@ enum CostType {
 
 // Parameters of the subproblem (used in the solve function of the subproblem)
 class SolverParam;
+const double EPSILON = 1e-3;
 struct SubProblemParam {
   SubProblemParam() = default;
   SubProblemParam(PLiveNurse pNurse, const SolverParam& param);
@@ -410,7 +411,7 @@ struct SubProblemParam {
 
   // *** PARAMETERS ***
   int verbose_ = 0;
-  double epsilon_ = 1e-5;
+  double epsilon_ = EPSILON;
 
   int nbMaxColumnsToAdd_ = 10;
   int sp_nbrotationspernurse_ = 20;
@@ -531,7 +532,7 @@ class SolverParam {
   int maxSolvingTimeSeconds_ = LARGE_TIME;
 
   // tolerance
-  double epsilon_ = 1e-5;  // precision for the solver
+  double epsilon_ = EPSILON;  // precision for the solver
 
   // print parameters
   int verbose_ = 0;
@@ -744,6 +745,8 @@ class Solver {
   //
   std::vector<PLiveNurse> theLiveNurses_;
 
+  // TODO(AL): need to be refactor to be cleaner
+ public:
   // Preprocessed minimum and maximum number of working days on all the weeks
   //
   std::vector<double> minTotalShifts_, maxTotalShifts_, maxTotalWeekends_;
@@ -785,7 +788,7 @@ class Solver {
   //-----------------------------------------------------------------------------
   // Outputs of the solver
   //-----------------------------------------------------------------------------
-
+ protected:
   // Status of the solver
   //
   Status status_ = UNSOLVED;
@@ -1127,6 +1130,9 @@ class Solver {
 
   // Returns the number of shifts
   int nShifts() const { return pDemand_->nShifts_; }
+
+  // Returns the demand
+  PDemand pDemand() const { return pDemand_; }
 
   virtual double LB() const { return -LARGE_SCORE; }
 

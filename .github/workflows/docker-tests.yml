@@ -122,47 +122,59 @@ jobs:
           instance: n005w4_2_9-0-1-2
           ns-args: -g 1540-1700
 
-      - name: n030w4_1_6-2-9-1  4 threads
+      - name: n030w4_1_6-2-9-1  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -g 1670-2000 -t 300 --n-threads 4
+          ns-args: -g 1670-2000 -t 300 --n-threads 2
 
-      - name: n030w4_1_6-2-9-1 ROLLING  4 threads
+      - name: n030w4_1_6-2-9-1 ROLLING ROTATION 2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -g 1670-2000 -t 300 --n-threads 4 --param rolling_1week.txt
+          ns-args: -g 1670-2000 -t 300 --n-threads 2 --param rolling_1week.txt --sp-type ALL --rcspp-type DEFAULT
 
-#      - name: n030w4_1_6-2-9-1 LNS  4 threads
-#        uses: ./ # Uses an action in the root directory
-#        with:
-#          instance: n030w4_1_6-2-9-1
-#          ns-args: -g 1670-2000 -t 300 --n-threads 4 --param lns_rolling_1week.txt
-
-      - name: n030w4_1_6-2-9-1 BOOST ROSTER  4 threads
+      - name: n030w4_1_6-2-9-1 ROLLING LNS ROTATION 2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -g 1670 -t 300 --n-threads 4 --sp-type ROSTER --rcspp-type BOOST --param optimality.txt
+          ns-args: -g 1670-2000 -t 300 --n-threads 2 --param lns_rolling_destroy48weeks.txt --sp-type ALL --rcspp-type DEFAULT
 
-      - name: n030w4_1_6-2-9-1 ROSTER  4 threads
+      - name: n030w4_1_6-2-9-1 ROLLING ROSTER 2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -g 1670 -t 300 --n-threads 4 --sp-type ROSTER --rcspp-type DEFAULT --param optimality.txt
+          ns-args: -g 1670-1750 -t 300 --n-threads 2 --param rolling_1week.txt --sp-type ROSTER --rcspp-type DEFAULT
 
-      - name: n030w4_1_6-7-5-3  4 threads
+      - name: n030w4_1_6-2-9-1 ROLLING LNS ROSTER 2 threads
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1670-1750 -t 300 --n-threads 2 --param lns_rolling_destroy48weeks.txt --sp-type ROSTER --rcspp-type DEFAULT
+
+      - name: n030w4_1_6-2-9-1 BOOST ROSTER  2 threads
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1670 -t 300 --n-threads 2 --sp-type ROSTER --rcspp-type BOOST --param optimality.txt
+
+      - name: n030w4_1_6-2-9-1 ROSTER  2 threads
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1670 -t 300 --n-threads 2 --sp-type ROSTER --rcspp-type DEFAULT --param optimality.txt
+
+      - name: n030w4_1_6-7-5-3  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
-          ns-args: -g 1900-2200 -t 300 --n-threads 4
+          ns-args: -g 1900-2200 -t 300 --n-threads 2
 
-      - name: n035w4_1_1-7-1-8  4 threads
+      - name: n035w4_1_1-7-1-8  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n035w4_1_1-7-1-8
-          ns-args: -g 1280-1600 -t 300 --n-threads 4
+          ns-args: -g 1280-1600 -t 300 --n-threads 2
 
       - name: new1_0_0-1 LONG
         uses: ./ # Uses an action in the root directory
@@ -182,17 +194,17 @@ jobs:
           instance: new1_0_0-1
           ns-args: -g 1200 -e 0 --sp-type ALL --rcspp-type DEFAULT
 
-      - name: new1_0_0-1 ROSTER  4 threads
+      - name: new1_0_0-1 ROSTER  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: new1_0_0-1
-          ns-args: -g 1200 -e 0 --sp-type ROSTER -t 120 --n-threads 4
+          ns-args: -g 1200 -e 0 --sp-type ROSTER -t 120 --n-threads 2
 
       - name: n030w4_1_6-2-9-1 dynamic
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -d -s 68-54-78-98 -g 1800-2000
+          ns-args: -d -s 68-54-78-98 -g 1750-2000
 
       - name: n030w4_1_6-7-5-3 dynamic
         uses: ./ # Uses an action in the root directory

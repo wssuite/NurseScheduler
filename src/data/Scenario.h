@@ -503,7 +503,7 @@ class Scenario {
   // getters for the attribute of the demand
   //
   int firstDay() const { return pWeekDemand_->firstDay_; }
-  int nDays() const { return pWeekDemand_->nDays_; }
+  int horizon() const { return pWeekDemand_->nDays_; }
 
   // Setters to class attributes
 

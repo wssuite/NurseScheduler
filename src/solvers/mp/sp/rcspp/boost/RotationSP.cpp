@@ -151,17 +151,13 @@ double RotationSP::startWorkCost(int a) const {
   // it may be then end of a rotation for instance
   if (arc_prop.pShifts.empty())
     ++start;  // start work the next day as no shift today
-  double cost = shiftCost(a);
-  // add weekend cost if first day is sunday
-  if (Tools::isSunday(start))
-    cost -= pCosts_->workedWeekendCost();
-  cost -= pCosts_->startWorkCost(start);
+  double cost = shiftCost(a, nullptr);
   cost += startWeekendCosts_[start];
 
   return cost;
 }
 
-double RotationSP::shiftCost(int a) const {
+double RotationSP::shiftCost(int a, const PAbstractShift &prevS) const {
   const Arc_Properties &arc_prop  = g_.arc(a);
   // initial cost of the arc is the part of the cost that is common to all
   // nurses with the same contract
@@ -169,30 +165,29 @@ double RotationSP::shiftCost(int a) const {
 
   int k = arc_prop.day;
   // iterate through the shift to update the cost
-  for (const PShift &pS : arc_prop.pShifts) {
-    cost += preferencesCosts_[k][pS->id];
-    if (pS->isWork()) {
-      cost -= pCosts_->workedDayShiftCost(k, pS->id);
-      // add weekend cost if working on saturday
-      // sunday exception is managed by startWorkCost
-      if (Tools::isSaturday(k))
-        cost -= pCosts_->workedWeekendCost();
-    }
-    ++k;
-  }
+  for (const PShift &pS : arc_prop.pShifts)
+    cost += preferencesCosts_[k++][pS->id];
+  Stretch st(arc_prop.day, arc_prop.pShifts);
+  cost -= pCosts_->getCost(pLiveNurse_->num_, st, prevS);
   return cost;
 }
 
 double RotationSP::endWorkCost(int a) const {
   const Arc_Properties &arc_prop  = g_.arc(a);
-  double cost = shiftCost(a);
+  PShift pW = pScenario_->pAnyWorkShift();
+  double cost = shiftCost(a, pW);
   int length = arc_prop.pShifts.size(), end = arc_prop.day;
   // compute the end of the sequence of shifts
   // length could be equal to 0, but still represents the end of the rotation
   if (length > 1) end += length - 1;
   if (arc_prop.pShifts.empty() || arc_prop.pShifts.back())
     cost += endWeekendCosts_[end];
-  cost -= pCosts_->endWorkCost(end);
+  // create a stretch of 1 rest day at the end to get the end cost
+  // if not last day
+  if (++end <  nDays()) {
+    Stretch st(end, pScenario_->pRestShift());
+    cost -= pCosts_->getCost(pLiveNurse_->num_, st, pW);
+  }
   return cost;
 }
 
@@ -322,7 +317,7 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
    * Compute the sum of the cost and stores it in cost_
    */
 #ifdef DBG
-  if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > 1e-3) {
+  if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
               << std::endl;

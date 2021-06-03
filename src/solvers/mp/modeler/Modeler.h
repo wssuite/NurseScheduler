@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "solvers/Solver.h"
+#include "solvers/mp/modeler/Stabilization.h"
 #include "tools/Tools.h"
 
 /*
@@ -778,6 +779,10 @@ struct MyTree {
 
   MyNode *getCurrentNode() const { return currentNode_; }
 
+  double getIntegralityGap() const {
+    return (getBestUB() - getBestLB()) / getBestLB();
+  }
+
   virtual bool is_columns_node() const { return false; }
 
   virtual bool continueDiving() const { return false; }
@@ -839,7 +844,10 @@ struct MyTree {
 
 class Modeler {
  public:
-  Modeler() : pPricer_(nullptr), pBranchingRule_(nullptr), pTree_(nullptr) {}
+  Modeler() : pPricer_(nullptr),
+              pBranchingRule_(nullptr),
+              pTree_(nullptr),
+              stab_(this) {}
 
   virtual ~Modeler() {
     for (MyVar *var : initialColumnVars_)
@@ -1392,6 +1400,13 @@ class Modeler {
   virtual double getVarValue(MyVar *var) const = 0;
 
   // compute the total cost of a multiple vectors of MyObject* in the solution
+  double getVarValue(const std::vector<MyVar*> &vector) const {
+    double value = 0;
+    for (MyVar* v : vector)
+      if (v) value += getVarValue(v);
+    return value;
+  }
+
   template<typename V>
   double getVarValue(const std::vector<V> &vector) const {
     double value = 0;
@@ -1401,9 +1416,9 @@ class Modeler {
   }
 
   std::vector<double> getVarValues(const std::vector<MyVar *> &vars) const {
-    std::vector<double> values(vars.size());
+    std::vector<double> values(vars.size(), 0);
     for (unsigned int i = 0; i < vars.size(); ++i)
-      values[i] = getVarValue(vars[i]);
+      if (vars[i]) values[i] = getVarValue(vars[i]);
     return values;
   }
 
@@ -1412,6 +1427,13 @@ class Modeler {
    */
 
   virtual double getDual(MyCons *cons, bool transformed = false) const = 0;
+
+  double getDual(const std::vector<MyCons*> &vector) const {
+    double value = 0;
+    for (MyCons* c : vector)
+      if (c) value += getDual(c);
+    return value;
+  }
 
   template<typename V>
   double getDual(const std::vector<V> &vector) const {
@@ -1423,9 +1445,9 @@ class Modeler {
 
   std::vector<double> getDuals(const std::vector<MyCons *> &cons,
                                bool transformed = false) const {
-    std::vector<double> dualValues(cons.size());
+    std::vector<double> dualValues(cons.size(), 0);
     for (unsigned int i = 0; i < cons.size(); ++i)
-      dualValues[i] = getDual(cons[i], transformed);
+      if (cons[i]) dualValues[i] = getDual(cons[i], transformed);
     return dualValues;
   }
 
@@ -1625,6 +1647,8 @@ class Modeler {
 
   double getBestLB() const { return pTree_->getBestLB(); }
 
+  double getIntegralityGap() const { return pTree_->getIntegralityGap(); }
+
   int getTreeSize() const { return pTree_->getTreeSize(); }
 
   int getNbNodesProcessed() const { return pTree_->getNbNodesProcessed(); }
@@ -1696,6 +1720,8 @@ class Modeler {
   }
 
   virtual void clear() {
+    // reset stabilization
+    stab_ = Stabilization(this);
     // clear and delete columns
     clearActiveColumns();
     // clear and delete core vars and cons
@@ -1722,6 +1748,10 @@ class Modeler {
     // reset the columns index in the Modeler after a reset
     for (MyVar *v : initialColumnVars_)
       v->setIndex(var_count++);
+  }
+
+  Stabilization &stab() {
+    return stab_;
   }
 
   virtual void copyActiveToInitialColumns() {}
@@ -1775,6 +1805,7 @@ class Modeler {
   MyPricer *pPricer_;
   MyBranchingRule *pBranchingRule_;
   MyTree *pTree_;
+  Stabilization stab_;
 
   int verbosity_ = 0;
   SearchStrategy searchStrategy_ = BestFirstSearch;

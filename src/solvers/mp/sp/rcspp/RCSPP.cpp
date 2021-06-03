@@ -324,7 +324,7 @@ bool RCSPPSolver::expand(
     }
   }
   pLChild->addBaseCost(pArc->baseCost);
-  pLChild->addCost(pArc->dualCost);
+  pLChild->addCost(-pArc->dualCost);
 #ifdef DBG
   pLChild->addDualCost(pArc->dualCost);
 #endif
@@ -795,7 +795,7 @@ bool RCSPPSolver::expandBack(
     }
   }
   pLPrevious->addBaseCost(pArc->baseCost);
-  pLPrevious->addCost(pArc->dualCost);
+  pLPrevious->addCost(-pArc->dualCost);
 #ifdef DBG
   pLPrevious->addDualCost(pArc->dualCost);
 #endif

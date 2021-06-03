@@ -220,7 +220,7 @@ bool SpplabelBreadthFirstComparator::operator()(
       < splabel2->cumulated_resource_consumption.day)
     return false;
   return splabel1->cumulated_resource_consumption.cost
-      > splabel2->cumulated_resource_consumption.cost + 1e-5;
+      > splabel2->cumulated_resource_consumption.cost + EPSILON;
 }
 
 // Depth First Comparator to order the processing of the nodes in boost rc spp:
@@ -236,7 +236,7 @@ bool SpplabelDepthFirstComparator::operator()(
       > splabel2->cumulated_resource_consumption.day)
     return false;
   return splabel1->cumulated_resource_consumption.cost
-      > splabel2->cumulated_resource_consumption.cost + 1e-5;
+      > splabel2->cumulated_resource_consumption.cost + EPSILON;
 }
 
 // Best First Comparator to order the processing of the nodes in boost rc spp:
@@ -245,7 +245,7 @@ bool SpplabelBestFirstComparator::operator()(
     const Spplabel &splabel1,
     const Spplabel &splabel2) const {
   return splabel1->cumulated_resource_consumption.cost
-      > splabel2->cumulated_resource_consumption.cost + 1e-5;
+      > splabel2->cumulated_resource_consumption.cost + EPSILON;
 }
 
 // Dominant First Comparator to order the processing of the nodes
@@ -263,7 +263,7 @@ bool SpplabelDominantFirstComparator::operator()(
       splabel2->cumulated_resource_consumption.parentDominanceLvl)
     return true;  // should be processed last
   return splabel1->cumulated_resource_consumption.cost
-      > splabel2->cumulated_resource_consumption.cost + 1e-5;
+      > splabel2->cumulated_resource_consumption.cost + EPSILON;
 }
 
 bool SpplabelDefaultComparator::operator()(

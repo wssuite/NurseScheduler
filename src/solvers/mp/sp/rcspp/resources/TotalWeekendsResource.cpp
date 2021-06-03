@@ -18,6 +18,7 @@ int TotalWeekend::computeConsumption(const Stretch &stretch,
   int consumption = 0;
   auto itShift = stretch.pShifts().begin();
   // reset weekend flag
+  if (!Tools::isWeekend(stretch.firstDay()-1)) *ready = true;
   if (!Tools::isWeekend(stretch.firstDay())) *ready = true;
   for (int i = stretch.firstDay(); i <= stretch.lastDay(); i++, itShift++) {
     // if a weekend

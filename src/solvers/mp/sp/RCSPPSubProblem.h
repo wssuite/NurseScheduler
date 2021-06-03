@@ -57,8 +57,8 @@ class RCSPPSubProblem : public SubProblem {
   // direction of the arcs) and from the nodes of a given day (i.e., a given
   // level of the acyclic graph) to every other nodes.
   vector<double> minCostPathToSinksAcyclic(const PRCGraph &pRCGraph);
-  vector<double> minCostPathFromGivenDayAcyclic(const PRCGraph &pRCGraph,
-                                                int sourceDay);
+//  vector<double> minCostPathFromGivenDayAcyclic(const PRCGraph &pRCGraph,
+//                                                int sourceDay);
 
   //------------------------------------------------
   // Enumeration of sub paths
@@ -150,7 +150,7 @@ class RCSPPSubProblem : public SubProblem {
   double baseCost(const Stretch &stretch, PAbstractShift pPrevShift);
 
   // get the dual cost of a given stretch
-  virtual double dualCost(const PRCArc &pArc) = 0;
+  double dualCost(const PRCArc &pArc);
 
   // recover the base costs due to preferences and incomplete weekends
   void initStructuresForSolve() override {

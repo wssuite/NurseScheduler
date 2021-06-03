@@ -50,7 +50,7 @@ struct BcpLpSol {
   BcpLpSol() {}
 
   BcpLpSol(const std::vector<MyVar *> &activeColumnVars,
-           const std::map<int, int> &columnsToIndex,
+           const std::vector<int> &columnsToIndex,
            const std::vector<double> &primalValues,
            const std::vector<double> &dualValues,
            const std::vector<double> &reducedCosts,
@@ -66,7 +66,7 @@ struct BcpLpSol {
 
   // active columns in the solution
   std::vector<MyVar *> activeColumnVars_;
-  std::map<int, int> columnsToIndex_;
+  std::vector<int> columnsToIndex_;
 
   // primal and dual values of the solution
   std::vector<double> primalValues_;
@@ -76,7 +76,7 @@ struct BcpLpSol {
 
   // set all the attributes of the solution
   void setLpSol(const std::vector<MyVar *> &activeColumnVars,
-                const std::map<int, int> &columnsToIndex,
+                const std::vector<int> &columnsToIndex,
                 const std::vector<double> &primalValues,
                 const std::vector<double> &dualValues,
                 const std::vector<double> &reducedCosts,
@@ -348,7 +348,10 @@ class BcpModeler : public CoinModeler {
     if (!col)
       std::cout << "error";
     Modeler::addActiveColumn(var, index);
-    if (index >= 0) columnsToIndex_[col->getIndex()] = index;
+    int i = col->getIndex() - coreVars_.size();
+    if (i >= columnsToIndex_.size())
+      columnsToIndex_.resize(i+1, -1);
+    columnsToIndex_[i] = index;
   }
 
   // Delete all the objects owned by this modeler and then call the parent
@@ -358,19 +361,24 @@ class BcpModeler : public CoinModeler {
   void clearActiveColumns() override {
     Modeler::clearActiveColumns();
     columnsToIndex_.clear();
+    columnsToIndex_.resize(var_count - coreVars_.size(), -1);
     // columns of any previous solution have been cleared -> reset index
     indexBcpSol_ = -1;
   }
 
-  // copy the current active columns to keep a track of them after deleting BCP
-  void copyActiveToInitialColumns() override {
-    for (MyVar *v : activeColumnVars_) {
-      auto col = dynamic_cast<BcpColumn *>(v);
-      col->resetBounds();
-      initialColumnVars_.emplace_back(new BcpColumn(*col));
-    }
-    clearActiveColumns();
+  // return the index of the variable in the active solution.
+  // core variables are always present in the active solution,
+  // but many columns will be missing
+  int getActiveIndex(MyVar *var) const {
+    int index = var->getIndex();
+    // if a column, fetch index
+    if (index >= coreVars_.size())
+      index = columnsToIndex_[index - coreVars_.size()];
+    return index;
   }
+
+  // copy the current active columns to keep a track of them after deleting BCP
+  void copyActiveToInitialColumns() override;
 
  protected:
   /*
@@ -469,12 +477,6 @@ class BcpModeler : public CoinModeler {
   void setLPSol(const BCP_lp_result &lpres,
                 const BCP_vec<BCP_var *> &vars,
                 int lpIteration);
-
-  int getIndexCol(int colIndex) {
-    auto it = columnsToIndex_.find(colIndex);
-    if (it == columnsToIndex_.end()) return -1;
-    return it->second;
-  }
 
   void addCurrentBcpSol(bool isInteger = true);
 
@@ -662,7 +664,7 @@ class BcpModeler : public CoinModeler {
   // results
   std::vector<double> obj_history_;
   std::vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
-  std::map<int, int> columnsToIndex_;
+  std::vector<int> columnsToIndex_;
   bool solHasChanged_ = false;  // reload solution ?
   // bcp solution
   std::vector<MyBCPSolution> bcpSolutions_;

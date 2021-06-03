@@ -11,7 +11,8 @@
 
 #include "TotalShiftDurationResource.h"
 
-int TotalShiftDuration::computeConsumption(const Stretch &stretch) const {
+int TotalShiftDuration::computeConsumption(
+    const Stretch &stretch, bool *ready) const {
   int consumption = 0;
   for (const auto &pShift : stretch.pShifts())
     if (pShift_->includes(*pShift))

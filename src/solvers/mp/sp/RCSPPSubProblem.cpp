@@ -161,7 +161,7 @@ void RCSPPSubProblem::enumerateConsShiftType(
     vector<PShift> vecShift;
     vecShift.reserve(consShiftsUbs_.at(pShiftIni->id));
     for (int d{1}; d <= consShiftsUbs_.at(indSuccessorShift) - initialC &&
-        d < pScenario_->nDays() - pOrigin->day; d++) {
+        d < pRCGraph_->nDays() - pOrigin->day; d++) {
       // if sink, stop
       if (pTarget->type == SINK_NODE) break;
       // Target node of the arc that will be added
@@ -312,6 +312,12 @@ double RCSPPSubProblem::baseCost(
   }
   return cost;
 }
+
+double RCSPPSubProblem::dualCost(const PRCArc &pArc) {
+  return pCosts_->getCost(
+      pLiveNurse_->num_, pArc->stretch, pArc->origin->pAShift);
+}
+
 
 void RCSPPSubProblem::createResources(const PRCGraph &pRCGraph) {
   pRCGraph->clearResources();
@@ -474,9 +480,9 @@ vector<double> RCSPPSubProblem::minCostPathToSinksAcyclic(
         } else if ((*it)->isRest() && day > 0 && pPrevShift->isWork()) {
           cost -= endWeekendCosts_[day - 1];
         }
-        if (day == 0) cost -= pCosts_->constant();
-        if ((*it)->isWork())
-          cost += pCosts_->workedDayShiftCost(day, (*it)->id);
+        cost -= pCosts_->getCost(pLiveNurse_->num_,
+                                 Stretch(day, *it),
+                                 pPrevShift);
 
         pPrevShift = (*it);
         predecessor = pNodesPerDay_[day][(*it)->id]->id;
@@ -486,74 +492,76 @@ vector<double> RCSPPSubProblem::minCostPathToSinksAcyclic(
   return shortestPathToSinks;
 }
 
-// TODO(JO): verify the computation with enumerated subpath once the
-//  enumeration function is functional again
-vector<double> RCSPPSubProblem::minCostPathFromGivenDayAcyclic(
-    const PRCGraph &pRCGraph, int sourceDay) {
-  // Initialization of all the costs of the shortest paths at infinity
-  double inf = std::numeric_limits<double>::infinity();
-  vector<double> minimumCost(pRCGraph->nNodes(), inf);
-  // get a topological order of the nodes (i.e. by increasing day)
-  vector<PRCNode> sortedNodes = pRCGraph->sortNodes();
-  // Only the cost of the shortest path to the sink node is set to 0
-  for (const auto &pN : sortedNodes) {
-    if (pN->day > sourceDay) break;
-    if (pN->day == sourceDay) minimumCost.at(pN->id) = 0.0;
-  }
-
-  // Iteration through all the nodes of the acyclic graph in topological
-  // order, starting from the first node of sourceDay
-  auto itN = sortedNodes.begin();
-  while ((*itN)->day < sourceDay) itN++;
-  for (; itN != sortedNodes.end(); itN++) {
-    double sp = minimumCost[(*itN)->id];
-    for (const auto &pArc : (*itN)->outArcs) {
-      if (pArc->forbidden) continue;  // do not use forbidden arcs
-      double cost = pArc->cost;
-      int day = pArc->stretch.lastDay();
-      auto it = pArc->stretch.pShifts().rbegin();
-      vector<shared_ptr<Shift>> pShifts = pArc->stretch.pShifts();
-      PAbstractShift pNextShift = pArc->target->pAShift;
-      int successor = pArc->target->id;
-      for (; it != pArc->stretch.pShifts().rend(); ++it, --day) {
-        // update shortest path if needed
-        if (minimumCost[successor] > sp + cost) {
-          minimumCost[successor] = sp + cost;
-        }
-        // when enumerating subpath only for computing minimum cost from a
-        // source day, we need to compute what is the cost to each node of
-        // each stretch of the enumerated arcs, otherwise, this is not necessary
-        if (!param_.rcsppEnumSubpathsForMinCostToSinks_) break;
-        if (day == pArc->stretch.firstDay()) break;
-
-        // next, we will focus on the previous node of the arc's stretch, so
-        // update the cost to remove the base and dual cost associated with
-        // current node
-        // TODO(JO): what is done below is not general, I am actually
-        //  re-computing the cost of an arc of the original graph. The
-        //  simplest way forward would be to keep pointers to the original
-        //  arcs in the enumerated arcs, but it raises several other issues.
-        //  Rather create a method that computes a transition from day-shift1
-        //  to day+1-shift2.
-        cost -= preferencesCosts_[day][(*it)->id];
-        if ((*it)->isWork()) {
-          // add complete weekend cost if first worked shift of a rotation
-          if (pNextShift->isRest())
-            cost -= startWeekendCosts_[day];
-        } else if ((*it)->isRest() && day > 0 && pNextShift->isWork()) {
-          cost -= endWeekendCosts_[day - 1];
-        }
-        if (day == 0) cost -= pCosts_->constant();
-        if ((*it)->isWork())
-          cost += pCosts_->workedDayShiftCost(day, (*it)->id);
-
-        pNextShift = (*it);
-        successor = pNodesPerDay_[day][(*it)->id]->id;
-      }
-    }
-  }
-  return minimumCost;
-}
+//// TODO(JO): verify the computation with enumerated subpath once the
+////  enumeration function is functional again
+// vector<double> RCSPPSubProblem::minCostPathFromGivenDayAcyclic(
+//    const PRCGraph &pRCGraph, int sourceDay) {
+//  // Initialization of all the costs of the shortest paths at infinity
+//  double inf = std::numeric_limits<double>::infinity();
+//  vector<double> minimumCost(pRCGraph->nNodes(), inf);
+//  // get a topological order of the nodes (i.e. by increasing day)
+//  vector<PRCNode> sortedNodes = pRCGraph->sortNodes();
+//  // Only the cost of the shortest path to the sink node is set to 0
+//  for (const auto &pN : sortedNodes) {
+//    if (pN->day > sourceDay) break;
+//    if (pN->day == sourceDay) minimumCost.at(pN->id) = 0.0;
+//  }
+//
+//  // Iteration through all the nodes of the acyclic graph in topological
+//  // order, starting from the first node of sourceDay
+//  auto itN = sortedNodes.begin();
+//  while ((*itN)->day < sourceDay) itN++;
+//  for (; itN != sortedNodes.end(); itN++) {
+//    double sp = minimumCost[(*itN)->id];
+//    for (const auto &pArc : (*itN)->outArcs) {
+//      if (pArc->forbidden) continue;  // do not use forbidden arcs
+//      double cost = pArc->cost;
+//      int day = pArc->stretch.lastDay();
+//      auto it = pArc->stretch.pShifts().rbegin();
+//      vector<shared_ptr<Shift>> pShifts = pArc->stretch.pShifts();
+//      PAbstractShift pNextShift = pArc->target->pAShift;
+//      int successor = pArc->target->id;
+//      for (; it != pArc->stretch.pShifts().rend(); ++it, --day) {
+//        // update shortest path if needed
+//        if (minimumCost[successor] > sp + cost) {
+//          minimumCost[successor] = sp + cost;
+//        }
+//        // when enumerating subpath only for computing minimum cost from a
+//        // source day, we need to compute what is the cost to each node of
+//      // each stretch of the enumerated arcs, otherwise, this is not necessary
+//        if (!param_.rcsppEnumSubpathsForMinCostToSinks_) break;
+//        if (day == pArc->stretch.firstDay()) break;
+//
+//        // next, we will focus on the previous node of the arc's stretch, so
+//        // update the cost to remove the base and dual cost associated with
+//        // current node
+//        // TODO(JO): what is done below is not general, I am actually
+//        //  re-computing the cost of an arc of the original graph. The
+//        //  simplest way forward would be to keep pointers to the original
+//        //  arcs in the enumerated arcs, but it raises several other issues.
+//        //  Rather create a method that computes a transition from day-shift1
+//        //  to day+1-shift2.
+//        // TODO(AL): I don't understand what is happening here ...
+//        //  I have the impression that pNextShift, should be previous
+//        cost -= preferencesCosts_[day][(*it)->id];
+//        if ((*it)->isWork()) {
+//          // add complete weekend cost if first worked shift of a rotation
+//          if (pNextShift->isRest())
+//            cost -= startWeekendCosts_[day];
+//        } else if ((*it)->isRest() && day > 0 && pNextShift->isWork()) {
+//          cost -= endWeekendCosts_[day - 1];
+//        }
+//        cost -= pCosts_->getDualCost(pLiveNurse_->nurseNum_,
+//                                     Stretch(day, *it),
+//                                     pPrevShift);
+//
+//        pNextShift = (*it);
+//        successor = pNodesPerDay_[day][(*it)->id]->id;
+//      }
+//    }
+//  }
+//  return minimumCost;
+//}
 
 void RCSPPSubProblem::updateArcDualCosts() {
   for (const auto& pA : pRCGraph_->pArcs())

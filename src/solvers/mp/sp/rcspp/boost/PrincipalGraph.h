@@ -92,6 +92,7 @@ class PrincipalGraph : public SubGraph {
   int shift_type_;
   int max_cons_;
   std::map<int, int> shifts_to_indices_;
+  PAbstractShift pAS_;
 
   // Nodes of the PRINCIPAL_NETWORK subnetwork
   // For each SHIFT, DAY, and # of CONSECUTIVE, the corresponding node id

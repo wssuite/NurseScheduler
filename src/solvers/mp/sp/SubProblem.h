@@ -13,7 +13,9 @@
 #define SRC_SOLVERS_MP_SP_SUBPROBLEM_H_
 
 #include <algorithm>
+#include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -26,6 +28,30 @@
 // Contains the shortest paths with resource constraints
 //
 //---------------------------------------------------------------------------
+struct DualCosts {
+  explicit DualCosts(MasterProblem *pMaster) : pMaster_(pMaster) {}
+  virtual ~DualCosts() = default;
+
+  // update the dual values of every constraints based on the current solution
+  void updateDuals();
+
+  // update the dual values of every constraints randomly
+  void randomUpdateDuals(
+      bool useInputData = false, int nPerturbations = 10);
+
+  // return the dual cost of a stretch based on its consumption of
+  // every constraints
+  double getCost(int nurseNum,
+                 const Stretch &st,
+                 const PAbstractShift &prevS) const;
+
+  std::string toString() const;
+  std::string toString(int nurseNum, const Stretch &st) const;
+
+  MasterProblem *pMaster_;
+};
+
+typedef std::shared_ptr<DualCosts> PDualCosts;
 
 class SubProblem {
  public:

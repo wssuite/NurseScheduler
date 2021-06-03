@@ -13,8 +13,9 @@
 
 #include <math.h>
 
-#include <sstream>
 #include <algorithm>
+#include <sstream>
+#include <utility>
 
 #include "data/Scenario.h"
 
@@ -35,16 +36,17 @@ Demand::Demand(int nbDays,
                int nbSkills,
                std::string name,
                vector3D<int> minDemand,
-               vector3D<int> optDemand) : name_(name),
-                                          nDays_(nbDays),
-                                          firstDay_(firstDay),
-                                          nShifts_(nbShifts),
-                                          nSkills_(nbSkills),
-                                          minDemand_(minDemand),
-                                          optDemand_(optDemand),
-                                          minTotal_(0),
-                                          optTotal_(0),
-                                          isPreprocessed_(false) {
+               vector3D<int> optDemand) :
+    name_(std::move(name)),
+    nDays_(nbDays),
+    firstDay_(firstDay),
+    nShifts_(nbShifts),
+    nSkills_(nbSkills),
+    minDemand_(std::move(minDemand)),
+    optDemand_(std::move(optDemand)),
+    minTotal_(0),
+    optTotal_(0),
+    isPreprocessed_(false) {
   // run the preprocessing
   this->preprocessDemand();
 }

@@ -94,7 +94,7 @@ void RotationSP::createArcs(const PRCGraph &pRCGraph) {
   for (int d = 1; d < nDays_; ++d)
     for (const PShift &pS : pScenario_->pShifts()) {
       PRCNode pOrigin = pNodesPerDay_[d-1][pS->id];
-      if (pOrigin->pAShift->isRest()) continue;  // rest nodes are the sinks
+      if (pOrigin->type ==  SINK_NODE) continue;  // rest nodes are the sinks
       for (int succId : pS->successors) {
         if (!pLiveNurse_->isShiftAvailable(succId)) continue;
         PRCNode pTarget = pNodesPerDay_[d][succId];
@@ -102,49 +102,6 @@ void RotationSP::createArcs(const PRCGraph &pRCGraph) {
                      pScenario_->pShift(succId), d);
       }
     }
-}
-
-double RotationSP::dualCost(const PRCArc &pArc) {
-  double dualCost = 0;
-  int curDay = pArc->stretch.firstDay();
-  // add start cost if starting from a source
-  if (pArc->origin->type == SOURCE_NODE)
-    dualCost -= pCosts_->startWorkCost(curDay);
-  // iterate through the shift to update the cost
-  // true if previous shift worked on weekend
-  PAbstractShift prevAShift = pArc->origin->pAShift;
-  bool weekendWorked = prevAShift->isWork() && (curDay > 0)
-      && Tools::isWeekendDayButNotLastOne(curDay-1);
-  for (const auto& pS : pArc->stretch.pShifts()) {
-    if (pS->isWork()) {
-      dualCost -= pCosts_->workedDayShiftCost(curDay, pS->id);
-      // check if working on weekend
-      if (Tools::isWeekend(curDay)) {
-        if (!weekendWorked)
-          dualCost -= pCosts_->workedWeekendCost();
-        else
-          weekendWorked = true;
-        // reset flag on last weekend day
-        if (Tools::isLastWeekendDay(curDay))
-          weekendWorked = false;
-      }
-    }
-    curDay++;
-    prevAShift = pS;
-  }
-  curDay--;  // last day
-
-  // add end cost
-  if (pArc->target->type == SINK_NODE) {
-    // if rest on the previous shift, end cost for the previous day
-    // otherwise, it's the last day
-    if (prevAShift->isRest())
-      --curDay;
-    // add end cost
-    dualCost -= pCosts_->endWorkCost(curDay);
-  }
-
-  return dualCost;
 }
 
 void RotationSP::createInitialLabels() {
@@ -232,7 +189,7 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   if (restShiftAdded) rcSol->popBack();
 
 #ifdef DBG
-  if (std::abs(cost - rcSol->cost()) > 1e-3) {
+  if (cost < DBL_MAX-1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
@@ -242,7 +199,7 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
     std::cerr << rcSol->costsToString();
     std::cerr << rcSol->toString();
     std::cerr << "# " << std::endl;
-    Tools::throwError("RosterSP::computeCost does not get the same cost.");
+    Tools::throwError("RotationSP::computeCost does not get the same cost.");
 
     // check with boost if default resources
     if (pMaster->useDefaultResources()) {

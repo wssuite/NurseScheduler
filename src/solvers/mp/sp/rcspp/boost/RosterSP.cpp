@@ -35,14 +35,12 @@ RosterSP::RosterSP(PScenario scenario,
 RosterSP::~RosterSP() {}
 
 BoostRCSPPSolver *RosterSP::initRCSSPSolver() {
-  double constant = pCosts_->constant();
   Penalties penalties = initPenalties();
   // lambda expression to post process the solutions found by the RCSPP solver
-  auto postProcess = [constant, penalties](spp_res_cont *res_cont) {
+  auto postProcess = [penalties](spp_res_cont *res_cont) {
     res_cont->postprocessCost =
         penalties.penalty(DAYS, res_cont->label_value(DAYS)) +
-            penalties.penalty(WEEKEND, res_cont->label_value(WEEKEND)) -
-            constant;
+            penalties.penalty(WEEKEND, res_cont->label_value(WEEKEND));
     res_cont->cost += res_cont->postprocessCost;
   };
   return new BoostRCSPPSolver(&g_,
@@ -162,7 +160,8 @@ void RosterSP::updateArcDualCosts() {
 double RosterSP::startWorkCost(int a) const {
   const Arc_Properties &arc_prop  = g_.arc(a);
   // retrieve the work cost
-  double cost = shiftCost(a);
+  // previous does not make any difference for roster duals
+  double cost = shiftCost(a, nullptr);
   int start = arc_prop.day;
   // test is true when the arc does not match an assignment;
   // it may be then end of a rotation for instance
@@ -173,7 +172,7 @@ double RosterSP::startWorkCost(int a) const {
   return cost;
 }
 
-double RosterSP::shiftCost(int a) const {
+double RosterSP::shiftCost(int a, const PAbstractShift &prevS) const {
   const Arc_Properties &arc_prop  = g_.arc(a);
   // initial cost of the arc is the part of the cost that is common to all
   // nurses with the same contract
@@ -181,18 +180,17 @@ double RosterSP::shiftCost(int a) const {
 
   int k = arc_prop.day;
   // iterate through the shift to update the cost
-  for (const PShift &pS : arc_prop.pShifts) {
-    cost += preferencesCosts_[k][pS->id];
-    if (pS->isWork())
-      cost -= pCosts_->workedDayShiftCost(k, pS->id);
-    ++k;
-  }
+  for (const PShift &pS : arc_prop.pShifts)
+    cost += preferencesCosts_[k++][pS->id];
+  Stretch st(arc_prop.day, arc_prop.pShifts);
+  cost -= pCosts_->getCost(pLiveNurse_->num_, st, prevS);
   return cost;
 }
 
 double RosterSP::endWorkCost(int a) const {
   const Arc_Properties &arc_prop  = g_.arc(a);
-  double cost = shiftCost(a);
+  // previous does not make any difference for roster duals
+  double cost = shiftCost(a, nullptr);
   int length = arc_prop.pShifts.size(), end = arc_prop.day;
   // compute the end of the sequence of shifts
   // length could be equal to 0, but still represents the end of the rotation
@@ -330,7 +328,7 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   rcSol->addCost(pLiveNurse_->totalWeekendCost(nWeekends), TOTAL_WEEKEND_COST);
 
 #ifdef DBG
-  if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > 1e-3) {
+  if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
               << std::endl;

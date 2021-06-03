@@ -25,14 +25,14 @@
 
 //---------------------------------------------------------------------------
 //
-// C l a s s   R o t a t i o n P r i c e r
+// C l a s s   R C P r i c e r
 //
 // Contains the pricer that generates new columns.
 //
 //---------------------------------------------------------------------------
 class RCPricer : public MyPricer {
  public:
-  RCPricer(MasterProblem *master, const char *name, const SolverParam &param);
+  RCPricer(MasterProblem *pMaster, const char *name, const SolverParam &param);
 
   virtual ~RCPricer();
 
@@ -189,8 +189,7 @@ class RCPricer : public MyPricer {
   // forbidden shifts.
   // only the shift from the best solution with a negative dual costs are
   // added to the forbidden shifts.
-  bool addForbiddenShifts(const std::vector<RCSolution> &solutions,
-                          const PDualCosts &pDuals);
+  bool addForbiddenShifts(const std::vector<RCSolution> &solutions);
 
   // Add the rotations to the master problem
   int addColumnsToMaster(int nurseNum, std::vector<RCSolution> *solutions);

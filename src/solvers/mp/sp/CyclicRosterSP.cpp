@@ -277,7 +277,7 @@ void CyclicRosterSP::computeCost(
                      PREFERENCE_COST);
   }
 #ifdef DBG
-  if (std::abs(cost - rcSol->cost()) > 1e-3) {
+  if (std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
               << std::endl;

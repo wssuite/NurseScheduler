@@ -24,42 +24,42 @@
 
 std::pair<float, float> comparePricing(MasterProblem *pMaster,
                                        PLiveNurse pNurse,
-                                       SubProblem *bSP,
                                        SubProblem *mSP,
-                                       const SubProblemParam &spParam,
+                                       SubProblem *pSP2,
+                                       int verbose,
                                        bool *errorFound) {
-  PDualCosts pDualCosts = pMaster->buildRandomDualCosts(true);
+  PDualCosts pDualCosts = std::make_shared<DualCosts>(pMaster);
+  pDualCosts->randomUpdateDuals(true);
 
-  if (spParam.verbose_)
-    std::cout << "\n      SOLVE WITH BOOST RCSPP SOLVER : \n" <<std::endl;
-
-  // solve it
-  bSP->solve(pDualCosts);
-
-  if (spParam.verbose_) {
-    std::cout << "## Optimal value = " << bSP->bestReducedCost() << std::endl;
-    std::cout << "## Cpu time = " << bSP->cpuInLastSolve() << std::endl;
-
+  if (verbose)
     std::cout << "\n      SOLVE WITH MY RCSPP SOLVER : \n" <<std::endl;
-  }
 
   // solve it
   mSP->solve(pDualCosts);
 
-  if (spParam.verbose_) {
+  if (verbose) {
     std::cout << "## Optimal value = " << mSP->bestReducedCost() <<
               std::endl;
     std::cout << "## Cpu time = " << mSP->cpuInLastSolve() << std::endl;
     std::cout << "\n-----------------------------------\n" << std::endl;
+
+    std::cout << "\n      SOLVE WITH 2nd RCSPP SOLVER : \n" << std::endl;
   }
 
-  if (spParam.rcsppToOptimality_ &&
-      std::fabs(bSP->bestReducedCost() - mSP->bestReducedCost()) > 1.0e-4 ) {
-    std::cerr << "\nBoost value = " << bSP->bestReducedCost() <<
-              "; New pricer value = " << mSP->bestReducedCost() << std::endl;
+  // solve it
+  pSP2->solve(pDualCosts);
+
+  if (verbose) {
+    std::cout << "## Optimal value = " << pSP2->bestReducedCost() << std::endl;
+    std::cout << "## Cpu time = " << pSP2->cpuInLastSolve() << std::endl;
+  }
+
+  if (std::fabs(pSP2->bestReducedCost() - mSP->bestReducedCost()) > EPSILON ) {
+    std::cerr << "\nNew pricer value = " << mSP->bestReducedCost() <<
+              "; 2nd value = " << pSP2->bestReducedCost() << std::endl;
     /*Tools::throwError("The new pricer does not find the same optimal value "
                       "as Boost");*/
-    vector<RCSolution> bSols = bSP->getSolutions(), mSols = mSP->getSolutions();
+    vector<RCSolution> bSols = pSP2->getSolutions(), mSols = mSP->getSolutions();
     RCSolution::sort(&bSols);
     RCSolution::sort(&mSols);
     std::cout << bSols.front().toString();
@@ -67,24 +67,24 @@ std::pair<float, float> comparePricing(MasterProblem *pMaster,
 #ifdef DBG
     if (pMaster->parameters().sp_type_ == ROSTER) {
       RosterPattern bPat(bSols.front(), 0);
-      bPat.checkReducedCost(pDualCosts);
+      bPat.checkReducedCost(*pDualCosts);
       RosterPattern mPat(mSols.front(), 0);
-      mPat.checkReducedCost(pDualCosts);
+      mPat.checkReducedCost(*pDualCosts);
     } else {
       RotationPattern bPat(bSols.front(), 0);
-      bPat.checkReducedCost(pDualCosts);
+      bPat.checkReducedCost(*pDualCosts);
       RotationPattern mPat(mSols.front(), 0);
-      mPat.checkReducedCost(pDualCosts);
+      mPat.checkReducedCost(*pDualCosts);
     }
 #endif
     *errorFound = true;
   }
 
-  return {bSP->cpuInLastSolve(), mSP->cpuInLastSolve()};
+  return {mSP->cpuInLastSolve(), pSP2->cpuInLastSolve()};
 }
 
-float comparePricingToBoost(
-    MasterProblem *pMaster, bool *errorFound, int nTest) {
+float comparePricing(
+    MasterProblem *pMaster, bool *errorFound, bool compareToBoost, int nTest) {
   // solve the pricing problems
   PScenario pScenario = pMaster->pScenario();
   float totalCPU = 0;
@@ -98,33 +98,45 @@ float comparePricingToBoost(
     spParam.strategyLevel_ =
         boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
     // retrieve a boost subproblem
-    SubProblem *bSP, *mSP;
+    SubProblem *mSP, *pSP2;
+    SubProblemParam spParam2 = spParam;
+    if (!compareToBoost)
+      spParam2.rcsppImprovedDomination_ = false;
     if (pMaster->parameters().sp_type_ == ROSTER) {
-      bSP = new boostRCSPP::RosterSP(
-          pScenario, pScenario->nDays(), pNurse, spParam);
-      mSP = new RosterSP(pScenario, pScenario->nDays(), pNurse,
+      mSP = new RosterSP(pScenario, pScenario->horizon(), pNurse,
                          pMaster->getSPResources(pNurse), spParam);
+      if (compareToBoost)
+        pSP2 = new boostRCSPP::RosterSP(
+            pScenario, pScenario->horizon(), pNurse, spParam2);
+      else
+        pSP2 = new RosterSP(pScenario, pScenario->horizon(), pNurse,
+                            pMaster->getSPResources(pNurse), spParam2);
     } else {
-      bSP = new boostRCSPP::RotationSP(
-          pScenario, pScenario->nDays(), pNurse, spParam);
-      mSP = new RotationSP(pScenario, pScenario->nDays(), pNurse,
+      mSP = new RotationSP(pScenario, pScenario->horizon(), pNurse,
                            pMaster->getSPResources(pNurse), spParam);
+      if (compareToBoost)
+        pSP2 = new boostRCSPP::RotationSP(
+            pScenario, pScenario->horizon(), pNurse, spParam2);
+      else
+        pSP2 = new RotationSP(pScenario, pScenario->horizon(), pNurse,
+                            pMaster->getSPResources(pNurse), spParam2);
     }
-    bSP->build();
     mSP->build();
+    pSP2->build();
 
     // build random dual costs
     float cpu = 0;
     for (int i=0; i < nTest; i++) {
-      auto p = comparePricing(pMaster, pNurse, bSP, mSP, spParam, errorFound);
-      cpu += p.first/p.second;
+      auto p = comparePricing(
+          pMaster, pNurse, mSP, pSP2, spParam.verbose_, errorFound);
+      cpu += p.second/p.first;
     }
     cpu /= nTest;
     totalCPU += cpu;
 
     // delete
-    delete bSP;
     delete mSP;
+    delete pSP2;
 
     std::cout << cpu;
     if ((pNurse->num_+1)%10 == 0)
@@ -144,6 +156,7 @@ float comparePricingToBoost(
 
 float test_pricer(const std::string &instance,
                   bool *errorFound,
+                  bool compareToBoost = true,
                   int verbose = 0,
                   int nTest = 1,
                   SubProblemParam spParam = SubProblemParam()) {
@@ -183,7 +196,7 @@ float test_pricer(const std::string &instance,
               param));
   pMaster->initialize(param);
   // make the tests
-  float cpu = comparePricingToBoost(pMaster, errorFound, nTest);
+  float cpu = comparePricing(pMaster, errorFound, compareToBoost, nTest);
   delete pMaster;
   std::cout << "\nComparison finished for " << instance << "." << std::endl;
   std::cout << "CPU reduction factor = " << cpu  << std::endl;
@@ -205,7 +218,7 @@ int main(int argc, char **argv) {
     std::cout << "###############################" << std::endl;
     std::vector<float> cpus;
     for (const string &inst : insts)
-      cpus.push_back(test_pricer(inst, &errorFound, 0, n, spParam));
+      cpus.push_back(test_pricer(inst, &errorFound, true, 0, n, spParam));
     for (size_t i = 0; i < insts.size(); ++i)
       std::cout << name << " CPU reduction factor for "
                 << insts[i] << " = " << cpus[i] << std::endl;
@@ -214,15 +227,16 @@ int main(int argc, char **argv) {
   SubProblemParam spParam;
   test("[Default]", spParam);
 
-  spParam.rcsppEnumSubpaths_ = true;
-  test("[Sub path]", spParam);
-
-  spParam.rcsppEnumSubpaths_ = false;
-  spParam.rcsppMinCostToSinks_ = true;
-  test("[Min cost sink]", spParam);
-
-  spParam.rcsppEnumSubpathsForMinCostToSinks_ = true;
-  test("[Min sink sub path cost]", spParam);
+//  spParam.rcsppImprovedDomination_ = true;
+//  spParam.rcsppEnumSubpaths_ = true;
+//  test("[Sub path]", spParam);
+//
+//  spParam.rcsppEnumSubpaths_ = false;
+//  spParam.rcsppMinCostToSinks_ = true;
+//  test("[Min cost sink]", spParam);
+//
+//  spParam.rcsppEnumSubpathsForMinCostToSinks_ = true;
+//  test("[Min sink sub path cost]", spParam);
 
   return errorFound;
 }

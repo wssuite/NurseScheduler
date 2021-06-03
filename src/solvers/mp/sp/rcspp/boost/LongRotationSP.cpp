@@ -399,16 +399,9 @@ double LongRotationSP::costArcShortSucc(int size, int succId, int startDate) {
   for (int i = 0; i < size; i++)
     ANS += preferencesCosts_[startDate + i][succ[i]->id];
 
-  // E. REDCOST: WEEKENDS
-  int nbWeekends = Tools::nWeekendsInInterval(startDate, startDate + size - 1);
-  ANS -= nbWeekends * pCosts_->workedWeekendCost();
-
-  // F. REDCOST: FIRST DAY (BACK TO WORK)
-  ANS -= pCosts_->startWorkCost(startDate);
-
-  // G. REDCOST: EACH DAY/SHIFT REDUCED COST
-  for (int i = 0; i < size; i++)
-    ANS -= pCosts_->workedDayShiftCost(startDate + i, succ[i]->id);
+  // E. REDCOST:
+  Stretch st(startDate, succ);
+  ANS -= pCosts_->getCost(pLiveNurse_->num_, st, nullptr);
 
   return ANS;
 }
@@ -477,9 +470,6 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
   // Regular costs
   double consDaysRegCost = 0, consShiftsRegCost = 0, completeWeekendRegCost = 0,
       preferencesRegCost = 0, shortRestRegCost = 0;
-  // Reduced costs
-  double dayShiftsRedCost = 0, startRedCost = 0, endRedCost = 0,
-      weekendRedCost = 0;
 
   // Initialize values
   int shift = 0, consShifts = 0, consDays = succ.size();
@@ -551,33 +541,17 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
     preferencesRegCost += preferencesCosts_[k][succ[k - startDate]->id];
 
 
-  // F. REDUCED COST: WEEKENDS
-  //
-  weekendRedCost -= pCosts_->workedWeekendCost() *
-      Tools::nWeekendsInInterval(startDate, endDate);
-
-  // F. REDUCED COST: FIRST DAY (BACK TO WORK)
-  //
-  startRedCost -= pCosts_->startWorkCost(startDate);
-
-  // G. REDUCED COST: LAST DAY (BACK TO WORK)
-  //
-  endRedCost -= pCosts_->endWorkCost(endDate);
-
-  // H. REDUCED COST: EACH DAY/SHIFT REDUCED COST
-  //
-  for (int k = startDate; k <= endDate; k++)
-    dayShiftsRedCost -=
-        pCosts_->workedDayShiftCost(k, succ[k - startDate]->id);
+  // F. DUAL COST:
+  Stretch st(startDate, succ);
+  st.pushBack(pScenario_->pRestShift());  // add rest shift at the end
+  double redCost = pCosts_->getCost(pLiveNurse_->num_, st, nullptr);
 
 
   // I. RETURN THE TOTAL COST
   //
   double regCost = consDaysRegCost + consShiftsRegCost + completeWeekendRegCost
       + preferencesRegCost + shortRestRegCost;
-  double
-      redCost = dayShiftsRedCost + startRedCost + endRedCost + weekendRedCost;
-  double ANS = regCost + redCost;
+  double ANS = regCost - redCost;
 
   if (false) {
     std::cout << "# " << std::endl;
@@ -606,13 +580,6 @@ double LongRotationSP::costOfVeryShortRotation(int startDate,
               << std::endl;
     std::cout << "# REG-                 ~TOTAL~ : " << regCost << std::endl;
     std::cout << "# " << std::endl;
-    std::cout << "# RED- Day-shifts cost         : " << dayShiftsRedCost
-              << std::endl;
-    std::cout << "# RED- Start work cost         : " << startRedCost
-              << std::endl;
-    std::cout << "# RED- End work cost           : " << endRedCost << std::endl;
-    std::cout << "# RED- Weekend dual cost       : " << weekendRedCost
-              << std::endl;
     std::cout << "# RED-                 ~TOTAL~ : " << redCost << std::endl;
     std::cout << "#+---------------------------------------------+"
               << std::endl;

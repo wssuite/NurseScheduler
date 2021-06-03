@@ -6,7 +6,7 @@ benchmark:
   param: ./paramfiles/optimality.txt
   sp-type: ROSTER
   rcspp-type: DEFAULT
-  timeout: 1200
+  timeout: 3600
   n-threads: 4
   verbose: 0
   args: null

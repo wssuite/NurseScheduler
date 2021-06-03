@@ -40,7 +40,7 @@ class TotalShiftDuration {
       defaultDuration_(defaultDuration),
       pR_(pR) {}
 
-  int computeConsumption(const Stretch &stretch) const;
+  int computeConsumption(const Stretch &stretch, bool *ready = nullptr) const;
 
   const PAbstractShift pShift() const { return pShift_; }
 

@@ -334,7 +334,7 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
 void DeterministicSolver::updateInitialStats(Solver *pSolver) {
   MasterProblem *pMaster = dynamic_cast<MasterProblem *>(pSolver);
   if (!pMaster) return;
-  BcpModeler *pModel = dynamic_cast<BcpModeler *>(pMaster->getModel());
+  BcpModeler *pModel = dynamic_cast<BcpModeler *>(pMaster->pModel());
 
   stats_.bestUBInitial_ = pMaster->computeSolutionCost();
   stats_.bestUB_ = stats_.bestUBInitial_;
@@ -361,7 +361,7 @@ void DeterministicSolver::updateInitialStats(Solver *pSolver) {
 void DeterministicSolver::updateImproveStats(Solver *pSolver) {
   MasterProblem *pMaster = dynamic_cast<MasterProblem *>(pSolver);
   if (!pMaster) return;
-  BcpModeler *pModel = dynamic_cast<BcpModeler *>(pMaster->getModel());
+  BcpModeler *pModel = dynamic_cast<BcpModeler *>(pMaster->pModel());
 
   stats_.bestUB_ = pMaster->computeSolutionCost();
   stats_.timeImproveSol_ = pMaster->timerTotal()->dSinceStart();
@@ -405,8 +405,8 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
   // Always solve small problems to optimality
   // This can actually save time
   //
-  if ((pScenario_->nDays() <= 28 && pScenario_->nNurses() <= 8)
-      || (pScenario_->nDays() <= 56 && pScenario_->nNurses() <= 5)) {
+  if ((pScenario_->horizon() <= 28 && pScenario_->nNurses() <= 8)
+      || (pScenario_->horizon() <= 56 && pScenario_->nNurses() <= 5)) {
     completeParameters_.optimalityLevel(OPTIMALITY);
     objValue_ = solveCompleteHorizon(solution);
     return objValue_;
@@ -804,8 +804,7 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
 
     // run the repair operator
     //
-    double currentObjVal =
-        pLNSSolver_->LNSSolve(lnsParameters_, pLNSSolver_->solution());
+    double currentObjVal = pLNSSolver_->LNSSolve(lnsParameters_);
 
     // stop lns if runtime is exceeded
     //
@@ -940,7 +939,7 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
                                           DaysSelectionOperator dayOp) {
   // apply the destroy operator
   std::vector<bool> isFixNurse(pScenario_->nNurses(), true);
-  std::vector<bool> isFixDay(pScenario_->nDays(), true);
+  std::vector<bool> isFixDay(pScenario_->horizon(), true);
   std::vector<int> randIndVector;
 
   // FIRST SET THE NUMBER OF NURSES AND DAYS THAT MUST BE FIXED
@@ -995,7 +994,7 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
   if (nbDaysDestroy < this->nDays()) {
     // draw the first day of the relaxed interval
     std::vector<double>
-        weightDays(pScenario_->nDays() - nbDaysDestroy - 1, 1.0);
+        weightDays(pScenario_->horizon() - nbDaysDestroy - 1, 1.0);
     weightDays[0] = 7;
     for (int i = 1; i < std::max(nDays() - nbDaysDestroy - 1, 6); i++) {
       weightDays[i] = 0.1;

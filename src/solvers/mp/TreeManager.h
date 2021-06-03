@@ -289,16 +289,6 @@ struct ScoreVarCloseHalf : ScoreVar {
   double advantage;
 };
 
-struct ScoreVarBestExpectedLBImprovement : ScoreVar {
-  explicit ScoreVarBestExpectedLBImprovement(const DiveBranchingRule *pRule) :
-      ScoreVar(pRule) {}
-
-  double score(PLiveNurse pNurse,
-               int day,
-               const std::vector<int> &shifts,
-               const std::vector<double> & values) const override;
-};
-
 class DiveBranchingRule : public MyBranchingRule {
  public:
   DiveBranchingRule(MasterProblem *master,
@@ -341,7 +331,6 @@ class DiveBranchingRule : public MyBranchingRule {
 
   MasterProblem *getMaster() const;
   Modeler *getModel() const;
-  const std::vector<PDualCosts> &getPDualCosts() const;
 
  protected:
   // Pointer to the master problem to link the master and the sub problems
@@ -352,9 +341,6 @@ class DiveBranchingRule : public MyBranchingRule {
 
   // Pointers to the data
   Modeler *pModel_;
-
-  // store dual costs
-  std::vector<PDualCosts> pDualCosts_;
 
   // random swap
   // if true randomly swap children before inserting them in the tree

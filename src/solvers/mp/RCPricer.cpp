@@ -12,6 +12,7 @@
 #include "solvers/mp/RCPricer.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 
 #include "solvers/mp/sp/CyclicRosterSP.h"
@@ -31,6 +32,7 @@ using std::lock_guard;
 using std::unique_lock;
 using std::recursive_mutex;
 
+
 //////////////////////////////////////////////////////////////
 //
 // R C   P R I C E R
@@ -38,15 +40,15 @@ using std::recursive_mutex;
 //////////////////////////////////////////////////////////////
 
 /* Constructs the pricer object. */
-RCPricer::RCPricer(MasterProblem *master,
+RCPricer::RCPricer(MasterProblem *pMaster,
                    const char *name,
                    const SolverParam &param) :
     MyPricer(name),
-    pMaster_(master),
-    pScenario_(master->pScenario()),
-    nbDays_(master->nDays()),
-    pModel_(master->getModel()),
-    nursesToSolve_(master->sortedLiveNurses()),
+    pMaster_(pMaster),
+    pScenario_(pMaster->pScenario()),
+    nbDays_(pMaster->nDays()),
+    pModel_(pMaster->pModel()),
+    nursesToSolve_(pMaster->sortedLiveNurses()),
     minReducedCost_(0),
     nb_int_solutions_(0),
     rand_(Tools::getANewRandomGenerator()) {
@@ -72,6 +74,10 @@ vector<MyVar *> RCPricer::pricing(double bound,
   if (after_fathom)  // first pricing for a new node
     for (const auto &p : subProblems_)
       p.second->updateParameters(pModel_->isFeasible());
+
+  // get duals
+  auto pDualCosts = std::make_shared<DualCosts>(pMaster_);
+  pDualCosts->updateDuals();
 
   // Reset all rotations, columns, counters, etc.
   resetSolutions();
@@ -126,7 +132,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
     /**
      * Start of the job definition (part run in parallel)
      */
-    Tools::Job job = [pNurse, &nSPBeingSolved, &nursesSolved,
+    Tools::Job job = [pNurse, pDualCosts, &nSPBeingSolved, &nursesSolved,
         &nursesNoSolution, &solutionsPerNurses,
         &disjointForbidden, &bound, this]() {
       // Add this part again, if we'd like to solve as many sub problem
@@ -141,9 +147,6 @@ vector<MyVar *> RCPricer::pricing(double bound,
 //        return;
 //      }
 
-      // RETRIEVE DUAL VALUES
-      PDualCosts pDualCosts = pMaster_->buildDualCosts(pNurse);
-
       // lock the pricer
       unique_lock<recursive_mutex> lock(m_subproblem_);
 
@@ -155,13 +158,14 @@ vector<MyVar *> RCPricer::pricing(double bound,
                                   forbiddenShifts_.end());
       pModel_->addForbiddenShifts(pNurse, &nurseForbiddenShifts);
 
+      ++nbSPTried_;
+      lock.unlock();  // unlock before solving
+
       // BUILD OR RE-USE THE SUBPROBLEM
       SubProblem *subProblem =
           retrieveSubproblem(pNurse, pModel_->getParameters().spParam_);
 
       // SOLVE THE PROBLEM
-      ++nbSPTried_;
-      lock.unlock();  // unlock before solving
       subProblem->solve(pDualCosts,
                         nurseForbiddenShifts,
                         bound);
@@ -169,58 +173,67 @@ vector<MyVar *> RCPricer::pricing(double bound,
       // RETRIEVE THE GENERATED ROTATIONS
       std::vector<RCSolution> solutions = subProblem->getSolutions();
 
-#ifdef DBG
-      for (RCSolution &sol : solutions)
-        subProblem->computeCost(pMaster_, &sol);
-      if (pModel_->getParameters().rcspp_type_ == LABEL_SETTING &&
-          subProblem->isLastRunOptimal()) {
-        SubProblemParam par2(pNurse, pMaster_->getModel()->getParameters());
-        par2.strategyLevel_ =
-            boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
-        SubProblem *sub2 = nullptr;
-        if (pModel_->getParameters().sp_type_ == ALL_ROTATION)
-          sub2 =
-              new boostRCSPP::RotationSP(pScenario_, nbDays_, pNurse, par2);
-        else if (pModel_->getParameters().sp_type_ == ROSTER)
-          sub2 =
-              new boostRCSPP::RosterSP(pScenario_, nbDays_, pNurse, par2);
-
-        if (sub2 != nullptr) {
-          sub2->build();
-          sub2->solve(pDualCosts,
-                      nurseForbiddenShifts,
-                      bound);
-          std::vector<RCSolution> sols = sub2->getSolutions();
-          delete sub2;
-
-          RCSolution::sort(&solutions);
-          RCSolution::sort(&sols);
-          if (!sols.empty() || !solutions.empty()) {
-            if (sols.empty() ^ solutions.empty()) {
-              if (!solutions.empty())
-                std::cout << solutions.front().toString() << std::endl;
-              else
-                std::cout << sols.front().toString() << std::endl;
-              Tools::throwError("One of the subproblem has found "
-                                "a solution and the other not.");
-            }
-            double diff = sols.front().reducedCost() -
-                solutions.front().reducedCost();
-            if (diff > pMaster_->getModel()->epsilon()
-                || diff < -pMaster_->getModel()->epsilon()) {
-              std::cout << "All solutions found:" << std::endl;
-              for (const RCSolution &sol : solutions)
-                std::cout << sol.toString() << std::endl;
-              std::cout << std::endl << "Both best solutions:" << std::endl;
-              std::cout << solutions.front().toString() << std::endl;
-              std::cout << sols.front().toString() << std::endl;
-              Tools::throwError("The subproblems haven't found "
-                                "the same best reduced costs.");
-            }
-          }
-        }
-      }
-#endif
+// #ifdef DBG
+//      for (RCSolution &sol : solutions)
+//        subProblem->computeCost(pMaster_, &sol);
+//      if (pModel_->getParameters().rcspp_type_ == LABEL_SETTING &&
+//          subProblem->isLastRunOptimal()) {
+//        SubProblemParam par2(pNurse, pMaster_->pModel()->getParameters());
+//        par2.strategyLevel_ =
+//            boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
+//        SubProblem *sub2 = nullptr;
+//        if (pModel_->getParameters().sp_type_ == ALL_ROTATION)
+//          sub2 =
+//              new boostRCSPP::RotationSP(pScenario_, nbDays_, pNurse, par2);
+//        else if (pModel_->getParameters().sp_type_ == ROSTER)
+//          sub2 =
+//              new boostRCSPP::RosterSP(pScenario_, nbDays_, pNurse, par2);
+//
+//        if (sub2 != nullptr) {
+//          sub2->build();
+//          sub2->solve(pDualCosts_,
+//                      nurseForbiddenShifts,
+//                      bound);
+//          std::vector<RCSolution> sols = sub2->getSolutions();
+//          delete sub2;
+//
+//          RCSolution::sort(&solutions);
+//          RCSolution::sort(&sols);
+//          if (!sols.empty() || !solutions.empty()) {
+//            if (sols.empty() ^ solutions.empty()) {
+//              if (solutions.empty()) {
+//                std::cout << sols.front().toString() << std::endl;
+//                Tools::throwError("Boost has found "
+//                                  "a solution and the other not.");
+//              } else {
+//                std::cout << solutions.front().toString() << std::endl;
+//                Tools::throwError("Boost hasn't found "
+//                                  "a solution and the other has.");
+//              }
+//            } else {
+//              double diff = sols.front().reducedCost() -
+//                  solutions.front().reducedCost();
+//              if (diff > pMaster_->pModel()->epsilon()
+//                  || diff < -pMaster_->pModel()->epsilon()) {
+//                std::cout << "All solutions found:" << std::endl;
+//                for (const RCSolution &sol : solutions)
+//                  std::cout << sol.toString() << std::endl;
+//                std::cout << std::endl << "Both best solutions:" << std::endl;
+//                std::cout << solutions.front().toString() << std::endl;
+//                std::cout << sols.front().toString() << std::endl;
+//                std::cout << pDualCosts_->toString(
+//                    pNurse->num_, solutions.front());
+////                // There are still some bugs in boost so
+////                // the optimal solution is not always found
+////                if (diff < -pMaster_->pModel()->epsilon())
+//                  Tools::throwError("The subproblems haven't found "
+//                                    "the same best reduced costs.");
+//              }
+//            }
+//          }
+//        }
+//      }
+// #endif
 
       // Lock the pricer
       lock.lock();
@@ -239,7 +252,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
         if (pModel_->getParameters().isColumnDisjoint_)
           // set disjointForbidden to true,
           // if addForbiddenShifts returns true once
-          if (addForbiddenShifts(solutions, pDualCosts))
+          if (addForbiddenShifts(solutions))
             disjointForbidden = true;
 
         // add the nurse to the nurses solved
@@ -254,12 +267,10 @@ vector<MyVar *> RCPricer::pricing(double bound,
      * End of the job definition (part run in parallel)
      */
 
-    // begin parallel. The job will be run in parallel.
-    // However, if no thread are available, the function run waits (i.e. blocks)
-    // until a thread becomes available.
+    // The job will be run in parallel.
     pool.run(job);
 
-    // if the maximum number of subproblem solved is reached, break.
+    // if the maximum number of subproblems solved is reached, break.
     if (nSPSolvedWithSuccess_ >= pModel_->getParameters().nSubProblemsToSolve_)
       break;
   }
@@ -341,8 +352,7 @@ void RCPricer::initNursesAvailabilities() {
           nursesForbiddenShifts_[n].insert({k, s});
 }
 
-bool RCPricer::addForbiddenShifts(const std::vector<RCSolution> &solutions,
-                                  const PDualCosts &pDuals) {
+bool RCPricer::addForbiddenShifts(const std::vector<RCSolution> &solutions) {
   // search best rotation
   RCSolution bestSolution;
   double bestRedcost = DBL_MAX;
@@ -360,12 +370,8 @@ bool RCPricer::addForbiddenShifts(const std::vector<RCSolution> &solutions,
   bool shiftAdded = false;
   int k = bestSolution.firstDay();
   for (const PShift &pS : bestSolution.pShifts()) {
-    // work shift with a dual cost high enough
-    // (have enough diversity in the solutions generated)
-    if (pDuals->workedDayShiftCost(k, pS->id) > pModel_->epsilon()) {
       forbiddenShifts_.insert(pair<int, int>(k, pS->id));
       shiftAdded = true;
-    }
     k++;
   }
   return shiftAdded;
@@ -430,9 +436,9 @@ void RCPricer::computeCost(Pattern *pat) const {
   SubProblem* pSP;
   if (it == subProblems_.end()) {
     SubProblemParam sp_param(pNurse,
-                             pMaster_->getModel()->getParameters());
+                             pMaster_->pModel()->getParameters());
     pSP = buildSubproblem(
-        pNurse, pMaster_->getModel()->getParameters().spParam_);
+        pNurse, pMaster_->pModel()->getParameters().spParam_);
   } else {
     pSP = it->second;
   }

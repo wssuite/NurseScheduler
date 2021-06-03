@@ -255,7 +255,7 @@ void SubProblem::updateArcDualCosts() {
               c += historicalCost(arc_prop.pShifts.front()->id);
             // if rest shift, just add shift cost
             if (pg.shiftType() == 0)
-              c += shiftCost(a);
+              c += shiftCost(a, nullptr);
             else
               // otherwise, call startWorkCost method
               c += startWorkCost(a);

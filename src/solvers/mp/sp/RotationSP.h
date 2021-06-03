@@ -33,9 +33,6 @@ class RotationSP : public RCSPPSubProblem {
   void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const override;
 
  protected:
-  // get the dual cost of a given stretch
-  double dualCost(const PRCArc &pArc) override;
-
   void createNodes(const PRCGraph &pRCGraph) override;
   void createArcs(const PRCGraph &pRCGraph) override;
 

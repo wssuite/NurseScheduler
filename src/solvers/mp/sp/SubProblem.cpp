@@ -36,6 +36,45 @@ using std::set;
 //
 //---------------------------------------------------------------------------
 
+// Dual Costs class
+// update the dual values of every constraints based on the current solution
+void DualCosts::updateDuals() {
+  for (ConstraintMP* pC : pMaster_->columnConstraints())
+    pC->updateDuals();
+}
+
+// update the dual values of every constraints randomly
+void DualCosts::randomUpdateDuals(bool useInputData, int nPerturbations) {
+  for (ConstraintMP* pC : pMaster_->columnConstraints())
+    pC->randomUpdateDuals(useInputData, nPerturbations);
+}
+
+// return the dual cost of a stretch based on its consumption of
+// every constraints
+double DualCosts::getCost(
+    int nurseNum,
+    const Stretch &st,
+    const PAbstractShift &prevS) const {
+  double d = 0;
+  for (ConstraintMP* pC : pMaster_->columnConstraints())
+    d += pC->getDualCost(nurseNum, st, prevS);
+  return d;
+}
+
+std::string DualCosts::toString() const {
+  std::stringstream buff;
+  for (ConstraintMP* pC : pMaster_->columnConstraints())
+    buff << pC->toString();
+  return buff.str();
+}
+
+std::string DualCosts::toString(int nurseNum, const Stretch &st) const {
+  std::stringstream buff;
+  for (ConstraintMP* pC : pMaster_->columnConstraints())
+    buff << pC->toString(nurseNum, st);
+  return buff.str();
+}
+
 // Constructors and destructor
 SubProblem::SubProblem() :
     pScenario_(nullptr),

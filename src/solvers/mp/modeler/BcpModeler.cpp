@@ -239,6 +239,12 @@ bool BcpLpModel::compareCol(const pair<int, double> &p1,
 void BcpLpModel::modify_lp_parameters(OsiSolverInterface *lp,
                                       const int changeType,
                                       bool in_strong_branching) {
+  // DBG - write initial model
+#ifdef  DBG
+  if (last_node == -1)
+    pModel_->writeProblem("master_model");
+#endif
+
   if (current_index() != last_node) {
     last_node = current_index();
     currentNodeStartTime_ = CoinWallclockTime();
@@ -619,7 +625,7 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result &lpres,
   // close enough to the current LB
   // WARNING: true if stabilization is inactive
   bool stabInactive = !pModel_->getParameters().isStabilization_ ||
-      pModel_->getMaster()->stabCheckStoppingCriterion();
+      pModel_->stab().stabCheckStoppingCriterion();
   if (current_index() > 0 && stabInactive &&
       lpres.objval() < pModel_->getCurrentLB() + pModel_->epsilon())
     return;
@@ -752,7 +758,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(
   feasible_ = false;
   approximatedDualUB_ = -LARGE_SCORE;
   if (pModel_->getParameters().isStabilization_)
-    pModel_->getMaster()->stabDeactivateBoundAndCost(
+    pModel_->stab().stabDeactivateBoundAndCost(
         getLpProblemPointer()->lp_solver);
 
   return decision;
@@ -795,16 +801,16 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     double dualUB =
         pModel_->getMaster()->computeApproximateDualUB(lpres.objval());
 
-    isStabActive = !pModel_->getMaster()->stabCheckStoppingCriterion();
+    isStabActive = !pModel_->stab().stabCheckStoppingCriterion();
     // if was infeasible at the previous iteration and not anymore:
     // activate stabilization
     if (becomeFeasible())
-      pModel_->getMaster()->stabInitializeBoundAndCost(
+      pModel_->stab().stabInitializeBoundAndCost(
           getLpProblemPointer()->lp_solver);
       // Update the stabilization variables if:
       // feasible and the approximated dual UB has improved
     else if (feasible_)
-      pModel_->getMaster()->stabUpdate(
+      pModel_->stab().stabUpdate(
           getLpProblemPointer()->lp_solver,
           dualUB > approximatedDualUB_ || !column_generated);
     // update approximated dual UB.
@@ -983,14 +989,10 @@ void BcpLpModel::buildCandidate(
   int nbNewVar = 0;
   for (MyVar *var : candidate.getBranchingVars()) {
     // search the var in the vars
-    auto *col = dynamic_cast<BcpColumn *>(var);
-    int index = var->getIndex();
-    if (col) {
-      index = pModel_->getIndexCol(index);
-      if (index == -1) {  // new var
-        index = vars.size() + nbNewVar;
-        ++nbNewVar;
-      }
+    int index = pModel_->getActiveIndex(var);
+    if (index == -1) {  // new var
+      index = vars.size() + nbNewVar;
+      ++nbNewVar;
     }
     vpos.push_back(index);
   }
@@ -1001,10 +1003,10 @@ void BcpLpModel::buildCandidate(
   // bounds
   for (const MyBranchingNode &node : candidate.getChildren()) {
     auto lbIt = node.getLb().begin();
-    for (auto ubIt = node.getUb().begin(); ubIt != node.getUb().end(); ++ubIt) {
+    for (auto ubIt = node.getUb().begin(); ubIt != node.getUb().end();
+         ++ubIt, ++lbIt) {
       vbd.push_back(*lbIt);
       vbd.push_back(*ubIt);
-      ++lbIt;
     }
   }
 
@@ -1177,12 +1179,19 @@ bool BcpLpModel::testPartialFeasibility() {
 void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj *best) {
   if (best->candidate()->child_num == 0)
     Tools::throwError("No action has been generated.");
-  // if only one child -> keep child as dicing
+  // if only one child -> keep child as diving
+  // if not looking for optimality -> keep diving
   // if the gap is less than the min relative gap and
-  // the node's LP gap is less than maxRelativeLPGapToKeepChild_ -> keep child
+  // the node's LP gap is less than integrality gap/2 or
+  // maxRelativeLPGapToKeepChild_ -> keep child
+  // The goal is to dive while the gap is more than
+  // 2*maxRelativeLPGapToKeepChild_ and then explore the tree breadth
+  double minGap = std::max(
+      pModel_->getIntegralityGap()/2,
+      pModel_->getParameters().maxRelativeLPGapToKeepChild_);
   if (best->action().size() == 1 ||
-      pModel_->getCurrentNode()->getLPGap()
-          < pModel_->getParameters().maxRelativeLPGapToKeepChild_) {
+      !pModel_->getParameters().solveToOptimality_ ||
+      pModel_->getCurrentNode()->getLPGap() < minGap) {
     best->action()[0] = BCP_KeepChild;
     // tell the tree that the first child if kept
     pModel_->keepFirstChild(best->action().size());
@@ -1433,6 +1442,18 @@ BcpModeler::~BcpModeler() {
 void BcpModeler::clear() {
   deleteSolutions();
   CoinModeler::clear();
+}
+
+// copy the current active columns to keep a track of them after deleting BCP
+void BcpModeler::copyActiveToInitialColumns() {
+  initialColumnVars_.reserve(
+      initialColumnVars_.size()+activeColumnVars_.size());
+  for (MyVar *v : activeColumnVars_) {
+    auto col = dynamic_cast<BcpColumn *>(v);
+    col->resetBounds();
+    initialColumnVars_.emplace_back(new BcpColumn(*col));
+  }
+  clearActiveColumns();
 }
 
 void BcpModeler::deleteSolutions() {
@@ -1782,13 +1803,8 @@ double BcpModeler::getVarValue(MyVar *var) const {
   if (primalValues_.empty())
     Tools::throwError("Primal solution has not been initialized.");
 
-  unsigned int index = var->getIndex();
-  // if a column, fetch index
-  if (index >= coreVars_.size()) {
-    // if the column is not active, won't be found
-    if (columnsToIndex_.find(index) == columnsToIndex_.end()) return 0;
-    index = columnsToIndex_.at(index);
-  }
+  int index = getActiveIndex(var);
+  if (index == -1) return 0;
   return primalValues_[index];
 }
 
@@ -1796,13 +1812,8 @@ void BcpModeler::setVarValue(MyVar *var, double value) {
   if (primalValues_.empty())
     Tools::throwError("Primal solution has not been initialized.");
 
-  unsigned int index = var->getIndex();
-  // if a column, fetch index
-  if (index >= coreVars_.size()) {
-    // if the column is not active, won't be found
-    if (columnsToIndex_.find(index) == columnsToIndex_.end()) return;
-    index = columnsToIndex_[index];
-  }
+  int index = getActiveIndex(var);
+  if (index == -1) return;
   primalValues_[index] = value;
 }
 
@@ -1822,14 +1833,8 @@ double BcpModeler::getReducedCost(MyVar *var) const {
   if (reducedCosts_.empty())
     Tools::throwError("Reduced cost solution has been initialized.");
 
-  unsigned int index = var->getIndex();
-  // if a column, fetch index
-  if (index >= coreVars_.size()) {
-    // if the column is not active, return 0
-    auto it = columnsToIndex_.find(index);
-    if (it == columnsToIndex_.end()) return 0;
-    index = it->second;
-  }
+  int index = getActiveIndex(var);
+  if (index == -1) return 0;
   return reducedCosts_[index];
 }
 

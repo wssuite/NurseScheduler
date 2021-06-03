@@ -193,7 +193,7 @@ struct rc_spp_visitor {
   rc_spp_visitor(int nMax,
                  const std::vector<vertex> &sinks,
                  std::function<void(spp_res_cont *)> post_process_rc = nullptr,
-                 double maxReducedCostBound = -1e-5);
+                 double maxReducedCostBound = -EPSILON);
 
   void on_label_popped(Label &, const Graph &);
 

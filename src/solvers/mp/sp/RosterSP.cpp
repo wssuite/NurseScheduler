@@ -67,21 +67,6 @@ void RosterSP::createArcs(const PRCGraph &pRCGraph) {
   }
 }
 
-double RosterSP::dualCost(const PRCArc &pArc) {
-  double dualCost = 0;
-  // if start, add constant
-  if (pArc->origin->type == SOURCE_NODE)
-    dualCost -= pCosts_->constant();
-  // iterate through the shift to update the cost
-  int curDay = pArc->stretch.firstDay();
-  for (const auto& pS : pArc->stretch.pShifts()) {
-    if (pS->isWork())
-      dualCost -= pCosts_->workedDayShiftCost(curDay, pS->id);
-    curDay++;
-  }
-  return dualCost;
-}
-
 void RosterSP::createInitialLabels() {
   PRCLabel pL = std::make_shared<RCLabel>(pRCGraph_->pResources(),
                                           *pLiveNurse_->pStateIni_);
@@ -122,7 +107,7 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   computePreferencesCost(rcSol);
 
 #ifdef DBG
-  if (std::abs(cost - rcSol->cost()) > 1e-3) {
+  if (cost < DBL_MAX-1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
               << std::endl;

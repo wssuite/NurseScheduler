@@ -82,6 +82,9 @@ class RCLabel {
 
   void copy(const RCLabel& l);
 
+  // only copy the costs and the resource values
+  void copyValues(const RCLabel& l);
+
   double cost() const { return cost_; }
 
   void addCost(double c) { cost_ += c; }

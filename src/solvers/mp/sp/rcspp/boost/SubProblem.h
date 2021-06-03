@@ -147,7 +147,7 @@ class SubProblem : public SP {
 
   virtual double startWorkCost(int a) const = 0;
 
-  virtual double shiftCost(int a) const = 0;
+  virtual double shiftCost(int a, const PAbstractShift &prevS) const = 0;
 
   virtual double endWorkCost(int a) const = 0;
 

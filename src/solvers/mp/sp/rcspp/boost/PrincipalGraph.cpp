@@ -11,6 +11,7 @@
 
 #include "PrincipalGraph.h"
 
+#include <memory>
 #include <string>
 
 #include "SubProblem.h"
@@ -21,7 +22,8 @@ using std::vector;
 namespace boostRCSPP {
 
 PrincipalGraph::PrincipalGraph(int shift_type, SubProblem *sp) :
-    SubGraph(), pSP_(sp), shift_type_(shift_type), max_cons_(-1) {
+    SubGraph(), pSP_(sp), shift_type_(shift_type), max_cons_(-1),
+    pAS_(std::make_shared<AnyOfTypeShift>(shift_type)) {
   if (sp) {
     max_cons_ = sp->maxCons(shift_type);
     int i = 0;
@@ -168,10 +170,10 @@ void PrincipalGraph::updateArcCosts() {
   for (int k = 0; k < pSP_->nDays() - 1; k++) {
     for (int n = 0; n < max_cons_; n++)
       for (int a : arcsShiftToSameShift_[k][n])
-        pSP_->g().updateCost(a, pSP_->shiftCost(a));
+        pSP_->g().updateCost(a, pSP_->shiftCost(a, pAS_));
 
     for (int a : arcsRepeatShift_[k])
-      pSP_->g().updateCost(a, pSP_->shiftCost(a));
+      pSP_->g().updateCost(a, pSP_->shiftCost(a, pAS_));
   }
 }
 

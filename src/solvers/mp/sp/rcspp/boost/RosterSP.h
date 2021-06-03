@@ -31,7 +31,7 @@ class RosterSP : public SubProblem {
 
   double startWorkCost(int a) const override;
 
-  double shiftCost(int a) const override;
+  double shiftCost(int a, const PAbstractShift &prevS) const override;
 
   double endWorkCost(int a) const override;
 

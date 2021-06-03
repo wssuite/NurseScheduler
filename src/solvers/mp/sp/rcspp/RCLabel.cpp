@@ -10,7 +10,10 @@
  */
 
 #include "RCLabel.h"
+
 #include "RCGraph.h"
+#include "solvers/Solver.h"
+
 
 
 RCLabel::RCLabel(): num_(-1),
@@ -48,43 +51,22 @@ RCLabel::RCLabel(const RCLabel &l): RCLabel() {
 }
 
 void RCLabel::setAsNext(const PRCLabel &pLPrevious, const PRCArc &pArc) {
-  cost_ = pLPrevious->cost();
-  baseCost_ = pLPrevious->baseCost();
-  resourceValues_ = pLPrevious->allResourceValues();
+  copyValues(*pLPrevious);
   pNode_ = pArc->target;
   pInArc_ = pArc;
   pOutArc_ = nullptr;
   pPreviousLabel_ = pLPrevious;
   pNextLabel_ = nullptr;
-#ifdef DBG
-  baseCost_ = pLPrevious->baseCost();
-  dualCost_ = pLPrevious->dualCost();
-  consShiftCost_ = pLPrevious->consShiftCost();
-  consWeekendShiftCost_ = pLPrevious->consWeekendShiftCost();
-  totalShiftCost_ = pLPrevious->totalShiftCost();
-  totalWeekendCost_ = pLPrevious->totalWeekendCost();
-#endif
 }
 
 void RCLabel::setAsPrevious(const shared_ptr<RCLabel> &pLNext,
                             const shared_ptr<RCArc> &pArc) {
-  pNextLabel_ = pLNext;
-  cost_ = pLNext->cost();
-  baseCost_ = pLNext->baseCost();
-  resourceValues_ = pLNext->allResourceValues();
+  copyValues(*pLNext);
   pNode_ = pArc->origin;
   pInArc_ = nullptr;
   pOutArc_ = pArc;
   pPreviousLabel_ = nullptr;
   pNextLabel_ = pLNext;
-#ifdef DBG
-  baseCost_ = pLNext->baseCost();
-  dualCost_ = pLNext->dualCost();
-  consShiftCost_ = pLNext->consShiftCost();
-  consWeekendShiftCost_ = pLNext->consWeekendShiftCost();
-  totalShiftCost_ = pLNext->totalShiftCost();
-  totalWeekendCost_ = pLNext->totalWeekendCost();
-#endif
 }
 
 void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
@@ -103,14 +85,18 @@ void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
 }
 
 void RCLabel::copy(const RCLabel &l) {
-  cost_ = l.cost_;
-  baseCost_ = l.baseCost_;
-  resourceValues_ = l.resourceValues_;
+  copyValues(l);
   pNode_ = l.pNode_;
   pInArc_ = l.pInArc_;
   pOutArc_ = l.pOutArc_;
   pPreviousLabel_ = l.pPreviousLabel_;
   pNextLabel_ = l.pNextLabel_;
+}
+
+void RCLabel::copyValues(const RCLabel &l) {
+  cost_ = l.cost_;
+  baseCost_ = l.baseCost_;
+  resourceValues_ = l.resourceValues_;
 #ifdef DBG
   baseCost_ = l.baseCost_;
   dualCost_ = l.dualCost_;
@@ -125,16 +111,16 @@ std::string RCLabel::toString(const vector<PResource> &pResources) const {
   std::stringstream rep;
   rep << "Label: cost=" << cost() << ", baseCost=" << baseCost();
 #ifdef DBG
-  if (consShiftCost_ > 1e-3)
+  if (consShiftCost_ > EPSILON)
     rep << ", consShiftCost="
         << std::setprecision(DECIMALS) << consShiftCost_;
-  if (consWeekendShiftCost_ > 1e-3)
+  if (consWeekendShiftCost_ > EPSILON)
     rep << ", consWeekendShiftCost="
         << std::setprecision(DECIMALS) << consWeekendShiftCost_;
-  if (totalShiftCost_ > 1e-3)
+  if (totalShiftCost_ > EPSILON)
     rep << ", totalShiftCost="
         << std::setprecision(DECIMALS) << totalShiftCost_;
-  if (totalWeekendCost_ > 1e-3)
+  if (totalWeekendCost_ > EPSILON)
     rep << ", totalWeekendCost="
         << std::setprecision(DECIMALS) << totalWeekendCost_;
 #endif

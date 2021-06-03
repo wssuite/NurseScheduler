@@ -7,6 +7,7 @@ import argparse
 import io
 import time
 import re
+import glob
 from datetime import datetime
 
 
@@ -155,4 +156,7 @@ if __name__ == "__main__":
     else:
         run = ''
 
-    run_benchmark(args.benchmark, run, status=args.status)
+    benchmark = [f for f in glob.glob(args.benchmark)]
+    print("Run these benchmarks: %s" %benchmark)
+    for b in benchmark:
+        run_benchmark(b, run, status=args.status)
