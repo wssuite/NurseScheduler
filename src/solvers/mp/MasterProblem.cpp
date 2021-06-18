@@ -916,6 +916,12 @@ string MasterProblem::costsConstrainstsToString() const {
            "Coverage costs",
            pModel_->getTotalCost(optDemandConstraint_->getVariables()));
   rep << buffer;
+  double c = pModel_->getTotalCost(allocationConstraint_->getVariables());
+  if (c > epsilon()) {
+    snprintf(buffer, sizeof(buffer), "%-40s %10.0f \n",
+        "Alternative skills costs", c);
+    rep << buffer;
+  }
   rep << "-----------------------------------------\n";
   rep << "\n";
 

@@ -123,9 +123,6 @@ class AllocationConstraint : public ConstraintMP {
   }
 
  protected:
-  vector2D<int> positionsPerSkill_;  // link positions to skills
-  vector2D<int> skillsPerPosition_;  // link skills to positions
-
   // makes the allocation of the skills
   vector4D<MyVar *> skillsAllocVars_;
   // ensures that each nurse works with the good skill

@@ -181,23 +181,27 @@ std::string NursePositionCountConstraint::toString(
   return buff.str();
 }
 
-AllocationConstraint::AllocationConstraint(
-    MasterProblem *pMaster) :
-    ConstraintMP(pMaster),
-    positionsPerSkill_(pScenario_->nSkills()) {
-  // initialize links between skills and positions
-  int p = 0;
-  for (const auto &position : pScenario_->pPositions()) {
-    for (int sk : position->skills_)
-      positionsPerSkill_[sk].push_back(p);
-    skillsPerPosition_.push_back(position->skills_);
-    p++;
-  }
+AllocationConstraint::AllocationConstraint(MasterProblem *pMaster) :
+    ConstraintMP(pMaster) {
   // build the constraints
   build();
 }
 
 void AllocationConstraint::build() {
+  // initialize links between skills and positions
+  vector2D<int> positionsPerSkill(pScenario_->nSkills()),
+      positionsPerAltSkill(pScenario_->nSkills()),
+      allSkillsPerPosition;
+  int p = 0;
+  for (const auto &position : pScenario_->pPositions()) {
+    for (int sk : position->skills_)
+      positionsPerSkill[sk].push_back(p);
+    for (int sk : position->alternativeSkills_)
+      positionsPerAltSkill[sk].push_back(p);
+    allSkillsPerPosition.push_back(position->allSkills());
+    p++;
+  }
+
   // initialize vectors
   Tools::initVector4D<MyVar *>(&skillsAllocVars_,
                                pMaster_->nDays(),
@@ -220,18 +224,27 @@ void AllocationConstraint::build() {
       // forget resting shift
       if (pS->isRest()) continue;
       int s = pS->id;
-      for (int sk = 0; sk < pScenario_->nSkills(); sk++)
-        for (int p : positionsPerSkill_[sk]) {
+      for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
+        for (int p : positionsPerSkill[sk]) {
           snprintf(name, sizeof(name),
                    "skillsAllocVar_%d_%d_%d_%d", k, s, sk, p);
           pModel()->createPositiveVar(
               &skillsAllocVars_[k][s][sk][p], name, 0);
         }
+        for (int p : positionsPerAltSkill[sk]) {
+          snprintf(name, sizeof(name),
+                   "altSkillsAllocVar_%d_%d_%d_%d", k, s, sk, p);
+          pModel()->createPositiveVar(
+              &skillsAllocVars_[k][s][sk][p],
+              name,
+              pScenario_->weights().WEIGHT_ALTERNATIVE_SKILLS);
+        }
+      }
 
       for (int p = 0; p < pScenario_->nPositions(); p++) {
         // adding variables and building skills allocation constraints
         vector<MyVar *> vars = {numberOfNursesByPositionVars[k][s][p]};
-        for (int sk : skillsPerPosition_[p])
+        for (int sk : allSkillsPerPosition[p])
           vars.push_back(skillsAllocVars_[k][s][sk][p]);
         vector<double> coeffs(vars.size(), -1);
         coeffs[0] = 1;  // coeff of numberOfNursesByPositionVars

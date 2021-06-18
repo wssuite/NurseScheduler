@@ -35,6 +35,7 @@ const std::map<PREF_LEVEL, std::string>
 struct Weights {
   Weights() {}
   Weights(double weightOptimalDemand,
+          double weightAlternativeSkills,
           double weightConsShifts,
           const double weightConsDaysWork,
           const double weightConsDaysOff,
@@ -44,6 +45,7 @@ struct Weights {
           const double weightTotalShifts,
           const double weightTotalWeekends) :
       WEIGHT_OPTIMAL_DEMAND(weightOptimalDemand),
+      WEIGHT_ALTERNATIVE_SKILLS(weightAlternativeSkills),
       WEIGHT_CONS_SHIFTS(weightConsShifts),
       WEIGHT_CONS_DAYS_WORK(weightConsDaysWork),
       WEIGHT_CONS_DAYS_OFF(weightConsDaysOff),
@@ -55,6 +57,7 @@ struct Weights {
 
 
   const double WEIGHT_OPTIMAL_DEMAND = 30;
+  const double WEIGHT_ALTERNATIVE_SKILLS = 20;
   const double WEIGHT_CONS_SHIFTS = 15;
   const double WEIGHT_CONS_DAYS_WORK = 30;
   const double WEIGHT_CONS_DAYS_OFF = 30;

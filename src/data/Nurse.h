@@ -101,12 +101,20 @@ class Contract {
 //  A position (job) is a set of skills that a nurse may possess
 //
 //-----------------------------------------------------------------------------
+class Nuurse;
 
 class Position {
  public:
   // Constructor and Destructor
   //
-  Position(int index, std::vector<int> skills);
+  Position(int index,
+           std::vector<int> skills,
+           std::vector<int> alternativeSkills = {});
+  Position(int index,
+           std::vector<int> skills,
+           bool addOtherSkillsAsAlternative,
+           int nSkills);
+  Position(int index, const Nurse &nurse);
 
   ~Position() {}
 
@@ -119,14 +127,17 @@ class Position {
   // For simplicity, the skill indices are sorted.
   //
   const std::vector<int> skills_;
+  const std::vector<int> alternativeSkills_;
 
  private:
+  // union of the sklls and alternative skills
+  std::vector<int> allSkills_;
+
   // Positions that are below and above this one in the hierarchy
   // this is deduced from the dominance criterion implemented in compare()
   //
   std::vector<PPosition> positionsBelow_;
   std::vector<PPosition> positionsAbove_;
-  int nBelow_, nAbove_;
 
   // Rarity of the skills that appear in this position
   //
@@ -138,6 +149,9 @@ class Position {
   //
   int rank_;
 
+  // initalize rarity and check if skills are sorted
+  void init();
+
  public:
   // basic getters
   //
@@ -145,8 +159,10 @@ class Position {
   int nSkills() const { return skills_.size(); }
   int skill(int sk) const { return skills_[sk]; }
   const std::vector<int> &skills() const { return skills_; }
-  int nBelow() const { return nBelow_; }
-  int nAbove() const { return nAbove_; }
+  int nAltSkills() const { return alternativeSkills_.size(); }
+  const std::vector<int> &allSkills() const { return allSkills_; }
+  int nBelow() const { return positionsBelow_.size(); }
+  int nAbove() const { return positionsAbove_.size(); }
   PPosition positionsBelow(int i) const { return positionsBelow_[i]; }
   PPosition positionsAbove(int i) const { return positionsAbove_[i]; }
   double skillRarity(int sk) const { return skillRarity_[sk]; }
@@ -159,6 +175,8 @@ class Position {
   // Display method: toString
   //
   std::string toString() const;
+
+  bool dominate(const Position &p) const;
 
   // Compare this position with the input position
   // The dominance criterion is that a position p1 with skills sk1 dominates p2
@@ -173,6 +191,10 @@ class Position {
   // with the input position
   //
   bool shareSkill(const Position &p) const;
+
+  // return true  if this position corresponds to the one of the nurse
+  //
+  bool isNursePosition(const Nurse &nurse);
 
   // set positions above and below
   //
@@ -214,6 +236,24 @@ class Nurse {
         std::vector<int> availableShifts,
         PConstContract contract);
 
+  Nurse(int id,
+        std::string name,
+        int nShifts,
+        int nSkills,
+        std::vector<int> skills,
+        std::vector<int> alternativeSkills,
+        std::vector<int> availableShifts,
+        PConstContract contract);
+
+  Nurse(int id,
+        std::string name,
+        int nShifts,
+        int nSkills,
+        std::vector<int> skills,
+        bool addOtherSkillsAsAlternative,
+        std::vector<int> availableShifts,
+        PConstContract contract);
+
   Nurse(int id, const Nurse &nurse);
 
   ~Nurse();
@@ -236,6 +276,7 @@ class Nurse {
   // for simplicity, the vector of skills is sorted
   //
   const std::vector<int> skills_;
+  const std::vector<int> alternativeSkills_;
 
   // available shifts
   const std::vector<int> availableShifts_;
@@ -252,10 +293,14 @@ class Nurse {
   //-----------------------------------------------------------------------------
   std::vector<bool> hasSkill_, isAvailableShifts_;
 
+  // initalize vectors and checked they are sorted
+  void init();
+
  public:
   // Basic getters
   //
   int nSkills() const { return skills_.size(); }
+  int nAltSkills() const { return alternativeSkills_.size(); }
   int minTotalShifts() const { return pContract_->minTotalShifts_; }
   int maxTotalShifts() const { return pContract_->maxTotalShifts_; }
   int minConsDaysWork() const { return pContract_->minConsDaysWork_; }

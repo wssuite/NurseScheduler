@@ -92,36 +92,84 @@ std::string Contract::toString() {
 //
 //-----------------------------------------------------------------------------
 
+vector<int> alternativeSkills(const vector<int> &skills, int nSkills) {
+  vector<int> altSkills;
+  auto it = skills.begin();
+  // build the complementary set of skills (which is sorted)
+  for (int n=0; n < nSkills; ++n) {
+    // if found skill, update iterator and skip skill
+    if (it != skills.end() && n == *it)
+      ++it;
+      // otherwise, add skill
+    else
+      altSkills.push_back(n);
+  }
+  return altSkills;
+}
 // Constructor and Destructor
 //
-Position::Position(int index, std::vector<int> skills) :
+Position::Position(int index,
+                   vector<int> skills,
+                   vector<int> alternativeSkills) :
     id_(index),
-    skills_(skills),
-    nBelow_(0),
-    nAbove_(0),
+    skills_(std::move(skills)),
+    alternativeSkills_(std::move(alternativeSkills)),
     rank_(0) {
-  // Verify that the vecor of skills is sorted
+  init();
+}
+
+Position::Position(int index,
+                   vector<int> skills,
+                   bool addOtherSkillsAsAlternative,
+                   int nSkills) :
+    id_(index),
+    skills_(std::move(skills)),
+    alternativeSkills_(
+        std::move(addOtherSkillsAsAlternative ?
+                  alternativeSkills(skills, nSkills) : vector<int>())),
+    rank_(0) {
+  init();
+}
+
+Position::Position(int index, const Nurse &nurse) :
+    Position(index, nurse.skills_, nurse.alternativeSkills_) {}
+
+// initalize rarity and check if skills are sorted
+void Position::init() {
+  // Verify that the vector of skills is sorted
   //
-  for (auto it = skills_.begin(); it != skills_.end() - 1; ++it) {
-    if (*it >= *(it + 1)) {
-      Tools::throwError(
-          "The skills in a position are not sorted or some skill is repeated!");
-    }
+  int prevSk = -1;
+  for (int sk : skills_) {
+    if (sk < prevSk)
+      Tools::throwError("The skills in a position are not sorted or "
+                        "some skill is repeated!");
+    prevSk = sk;
   }
-  for (int sk = 0; sk < nSkills(); sk++) {
+  prevSk = -1;
+  for (int sk : alternativeSkills_) {
+    if (sk < prevSk)
+      Tools::throwError("The alternative skills in a position are not sorted "
+                        "or some skill is repeated!");
+    prevSk = sk;
+  }
+
+  for (int sk = 0; sk < nSkills(); sk++)
     skillRarity_.push_back(1.0);
-  }
+
+  allSkills_ = skills_;
+  allSkills_.reserve(nSkills() + nAltSkills());
+  allSkills_.insert(allSkills_.end(),
+                   alternativeSkills_.begin(), alternativeSkills_.end());
+  std::sort(allSkills_.begin(), allSkills_.end());
 }
 
 // Set positions above and below
 //
 void Position::addBelow(PPosition pPosition) {
   positionsBelow_.push_back(pPosition);
-  nBelow_++;
 }
 void Position::addAbove(PPosition pPosition) {
   positionsAbove_.push_back(pPosition);
-  nAbove_++;
 }
 
 // Print method
@@ -169,6 +217,32 @@ void Position::updateRarities(std::vector<double> allRarities) {
   std::sort(skillRarity_.begin(), skillRarity_.end(), std::greater<double>());
 }
 
+// sk1 includes sk2
+static inline bool includes(const vector<int> &sk1, const vector<int> &sk2) {
+  auto it1 = sk1.begin();
+  for (auto it2 = sk2.begin(); it2 != sk2.end(); it2++) {
+    while (*it1 < *it2) {
+      if (it1 == sk1.end() - 1) return false;
+      else
+        it1++;
+    }
+    if (*it1 != *it2) return false;
+  }
+  return true;
+}
+
+// Check if skills of p are included in the position skills and
+// if all the skills of p are also in all the position skills
+bool Position::dominate(const Position &p) const {
+  if (!includes(skills_, p.skills_))
+    return false;
+  // otherwise look at alternative skills
+  if (nSkills() + nAltSkills() < p.nSkills() + p.nAltSkills())
+    return false;
+  // check if all skills of p are included in allSkills
+  return includes(allSkills_, p.allSkills_);
+}
+
 // Compare this position with the input position
 // The dominance criterion is that a position p1 with skills sk1 dominates p2
 // with skills sk2 if and only if (sk1 contains sk2) and sk1 has more skills
@@ -184,30 +258,15 @@ int Position::compare(const Position &p) {
     // only p can dominate if it has more skills
     // the comparison of the two skill lists is based on the fact that they are
     // both sorted
-    auto it1 = p.skills_.begin();
-    for (auto it2 = this->skills_.begin(); it2 != this->skills_.end(); it2++) {
-      while (*it1 < *it2) {
-        if (it1 == p.skills_.end() - 1) return 0;
-        else
-          it1++;
-      }
-      if (*it1 != *it2) return 0;
-    }
-    return -1;
+    if (p.dominate(*this))
+      return -1;
+    return 0;
   } else if (this->nSkills() > p.nSkills()) {
     // only this position can dominate if it has more skills
-    auto it1 = this->skills_.begin();
-    for (auto it2 = p.skills_.begin(); it2 != p.skills_.end(); it2++) {
-      while (*it1 < *it2) {
-        if (it1 == this->skills_.end() - 1) return 0;
-        else
-          it1++;
-      }
-      if (*it1 != *it2) return 0;
-    }
-    return 1;
+    if (dominate(p))
+      return 1;
+    return 0;
   }
-
   return 0;
 }
 
@@ -218,6 +277,21 @@ bool Position::shareSkill(const Position &p) const {
   for (int s : skills_)
     if (find(p.skills_.begin(), p.skills_.end(), s) != p.skills_.end())
       return true;
+  for (int s : alternativeSkills_)
+    if (find(p.alternativeSkills_.begin(),
+             p.alternativeSkills_.end(), s)
+        != p.alternativeSkills_.end())
+      return true;
+  return false;
+}
+
+// return true if this position corresponds to the one of the nurse
+//
+bool Position::isNursePosition(const Nurse &nurse) {
+  if (nSkills() == nurse.nSkills() && nAltSkills() == nurse.nAltSkills())
+    // check if same skills
+    return includes(skills_, nurse.skills_) &&
+        includes(alternativeSkills_, nurse.alternativeSkills_);
   return false;
 }
 
@@ -225,11 +299,9 @@ bool Position::shareSkill(const Position &p) const {
 //
 void Position::resetAbove() {
   positionsAbove_.clear();
-  nAbove_ = 0;
 }
 void Position::resetBelow() {
   positionsBelow_.clear();
-  nBelow_ = 0;
 }
 
 
@@ -557,12 +629,78 @@ Nurse::Nurse(int id,
     pContract_(std::move(contract)),
     hasSkill_(nSkills, false),
     isAvailableShifts_(nShifts, false) {
+  init();
+}
+
+Nurse::Nurse(int id,
+             std::string name,
+             int nShifts,
+             int nSkills,
+             std::vector<int> skills,
+             std::vector<int> alternativeSkills,
+             std::vector<int> availableShifts,
+             PConstContract contract) :
+    num_(id),
+    name_(std::move(name)),
+    skills_(std::move(skills)),
+    alternativeSkills_(std::move(alternativeSkills)),
+    availableShifts_(std::move(availableShifts)),
+    pContract_(std::move(contract)),
+    hasSkill_(nSkills, false),
+    isAvailableShifts_(nShifts, false) {
+  init();
+}
+
+Nurse::Nurse(int id,
+             std::string name,
+             int nShifts,
+             int nSkills,
+             std::vector<int> skills,
+             bool addOtherSkillsAsAlternative,
+             std::vector<int> availableShifts,
+             PConstContract contract) :
+    num_(id),
+    name_(std::move(name)),
+    skills_(std::move(skills)),
+    alternativeSkills_(
+        std::move(addOtherSkillsAsAlternative ?
+                  alternativeSkills(skills_, nSkills) : vector<int>())),
+    availableShifts_(std::move(availableShifts)),
+    pContract_(std::move(contract)),
+    hasSkill_(nSkills, false),
+    isAvailableShifts_(nShifts, false) {
+  init();
+}
+
+Nurse::Nurse(int id, const Nurse &nurse) :
+    num_(id),
+    name_(nurse.name_),
+    skills_(nurse.skills_),
+    alternativeSkills_(nurse.alternativeSkills_),
+    availableShifts_(nurse.availableShifts_),
+    pContract_(nurse.pContract_),
+    hasSkill_(nurse.hasSkill_),
+    isAvailableShifts_(nurse.isAvailableShifts_) {}
+
+Nurse::~Nurse() {
+  // WARNING: Do NOT delete Contract* contract (eventhough it is a pointer.
+  //          Contracts are common to all nurses and don't "belong" to them
+  //          -> should not be deleted.
+}
+
+void Nurse::init() {
   // Verify that the vector of skills is sorted
-  for (auto it = skills_.begin(); it+1 != skills_.end(); ++it)
+  for (auto it = skills_.begin(); it+1 < skills_.end(); ++it)
     if (*it >= *(it + 1))
       Tools::throwError("The skills in a nurse are not sorted "
                         "or some skill is repeated!");
-  for (auto it = availableShifts_.begin(); it+1 != availableShifts_.end(); ++it)
+  // Verify that the vector of skills is sorted
+  for (auto it = alternativeSkills_.begin();
+       it+1 < alternativeSkills_.end(); ++it)
+    if (*it >= *(it + 1))
+      Tools::throwError("The alternative skills in a nurse are not sorted "
+                        "or some skill is repeated!");
+  for (auto it = availableShifts_.begin(); it+1 < availableShifts_.end(); ++it)
     if (*it >= *(it + 1))
       Tools::throwError("The available shifts in a nurse are not sorted "
                         "or some skill is repeated!");
@@ -574,21 +712,6 @@ Nurse::Nurse(int id,
   // build isAvailableShifts_
   for (int s : availableShifts_)
     isAvailableShifts_[s] = true;
-}
-
-Nurse::Nurse(int id, const Nurse &nurse) :
-    num_(id),
-    name_(nurse.name_),
-    skills_(nurse.skills_),
-    availableShifts_(nurse.availableShifts_),
-    pContract_(nurse.pContract_),
-    hasSkill_(nurse.hasSkill_),
-    isAvailableShifts_(nurse.isAvailableShifts_) {}
-
-Nurse::~Nurse() {
-  // WARNING: Do NOT delete Contract* contract (eventhough it is a pointer.
-  //          Contracts are common to all nurses and don't "belong" to them
-  //          -> should not be deleted.
 }
 
 // Check that the nurse has a given skill

@@ -591,31 +591,18 @@ void Scenario::preprocessTheNurses() {
   // Go through the nurses, and create their positions when it has not already
   // been done
   //
-  for (PNurse nurse : pNurses_) {
-    bool positionExists = nPositions_ != 0;
-    int nbSkills = nurse->nSkills();
-    vector<int> skills = nurse->skills_;
-
+  for (const PNurse &nurse : pNurses_) {
     // go through every existing position to see if the position of this nurse
     // has already been created
-    for (PPosition pos : pPositions_) {
-      positionExists = true;
-      if (pos->nSkills() == nbSkills) {
-        for (int i = 0; i < nbSkills; i++) {
-          if (skills[i] != pos->skills_[i]) {
-            positionExists = false;
-            break;
-          }
-        }
-      } else {
-        positionExists = false;
-      }
+    bool positionExists = false;
+    for (const PPosition &pos : pPositions_) {
+      positionExists = pos->isNursePosition(*nurse);
       if (positionExists) break;
     }
 
     // create the position if if doesn't exist
     if (!positionExists) {
-      pPositions_.emplace_back(std::make_shared<Position>(nPositions_, skills));
+      pPositions_.emplace_back(std::make_shared<Position>(nPositions_, *nurse));
       nPositions_++;
     }
   }
