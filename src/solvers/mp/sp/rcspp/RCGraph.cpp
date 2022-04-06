@@ -56,7 +56,7 @@ std::vector<PRCNode> RCGraph::sortNodes() const {
       // if depth is updated -> reprocess node to update predecessors
       if (depths[pArc->origin->id] < depth) {
         depths[pArc->origin->id] = depth;
-        nodesToProcess.push_back(pArc->origin);
+        nodesToProcess.push_back(pNode(pArc->origin->id));
       }
     }
     // update max depth

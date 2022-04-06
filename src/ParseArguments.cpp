@@ -84,6 +84,9 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--rcspp-type")) {
       pInputPaths->RCSPPType(str);
       narg += 2;
+    } else if (!strcmp(argv[narg], "--n-candidates")) {
+      pInputPaths->nCandidates(std::stoi(str));
+      narg += 2;
     } else {
       Tools::throwError(
           "main: the argument (%s) does not match the expected list!",
@@ -115,7 +118,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
       paramFile = "";
   std::string SPType = "", RCSPPType = "";
   int historyIndex = -1, randSeed = 0,
-      nTreads = -1, SPStrategy = -1, verbose = -1;
+      nTreads = -1, SPStrategy = -1, verbose = -1, nCandidates = -1;
   std::vector<int> weekIndices;
   double timeOut = -1;
   bool cyclic = false;
@@ -182,6 +185,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--cyclic")) {
       cyclic = true;
       narg += 1;
+    } else if (!strcmp(argv[narg], "--n-candidates")) {
+      nCandidates = std::stoi(str);
+      narg += 2;
     } else {
       Tools::throwError(
           "main: the argument (%s) does not match the expected list!",
@@ -208,7 +214,8 @@ InputPaths *readCompactArguments(int argc, char **argv) {
                                     SPType,
                                     SPStrategy,
                                     RCSPPType,
-                                    nTreads);
+                                    nTreads,
+                                    nCandidates);
 
   return new InputPaths(dataDir,
                         instanceName,
@@ -223,7 +230,8 @@ InputPaths *readCompactArguments(int argc, char **argv) {
                         SPType,
                         SPStrategy,
                         RCSPPType,
-                        nTreads);
+                        nTreads,
+                        nCandidates);
 }
 
 /******************************************************************************

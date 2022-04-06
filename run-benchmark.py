@@ -101,27 +101,33 @@ def run_cmd(cmd, i=0, pipe=subprocess.PIPE):
         raise
 
 
-def run_benchmark(benchmark_file, exe, pipe=subprocess.PIPE, status='.'):
+def get_args(d_yaml):
+    ns_args = ''
+    for k, v in d_yaml['benchmark'].items():
+        if k == 'instances' or k == 'exe':
+            continue
+        elif k == 'args':
+            if v:
+                ns_args += ' {}'.format(v)
+        else:
+            ns_args += ' --{} {}'.format(k, v)
+    return ns_args
+
+
+def run_benchmark(benchmark_file, exe, pipe=subprocess.PIPE,
+                  status='.', name='.'):
     with open(benchmark_file, 'r') as stream:
         try:
             d = yaml.safe_load(stream)
-            ns_args = ''
-            for k, v in d['benchmark'].items():
-                if k == 'instances':
-                    instances = v
-                elif k == 'exe':
-                    if not exe:
-                        exe = v
-                elif k == 'args':
-                    if v:
-                        ns_args += ' {}'.format(v)
-                else:
-                    ns_args += ' --{} {}'.format(k, v)
-
+            ns_args = get_args(d)
+            if not exe:
+                exe = d['benchmark']['exe']
             o_file = benchmark_file.split('.')[-2]
             o_file += '_{}.yml'.format(int(time.time()))
-            for i, t in enumerate(instances):
+            for i, t in enumerate(d['benchmark']['instances']):
                 if 'status' in t and not re.search(status, t['status'], re.IGNORECASE):
+                    continue
+                if not re.search(name, t['name'], re.IGNORECASE):
                     continue
                 i_args = t['name'].split('_') + [ns_args]
                 print(i_args)
@@ -133,10 +139,27 @@ def run_benchmark(benchmark_file, exe, pipe=subprocess.PIPE, status='.'):
                         t[output_keys[j]] = v
                     with open(o_file, 'w') as wstream:
                         yaml.dump(d, wstream, sort_keys=False)
-
+            return o_file
         except yaml.YAMLError as exc:
             print(exc)
+            return None
 
+def extract_results(results_file):
+    with open(results_file, 'r') as stream:
+        try:
+            d = yaml.safe_load(stream)
+            print('Results for '+results_file)
+            print('Command: ' + get_args(d))
+            print("instance, status, rootLB, LB, UB, Time")
+            for r in d['benchmark']['instances']:
+                try:
+                    print("%s, %s, %s, %s, %s, %s" %
+                          (r['name'], r['status'], r['root-lb'],
+                           r['lb'], r['ub'], r['time']))
+                except KeyError:
+                    print("%s,,,,," % r['name'])
+        except yaml.YAMLError as exc:
+            print(exc)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -148,6 +171,11 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--status', dest='status', default='.',
                         help='Status of the instances to solve. '
                              'Default: match anything, thus "."')
+    parser.add_argument('-n', '--name', dest='name', default='.',
+                        help='Name of the instances to solve. '
+                             'Default: match anything, thus "."')
+    parser.add_argument('-r', '--results', dest='results', action='store_true',
+                        help='Set if only processing the results. Default: False')
     args = parser.parse_args()
 
     if args.docker:
@@ -157,6 +185,14 @@ if __name__ == "__main__":
         run = ''
 
     benchmark = [f for f in glob.glob(args.benchmark)]
+    results = benchmark
     print("Run these benchmarks: %s" %benchmark)
-    for b in benchmark:
-        run_benchmark(b, run, status=args.status)
+    if not args.results:
+        results = []
+        for b in benchmark:
+            r = run_benchmark(b, run, status=args.status, name=args.name)
+            results.append(r)
+
+    for r in results:
+        if r:
+            extract_results(r)

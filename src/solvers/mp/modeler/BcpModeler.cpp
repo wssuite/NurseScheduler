@@ -16,19 +16,21 @@
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
 #include "solvers/mp/MasterProblem.h"
+#include "solvers/mp/modeler/BcpBranchingCandidates.h"
 
-#include "OsiClpSolverInterface.hpp"
-#include "CoinTime.hpp"
-#include "BCP_lp.hpp"
-#include "BCP_lp_node.hpp"
+#include "OsiClpSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+#include "CoinTime.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_lp.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_lp_branch.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_lp_node.hpp"  // NOLINT (suppress cpplint error)
 
 #ifdef USE_CPLEX
-#include "OsiCpxSolverInterface.hpp"
+#include "OsiCpxSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 #include "cplex.h"  // NOLINT
 #endif
 
 #ifdef USE_GUROBI
-#include "OsiGrbSolverInterface.hpp"
+#include "OsiGrbSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 #endif
 
 #ifdef USE_CBC
@@ -46,6 +48,7 @@ using std::pair;
 
 BcpLpModel::BcpLpModel(BcpModeler *pModel) :
     pModel_(pModel),
+    candidates_(pModel),
     currentNodelpIteration_(0),
     lpIteration_(0),
     last_node(-1),
@@ -58,8 +61,10 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
     // create the timer that records the life time of the solver and start it
     timerTotal_(true) {
   // Initialization of nb_dives_to_wait_before_branching_on_columns_
-  for (int i = 1; i < 1000; ++i)
-    nb_dives_to_wait_before_branching_on_columns_.push_back(pow(i, 2));
+  if (pModel->getParameters().nbDiveIfBranchOnColumns_) {
+    for (int i = 1; i < 1000; ++i)
+      nb_dives_to_wait_before_branching_on_columns_.push_back(pow(i, 2));
+  }
 }
 
 BcpLpModel::~BcpLpModel() {
@@ -74,7 +79,14 @@ BcpLpModel::~BcpLpModel() {
 OsiSolverInterface *BcpLpModel::initialize_solver_interface() {
   for (const auto &entry : pModel_->getLpParameters())
     set_param(entry.first, entry.second);
-  set_param(pModel_->strong_branching.first, pModel_->strong_branching.second);
+  if (pModel_->getParameters().nCandidates_ == 1)
+    set_param(pModel_->strong_branching.first, -1);
+  else if (pModel_->getParameters().nCandidates_ > 1)
+    set_param(pModel_->strong_branching.first,
+              pModel_->strong_branching.second);
+  else
+    Tools::throwError("The number of candidates needs to be positive "
+                      "instead of %d.", pModel_->getParameters().nCandidates_);
 
   OsiSolverInterface *solver = nullptr;
   switch (pModel_->getLPSolverType()) {
@@ -177,13 +189,13 @@ BCP_solution *BcpLpModel::generate_heuristic_solution(
       if (value < pModel_->epsilon()
           || solver->getColLower()[i] == 1)  // value > 1 - pModel_->epsilon())
         continue;
-      candidates.push_back({i, 1 - value});
+      candidates.emplace_back(i, 1 - value);
     }
 
     stable_sort(candidates.begin(), candidates.end(), compareCol);
 
     // if we have found a column
-    if (candidates.size() > 0) {
+    if (!candidates.empty()) {
       double valueLeft = .99;
       for (const pair<int, double> &p : candidates) {
         if (p.second > valueLeft)
@@ -213,7 +225,7 @@ BCP_solution *BcpLpModel::generate_heuristic_solution(
   }
 
   // restore bounds
-  for (const pair<int, double> &p : indexColLbChanged)
+  for (const auto &p : indexColLbChanged)
     solver->setColLower(p.first, p.second);
 
   //   // indicate to the lp solver that the heuristic branching is done
@@ -314,6 +326,8 @@ void BcpLpModel::modify_lp_parameters(OsiSolverInterface *lp,
     // -pModel_->getParameters().sp_max_reduced_cost_bound_+pModel_->epsilon());
     // lp->setDblParam( OsiDualTolerance,dualTol);
   }
+//  if (in_strong_branching)
+//    lp->set
 }
 
 // print in cout a line summary headers and of the current solver state
@@ -340,22 +354,22 @@ void BcpLpModel::printSummaryLineHeaders() const {
           "ObjSP",
           "#SP",
           "#Col");
-  fprintf(pFile,
-          "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
-          "%8s %14s %13s %10s | %14s %5s %5s \n",
-          current_index(),
-          pModel_->getTreeSize(),
-          current_level(),
-          pModel_->getObjective(),
-          pModel_->getRootLB(),
-          pModel_->getBestLB(),
-          "-",
-          "-",
-          "-",
-          "-",
-          "-",
-          "-",
-          "-");
+//  fprintf(pFile,
+//          "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
+//          "%8s %14s %13s %10s | %14s %5s %5s \n",
+//          current_index(),
+//          pModel_->getTreeSize(),
+//          current_level(),
+//          pModel_->getObjective(),
+//          pModel_->getRootLB(),
+//          pModel_->getBestLB(),
+//          "-",
+//          "-",
+//          "-",
+//          "-",
+//          "-",
+//          "-",
+//          "-");
 
   if (!pModel_->logfile().empty()) fclose(pFile);
 }
@@ -413,14 +427,14 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
     else
       fprintf(pFile,
               "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
-              "%8d %14.2f %5d / %5d %10ld | %14s %5s %5s  \n",
+              "%8s %14.2f %5d / %5d %10ld | %14s %5s %5s  \n",
               current_index(),
               pModel_->getTreeSize(),
               current_level(),
               pModel_->getObjective(),
               pModel_->getRootLB(),
               pModel_->getBestLB(),
-              lpIteration_,
+              "-",
               pModel_->getLastObj(),
               frac,
               non_zero,
@@ -495,12 +509,16 @@ void BcpLpModel::process_lp_result(const BCP_lp_result &lpres,
                                    BCP_vec<BCP_row *> &new_rows,
                                    BCP_vec<BCP_var *> &new_vars,
                                    BCP_vec<BCP_col *> &new_cols) {
+  // update LP solution
+  pModel_->setLPSol(lpres, vars, cuts, lpIteration_);
+
+  // print once at the beginning of each node
+  if (currentNodelpIteration_ == 0)
+    printSummaryLine(false, vars);
+
   // update the total number of LP solutions (from the beginning)
   ++currentNodelpIteration_;
   ++lpIteration_;
-
-  // update LP solution
-  pModel_->setLPSol(lpres, vars, lpIteration_);
 
   // run the default method to set user_has_lp_result_processing to false
   // otherwise, BCP won't run the methods generate_vars_in_lp for example,
@@ -921,27 +939,29 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
       < pModel_->getParameters().optimalAbsoluteGap_)
     return BCP_DoNotBranch_Fathomed;
 
-  // if not currently diving with the same rule as in the heuristic,
+  // if not currently diving,
   // try and run the heuristic
   if (pModel_->getParameters().performHeuristicAfterXNode_ > -1 &&
-      (!pModel_->is_columns_node()
-          || !pModel_->getParameters().branchColumnUntilValue_)) {
+      !pModel_->is_columns_node()) {
     heuristicHasBeenRun_ = false;
     generate_heuristic_solution(lpres, vars, cuts);
     heuristicHasBeenRun_ = true;
   }
 
   // build a candidate
-  MyBranchingCandidate candidate;
   bool generate = true;
+  std::list<MyPBranchingCandidate> candidates;
   // if a column node, continue the dive
   if (pModel_->is_columns_node()) {
-    generate = pModel_->branch_on_column(&candidate);
+    generate = pModel_->branch_on_column(&candidates);
   } else {
+    // branching decisions: rest on a day, branch on shifts ...
+    generate = pModel_->branching_decisions(&candidates);
+
     // do we branch on columns ?
     if (pModel_->getNbDives()
         < pModel_->getParameters().nbDiveIfBranchOnColumns_) {
-      pModel_->branch_on_column(&candidate);
+      pModel_->branch_on_column(&candidates);
     } else if (!nb_dives_to_wait_before_branching_on_columns_.empty() &&
         pModel_->getNbDives()
             >= nb_dives_to_wait_before_branching_on_columns_.front()) {
@@ -950,9 +970,6 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
       nb_dives_to_wait_before_branching_on_columns_.pop_front();
       pModel_->resetNbNodesSinceLastDive();
     }
-
-    // other branching decisions: rest on a day, branch on shifts ...
-    generate = pModel_->branching_decisions(&candidate);
   }
 
   if (!generate) {
@@ -964,93 +981,57 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
                       "candidate has been found.");
   }
 
-  buildCandidate(candidate, vars, cuts, cands);
+  // create BCP candidates
+  candidates_.reset(lpres.objval());
+  BCP_lp_branching_object *can = candidates_.selectCandidates(
+      candidates, getLpProblemPointer(), vars, cuts);
+  cands.push_back(can);
 
   return BCP_DoBranch;
 }
 
-void BcpLpModel::buildCandidate(
-    const MyBranchingCandidate &candidate,
-    const BCP_vec<BCP_var *> &vars,
-    const BCP_vec<BCP_cut *> &cuts,
-    BCP_vec<BCP_lp_branching_object *> &cands) {  // NOLINT
-  BCP_vec<BCP_var *> new_vars;  // add a branching cut for the set of arcs
-  BCP_vec<BCP_cut *> new_cuts;  // add a branching cut for the set of arcs
-  BCP_vec<int> vpos;  // positions of the variables
-  BCP_vec<double> vbd;  // new bounds for each variable and for each children
-  BCP_vec<int> cpos;  // positions of the cuts
-  BCP_vec<double> cbd;  // bounds of the cuts
+// Decide what to do with the children of the selected branching object.
+// Fill out the _child_action field in best.
+// This will specify for every child what to do with it.
+// Possible values for each individual child are:
+// BCP_PruneChild, BCP_ReturnChild and BCP_KeepChild.
+// There can be at most child with this last action specified.
+// It means that in case of diving this child will be processed
+// by this LP process as the next search tree node.
+// Default: Every action is BCP_ReturnChild.
+// However, if BCP dives then one child will be mark with BCP_KeepChild.
+// The decision which child to keep is based on the ChildPreference
+// parameter in BCP_lp_par.
+// Also, if a child has a presolved lower bound that is higher than
+// the current upper bound then that child is mark as BCP_FathomChild.
+void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj *best) {
+  if (best->candidate()->child_num == 0)
+    Tools::throwError("No candidate has been generated.");
 
-  /*
-   * Branching variables
-   */
+  // copy the nodes to the tree and clear candidates
+  candidates_.updateTree(best);
 
-  BCP_vec<double> generalVarBounds;
-  int nbNewVar = 0;
-  for (MyVar *var : candidate.getBranchingVars()) {
-    // search the var in the vars
-    int index = pModel_->getActiveIndex(var);
-    if (index == -1) {  // new var
-      index = vars.size() + nbNewVar;
-      ++nbNewVar;
-    }
-    vpos.push_back(index);
+  // set the lower bound of the children (very important when
+  // performing strong branching)
+  best->initialize_lower_bound(pModel_->getCurrentLB());
+
+  // if only one child -> keep child as diving
+  // if not looking for optimality -> keep diving
+  // if the gap is less than the min relative gap and
+  // the node's LP gap is less than integrality gap/2 or
+  // maxRelativeLPGapToKeepChild_ -> keep child
+  // The goal is to dive while the gap is more than
+  // 2*maxRelativeLPGapToKeepChild_ and then explore the tree breadth
+  double minGap = std::max(
+      pModel_->getIntegralityGap()/2,
+      pModel_->getParameters().maxRelativeLPGapToKeepChild_);
+  if (best->action().size() == 1 ||
+      !pModel_->getParameters().solveToOptimality_ ||
+      pModel_->getCurrentNode()->getLPGap() < minGap) {
+    best->action()[0] = BCP_KeepChild;
+    // tell the tree that the first child if kept
+    pModel_->keepFirstChild(best->action().size());
   }
-
-  for (MyVar *newVar : candidate.getNewBranchingVars())
-    new_vars.push_back(dynamic_cast<BCP_var *>(newVar));
-
-  // bounds
-  for (const MyBranchingNode &node : candidate.getChildren()) {
-    auto lbIt = node.getLb().begin();
-    for (auto ubIt = node.getUb().begin(); ubIt != node.getUb().end();
-         ++ubIt, ++lbIt) {
-      vbd.push_back(*lbIt);
-      vbd.push_back(*ubIt);
-    }
-  }
-
-  /*
-   * Branching cuts
-   */
-  int nbNewCut = 0;
-  for (MyCons *cons : candidate.getBranchingCons()) {
-    // search the var in the vars
-    auto *cut = dynamic_cast<BcpBranchCons *>(cons);
-    int index = cons->getIndex();
-    if (cut) {
-      index = cuts.size() + nbNewCut;
-      ++nbNewCut;
-    }
-    cpos.push_back(index);
-  }
-
-  for (MyCons *newCut : candidate.getNewBranchingCons())
-    new_cuts.push_back(dynamic_cast<BCP_cut *>(newCut));
-
-  // bounds
-  for (const MyBranchingNode &node : candidate.getChildren()) {
-    auto lhsIt = node.getLhs().begin();
-    for (auto rhsIt = node.getRhs().begin(); rhsIt != node.getRhs().end();
-         ++rhsIt) {
-      cbd.push_back(*lhsIt);
-      cbd.push_back(*rhsIt);
-      ++lhsIt;
-    }
-  }
-
-  cands.push_back(new BCP_lp_branching_object(
-      candidate.getChildren().size(),
-      &new_vars,
-      &new_cuts, /* vars/cuts_to_add */
-      &vpos,
-      &cpos,
-      &vbd,
-      &cbd, /* forced parts */
-      0,
-      0,
-      0,
-      0 /* implied parts */));
 }
 
 // rerun the code use to test the integer feasibility of a solution and
@@ -1162,46 +1143,6 @@ bool BcpLpModel::testPartialFeasibility() {
   return true;
 }
 
-// Decide what to do with the children of the selected branching object.
-// Fill out the _child_action field in best.
-// This will specify for every child what to do with it.
-// Possible values for each individual child are:
-// BCP_PruneChild, BCP_ReturnChild and BCP_KeepChild.
-// There can be at most child with this last action specified.
-// It means that in case of diving this child will be processed
-// by this LP process as the next search tree node.
-// Default: Every action is BCP_ReturnChild.
-// However, if BCP dives then one child will be mark with BCP_KeepChild.
-// The decision which child to keep is based on the ChildPreference
-// parameter in BCP_lp_par.
-// Also, if a child has a presolved lower bound that is higher than
-// the current upper bound then that child is mark as BCP_FathomChild.
-void BcpLpModel::set_actions_for_children(BCP_presolved_lp_brobj *best) {
-  if (best->candidate()->child_num == 0)
-    Tools::throwError("No action has been generated.");
-  // if only one child -> keep child as diving
-  // if not looking for optimality -> keep diving
-  // if the gap is less than the min relative gap and
-  // the node's LP gap is less than integrality gap/2 or
-  // maxRelativeLPGapToKeepChild_ -> keep child
-  // The goal is to dive while the gap is more than
-  // 2*maxRelativeLPGapToKeepChild_ and then explore the tree breadth
-  double minGap = std::max(
-      pModel_->getIntegralityGap()/2,
-      pModel_->getParameters().maxRelativeLPGapToKeepChild_);
-  if (best->action().size() == 1 ||
-      !pModel_->getParameters().solveToOptimality_ ||
-      pModel_->getCurrentNode()->getLPGap() < minGap) {
-    best->action()[0] = BCP_KeepChild;
-    // tell the tree that the first child if kept
-    pModel_->keepFirstChild(best->action().size());
-  }
-
-  // if(pModel_->continueDiving()) best->action()[0] = BCP_KeepChild;
-  // else
-  //   pModel_->addCurrentNodeToStack();
-}
-
 // Here, we generate a cut to branch on a set of variables
 void BcpLpModel::cuts_to_rows(
     // the variables currently in the relaxation (IN)
@@ -1254,8 +1195,11 @@ void BcpLpModel::select_vars_to_delete(const BCP_lp_result &lpres,
   deletable.reserve(varnum);
   for (int i = getLpProblemPointer()->core->varnum(); i < varnum; ++i) {
     BCP_var *var = vars[i];
-    if (var->is_to_be_removed() ||
-        (!var->is_non_removable() && var->lb() == 0 && var->ub() == 0)) {
+    // Do not delete these variables as they are being branched on
+    if (var->is_non_removable())
+      continue;
+
+    if (var->is_to_be_removed() || (var->lb() == 0 && var->ub() == 0)) {
       deletable.unchecked_push_back(i);
       continue;
     }
@@ -1264,8 +1208,9 @@ void BcpLpModel::select_vars_to_delete(const BCP_lp_result &lpres,
     if (col->getNbConsInactiveIteration(lpIteration_)
         > pModel_->getParameters().max_inactive_iteration_ &&
         col->getActivityRate(lpIteration_)
-            < pModel_->getParameters().min_activity_rate_)
+            < pModel_->getParameters().min_activity_rate_) {
       deletable.unchecked_push_back(i);
+    }
   }
 
   if (pModel_->getParameters().printBranchStats_ && before_fathom) {
@@ -1576,7 +1521,6 @@ int BcpModeler::createColumnVar(MyVar **var,
  *   lhs, rhs are the lower and upper bound of the constraint
  *   nonZeroVars is the number of non-zero coefficients to add to the constraint
  */
-
 int BcpModeler::createCoinConsLinear(MyCons **con,
                                      const char *con_name,
                                      int index,
@@ -1602,6 +1546,7 @@ int BcpModeler::createCoinCutLinear(MyCons **con,
  */
 void BcpModeler::setLPSol(const BCP_lp_result &lpres,
                           const BCP_vec<BCP_var *> &vars,
+                          const BCP_vec<BCP_cut *> &cuts,
                           int lpIteration) {
   obj_history_.push_back(lpres.objval());
   solHasChanged_ = false;
@@ -1609,7 +1554,7 @@ void BcpModeler::setLPSol(const BCP_lp_result &lpres,
   // copy the new arrays in the vectors for the core vars
   const int nbCoreVar = coreVars_.size();
   const int nbVar = vars.size();
-  const int nbCons = coreCons_.size();
+  const int nbCons = cuts.size();
 
   // clear all
   primalValues_.clear();
@@ -1635,8 +1580,8 @@ void BcpModeler::setLPSol(const BCP_lp_result &lpres,
 }
 
 void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var *> &vars) const {
-  auto *shiftNode = dynamic_cast<ShiftNode *>(pTree_->getCurrentNode());
-  if (shiftNode == 0) return;
+  auto *shiftNode = dynamic_cast<ShiftNode*>(pTree_->getCurrentNode().get());
+  if (shiftNode == nullptr) return;
 
   for (unsigned int i = coreVars_.size(); i < vars.size(); ++i) {
     auto *var = dynamic_cast<BcpColumn *>(vars[i]);
@@ -1897,8 +1842,6 @@ int BcpModeler::setVerbosity(int v) {
   }
 
   if (v >= 4) {
-    // Turn on the user hook "display_lp_solution". (BCP_lp_main_loop)
-    lp_parameters[BCP_lp_par::LpVerb_RelaxedSolution] = 1;
     tm_parameters[BCP_tm_par::TmVerb_BetterFeasibleSolution] = 1;
     tm_parameters[BCP_tm_par::TmVerb_AllFeasibleSolution] = 1;
     tm_parameters[BCP_tm_par::TmVerb_TimeOfImprovingSolution] = 1;
@@ -1937,6 +1880,10 @@ int BcpModeler::setVerbosity(int v) {
     // Print information on the branching candidate selected by strong
     // branching. (BCP_print_brobj_stat)
     lp_parameters[BCP_lp_par::LpVerb_StrongBranchResult] = 1;
+  }
+  if (v >= 5) {
+    // Turn on the user hook "display_lp_solution". (BCP_lp_main_loop)
+    lp_parameters[BCP_lp_par::LpVerb_RelaxedSolution] = 1;
   }
 
   return 1;

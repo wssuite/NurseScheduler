@@ -578,11 +578,13 @@ class SolverParam {
   int nbDiveIfMinGap_ = 1;
   int nbDiveIfRelGap_ = 2;
   // number of consecutive dive if branching on columns
+  // if 0, the solver won't branch on columns
   int nbDiveIfBranchOnColumns_ = 1;
   // branch on columns with a disjoint argument
   int branchColumnDisjoint_ = true;
-  // branch on columns a limit on the total rounded value
-  int branchColumnUntilValue_ = false;
+  // Set the limit on the total rounded value when branching on columns
+  // Default: let the master problem choose it
+  double branchColumnUntilValue_ = -1;
 
   bool solveToOptimality_ = false;
 
@@ -590,6 +592,9 @@ class SolverParam {
   // if 0, the algorithm computes the relaxation if the algorithm is a column
   // generation procedure
   int stopAfterXSolution_ = 5;
+
+  // number of candidates to create for strong branching
+  int nCandidates_ = 1;
 
   // perform the heuristic searching an integer solution after visiting X nodes
   // in the tree.

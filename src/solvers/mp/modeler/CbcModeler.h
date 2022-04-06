@@ -16,11 +16,11 @@
 #include <string>
 
 #include "solvers/mp/modeler/CoinModeler.h"
-#include "CbcModel.hpp"
+#include "CbcModel.hpp"  // NOLINT (suppress cpplint error)
 #include "tools/Tools.h"
 
 // Using CLP as the solver
-#include "OsiClpSolverInterface.hpp"
+#include "OsiClpSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 
 class CbcModeler : public CoinModeler {
  public:

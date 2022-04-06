@@ -115,6 +115,19 @@ bool readUntilChar(std::fstream *file, char separator, std::string *pTitle) {
   return true;
 }
 
+// Checks if the string (sentence) starts with the given substring (word)
+//
+bool strStartsWith(std::string sentence, std::string word) {
+  int lWord = word.length();
+  int lSentence = sentence.length();
+  if (lWord > lSentence)
+    return false;
+
+  std::string startOfSentence = sentence.substr(0, lWord);
+  return (!strcmp(word.c_str(), startOfSentence.c_str()));
+}
+
+
 // Checks if the string (sentence) ends with the given substring (word)
 //
 bool strEndsWith(std::string sentence, std::string word) {

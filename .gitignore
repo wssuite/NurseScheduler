@@ -33,6 +33,7 @@
 
 # cmake definitions
 CMakeDefinitionsLists.txt
+cmake**
 
 # source files whose changes must remain local
 src/main.cpp
@@ -60,9 +61,15 @@ formatter*
 
 # for mac
 .fuse*
+**.DS_STORE**
 
 # sublime project files
 *.sublime-*
 
 # clion files
 .idea/
+
+# solver files
+*.lp*
+*.mps*
+*.ilp*

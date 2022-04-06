@@ -534,7 +534,6 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       relativeGap_ = .1;
       nbDiveIfMinGap_ = 1;
       nbDiveIfRelGap_ = 2;
-      nbDiveIfBranchOnColumns_ = 1;
       solveToOptimality_ = false;
       stopAfterXSolution_ = 1;
       break;
@@ -543,7 +542,6 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       relativeGap_ = .1;
       nbDiveIfMinGap_ = 1;
       nbDiveIfRelGap_ = 2;
-      nbDiveIfBranchOnColumns_ = 1;
       solveToOptimality_ = false;
       stopAfterXSolution_ = 999999;
       break;
@@ -552,7 +550,6 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       relativeGap_ = .02;
       nbDiveIfMinGap_ = 1;
       nbDiveIfRelGap_ = 4;
-      nbDiveIfBranchOnColumns_ = 1;
       solveToOptimality_ = false;
       stopAfterXSolution_ = 9999999;
       break;
@@ -561,7 +558,6 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       relativeGap_ = 1e-4;
       nbDiveIfMinGap_ = 1;
       nbDiveIfRelGap_ = 2;
-      nbDiveIfBranchOnColumns_ = 1;
       solveToOptimality_ = true;
       stopAfterXSolution_ = 9999999;
       break;

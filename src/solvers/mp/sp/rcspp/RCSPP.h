@@ -60,7 +60,7 @@ class LabelPool {
    */
 
   // get the number of labels in the pool
-  int nLabels() const {
+  int64_t nLabels() const {
     return std::distance<vector<PRCLabel>::const_iterator>(
         pLabels_.begin(), endLabel_);
   }
@@ -183,7 +183,7 @@ class RCSPPSolver {
 #endif
 
   // Check if a label can produce a path to a sink node with negative cost
-  bool hasPotentialImprovingPathToSinks(const PRCLabel &pl, const PRCNode& pN,
+  bool hasPotentialImprovingPathToSinks(const PRCLabel &pl, int nodeId,
                                         double primalBound = 0) const;
 
   // get the number of negative cost labels in the input vector and update

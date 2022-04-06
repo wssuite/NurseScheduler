@@ -13,6 +13,7 @@
 #define SRC_SOLVERS_MP_SP_RCSPP_BOOST_RCSPP_H_
 
 #include <map>
+#include <memory>
 #include <queue>
 #include <vector>
 #include <list>
@@ -151,8 +152,41 @@ class default_dominance_spp : public dominance_spp {
 // the elements that "come before" are actually output last.
 // That is, the front of the queue contains the "last" element according to
 // the weak ordering imposed by Compare.
-typedef boost::r_c_shortest_paths_label<Graph, spp_res_cont> Label;
-typedef boost::detail::ks_smart_pointer<Label> Spplabel;
+// r_c_shortest_paths_label struct
+struct Label {
+  Label(const int64_t n,
+        const spp_res_cont& rc,
+        const shared_ptr<Label> &pl,
+        const typename boost::graph_traits< Graph >::edge_descriptor& ed,
+        const typename boost::graph_traits< Graph >::vertex_descriptor& vd)
+      : num(n)
+      , cumulated_resource_consumption(rc)
+      , p_pred_label(pl)
+      , pred_edge(ed)
+      , resident_vertex(vd)
+      , b_is_dominated(false)
+      , b_is_processed(false) {}
+
+  Label& operator=(const Label& other) {
+    if (this == &other)
+      return *this;
+    this->~Label();
+    new (this) Label(other);
+    return *this;
+  }
+
+  const int64_t num;
+  spp_res_cont cumulated_resource_consumption;
+  const shared_ptr<Label> p_pred_label;
+  const typename
+  boost::graph_traits< Graph >::edge_descriptor pred_edge;
+  const typename
+  boost::graph_traits< Graph >::vertex_descriptor resident_vertex;
+  bool b_is_dominated;
+  bool b_is_processed;
+};  // r_c_shortest_paths_label
+
+typedef shared_ptr<Label> Spplabel;
 
 // Breath First Comparator to order the processing of the nodes in boost rc spp:
 // 1. starts with the ones with the smallest day (return true if day1 > day2)
@@ -276,7 +310,7 @@ class BoostRCSPPSolver {
       const ref_spp &ref) const;
 
   // r_c_shortest_path class: derived from boost::r_c_shortest_paths_dispatch
-  template<class Label_Allocator, class Visitor>
+  template<class Visitor>
   void r_c_shortest_paths_solve(const Graph &g,
                                 vertex s,
                                 const std::vector<vertex> &t,
@@ -285,7 +319,6 @@ class BoostRCSPPSolver {
                                 const spp_res_cont &rc,
                                 const ref_spp &ref,
                                 const dominance_spp &dominance,
-                                Label_Allocator la,
                                 Visitor *vis,
                                 SPSearchStrategy strategy) {
     // solve with the right comparator
@@ -293,38 +326,37 @@ class BoostRCSPPSolver {
       case SP_BEST_FIRST:
         r_c_shortest_paths_dispatch(g, s, t,
                                     opt_solutions_spp, pareto_opt_rcs_spp,
-                                    rc, ref, dominance, la, vis,
+                                    rc, ref, dominance, vis,
                                     SpplabelBestFirstComparator());
         break;
       case SP_BREADTH_FIRST:
         r_c_shortest_paths_dispatch(g, s, t,
                                     opt_solutions_spp, pareto_opt_rcs_spp,
-                                    rc, ref, dominance, la, vis,
+                                    rc, ref, dominance, vis,
                                     SpplabelBreadthFirstComparator());
         break;
       case SP_DEPTH_FIRST:
         r_c_shortest_paths_dispatch(g, s, t,
                                     opt_solutions_spp, pareto_opt_rcs_spp,
-                                    rc, ref, dominance, la, vis,
+                                    rc, ref, dominance, vis,
                                     SpplabelDepthFirstComparator());
         break;
       case SP_DOMINANT_FIRST:
         r_c_shortest_paths_dispatch(g, s, t,
                                     opt_solutions_spp, pareto_opt_rcs_spp,
-                                    rc, ref, dominance, la, vis,
+                                    rc, ref, dominance, vis,
                                     SpplabelDominantFirstComparator());
         break;
       default:
         r_c_shortest_paths_dispatch(g, s, t,
                                     opt_solutions_spp, pareto_opt_rcs_spp,
-                                    rc, ref, dominance, la, vis,
+                                    rc, ref, dominance, vis,
                                     SpplabelDefaultComparator());
     }
   }
 
 // modified boost::r_c_shortest_paths_dispatch function (body/implementation)
-  template<class Label_Allocator,
-      class Visitor,
+  template<class Visitor,
       class Spplabel_Comparator>
   void r_c_shortest_paths_dispatch(
       const Graph &g,
@@ -335,7 +367,6 @@ class BoostRCSPPSolver {
       const spp_res_cont &rc,
       const ref_spp &ref,
       const dominance_spp &dominance,
-      Label_Allocator /*la*/,
       Visitor *vis,
       Spplabel_Comparator) {
     // definition of the label and the priority queue that stores the labels
@@ -345,16 +376,11 @@ class BoostRCSPPSolver {
 
     // Allocator for the Splabel
     size_t i_label_num = 0;
-    typedef typename Label_Allocator::template rebind
-        <boost::r_c_shortest_paths_label<Graph, spp_res_cont> >::other LAlloc;
-    LAlloc l_alloc;
 
     // build first label
-    boost::r_c_shortest_paths_label<Graph, spp_res_cont>
-        *first_label = l_alloc.allocate(1);
-    l_alloc.construct(first_label,
-                      Label(i_label_num++, rc, nullptr, edge(), s));
-    Spplabel spplabel_first_label = Spplabel(first_label);
+
+    Spplabel spplabel_first_label = std::make_shared<Label>(
+        i_label_num++, rc, nullptr, edge(), s);
     unprocessed_labels.push(spplabel_first_label);
 
     // build a vector to store a list of labels residing at a given vertex
@@ -379,7 +405,7 @@ class BoostRCSPPSolver {
      * and move it2 to the next label.
      * return true if dominated.
      */
-    auto dominance_func = [&dominance, &vis, &l_alloc, &g](
+    auto dominance_func = [&dominance, &vis, &g](
         Spplabel &spplabel1, Spplabel &spplabel2,
         std::list<Spplabel>::iterator &it2,
         std::list<Spplabel> &list_labels_cur_vertex) {
@@ -388,9 +414,6 @@ class BoostRCSPPSolver {
         it2 = list_labels_cur_vertex.erase(it2);
         if (spplabel2->b_is_processed) {
           vis->on_label_dominated(*spplabel2, g);
-          spplabel2->b_is_valid = false;
-          l_alloc.destroy(spplabel2.get());
-          l_alloc.deallocate(spplabel2.get(), 1);
         } else {
           // mark as dominated: will be deleted when popped of the
           // unprocessed list
@@ -413,7 +436,6 @@ class BoostRCSPPSolver {
         * (choose the one with the higher priority)
         */
       Spplabel cur_label = unprocessed_labels.top();
-      assert(cur_label->b_is_valid);
       unprocessed_labels.pop();
       vis->on_label_popped(*cur_label, g);
 
@@ -435,7 +457,6 @@ class BoostRCSPPSolver {
         * check with dominance  all the label residing at
         * cur_label->resident_vertex
         */
-      assert(cur_label->b_is_valid);
       if (!cur_label->b_is_dominated) {
         // current resident vertex
         auto i_cur_resident_vertex = cur_label->resident_vertex;
@@ -473,7 +494,6 @@ class BoostRCSPPSolver {
           while (it1 != list_labels_cur_vertex.end()) {
             // fetch spplabel corresponding to the iterator
             Spplabel spplabel1 = *it1;
-            assert(spplabel1->b_is_valid);
 
             // if it1 is exactly at the last position -> mark the iterator as
             // passed the last position
@@ -497,7 +517,6 @@ class BoostRCSPPSolver {
             bool it1_erased = false;
             while (it2 != list_labels_cur_vertex.end()) {
               Spplabel spplabel2 = *it2;
-              assert(spplabel2->b_is_valid);
 
               // a - if spplabel1 dominates spplabel2
               // -> erase it, move to the next position, and continue current
@@ -533,7 +552,6 @@ class BoostRCSPPSolver {
               --list_labels_cur_vertex.end();
         }
       }
-      assert(cur_label->b_is_valid);
 
       /**
         * 2.b - If cur_label is still non dominated, expand the label on all
@@ -551,31 +569,26 @@ class BoostRCSPPSolver {
              oei != oei_end;
              ++oei) {
           // allocate a new label
-          Label *new_label = l_alloc.allocate(1);
-          l_alloc.construct(new_label,
-                            Label(i_label_num++,
-                                  cur_label->cumulated_resource_consumption,
-                                  cur_label.get(),
-                                  *oei,
-                                  target(*oei, g)));
+          Spplabel new_sp_label = std::make_shared<Label>(
+              i_label_num++,
+              cur_label->cumulated_resource_consumption,
+              cur_label,
+              *oei,
+              target(*oei, g));
 
           // populate the label and check its feasibility
           bool b_feasible =
               ref(g,
-                  &new_label->cumulated_resource_consumption,
-                  new_label->p_pred_label->cumulated_resource_consumption,
-                  new_label->pred_edge);
+                  &new_sp_label->cumulated_resource_consumption,
+                  new_sp_label->p_pred_label->cumulated_resource_consumption,
+                  new_sp_label->pred_edge);
 
           // if infeasible, destroy it
           if (!b_feasible) {
-            vis->on_label_not_feasible(*new_label, g);
-            new_label->b_is_valid = false;
-            l_alloc.destroy(new_label);
-            l_alloc.deallocate(new_label, 1);
+            vis->on_label_not_feasible(*new_sp_label, g);
           } else {
             // otherwise, add it to the unprocessed priority queue
-            vis->on_label_feasible(*new_label, g);
-            Spplabel new_sp_label(new_label);
+            vis->on_label_feasible(*new_sp_label, g);
             vec_vertex_labels[new_sp_label->resident_vertex].push_back(
                 new_sp_label);
             unprocessed_labels.push(new_sp_label);
@@ -585,11 +598,7 @@ class BoostRCSPPSolver {
         /**
         * 2.c - If cur_label is dominated, delete the label
         */
-        assert(cur_label->b_is_valid);
         vis->on_label_dominated(*cur_label, g);
-        cur_label->b_is_valid = false;
-        l_alloc.destroy(cur_label.get());
-        l_alloc.deallocate(cur_label.get(), 1);
       }
     }
 
@@ -619,38 +628,12 @@ class BoostRCSPPSolver {
                   std::vector<edge>());
     }
     // --------------------------------------------------- END MODIFICATION
-
-    /**
-    * 4 - Cleanup: delete all the labels
-    */
-    while (!unprocessed_labels.empty()) {
-      Spplabel top = unprocessed_labels.top();
-      unprocessed_labels.pop();
-      // delete dominated labels as they are not in vec_vertex_labels anymore
-      if (top->b_is_dominated) {
-        assert(top->b_is_valid);
-        top->b_is_valid = false;
-        l_alloc.destroy(top.get());
-        l_alloc.deallocate(top.get(), 1);
-      }
-    }
-    BGL_FORALL_VERTICES_T(i, g, Graph) {
-        const std::list<Spplabel>
-            &list_labels_cur_vertex = vec_vertex_labels[i];
-        for (auto csi = list_labels_cur_vertex.begin();
-             csi != list_labels_cur_vertex.end(); ++csi) {
-          assert((*csi)->b_is_valid);
-          (*csi)->b_is_valid = false;
-          l_alloc.destroy((*csi).get());
-          l_alloc.deallocate((*csi).get(), 1);
-        }
-      }
   }  // r_c_shortest_paths_dispatch
 
   void backtrack(const Graph &g,
                  const std::vector<std::list<Spplabel> > &vec_vertex_labels,
-                 const Label *p_original_label,
-                 const Label *p_cur_label,
+                 const Spplabel &p_original_label,
+                 const Spplabel &p_cur_label,
                  const ref_spp &ref,
                  const dominance_spp &dominance,
                  vector2D<edge> *opt_solutions_spp,

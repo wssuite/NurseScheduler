@@ -37,7 +37,8 @@ class InputPaths {
              const std::string &SPType = "",
              int SPStrategy = -1,
              const std::string &RCSPPType = "",
-             int nThreads = -1);
+             int nThreads = -1,
+             int nCandidates = -1);
 
   InputPaths(const std::string &dataDir,
              const std::string &instanceName,
@@ -51,7 +52,8 @@ class InputPaths {
              const std::string &SPType = "",
              int SPStrategy = -1,
              const std::string &RCSPPType = "",
-             int nThreads = -1);
+             int nThreads = -1,
+             int nCandidates = -1);
 
  protected:
   std::string instance_;
@@ -71,7 +73,7 @@ class InputPaths {
   std::string SPType_ = "LONG";
   int SPStrategy_ = 0;
   std::string RCSPPType_ = "BOOST";
-  int nThreads_ = 1;
+  int nThreads_ = 1, nCandidates_ = -1;
 
  public:
   // get/set attributes
@@ -119,6 +121,9 @@ class InputPaths {
 
   int nThreads() const { return nThreads_; }
   void nThreads(int n) { nThreads_ = n; }
+
+  int nCandidates() const { return nCandidates_; }
+  void nCandidates(int n) { nCandidates_ = n; }
 };
 
 #endif  // SRC_TOOLS_INPUTPATHS_H_

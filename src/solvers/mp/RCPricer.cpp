@@ -173,9 +173,19 @@ vector<MyVar *> RCPricer::pricing(double bound,
       // RETRIEVE THE GENERATED ROTATIONS
       std::vector<RCSolution> solutions = subProblem->getSolutions();
 
-// #ifdef DBG
-//      for (RCSolution &sol : solutions)
-//        subProblem->computeCost(pMaster_, &sol);
+#ifdef DBG
+      for (RCSolution &sol : solutions) {
+        subProblem->computeCost(pMaster_, &sol);
+        // check if any shifts are forbidden
+        for (const auto &p : nurseForbiddenShifts)
+          if (p.first >= sol.firstDay() && p.first <= sol.lastDay()
+          && sol.shift(p.first) == p.second) {
+            std::cerr
+                << "Generated pattern does not respect forbidden (day, shift): "
+                << p.first << "," << p.second << std::endl;
+            std::cerr << sol.toString() << std::endl;
+          }
+      }
 //      if (pModel_->getParameters().rcspp_type_ == LABEL_SETTING &&
 //          subProblem->isLastRunOptimal()) {
 //        SubProblemParam par2(pNurse, pMaster_->pModel()->getParameters());
@@ -191,7 +201,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
 //
 //        if (sub2 != nullptr) {
 //          sub2->build();
-//          sub2->solve(pDualCosts_,
+//          sub2->solve(pDualCosts,
 //                      nurseForbiddenShifts,
 //                      bound);
 //          std::vector<RCSolution> sols = sub2->getSolutions();
@@ -201,40 +211,30 @@ vector<MyVar *> RCPricer::pricing(double bound,
 //          RCSolution::sort(&sols);
 //          if (!sols.empty() || !solutions.empty()) {
 //            if (sols.empty() ^ solutions.empty()) {
-//              if (solutions.empty()) {
-//                std::cout << sols.front().toString() << std::endl;
-//                Tools::throwError("Boost has found "
-//                                  "a solution and the other not.");
-//              } else {
+//              if (!solutions.empty())
 //                std::cout << solutions.front().toString() << std::endl;
-//                Tools::throwError("Boost hasn't found "
-//                                  "a solution and the other has.");
-//              }
-//            } else {
-//              double diff = sols.front().reducedCost() -
-//                  solutions.front().reducedCost();
-//              if (diff > pMaster_->pModel()->epsilon()
-//                  || diff < -pMaster_->pModel()->epsilon()) {
-//                std::cout << "All solutions found:" << std::endl;
-//                for (const RCSolution &sol : solutions)
-//                  std::cout << sol.toString() << std::endl;
-//                std::cout << std::endl << "Both best solutions:" << std::endl;
-//                std::cout << solutions.front().toString() << std::endl;
+//              else
 //                std::cout << sols.front().toString() << std::endl;
-//                std::cout << pDualCosts_->toString(
-//                    pNurse->num_, solutions.front());
-////                // There are still some bugs in boost so
-////                // the optimal solution is not always found
-////                if (diff < -pMaster_->pModel()->epsilon())
-//                  Tools::throwError("The subproblems haven't found "
-//                                    "the same best reduced costs.");
-//              }
+//              Tools::throwError("One of the subproblem has found "
+//                                "a solution and the other not.");
+//            }
+//            double diff = sols.front().reducedCost() -
+//                solutions.front().reducedCost();
+//            if (diff > pMaster_->pModel()->epsilon()
+//                || diff < -pMaster_->pModel()->epsilon()) {
+//              std::cout << "All solutions found:" << std::endl;
+//              for (const RCSolution &sol : solutions)
+//                std::cout << sol.toString() << std::endl;
+//              std::cout << std::endl << "Both best solutions:" << std::endl;
+//              std::cout << solutions.front().toString() << std::endl;
+//              std::cout << sols.front().toString() << std::endl;
+//              Tools::throwError("The subproblems haven't found "
+//                                "the same best reduced costs.");
 //            }
 //          }
 //        }
 //      }
-// #endif
-
+#endif
       // Lock the pricer
       lock.lock();
 

@@ -24,6 +24,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <list>
 #include <map>
 #include <set>
 #include <streambuf>
@@ -142,6 +143,11 @@ bool readUntilOneOfTwoChar(std::fstream *pFile,
 //
 bool readUntilChar(std::fstream *file, char separator, std::string *pTitle);
 
+
+// Checks if the string (sentence) starts with the given substring (word)
+//
+bool strStartsWith(std::string sentence, std::string word);
+
 // Checks if the string (sentence) ends with the given substring (word)
 //
 bool strEndsWith(std::string sentence, std::string word);
@@ -258,6 +264,40 @@ template<class T>
 void insert_back(std::vector<T> *v1, const std::vector<T> &v2) {
   v1->insert(v1->end(), v2.begin(), v2.end());
 }
+
+template<class T> class FixedSizeList {
+ public:
+  explicit FixedSizeList(int size) : fixedSize_(size) {}
+
+  typedef typename std::list<T>::iterator iterator;
+
+  T* insert(iterator it, T v) {
+    T *v2 = &(*list_.insert(it, std::move(v)));
+    if (list_.size() > fixedSize_) list_.resize(fixedSize_);
+    return v2;
+  }
+
+  T* push_back(T v) {
+    if (list_.size() >= fixedSize_)
+      throwException("FixedSizeList has already reached its size of %s",
+                     fixedSize_);
+    list_.push_back(v);
+    return &list_.back();
+  }
+
+  const T& front() const { return list_.front(); }
+
+  const std::list<T>& list() const { return list_; }
+
+  iterator begin() { return list_.begin(); }
+
+  iterator end() { return list_.end(); }
+
+  const int fixedSize_;
+
+ private:
+  std::list<T> list_;
+};
 
 // Returns an integer with random value (uniform) within [minVal, maxVal]
 //

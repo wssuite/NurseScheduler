@@ -4,7 +4,7 @@ benchmark:
   dir: ./datasets/
   param: ./paramfiles/optimality.txt
   sp-type: ROSTER
-  timeout: 14400
+  timeout: 3600
   n-threads: 4
   verbose: 0
   args: null

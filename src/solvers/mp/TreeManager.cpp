@@ -11,6 +11,8 @@
 
 #include "solvers/mp/TreeManager.h"
 
+#include <list>
+
 #include "solvers/mp/MasterProblem.h"
 
 using std::string;
@@ -42,15 +44,15 @@ RestTree::RestTree(PScenario pScenario,
 // This method is useful for the RC pricer
 void RestTree::addForbiddenShifts(PLiveNurse pNurse,
                                   set<pair<int, int> > *forbidenShifts) {
-  MyNode *node = currentNode_;
+  MyNode *pNode = currentNode_.get();
   vector<MyVar *> arcs;
-  while (node->pParent_) {
-    MyNode *currentNode = node;
-    node = node->pParent_;
+  while (pNode->pParent_) {
+    MyNode *currentNode = pNode;
+    pNode = pNode->pParent_;
     // If on a rest node, we forbid shifts only if rest is forced
     // In that case, no column can include a shift on the fixed resting day
     //
-    RestNode *restNode = dynamic_cast<RestNode *>(currentNode);
+    auto *restNode = dynamic_cast<RestNode*>(currentNode);
     if (restNode) {
       if (restNode->pNurse_ == pNurse) {
         if (restNode->rest_) {
@@ -65,7 +67,7 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
 
     // If on a shift node, it is natural to forbid all the work shifts
     // in RC pricing.
-    ShiftNode *shiftNode = dynamic_cast<ShiftNode *>(currentNode);
+    auto *shiftNode = dynamic_cast<ShiftNode*>(currentNode);
     if (shiftNode) {
       if (shiftNode->pNurse_ == pNurse)
         for (int s : shiftNode->forbiddenShifts_)
@@ -74,7 +76,7 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
     }
 
     // If in a column node , forbid the shifts depending on the pattern
-    ColumnsNode *columnsNode = dynamic_cast<ColumnsNode *>(currentNode);
+    auto *columnsNode = dynamic_cast<ColumnsNode*>(currentNode);
     if (columnsNode) {
       for (PPattern pat : columnsNode->patterns_)
         if (pat->nurseNum() == pNurse->num_)
@@ -85,8 +87,8 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
     }
 
     // If on a shift demand node or var node, nothing to forbid
-    if (dynamic_cast<CoverageNode *>(currentNode) ||
-        dynamic_cast<VarNode *>(currentNode))
+    if (dynamic_cast<CoverageNode*>(currentNode) ||
+        dynamic_cast<VarNode*>(currentNode))
       continue;
 
     Tools::throwError("Type of node not recognized.");
@@ -222,6 +224,15 @@ void RestTree::reset() {
 /*************************************************************
  * Diving branching rule: dive then close to .5
  *************************************************************/
+Score* addScore(const Score &sc, Tools::FixedSizeList<Score> *bestScores) {
+  for (auto it= bestScores->begin(); it != bestScores->end(); ++it)
+    if (sc.score > it->score)
+      return bestScores->insert(it, sc);
+  // if htere is still some place, insert score at the end
+  if (bestScores->list().size() < bestScores->fixedSize_)
+    return bestScores->push_back(sc);
+  return nullptr;
+}
 
 double ScoreVarCloseHalf::score(PLiveNurse pNurse,
                                 int day,
@@ -244,7 +255,7 @@ DiveBranchingRule::DiveBranchingRule(MasterProblem *master,
                                      bool randomSwapOfChilfren) :
     MyBranchingRule(name),
     pMaster_(master),
-    tree_(tree),
+    pTree_(tree),
     pModel_(master->pModel()),
     randomSwapOfChilfren_(randomSwapOfChilfren) {
   // either ScoreVarCloseHalf or ScoreVarBestExpectedLBImprovement
@@ -253,22 +264,30 @@ DiveBranchingRule::DiveBranchingRule(MasterProblem *master,
 }
 
 // add all good candidates
-bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
+bool DiveBranchingRule::column_node(
+    std::list<MyPBranchingCandidate> *candidates) {
+  // retrieve maximum residual value available to branch on columns
+  // The sum of the residual value (1 - column value) of the selected columns
+  // must be lower than valueMax
+  double valueMax = pModel_->getParameters().branchColumnUntilValue_;
+  // if negative, use the default value
+  if (valueMax < 0) valueMax = pMaster_->getBranchColumnValueMax();
+  // if valueMax < epsilon, cannot branch
+  if (valueMax < pModel_->epsilon())
+    Tools::throwError("Cannot select any columns when branching on columns as "
+                      "the maximum residual value (branchColumnUntilValue) is "
+                      "too close to 0. You should either increase this value or"
+                      "deactivate this feature by setting "
+                      "nbDiveIfBranchOnColumns to 0.");
+
   // look for fractional columns
   // Fix all column above BRANCH_LB
   // search the good candidates
-  vector<pair<MyVar *, double> > candidates;
+  vector<pair<MyVar *, double> > colCandidates;
   vector<MyVar *> integerFixingCandidates;
   std::vector<MyVar *> fixingCandidates;
   std::vector<MyVar *> otherFixingCandidates;
   vector<PPattern> patterns;
-
-  if ((pModel_->getParameters().branchColumnUntilValue_
-      && pModel_->getParameters().branchColumnDisjoint_)
-      || (!pModel_->getParameters().branchColumnUntilValue_
-          && !pModel_->getParameters().branchColumnDisjoint_))
-    Tools::throwError("DiveBranchingRule::branch_on_column: "
-                      "the branching rule is not chosen properly!");
 
   for (MyVar *var : pModel_->getActiveColumns()) {
 //    // Several columns are kept -> so could remain fractional
@@ -297,36 +316,26 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
       continue;
     }
     if (value > pModel_->epsilon())
-      candidates.emplace_back(pair<MyVar *, double>(var, 1 - value));
+      colCandidates.emplace_back(pair<MyVar *, double>(var, 1 - value));
   }
 
-  stable_sort(
-      candidates.begin(), candidates.end(), Tools::compareObject<MyVar *>);
+  stable_sort(colCandidates.begin(),
+              colCandidates.end(),
+              Tools::compareObject<MyVar *>);
 
-  // Try the branching that mimics the heuristic
-  if (pModel_->getParameters().branchColumnUntilValue_) {
-    if (!candidates.empty()) {
-      double valueLeft = 1 - pModel_->epsilon();
-      for (pair<MyVar *, double> &p : candidates) {
-        if (p.second > valueLeft)
-          break;
-        else
-          valueLeft -= p.second;
-        fixingCandidates.push_back(p.first);
-      }
-    }
-  }
+  if (valueMax < pModel_->epsilon())
+    return false;
+  fixingCandidates = chooseColumns(
+      colCandidates,
+      &patterns,
+      &valueMax,
+      pModel_->getParameters().branchColumnDisjoint_ ?
+      DayDisjointComparator() : ColumnsComparator());
 
+  // if branching on columns, try disjoint shifts instead  of days
   if (pModel_->getParameters().branchColumnDisjoint_) {
-    double valueMax = pMaster_->getBranchColumnValueMax();
-    DayDisjointComparator comp1 = DayDisjointComparator();
-    fixingCandidates = chooseColumns(candidates,
-                                     &patterns,
-                                     &valueMax,
-                                     comp1);
-
     ShiftDisjointComparator comp2 = ShiftDisjointComparator();
-    otherFixingCandidates = chooseColumns(candidates,
+    otherFixingCandidates = chooseColumns(colCandidates,
                                           &patterns,
                                           &valueMax,
                                           comp2);
@@ -337,70 +346,82 @@ bool DiveBranchingRule::column_candidates(MyBranchingCandidate *candidate) {
     return false;
 
   /* update candidate */
-  MyBranchingNode &node = candidate->getChild(candidate->createNewChild());
-  for (MyVar *var : fixingCandidates) {
-    int index = candidate->addBranchingVar(var);
-    node.setLb(index, 1);
-  }
-  for (MyVar *var : otherFixingCandidates) {
-    int index = candidate->addBranchingVar(var);
-    node.setLb(index, 1);
-  }
-  for (MyVar *var : integerFixingCandidates) {
-    int index = candidate->addBranchingVar(var);
-    node.setLb(index, 1);
-  }
-
-  // Find the column to deactivate
-  for (MyVar *var : pModel_->getActiveColumns()) {
-    if (var->getUB() == 0)
-      continue;
-    for (PPattern nodePat : patterns) {
-      // do not deactivate if activePat:
-      // 1/ applied to a different nurse
-      if (Pattern::nurseNum(var) != nodePat->nurseNum())
-        continue;
-      PPattern pat = pMaster_->getPattern(var);
-      // 2/ will be used (==nodePat)
-      // 3/ is disjoint with nodePat
-      if (pat->equals(nodePat) ||
-          pat->isDisjointWith(nodePat, false))
-        continue;
-
-      // add the variable to the candidate
+  // if no candidate, create one
+  if (candidates->empty())
+    candidates->push_back(
+        std::make_shared<RCBranchingCandidate>(pTree_->getCurrentNode()));
+  for (const MyPBranchingCandidate &candidate : *candidates) {
+    int nodeIndex = 0;
+    candidate->createNewChild(nodeIndex);
+    const MyPBranchingNode &node = candidate->getChild(nodeIndex);
+    for (MyVar *var : fixingCandidates) {
       int index = candidate->addBranchingVar(var);
-
-      // check if the shift is present in shifts
-      // set the UB to 0 for the non-possible rotations
-      node.setUb(index, 0);
-
-      break;
+      node->setLb(index, 1);
     }
-  }
+    for (MyVar *var : otherFixingCandidates) {
+      int index = candidate->addBranchingVar(var);
+      node->setLb(index, 1);
+    }
+    for (MyVar *var : integerFixingCandidates) {
+      int index = candidate->addBranchingVar(var);
+      node->setLb(index, 1);
+    }
 
-  /* update tree */
-  // append fixing candidates
-  tree_->pushBackNewColumnsNode(patterns);
+    // Find the column to deactivate
+    for (MyVar *var : pModel_->getActiveColumns()) {
+      if (var->getUB() == 0)
+        continue;
+      for (PPattern nodePat : patterns) {
+        // do not deactivate if activePat:
+        // 1/ applied to a different nurse
+        if (Pattern::nurseNum(var) != nodePat->nurseNum())
+          continue;
+        PPattern pat = pMaster_->getPattern(var);
+        // 2/ will be used (==nodePat)
+        // 3/ is disjoint with nodePat
+        if (pat->equals(nodePat) ||
+            pat->isDisjointWith(nodePat, false))
+          continue;
+
+        // add the variable to the candidate
+        int index = candidate->addBranchingVar(var);
+
+        // check if the shift is present in shifts
+        // set the UB to 0 for the non-possible rotations
+        node->setUb(index, 0);
+
+        break;
+      }
+    }
+
+    /* update tree */
+    // append fixing candidates
+    auto *can = dynamic_cast<RCBranchingCandidate*>(candidate.get());
+    can->addColumnsNode(nodeIndex, patterns);
+  }
 
   return true;
 }
 
-bool DiveBranchingRule::branching_candidates(MyBranchingCandidate *candidate) {
-  // test each branching decision and stop if a candidate has been found
-  int nChildren = candidate->getChildren().size();
+bool DiveBranchingRule::branching_candidates(
+    std::list<MyPBranchingCandidate> *candidates) {
+  // test each branching decision and stop if enough candidate has been found
   for (auto f : branchFunctions_) {
-    ((*this).*f)(candidate);  // invoke the branch function
-    if (candidate->getChildren().size() > nChildren)
+    // invoke the branch function
+    ((*this).*f)(pModel_->getParameters().nCandidates_ - candidates->size(),
+                 candidates);
+    if (candidates->size() >= pModel_->getParameters().nCandidates_)
       return true;
   }
-  return false;
+  return !candidates->empty();
 }
 
 //-----------------------------------------------------------------------------
 // Branch on a number of nurses working on a shift with for given skill
 //-----------------------------------------------------------------------------
 
-void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
+void DiveBranchingRule::branchOnNumberNurses(
+    int nCandidates, std::list<MyPBranchingCandidate> *candidates) {
   // try to find a fractional coverage which is surrounded by
   // fractional coverage
   // count only to a certain ratio (discount) of the other variables
@@ -425,8 +446,7 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
       dailyScore += frac;
     }
   // 2 - find best one
-  int bestDay = -1, bestShift = -1;
-  double bestScore = 0;
+  Tools::FixedSizeList<Score> bestScores(nCandidates);
   for (int s = 1; s < nbShifts; ++s) {
     const auto &dailyScores = dailyShiftScores[s - 1];
     double dailyScore = 0;  // score on the day
@@ -438,126 +458,130 @@ void DiveBranchingRule::branchOnNumberNurses(MyBranchingCandidate *candidate) {
       // if 0 -> no fractional variable -> go to next day
       if (dailyScore < pModel_->epsilon()) continue;
       double nextScore = k < nbDays - 1 ? dailyScores[k + 1] : 0;
-      double score = dailyScore + discount * (prevScore + nextScore);
-      // check if best
-      if (score > bestScore) {
-        bestScore = score;
-        bestDay = k;
-        bestShift = s;
+      Score sc0(dailyScore + discount * (prevScore + nextScore));
+      Score *sc = addScore(sc0, &bestScores);
+      if (sc) {
+        sc->k = k;
+        sc->s = s;
       }
     }
   }
 
-  // if did not find enough fractional coverage -> stop
-  if (bestScore < minScore) {
 #ifdef DBG
+  // if did not find enough fractional coverage
+  if (bestScores.list().empty()) {
     std::cout << pMaster_->currentSolToString() << std::endl;
     std::cout << pMaster_->allocationToString() << std::endl;
     std::cout << pMaster_->coverageToString() << std::endl;
-#endif
-    return;
+  } else {
+    std::cout << pMaster_->coverageToString() << std::endl;
   }
-
-#ifdef DBG
-  std::cout << pMaster_->coverageToString() << std::endl;
 #endif
 
-  // otherwise, build children
-  int indexFloor = candidate->createNewChild(),
-      indexCeil = candidate->createNewChild();
-  MyBranchingNode &floorNode = candidate->getChild(indexFloor),
-      &ceilNode = candidate->getChild(indexCeil);
+  // build children
+  for (const Score& sc : bestScores.list()) {
+    auto candidate =
+        std::make_shared<RCBranchingCandidate>(pTree_->getCurrentNode());
+    int indexFloor = candidate->createNewChild(),
+        indexCeil = candidate->createNewChild();
+    const MyPBranchingNode &floorNode = candidate->getChild(indexFloor),
+        &ceilNode = candidate->getChild(indexCeil);
 
-  // add the cut
-  vector<MyVar *> vars;
-  const auto allocVars = skillsAllocVars[bestDay][bestShift];
-  for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk)
-    for (MyVar *v : allocVars[sk])
-      if (v) vars.push_back(v);
-  vector<double> coeffs(vars.size(), 1);
+    // add the cut
+    vector<MyVar *> vars;
+    const auto allocVars = skillsAllocVars[sc.k][sc.s];
+    for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk)
+      for (MyVar *v : allocVars[sk])
+        if (v) vars.push_back(v);
+    vector<double> coeffs(vars.size(), 1);
 
+    // create a new cons
+    char name[50];
+    snprintf(name, sizeof(name), "CoverageCons_%d_%d", sc.k, sc.s);
+    MyCons *cut;
+    pModel_->createCutLinear(
+        &cut, name, 0, pMaster_->nNurses(), vars, coeffs);
 
-  // create a new cons
-  char name[50];
-  snprintf(name, sizeof(name), "CoverageCons_%d_%d",
-           bestDay, bestShift);
-  MyCons *cut;
-  pModel_->createCutLinear(
-      &cut, name, 0, pMaster_->nNurses(), vars, coeffs);
+    /* update candidate */
+    int index = candidate->addNewBranchingCons(cut);
+    double v = pModel_->getVarValue(skillsAllocVars[sc.k][sc.s]);
+    floorNode->setRhs(index, floor(v));
+    ceilNode->setLhs(index, ceil(v));
 
-  /* update candidate */
-  int index = candidate->addNewBranchingCons(cut);
-  double v = pModel_->getVarValue(skillsAllocVars[bestDay][bestShift]);
-  floorNode.setRhs(index, floor(v));
-  ceilNode.setLhs(index, ceil(v));
+    // Push back new nodes in the tree
+    candidate->addDemandNode(indexFloor, name, cut->getLhs(), floor(v));
+    candidate->addDemandNode(indexCeil, name, ceil(v), cut->getRhs());
 
-  // Push back new nodes in the tree
-  tree_->pushBackNewDemandNode(name, cut->getLhs(), floor(v));
-  tree_->pushBackNewDemandNode(name, ceil(v), cut->getRhs());
+    // Here : random swap to decide the order of the siblings
+    randomSwapLastChildrenIfEnable(candidate);
 
-  // Here : random swap to decide the order of the siblings
-  randomSwapLastChildrenIfEnable(candidate);
+    candidates->push_back(std::move(candidate));
+  }
 }
 
 //-----------------------------------------------------------------------------
 // Branch on optimal demand variable
 //-----------------------------------------------------------------------------
-void DiveBranchingRule::branchOnOptDemand(MyBranchingCandidate *candidate) {
-  // find the variable closest to o.5
-  MyVar *bestVar = nullptr;
-  double bestScore = 0;
+void DiveBranchingRule::branchOnOptDemand(
+    int nCandidates, std::list<MyPBranchingCandidate> *candidates) {
+  // find the variable closest to .5
+  Tools::FixedSizeList<Score> bestScores(nCandidates);
   const vector3D<MyVar *> optDemandVars = pMaster_->getOptDemandVars();
 
   int nbDays = pMaster_->nDays(), nbShifts = pMaster_->nShifts();
   for (int k = 0; k < nbDays; ++k)
     for (int s = 1; s < nbShifts; ++s) {
       for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk) {
-        double v = pModel_->getVarValue(optDemandVars[k][s - 1][sk]);
-        double score = std::min(ceil(v) - v, v - floor(v));
-        if (score > bestScore + pModel_->epsilon()) {
-          bestScore = score;
-          bestVar = optDemandVars[k][s - 1][sk];
-        }
+        double v = pModel_->getVarValue(optDemandVars[k][s][sk]);
+        Score sc0(std::min(ceil(v) - v, v - floor(v)));
+        Score *sc = addScore(sc0, &bestScores);
+        if (sc)
+          sc->var = optDemandVars[k][s][sk];
       }
     }
 
-  if (bestVar == nullptr) {
 #ifdef DBG
+  if (bestScores.list().empty()) {
     std::cout << pMaster_->currentSolToString() << std::endl;
     std::cout << pMaster_->allocationToString() << std::endl;
     std::cout << pMaster_->coverageToString() << std::endl;
-#endif
-    return;
   }
+#endif
 
-  // otherwise, build children
-  int indexFloor = candidate->createNewChild(),
-      indexCeil = candidate->createNewChild();
-  MyBranchingNode &floorNode = candidate->getChild(indexFloor),
-      &ceilNode = candidate->getChild(indexCeil);
+  // build children
+  for (const Score& sc : bestScores.list()) {
+    auto candidate =
+        std::make_shared<RCBranchingCandidate>(pTree_->getCurrentNode());
+    int indexFloor = candidate->createNewChild(),
+        indexCeil = candidate->createNewChild();
+    const MyPBranchingNode &floorNode = candidate->getChild(indexFloor),
+        &ceilNode = candidate->getChild(indexCeil);
 
-  // add the variable to the candidate
-  int index = candidate->addBranchingVar(bestVar);
-  double v = pModel_->getVarValue(bestVar);
-  floorNode.setUb(index, floor(v));
-  ceilNode.setLb(index, ceil(v));
+    // add the variable to the candidate
+    MyVar *bestVar = sc.var;
+    int index = candidate->addBranchingVar(bestVar);
+    double v = pModel_->getVarValue(bestVar);
+    floorNode->setUb(index, floor(v));
+    ceilNode->setLb(index, ceil(v));
 
-  // Push back new nodes in the tree
-  tree_->pushBackNewVarNode(bestVar, bestVar->getLB(), floor(v));
-  tree_->pushBackNewVarNode(bestVar, ceil(v), bestVar->getUB());
+    // Push back new nodes in the tree
+    candidate->addVarNode(indexFloor, bestVar, bestVar->getLB(), floor(v));
+    candidate->addVarNode(indexCeil, bestVar, ceil(v), bestVar->getUB());
 
-  // Here : random swap to decide the order of the siblings
-  randomSwapLastChildrenIfEnable(candidate);
+    // Here : random swap to decide the order of the siblings
+    randomSwapLastChildrenIfEnable(candidate);
+
+    candidates->push_back(std::move(candidate));
+  }
 }
 
 //-----------------------------------------------------------------------------
 // Branch on a set of resting arcs
 //-----------------------------------------------------------------------------
-void DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
-  // set of rest variable closest to .5
-  int bestDay = -1;
-  PLiveNurse pBestNurse(nullptr);
-  double bestScore = -DBL_MAX;
+void DiveBranchingRule::branchOnRestDay(
+    int nCandidates, std::list<MyPBranchingCandidate> *candidates) {
+  // find the variable closest to .5
+  Tools::FixedSizeList<Score> bestScores(nCandidates);
 
   for (PLiveNurse pNurse : pMaster_->liveNurses()) {
 //    // Several columns are kept -> so could remain fractional
@@ -576,32 +600,36 @@ void DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
       if (value < pModel_->epsilon() || value > 1 - pModel_->epsilon())
         continue;
 
-      double sc = scoreFunc_->score(pNurse, k, {0}, {value});
-      if (sc > bestScore) {
-        bestDay = k;
-        pBestNurse = pNurse;
-        bestScore = sc;
+      Score sc0(scoreFunc_->score(pNurse, k, {0}, {value}));
+      Score *sc = addScore(sc0, &bestScores);
+      if (sc) {
+        sc->k = k;
+        sc->pNurse = pNurse;
       }
     }
   }
 
-  if (pBestNurse == nullptr) return;
+  for (const Score& sc : bestScores.list()) {
+    auto candidate =
+        std::make_shared<RCBranchingCandidate>(pTree_->getCurrentNode());
+    int index1 = candidate->createNewChild(),
+        index2 = candidate->createNewChild();
+    const MyPBranchingNode &restNode = candidate->getChild(index1),
+        &workNode = candidate->getChild(index2);
+    buildRestNodesCut(
+        candidate, sc.pNurse, sc.k, true, restNode, workNode);
+    deactivateColumns(
+        candidate, sc.pNurse->num_, sc.k, {0}, workNode, restNode);
 
-  int index1 = candidate->createNewChild(),
-      index2 = candidate->createNewChild();
-  MyBranchingNode &restNode = candidate->getChild(index1),
-      &workNode = candidate->getChild(index2);
-  buildRestNodesCut(
-      candidate, pBestNurse, bestDay, true, &restNode, &workNode);
-  deactivateColumns(
-      candidate, pBestNurse->num_, bestDay, {0}, &workNode, &restNode);
+    // create potential nodes for the tree
+    candidate->addRestNode(index1, sc.pNurse, sc.k, true);
+    candidate->addRestNode(index2, sc.pNurse, sc.k, false);
 
-  // Push back new nodes in the tree
-  tree_->pushBackNewRestNode(pBestNurse, bestDay, true);
-  tree_->pushBackNewRestNode(pBestNurse, bestDay, false);
+    // Here : random swap to decide the order of the siblings
+    randomSwapLastChildrenIfEnable(candidate);
 
-  // Here : random swap to decide the order of the siblings
-  randomSwapLastChildrenIfEnable(candidate);
+    candidates->push_back(std::move(candidate));
+  }
 }
 
 
@@ -609,12 +637,10 @@ void DiveBranchingRule::branchOnRestDay(MyBranchingCandidate *candidate) {
 // Branch on a set of resting arcs
 //-----------------------------------------------------------------------------
 
-void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
-  // set of rest variable closest to .5
-  int bestDay = -1;
-  PLiveNurse pBestNurse(nullptr);
-  double bestScore = -DBL_MAX;
-  vector<int> forbiddenShifts;
+void DiveBranchingRule::branchOnShifts(
+    int nCandidates, std::list<MyPBranchingCandidate> *candidates) {
+  // find the variable closest to .5
+  Tools::FixedSizeList<Score> bestScores(nCandidates);
 
   // compute the solution for each nurse, day, shift
   vector3D<double> fractionalRoster = pMaster_->fractionalRoster();
@@ -681,23 +707,23 @@ void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
       }
 
       // look for the value that is the most balanced scores
-      double sc = scoreFunc_->score(pNurse, k, currentShifts, values);
-      if (sc > bestScore) {
-        bestDay = k;
-        pBestNurse = pNurse;
-        bestScore = sc;
-        forbiddenShifts = currentShifts;
+      Score sc0(scoreFunc_->score(pNurse, k, currentShifts, values));
+      Score *sc = addScore(sc0, &bestScores);
+      if (sc) {
+        sc->k = k;
+        sc->pNurse = pNurse;
+        sc->forbiddenShifts = currentShifts;
       }
     }
   }
 
-  if (pBestNurse != nullptr) {
+  for (const Score& sc : bestScores.list()) {
     // compute the forbidden shifts
     vector<int> complementaryShifts;
     bool canRest = false;
     for (int i = 0; i < pMaster_->nShifts(); ++i) {
-      if (find(forbiddenShifts.begin(), forbiddenShifts.end(), i)
-          == forbiddenShifts.end()) {
+      if (find(sc.forbiddenShifts.begin(), sc.forbiddenShifts.end(), i)
+          == sc.forbiddenShifts.end()) {
         complementaryShifts.push_back(i);
         // if the forbidden shift 0 (rest) is in the complementary,
         // it is possible to rest for the first node
@@ -706,22 +732,24 @@ void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
     }
 
     // create and build the nodes
+    auto candidate =
+        std::make_shared<RCBranchingCandidate>(pTree_->getCurrentNode());
     int index1 = candidate->createNewChild(),
         index2 = candidate->createNewChild();
-    MyBranchingNode *restNode = &candidate->getChild(index1),
-        *workNode = &candidate->getChild(index2);
+    const MyPBranchingNode &restNode = candidate->getChild(index1),
+        &workNode = candidate->getChild(index2);
     buildRestNodesCut(candidate,
-                      pBestNurse,
-                      bestDay,
+                      sc.pNurse,
+                      sc.k,
                       false,
                       restNode,
                       workNode);
 
     // Find the columns to deactivate
     deactivateColumns(candidate,
-                      pBestNurse->num_,
-                      bestDay,
-                      forbiddenShifts,
+                      sc.pNurse->num_,
+                      sc.k,
+                      sc.forbiddenShifts,
                       // principal node:
                       // rest node if can rest, work node otherwise
                       canRest ? restNode : workNode,
@@ -730,23 +758,27 @@ void DiveBranchingRule::branchOnShifts(MyBranchingCandidate *candidate) {
     // add the node to the tree
     // rest node : some work shifts are forbidden
     // If canRest is true, just work shift are in the forbiddenShifts
-    tree_->pushBackNewShiftNode(
-        pBestNurse, bestDay, false,
-        canRest ? forbiddenShifts : complementaryShifts);
+    candidate->addShiftNode(index1, sc.pNurse, sc.k, false,
+                            canRest ? sc.forbiddenShifts : complementaryShifts);
     // work node : rest shift is forbidden
     // If canRest is true, the rest shift is in the complementaryShifts
-    tree_->pushBackNewShiftNode(
-        pBestNurse, bestDay, true,
-        canRest ? complementaryShifts : forbiddenShifts);
+    candidate->addShiftNode(index2, sc.pNurse, sc.k, true,
+                            canRest ? complementaryShifts : sc.forbiddenShifts);
+
+    // Here : random swap to decide the order of the siblings
+    randomSwapLastChildrenIfEnable(candidate);
+
+    candidates->push_back(std::move(candidate));
   }
 }
 
-void DiveBranchingRule::buildRestNodesCut(MyBranchingCandidate *candidate,
-                                          PLiveNurse pNurse,
-                                          int day,
-                                          bool forceRest,
-                                          MyBranchingNode *restNode,
-                                          MyBranchingNode *workNode) const {
+void DiveBranchingRule::buildRestNodesCut(
+    const MyPBranchingCandidate &candidate,
+    PLiveNurse pNurse,
+    int day,
+    bool forceRest,
+    const MyPBranchingNode &restNode,
+    const MyPBranchingNode &workNode) const {
   // creating the branching cut
   char name[50];
   snprintf(name, sizeof(name), "RestBranchingCons_N%d_%d", pNurse->num_, day);
@@ -768,20 +800,20 @@ void DiveBranchingRule::buildRestNodesCut(MyBranchingCandidate *candidate,
 }
 
 void DiveBranchingRule::deactivateColumns(
-    MyBranchingCandidate *candidate,
+    const MyPBranchingCandidate &candidate,
     int nurseNum,
     int day,
     std::vector<int> forbiddenShifts,
-    MyBranchingNode *forbiddenNode,
-    MyBranchingNode *complementaryNode) const {
+    const MyPBranchingNode &forbiddenNode,
+    const MyPBranchingNode &complementaryNode) const {
   // Find the columns to deactivate
   for (MyVar *var : pModel_->getActiveColumns()) {
-    if (var->getUB() == 0)
+    if (var->getUB() < pModel_->epsilon())
       continue;
 
     if (Pattern::nurseNum(var) == nurseNum
         && Pattern::firstDay(var) <= day
-        && Pattern::lastDay(var) >= day) {
+        && day <= Pattern::lastDay(var)) {
       // add the variable to the candidate
       int index = candidate->addBranchingVar(var);
       PPattern pat = pMaster_->getPattern(var);

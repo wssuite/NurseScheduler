@@ -16,7 +16,7 @@
 
 #include "solvers/Solver.h"
 
-#include "OsiSolverInterface.hpp"
+#include "OsiSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 
 
 class Modeler;

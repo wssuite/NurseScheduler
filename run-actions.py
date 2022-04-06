@@ -49,7 +49,9 @@ def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE):
             i = 0
             for j in d['jobs'].values():
                 for s in j['steps']:
-                    if 'with' in s and re.search(name, s['name'], re.IGNORECASE):
+                    if 'with' in s and \
+                            (re.search(name, s['name'], re.IGNORECASE) or
+                             re.search(name, s['with']['ns-args'], re.IGNORECASE)):
                         cmd = '-i {} {}'.format(s['with']['instance'], s['with']['ns-args'])
                         # cmd = "-i " + cmd.split('-i ')[-1]
                         i += 1

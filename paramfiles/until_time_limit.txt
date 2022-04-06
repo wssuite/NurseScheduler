@@ -14,7 +14,6 @@ isStabilization=0
 isStabUpdateBoxRadius=1
 isStabUpdatePenalty=1
 branchColumnDisjoint=1
-branchColumnUntilValue=0
 stopAfterXDegenerateIt=10
 performHeuristicAfterXNode=10
 heuristicMinIntegerPercent=50

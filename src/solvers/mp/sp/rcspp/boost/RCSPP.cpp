@@ -313,7 +313,6 @@ std::vector<RCSolution> BoostRCSPPSolver::solve(
       spp_res_cont(0, std::vector<int>(labels.size())),
       ref,
       dominance,
-      std::allocator<boost::r_c_shortest_paths_label<Graph, spp_res_cont> >(),
       &vis,  // boost::default_r_c_shortest_paths_visitor(),
       strategy_);  // strategy_    SP_DEFAULT
 
@@ -506,14 +505,13 @@ bool BoostRCSPPSolver::check_r_c_path(
 void BoostRCSPPSolver::backtrack(
     const Graph &g,
     const std::vector<std::list<Spplabel> > &vec_vertex_labels,
-    const Label *p_original_label,
-    const Label *p_cur_label,
+    const Spplabel &p_original_label,
+    const Spplabel &p_cur_label,
     const ref_spp &ref,
     const dominance_spp &dominance,
     vector2D<edge> *opt_solutions_spp,
     std::vector<spp_res_cont> *pareto_opt_rcs_spp,
     std::vector<edge> path) const {
-  assert(p_cur_label->b_is_valid);
   spp_res_cont original_cont = p_cur_label->cumulated_resource_consumption;
 
   // 1 - if source, store path and build resource container
@@ -551,7 +549,6 @@ void BoostRCSPPSolver::backtrack(
     // current one and then backtrack
     if (ref(g, &new_cont, pred_cont, p_cur_label->pred_edge)) {
       if (dominance(&new_cont, &cur_cont)) {
-        assert(label->b_is_valid);
         assert(cur_vertex == label->resident_vertex);
         // backtrack
         backtrack(g,

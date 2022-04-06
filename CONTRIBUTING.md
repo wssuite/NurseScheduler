@@ -15,3 +15,4 @@ Once the pull request is created, github action will run two workflows:
  github action.
  
 Finally, at least the last commit must be signed in order to be merged.
+To set up a signed commit, you may refer to https://docs.github.com/en/authentication/managing-commit-signature-verification

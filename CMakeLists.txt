@@ -12,7 +12,8 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 # read user definitions
 include(CMakeDefinitionsLists.txt)
 
-MESSAGE("Type: ${CMAKE_BUILD_TYPE}")
+
+MESSAGE("Type: ${CMAKE_BUILD_TYPE} ${CMAKE_SYSTEM_PROCESSOR}")
 set(BCP_DIR ${BCPDIROPT})
 if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
         set(BCP_DIR ${BCPDIRDBG})
@@ -36,7 +37,8 @@ else()
     FIND_PACKAGE( Boost 1.48 COMPONENTS graph REQUIRED )
 endif()
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
-MESSAGE("Boost directory: ${Boost_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+MESSAGE("Boost directory: ${Boost_INCLUDE_DIRS} ${Boost_INCLUDE_DIR}")
 
 # add BCP
 MESSAGE("BCP directory: ${BCP_DIR}")

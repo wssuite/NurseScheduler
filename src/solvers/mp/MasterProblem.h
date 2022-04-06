@@ -234,6 +234,7 @@ struct Pattern : public RCSolution {
 // Build and solve the master problem of the column generation scheme
 //
 //-----------------------------------------------------------------------------
+class RCPricer;
 
 class MasterProblem : public Solver, public PrintSolution {
  public:
@@ -271,18 +272,26 @@ class MasterProblem : public Solver, public PrintSolution {
   }
 
   // throw an error if pattern is already present as an active column
-  void checkIfPatternAlreadyPresent(const std::vector<double> &pattern) const;
+  void checkIfPatternAlreadyPresent(const Pattern &pat) const;
 
-  virtual std::vector<MyVar *> getRestVarsPerDay(PLiveNurse pNurse,
-                                                 int day) const = 0;
+  virtual std::vector<MyVar *> getRestVarsPerDay(
+      PLiveNurse pNurse, int day) const = 0;
 
   // get the pointer to the model
   Modeler * pModel() const {
     return pModel_;
   }
 
-  MyPricer * pPricer() {
-    return pPricer_;
+  MyPricer * pPricer() const {
+    return pModel_->pPricer();
+  }
+
+  MyTree * pTree() const {
+    return pModel_->pTree();
+  }
+
+  MyBranchingRule *pBranchingRule() const {
+    return pModel_->pBranchingRule();
   }
 
   // override save and currentSolToString virtual method fom printFunction
@@ -382,15 +391,13 @@ class MasterProblem : public Solver, public PrintSolution {
 
  protected:
   Modeler *pModel_;
-  MyPricer *pPricer_;  // prices the rotations
-  MyTree *pTree_;  // store the tree information
-  MyBranchingRule *pRule_;  // choose the variables on which we should branch
+  RCPricer *pRCPricer_;
   SolverType solverType_;  // which solver is used
   bool lagrangianBoundAvail_ = false;
 
-  // PResources for the subproblems
-  vector<std::map<PResource, CostType>> pResources_;
-  vector2D<PResource> spResources_;
+  // PResources for the problem and subproblems
+  vector<std::map<PResource, CostType>> pResources_;  // per  nurse
+  vector2D<PResource> spResources_;  // per nurse
 
   // create the resources used for the sub problem
   void createPResources();

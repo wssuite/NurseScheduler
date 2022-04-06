@@ -273,7 +273,7 @@ void RotationGraphConstraint::createRotationArcs(
     if (k == 0 || maxCons.second == LARGE_SCORE) continue;
     pOrigin = maxRestNodes[k - 1];
     PRCNode pTarget = maxRestNodes[k];
-    pG->addSingleArc(pOrigin, pTarget, Stretch(k, {pRest}), maxCons.second);
+    pG->addSingleArc(pOrigin, pTarget, Stretch(k, pRest), maxCons.second);
   }
 }
 
@@ -327,7 +327,7 @@ void RotationGraphConstraint::addRotationRestCost(
   // to price correctly the rest costs LB if ends before the last day
   Stretch st = pArc->stretch;
   if (st.lastDay() < pMaster_->nDays() - 1)
-    st.pushBack(Stretch(st.firstDay() + 1, {pScenario_->pAnyWorkShift()}));
+    st.pushBack(Stretch(st.firstDay() + 1, pScenario_->pAnyWorkShift()));
 
   // build rotation
   RCSolution sol(st, 0, DBL_MAX);

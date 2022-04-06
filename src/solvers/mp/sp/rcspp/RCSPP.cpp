@@ -293,7 +293,7 @@ void RCSPPSolver::pullLabelsFromPredecessors(const PRCNode& pN) {
       // check if possible to obtain a negative cost for the current label
       // when enable, then, expansion on the current arc
       return hasPotentialImprovingPathToSinks(
-          pL, pArc->origin, bestPrimalBound_) &&
+          pL, pArc->origin->id, bestPrimalBound_) &&
           expand(pL, pArc, labelPool_.getNewLabel());
     };
   }
@@ -459,7 +459,6 @@ void RCSPPSolver::checkAllDominations(
 
 
   // compute active resources
-  auto pN = (*begin)->getNode();
   for (const auto &pR : pRcGraph_->pResources()) {
     if (param_.rcsppImprovedDomination_) pR->useAltenativeDomination();
     else
@@ -607,10 +606,10 @@ RCSolution RCSPPSolver::createSolution(const PRCLabel &finalLabel) {
 
 
 bool RCSPPSolver::hasPotentialImprovingPathToSinks(
-    const PRCLabel &pl, const PRCNode& pN, double primalBound) const {
+    const PRCLabel &pl, int nodeId, double primalBound) const {
   // If a path to a sink node with a negative cost exists, this label can be
   // expanded
-  return pl->cost() + minimumCostToSinks_[pN->id] < primalBound;
+  return pl->cost() + minimumCostToSinks_[nodeId] < primalBound;
 }
 
 int RCSPPSolver::getNbLabelsBelowMaxBound(const vector<PRCLabel> &labels,

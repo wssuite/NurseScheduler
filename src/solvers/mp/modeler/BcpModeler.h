@@ -20,21 +20,22 @@
 #include <string>
 
 #include "solvers/mp/modeler/CoinModeler.h"
+#include "solvers/mp/modeler/BcpBranchingCandidates.h"
 #include "solvers/mp/MasterProblem.h"
 
 /* BCP includes */
-#include "BCP_enum.hpp"
-#include "BCP_vector.hpp"
-#include "BCP_var.hpp"
-#include "BCP_cut.hpp"
-#include "BCP_buffer.hpp"
-#include "BCP_tm_user.hpp"
-#include "BCP_lp_user.hpp"
-#include "BCP_lp.hpp"
-#include "BCP_USER.hpp"
-#include "BCP_solution.hpp"
-#include "OsiClpSolverInterface.hpp"
-#include "CoinSearchTree.hpp"
+#include "BCP_enum.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_vector.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_var.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_cut.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_buffer.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_tm_user.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_lp_user.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_lp.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_USER.hpp"  // NOLINT (suppress cpplint error)
+#include "BCP_solution.hpp"  // NOLINT (suppress cpplint error)
+#include "OsiClpSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+#include "CoinSearchTree.hpp"  // NOLINT (suppress cpplint error)
 
 
 //-----------------------------------------------------------------------------
@@ -373,7 +374,7 @@ class BcpModeler : public CoinModeler {
     int index = var->getIndex();
     // if a column, fetch index
     if (index >= coreVars_.size())
-      index = columnsToIndex_[index - coreVars_.size()];
+      index = columnsToIndex_.at(index - coreVars_.size());
     return index;
   }
 
@@ -476,6 +477,7 @@ class BcpModeler : public CoinModeler {
    */
   void setLPSol(const BCP_lp_result &lpres,
                 const BCP_vec<BCP_var *> &vars,
+                const BCP_vec<BCP_cut *> &cuts,
                 int lpIteration);
 
   void addCurrentBcpSol(bool isInteger = true);
@@ -556,14 +558,14 @@ class BcpModeler : public CoinModeler {
     }
   }
 
-  MyNode *getCurrentNode() { return pTree_->getCurrentNode(); }
+  const MyPNode &getCurrentNode() { return pTree_->getCurrentNode(); }
 
   void addToMapping(const CoinTreeSiblings *s) {
     const int nbLeaves = s->size();
     treeMapping_[s] = pTree_->addToMapping(nbLeaves);
   }
 
-  MyNode *getNode(const CoinTreeSiblings *s) {
+  const MyPNode &getNode(const CoinTreeSiblings *s) {
     int nodeIndex = s->size() - s->toProcess();
     return treeMapping_[s][nodeIndex];
   }
@@ -602,9 +604,10 @@ class BcpModeler : public CoinModeler {
   // check the active rotations
   void checkActiveColumns(const BCP_vec<BCP_var *> &vars) const;
 
+  // -1 = disable BCP strong branching, otherwise use anything > 0
   std::pair<BCP_lp_par::int_params, int> strong_branching =
       std::pair<BCP_lp_par::int_params, int>(
-          BCP_lp_par::MaxPresolveIter, -1);  // disable strong branching
+          BCP_lp_par::MaxPresolveIter, -1);
 
   // Get/set the value of the current level in the branch and bound tree
   int getCurrentTreeLevel() const override { return currentTreeLevel_; }
@@ -660,7 +663,7 @@ class BcpModeler : public CoinModeler {
  protected:
   // mapping between the CoinTreeSiblings* and my BcpNode*
   // a sibblings contains a list of all its leaves CoinTreeNode
-  std::map<const CoinTreeSiblings *, std::vector<MyNode *>> treeMapping_;
+  std::map<const CoinTreeSiblings *, std::vector<MyPNode>> treeMapping_;
   // results
   std::vector<double> obj_history_;
   std::vector<double> primalValues_, dualValues_, reducedCosts_, lhsValues_;
@@ -840,9 +843,9 @@ class BcpLpModel : public BCP_lp_user {
   /*
    * BCP_lp_user methods
    */
-  void unpack_module_data(BCP_buffer &buf) { buf.unpack(pModel_); }  // NOLINT
+  void unpack_module_data(BCP_buffer &buf) override { buf.unpack(pModel_); }  // NOLINT
 
-  OsiSolverInterface *initialize_solver_interface();
+  OsiSolverInterface *initialize_solver_interface() override;
 
   // Initializing a new search tree node.
   // This method serves as hook for the user to do some preprocessing on a
@@ -862,9 +865,10 @@ class BcpLpModel : public BCP_lp_user {
   // Try to generate a heuristic solution (or return one generated during
   // cut/variable generation.
   // Return a pointer to the generated solution or return a NULL pointer.
-  BCP_solution *generate_heuristic_solution(const BCP_lp_result &lpres,
-                                            const BCP_vec<BCP_var *> &vars,
-                                            const BCP_vec<BCP_cut *> &cuts);
+  BCP_solution *generate_heuristic_solution(
+      const BCP_lp_result &lpres,
+      const BCP_vec<BCP_var *> &vars,
+      const BCP_vec<BCP_cut *> &cuts) override;
 
   static bool compareCol(const std::pair<int, double> &p1,
                          const std::pair<int, double> &p2);
@@ -877,7 +881,7 @@ class BcpLpModel : public BCP_lp_user {
   // Default: empty method.
   void modify_lp_parameters(OsiSolverInterface *lp,
                             const int changeType,
-                            bool in_strong_branching);
+                            bool in_strong_branching) override;
 
   // print in cout a line summary headers and of the current solver state
   void printSummaryLineHeaders() const;
@@ -922,17 +926,16 @@ class BcpLpModel : public BCP_lp_user {
     @param new_cols  the corresponding columns(OUT)
   */
   // Here, will just store the result
-  virtual void
-  process_lp_result(const BCP_lp_result &lpres,
-                    const BCP_vec<BCP_var *> &vars,
-                    const BCP_vec<BCP_cut *> &cuts,
-                    const double old_lower_bound,
-                    double &true_lower_bound,      // NOLINT
-                    BCP_solution *&sol,            // NOLINT
-                    BCP_vec<BCP_cut *> &new_cuts,   // NOLINT
-                    BCP_vec<BCP_row *> &new_rows,   // NOLINT
-                    BCP_vec<BCP_var *> &new_vars,   // NOLINT
-                    BCP_vec<BCP_col *> &new_cols);  // NOLINT
+  void process_lp_result(const BCP_lp_result &lpres,
+                         const BCP_vec<BCP_var *> &vars,
+                         const BCP_vec<BCP_cut *> &cuts,
+                         const double old_lower_bound,
+                         double &true_lower_bound,      // NOLINT
+                         BCP_solution *&sol,            // NOLINT
+                         BCP_vec<BCP_cut *> &new_cuts,   // NOLINT
+                         BCP_vec<BCP_row *> &new_rows,   // NOLINT
+                         BCP_vec<BCP_var *> &new_vars,   // NOLINT
+                         BCP_vec<BCP_col *> &new_cols) override;  // NOLINT
 
   // This method provides an opportunity for the user to tighten the bounds of
   // variables. The method is invoked after reduced cost fixing. The results
@@ -954,7 +957,7 @@ class BcpLpModel : public BCP_lp_user {
                       const BCP_vec<BCP_obj_status> &cut_status,
                       const int var_bound_changes_since_logical_fixing,
                       BCP_vec<int> &changed_pos,  // NOLINT
-                      BCP_vec<double> &new_bd);  // NOLINT
+                      BCP_vec<double> &new_bd) override;  // NOLINT
 
   // Restoring feasibility.
   // This method is invoked before fathoming a search tree node that has been
@@ -965,7 +968,7 @@ class BcpLpModel : public BCP_lp_user {
                            const BCP_vec<BCP_var *> &vars,
                            const BCP_vec<BCP_cut *> &cuts,
                            BCP_vec<BCP_var *> &vars_to_add,  // NOLINT
-                           BCP_vec<BCP_col *> &cols_to_add);  // NOLINT
+                           BCP_vec<BCP_col *> &cols_to_add) override;  // NOLINT
 
   // Convert a set of variables into corresponding columns for the
   // current LP relaxation.
@@ -975,7 +978,7 @@ class BcpLpModel : public BCP_lp_user {
       // things that the user can use for lifting vars if allowed
                     const BCP_lp_result &lpres,
                     BCP_object_origin origin,
-                    bool allow_multiple);
+                    bool allow_multiple) override;
 
   // Convert (and possibly lift) a set of cuts into corresponding rows for the
   // current LP relaxation.
@@ -1008,7 +1011,7 @@ class BcpLpModel : public BCP_lp_user {
       // where the cuts come from (IN)
       BCP_object_origin origin,
       // whether multiple expansion, i.e., lifting, is allowed (IN)
-      bool allow_multiple);
+      bool allow_multiple) override;
 
   // Generate variables within the LP process.
   void generate_vars_in_lp(const BCP_lp_result &lpres,
@@ -1016,7 +1019,7 @@ class BcpLpModel : public BCP_lp_user {
                            const BCP_vec<BCP_cut *> &cuts,
                            const bool before_fathom,
                            BCP_vec<BCP_var *> &new_vars,  // NOLINT
-                           BCP_vec<BCP_col *> &new_cols);  // NOLINT
+                           BCP_vec<BCP_col *> &new_cols) override;  // NOLINT
 
   /*
    * BCP_DoNotBranch_Fathomed: The node should be fathomed without even trying to branch.
@@ -1044,7 +1047,25 @@ class BcpLpModel : public BCP_lp_user {
       BCP_vec<BCP_lp_branching_object *> &cands,  // NOLINT
       // indicate whether to force branching regardless of the size of
       // the local cut/var pools
-      bool force_branch = false);
+      bool force_branch = false) override;
+
+  /** Decide which branching object is preferred for
+  branching.
+
+  Based on the member fields of the two presolved candidate branching
+  objects decide which one should be preferred for really branching on
+  it. Possible return values are: <code>BCP_OldPresolvedIsBetter</code>,
+  \c BCP_NewPresolvedIsBetter and \c BCP_NewPresolvedIsBetter_BranchOnIt.
+  This last value (besides specifying which candidate is preferred) also
+  indicates that no further candidates should be examined, branching
+  should be done on this candidate.
+
+  Default: The behavior of this method is governed by the
+  \c BranchingObjectComparison parameter in BCP_lp_par.
+  */
+//  BCP_branching_object_relation
+//  compare_branching_candidates(BCP_presolved_lp_brobj* new_solved,
+//                               BCP_presolved_lp_brobj* old_solved) override;
 
   // Decide what to do with the children of the selected branching object.
   // Fill out the _child_action field in best.
@@ -1060,13 +1081,13 @@ class BcpLpModel : public BCP_lp_user {
   // parameter in BCP_lp_par.
   // Also, if a child has a presolved lower bound that is higher than
   // the current upper bound then that child is mark as BCP_FathomChild.
-  void set_actions_for_children(BCP_presolved_lp_brobj *best);
+  void set_actions_for_children(BCP_presolved_lp_brobj *best) override;
 
   void select_vars_to_delete(const BCP_lp_result &lpres,
                              const BCP_vec<BCP_var *> &vars,
                              const BCP_vec<BCP_cut *> &cuts,
                              const bool before_fathom,
-                             BCP_vec<int> &deletable);  // NOLINT
+                             BCP_vec<int> &deletable) override;  // NOLINT
 
   int writeLP(std::string fileName) {
     std::cout << "LP model saved in " << fileName << ".lp" << std::endl;
@@ -1114,6 +1135,9 @@ class BcpLpModel : public BCP_lp_user {
   int nbCurrentNodeSPSolved_;
   // Number of dives to wait before branching on columns again
   std::list<double> nb_dives_to_wait_before_branching_on_columns_;
+
+  BcpBranchingCandidates candidates_;
+
   // Timer started at the creation of the LP and stopped at destruction
   Tools::Timer timerTotal_;
 
@@ -1128,12 +1152,6 @@ class BcpLpModel : public BCP_lp_user {
   }
 
   double approximatedDualUB_ = -LARGE_SCORE;
-
-  // build the candidate from my candidate
-  void buildCandidate(const MyBranchingCandidate &candidate,
-                      const BCP_vec<BCP_var *> &vars,
-                      const BCP_vec<BCP_cut *> &cuts,
-                      BCP_vec<BCP_lp_branching_object *> &cands);  // NOLINT
 
   // rerun the code use to test the integer feasibility of a solution and
   // find why a solution is not feasible

@@ -152,8 +152,8 @@ class RCLabel {
 
   int nResources() const { return resourceValues_.size(); }
 
-  shared_ptr<RCNode> getNode() const { return pNode_; }
-  void setNode(shared_ptr<RCNode> pN) {  pNode_ = pN; }
+  RCNode* getNode() const { return pNode_; }
+  void setNode(shared_ptr<RCNode> pN) {  pNode_ = pN.get(); }
 
   shared_ptr<RCArc> getInArc() const { return pInArc_; }
   shared_ptr<RCArc> getOutArc() const { return pOutArc_; }
@@ -174,7 +174,7 @@ class RCLabel {
 
  private:
   int num_;  // Id of the label
-  shared_ptr<RCNode> pNode_;  // current residing node of the label
+  RCNode *pNode_;  // current residing node of the label
   shared_ptr<RCArc> pInArc_;   // pointer to the arc trough which this label
   // was forward-expanded
   shared_ptr<RCArc> pOutArc_;   // pointer to the arc trough which this label

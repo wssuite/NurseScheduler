@@ -23,7 +23,9 @@
 #include <cmath>
 #include <typeinfo>
 #include <set>
+#include <list>
 #include <map>
+#include <memory>
 #include <utility>
 
 #include "solvers/Solver.h"
@@ -282,167 +284,10 @@ struct MyPricer {
   virtual void initNursesAvailabilities() = 0;
 };
 
-/* Structures to store a branching candidate and its potential children */
-struct MyBranchingNode {
-  friend struct MyBranchingCandidate;
-  MyBranchingNode() = default;
-
-  const std::vector<double> &getLb() const {
-    return LB;
-  }
-
-  void setLb(int index, double lb) {
-    LB[index] = lb;
-  }
-
-  const std::vector<double> &getLhs() const {
-    return lhs;
-  }
-
-  void setLhs(int index, double lhs) {
-    this->lhs[index] = lhs;
-  }
-
-  const std::vector<double> &getRhs() const {
-    return rhs;
-  }
-
-  void setRhs(int index, double rhs) {
-    this->rhs[index] = rhs;
-  }
-
-  const std::vector<double> &getUb() const {
-    return UB;
-  }
-
-  void setUb(int index, double ub) {
-    UB[index] = ub;
-  }
-
- protected:
-  std::vector<double> LB, UB;
-  std::vector<double> rhs, lhs;
-};
-
-struct MyBranchingCandidate {
-  MyBranchingCandidate() = default;
-
-  int createNewChild() {
-    children_.emplace_back();
-    initialize(&children_.back());
-    return children_.size() - 1;
-  }
-
-  MyBranchingNode &getChild(int index) {
-    return children_[index];
-  }
-
-  void swapChildren(int index1, int index2) {
-    std::swap(children_[index1], children_[index2]);
-  }
-
-  void swapLastChildren() {
-    int index1 = children_.size() - 2,
-        index2 = children_.size() - 1;
-    swapChildren(index1, index2);
-  }
-
-  void initialize(MyBranchingNode *node) {
-    for (MyVar *var : branchingVars_) {
-      node->LB.push_back(var->getLB());
-      node->UB.push_back(var->getUB());
-    }
-
-    for (MyCons *cons : branchingCons_) {
-      node->lhs.push_back(cons->getLhs());
-      node->rhs.push_back(cons->getRhs());
-    }
-  }
-
-  int addBranchingVar(MyVar *var) {
-    branchingVars_.push_back(var);
-    for (MyBranchingNode &child : children_) {
-      child.LB.push_back(var->getLB());
-      child.UB.push_back(var->getUB());
-    }
-    return branchingVars_.size() - 1;
-  }
-
-  int addNewBranchingVar(MyVar *var) {
-    newBranchingVars_.push_back(var);
-    return addBranchingVar(var);
-  }
-
-  int addBranchingCons(MyCons *cons) {
-    branchingCons_.push_back(cons);
-    for (MyBranchingNode &child : children_) {
-      child.lhs.push_back(cons->getLhs());
-      child.rhs.push_back(cons->getRhs());
-    }
-    return branchingCons_.size() - 1;
-  }
-
-  int addNewBranchingCons(MyCons *cons) {
-    newBranchingCons_.push_back(cons);
-    return addBranchingCons(cons);
-  }
-
-  const std::vector<MyCons *> &getBranchingCons() const {
-    return branchingCons_;
-  }
-
-  const std::vector<MyVar *> &getBranchingVars() const {
-    return branchingVars_;
-  }
-
-  const std::vector<MyBranchingNode> &getChildren() const {
-    return children_;
-  }
-
-  const std::vector<MyCons *> &getNewBranchingCons() const {
-    return newBranchingCons_;
-  }
-
-  const std::vector<MyVar *> &getNewBranchingVars() const {
-    return newBranchingVars_;
-  }
-
- protected:
-  std::vector<MyVar *> branchingVars_, newBranchingVars_;
-  std::vector<MyCons *> branchingCons_, newBranchingCons_;
-  std::vector<MyBranchingNode> children_;
-};
-
-/*
- * My branching rule
- */
-struct MyBranchingRule {
-  explicit MyBranchingRule(const char *name)
-      : name_(name), searchStrategy_(BestFirstSearch) {}
-  virtual ~MyBranchingRule() {}
-
-  // name of the branching rule handler
-  const char *name_;
-
-  /* Compute logical fixing decisions */
-  // Add the new children to the candidate (just column node).
-  // Return true if a child is created
-  virtual bool column_candidates(MyBranchingCandidate *candidate) = 0;
-
-  /* Compute branching decisions */
-  // Add the new children to the candidate (other nodes).
-  // Return true if a child is created
-  virtual bool branching_candidates(MyBranchingCandidate *candidate) = 0;
-
-  void set_search_strategy(SearchStrategy searchStrategy) {
-    searchStrategy_ = searchStrategy;
-  }
-
- protected:
-  SearchStrategy searchStrategy_;
-};
-
 /* Represents the nodes of the branching tree */
+struct MyNode;
+typedef std::shared_ptr<MyNode> MyPNode;
+
 struct MyNode {
   MyNode() : index_(0),
              pParent_(nullptr),
@@ -452,25 +297,25 @@ struct MyNode {
              smallestGap_(LARGE_SCORE),
              depth_(0),
              bestLagLB_(-LARGE_SCORE),
-             lastLagLB_(-LARGE_SCORE) {}
-  MyNode(int index, MyNode *pParent) :
-      index_(index),
-      pParent_(pParent),
-      bestLB_(pParent->bestLB_),
+             lastLagLB_(-LARGE_SCORE),
+             presolvedUB_(LARGE_SCORE) {}
+  explicit MyNode(MyPNode pParent) :
+      index_(-1),
+      pParent_(pParent.get()),
+      bestLB_(pParent_->bestLB_),
       processed_(false),
       gap_(LARGE_SCORE),
       smallestGap_(LARGE_SCORE),
-      depth_(pParent->depth_ + 1),
-      bestLagLB_(pParent->bestLagLB_),
-      lastLagLB_(pParent->bestLB_) {}
+      depth_(pParent_->depth_ + 1),
+      bestLagLB_(pParent_->bestLagLB_),
+      lastLagLB_(pParent_->bestLB_),
+      presolvedUB_(LARGE_SCORE) {}
   virtual ~MyNode() {}
-
-  const int index_;
 
   // parent
   MyNode *pParent_;
 
-  void pushBackChild(MyNode *child) {
+  void pushBackChild(const MyPNode &child) {
     children_.push_back(child);
   }
 
@@ -535,21 +380,36 @@ struct MyNode {
   double getLastLagLB() const { return lastLagLB_; }
   void setLastLagLB(double lb) { lastLagLB_ = lb; }
 
+  // PRESOLVED
+  double getPresolvedUB() const { return presolvedUB_; }
+  void setPresolvedUB(double presolvedUB) { presolvedUB_ = presolvedUB; }
+
   void setDepth(int depth) { depth_ = depth; }
 
-  double getDepth() const { return depth_; }
+  int getDepth() const { return depth_; }
 
   bool isProcessed() const {
     return processed_;
   }
 
   virtual std::string write() const {
+    return "MyNode: ("+getInfo()+")";
+  }
+
+  virtual std::string writeInheritance() const {
     std::stringstream out;
-    out << "MyNode: (depth=" << depth_ << ",LB=" << bestLB_ << ")";
+    const MyNode *pNode = this;
+    while (pNode != nullptr) {
+      out <<  pNode->write() << std::endl;
+      pNode = pNode->pParent_;
+    }
     return out.str();
   }
 
+  int getIndex() const { return index_; }
+
  protected:
+  int index_;
   double bestLB_;
   bool processed_;
   // gap: between bestLB_ and current best lb
@@ -563,8 +423,22 @@ struct MyNode {
   // LAGLB: last Lagrangian lower bound in the column generation
   double lastLagLB_;
 
+  // PRESOLVED : UB obtained when performing strong banching
+  double presolvedUB_;
+
   // children
-  std::vector<MyNode *> children_;
+  std::vector<MyPNode> children_;
+
+  friend class MyTree;
+  void setIndex(int index) { index_ = index; }
+
+  std::string getInfo() const {
+    std::stringstream out;
+    out << "depth=" << depth_ << ", LB=" << bestLB_;
+    if (presolvedUB_ < LARGE_SCORE - 1)
+      out << ", presolved=" << presolvedUB_;
+    return out.str();
+  }
 };
 
 struct MyTree {
@@ -589,7 +463,7 @@ struct MyTree {
 
   double getRootLB() const { return best_lb_in_root; }
 
-  void setCurrentNode(MyNode *currentNode, bool diving = false) {
+  void setCurrentNode(const MyPNode &currentNode, bool diving = false) {
     // update tree size
     --tree_size_;
     // update this parameters only if current exists
@@ -614,8 +488,6 @@ struct MyTree {
 
   /* clear tree */
   void clear() {
-    for (MyNode *node : tree_)
-      delete node;
     tree_.clear();
     activeTreeMapping_.clear();
   }
@@ -627,13 +499,13 @@ struct MyTree {
       return "";
   }
 
-  std::vector<MyNode *> addToMapping(const int nbLeaves) {
+  std::vector<MyPNode> addToMapping(const int nbLeaves) {
     const int size = tree_.size();
-    std::vector<MyNode *> leaves(nbLeaves);
+    std::vector<MyPNode> leaves(nbLeaves);
     for (int i = 0; i < nbLeaves; ++i) {
       leaves[i] = tree_[size - nbLeaves + i];
     }
-    activeTreeMapping_[currentNode_] = leaves;
+    activeTreeMapping_[currentNode_.get()] = leaves;
     tree_size_ += nbLeaves;
 
     // set dive depth in case of diving
@@ -662,7 +534,7 @@ struct MyTree {
       if (p.first->getDepth() < min_depth_) min_depth_ = p.first->getDepth();
   }
 
-  MyNode *getNode(const int nodeIndex) const {
+  const MyPNode &getNode(const int nodeIndex) const {
     return tree_[nodeIndex];
   }
 
@@ -740,7 +612,7 @@ struct MyTree {
   double computeCurrentBestLB() {
     double new_best_lb = currentNode_->getBestLB();
     for (const auto &p : activeTreeMapping_)
-      for (MyNode *node : p.second)
+      for (const MyPNode &node : p.second)
         if (!node->isProcessed() && new_best_lb > node->getBestLB()) {
           new_best_lb = node->getBestLB();
           if (new_best_lb < best_lb + 1e-9)  // if same than current one -> stop
@@ -768,16 +640,17 @@ struct MyTree {
   double getRelaxedObjective() const { return best_lb_in_root; }
 
   void createRootNode() {
-    tree_.push_back(new MyNode);
+    tree_.push_back(std::make_shared<MyNode>());
     ++tree_size_;
   }
 
-  void pushBackNode(MyNode *node) {
+  void pushBackNode(const MyPNode &node) {
+    node->setIndex(tree_.size());
     tree_.push_back(node);
     currentNode_->pushBackChild(node);
   }
 
-  MyNode *getCurrentNode() const { return currentNode_; }
+  const MyPNode &getCurrentNode() const { return currentNode_; }
 
   double getIntegralityGap() const {
     return (getBestUB() - getBestLB()) / getBestLB();
@@ -802,7 +675,7 @@ struct MyTree {
    * Stats
    */
 
-  virtual void updateStats(MyNode *node) {}
+  virtual void updateStats(const MyPNode &node) {}
 
   virtual std::string writeBranchStats() const { return ""; }
 
@@ -812,15 +685,15 @@ struct MyTree {
   double epsilon_;
   // mapping between the Siblings and MyNode*
   // a sibblings contains a list of all its leaves MyNode
-  std::map<MyNode *, std::vector<MyNode *>> activeTreeMapping_;
+  std::map<MyNode*, std::vector<MyPNode>> activeTreeMapping_;
   // branching tree
-  std::vector<MyNode *> tree_;
+  std::vector<MyPNode> tree_;
   // tree size, number of nodes since last incumbent,
   // depth of the current dive, length of a dive
   int tree_size_, nb_nodes_processed_, nb_nodes_last_incumbent_, diveDepth_,
       diveLength_, min_depth_, nb_nodes_since_dive_;
   // current node
-  MyNode *currentNode_;
+  MyPNode currentNode_;
   // print current node every time it has been changed
   bool printCurrentNode_;
 
@@ -830,6 +703,163 @@ struct MyTree {
   double best_ub;
 };
 
+/* Structures to store a branching candidate and its potential children */
+struct MyBranchingNode {
+  friend struct MyBranchingCandidate;
+  MyBranchingNode() = default;
+
+  const std::vector<double> &getLb() const { return LB; }
+
+  void setLb(int index, double lb) { LB[index] = lb; }
+
+  const std::vector<double> &getLhs() const { return lhs; }
+
+  void setLhs(int index, double lhs) { this->lhs[index] = lhs; }
+
+  const std::vector<double> &getRhs() const { return rhs; }
+
+  void setRhs(int index, double rhs) { this->rhs[index] = rhs; }
+
+  const std::vector<double> &getUb() const { return UB; }
+
+  void setUb(int index, double ub) {  UB[index] = ub; }
+
+  void addPNode(MyPNode pNode) { pNode_ = std::move(pNode); }
+
+  const MyPNode &pNode() const  {  return pNode_; }
+
+ protected:
+  MyPNode pNode_ = nullptr;
+  std::vector<double> LB, UB;
+  std::vector<double> rhs, lhs;
+};
+typedef std::shared_ptr<MyBranchingNode> MyPBranchingNode;
+
+struct MyBranchingCandidate {
+  MyBranchingCandidate() = default;
+
+  virtual int createNewChild() {
+    children_.emplace_back(std::make_shared<MyBranchingNode>());
+    initialize(children_.back());
+    return children_.size() - 1;
+  }
+
+  virtual void createNewChild(int position) {
+    children_.insert(children_.begin() + position,
+                     std::make_shared<MyBranchingNode>());
+    initialize(children_[position]);
+  }
+
+  const MyPBranchingNode &getChild(int index) {
+    return children_[index];
+  }
+
+  void swapChildren(int index1, int index2) {
+    std::swap(children_[index1], children_[index2]);
+  }
+
+  void swapLastChildren() {
+    int index1 = children_.size() - 2,
+        index2 = children_.size() - 1;
+    swapChildren(index1, index2);
+  }
+
+  void initialize(const MyPBranchingNode &pNode) {
+    for (MyVar *var : branchingVars_) {
+      pNode->LB.push_back(var->getLB());
+      pNode->UB.push_back(var->getUB());
+    }
+
+    for (MyCons *cons : branchingCons_) {
+      pNode->lhs.push_back(cons->getLhs());
+      pNode->rhs.push_back(cons->getRhs());
+    }
+  }
+
+  int addBranchingVar(MyVar *var) {
+    branchingVars_.push_back(var);
+    for (const MyPBranchingNode &pChild : children_) {
+      pChild->LB.push_back(var->getLB());
+      pChild->UB.push_back(var->getUB());
+    }
+    return branchingVars_.size() - 1;
+  }
+
+  int addNewBranchingVar(MyVar *var) {
+    newBranchingVars_.push_back(var);
+    return addBranchingVar(var);
+  }
+
+  int addBranchingCons(MyCons *cons) {
+    branchingCons_.push_back(cons);
+    for (const MyPBranchingNode &pChild : children_) {
+      pChild->lhs.push_back(cons->getLhs());
+      pChild->rhs.push_back(cons->getRhs());
+    }
+    return branchingCons_.size() - 1;
+  }
+
+  int addNewBranchingCons(MyCons *cons) {
+    newBranchingCons_.push_back(cons);
+    return addBranchingCons(cons);
+  }
+
+  const std::vector<MyCons *> &getBranchingCons() const {
+    return branchingCons_;
+  }
+
+  const std::vector<MyVar *> &getBranchingVars() const {
+    return branchingVars_;
+  }
+
+  const std::vector<MyPBranchingNode> &getChildren() const {
+    return children_;
+  }
+
+  const std::vector<MyCons *> &getNewBranchingCons() const {
+    return newBranchingCons_;
+  }
+
+  const std::vector<MyVar *> &getNewBranchingVars() const {
+    return newBranchingVars_;
+  }
+
+ protected:
+  std::vector<MyVar *> branchingVars_, newBranchingVars_;
+  std::vector<MyCons *> branchingCons_, newBranchingCons_;
+  std::vector<MyPBranchingNode> children_;
+};
+typedef std::shared_ptr<MyBranchingCandidate> MyPBranchingCandidate;
+
+/*
+ * My branching rule
+ */
+struct MyBranchingRule {
+  explicit MyBranchingRule(const char *name)
+      : name_(name), searchStrategy_(BestFirstSearch) {}
+  virtual ~MyBranchingRule() {}
+
+  // name of the branching rule handler
+  const char *name_;
+
+  /* Compute logical fixing decisions */
+  // Add the new children to the candidate (just column node).
+  // Return true a child if created, false otherwise
+  virtual bool column_node(std::list<MyPBranchingCandidate> *candidates) = 0;
+
+  /* Compute branching decisions */
+  // Add the new children to the candidate (other nodes).
+  // Return true if a child is created
+  virtual bool branching_candidates(
+      std::list<MyPBranchingCandidate> *candidates) = 0;
+
+  void set_search_strategy(SearchStrategy searchStrategy) {
+    searchStrategy_ = searchStrategy;
+  }
+
+ protected:
+  SearchStrategy searchStrategy_;
+};
 
 
 //-----------------------------------------------------------------------------
@@ -885,22 +915,36 @@ class Modeler {
 
   // Add a pricer
   virtual int addPricer(MyPricer *pPricer) {
+    delete pPricer_;
     pPricer_ = pPricer;
     return 1;
   }
 
+  MyPricer *pPricer() const {
+    return pPricer_;
+  }
+
   // Add a branching rule
   virtual int addBranchingRule(MyBranchingRule *pBranchingRule) {
+    delete pBranchingRule_;
     pBranchingRule_ = pBranchingRule;
     pBranchingRule_->set_search_strategy(searchStrategy_);
     return 1;
   }
 
+  MyBranchingRule *pBranchingRule() const {
+    return pBranchingRule_;
+  }
+
   // Add a tree
   virtual int addTree(MyTree *pTree) {
-    if (pTree_) delete pTree_;
+    delete pTree_;
     pTree_ = pTree;
     return 1;
+  }
+
+  MyTree *pTree() const {
+    return pTree_;
   }
 
   virtual void addForbiddenShifts(
@@ -924,16 +968,16 @@ class Modeler {
     return {};
   }
 
-  bool branching_decisions(MyBranchingCandidate *candidate) {
+  bool branching_decisions(std::list<MyPBranchingCandidate> *candidates) {
     if (pBranchingRule_)
-      return pBranchingRule_->branching_candidates(candidate);
+      return pBranchingRule_->branching_candidates(candidates);
     return false;
   }
 
   // remove all bad candidates from fixingCandidates
-  bool branch_on_column(MyBranchingCandidate *candidate) {
+  bool branch_on_column(std::list<MyPBranchingCandidate> *candidates) {
     if (pBranchingRule_)
-      return pBranchingRule_->column_candidates(candidate);
+      return pBranchingRule_->column_node(candidates);
     return false;
   }
 
@@ -1379,8 +1423,8 @@ class Modeler {
                  pattern,
                  dualObj,
                  VARTYPE_INTEGER,
-                 cons,
-                 coeffs,
+                 std::move(cons),
+                 std::move(coeffs),
                  transformed,
                  score);
   }
@@ -1632,7 +1676,7 @@ class Modeler {
 
   bool updateNodeLB(double lb) { return pTree_->updateNodeLB(lb); }
 
-  MyNode *getNode(const int nodeIndex) const {
+  const MyPNode &getNode(const int nodeIndex) const {
     return pTree_->getNode(nodeIndex);
   }
 
@@ -1766,6 +1810,12 @@ class Modeler {
   // Get te current level in the branch and bound tree
   virtual int getCurrentTreeLevel() const { return 0; }
 
+  virtual void addNode(
+      const MyPBranchingNode &pNode, double presolvedUB = DBL_MAX) {
+    if (presolvedUB < DBL_MAX - 1) pNode->pNode()->setPresolvedUB(presolvedUB);
+    pTree_->pushBackNode(pNode->pNode());
+  }
+
   // get the current number of objects
   int getNbObjectsInMemory() const { return objects_.size(); }
 
@@ -1802,9 +1852,10 @@ class Modeler {
   // the vector will also be cleared
   std::vector<MyVar *> initialColumnVars_;
 
-  MyPricer *pPricer_;
+  MyPricer *pPricer_;  // prices the rotations
+  MyTree *pTree_;  // store the tree information
+  // choose the variables on which we should branch
   MyBranchingRule *pBranchingRule_;
-  MyTree *pTree_;
   Stabilization stab_;
 
   int verbosity_ = 0;

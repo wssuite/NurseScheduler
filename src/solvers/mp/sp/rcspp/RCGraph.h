@@ -92,14 +92,14 @@ struct RCArc {
   // Constructor
   //
   explicit RCArc(int n,
-                 PRCNode  o,
-                 PRCNode  t,
+                 const PRCNode &o,
+                 const PRCNode &t,
                  Stretch s,
                  double c,
                  ArcType type = NONE_ARC) :
       id(n),
-      origin(std::move(o)),
-      target(std::move(t)),
+      origin(o.get()),
+      target(t.get()),
       stretch(std::move(s)),
       type(type),
       cost(c),
@@ -148,7 +148,7 @@ struct RCArc {
   }
 
   int id;
-  const PRCNode origin, target;   // end vertices of the arc
+  RCNode *origin, *target;   // end vertices of the arc
 
   // the arc symbolizes the affectation of the following stretch
   const Stretch stretch;

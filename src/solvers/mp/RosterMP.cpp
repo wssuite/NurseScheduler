@@ -114,10 +114,10 @@ void RosterMP::build(const SolverParam &param) {
   MasterProblem::build(param);
 
   /* Change the branching rule */
-  pRule_ = new RosterBranchingRule(this,
-                                   dynamic_cast<RestTree *>(pTree_),
+  auto *pRule = new RosterBranchingRule(this,
+                                   dynamic_cast<RestTree *>(pTree()),
                                    "branching rule");
-  pModel_->addBranchingRule(pRule_);
+  pModel_->addBranchingRule(pRule);
 }
 
 // Provide an initial solution to the solver. If empty, add artificial columns
@@ -145,8 +145,8 @@ MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
 #ifdef DBG
   computePatternCost(&pat);
   DualCosts dualCosts(this);
-  pat.checkReducedCost(dualCosts, pPricer_->isLastRunOptimal());
-  checkIfPatternAlreadyPresent(pat.getCompactPattern());
+  pat.checkReducedCost(dualCosts, pPricer()->isLastRunOptimal());
+  checkIfPatternAlreadyPresent(pat);
 #endif
   return createColumn(pat, "roster");
 }
@@ -172,7 +172,7 @@ double RosterMP::computeLagrangianBound(double objVal) const {
   }
 
   double sumRedCost = 0;
-  for (double v : pPricer_->getLastMinReducedCosts())
+  for (double v : pPricer()->getLastMinReducedCosts())
     sumRedCost += v;
   return objVal + sumRedCost;
 }

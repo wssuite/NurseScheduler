@@ -50,21 +50,7 @@ You can run the INSTALL.sh script for performing the first two steps (give as fi
   ````
 
 #### 3. Build the nurse scheduling code:
-The code can be built either with a traditional Makefile or with cmake. In both cases, the paths to boost and BCP need to be provided.
-
-  - ##### From the Makefile:
-  First, add the following environment variables (you need to define only one of the last variables for BCP):
-  ````bash
-  export BOOST_DIR="/path/to/boost/directory/boost_X_XX"
-  export BCPDIROPT="/path/to/coinor/directory/Bcp-1.4/build"
-  export BCPDIRDBG="/path/to/coinor/directory/Bcp-1.4/debug"
-  ````
-  Then, go to the root directory of the nurse scheduling project and type:
-  ````bash
-  make
-  ````
-
-  - ##### From cmake:
+The code can be built with cmake. However, the paths to BCP need to be provided.
   First, create at the root the file CMakeDefinitionsLists.txt to provide your own paths (you need to define only one of the last variables for BCP). Also, if boost is installed in a classical path, cmake will be able to find the path automatically. 
   ````bash
   set(BOOST_DIR /path/to/boost/directory/boost_X_XX)
@@ -77,3 +63,11 @@ The code can be built either with a traditional Makefile or with cmake. In both 
   mkdir build && cd build && cmake ..
   make
   ````
+
+#### 4. Mac M1 processors
+If you are using a M1 processor, you will have some issues.
+Unfortunately, we are not able to compile BCP on an arm architecture. 
+Therefore, BCP must be compiled on a x86_64 architecture: 
+you will just need to set the right compiler by default in your environment (check ``gcc -v``).
+However, cmake will use by default the system architecture, and thus the x86_64.cmake 
+configuration file must be given to cmake with the command "-DCMAKE_TOOLCHAIN_FILE=x86_64.cmake".

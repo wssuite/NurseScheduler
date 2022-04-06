@@ -34,7 +34,8 @@ InputPaths::InputPaths(const std::string &dataDir,
                        const std::string &SPType,
                        int SPStrategy,
                        const std::string &RCSPPType,
-                       int nThreads) :
+                       int nThreads,
+                       int nCandidates) :
     instance_(instanceName),
     historyIndex_(historyIndex),
     weekIndices_(weekIndices),
@@ -47,7 +48,8 @@ InputPaths::InputPaths(const std::string &dataDir,
     SPType_(SPType),
     SPStrategy_(SPStrategy),
     RCSPPType_(RCSPPType),
-    nThreads_(nThreads) {
+    nThreads_(nThreads),
+    nCandidates_(nCandidates) {
   std::string instanceDir = dataDir + instanceName + "/";
   // initialize the scenario and history file names
   scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
@@ -72,7 +74,8 @@ InputPaths::InputPaths(const std::string &dataDir,
                        const std::string &SPType,
                        int SPStrategy,
                        const std::string &RCSPPType,
-                       int nThreads) :
+                       int nThreads,
+                       int nCandidates) :
     instance_(instanceName),
     weekIndices_(weekIndices),
     solutionPath_(solutionPath),
@@ -84,7 +87,8 @@ InputPaths::InputPaths(const std::string &dataDir,
     SPType_(SPType),
     SPStrategy_(SPStrategy),
     RCSPPType_(RCSPPType),
-    nThreads_(nThreads) {
+    nThreads_(nThreads),
+    nCandidates_(nCandidates) {
   std::string instanceDir = dataDir + instanceName + "/";
   // initialize the scenario and history file names
   scenario_ = instanceDir + "Sc-" + instanceName + ".txt";

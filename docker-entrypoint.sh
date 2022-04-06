@@ -1,5 +1,7 @@
 #!/bin/bash
 
+valgrindOPT="--leak-check=full --show-leak-kinds=all --track-origins=yes"
+
 function printBashUsage {
   echo "This script will run the simulator and then the validator."
   echo "Usage:"
@@ -14,6 +16,7 @@ function printBashUsage {
   echo "-o | --output: directory for the output. Default: outfiles/{instance}/{timestamp} or outfiles/{instance}/{seeds}_{timestamp} if dynamic"
   echo "-g | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
   echo "-v | --valgrind: use valgrind to run the code. Default: false."
+  echo "-vo | --valgrind-options: options for valgrind. Default: ${valgrindOPT}."
   echo "-e | --evaluate: use the validator to evaluate thee solution. Default: true."
   echo "-r | --root-dir-path: set the path where the script should be run. Default: do not move."
 }
@@ -28,7 +31,6 @@ while [ ! -z "$1" ]; do
 done
 echo "${ARGS[@]}"
 # parse arguments
-valgrindCMD="valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes"
 instance_description="n005w4_0_1-2-3-3"
 eval="1"
 dynamic_args=""
@@ -48,7 +50,8 @@ while [ ! -z ${ARGS[${i}]} ]; do
    -ec | --evaluation-config) evalParam=${ARGS[((i+1))]}; ((i+=2));;
    -g | --goal) goal=${ARGS[((i+1))]}; ((i+=2));;
    -d | --dynamic) dynamic="1"; ((i++));;
-   -v | -valgrind) valgrind="1"; ((i++));;
+   -v | --valgrind) valgrind="1"; ((i++));;
+   -vo | --valgrind-options) valgrindOPT=${ARGS[((i+1))]}; ((i+=2));;
    -e | --evaluate) eval=${ARGS[((i+1))]}; ((i+=2));;
    -r | --root-dir-path) rootDir=${ARGS[((i+1))]}; ((i+=2));;
    --pricer) pricer="1"; ((i+=1));;
@@ -117,6 +120,7 @@ if [ -z ${dynamic} ]; then
   	fi
   else
     # run the scheduler with valgrind
+    valgrindCMD="valgrind ${valgrindOPT}"
   	echo "Run: ${valgrindCMD} ${sCMD}"
   	${valgrindCMD} ${sCMD}
 

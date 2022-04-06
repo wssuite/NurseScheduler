@@ -97,8 +97,8 @@ class RotationMP : public MasterProblem {
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 
   // get a reference to the restsPerDay_ for a Nurse
-  std::vector<MyVar *> getRestVarsPerDay(PLiveNurse pNurse,
-                                         int day) const override {
+  std::vector<MyVar *> getRestVarsPerDay(
+      PLiveNurse pNurse, int day) const override {
     return rotationGraphConstraint_->getVariables(pNurse, day);
   }
 

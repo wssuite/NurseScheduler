@@ -281,8 +281,8 @@ MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
 #ifdef DBG
   computePatternCost(&rotation);
   DualCosts dualCosts(this);
-  rotation.checkReducedCost(dualCosts, pPricer_->isLastRunOptimal());
-  checkIfPatternAlreadyPresent(rotation.getCompactPattern());
+  rotation.checkReducedCost(dualCosts, pPricer()->isLastRunOptimal());
+  checkIfPatternAlreadyPresent(rotation);
 #endif
   return createColumn(rotation, "rotation");
 }

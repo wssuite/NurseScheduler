@@ -13,6 +13,7 @@
 #define SRC_SOLVERS_MP_TREEMANAGER_H_
 
 #include <algorithm>
+#include <list>
 #include <memory>
 #include <set>
 #include <string>
@@ -23,18 +24,27 @@
 #include "solvers/mp/modeler/Modeler.h"
 #include "solvers/mp/MasterProblem.h"
 
+
+struct Score {
+  explicit Score(double sc = -DBL_MAX) : score(sc) {}
+  double score;
+  PLiveNurse pNurse = nullptr;
+  int k = -1, s = -1, sk = -1;
+  vector<int> forbiddenShifts;
+  MyVar *var;
+};
+
 // Node that correspond to branching on a set of columns (diving)
 //
 struct ColumnsNode : public MyNode {
-  ColumnsNode(int index,
-              MyNode *pParent,
-              const std::vector<PPattern> &patterns) :
-      MyNode(index, pParent), patterns_(patterns) {}
+  ColumnsNode(MyPNode pParent,
+              std::vector<PPattern> patterns) :
+      MyNode(std::move(pParent)), patterns_(std::move(patterns)) {}
 
   std::string write() const {
     std::stringstream out;
-    out << "ColumnsNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",#Cols="
-        << patterns_.size() << ")";
+    out << "ColumnsNode: (" << getInfo()
+        << ", #Cols=" << patterns_.size() << ")";
     return out.str();
   }
 
@@ -45,16 +55,17 @@ struct ColumnsNode : public MyNode {
 // Node that correspond to branching on a resting day
 //
 struct RestNode : public MyNode {
-  RestNode(int index, MyNode *pParent, PLiveNurse pNurse, int day, bool rest) :
-      MyNode(index, pParent), pNurse_(pNurse), day_(day), rest_(rest) {}
+  RestNode(MyPNode pParent, PLiveNurse pNurse, int day, bool rest) :
+      MyNode(std::move(pParent)), pNurse_(std::move(pNurse)),
+      day_(day), rest_(rest) {}
 
   std::string write() const {
     std::stringstream out;
-    out << "RestNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse="
-        << pNurse_->num_ << ",Day=" << day_ << ",";
-    if (rest_) std::cout << "rest";
+    out << "RestNode: (" << getInfo()
+        << ", Nurse=" << pNurse_->num_ << ", Day=" << day_ << ", ";
+    if (rest_) out << "rest";
     else
-      std::cout << "work";
+      out << "work";
     out << ")";
     return out.str();
   }
@@ -68,13 +79,12 @@ struct RestNode : public MyNode {
 // Node that correspond to branching on working shifts
 //
 struct ShiftNode : public MyNode {
-  ShiftNode(int index,
-            MyNode *pParent,
+  ShiftNode(MyPNode pParent,
             PLiveNurse pNurse,
             int day,
             bool work,
             const std::vector<int> &forbiddenShifts) :
-      MyNode(index, pParent),
+      MyNode(std::move(pParent)),
       pNurse_(pNurse),
       day_(day),
       work_(work),
@@ -82,8 +92,8 @@ struct ShiftNode : public MyNode {
 
   std::string write() const {
     std::stringstream out;
-    out << "ShiftNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse="
-        << pNurse_->num_ << ",Day=" << day_ << ",";
+    out << "ShiftNode: (" << getInfo()
+        << ", Nurse=" << pNurse_->num_ << ", Day=" << day_ << ", ";
     if (work_) out << "work";
     else
       out << "N.A.";
@@ -104,22 +114,21 @@ struct ShiftNode : public MyNode {
 // The variable can relate to cover constraints, total shifts or total week-ends
 //
 struct PenaltyNode : public MyNode {
-  PenaltyNode(int index,
-              MyNode *pParent,
+  PenaltyNode(MyPNode pParent,
               PLiveNurse pNurse,
               int day,
               bool work,
-              const std::vector<int> &forbiddenShifts) :
-      MyNode(index, pParent),
-      pNurse_(pNurse),
+              std::vector<int> forbiddenShifts) :
+      MyNode(std::move(pParent)),
+      pNurse_(std::move(pNurse)),
       day_(day),
       work_(work),
-      forbiddenShifts_(forbiddenShifts) {}
+      forbiddenShifts_(std::move(forbiddenShifts)) {}
 
   std::string write() const {
     std::stringstream out;
-    out << "PenaltyNode: (depth=" << depth_ << ",LB=" << bestLB_ << ",Nurse="
-        << pNurse_->num_ << ",Day=" << day_ << ",";
+    out << "PenaltyNode: (" << getInfo()
+        << ", Nurse=" << pNurse_->num_ << ", Day=" << day_ << ", ";
     if (work_) out << "work";
     else
       out << "N.A.";
@@ -137,16 +146,16 @@ struct PenaltyNode : public MyNode {
 };
 
 struct VarNode : public MyNode {
-  VarNode(int index, MyNode *pParent, MyVar *var, double lb, double ub) :
-      MyNode(index, pParent),
+  VarNode(MyPNode pParent, MyVar *var, double lb, double ub) :
+      MyNode(std::move(pParent)),
       var_(var),
       lb_(lb),
       ub_(ub) {}
 
   std::string write() const {
     std::stringstream out;
-    out << "VarNode: (depth=" << depth_ << ",LB=" << bestLB_;
-    out << ",Var=" << var_->name_ << ",LB=" << lb_ << ",UB=" << ub_ << ")";
+    out << "VarNode: (" << getInfo()
+        << ", Var=" << var_->name_ << ", LB=" << lb_ << ", UB=" << ub_ << ")";
     return out.str();
   }
 
@@ -156,24 +165,62 @@ struct VarNode : public MyNode {
 };
 
 struct CoverageNode : public MyNode {
-  CoverageNode(int index, MyNode *pParent,
+  CoverageNode(MyPNode pParent,
       string cutName, double lhs, double rhs) :
-      MyNode(index, pParent),
-    cutName_(cutName),
+      MyNode(std::move(pParent)),
+    cutName_(std::move(cutName)),
     lhs_(lhs),
     rhs_(rhs) {}
 
   std::string write() const {
     std::stringstream out;
-    out << "CoverageNode: (depth=" << depth_ << ",LB=" << bestLB_;
-    out << ",Var=" << cutName_ << ",LHS=" << lhs_ << ",RHS="
-        << rhs_ << ")";
+    out << "CoverageNode: (" << getInfo()
+        << ", Var=" << cutName_ << ", LHS=" << lhs_ << ", RHS=" << rhs_ << ")";
     return out.str();
   }
 
   // number of nurse on which we have branched. pNumberOfNurses_ can be 0
   const string cutName_;
   const double lhs_, rhs_;
+};
+
+
+class RCBranchingCandidate : public MyBranchingCandidate {
+ public:
+  explicit RCBranchingCandidate(MyPNode currentNode):
+      MyBranchingCandidate(), currentNode_(std::move(currentNode)) {}
+
+  void addVarNode(int index, MyVar *var, double lb, double ub) {
+    children_[index]->addPNode(
+        std::make_shared<VarNode>(currentNode_, var, lb, ub));
+  }
+
+  void addDemandNode(int index, const char * cutName, double lhs, double rhs) {
+    children_[index]->addPNode(
+        std::make_shared<CoverageNode>(currentNode_, cutName, lhs, rhs));
+  }
+
+  void addColumnsNode(int index, const std::vector<PPattern> &patterns) {
+    children_[index]->addPNode(
+        std::make_shared<ColumnsNode>(currentNode_, patterns));
+  }
+
+  void addRestNode(int index, PLiveNurse pNurse, int day, bool rest) {
+    children_[index]->addPNode(
+        std::make_shared<RestNode>(currentNode_, pNurse, day, rest));
+  }
+
+  void addShiftNode(int index,
+                    PLiveNurse pNurse,
+                    int day,
+                    bool work,
+                    const std::vector<int> &shifts) {
+    children_[index]->addPNode(
+        std::make_shared<ShiftNode>(currentNode_, pNurse, day, work, shifts));
+  }
+
+ protected:
+  MyPNode currentNode_;
 };
 
 
@@ -184,39 +231,8 @@ struct RestTree : public MyTree {
   void addForbiddenShifts(PLiveNurse pNurse,
                           std::set<std::pair<int, int> > *forbidenShifts);
 
-  void pushBackNewVarNode(MyVar *var, double lb, double ub) {
-    VarNode *node = new VarNode(tree_.size(), currentNode_, var, lb, ub);
-    pushBackNode(node);
-  }
-
-  void pushBackNewDemandNode(const char * cutName, double lhs, double rhs) {
-    CoverageNode *node =
-        new CoverageNode(tree_.size(), currentNode_, cutName, lhs, rhs);
-    pushBackNode(node);
-  }
-
-  void pushBackNewColumnsNode(const std::vector<PPattern> &patterns) {
-    ColumnsNode *node = new ColumnsNode(tree_.size(), currentNode_, patterns);
-    pushBackNode(node);
-  }
-
-  void pushBackNewRestNode(PLiveNurse pNurse, int day, bool rest) {
-    RestNode
-        *node = new RestNode(tree_.size(), currentNode_, pNurse, day, rest);
-    pushBackNode(node);
-  }
-
-  void pushBackNewShiftNode(PLiveNurse pNurse,
-                            int day,
-                            bool work,
-                            const std::vector<int> &shifts) {
-    ShiftNode *node =
-        new ShiftNode(tree_.size(), currentNode_, pNurse, day, work, shifts);
-    pushBackNode(node);
-  }
-
   bool is_columns_node() const {
-    return dynamic_cast<ColumnsNode *>(currentNode_) != nullptr;
+    return dynamic_cast<ColumnsNode*>(currentNode_.get()) != nullptr;
   }
 
   bool continueDiving() const {
@@ -246,7 +262,9 @@ struct RestTree : public MyTree {
 };
 
 struct ColumnsComparator {
-  virtual bool is_disjoint(PPattern col1, PPattern col2) const = 0;
+  virtual bool is_disjoint(PPattern col1, PPattern col2) const {
+    return true;
+  }
 };
 
 struct DayDisjointComparator : public ColumnsComparator {
@@ -298,22 +316,27 @@ class DiveBranchingRule : public MyBranchingRule {
   virtual ~DiveBranchingRule() {}
 
   /* compute branching decisions */
-  bool branching_candidates(MyBranchingCandidate *candidate) override;
+  bool branching_candidates(
+      std::list<MyPBranchingCandidate> *candidates) override;
 
   /* branch on a number of nurses working on a shift */
-  void branchOnNumberNurses(MyBranchingCandidate *candidate);
+  void branchOnNumberNurses(
+      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
 
   /* Branch on opt var */
-  void branchOnOptDemand(MyBranchingCandidate *candidate);
+  void branchOnOptDemand(
+      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
 
   /* branch on a set of resting arcs */
-  void branchOnRestDay(MyBranchingCandidate *candidate);
+  void branchOnRestDay(
+      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
 
   /* branch on a set of shifts */
-  void branchOnShifts(MyBranchingCandidate *candidate);
+  void branchOnShifts(
+      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
 
   /* compute fixing decisions */
-  bool column_candidates(MyBranchingCandidate *candidate) override;
+  bool column_node(std::list<MyPBranchingCandidate> *candidates) override;
 
   /* Choose columns */
   std::vector<MyVar *> chooseColumns(
@@ -336,8 +359,8 @@ class DiveBranchingRule : public MyBranchingRule {
   // Pointer to the master problem to link the master and the sub problems
   MasterProblem *pMaster_;
 
-  // Pointer to the rest tree
-  RestTree *tree_;
+  // Pointer to the branching tree
+  RestTree *pTree_;
 
   // Pointers to the data
   Modeler *pModel_;
@@ -349,32 +372,33 @@ class DiveBranchingRule : public MyBranchingRule {
   std::unique_ptr<ScoreVar> scoreFunc_;
 
   // branching decisions to test
-  typedef void (DiveBranchingRule::*BranchFunc)(MyBranchingCandidate *);
+  typedef void (DiveBranchingRule::*BranchFunc)(
+      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
   std::vector<BranchFunc> branchFunctions_ =
       {&DiveBranchingRule::branchOnRestDay,
        &DiveBranchingRule::branchOnShifts};
 
-  virtual void buildRestNodesCut(MyBranchingCandidate *candidate,
+  virtual void buildRestNodesCut(const MyPBranchingCandidate &candidate,
                                  PLiveNurse pNurse,
                                  int day,
                                  bool forceRest,
-                                 MyBranchingNode *restNode,
-                                 MyBranchingNode *workNode) const;
+                                 const MyPBranchingNode &restNode,
+                                 const MyPBranchingNode &workNode) const;
 
-  void deactivateColumns(MyBranchingCandidate *candidate,
+  void deactivateColumns(const MyPBranchingCandidate &candidate,
                          int nurseNum,
                          int day,
                          std::vector<int> forbiddenShifts,
-                         MyBranchingNode *forbiddenNode,
-                         MyBranchingNode *complementaryNode) const;
+                         const MyPBranchingNode &forbiddenNode,
+                         const MyPBranchingNode &complementaryNode) const;
 
 
-  void randomSwapLastChildrenIfEnable(MyBranchingCandidate *candidate) {
+  void randomSwapLastChildrenIfEnable(const MyPBranchingCandidate &candidate) {
     if (!randomSwapOfChilfren_) return;
     // Here : random choice to decide the order of the children
     if (Tools::randomInt(0, 1)) {
       candidate->swapLastChildren();
-      tree_->swapLastNodes();
+      pTree_->swapLastNodes();
     }
   }
 };
@@ -387,12 +411,12 @@ class RosterBranchingRule : public DiveBranchingRule {
   virtual ~RosterBranchingRule() {}
 
  protected:
-  void buildRestNodesCut(MyBranchingCandidate *candidate,
+  void buildRestNodesCut(const MyPBranchingCandidate &candidate,
                          PLiveNurse pNurse,
                          int day,
                          bool forceRest,
-                         MyBranchingNode *restNode,
-                         MyBranchingNode *workNode) const override {}
+                         const MyPBranchingNode &restNode,
+                         const MyPBranchingNode &workNode) const override {}
 };
 
 #endif  // SRC_SOLVERS_MP_TREEMANAGER_H_

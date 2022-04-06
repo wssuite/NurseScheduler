@@ -33,7 +33,7 @@ isStabilization=0
 isStabUpdateBoxRadius=1
 isStabUpdatePenalty=1
 branchColumnDisjoint=1
-branchColumnUntilValue=0
+RCArc *pA
 stopAfterXDegenerateIt=5
 performHeuristicAfterXNode=-1
 heuristicMinIntegerPercent=50

@@ -175,7 +175,7 @@ void RCSPPSubProblem::enumerateConsShiftType(
                             " the nodes represent a shift.");
 #endif
         if (pShift->id == indSuccessorShift) {
-          pTarget = pArc->target;
+          pTarget = pRCGraph->pNode(pArc->target->id);
           succFound = true;
           break;
         }

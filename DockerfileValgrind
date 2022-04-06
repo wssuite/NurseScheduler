@@ -22,7 +22,7 @@ RUN echo "set(BCPDIRDBG /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt &
     mkdir build && \
     cd build && \
     cmake -DCMAKE_BUILD_TYPE=Debug .. && \
-    make
+    make -j 4
 
 # Entrypoint for the nurse scheduler
 ENTRYPOINT [ "./docker-entrypoint.sh" ]

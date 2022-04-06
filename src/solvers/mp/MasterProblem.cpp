@@ -23,12 +23,12 @@
 
 
 #ifdef USE_CPLEX
-#include "OsiCpxSolverInterface.hpp"
+#include "OsiCpxSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 #include "cplex.h"  // NOLINT (suppress cpplint error)
 #endif
 
 #ifdef USE_GUROBI
-#include "OsiGrbSolverInterface.hpp"
+#include "OsiGrbSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 #endif
 
 #ifdef USE_CBC
@@ -139,9 +139,7 @@ MasterProblem::MasterProblem(PScenario pScenario, SolverType solverType) :
     Solver(pScenario),
     PrintSolution(),
     pModel_(nullptr),
-    pPricer_(nullptr),
-    pTree_(nullptr),
-    pRule_(nullptr),
+    pRCPricer_(nullptr),
     solverType_(solverType),
     pResourceCostTypes_(pScenario->nNurses()) {
   // build the model
@@ -153,9 +151,6 @@ MasterProblem::~MasterProblem() {
   delete allocationConstraint_;
   delete minDemandConstraint_;
   delete optDemandConstraint_;
-  delete pPricer_;
-  delete pRule_;
-  delete pTree_;
   delete pModel_;
 }
 
@@ -255,7 +250,7 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
 
 void MasterProblem::solveWithCatch() {
   // initialize pricer (useful to authorize/forbid shifts for nurses)
-  pPricer_->initNursesAvailabilities();
+  pPricer()->initNursesAvailabilities();
   // filter out initial columns that does not respect nurses' availabilities
   filterInitialColumnsBasedOnAvailability();
   // then solve
@@ -299,21 +294,17 @@ void MasterProblem::build(const SolverParam &param) {
    */
   if (solverType_ != S_CBC) {
     /* Rotation pricer */
-    if (pPricer_) delete pPricer_;
-    pPricer_ = new RCPricer(this, "pricer", param);
-    pModel_->addPricer(pPricer_);
+    pRCPricer_ = new RCPricer(this, "pricer", param);
+    pModel_->addPricer(pRCPricer_);  // transfer ownership
 
     /* Tree */
-    if (pTree_) delete pTree_;
     RestTree *pTree =
         new RestTree(pScenario_, pDemand_, param.epsilon_, param.verbose_ > 0);
-    pTree_ = pTree;
-    pModel_->addTree(pTree_);
+    pModel_->addTree(pTree);
 
     /* Branching rule */
-    if (pRule_) delete pRule_;
-    pRule_ = new DiveBranchingRule(this, pTree, "branching rule");
-    pModel_->addBranchingRule(pRule_);
+    auto *pRule = new DiveBranchingRule(this, pTree, "branching rule");
+    pModel_->addBranchingRule(pRule);
   }
 }
 
@@ -456,7 +447,7 @@ void MasterProblem::fixNurses(const std::vector<bool> &isFix) {
   for (PLiveNurse pNurse : theLiveNurses_) {
     int n = pNurse->num_;
     isFixNurse_[n] = isFixNurse_[n] || isFix[n];
-    if (isFixNurse_[n]) pPricer_->forbidNurse(n);
+    if (isFixNurse_[n]) pPricer()->forbidNurse(n);
   }
 }
 
@@ -464,14 +455,14 @@ void MasterProblem::unfixNurses(const std::vector<bool> &isUnfix) {
   // easy to treat the case where no nurse is fixed yet
   if (isFixNurse_.empty()) {
     isPartialFixNurses_ = false;
-    pPricer_->clearForbiddenNurses();
+    pPricer()->clearForbiddenNurses();
   } else {
     // set the list of unfixed nurses
     // + authorize the generation of rotations for the input nurses
     for (PLiveNurse pNurse : theLiveNurses_) {
       int n = pNurse->num_;
       isFixNurse_[n] = isFixNurse_[n] && !isUnfix[n];
-      if (!isFixNurse_[n]) pPricer_->authorizeNurse(n);
+      if (!isFixNurse_[n]) pPricer()->authorizeNurse(n);
     }
   }
 }
@@ -704,8 +695,7 @@ void MasterProblem::storeSolution() {
 
 //------------------------------------------------------------------------------
 void MasterProblem::computePatternCost(Pattern *pat) const {
-  auto pP = dynamic_cast<RCPricer*>(pPricer_);
-  pP->computeCost(pat);
+  pRCPricer_->computeCost(pat);
 }
 
 
@@ -774,7 +764,8 @@ vector3D<double> MasterProblem::fractionalRoster() const {
 }
 
 void MasterProblem::checkIfPatternAlreadyPresent(
-    const std::vector<double> &pattern) const {
+    const Pattern &pat) const {
+  std::vector<double> pattern = pat.getCompactPattern();
   for (MyVar *var : pModel_->getActiveColumns()) {
     bool equal = true;
     for (int j = 0; j < pattern.size(); ++j)
@@ -783,8 +774,17 @@ void MasterProblem::checkIfPatternAlreadyPresent(
         break;
       }
     if (equal) {
-      string name = var->name_;
-      Tools::throwError("Pattern already present as column: " + name);
+      // check if current pattern is forbidden
+      if (var->getUB() < epsilon()) {
+        std::cerr << "Pattern already present as a forbidden column (ub=0): "
+                  << var->name_ << std::endl;
+        // print branched nodes
+        std::cerr << pTree()->getCurrentNode()->writeInheritance() << std::endl;
+      } else {
+        std::cerr << "Pattern already present as an active column: "
+                  << var->name_ << std::endl;
+      }
+      std::cerr << pat.toString() << std::endl;
     }
   }
 }
@@ -1047,8 +1047,8 @@ double MasterProblem::computeLagrangianBound(double objVal) const {
 // It could be useful to measure the quality of a dual solution (used when
 // stabilizing).
 double MasterProblem::computeApproximateDualUB(double objVal) const {
-  double sumRedCost = 0, minRedCost = pPricer_->getLastMinReducedCost();
-  for (double v : pPricer_->getLastMinReducedCosts()) {
+  double sumRedCost = 0, minRedCost = pPricer()->getLastMinReducedCost();
+  for (double v : pPricer()->getLastMinReducedCosts()) {
     if (v < minRedCost) v = minRedCost;
     sumRedCost += v;
   }

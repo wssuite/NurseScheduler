@@ -157,6 +157,12 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
     lnsParameters_.rcspp_type_ = t;
   }
 
+  if (inputPaths.nCandidates() >= 1) {
+    completeParameters_.nCandidates_ = inputPaths.nCandidates();
+    rollingParameters_.nCandidates_ = inputPaths.nCandidates();
+    lnsParameters_.nCandidates_ = inputPaths.nCandidates();
+  }
+
   // set the number of threads
   if (inputPaths.nThreads() >= 0)
     options_.nThreads_ = inputPaths.nThreads();
@@ -175,7 +181,14 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
   // go through all the lines of the parameter file
   std::string title;
   while (file.good()) {
-    Tools::readUntilChar(&file, '=', &title);
+    Tools::readUntilOneOfTwoChar(&file, '#', '=', &title);
+    // ignore line
+    if (title.empty() || Tools::strEndsWith(title, "\n")) {
+      // read line
+      Tools::readUntilChar(&file, '\n', &title);
+      continue;
+    }
+
 
     // Read the name of the scenario
     //
@@ -245,6 +258,12 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
           completeParameters_.isStabUpdatePenalty_;
       rollingParameters_.isStabUpdatePenalty_ =
           completeParameters_.isStabUpdatePenalty_;
+    } else if (Tools::strEndsWith(title, "nbDiveIfBranchOnColumns")) {
+      file >> completeParameters_.nbDiveIfBranchOnColumns_;
+      lnsParameters_.nbDiveIfBranchOnColumns_ =
+          completeParameters_.nbDiveIfBranchOnColumns_;
+      rollingParameters_.nbDiveIfBranchOnColumns_ =
+          completeParameters_.nbDiveIfBranchOnColumns_;
     } else if (Tools::strEndsWith(title, "branchColumnDisjoint")) {
       file >> completeParameters_.branchColumnDisjoint_;
       lnsParameters_.branchColumnDisjoint_ =
@@ -275,6 +294,10 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
           completeParameters_.performHeuristicAfterXNode_;
       rollingParameters_.performHeuristicAfterXNode_ =
           completeParameters_.performHeuristicAfterXNode_;
+    } else if (Tools::strEndsWith(title, "nCandidates")) {
+      file >> completeParameters_.nCandidates_;
+      lnsParameters_.nCandidates_ = completeParameters_.nCandidates_;
+      rollingParameters_.nCandidates_ = completeParameters_.nCandidates_;
     } else if (Tools::strEndsWith(title, "rollingOptimalityLevel")) {
       std::string strOpt;
       file >> strOpt;
