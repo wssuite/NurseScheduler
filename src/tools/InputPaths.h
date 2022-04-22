@@ -31,7 +31,7 @@ class InputPaths {
              const std::string &solutionPath = "",
              const std::string &logPath = "",
              const std::string &paramFile = "",
-             double timeOut = -1,
+             int timeOut = -1,
              int verbose = -1,
              int randSeed = 0,
              const std::string &SPType = "",
@@ -46,7 +46,7 @@ class InputPaths {
              const std::string &solutionPath = "",
              const std::string &logPath = "",
              const std::string &paramFile = "",
-             double timeOut = -1,
+             int timeOut = -1,
              int verbose = -1,
              int randSeed = 0,
              const std::string &SPType = "",
@@ -69,7 +69,7 @@ class InputPaths {
   std::string paramFile_ = "";
   int verbose_ = -1;
   int randSeed_ = 0;
-  double timeOut_ = 3600;
+  int timeOut_ = 3600;
   std::string SPType_ = "LONG";
   int SPStrategy_ = 0;
   std::string RCSPPType_ = "BOOST";
@@ -104,8 +104,8 @@ class InputPaths {
 
   int randSeed() const { return randSeed_; }
   void randSeed(int seed) { randSeed_ = seed; }
-  double timeOut() const { return timeOut_; }
-  void timeOut(double t) { timeOut_ = t; }
+  int timeOut() const { return timeOut_; }
+  void timeOut(int t) { timeOut_ = t; }
 
   int verbose() const { return verbose_; }
   void verbose(int verbose) { verbose_ = verbose; }

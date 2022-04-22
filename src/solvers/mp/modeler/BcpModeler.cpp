@@ -17,6 +17,7 @@
 #include "solvers/mp/TreeManager.h"
 #include "solvers/mp/MasterProblem.h"
 #include "solvers/mp/modeler/BcpBranchingCandidates.h"
+#include "solvers/mp/modeler/BcpHeuristics.h"
 
 #include "OsiClpSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 #include "CoinTime.hpp"  // NOLINT (suppress cpplint error)
@@ -53,21 +54,43 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
     lpIteration_(0),
     last_node(-1),
     backtracked_(true),
-    heuristicHasBeenRun_(false),
+    pHeuristics_(new BcpHeuristics(pModel, pModel->getSolverType())),
     nbNodesSinceLastHeuristic_(0),
     nbCurrentNodeGeneratedColumns_(0),
     nbGeneratedColumns_(0),
     nbCurrentNodeSPSolved_(0),
     // create the timer that records the life time of the solver and start it
     timerTotal_(true) {
+  const auto &param = pModel_->getParameters();
   // Initialization of nb_dives_to_wait_before_branching_on_columns_
-  if (pModel->getParameters().nbDiveIfBranchOnColumns_) {
+  if (param.nbDiveIfBranchOnColumns_) {
     for (int i = 1; i < 1000; ++i)
       nb_dives_to_wait_before_branching_on_columns_.push_back(pow(i, 2));
   }
+  if (param.performMIPHeuristic_ && param.performHeuristicAfterXNode_ == 0 &&
+      Tools::ThreadsPool::getMaxGlobalThreads() == 1) {
+    Tools::throwError("The MIP heuristic is run sequentially "
+                      "at each iteration of column generation "
+                      "as multi-threading is not enable. "
+                      "You must either enable multi-threading, "
+                      "set performHeuristicAfterXNode_ "
+                      "to a non-null value (-1 or >0), "
+                      "or set performMIPHeuristic_ to false.");
+  }
+  if (param.performMIPHeuristic_ && param.performDiveHeuristic_)
+    Tools::throwError("You cannot enable both performDiveHeuristic_ "
+                      "and performMIPHeuristic_.");
+  else if (param.performHeuristicAfterXNode_ >= 0 &&
+      !param.performMIPHeuristic_ &&
+      !param.performDiveHeuristic_)
+    Tools::throwError("You need to enable one of the two heuristics "
+                      "(performDiveHeuristic_ and performMIPHeuristic_) "
+                      "in order to run a heuristic.");
 }
 
 BcpLpModel::~BcpLpModel() {
+  // delete BcpHeuristics
+  delete pHeuristics_;
   // kill the timer
   timerTotal_.stop();
   // record stats before being deleted
@@ -79,6 +102,9 @@ BcpLpModel::~BcpLpModel() {
 OsiSolverInterface *BcpLpModel::initialize_solver_interface() {
   for (const auto &entry : pModel_->getLpParameters())
     set_param(entry.first, entry.second);
+  // set the optimal absolute gap for BCP
+  set_param(BCP_lp_par::Granularity,
+            pModel_->getParameters().optimalAbsoluteGap_ - pModel_->epsilon());
   if (pModel_->getParameters().nCandidates_ == 1)
     set_param(pModel_->strong_branching.first, -1);
   else if (pModel_->getParameters().nCandidates_ > 1)
@@ -88,29 +114,16 @@ OsiSolverInterface *BcpLpModel::initialize_solver_interface() {
     Tools::throwError("The number of candidates needs to be positive "
                       "instead of %d.", pModel_->getParameters().nCandidates_);
 
-  OsiSolverInterface *solver = nullptr;
-  switch (pModel_->getLPSolverType()) {
-    case CLP: solver = new OsiClpSolverInterface();
-      break;
-    case Gurobi:
-#ifdef USE_GUROBI
-      solver = new OsiGrbSolverInterface();
-#else
-      Tools::throwError("BCP has not been built with Gurobi.");
-#endif
-      break;
-    case Cplex:
-#ifdef USE_CPLEX
-      solver = new OsiCpxSolverInterface();
-#else
-      Tools::throwError("BCP has not been built with Cplex.");
-#endif
-      break;
-    default: Tools::throwError("The LP solver requested is not implemented.");
-  }
+  OsiSolverInterface *solver = getNewSolver(pModel_->getSolverType());
+  if (solver == nullptr)
+    Tools::throwError("%s is not linked to the executable or implemented.",
+                      getNameForEnum(SolverTypesByName,
+                                     pModel_->getSolverType()).c_str());
 
   int verbosity = std::max(0, pModel_->getVerbosity() - 1);
   solver->messageHandler()->setLogLevel(verbosity);
+  pModel_->setInfinity(solver->getInfinity());
+
   return solver;
 }
 
@@ -131,7 +144,7 @@ BCP_solution *BcpLpModel::generate_heuristic_solution(
   // if heuristic has already been run in these node or
   // it has not been long enough since the last run or
   // the objective of the sub-problem is too negative
-  if (heuristicHasBeenRun_ || nbNodesSinceLastHeuristic_
+  if (nbNodesSinceLastHeuristic_
       < pModel_->getParameters().performHeuristicAfterXNode_)
     return sol;
 
@@ -156,90 +169,20 @@ BCP_solution *BcpLpModel::generate_heuristic_solution(
       std::cout << "RUN THE HEURISTIC" << std::endl;
   }
 
-  heuristicHasBeenRun_ = true;
-  nbNodesSinceLastHeuristic_ = 0;
-
-  // copy the solver
-  OsiSolverInterface *solver = getLpProblemPointer()->lp_solver;
-
-  // store the basis
-  const CoinWarmStart *ws = solver->getWarmStart();
-
-  //   // prepare for heuristic branching
-  //   solver->markHotStart();
-
-  // define different size
-  const int size = vars.size(), coreSize = pModel_->getCoreVars().size();
-
-  // store lower bounds
-  map<int, double> indexColLbChanged;
-
-  // REMARK
-  // another possible, but more costly heuristic is simply to solve the MIP
-  // involving all the columns currently in the problem, for this simply run
-  // solver->branchAndBound()
-
-  // while the solution is feasible
-  solver->resolve();
-  while (solver->isProvenOptimal()) {
-    // find the best not integer columns
-    vector<pair<int, double>> candidates;
-    for (int i = coreSize; i < size; ++i) {
-      double value = solver->getColSolution()[i];
-      if (value < pModel_->epsilon()
-          || solver->getColLower()[i] == 1)  // value > 1 - pModel_->epsilon())
-        continue;
-      candidates.emplace_back(i, 1 - value);
-    }
-
-    stable_sort(candidates.begin(), candidates.end(), compareCol);
-
-    // if we have found a column
-    if (!candidates.empty()) {
-      double valueLeft = .99;
-      for (const pair<int, double> &p : candidates) {
-        if (p.second > valueLeft)
-          break;
-        if (p.second > .2)
-          valueLeft -= p.second;
-        indexColLbChanged[p.first] = solver->getColLower()[p.first];
-        solver->setColLower(p.first, 1);
-      }
-      solver->resolve();
-    } else {
-      // else the solution is integer, create a BCP_solution_generic to return
-      sol = new BCP_solution_generic();
-      for (int i = 0; i < size; ++i)
-        if (solver->getColSolution()[i] > pModel_->epsilon()) {
-          // create new var that will be deleted by the solution sol
-          if (i < coreSize) {
-            auto *var0 = dynamic_cast<BcpCoreVar *>(pModel_->getCoreVars()[i]);
-            sol->add_entry(new BcpCoreVar(*var0), solver->getColSolution()[i]);
-          } else {
-            auto *var0 = dynamic_cast<BcpColumn *>(vars[i]);
-            sol->add_entry(new BcpColumn(*var0), solver->getColSolution()[i]);
-          }
-        }
-      break;
-    }
+  if (pModel_->getParameters().performDiveHeuristic_) {
+    // diving heuristic. Only perform it if:
+    // not a column node (already diving)
+    // node has been solved close to optimality (no column generated)
+    if (!pModel_->is_columns_node() && nbGeneratedColumns_ == 0)
+      sol = pHeuristics_->rounding(getLpProblemPointer()->lp_solver, vars);
+  } else if (pModel_->getParameters().performMIPHeuristic_) {
+    // solve a mip with all active columns in parallel if multi-threading enable
+    sol = pHeuristics_->mip_solve(getLpProblemPointer()->lp_solver, vars);
   }
 
-  // restore bounds
-  for (const auto &p : indexColLbChanged)
-    solver->setColLower(p.first, p.second);
-
-  //   // indicate to the lp solver that the heuristic branching is done
-  //   solver->unmarkHotStart();
-  solver->setWarmStart(ws);
-
-  delete ws;
+  nbNodesSinceLastHeuristic_ = 0;
 
   return sol;
-}
-
-bool BcpLpModel::compareCol(const pair<int, double> &p1,
-                            const pair<int, double> &p2) {
-  return (p1.second < p2.second);
 }
 
 // Modify parameters of the LP solver before optimization.
@@ -282,7 +225,7 @@ void BcpLpModel::modify_lp_parameters(OsiSolverInterface *lp,
     // double dualTol = std::min(0.1,
     // -pModel_->getParameters().sp_max_reduced_cost_bound_+pModel_->epsilon());
     // lp->setDblParam( OsiDualTolerance,dualTol);
-    if (pModel_->getLPSolverType() == Cplex) {
+    if (pModel_->getSolverType() == Cplex) {
 #ifdef USE_CPLEX
       // do not let cplex use more than one thread, otherwise it will, and it
       // it will also keep resetting the parameter to the default value for some
@@ -328,6 +271,9 @@ void BcpLpModel::modify_lp_parameters(OsiSolverInterface *lp,
   }
 //  if (in_strong_branching)
 //    lp->set
+
+  // use default one
+  BCP_lp_user::modify_lp_parameters(lp, changeType, in_strong_branching);
 }
 
 // print in cout a line summary headers and of the current solver state
@@ -341,7 +287,7 @@ void BcpLpModel::printSummaryLineHeaders() const {
 
   fprintf(pFile,
           "BCP: %13s %5s | %10s  %10s  %10s | "
-          "%8s %14s %13s %10s | %14s %5s %5s \n",
+          "%8s %14s %14s %13s %10s | %14s %5s %5s \n",
           "Node",
           "Lvl",
           "BestUB",
@@ -349,6 +295,7 @@ void BcpLpModel::printSummaryLineHeaders() const {
           "BestLB",
           "#It",
           "Obj",
+          "LagLB",
           "#Frac",
           "#Active",
           "ObjSP",
@@ -391,69 +338,70 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
       stdout :
       fopen(pModel_->logfile().c_str(), "a");
 
+  double ub = pModel_->getObjective(), root = pModel_->getRootLB(),
+  lb = pModel_->getBestLB(), lagLb = pModel_->getNodeLastLagLB();
+  if (ub >= LARGE_SCORE - 1) ub = INFINITY;
+  if (root >= LARGE_SCORE - 1) root = INFINITY;
+  if (lb >= LARGE_SCORE - 1) lb = INFINITY;
+  if (lagLb <= -LARGE_SCORE + 1) lagLb = -INFINITY;
+
   // if has some variables
   if (!vars.empty()) {
-    /* compute number of fractional columns */
-    int frac = 0;
-    int non_zero = 0;
-    for (MyVar *var : pModel_->getActiveColumns()) {
-      double value = pModel_->getVarValue(var);
-      if (value < pModel_->epsilon())
-        continue;
-      non_zero++;
-      if (value < 1 - pModel_->epsilon())
-        frac++;
-    }
+    std::pair<int, int> p = pModel_->getFractionalAndPositiveColumns();
 
     // if at least a subproblem has been solved
-    if (pModel_->getLastNbSubProblemsSolved() > 0)
+    if (pModel_->getLastNbSubProblemsSolved() > 0) {
       fprintf(pFile,
               "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
-              "%8d %14.2f %5d / %5d %10ld | %14.2f %5d %5d  \n",
+              "%8d %14.2f %14.2f %5d / %5d %10ld | %14.2f %5d %5d \n",
               current_index(),
               pModel_->getTreeSize(),
               current_level(),
-              pModel_->getObjective(),
-              pModel_->getRootLB(),
-              pModel_->getBestLB(),
+              ub,
+              root,
+              lb,
               lpIteration_,
               pModel_->getLastObj(),
-              frac,
-              non_zero,
+              lagLb,
+              p.first,
+              p.second,
               vars.size() - pModel_->getCoreVars().size(),
               pModel_->getLastMinReducedCost(),
               pModel_->getLastNbSubProblemsSolved(),
               nbGeneratedColumns_);
-    else
+    } else {
       fprintf(pFile,
               "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
-              "%8s %14.2f %5d / %5d %10ld | %14s %5s %5s  \n",
+              "%8s %14.2f %14.2f %5d / %5d %10ld | %14s %5s %5s \n",
               current_index(),
               pModel_->getTreeSize(),
               current_level(),
-              pModel_->getObjective(),
-              pModel_->getRootLB(),
-              pModel_->getBestLB(),
+              ub,
+              root,
+              lb,
               "-",
               pModel_->getLastObj(),
-              frac,
-              non_zero,
+              lagLb,
+              p.first,
+              p.second,
               vars.size() - pModel_->getCoreVars().size(),
               "-",
               "-",
               "-");
+    }
   } else {
     fprintf(pFile,
             "BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
-            "%8d %14.2f %5s / %5s %10s | %14s %5s %5s  \n",
+            "%8d %14.2f %14.2f %5s / %5s %10s | %14s %5s %5s \n",
             current_index(),
             pModel_->getTreeSize(),
             current_level(),
-            pModel_->getObjective(),
-            pModel_->getRootLB(),
-            pModel_->getBestLB(),
+            ub,
+            root,
+            lb,
             lpIteration_,
             pModel_->getLastObj(),
+            lagLb,
             "-",
             "-",
             "-",
@@ -493,9 +441,7 @@ bool BcpLpModel::doStop(const BCP_vec<BCP_var *> &vars) {
     return true;
 
   // fathom if the true lower bound greater than current upper bound
-  return pModel_->getObjective() -
-      getLpProblemPointer()->node->true_lower_bound <
-      pModel_->getParameters().optimalAbsoluteGap_ - pModel_->epsilon();
+  return over_ub(getLpProblemPointer()->node->true_lower_bound);
 }
 
 //// store the LP results
@@ -639,6 +585,49 @@ void BcpLpModel::generate_vars_in_lp(const BCP_lp_result &lpres,
   if (doStop(vars))
     return;
 
+//  auto p = getLpProblemPointer();
+//  auto f = std::setprecision(10);
+//  auto print = [f](OsiSolverInterface *lp) {
+//    std::stringstream ss;
+//    ss << "Objective: " << f << lp->getObjValue()
+//       << " " << lp->getIterationCount()
+//       << " " << lp->isProvenOptimal()
+//       << " " << lp->isProvenPrimalInfeasible()
+//       << " " << lp->isProvenDualInfeasible()
+//       << " " << lp->isAbandoned()
+//       << " " << lp->isIterationLimitReached()
+//       << " " << lp->isPrimalObjectiveLimitReached()
+//       << " " << lp->isDualObjectiveLimitReached();
+//    return ss;
+//  };
+//  auto ss = print(p->lp_solver);
+//  p->lp_solver->resolve();
+//  double diff = lpres.objval() - p->lp_solver->getObjValue();
+//  if (fabs(diff) > 1e-2) {
+//    int l, hl;
+//    p->lp_solver->getIntParam(OsiMaxNumIteration, l);
+//    p->lp_solver->getIntParam(OsiMaxNumIterationHotStart, hl);
+//    double pb, db;
+//    p->lp_solver->getDblParam(OsiPrimalObjectiveLimit, pb);
+//    p->lp_solver->getDblParam(OsiDualObjectiveLimit, db);
+//    std::cout << "Diff: " << f << diff << " " << f << lpres.primalTolerance()
+//              << " " << f << pb << " " << f << db
+//              << " it limit " << l << " hot it limit " << hl <<std::endl;
+//    std::cout << ss.str() << std::endl;
+//    std::cout << "Resolve LP and " << print(p->lp_solver).str() << std::endl;
+//    auto lp = p->lp_solver->clone(true);
+//    std::cout << "New LP and " << print(lp).str() << std::endl;
+//    if (p->node->warmstart) {
+//      auto ws = p->node->warmstart->convert_to_CoinWarmStart();
+//      p->lp_solver->setWarmStart(ws);
+//      p->lp_solver->resolve();
+//      std::cout << "Warm LP and " << print(p->lp_solver).str() << std::endl;
+//    }
+//
+//    std::cout << writeMPS("model_" + std::to_string(current_index()));
+//    Tools::throwException("When resolving LP, got a different solution.");
+//  }
+
   // Stop the algorithm if the objective value of the relaxation is
   // close enough to the current LB
   // WARNING: true if stabilization is inactive
@@ -768,7 +757,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(
   nbCurrentNodeSPSolved_ = 0;
   pModel_->setNbDegenerateIt(0);
   // update heuristic flags
-  heuristicHasBeenRun_ = true;
   nbNodesSinceLastHeuristic_++;
   // increase the number of nodes
   pModel_->incrementNbNodes();
@@ -801,6 +789,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     BCP_vec<BCP_lp_branching_object *> &cands) {  // NOLINT
   // if some variables have been generated, do not branch
   bool column_generated = !local_var_pool.empty();
+  double lb = lpres.objval();
 
   // throw an error if no columns have been generated and the min reduced cost
   // is negative
@@ -851,19 +840,30 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
       !isStabActive) {
     double lagLb = pModel_->getMaster()->computeLagrangianBound(lpres.objval());
     pModel_->updateNodeLagLB(lagLb);
-    // fathom only if column generation would continue
-    // (otherwise would be fathom later in this function)
-    if (column_generated && pModel_->getParameters().isLagrangianFathom_ &&
-        (pModel_->getParameters().isLagrangianFathomRootNode_
-            || current_index() > 0)
-        && pModel_->getBestUB() - lagLb + pModel_->epsilon()
-            < pModel_->getParameters().optimalAbsoluteGap_) {
-      // update lb with worst bound as fathoming
-      pModel_->updateNodeLB(pModel_->getBestUB());
-      if (pModel_->getParameters().printBcpSummary_)
-        std::cout << "Forcibly fathom, because Lagrangian bound is exceeded."
-                  << std::endl;
-      return BCP_DoNotBranch_Fathomed;
+    double bestLagLb = pModel_->getNodeBestLagLB();
+    if (column_generated) {
+      // fathom only if column generation would continue
+      // (otherwise would be fathom later in this function)
+      if (pModel_->getParameters().isLagrangianFathom_ &&
+          (pModel_->getParameters().isLagrangianFathomRootNode_
+              || current_index() > 0)
+          && over_ub(bestLagLb)) {
+        // update lb with worst bound as fathoming
+        pModel_->updateNodeLB(pModel_->getBestUB());
+        if (pModel_->getParameters().printBcpSummary_)
+          std::cout << "Forcibly fathom, because Lagrangian bound is exceeded."
+                    << std::endl;
+        return BCP_DoNotBranch_Fathomed;
+      }
+      // if lagrangian bound is really small -> stop column generation also
+      // use lagrangian LB instead of current objective
+      double diff = lb - bestLagLb;
+      if (diff < pModel_->epsilon()) {
+        column_generated = false;
+        std::cout << "Forcibly stopped CG, because Lagrangian bound is very "
+                     "closed to the current objective." << std::endl;
+        lb = std::max(bestLagLb, pModel_->getCurrentLB());
+      }
     }
   }
 
@@ -874,18 +874,21 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // Otherwise, an option can be set on to stop column generation and branch
   // after a given number of degenerate iterations
   //
-  double isStalling = false;
+  bool isStalling = false;
   if (column_generated && getObjVariation() < pModel_->epsilon()) {
     isStalling = true;
     pModel_->incrementNbDegenerateIt();
-    // stop column generation if not root node and too many iteration
+    // stop column generation if not root node and too many iteration,
+    // and current solution is fractional
     if (current_index() > 0
         && pModel_->getNbDegenerateIt()
-            == pModel_->getParameters().stopAfterXDegenerateIt_) {
+            >= pModel_->getParameters().stopAfterXDegenerateIt_
+        && pModel_->hasFractionalColumns()) {
       if (pModel_->getVerbosity() > 0)
         std::cout << "Branch with column generation stalling "
                      "(stop column generation)" << std::endl;
       column_generated = false;
+      lb = std::max(pModel_->getNodeBestLagLB(), pModel_->getCurrentLB());
     }
   } else {
     // reset counter to 0 as soon as a significant step has been made
@@ -896,20 +899,21 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   if (column_generated)
     return BCP_DoNotBranch;
 
-  // update LB (as either branching or fathoming) only if column generation
-  // has been solved until optimality
-  if (!isStalling) {
-    double lb = lpres.objval();
-    // update node if stabilization not active.
-    // If return false, the lb has decreased !
-    // Bug needs to be found
-    if (!isStabActive && !pModel_->updateNodeLB(lb)) {
-      std::cerr << "The best LB has decreased." << std::endl;
-      writeMPS("model_" + std::to_string(current_index()));
-    }
-    // update true_lower_bound, as we reach the end of the column generation
-    getLpProblemPointer()->node->true_lower_bound = lb;
+  // update LB (as either branching or fathoming)
+  // update node if stabilization not active.
+  // If return false, the lb has decreased !
+  // Bug needs to be found
+  if (!isStabActive && !pModel_->updateNodeLB(lb)) {
+    auto lp = getLpProblemPointer()->lp_solver;
+    lp->resolve();
+    std::cout << "Resolve LP and got objective: "
+              << lp->getObjValue() << std::endl;
+    std::cout << writeMPS("model_" + std::to_string(current_index()));
+    std::cerr << "The best LB has decreased." << std::endl;
+//    Tools::throwException("The best LB has decreased.");
   }
+  // update true_lower_bound, as we reach the end of the column generation
+  getLpProblemPointer()->node->true_lower_bound = lb;
 
 #ifdef DBG
 //   std::cout << pModel_->pMaster_->costsConstrainstsToString() << std::endl;
@@ -935,18 +939,8 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     return BCP_DoNotBranch_Fathomed;
 
   // fathom if greater than current upper bound
-  if (pModel_->getObjective() - lpres.objval() + pModel_->epsilon()
-      < pModel_->getParameters().optimalAbsoluteGap_)
+  if (over_ub(lb))
     return BCP_DoNotBranch_Fathomed;
-
-  // if not currently diving,
-  // try and run the heuristic
-  if (pModel_->getParameters().performHeuristicAfterXNode_ > -1 &&
-      !pModel_->is_columns_node()) {
-    heuristicHasBeenRun_ = false;
-    generate_heuristic_solution(lpres, vars, cuts);
-    heuristicHasBeenRun_ = true;
-  }
 
   // build a candidate
   bool generate = true;
@@ -987,6 +981,15 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
       candidates, getLpProblemPointer(), vars, cuts);
   cands.push_back(can);
 
+  // check if BCP should fathom in case BCP has stopped
+  // or a solution has been found during strong branching
+  if (pModel_->isStopped() || over_ub(lb)) {
+    for (auto *can : cands) delete can;
+    cands.clear();
+    return BCP_DoNotBranch_Fathomed;
+  }
+
+  // else return the potential candidate
   return BCP_DoBranch;
 }
 
@@ -1241,59 +1244,23 @@ void BcpBranchingTree::initialize_core(BCP_vec<BCP_var_core *> &vars,  // NOLINT
   for (const auto &entry : pModel_->getTmParameters())
     set_param(entry.first, entry.second);
 
-  // define nb rows and col
-  const int rownum = pModel_->getCoreCons().size();
-  const int colnum = pModel_->getCoreVars().size();
-
-  // bounds and objective
-  std::vector<double> lb(colnum), ub(colnum), obj(colnum), rhs(rownum),
-      lhs(rownum);
+  // build the problem
+  BcpProblem pb(pModel_);
 
   // copy of the core variables
-  vars.reserve(colnum);
-  for (int i = 0; i < colnum; ++i) {
-    auto *var = dynamic_cast<BcpCoreVar *>(pModel_->getCoreVars()[i]);
-    if (!var)
-      Tools::throwError("Bad variable casting.");
-    // create a new BcpCoreVar which will be deleted by BCP
-    vars.push_back(new BcpCoreVar(*var));
-    lb[i] = var->getLB();
-    ub[i] = var->getUB();
-    obj[i] = var->getCost();
-  }
+  vars.reserve(pb.colnum);
+  for (int i = 0; i < pb.colnum; ++i)
+    vars.push_back(new BcpCoreVar(*pb.vars[i]));
 
   // copy of the core cuts
-  cuts.reserve(rownum);
-  for (int i = 0; i < rownum; ++i) {
-    auto *cut = dynamic_cast<BcpCoreCons *>(pModel_->getCoreCons()[i]);
-    if (!cut)
-      Tools::throwError("Bad constraint casting.");
-    // create a new BcpCoreCons which will be deleted by BCP
-    cuts.push_back(new BcpCoreCons(*cut));
-    lhs[i] = cut->getLhs();
-    rhs[i] = cut->getRhs();
-  }
-
-  // build matrix
-  CoinPackedMatrix m = pModel_->buildCoinMatrix();
-  // check columns size
-  if (m.getNumCols() != colnum) {
-    std::cerr << "Number of columns for CoinPackedMatrix=" << m.getNumCols()
-              << " and for the modeler=" << colnum << std::endl;
-    Tools::throwError("CoinPackedMatrix does not have the same number "
-                      "of columns than the modeler. ");
-  }
-  // check rows size
-  if (m.getNumRows() != rownum) {
-    std::cerr << "Number of rows for CoinPackedMatrix=" << m.getNumRows()
-              << " and for the modeler=" << rownum << std::endl;
-    Tools::throwError("CoinPackedMatrix does not have the same "
-                      "number of rows than the modeler. ");
-  }
+  cuts.reserve(pb.rownum);
+  for (int i = 0; i < pb.rownum; ++i)
+    cuts.push_back(new BcpCoreCons(*pb.cons[i]));
 
   // copy matrix to the matrix of the solver
   matrix = new BCP_lp_relax;
-  matrix->copyOf(m, &obj[0], &lb[0], &ub[0], &lhs[0], &rhs[0]);
+  matrix->copyOf(*pb.matrix, &pb.obj[0], &pb.lb[0], &pb.ub[0],
+                 &pb.lhs[0], &pb.rhs[0]);
 }
 
 // create the root node
@@ -1351,6 +1318,58 @@ void BcpBranchingTree::init_new_phase(int phase,
 }
 
 
+BcpProblem::BcpProblem(BcpModeler * pModel):
+    rownum(pModel->getCoreCons().size()),
+    colnum(pModel->getCoreVars().size()),
+    lb(colnum), ub(colnum), obj(colnum),
+    rhs(rownum), lhs(rownum), vars(colnum), cons(rownum) {
+  // copy of the core variables
+  for (int i = 0; i < colnum; ++i) {
+    auto *var = dynamic_cast<BcpCoreVar *>(pModel->getCoreVars()[i]);
+    if (!var)
+      Tools::throwError("Bad variable casting.");
+    // create a new BcpCoreVar which will be deleted by BCP
+    vars[i] = var;
+    lb[i] = var->getLB();
+    ub[i] = var->getUB();
+    obj[i] = var->getCost();
+  }
+
+  // copy of the core cuts
+  for (int i = 0; i < rownum; ++i) {
+    auto *cut = dynamic_cast<BcpCoreCons *>(pModel->getCoreCons()[i]);
+    if (!cut)
+      Tools::throwError("Bad constraint casting.");
+    // create a new BcpCoreCons which will be deleted by BCP
+    cons[i] = cut;
+    lhs[i] = cut->getLhs();
+    rhs[i] = cut->getRhs();
+  }
+
+  // build matrix
+  matrix = pModel->buildCoinMatrix();
+
+  // check columns size
+  if (matrix->getNumCols() != colnum) {
+    std::cerr << "Number of columns for CoinPackedMatrix="
+              << matrix->getNumCols()
+              << " and for the modeler=" << colnum << std::endl;
+    Tools::throwError("CoinPackedMatrix does not have the same number "
+                      "of columns than the modeler. ");
+  }
+  // check rows size
+  if (matrix->getNumRows() != rownum) {
+    std::cerr << "Number of rows for CoinPackedMatrix=" << matrix->getNumRows()
+              << " and for the modeler=" << rownum << std::endl;
+    Tools::throwError("CoinPackedMatrix does not have the same "
+                      "number of rows than the modeler. ");
+  }
+}
+
+BcpProblem::~BcpProblem() {
+  delete matrix;
+}
+
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   B c p M o d e l e r
@@ -1363,7 +1382,7 @@ void BcpBranchingTree::init_new_phase(int phase,
 
 BcpModeler::BcpModeler(MasterProblem *pMaster,
                        const char *name,
-                       LPSolverType type) :
+                       SolverType type) :
     CoinModeler(),
     pMaster_(pMaster),
     pBcp_(nullptr),
@@ -1374,7 +1393,7 @@ BcpModeler::BcpModeler(MasterProblem *pMaster,
     lastNbSubProblemsSolved_(0),
     lastMinReducedCost_(0),
     nbNodes_(0),
-    LPSolverType_(type) {
+    solverType_(type) {
   pBcp_ = new BcpInitialize(this);
 }
 

@@ -79,11 +79,12 @@ def find_stats_bounds(stream):
     return r_lb, lb, ub, status, stats[:-1] if len(stats) > 1 else stats
 
 
-def run_cmd(cmd, i=0, pipe=subprocess.PIPE):
+def run_cmd(cmd, i=0, n=1, pipe=True):
     st = datetime.now().strftime('%H:%M:%S')
-    print("[{}] Running test {}: {}".format(st, i, cmd))
+    print("[{}] Running test {:2d}/{}: {}".format(st, i, n, cmd))
     start = time.time()
-    p = subprocess.Popen(cmd.split(), stdout=pipe, stderr=pipe)
+    out = subprocess.PIPE if pipe else sys.stdout
+    p = subprocess.Popen(cmd.split(), stdout=out, stderr=out)
     stdout, stderr = p.communicate()
     end = int(time.time() - start)
     print("run time: {} s.".format(end))
@@ -114,8 +115,8 @@ def get_args(d_yaml):
     return ns_args
 
 
-def run_benchmark(benchmark_file, exe, pipe=subprocess.PIPE,
-                  status='.', name='.'):
+def run_benchmark(benchmark_file, exe, pipe=True,
+                  status='.', name='.', break_on_error=False):
     with open(benchmark_file, 'r') as stream:
         try:
             d = yaml.safe_load(stream)
@@ -133,7 +134,14 @@ def run_benchmark(benchmark_file, exe, pipe=subprocess.PIPE,
                 print(i_args)
                 cmd = '--instance {a[0]}  --his {a[1]} ' \
                       '--weeks {a[2]}{a[3]}'.format(a=i_args)
-                bds = run_cmd("{} {}".format(exe, cmd), i+1, pipe)
+                try:
+                    bds = run_cmd("{} {}".format(exe, cmd), i+1, len(d['benchmark']['instances']), pipe)
+                except KeyboardInterrupt:
+                    return
+                except Exception:
+                    if break_on_error:
+                        raise
+                    continue
                 if bds:
                     for j, v in enumerate(bds):
                         t[output_keys[j]] = v
@@ -171,15 +179,19 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--status', dest='status', default='.',
                         help='Status of the instances to solve. '
                              'Default: match anything, thus "."')
+    parser.add_argument('-np', '--no-pipe', dest='pipe', action='store_false',
+                        help='Do not redirect.')
     parser.add_argument('-n', '--name', dest='name', default='.',
                         help='Name of the instances to solve. '
                              'Default: match anything, thus "."')
     parser.add_argument('-r', '--results', dest='results', action='store_true',
-                        help='Set if only processing the results. Default: False')
+                        help='Set to true if only processing the results. Default: False')
+    parser.add_argument('--break', dest='break_on_error', action='store_true',
+                        help='Set to true if breaking the program when having an error. Default: False')
     args = parser.parse_args()
 
     if args.docker:
-        run_cmd('docker build -t {} .'.format('ns'))
+        run_cmd('docker build -t {} .'.format('ns'), pipe=args.pipe)
         run = 'docker run --rm {}'.format('ns')
     else:
         run = ''
@@ -190,7 +202,10 @@ if __name__ == "__main__":
     if not args.results:
         results = []
         for b in benchmark:
-            r = run_benchmark(b, run, status=args.status, name=args.name)
+            r = run_benchmark(b, run, status=args.status, name=args.name,
+                              break_on_error=args.break_on_error, pipe=args.pipe)
+            if not r:
+                break
             results.append(r)
 
     for r in results:

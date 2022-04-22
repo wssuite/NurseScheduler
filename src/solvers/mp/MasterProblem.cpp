@@ -22,23 +22,6 @@
 #include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
 
 
-#ifdef USE_CPLEX
-#include "OsiCpxSolverInterface.hpp"  // NOLINT (suppress cpplint error)
-#include "cplex.h"  // NOLINT (suppress cpplint error)
-#endif
-
-#ifdef USE_GUROBI
-#include "OsiGrbSolverInterface.hpp"  // NOLINT (suppress cpplint error)
-#endif
-
-#ifdef USE_CBC
-#include "CbcModeler.h"
-#endif
-
-#ifdef USE_SCIP
-#include "ScipModeler.h"
-#endif
-
 /* namespace usage */
 using std::vector;
 using std::map;
@@ -143,7 +126,8 @@ MasterProblem::MasterProblem(PScenario pScenario, SolverType solverType) :
     solverType_(solverType),
     pResourceCostTypes_(pScenario->nNurses()) {
   // build the model
-  this->initializeSolver(solverType);
+  pModel_ = new BcpModeler(this, PB_NAME, solverType);
+  this->preprocessData();
 }
 
 MasterProblem::~MasterProblem() {
@@ -152,46 +136,6 @@ MasterProblem::~MasterProblem() {
   delete minDemandConstraint_;
   delete optDemandConstraint_;
   delete pModel_;
-}
-
-// Initialize the solver at construction
-//
-void MasterProblem::initializeSolver(SolverType solverType) {
-  // This OSI interface is created only to retrieve the proper value of
-  // infinity for the solver
-  double inf = -1;
-  switch (solverType) {
-    case S_CLP:pModel_ = new BcpModeler(this, PB_NAME, CLP);
-      inf = OsiClpSolverInterface().getInfinity();
-      break;
-    case S_Gurobi:
-#ifdef USE_GUROBI
-      pModel_ = new BcpModeler(this, PB_NAME, Gurobi);
-      inf = OsiGrbSolverInterface().getInfinity();
-#else
-      Tools::throwError("BCP has not been built with Gurobi.");
-#endif
-      break;
-    case S_Cplex:
-#ifdef USE_CPLEX
-      pModel_ = new BcpModeler(this, PB_NAME, Cplex);
-      inf = OsiCpxSolverInterface().getInfinity();
-#else
-      Tools::throwError("BCP has not been built with Cplex.");
-#endif
-      break;
-    case S_CBC:pModel_ = new BcpModeler(this, PB_NAME);
-      inf = OsiClpSolverInterface().getInfinity();
-      break;
-    default:
-      Tools::throwError("MasterProblem::initializeSolver: "
-                        "the requested solver is not supported presently.");
-      break;
-  }
-
-  pModel_->setInfinity(inf);
-
-  this->preprocessData();
 }
 
 // solve the rostering problem
@@ -289,10 +233,10 @@ void MasterProblem::build(const SolverParam &param) {
       this, false, true, pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
 
 
-  /* Initialize the objects used in the branch and price unless the CBC is used
-      to solve the problem
+  /* Initialize the objects used in the branch and price
+   * unless the CBC is used to solve the problem
    */
-  if (solverType_ != S_CBC) {
+//  if (solverType_ != CBC) {
     /* Rotation pricer */
     pRCPricer_ = new RCPricer(this, "pricer", param);
     pModel_->addPricer(pRCPricer_);  // transfer ownership
@@ -305,7 +249,7 @@ void MasterProblem::build(const SolverParam &param) {
     /* Branching rule */
     auto *pRule = new DiveBranchingRule(this, pTree, "branching rule");
     pModel_->addBranchingRule(pRule);
-  }
+//  }
 }
 
 void MasterProblem::createPResources() {

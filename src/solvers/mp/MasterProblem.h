@@ -465,9 +465,6 @@ class MasterProblem : public Solver, public PrintSolution {
   * Methods
   */
 
-  // Initialize the solver at construction
-  void initializeSolver(SolverType solverType);
-
   // Main method to build the rostering problem for a given input
   virtual void build(const SolverParam &parameters);
 

@@ -172,6 +172,13 @@ std::vector<T> tokenize(std::string str, char delim) {
   return Tlist;
 }
 
+// convert to UPPER CASES
+std::string toUpperCase(std::string str);
+
+// convert to lower case
+std::string toLowerCase(std::string str);
+
+
 // Create a random generator
 // the objective is to be sure to have always the same sequence of number
 //
@@ -529,6 +536,13 @@ class FormattedOutput {
 // Each pool has a certain number of threads available,
 // but there is also a global limit on the number of threads used.
 typedef std::function<void(void)> Job;
+class ThreadsPool;
+
+struct PThreadsPool : public std::shared_ptr<ThreadsPool> {
+  template<typename ...Args> PThreadsPool(Args... args):  // NOLINT
+      std::shared_ptr<ThreadsPool>(args...) {}
+  ~PThreadsPool();
+};
 
 class ThreadsPool {
  public:
@@ -542,6 +556,13 @@ class ThreadsPool {
   // return the new true maxGlobalThreads_
   static int setMaxGlobalThreads(int maxThreads, bool wait = true);
 
+  // method to create a new ThreadsPool
+  static PThreadsPool newThreadsPool();
+  static PThreadsPool newThreadsPool(int nThreads);
+
+  // create a pool to run only one job
+  static void runOneJob(Job job);
+
  private:
   // global maximum number of threads
   static int maxGlobalThreads_;
@@ -553,10 +574,6 @@ class ThreadsPool {
   static std::condition_variable cThreadReleased_;
 
  public:
-  ThreadsPool();
-
-  explicit ThreadsPool(int nThreads);
-
   void run(Job job);
 
   // wait until all threads of the pool are available.
@@ -565,7 +582,17 @@ class ThreadsPool {
 
   bool wait(int nThreadsToWait);
 
+  bool available() const { return nThreadsAvailable_ > 0; }
+
+  bool busy() const { return nThreadsAvailable_ < maxThreads_; }
+
+  bool idle() const { return nThreadsAvailable_ == maxThreads_; }
+
  private:
+  ThreadsPool();
+
+  explicit ThreadsPool(int nThreads);
+
   int maxThreads_;  // local maximum number of threads
   // local number of available threads for the local pool
   int nThreadsAvailable_;
@@ -573,6 +600,18 @@ class ThreadsPool {
   void reserve();
 
   void release();
+
+  // store the shared_pointer to ensure that a copy is always stored and
+  // thus we can control when to destroy each pool. It it necessary to keep
+  // at least one copy of the shared pointer until each job running
+  // in the pool finishes
+  PThreadsPool pThreadsPool_;
+  std::recursive_mutex mutex_;
+
+  void store(const PThreadsPool& pT);
+  void remove();
+
+  friend class PThreadsPool;
 };
 
 }  // namespace Tools

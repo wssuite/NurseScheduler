@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(nursescheduler)
 
 # set my own definitions
 SET(CXX_STANDARD_REQUIRED ON)
-SET(CMAKE_CXX_STANDARD 11)
+SET(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 SET(NURSE_SCHEDULER_LIB nursescheduler)
@@ -34,18 +34,51 @@ add_definitions(-pedantic -Wno-deprecated -Wno-sign-compare)
 if(DEFINED BOOST_DIR)
     set(Boost_INCLUDE_DIR ${BOOST_DIR})
 else()
-    FIND_PACKAGE( Boost 1.48 COMPONENTS graph REQUIRED )
+    FIND_PACKAGE(Boost 1.48 COMPONENTS graph REQUIRED )
 endif()
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-MESSAGE("Boost directory: ${Boost_INCLUDE_DIRS} ${Boost_INCLUDE_DIR}")
+MESSAGE("Boost directory: ${Boost_INCLUDE_DIRS}")
 
 # add BCP
 MESSAGE("BCP directory: ${BCP_DIR}")
 INCLUDE_DIRECTORIES(${BCP_DIR}/include/coin)
 LINK_DIRECTORIES(${BCP_DIR}/lib)
 LINK_DIRECTORIES(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-SET(LIBS Bcp Osi OsiClp ClpSolver Clp CoinUtils bz2 z lapack blas m pthread)
+SET(LIBS Bcp bz2 z lapack blas m pthread)
+
+# find coin or depedencies with pkg-config
+find_package(PkgConfig)
+if(PKG_CONFIG_FOUND)
+    pkg_search_module(COINUTILS coinutils)
+    pkg_search_module(OSI osi)
+    pkg_search_module(OSI-CLP osi-clp)
+    pkg_search_module(CLP clp)
+    pkg_search_module(OSI-CBC osi-cbc)
+    pkg_search_module(CBC cbc)
+    if (CBC_FOUND)
+        add_definitions(-DUSE_CBC)
+    endif()
+    pkg_search_module(OSI-GUROBI osi-gurobi)
+    if (OSI-GUROBI_FOUND)
+        add_definitions(-DUSE_GUROBI)
+    endif()
+    include_directories(${COINUTILS_INCLUDE_DIRS} ${OSI_INCLUDE_DIRS}
+            ${OSI-CLP_INCLUDE_DIRS} ${CLP_INCLUDE_DIRS}
+            ${OSI-GUROBI_INCLUDE_DIRS})
+    link_directories(${COINUTILS_LIBRARY_DIRS} ${OSI_LIBRARY_DIRS}
+            ${OSI-CLP_LIBRARY_DIRS} ${CLP_LIBRARY_DIRS}
+            ${OSI-CBC_LIBRARY_DIRS} ${CBC_LIBRARY_DIRS}
+            ${OSI-GUROBI_LIBRARY_DIRS})
+    SET(LIBS ${LIBS} ${COINUTILS_LIBRARIES} ${OSI_LIBRARIES}
+            ${OSI-CLP_LIBRARIES} ${CLP_LIBRARIES}
+            ${OSI-CBC_LIBRARIES} ${CBC_LIBRARIES}
+            ${OSI-GUROBI_LIBRARIES})
+endif()
+
+# if pkg_config is not available or the pkg_config files are not available
+if(NOT PKG_CONFIG_FOUND OR NOT CLP_FOUND)
+    SET(LIBS ${LIBS} CoinUtils Osi OsiClp Clp)
+endif()
 
 # build library
 INCLUDE_DIRECTORIES(src)

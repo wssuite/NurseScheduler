@@ -79,7 +79,7 @@ class DeterministicSolverOptions {
   Algorithm solutionAlgorithm_ = GENCOL;
 
   // Solver used for the LPs
-  SolverType MySolverType_ = S_CLP;
+  SolverType MySolverType_ = CLP;
 
   // Level of optimality that is requested to the solvers
   // 0 -> return the first feasible solution

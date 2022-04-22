@@ -12,14 +12,15 @@
 #ifndef SRC_SOLVERS_MP_MODELER_CBCMODELER_H_
 #define SRC_SOLVERS_MP_MODELER_CBCMODELER_H_
 
+#include <map>
 #include <vector>
 #include <string>
 
 #include "solvers/mp/modeler/CoinModeler.h"
-#include "CbcModel.hpp"  // NOLINT (suppress cpplint error)
 #include "tools/Tools.h"
 
 // Using CLP as the solver
+#include "CbcModel.hpp"  // NOLINT (suppress cpplint error)
 #include "OsiClpSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 
 class CbcModeler : public CoinModeler {
@@ -45,9 +46,9 @@ class CbcModeler : public CoinModeler {
   }
 
   // initialize the vectors columnVars, coreVars and cons
-  void initializeVectors(vector<CoinVar *> *coreVars,
-                         vector<CoinVar *> *columnVars,
-                         vector<CoinCons *> *cons);
+  void initializeVectors(const vector<CoinVar *> &coreVars,
+                         const vector<CoinVar *> &columnVars,
+                         const vector<CoinCons *> &cons);
 
   // solve the model
   int solve(bool relaxation = false);
@@ -56,6 +57,7 @@ class CbcModeler : public CoinModeler {
   int addObjPricer(MyPricer *pPricer) {
     Tools::throwError("There is no pricer "
                       "if Cbc is used to solve the problem!");
+    return 0;
   }
 
   /*
@@ -66,22 +68,26 @@ class CbcModeler : public CoinModeler {
    *    vartype is the type of the variable:
    *    VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
    */
-  virtual int createCoinVar(CoinVar **var,
-                            const char *var_name,
-                            int index,
-                            double objCoeff,
-                            VarType vartype,
-                            double lb,
-                            double ub);
+  virtual int createVar(MyVar **var,
+                        const char *var_name,
+                        int index,
+                        double objCoeff,
+                        double lb,
+                        double ub,
+                        VarType vartype,
+                        const std::vector<double> &pattern,
+                        double score);
 
-  virtual int createColumnCoinVar(CoinVar **var,
-                                  const char *var_name,
-                                  int index,
-                                  double objCoeff,
-                                  double dualObj,
-                                  VarType vartype,
-                                  double lb,
-                                  double ub);
+  virtual int createColumnVar(MyVar **var,
+                              const char *var_name,
+                              int index,
+                              double objCoeff,
+                              const std::vector<double> &pattern,
+                              double dualObj,
+                              double lb,
+                              double ub,
+                              VarType vartype,
+                              double score);
 
   /*
    * Create linear constraint:
@@ -104,15 +110,15 @@ class CbcModeler : public CoinModeler {
   */
   int setModel();
 
-  /*
-   * Set a high priority on all the variable returned by the branching rule
-   */
-  void setBranchingRule();
+//  /*
+//   * Set a high priority on all the variable returned by the branching rule
+//   */
+//  void setBranchingRule();
 
   /*
    * Get the primal value
    */
-  double getVarValue(MyObject *var);
+  virtual double getVarValue(MyVar *var);
 
   /*
    * Get the dual variables
@@ -120,6 +126,7 @@ class CbcModeler : public CoinModeler {
   double getDual(MyObject *cons, bool transformed = false) {
     Tools::throwError("There is no dual solution if the problem "
                       "is solved with integrality constraints!");
+    return 0;
   }
 
   double getObjective() { return objVal_; }
@@ -127,7 +134,7 @@ class CbcModeler : public CoinModeler {
   /**************
    * Parameters *
    *************/
-  int setVerbosity(int v) { verbosity_ = v; }
+  int setVerbosity(int v) { verbosity_ = v; return 1; }
 
   /**************
    * Outputs *

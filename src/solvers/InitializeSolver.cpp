@@ -243,8 +243,8 @@ Solver *setSolverWithInputAlgorithm(PScenario pScen, Algorithm algorithm) {
   Solver *pSolver = nullptr;
   switch (algorithm) {
     case GENCOL:
-      // DBG: add solver type as option: S_CLP, S_GUROBI ...
-      pSolver = new RotationMP(pScen, S_CLP);
+      // DBG: add solver type as option: CLP, S_GUROBI ...
+      pSolver = new RotationMP(pScen, CLP);
       break;
     default: Tools::throwError("The algorithm is not handled yet");
       break;

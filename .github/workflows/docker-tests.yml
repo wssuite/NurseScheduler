@@ -73,6 +73,7 @@ jobs:
         with:
           instance: n005w4_1_6-2-9-1
           ns-args: -g 1520-1540 --sp-type ALL
+          retries: 5
 
       - name: n005w4_2_8-3-0-4 Infeasible
         uses: ./ # Uses an action in the root directory
@@ -121,36 +122,42 @@ jobs:
         with:
           instance: n005w4_2_9-0-1-2
           ns-args: -g 1540-1700
+          retries: 5
 
       - name: n030w4_1_6-2-9-1  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -g 1670-2000 -t 300 --n-threads 2
+          retries: 5
 
       - name: n030w4_1_6-2-9-1 ROLLING ROTATION 2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -g 1670-2000 -t 300 --n-threads 2 --param rolling_1week.txt --sp-type ALL --rcspp-type DEFAULT
+          retries: 5
 
       - name: n030w4_1_6-2-9-1 ROLLING LNS ROTATION 2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -g 1670-2000 -t 300 --n-threads 2 --param lns_rolling_destroy48weeks.txt --sp-type ALL --rcspp-type DEFAULT
+          retries: 5
 
       - name: n030w4_1_6-2-9-1 ROLLING ROSTER 2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -g 1670-1750 -t 300 --n-threads 2 --param rolling_1week.txt --sp-type ROSTER --rcspp-type DEFAULT
+          retries: 5
 
       - name: n030w4_1_6-2-9-1 ROLLING LNS ROSTER 2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -g 1670-1750 -t 300 --n-threads 2 --param lns_rolling_destroy48weeks.txt --sp-type ROSTER --rcspp-type DEFAULT
+          retries: 5
 
       - name: n030w4_1_6-2-9-1 BOOST ROSTER  2 threads
         uses: ./ # Uses an action in the root directory
@@ -164,17 +171,25 @@ jobs:
           instance: n030w4_1_6-2-9-1
           ns-args: -g 1670 -t 300 --n-threads 2 --sp-type ROSTER --rcspp-type DEFAULT --param optimality.txt
 
+      - name: n030w4_1_6-2-9-1 ROSTER  2 threads MIP
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: n030w4_1_6-2-9-1
+          ns-args: -g 1670 -t 300 --n-threads 2 --sp-type ROSTER --rcspp-type DEFAULT --param optimality_mip.txt
+
       - name: n030w4_1_6-7-5-3  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
           ns-args: -g 1900-2200 -t 300 --n-threads 2
+          retries: 5
 
       - name: n035w4_1_1-7-1-8  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: n035w4_1_1-7-1-8
           ns-args: -g 1280-1600 -t 300 --n-threads 2
+          retries: 5
 
       - name: new1_0_0-1 LONG
         uses: ./ # Uses an action in the root directory
@@ -205,15 +220,18 @@ jobs:
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -d -s 68-54-78-98 -g 1750-2000
+          retries: 5
 
       - name: n030w4_1_6-7-5-3 dynamic
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
           ns-args: -d -s 50-35-70-80 -g 1950-2150
+          retries: 5
 
       - name: n035w4_1_1-7-1-8 dynamic
         uses: ./ # Uses an action in the root directory
         with:
           instance: n035w4_1_1-7-1-8
           ns-args: -d -s 85-76-52-66 -g 1350-1600
+          retries: 5

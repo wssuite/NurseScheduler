@@ -89,7 +89,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
   // flag if any shift has been  forbidden because of column disjoint feature
   bool disjointForbidden = false;
   // local thread pool (use all available thread)
-  Tools::ThreadsPool pool;
+  Tools::PThreadsPool pPool = Tools::ThreadsPool::newThreadsPool();
 
   int nSPBeingSolved = 0;
   vector2D<RCSolution> solutionsPerNurses(pMaster_->nNurses());
@@ -115,7 +115,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
     mLock.unlock();
     while (nSPBeingSolved > pModel_->getParameters().nSubProblemsToSolve_) {
       // wait for 1 thread to finish before checking again
-      if (!pool.wait(1))
+      if (!pPool->wait(1))
         break;  // break if there is no thread running anymore
     }
 
@@ -268,7 +268,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
      */
 
     // The job will be run in parallel.
-    pool.run(job);
+    pPool->run(job);
 
     // if the maximum number of subproblems solved is reached, break.
     if (nSPSolvedWithSuccess_ >= pModel_->getParameters().nSubProblemsToSolve_)
@@ -276,7 +276,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
   }
 
   // wait for the threads to be finished
-  pool.wait();
+  pPool->wait();
 
   // ADD THE SOLUTIONS TO THE MASTER PROBLEM
   for (const auto &pN : nursesSolvedOrder)

@@ -324,12 +324,11 @@ struct MyNode {
     // BUG: need to be found. For the moment, return false
     bool increased = true;
     if (pParent_ && pParent_->bestLB_ > newLB + 1e-2) {
-//      Tools::throwException("The node lower bound (%.2f) is smaller than its "
-//                            "parent one (%.2f).", newLB, pParent_->bestLB_);
       std::cerr << "The node lower bound (" << newLB
                 << ") is smaller than its parent one ("
                 << pParent_->bestLB_ << ")." << std::endl;
       increased = false;
+      newLB = pParent_->bestLB_;
     }
     bestLB_ = newLB;
     processed_ = true;
@@ -1748,6 +1747,29 @@ class Modeler {
     return activeColumnVars_;
   }
 
+  std::pair<int, int> getFractionalAndPositiveColumns() const {
+    int frac = 0;
+    int non_zero = 0;
+    for (MyVar *var : getActiveColumns()) {
+      double value = getVarValue(var);
+      if (value < epsilon())
+        continue;
+      non_zero++;
+      if (value < 1 - epsilon())
+        frac++;
+    }
+    return {frac, non_zero};
+  }
+
+  bool hasFractionalColumns() const {
+    for (MyVar *var : getActiveColumns()) {
+      double value = getVarValue(var);
+      if (value >= epsilon() && value < 1 - epsilon())
+        return true;
+    }
+    return false;
+  }
+
   // get the variables that are generating during the resolution (columns)
   // and currently active (i.e. have a positive value in the current solution)
   const std::vector<MyVar *> &getInitialColumns() const {
@@ -1869,7 +1891,7 @@ class Modeler {
   // Coin data
   double infinity_ = 1.2343423E23;
 
- private:
+ protected:
   // store all MyObject* (objects owned by modeler)
   std::vector<MyObject *> objects_;
   // count the objects created by the modeler

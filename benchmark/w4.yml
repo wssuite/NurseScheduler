@@ -8,7 +8,7 @@ benchmark:
   rcspp-type: DEFAULT
   timeout: 3600
   n-threads: 4
-  verbose: 0
+  verbose: 1
   args: null
   instances:
     - name: n030w4_1_6-2-9-1

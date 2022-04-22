@@ -12,13 +12,27 @@
 #ifndef SRC_SOLVERS_MP_MODELER_COINMODELER_H_
 #define SRC_SOLVERS_MP_MODELER_COINMODELER_H_
 
+#include <map>
 #include <vector>
 #include <string>
 
 #include "solvers/mp/modeler/Modeler.h"
 
 /* Coin includes */
-#include <CoinPackedMatrix.hpp>
+#include "CoinPackedMatrix.hpp"  // NOLINT (suppress cpplint error)
+#include "OsiClpSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+
+#ifdef USE_CPLEX
+#include "OsiCpxSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+#endif
+
+#ifdef USE_GUROBI
+#include "OsiGrbSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+#endif
+
+#ifdef USE_CBC
+#include "OsiCbcSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+#endif
 
 /*
  * My Constraints
@@ -94,6 +108,12 @@ struct CoinVar : public MyVar {
   // index of the rows of the matrix where the variable has non-zero coefficient
   std::vector<int> indexRows_;
   std::vector<double> coeffs_;  // value of these coefficients
+};
+
+static const std::map<VarType, char> typesToCoin = {
+    {VARTYPE_CONTINUOUS, '\0'},
+    {VARTYPE_BINARY, '\1'},
+    {VARTYPE_INTEGER, '\2'}
 };
 
 class CoinModeler : public Modeler {
@@ -179,7 +199,7 @@ class CoinModeler : public Modeler {
   */
 
   /* build the problem */
-  CoinPackedMatrix buildCoinMatrix() {
+  CoinPackedMatrix * buildCoinMatrix() {
     // define nb rows and col
     const int corenum = coreVars_.size();
     // define a matrix as a vector of tuples (row_index, col_index, coeff)
@@ -208,11 +228,11 @@ class CoinModeler : public Modeler {
     }
 
     // initialize the matrix
-    CoinPackedMatrix matrix(false,
-                            &(row_indices[0]),
-                            &(col_indices[0]),
-                            &(coeffs[0]),
-                            row_indices.size());
+    auto matrix = new CoinPackedMatrix(false,
+                                       &(row_indices[0]),
+                                       &(col_indices[0]),
+                                       &(coeffs[0]),
+                                       row_indices.size());
 
     return matrix;
   }
@@ -258,6 +278,30 @@ class CoinModeler : public Modeler {
       Modeler::toString(obj);
   }
 };
+
+static OsiSolverInterface * getNewSolver(SolverType type) {
+  switch (type) {
+    case CLP: return new OsiClpSolverInterface();
+    case Gurobi:
+#ifdef USE_GUROBI
+      return new OsiGrbSolverInterface();
+#endif
+    case Cplex:
+#ifdef USE_CPLEX
+      return new OsiCpxSolverInterface();
+#endif
+    case CBC:
+#ifdef USE_CBC
+    {
+      auto pSolver = new OsiCbcSolverInterface();
+      pSolver->getModelPtr()->setLogLevel(0);
+      return pSolver;
+    }
+#endif
+    default: break;
+  }
+  return nullptr;
+}
 
 #endif  // SRC_SOLVERS_MP_MODELER_COINMODELER_H_
 

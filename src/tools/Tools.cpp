@@ -140,6 +140,20 @@ bool strEndsWith(std::string sentence, std::string word) {
   return (!strcmp(word.c_str(), endOfSentence.c_str()));
 }
 
+// convert to UPPER CASES
+std::string toUpperCase(std::string str) {
+  for (int i = 0; i < str.length(); i++)
+    str[i] = toupper(str[i]);
+  return str;
+}
+
+// convert to lower case
+std::string toLowerCase(std::string str) {
+  for (int i = 0; i < str.length(); i++)
+    str[i] = tolower(str[i]);
+  return str;
+}
+
 // random generator of tools
 std::minstd_rand rdm0(0);
 
@@ -430,7 +444,7 @@ int ThreadsPool::getMaxGlobalThreads() {
 }
 
 int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
-  std::unique_lock<mutex> lock(mThreadMutex_);
+  std::unique_lock<mutex> l(mThreadMutex_);
 
   // set to true the flag settingMaxGlobalThreads_
   // if already setting the max number of threads, print a warning and return
@@ -460,7 +474,7 @@ int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
   while (nGlobalThreadsAvailable_ + diff < 0) {
     // wait to be able to decrease totally the number of global threads
     if (wait) {
-      cThreadReleased_.wait(lock);  // wait until notification
+      cThreadReleased_.wait(l);  // wait until notification
     } else {  // just decrease what is currently available
       diff = -nGlobalThreadsAvailable_;
       std::cerr
@@ -482,10 +496,22 @@ int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
   return maxGlobalThreads_;
 }
 
-ThreadsPool::ThreadsPool()
-    : maxThreads_(maxGlobalThreads_), nThreadsAvailable_(maxThreads_) {}
+PThreadsPool ThreadsPool::newThreadsPool() {
+  return newThreadsPool(maxGlobalThreads_);
+}
 
-ThreadsPool::ThreadsPool(int nThreads) {
+PThreadsPool ThreadsPool::newThreadsPool(int nThreads) {
+  return PThreadsPool(new ThreadsPool(nThreads));
+}
+
+void ThreadsPool::runOneJob(Job job) {
+  newThreadsPool(1)->run(job);
+}
+
+ThreadsPool::ThreadsPool() : ThreadsPool(maxGlobalThreads_) {}
+
+ThreadsPool::ThreadsPool(int nThreads):
+    pThreadsPool_(nullptr) {
   if (nThreads <= maxGlobalThreads_) {
     maxThreads_ = nThreads;
   } else {
@@ -498,7 +524,7 @@ ThreadsPool::ThreadsPool(int nThreads) {
 }
 
 void ThreadsPool::run(Job job) {
-  if (maxThreads_ <= 1) {  // no concurrency
+  if (maxGlobalThreads_ <= 1) {  // no concurrency
     job();
   } else {
     reserve();  // reserve a thread
@@ -517,27 +543,39 @@ bool ThreadsPool::wait() {
 }
 
 bool ThreadsPool::wait(int nThreadsToWait) {
-  std::unique_lock<mutex> lock(mThreadMutex_);  // create a lock on the mutex
+  std::unique_lock<mutex> l(mThreadMutex_);  // create a lock on the mutex
   // all threads of the local pool have ended
   if (nThreadsAvailable_ == maxThreads_)
     return false;
   // wait for all threads to finish
   int threadsAvailableTarget =
       std::min(maxThreads_, nThreadsAvailable_ + nThreadsToWait);
-  cThreadReleased_.wait(lock, [&]() {
+  cThreadReleased_.wait(l, [&]() {
     return !settingMaxGlobalThreads_
         && nThreadsAvailable_ >= threadsAvailableTarget;
   });
   return true;
 }
 
+void ThreadsPool::store(const PThreadsPool& pT) {
+  std::lock_guard<std::recursive_mutex> l(mutex_);
+  if (busy() && pThreadsPool_ == nullptr)
+    pThreadsPool_ = pT;
+}
+
+void ThreadsPool::remove() {
+  std::lock_guard<std::recursive_mutex> l(mutex_);
+  if (idle())
+    pThreadsPool_ = nullptr;
+}
+
 void ThreadsPool::reserve() {
-  std::unique_lock<mutex> lock(mThreadMutex_);  // create a lock on the mutex
+  std::unique_lock<mutex> l(mThreadMutex_);
   // reserve ont thread if available, otherwise wait for one
   bool reserved = false;
   while (!reserved) {
     // wait until one thread is available and settingMaxGlobalThreads_ is false
-    cThreadReleased_.wait(lock, [this]() {
+    cThreadReleased_.wait(l, [this]() {
       return nGlobalThreadsAvailable_ > 0 && nThreadsAvailable_ > 0
           && !settingMaxGlobalThreads_;
     });
@@ -549,11 +587,20 @@ void ThreadsPool::reserve() {
 }
 
 void ThreadsPool::release() {
-  std::lock_guard<mutex> lock(mThreadMutex_);  // wait until can lock the mutex
+  std::lock_guard<mutex> l(mThreadMutex_);
   // release one thread
   ++nGlobalThreadsAvailable_;
   ++nThreadsAvailable_;
+  // remove the copy if idle
+  remove();
   cThreadReleased_.notify_all();  // notify any thread that were waiting
+}
+
+PThreadsPool::~PThreadsPool() {
+  // if busy, store a copy of the pointer to ensure that there is always
+  // a living copy while some jobs are running
+  if (get())
+      get()->store(*this);
 }
 
 }  // namespace Tools

@@ -404,7 +404,7 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
   }
 
   // local thread pool (use all available threads)
-  Tools::ThreadsPool pool;
+  Tools::PThreadsPool pPool = Tools::ThreadsPool::newThreadsPool();
   std::list<OsiSolverInterface*> lps;
 
   // Look at the candidates one-by-one and presolve them.
@@ -513,10 +513,10 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
     * End of the job definition (part run in parallel)
     */
     // The job will be run in parallel.
-    pool.run(job);
+    pPool->run(job);
   }
   // wait for the threads to be finished
-  pool.wait();
+  pPool->wait();
 
   // delete lps
   for (auto *lp : lps) {
@@ -530,20 +530,11 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
   p->lp_solver->setWarmStart(ws);
   delete ws;
 
-  // store objval and termcode in candidate
-  BCP_lp_branching_object* can = best_presolved->candidate();
-  BCP_vec<double> objval(can->child_num);
-  BCP_vec<int> termcode(can->child_num);
-  for (i = 0; i < can->child_num; i++) {
-    objval[i] = best_presolved->lpres(i).objval();
-    termcode[i] = best_presolved->lpres(i).termcode();
-  }
-  can->set_presolve_result(objval, termcode);
-  delete best_presolved;
-
   // delete all the candidates but the selected one (candidates will just
   // silently go out of scope and we'll be left with a pointer to the final
   // candidate in best_presolved).
+  BCP_lp_branching_object* can = best_presolved->candidate();
+  delete best_presolved;
   for (auto cani=candidates.begin(); cani != candidates.end(); ++cani) {
     if (*cani != can)
       delete *cani;

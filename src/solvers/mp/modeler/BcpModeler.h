@@ -317,11 +317,6 @@ struct BcpBranchCons : public CoinCons, public BCP_cut_algo {
   std::vector<double> coeffs_;
 };
 
-// LP solver types
-enum LPSolverType { CLP, Gurobi, Cplex };
-static std::map<std::string, LPSolverType> LPSolverTypesByName =
-    {{"CLP", CLP}, {"Gurobi", Gurobi}, {"Cplex", Cplex}};
-
 //-----------------------------------------------------------------------------
 //
 // C l a s s   B c p M o d e l e r
@@ -335,7 +330,7 @@ class BcpInitialize;  // class forward declaration
 
 class BcpModeler : public CoinModeler {
  public:
-  BcpModeler(MasterProblem *pMaster, const char *name, LPSolverType type = CLP);
+  BcpModeler(MasterProblem *pMaster, const char *name, SolverType type = CLP);
   ~BcpModeler();
 
   // solve the model
@@ -538,7 +533,7 @@ class BcpModeler : public CoinModeler {
   }
 
   double getLastObj() const {
-    return obj_history_.empty() ? infinity_ : obj_history_.back();
+    return obj_history_.empty() ? INFINITY : obj_history_.back();
   }
   double getObj(int index) const { return Tools::get(obj_history_, index); }
 
@@ -574,7 +569,7 @@ class BcpModeler : public CoinModeler {
    * Parameters getters
    */
 
-  LPSolverType getLPSolverType() { return LPSolverType_; }
+  SolverType getSolverType() { return solverType_; }
 
   std::map<BCP_tm_par::chr_params, bool> &getTmParameters() {
     return tm_parameters;
@@ -604,7 +599,8 @@ class BcpModeler : public CoinModeler {
   // check the active rotations
   void checkActiveColumns(const BCP_vec<BCP_var *> &vars) const;
 
-  // -1 = disable BCP strong branching, otherwise use anything > 0
+  // -1 = disable BCP strong branching, otherwise use anything >= 0
+  // if >= 0, BCP will also set OsiMaxNumIterationHotStart with this value
   std::pair<BCP_lp_par::int_params, int> strong_branching =
       std::pair<BCP_lp_par::int_params, int>(
           BCP_lp_par::MaxPresolveIter, -1);
@@ -692,7 +688,7 @@ class BcpModeler : public CoinModeler {
   int nbNodes_;
 
   /* Parameters */
-  LPSolverType LPSolverType_;
+  SolverType solverType_;
 
   // STAB: number of consecutive degenerate column generation iterations
   int nbDegenerateIt_ = 0;
@@ -834,7 +830,7 @@ class BcpModeler : public CoinModeler {
 // want to override the default behavior.
 //
 //-----------------------------------------------------------------------------
-
+class BcpHeuristics;
 class BcpLpModel : public BCP_lp_user {
  public:
   explicit BcpLpModel(BcpModeler *pModel);
@@ -869,9 +865,6 @@ class BcpLpModel : public BCP_lp_user {
       const BCP_lp_result &lpres,
       const BCP_vec<BCP_var *> &vars,
       const BCP_vec<BCP_cut *> &cuts) override;
-
-  static bool compareCol(const std::pair<int, double> &p1,
-                         const std::pair<int, double> &p2);
 
   // Modify parameters of the LP solver before optimization.
   // This method provides an opportunity for the user to change parameters of
@@ -1089,15 +1082,15 @@ class BcpLpModel : public BCP_lp_user {
                              const bool before_fathom,
                              BCP_vec<int> &deletable) override;  // NOLINT
 
-  int writeLP(std::string fileName) {
+  int writeLP(const std::string &fileName) {
     std::cout << "LP model saved in " << fileName << ".lp" << std::endl;
     if (getLpProblemPointer())
       getLpProblemPointer()->lp_solver->writeLp(fileName.c_str());
     return 0;
   }
 
-  int writeMPS(std::string fileName) {
-    std::cout << "LP model saved in " << fileName << ".mps" << std::endl;
+  int writeMPS(const std::string &fileName) {
+    std::cout << "LP model saved in " << fileName << ".mps.gz" << std::endl;
     if (getLpProblemPointer())
       getLpProblemPointer()->lp_solver->writeMps(fileName.c_str());
     return 0;
@@ -1128,7 +1121,7 @@ class BcpLpModel : public BCP_lp_user {
   bool backtracked_;
   // if heuristic has been run. To be sure to run the heuristic no more
   // than one time per node
-  bool heuristicHasBeenRun_;
+  BcpHeuristics *pHeuristics_;
   int nbNodesSinceLastHeuristic_;
   // number of generated columns
   int nbCurrentNodeGeneratedColumns_, nbGeneratedColumns_;
@@ -1448,6 +1441,18 @@ class BcpInitialize : public USER_initialize {
   BcpModeler *pModel_;
   BcpLpModel *pLpModel_;
   BcpBranchingTree *pTree_;
+};
+
+// struct t store a Bcp problem
+struct BcpProblem {
+  explicit BcpProblem(BcpModeler * pModel);
+  ~BcpProblem();
+
+  const int rownum, colnum;
+  CoinPackedMatrix *matrix;
+  std::vector<double> lb, ub, obj, rhs, lhs;
+  std::vector<BcpCoreVar*> vars;
+  std::vector<BcpCoreCons*> cons;
 };
 
 #endif  // SRC_SOLVERS_MP_MODELER_BCPMODELER_H_

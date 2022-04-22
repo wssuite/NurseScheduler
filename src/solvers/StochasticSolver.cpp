@@ -612,7 +612,7 @@ Solver *StochasticSolver::setGenerationSolverWithInputAlgorithm(
   pScenario->linkWithDemand(std::move(pDemand));
   switch (options_.generationAlgorithm_) {
     case GENCOL:
-      return new RotationMP(pScenario, S_CLP);
+      return new RotationMP(pScenario, CLP);
     default:Tools::throwError("The algorithm is not handled yet");
       break;
   }
@@ -702,7 +702,7 @@ Solver *StochasticSolver::setEvaluationWithInputAlgorithm(
 
   switch (options_.evaluationAlgorithm_) {
     case GENCOL:
-      pSolver = new RotationMP(pScen, S_CLP);
+      pSolver = new RotationMP(pScen, CLP);
       break;
     default:Tools::throwError("The algorithm is not handled yet");
       break;
@@ -927,7 +927,7 @@ Solver *StochasticSolver::setSubSolverWithInputAlgorithm(
   pScen->linkWithDemand(std::move(pDemand));
   switch (algorithm) {
     case GENCOL:
-      pSolver = new RotationMP(pScen, S_CLP);
+      pSolver = new RotationMP(pScen, CLP);
       break;
     default:Tools::throwError("The algorithm is not handled yet");
       break;

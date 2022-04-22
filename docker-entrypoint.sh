@@ -19,6 +19,7 @@ function printBashUsage {
   echo "-vo | --valgrind-options: options for valgrind. Default: ${valgrindOPT}."
   echo "-e | --evaluate: use the validator to evaluate thee solution. Default: true."
   echo "-r | --root-dir-path: set the path where the script should be run. Default: do not move."
+  echo "--retries: set the number of times to retry a failed run. Default: 0."
 }
 
 # load config arguments in one line
@@ -33,6 +34,7 @@ echo "${ARGS[@]}"
 # parse arguments
 instance_description="n005w4_0_1-2-3-3"
 eval="1"
+retries=0
 dynamic_args=""
 other_args=""
 i=0
@@ -55,6 +57,7 @@ while [ ! -z ${ARGS[${i}]} ]; do
    -e | --evaluate) eval=${ARGS[((i+1))]}; ((i+=2));;
    -r | --root-dir-path) rootDir=${ARGS[((i+1))]}; ((i+=2));;
    --pricer) pricer="1"; ((i+=1));;
+   --retries) retries=${ARGS[((i+1))]}; ((i+=2));;
    -*|--*) echo "Option unknown: ${ARGS[${i}]}. It will be passed to the scheduler."
       other_args="${other_args} ${ARGS[${i}]} ${ARGS[((i+1))]}"; ((i+=2));;
    *) echo "Cannot parse this argument: ${ARGS[${i}]}. It will be passed to the scheduler."
@@ -68,137 +71,151 @@ if [ ! -z ${rootDir} ]; then
     cd ${rootDir}
 fi
 
-# test pricer if defined
-if [ ! -z ${pricer} ]; then
-   ./bin/pricer ${instance_description} ${other_args}
-   exit ${PIPESTATUS[0]}
-fi
-
-if [ -z ${dynamic} ]; then
-	# parse inputs
-	# parse the input competition instance name
-	echo "Instance: ${instance_description}"
-	parse=(`echo ${instance_description} | tr '_' ' ' `)
-	instance=${parse[0]}
-	hist=${parse[1]}
-	weeks=${parse[2]}
-
-	# create the root of output directory if it does not exist
-	currenttime=$( date +%s )
-	outputDir="outfiles/${instance_description}/${currenttime}"
-	echo "Create output directory: ${outputDir}"
-	mkdir -p "${outputDir}"
-
-	# base output
-	sCMD="./bin/staticscheduler --dir datasets/ --instance ${instance} --weeks ${weeks} --his ${hist} --sol ${outputDir}"
-
-	# set default timeout
-	if [ -z ${timeout} ]; then
-		timeout=30
-	fi
-	sCMD="${sCMD} --timeout ${timeout}"
-
-	# set param file
-	if [ ! -z ${param} ]; then
-		# param="paramfiles/default.txt"
-		sCMD="${sCMD} --param paramfiles/${param}"
-	fi
-
-	# add others args
-	sCMD="${sCMD} ${other_args}"
-
-  if [ -z ${valgrind} ]; then
-  	# run the scheduler
-  	echo "Run: ${sCMD}"
-  	${sCMD} | tee ${outputDir}/output.txt
-    ret=${PIPESTATUS[0]}
-
-  	# run the validator
-  	echo ${ret}
-  	if [ ${ret} -eq 0 -a ${eval} -eq 1 ]; then
-  	    ./validator.sh ${instance} ${weeks} ${hist} ${outputDir} --verbose
-  	fi
-  else
-    # run the scheduler with valgrind
-    valgrindCMD="valgrind ${valgrindOPT}"
-  	echo "Run: ${valgrindCMD} ${sCMD}"
-  	${valgrindCMD} ${sCMD}
-
-    exit 0
+function run {
+  # test pricer if defined
+  if [ ! -z ${pricer} ]; then
+     ./bin/pricer ${instance_description} ${other_args}
+     return ${PIPESTATUS[0]}
   fi
-else
-	# generate script
-	source ./scripts/writeDynamicRun.sh ${dynamic_args} ${other_args}
 
-  # copy config files
-	if [ ! -z ${param} ]; then
-		cp "${param}" "${outputDir}/solverOptions.txt"
-	fi
-	if [ ! -z ${genParam} ]; then
-		cp "${genParam}" "${outputDir}/generationOptions.txt"
-	fi
-	if [ ! -z ${evalParam} ]; then
-		cp "${evalParam}" "${outputDir}/evaluationOptions.txt"
-	fi
+  if [ -z ${dynamic} ]; then
+    # parse inputs
+    # parse the input competition instance name
+    echo "Instance: ${instance_description}"
+    parse=(`echo ${instance_description} | tr '_' ' ' `)
+    instance=${parse[0]}
+    hist=${parse[1]}
+    weeks=${parse[2]}
 
-	# run script
-	echo "Run: ./${scriptfile}:"
-	cat "${scriptfile}"
-	chmod +x *.jar
-	cp validator.jar ./bin
-	./${scriptfile}
-	ret=${PIPESTATUS[0]}
-    rm -f ${scriptfile}
-fi
+    # create the root of output directory if it does not exist
+    currenttime=$( date +%s )
+    outputDir="outfiles/${instance_description}/${currenttime}"
+    echo "Create output directory: ${outputDir}"
+    mkdir -p "${outputDir}"
 
-# display the solution
-if [ ${ret} -eq 0 -a ${eval} -eq 1 ]; then
-    cat ${outputDir}/validator.txt
-fi
+    # base output
+    sCMD="./bin/staticscheduler --dir datasets/ --instance ${instance} --weeks ${weeks} --his ${hist} --sol ${outputDir}"
 
-# if a goal is defined, test the total cost
-if [ -z "$goal" ]; then
-	exit 0
-fi
-
-# fetch the total cost and check if is the right one (in the bounds)
-bounds=(`echo ${goal} | tr '-' ' ' `)
-lb=${bounds[0]}
-ub=${bounds[${#bounds[@]}-1]}
-echo "lb=$lb; ub=$ub"
-
-# check if should return an error (lb=-1)
-if [ ${lb} == "E" ]; then
-    if [ ${ret} -eq 0 ]; then
-        exit 1
+    # set default timeout
+    if [ -z ${timeout} ]; then
+      timeout=30
     fi
-    exit 0
-fi
+    sCMD="${sCMD} --timeout ${timeout}"
 
-# check bounds
-if [ ${lb} -gt ${ub} ]; then
-  echo "error: lb > ub"
-  exit 1
-fi
+    # set param file
+    if [ ! -z ${param} ]; then
+      # param="paramfiles/default.txt"
+      sCMD="${sCMD} --param paramfiles/${param}"
+    fi
 
-if [ ${eval} -eq 1 ]; then
-    result=$(cat ${outputDir}/validator.txt | grep "Total cost:")
-else
-    result=$(cat ${outputDir}/output.txt | grep "Objective value")
-fi
-echo ${result}
-if [ -z "$result" ]
-then
-  echo "error: total cost not found"
-  exit 1
-fi
+    # add others args
+    sCMD="${sCMD} ${other_args}"
 
-rcost=$(echo ${result} | tr -dc '0-9')
-echo "::set-output name=cost::${rcost}"
-if [ ${rcost} -lt ${lb} ] || [ ${rcost} -gt ${ub} ]
-then
-  echo "error: bounds not respected"
-  exit 1
-fi
+    if [ -z ${valgrind} ]; then
+      # run the scheduler
+      echo "Run: ${sCMD}"
+      ${sCMD} | tee ${outputDir}/output.txt
+      ret=${PIPESTATUS[0]}
 
-exit 0
+      # run the validator
+      echo ${ret}
+      if [ ${ret} -eq 0 -a ${eval} -eq 1 ]; then
+          ./validator.sh ${instance} ${weeks} ${hist} ${outputDir} --verbose
+      fi
+    else
+      # run the scheduler with valgrind
+      valgrindCMD="valgrind ${valgrindOPT}"
+      echo "Run: ${valgrindCMD} ${sCMD}"
+      ${valgrindCMD} ${sCMD}
+
+      return 0
+    fi
+  else
+    # generate script
+    source ./scripts/writeDynamicRun.sh ${dynamic_args} ${other_args}
+
+    # copy config files
+    if [ ! -z ${param} ]; then
+      cp "${param}" "${outputDir}/solverOptions.txt"
+    fi
+    if [ ! -z ${genParam} ]; then
+      cp "${genParam}" "${outputDir}/generationOptions.txt"
+    fi
+    if [ ! -z ${evalParam} ]; then
+      cp "${evalParam}" "${outputDir}/evaluationOptions.txt"
+    fi
+
+    # run script
+    echo "Run: ./${scriptfile}:"
+    cat "${scriptfile}"
+    chmod +x *.jar
+    cp validator.jar ./bin
+    ./${scriptfile}
+    ret=${PIPESTATUS[0]}
+      rm -f ${scriptfile}
+  fi
+
+  # display the solution
+  if [ ${ret} -eq 0 -a ${eval} -eq 1 ]; then
+      cat ${outputDir}/validator.txt
+  fi
+
+  # if a goal is defined, test the total cost
+  if [ -z "$goal" ]; then
+    return 0
+  fi
+
+  # fetch the total cost and check if is the right one (in the bounds)
+  bounds=(`echo ${goal} | tr '-' ' ' `)
+  lb=${bounds[0]}
+  ub=${bounds[${#bounds[@]}-1]}
+  echo "lb=$lb; ub=$ub"
+
+  # check if should return an error (lb=-1)
+  if [ ${lb} == "E" ]; then
+      if [ ${ret} -eq 0 ]; then
+          return 1
+      fi
+      return 0
+  fi
+
+  # check bounds
+  if [ ${lb} -gt ${ub} ]; then
+    echo "error: lb > ub"
+    return 1
+  fi
+
+  if [ ${eval} -eq 1 ]; then
+      result=$(cat ${outputDir}/validator.txt | grep "Total cost:")
+  else
+      result=$(cat ${outputDir}/output.txt | grep "Objective value")
+  fi
+  echo ${result}
+  if [ -z "$result" ]
+  then
+    echo "error: total cost not found"
+    return 1
+  fi
+
+  rcost=$(echo ${result} | tr -dc '0-9')
+  echo "::set-output name=cost::${rcost}"
+  if [ ${rcost} -lt ${lb} ] || [ ${rcost} -gt ${ub} ]
+  then
+    echo "error: bounds not respected"
+    return 1
+  fi
+
+  return 0
+}
+
+ret=1
+try=0
+while [[ $try -le $retries && $ret -gt 0 ]]
+do
+  run
+  ret=$?
+  ((try++))
+  echo "Try: $try and exit code: $ret"
+done
+
+exit $ret

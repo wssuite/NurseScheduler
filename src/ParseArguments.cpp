@@ -58,7 +58,7 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
       pInputPaths->paramFile(str);
       narg += 2;
     } else if (!strcmp(argv[narg], "--timeout")) {
-      pInputPaths->timeOut(std::stod(str));
+      pInputPaths->timeOut(std::stoi(str));
       narg += 2;
     } else if (!strcmp(argv[narg], "--cusIn")) {
       pInputPaths->customInputFile(str);
@@ -114,13 +114,11 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
 InputPaths *readCompactArguments(int argc, char **argv) {
   // Default arguments are set to enable simple call to the function without
   // argument.
-  std::string dataDir = "", instanceName = "", solutionPath = "", logPath = "",
-      paramFile = "";
-  std::string SPType = "", RCSPPType = "";
-  int historyIndex = -1, randSeed = 0,
-      nTreads = -1, SPStrategy = -1, verbose = -1, nCandidates = -1;
+  std::string dataDir, instanceName, solutionPath, logPath, paramFile,
+      SPType, RCSPPType;
+  int historyIndex = -1, randSeed = 0, nTreads = -1,
+      SPStrategy = -1, verbose = -1, nCandidates = -1, timeOut = -1;
   std::vector<int> weekIndices;
-  double timeOut = -1;
   bool cyclic = false;
 
   // Read the arguments and store them in inputPaths
@@ -165,7 +163,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
       verbose = std::stoi(str);
       narg += 2;
     } else if (!strcmp(arg, "--timeout")) {
-      timeOut = std::stod(str);
+      timeOut = std::stoi(str);
       narg += 2;
     } else if (!strcmp(arg, "--rand")) {
       randSeed = std::stoi(str);
@@ -202,20 +200,21 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   // Initialize the input paths
   //
   // if cyclic, do not enter any history
-  if (cyclic) return new InputPaths(dataDir,
-                                    instanceName,
-                                    weekIndices,
-                                    solutionPath,
-                                    logPath,
-                                    paramFile,
-                                    timeOut,
-                                    verbose,
-                                    randSeed,
-                                    SPType,
-                                    SPStrategy,
-                                    RCSPPType,
-                                    nTreads,
-                                    nCandidates);
+  if (cyclic)
+    return new InputPaths(dataDir,
+                          instanceName,
+                          weekIndices,
+                          solutionPath,
+                          logPath,
+                          paramFile,
+                          timeOut,
+                          verbose,
+                          randSeed,
+                          SPType,
+                          SPStrategy,
+                          RCSPPType,
+                          nTreads,
+                          nCandidates);
 
   return new InputPaths(dataDir,
                         instanceName,

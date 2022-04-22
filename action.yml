@@ -13,6 +13,10 @@ inputs:
     description: 'One-line arguments for the nurse scheduler'
     required: true
     default: ''
+  retries:  # id of input
+    description: 'Number of times that the job will be retried.'
+    required: false
+    default: '0'
 outputs:
   cost: # id of output
     description: 'The cost of the solution found'
@@ -20,6 +24,8 @@ runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
+    - --retries
+    - ${{ inputs.retries }}
     - -r
     - ${{ inputs.root-path }}
     - -i

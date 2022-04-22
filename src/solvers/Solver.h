@@ -353,10 +353,10 @@ static const std::map<std::string, Algorithm> AlgorithmsByName =
     {{"GENCOL", GENCOL}, {"STOCHASTIC_GENCOL", STOCHASTIC_GENCOL},
      {"NONE", NONE}};
 
-enum SolverType { S_SCIP, S_CLP, S_Gurobi, S_Cplex, S_CBC };
+enum SolverType { SCIP, CLP, Gurobi, Cplex, CBC };
 static std::map<std::string, SolverType> SolverTypesByName =
-    {{"CLP", S_CLP}, {"Gurobi", S_Gurobi}, {"Cplex", S_Cplex}, {"CBC", S_CBC},
-     {"SCIP", S_SCIP}};
+    {{"CLP", CLP}, {"GUROBI", Gurobi}, {"CPLEX", Cplex}, {"CBC", CBC},
+     {"SCIP", SCIP}};
 
 // Solution statuses
 //
@@ -380,6 +380,14 @@ static const std::map<std::string, RCSPPType> RCSPPTypesByName =
 enum SPSearchStrategy {
   SP_BREADTH_FIRST, SP_DEPTH_FIRST, SP_BEST_FIRST, SP_DOMINANT_FIRST, SP_DEFAULT
 };
+
+template<typename T> static const std::string & getNameForEnum(
+    const std::map<std::string, T> &typesByName, T type) {
+  for (const auto &p : typesByName)
+    if (p.second == type) return p.first;
+  Tools::throwError("No name found in the map for the given type");
+  return typesByName.begin()->first;
+}
 
 // Allow to break down the total cost into smaller pieces.
 // It is mainly used for:
@@ -601,6 +609,7 @@ class SolverParam {
   // if -1, do not perform the heuristic
   int performHeuristicAfterXNode_ = -1;
   double heuristicMinIntegerPercent_ = 50;
+  bool performDiveHeuristic_ = true, performMIPHeuristic_ = false;
 
   // parameters of the stabilization : initial costs and bounds of the
   // stabilization variables

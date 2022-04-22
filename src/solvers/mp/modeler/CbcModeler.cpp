@@ -42,31 +42,32 @@ CbcModeler::CbcModeler(const vector<CoinVar *> &coreVars,
   initializeVectors(coreVars, columnVars, cons);
 }
 
-void CbcModeler::initializeVectors(vector<CoinVar *> *coreVars,
-                                   vector<CoinVar *> *columnVars,
-                                   vector<CoinCons *> *cons) {
-  int corenum = coreVars->size();
-  int colnum = columnVars->size();
-  int consnum = cons->size();
+void CbcModeler::initializeVectors(const vector<CoinVar *> &coreVars,
+                                   const vector<CoinVar *> &columnVars,
+                                   const vector<CoinCons *> &cons) {
+  int corenum = coreVars.size();
+  int colnum = columnVars.size();
+  int consnum = cons.size();
 
   for (int i = 0; i < corenum; i++) {
-    CoinVar *coreVar = new CoinVar(*coreVars->at(i));
+    CoinVar *coreVar = new CoinVar(*coreVars.at(i));
     coreVars_.push_back(coreVar);
     switch (coreVar->getVarType()) {
       case VARTYPE_BINARY:binaryCoreVars_.push_back(coreVar);
         break;
       case VARTYPE_INTEGER:integerCoreVars_.push_back(coreVar);
         break;
+      default:
+        break;
     }
-    objects_.push_back(coreVar);
+    addObject(coreVar);
   }
-  for (int i = 0; i < colnum; i++) {
-    columnVars_.push_back(new CoinVar(*columnVars->at(i)));
-    objects_.push_back(columnVars_[i]);
-  }
+  for (int i = 0; i < colnum; i++)
+    addObject(new CoinVar(*columnVars.at(i)));
+
   for (int i = 0; i < consnum; i++) {
-    cons_.push_back(new CoinCons(*cons->at(i)));
-    objects_.push_back(cons_[i]);
+    coreCons_.push_back(new CoinCons(*cons.at(i)));
+    addObject(coreCons_[i]);
   }
 }
 
@@ -77,28 +78,31 @@ void CbcModeler::initializeVectors(vector<CoinVar *> *coreVars,
  *    lhs, rhs are the lower and upper bound of the variable
  *    vartype is the type of the variable: VARTYPE_CONTINUOUS, VARTYPE_INTEGER, VARTYPE_BINARY
  */
-int CbcModeler::createCoinVar(CoinVar **var,
-                              const char *var_name,
-                              int index,
-                              double objCoeff,
-                              VarType vartype,
-                              double lb,
-                              double ub) {
-  *var = new CoinVar(var_name, index, objCoeff, vartype, lb, ub);
-  objects_.push_back(*var);
+int CbcModeler::createVar(MyVar **var,
+                          const char *var_name,
+                          int index,
+                          double objCoeff,
+                          double lb,
+                          double ub,
+                          VarType vartype,
+                          const std::vector<double> &pattern,
+                          double score) {
+  *var = new CoinVar(var_name, index, objCoeff, vartype, lb, ub, pattern);
   return 1;
 }
 
-int CbcModeler::createColumnCoinVar(CoinVar **var,
-                                    const char *var_name,
-                                    int index,
-                                    double objCoeff,
-                                    double dualObj,
-                                    VarType vartype,
-                                    double lb,
-                                    double ub) {
-  *var = new CoinVar(var_name, index, objCoeff, vartype, lb, ub, dualObj);
-  objects_.push_back(*var);
+int CbcModeler::createColumnVar(MyVar **var,
+                                const char *var_name,
+                                int index,
+                                double objCoeff,
+                                const std::vector<double> &pattern,
+                                double dualObj,
+                                double lb,
+                                double ub,
+                                VarType vartype,
+                                double score) {
+  *var = new CoinVar(var_name, index, objCoeff,
+                     vartype, lb, ub, pattern, dualObj);
   return 1;
 }
 
@@ -134,20 +138,20 @@ int CbcModeler::setModel() {
 
   vector<double> collb, colub, obj, rowlb, rowub;
 
-  CoinPackedMatrix ctMatrix = buildCoinMatrix();
+  CoinPackedMatrix *ctMatrix = buildCoinMatrix();
 
   const int corenum = coreVars_.size();
-  const int colnum = coreVars_.size() + columnVars_.size();
-  const int rownum = cons_.size();
+  const int colnum = coreVars_.size() + initialColumnVars_.size();
+  const int rownum = coreCons_.size();
 
   // get the characteristics of the variables
   for (int i = 0; i < colnum; ++i) {
-    CoinVar *var(0);
+    MyVar *var = nullptr;
     // copy of the core variables
     if (i < corenum)
       var = coreVars_[i];
     else  // copy of the column variables
-      var = columnVars_[i - corenum];
+      var = initialColumnVars_[i - corenum];
 
     // build the vectors defining the LP
     collb.push_back(var->getLB());
@@ -157,35 +161,34 @@ int CbcModeler::setModel() {
 
   // get the characteristics of the constraints
   for (int i = 0; i < rownum; i++) {
-    rowlb.push_back(cons_[i]->getLhs());
-    rowub.push_back(cons_[i]->getRhs());
+    rowlb.push_back(coreCons_[i]->getLhs());
+    rowub.push_back(coreCons_[i]->getRhs());
   }
 
   OsiSolverInterface *solver = new OsiClpSolverInterface;
-  solver->loadProblem(ctMatrix,
+  solver->loadProblem(*ctMatrix,
                       &(collb[0]),
                       &(colub[0]),
                       &(obj[0]),
                       &(rowlb[0]),
                       &(rowub[0]));
+  delete ctMatrix;
 
   // set the types of the variables
   for (int i = 0; i < colnum; i++) {
-    CoinVar *var(nullptr);
+    MyVar *var(nullptr);
     // copy of the core variables
     if (i < corenum)
       var = coreVars_[i];
       // copy of the column variables
     else
-      var = columnVars_[i - corenum];
+      var = initialColumnVars_[i - corenum];
 
     switch (var->getVarType()) {
-      case VARTYPE_BINARY:solver->setInteger(i);
-        break;
+      case VARTYPE_BINARY:
       case VARTYPE_INTEGER:solver->setInteger(i);
         break;
-      case VARTYPE_CONTINUOUS:solver->setContinuous(i);
-        break;
+      case VARTYPE_CONTINUOUS:
       default:solver->setContinuous(i);
         break;
     }
@@ -193,62 +196,62 @@ int CbcModeler::setModel() {
 
   model_ = new CbcModel(*solver);
 
-  delete solver
+  delete solver;
 
   return 1;
 }
 
-/*
- * Set a high priority on all the variable returned by the branching rule
- */
-void CbcModeler::setBranchingRule() {
-  vector < MyObject * > integerVariables;
-  // put all the integer variables
-  for (CoinVar *coreVar : coreVars_)
-    if (coreVar->getVarType() != VARTYPE_CONTINUOUS)
-      integerVariables.push_back(coreVar);
-  for (CoinVar *col : columnVars_)
-    if (col->getVarType() != VARTYPE_CONTINUOUS)
-      integerVariables.push_back(col);
-
-  // remove the worst/best candidates, keep the medium ones
-  vector < MyObject * > branchingCandidates = integerVariables;
-  branching_candidates(branchingCandidates);
-
-  // remove the bad candidates, keep the best
-  vector < MyObject * > fixingCandidates = integerVariables;
-  logical_fixing(fixingCandidates);
-
-  // set the priorities: 1 highest and 100 lowest
-  int priorities[integerVariables.size()];  // NOLINT
-  int index = 0;
-  vector<MyObject *>::iterator it = integerVariables.begin(),
-      itMedium = branchingCandidates.begin(),
-      itBest = fixingCandidates.begin();
-  while (it != integerVariables.end()) {
-    if (*it == *itBest) {
-      priorities[index] = 1;
-      ++itBest;
-    } else if (*it == *itMedium) {
-      priorities[index] = 50;
-      ++itMedium;
-    } else {
-      priorities[index] = 100;
-    }
-
-    ++index;
-    ++it;
-  }
-
-  // set to the highest priority (1) the var in branchingCandidates
-  model_->passInPriorities(priorities, false);
-}
+///*
+// * Set a high priority on all the variable returned by the branching rule
+// */
+// void CbcModeler::setBranchingRule() {
+//  vector<MyObject*> integerVariables;
+//  // put all the integer variables
+//  for (MyVar *coreVar : coreVars_)
+//    if (coreVar->getVarType() != VARTYPE_CONTINUOUS)
+//      integerVariables.push_back(coreVar);
+//  for (MyVar *col : initialColumnVars_)
+//    if (col->getVarType() != VARTYPE_CONTINUOUS)
+//      integerVariables.push_back(col);
+//
+//  // remove the worst/best candidates, keep the medium ones
+//  vector<MyObject*> branchingCandidates = integerVariables;
+//  branching_candidates(branchingCandidates);
+//
+//  // remove the bad candidates, keep the best
+//  vector<MyObject*> fixingCandidates = integerVariables;
+//  logical_fixing(fixingCandidates);
+//
+//  // set the priorities: 1 highest and 100 lowest
+//  int priorities[integerVariables.size()];  // NOLINT
+//  int index = 0;
+//  auto it = integerVariables.begin(),
+//      itMedium = branchingCandidates.begin(),
+//      itBest = fixingCandidates.begin();
+//  while (it != integerVariables.end()) {
+//    if (*it == *itBest) {
+//      priorities[index] = 1;
+//      ++itBest;
+//    } else if (*it == *itMedium) {
+//      priorities[index] = 50;
+//      ++itMedium;
+//    } else {
+//      priorities[index] = 100;
+//    }
+//
+//    ++index;
+//    ++it;
+//  }
+//
+//  // set to the highest priority (1) the var in branchingCandidates
+//  model_->passInPriorities(priorities, false);
+//}
 
 /*
 * get the primal values
 */
-double CbcModeler::getVarValue(MyObject *var) {
-  if (primalValues_ == 0) {
+double CbcModeler::getVarValue(MyVar *var) {
+  if (primalValues_ == nullptr) {
     Tools::throwError("Primal solution has not been initialized.");
   }
   return primalValues_[var->getIndex()];
@@ -257,15 +260,15 @@ double CbcModeler::getVarValue(MyObject *var) {
 // solve the model
 int CbcModeler::solve(bool relaxation) {
   this->setModel();
-  this->setBranchingRule();
-  // set an upper bound
-  if (best_ub < DBL_MAX)
-    model_->setCutoff(best_ub);
+//  this->setBranchingRule();
+//  // set an upper bound
+//  if (best_ub < DBL_MAX)
+//    model_->setCutoff(best_ub);
   // set verbosity
   model_->setLogLevel(verbosity_);
-  // set solving time
-  if (max_solving_time < DBL_MAX)
-    model_->setMaximumSeconds(max_solving_time);
+//  // set solving time
+//  if (max_solving_time < DBL_MAX)
+//    model_->setMaximumSeconds(max_solving_time);
   model_->branchAndBound();
   this->setSolution();
 
@@ -304,7 +307,7 @@ int CbcModeler::printStats() {
    need to get current copy from the CbcModel */
 int CbcModeler::printBestSol() {
   FILE *pFile;
-  pFile = logfile_.empty() ? stdout : fopen(pModel_->logfile_.c_str(), "a");
+  pFile = logfile_.empty() ? stdout : fopen(logfile().c_str(), "a");
   if (primalValues_ == 0)
     Tools::throwError("Primal solution has not been initialized.");
 
@@ -317,7 +320,7 @@ int CbcModeler::printBestSol() {
   fprintf(pFile, "%-30s \n", "Variables:");
   double tolerance = pow(.1, DECIMALS);
   // iterate on core variables
-  for (CoinVar *var : coreVars_) {
+  for (MyVar *var : coreVars_) {
     double value = getVarValue(var);
     if (fabs(value) > tolerance)
       fprintf(pFile,
@@ -328,7 +331,7 @@ int CbcModeler::printBestSol() {
   }
 
   // iterate on column variables
-  for (CoinVar *var : columnVars_) {
+  for (MyVar *var : initialColumnVars_) {
     double value = getVarValue(var);
     if (fabs(value) > tolerance)
       fprintf(pFile,
@@ -366,4 +369,5 @@ int CbcModeler::writeProblem(std::string filename) {
 
 int CbcModeler::writeLP(std::string filename) {
   model_->solver()->writeLp(filename.c_str());
+  return 1;
 }

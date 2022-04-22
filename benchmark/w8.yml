@@ -2,11 +2,11 @@ name: w8
 benchmark:
   exe: ./bin/staticscheduler
   dir: ./datasets/
-  param: ./paramfiles/optimality.txt
+  param: ./paramfiles/optimality_test.txt
   sp-type: ROSTER
   timeout: 3600
   n-threads: 4
-  verbose: 0
+  verbose: 4
   args: null
   instances:
     - name: n030w8_1_2-7-0-9-3-6-0-6

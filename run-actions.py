@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import yaml
 import subprocess
 import sys
@@ -7,18 +6,20 @@ import argparse
 import re
 
 
-def run_cmd(cmd, i=0, pipe=subprocess.PIPE):
-    print("Running test {}: {}".format(i, cmd))
+def run_cmd(cmd, i=1, n=1, j=0, pipe=subprocess.PIPE):
+    retry = (", retry %d" % j) if j > 0 else ""
+    print("Run test {:2d}/{}{}: {}".format(i, n, retry, cmd))
     p = subprocess.Popen(cmd.split(), stdout=pipe, stderr=pipe)
     stdout, stderr = p.communicate()
     if p.returncode:
+        err = ""
         if stdout:
-            print(stdout.decode("utf-8"))
+            err += stdout.decode("utf-8")
         if stderr:
-            sys.stderr.write(stderr.decode("utf-8"))
-        sys.stderr.write("Fail test {}: {}".format(i, cmd))
-        return False
-    return True
+            err += stderr.decode("utf-8")
+        err = "Fail test {} on try {}: {}".format(i, j, cmd)
+        return False, err
+    return True, ""
 
 
 def run_travis(build=True, tag=None, script=None, pipe=subprocess.PIPE):
@@ -30,7 +31,8 @@ def run_travis(build=True, tag=None, script=None, pipe=subprocess.PIPE):
                 if tag:
                     s = cmd.split(tag)
                     cmd = script + s[1]
-                if not run_cmd(cmd, i, pipe):
+                passed, err = run_cmd(cmd, i, len(cmds), pipe)
+                if not passed:
                     break
         except yaml.YAMLError as exc:
             print(exc)
@@ -38,7 +40,8 @@ def run_travis(build=True, tag=None, script=None, pipe=subprocess.PIPE):
 
 def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE):
     if docker:
-        if not run_cmd('docker build -t {} .'.format(tag)):
+        passed, err = run_cmd('docker build -t {} .'.format(tag))
+        if not passed:
             return
         run = 'docker run --rm {}'.format(tag)
     else:
@@ -55,7 +58,14 @@ def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE):
                         cmd = '-i {} {}'.format(s['with']['instance'], s['with']['ns-args'])
                         # cmd = "-i " + cmd.split('-i ')[-1]
                         i += 1
-                        if not run_cmd("{} {}".format(run, cmd), i, pipe):
+                        k = 0
+                        retries = s['with'].get('retries', 0)
+                        passed = False
+                        while not passed and k <= retries:
+                            passed, err = run_cmd("{} {}".format(run, cmd), i, len(j['steps']), k, pipe)
+                            k += 1
+                        if not passed:
+                            print(err)
                             return
         except yaml.YAMLError as exc:
             print(exc)

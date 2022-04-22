@@ -489,7 +489,7 @@ void SolverParam::verbose(int v) {
     case 1: printEverySolution_ = false;
       printRelaxationSol_ = false;
       printIntermediarySol_ = false;
-      printFractionOfInteger_ = true;
+      printFractionOfInteger_ = false;
       printBcpSummary_ = true;
       printNodes_ = false;
       printFinalSol_ = false;

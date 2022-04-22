@@ -138,7 +138,8 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   lnsParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
 
   if (!inputPaths.SPType().empty()) {
-    SPType t = SPTypesByName.at(inputPaths.SPType());
+    std::string type = Tools::toUpperCase(inputPaths.SPType());
+    SPType t = SPTypesByName.at(type);
     completeParameters_.sp_type_ = t;
     rollingParameters_.sp_type_ = t;
     lnsParameters_.sp_type_ = t;
@@ -151,7 +152,8 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   }
 
   if (!inputPaths.RCSPPType().empty()) {
-    RCSPPType t = RCSPPTypesByName.at(inputPaths.RCSPPType());
+    std::string type = Tools::toUpperCase(inputPaths.RCSPPType());
+    RCSPPType t = RCSPPTypesByName.at(type);
     completeParameters_.rcspp_type_ = t;
     rollingParameters_.rcspp_type_ = t;
     lnsParameters_.rcspp_type_ = t;
@@ -227,11 +229,13 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
     } else if (Tools::strEndsWith(title, "solutionAlgorithm")) {
       std::string algoName;
       file >> algoName;
+      algoName = Tools::toUpperCase(algoName);
       options_.solutionAlgorithm_ = AlgorithmsByName.at(algoName);
     } else if (Tools::strEndsWith(title, "solverType")) {
       std::string solverName;
       file >> solverName;
-      options_.MySolverType_ = SolverTypesByName[solverName];
+      solverName = Tools::toUpperCase(solverName);
+      options_.MySolverType_ = SolverTypesByName.at(solverName);
 #ifdef DBG
       std::cout << "LP solver :" << solverName << std::endl;
 #endif
@@ -301,14 +305,17 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
     } else if (Tools::strEndsWith(title, "rollingOptimalityLevel")) {
       std::string strOpt;
       file >> strOpt;
+      strOpt = Tools::toUpperCase(strOpt);
       rollingParameters_.optimalityLevel(stringToOptimalityLevel[strOpt]);
     } else if (Tools::strEndsWith(title, "lnsOptimalityLevel")) {
       std::string strOpt;
       file >> strOpt;
+      strOpt = Tools::toUpperCase(strOpt);
       lnsParameters_.optimalityLevel(stringToOptimalityLevel[strOpt]);
     } else if (Tools::strEndsWith(title, "completeOptimalityLevel")) {
       std::string strOpt;
       file >> strOpt;
+      strOpt = Tools::toUpperCase(strOpt);
       completeParameters_.optimalityLevel(stringToOptimalityLevel[strOpt]);
     } else if (Tools::strEndsWith(title, "spDefaultStrategy")) {
       file >> completeParameters_.spParam_.strategyLevel_;
