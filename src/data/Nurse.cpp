@@ -11,21 +11,24 @@
 
 #include "data/Nurse.h"
 
-#include <math.h>
-#include <time.h>
-
-#include <fstream>
 #include <iostream>
-#include <streambuf>
-#include <functional>
 #include <algorithm>
 #include <memory>
 #include <utility>
+#include <functional>
+
 
 using std::vector;
 using std::map;
 using std::string;
 using std::pair;
+
+
+// Compare nurses in ascending order of their ids
+//
+bool compareNursesById(const PNurse& n1, const PNurse& n2) {
+  return (n1->num_ < n2->num_);
+}
 
 //-----------------------------------------------------------------------------
 //
@@ -37,35 +40,35 @@ using std::pair;
 
 // Cost function for consecutive identical shifts
 //
-double Contract::consDaysCost(int n) const {
-  if (minConsDaysWork_ - n > 0)
-    return (weights_->WEIGHT_CONS_DAYS_WORK * (minConsDaysWork_ - n));
-  if (n - maxConsDaysWork_ > 0)
-    return (weights_->WEIGHT_CONS_DAYS_WORK * (n - maxConsDaysWork_));
+double Contract::consDaysCost(int ndays) const {
+  if (minConsDaysWork_ - ndays > 0)
+    return (costMinConsDaysWork_ * (minConsDaysWork_ - ndays));
+  if (ndays - maxConsDaysWork_ > 0)
+    return (costMaxConsDaysWork_ * (ndays - maxConsDaysWork_));
   return 0;
 }
 
-double Contract::consDaysOffCost(int n) const {
-  if (minConsDaysOff_ - n > 0)
-    return (weights_->WEIGHT_CONS_DAYS_OFF * (minConsDaysOff_ - n));
-  if (n - maxConsDaysOff_ > 0)
-    return (weights_->WEIGHT_CONS_DAYS_OFF * (n - maxConsDaysOff_));
+double Contract::consDaysOffCost(int ndays) const {
+  if (minConsDaysOff_ - ndays > 0)
+    return (costMinConsDaysWork_ * (minConsDaysOff_ - ndays));
+  if (ndays - maxConsDaysOff_ > 0)
+    return (costMaxConsDaysWork_ * (ndays - maxConsDaysOff_));
   return 0;
 }
 
-double Contract::totalShiftCost(int n) const {
-  if (minTotalShifts_ - n > 0)
-    return (weights_->WEIGHT_TOTAL_SHIFTS * (minTotalShifts_ - n));
-  if (n - maxTotalShifts_ > 0)
-    return (weights_->WEIGHT_TOTAL_SHIFTS * (n - maxTotalShifts_));
+double Contract::totalShiftCost(int ndays) const {
+  if (minTotalShifts_ - ndays > 0)
+    return (costMinTotalShifts_ * (minTotalShifts_ - ndays));
+  if (ndays - maxTotalShifts_ > 0)
+    return (costMaxTotalShifts_ * (ndays - maxTotalShifts_));
   return 0;
 }
 
-double Contract::totalWeekendCost(int n) const {
+double Contract::totalWeekendCost(int ndays) const {
 //  if(minTotalWeekends_ - n > 0)
-//  return (weights_->WEIGHT_TOTAL_WEEKENDS * ( minTotalWeekends_ - n ) );
-  if (n - maxTotalWeekends_ > 0)
-    return (weights_->WEIGHT_TOTAL_WEEKENDS * (n - maxTotalWeekends_));
+//  return (weights_->totalWeekends * ( minTotalWeekends_ - n ) );
+  if (ndays - maxTotalWeekends_ > 0)
+    return (costMaxTotalWeekends_ * (ndays - maxTotalWeekends_));
   return 0;
 }
 
@@ -110,10 +113,12 @@ vector<int> alternativeSkills(const vector<int> &skills, int nSkills) {
 //
 Position::Position(int index,
                    vector<int> skills,
-                   vector<int> alternativeSkills) :
+                   vector<int> alternativeSkills,
+                   double alternativeSkillsCost) :
     id_(index),
     skills_(std::move(skills)),
     alternativeSkills_(std::move(alternativeSkills)),
+    alternativeSkillsCost_(alternativeSkillsCost),
     rank_(0) {
   init();
 }
@@ -121,20 +126,23 @@ Position::Position(int index,
 Position::Position(int index,
                    vector<int> skills,
                    bool addOtherSkillsAsAlternative,
+                   double alternativeSkillsCost,
                    int nSkills) :
     id_(index),
     skills_(std::move(skills)),
     alternativeSkills_(
         std::move(addOtherSkillsAsAlternative ?
                   alternativeSkills(skills, nSkills) : vector<int>())),
+    alternativeSkillsCost_(alternativeSkillsCost),
     rank_(0) {
   init();
 }
 
 Position::Position(int index, const Nurse &nurse) :
-    Position(index, nurse.skills_, nurse.alternativeSkills_) {}
+    Position(index, nurse.skills_, nurse.alternativeSkills_,
+             nurse.pContract()->costAlternativeSkill_) {}
 
-// initalize rarity and check if skills are sorted
+// initialize rarity and check if skills are sorted
 void Position::init() {
   // Verify that the vector of skills is sorted
   //
@@ -159,16 +167,16 @@ void Position::init() {
   allSkills_ = skills_;
   allSkills_.reserve(nSkills() + nAltSkills());
   allSkills_.insert(allSkills_.end(),
-                   alternativeSkills_.begin(), alternativeSkills_.end());
+                    alternativeSkills_.begin(), alternativeSkills_.end());
   std::sort(allSkills_.begin(), allSkills_.end());
 }
 
 // Set positions above and below
 //
-void Position::addBelow(PPosition pPosition) {
+void Position::addBelow(const PPosition& pPosition) {
   positionsBelow_.push_back(pPosition);
 }
-void Position::addAbove(PPosition pPosition) {
+void Position::addAbove(const PPosition& pPosition) {
   positionsAbove_.push_back(pPosition);
 }
 
@@ -191,15 +199,15 @@ std::string Position::toString() const {
   if (!positionsBelow_.empty()) {
     rep << std::endl;
     rep << "#\t\t\t\t\tdominates positions:      ";
-    for (auto it = positionsBelow_.begin(); it != positionsBelow_.end(); it++) {
-      rep << "\t" << (*it)->id_;
+    for (const auto& position : positionsBelow_) {
+      rep << "\t" << position->id_;
     }
   }
   if (!positionsAbove_.empty()) {
     rep << std::endl;
     rep << "#\t\t\t\t\tis dominated by positions:";
-    for (auto it = positionsAbove_.begin(); it != positionsAbove_.end(); it++) {
-      rep << "\t" << (*it)->id_;
+    for (const auto& position : positionsAbove_) {
+      rep << "\t" << position->id_;
     }
   }
   return rep.str();
@@ -311,289 +319,173 @@ void Position::resetBelow() {
 //
 //-----------------------------------------------------------------------------
 
-// Default constructor and destructor
-Preferences::Preferences() {}
-Preferences::~Preferences() {}
-
 // Initialization with a map of size nNurses with no wished Shift-Off.
 Preferences::Preferences(int nbNurses, int nbDays, int nbShifts) :
-    nbNurses_(nbNurses), nbDays_(nbDays), nbShifts_(nbShifts) {
-  // Wish lists are initialized to empty
-  for (int i = 0; i < nbNurses_; i++) {
-    wishesOff_[i];
-    wishesOn_[i];
-  }
+    nbDays_(nbDays), nbShifts_(nbShifts) {
+  for (int n=0; n < nbNurses; ++n)
+    wishes_[n];
 }
 
 // Initialization with a map corresponding to the input nurses
 // and no wished Shift-Off.
-Preferences::Preferences(const vector<PNurse> &nurses, int nbDays, int nbShifts)
-    :
-    nbNurses_(nurses.size()), nbDays_(nbDays), nbShifts_(nbShifts) {
-  // Wish lists are initialized to empty
-  for (PNurse pNurse : nurses) {
-    wishesOff_[pNurse->num_];
-    wishesOn_[pNurse->num_];
-  }
+Preferences::Preferences(
+    const vector<PNurse> &nurses, int nbDays, int nbShifts):
+    nbDays_(nbDays), nbShifts_(nbShifts) {
+  for (const PNurse &pN : nurses)
+    wishes_[pN->num_];
 }
 
-int Preferences::wishLevel(const std::map<int, std::vector<Wish> > &wishes,
-                           int day,
-                           int shift) {
+// Returns the cost of the nurse wish for the shift
+double Preferences::wishCostOfTheShift(const std::map<int, Wish> &wishes,
+                                       int day,
+                                       const PShift &pS) {
+  // If the day is not in the wish-list, return 0
   auto itM = wishes.find(day);
-  // If the day is not in the wish-list, no possible violation
-  if (itM == wishes.end()) {
-    return -1;
-  } else {
-    // no preference either in the wish-list for that day
-    for (const Wish &w : itM->second)
-      if (w.shift == shift)
-        return w.level;
-  }
-  return -1;
+  if (itM == wishes.end())
+    return 0;
+  // return the cost of the shift for the wish
+  return itM->second.cost(pS);
+}
+
+
+// add a wish for the nurse on a given day
+const Wish& Preferences::addShift(int nurseNum,
+                                  int day,
+                                  const Wish &wish) {
+  wishes_.at(nurseNum)[day].add(wish);
+  return wishes_.at(nurseNum)[day];
 }
 
 // Add a wished day-shift off for a nurse
-void Preferences::addShiftOff(int nurseNum,
-                              int day,
-                              int shift,
-                              PREF_LEVEL level) {
-  // Insert the wished shift in the set
-  wishesOff_[nurseNum][day].push_back({shift, level});
+const Wish& Preferences::addShiftOff(int nurseNum,
+                                     int day,
+                                     const PAbstractShift &pAShift,
+                                     double cost) {
+  return addShift(nurseNum, day, Wish(pAShift, cost, true));
 }
 
 // Adds the whole day to the wish-list
-void Preferences::addDayOff(int nurseNum, int day, PREF_LEVEL level) {
-  vector<Wish> &wishList = wishesOff_[nurseNum][day];
-  for (int s = 1; s < nbShifts_;
-       s++)           // Starts from 1 because it's a rest wish
-    wishList.push_back({s, level});
+const Wish& Preferences::addDayOff(int nurseNum, int day, double cost) {
+  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
+  return addShiftOff(nurseNum, day, pWork, cost);
 }
 
-// Returns true if the nurse wants that shift off
-bool Preferences::wantsTheShiftOff(int nurseNum, int day, int shift) const {
-  return wantsTheShiftOffLevel(nurseNum, day, shift) != -1;
-}
-
-// Returns level if the nurse wants that shift off : -1 otherwise
-int Preferences::wantsTheShiftOffLevel(int nurseNum, int day, int shift) const {
-  // If the day is not in the wish-list, return -1
-  auto itM = wishesOff_.at(nurseNum).find(day);
-  if (itM == wishesOff_.at(nurseNum).end())
-    return -1;
-  // If the shift is not in the wish-list for that day, return -1
-  const std::vector<Wish> &wishes = itM->second;
-  for (const Wish &wish : wishes)
-    if (wish.shift == shift) return wish.level;
-  return -1;
-}
-
-// True if the nurse wants the whole day off
-bool Preferences::wantsTheDayOff(int nurseNum, int day) const {
-  // If the day is not in the wish-list, return false
-  auto itM = wishesOff_.at(nurseNum).find(day);
-  if (itM == wishesOff_.at(nurseNum).end())
-    return false;
-  // Set does not repeat its elements. Wants the day off if and only if
-  // all shifts off (-1 because REST does not appear)
-  return static_cast<int>(itM->second.size()) == nbShifts_ - 1;
+// Returns the cost of the nurse wish for the shift
+double Preferences::wishCostOfTheShift(
+    int nurseNum, int day, const PShift &pShift) const {
+  return wishCostOfTheShift(wishes_.at(nurseNum), day, pShift);
 }
 
 // Total number of shifts off that the nurse wants
 int Preferences::howManyShiftsOff(int nurseNum) const {
-  int nbShiftsOff = 0;
-
-  // look at every wishes of the nurse
-  for (const auto &dayOff : wishesOff_.at(nurseNum)) {
-    nbShiftsOff += dayOff.second.size();
-  }
-  return nbShiftsOff;
+  int nOff = 0;
+  for (const auto &p : wishes_.at(nurseNum))
+    nOff += p.second.off();
+  return nOff;
 }
 
 // Number of whole days off that the nurse wants
 int Preferences::howManyDaysOff(int nurseNum, int dayMin, int dayMax) const {
   int nbDayOff = 0;
   // look at every wishes of the nurse
-  for (const auto &dayOff : wishesOff_.at(nurseNum)) {
-    nbDayOff += ((dayOff.first >= dayMin) && (dayOff.first <= dayMax)
-        && (dayOff.second.size() == nbShifts_ - 1));
-  }
+  for (const auto &p : wishes_.at(nurseNum))
+    nbDayOff += (p.second.dayOff() && (p.first >= dayMin)
+                 && (p.first <= dayMax));
   return nbDayOff;
 }
 
 //////////////////////////////////////////////////////////////////
 
 // Add a wished day-shift on for a nurse
-void Preferences::addShiftOn(int nurseNum,
-                             int day,
-                             int shift,
-                             PREF_LEVEL level) {
-  // Insert the wished shift in the set
-  wishesOn_[nurseNum][day].push_back({shift, level});
+const Wish& Preferences::addShiftOn(int nurseNum,
+                                    int day,
+                                    const PAbstractShift &pAShift,
+                                    double cost) {
+  return addShift(nurseNum, day, Wish(pAShift, cost, false));
 }
 
 // Adds the whole day to the wish-list
-void Preferences::addDayOn(int nurseNum, int day, PREF_LEVEL level) {
-  vector<Wish> &wishList = wishesOn_[nurseNum][day];
-  for (int s = 1; s < nbShifts_;
-       s++)           // Starts from 1 because it's a rest wish
-    wishList.push_back({s, level});
-}
-
-// Returns true if the nurse wants that shift on
-bool Preferences::wantsTheShiftOn(int nurseNum, int day, int shift) const {
-  return wantsTheShiftOnLevel(nurseNum, day, shift) != -1;
-}
-
-// Returns level if the nurse wants that shift on : -1 otherwise
-int Preferences::wantsTheShiftOnLevel(int nurseNum, int day, int shift) const {
-  // If the day is not in the wish-list, return -1
-  auto itM = wishesOn_.at(nurseNum).find(day);
-  if (itM == wishesOn_.at(nurseNum).end())
-    return -1;
-  // If the shift is not in the wish-list for that day, return -1
-  for (const Wish &wish : itM->second)
-    if (wish.shift == shift) return wish.level;
-  return -1;
-}
-
-// True if the nurse wants the whole day on
-bool Preferences::wantsTheDayOn(int nurseNum, int day) const {
-  // If the day is not in the wish-list, return false
-  auto itM = wishesOn_.at(nurseNum).find(day);
-  if (itM == wishesOn_.at(nurseNum).end())
-    return false;
-  // Set does not repeat its elements. Wants the day on if and only if
-  // all shifts off (-1 because REST does not appear)
-  return static_cast<int>(itM->second.size()) == nbShifts_ - 1;
+const Wish& Preferences::addDayOn(int nurseNum, int day, double cost) {
+  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
+  return addShiftOn(nurseNum, day, pWork, cost);
 }
 
 // Total number of shifts on that the nurse wants
 int Preferences::howManyShiftsOn(int nurseNum) const {
-  int nbShiftsOn = 0;
-
-  // look at every wishes of the nurse
-  for (const auto &dayOn : wishesOn_.at(nurseNum)) {
-    nbShiftsOn += dayOn.second.size();
-  }
-  return nbShiftsOn;
+  int nOn = 0;
+  for (const auto &p : wishes_.at(nurseNum))
+    nOn += p.second.on();
+  return nOn;
 }
 
 // Number of whole days on that the nurse wants
 int Preferences::howManyDaysOn(int nurseNum, int dayMin, int dayMax) const {
   int nbDayOn = 0;
   // look at every wishes of the nurse
-  for (const auto &dayOn : wishesOn_.at(nurseNum)) {
-    nbDayOn += ((dayOn.first >= dayMin) && (dayOn.first <= dayMax)
-        && (static_cast<int>(dayOn.second.size()) == nbShifts_ - 1));
-  }
+  for (const auto &p : wishes_.at(nurseNum))
+    nbDayOn += (p.second.dayOn() && (p.first >= dayMin) && (p.first <= dayMax));
   return nbDayOn;
 }
 
 // add another week preferences at the end of the current one
-//
-void Preferences::pushBack(PPreferences pPref) {
+void Preferences::pushBack(const PPreferences& pPref) {
   // check if same scenario
-  if ((nbShifts_ != pPref->nbShifts_) || (nbNurses_ != pPref->nbNurses_)) {
+  if ((nbShifts_ != pPref->nbShifts_)) {
     string error = "Preferences are not compatible";
     Tools::throwError(error.c_str());
   }
 
-  // update the whishes off
-  for (const auto &pWishes : pPref->wishesOff_)
-    for (const auto &pWishes2 : pWishes.second) {
-      std::vector<Wish>
-          &wishes = wishesOff_[pWishes.first][pWishes2.first + nbDays_];
-      wishes.insert(wishes.end(),
-                    pWishes2.second.begin(),
-                    pWishes2.second.end());
-    }
-
-  // update the whishes on
-  for (const auto &pWishes : pPref->wishesOn_)
-    for (const auto &pWishes2 : pWishes.second) {
-      std::vector<Wish>
-          &wishes = wishesOn_[pWishes.first][pWishes2.first + nbDays_];
-      wishes.insert(wishes.end(),
-                    pWishes2.second.begin(),
-                    pWishes2.second.end());
-    }
+  // update the whishes
+  for (const auto &p : wishes_)
+    for (const auto &wish : pPref->wishes_.at(p.first))
+      addShift(p.first, nbDays_ + wish.first, wish.second);
 
   // update the number of days
   nbDays_ += pPref->nbDays_;
 }
 
 // K the preferences relative to the nbDays first days
-PPreferences Preferences::keep(int begin, int end) {
+PPreferences Preferences::keep(int begin, int end) const {
   PPreferences pPref = std::make_shared<Preferences>();
+  for (const auto &p : wishes_)
+    for (const auto &wish : wishes_.at(p.first))
+      if (wish.first >= begin && wish.first < end)
+        pPref->addShift(p.first, wish.first, wish.second);
 
-  for (int i = 0; i < nbNurses_; i++) {
-    for (pair<int, std::vector<Wish> > pair1 : wishesOff_[i]) {
-      if (pair1.first >= begin && pair1.first < end) {
-        pair<int, std::vector<Wish> > pair2(pair1.first - begin, pair1.second);
-        pPref->wishesOff_[i].insert(pair2);
-      }
-    }
+  return pPref;
+}
 
-    for (pair<int, std::vector<Wish>> pair1 : wishesOn_[i]) {
-      if (pair1.first >= begin && pair1.first < end) {
-        pair<int, std::vector<Wish> > pair2(pair1.first - begin, pair1.second);
-        pPref->wishesOn_[i].insert(pair2);
-      }
-    }
-  }
-
+// Keep the preferences relative to the nurses
+PPreferences Preferences::keep(const std::vector<PNurse> &pNurses) const {
+  PPreferences pPref = std::make_shared<Preferences>();
+  for (const PNurse& pNurse : pNurses)
+    pPref->wishes_[pNurse->num_] = wishes_.at(pNurse->num_);
   return pPref;
 }
 
 // Remove the preferences relative to the nbDays first days
 PPreferences Preferences::removeNFirstDays(int nbDays) {
-  PPreferences pPref = std::make_shared<Preferences>();
-
-  for (int i = 0; i < nbNurses_; i++) {
-    for (pair<int, std::vector<Wish> > pair1 : wishesOff_[i]) {
-      if (pair1.first >= nbDays) {
-        pair<int, std::vector<Wish>> pair2(pair1.first - nbDays_, pair1.second);
-        pPref->wishesOff_[i].insert(pair2);
-      }
-    }
-
-    for (pair<int, std::vector<Wish> > pair1 : wishesOn_[i]) {
-      if (pair1.first >= nbDays) {
-        pair<int, std::vector<Wish>> pair2(pair1.first - nbDays_, pair1.second);
-        pPref->wishesOn_[i].insert(pair2);
-      }
-    }
-  }
-
-  return pPref;
+  return keep(nbDays, nbDays_);
 }
 
-// Display method: toString()
+// Display method: toStringINRC2()
 //
-string Preferences::toString(PScenario pScenario) const {
+string Preferences::toString() const {
   std::stringstream rep;
   rep << "# Preferences:" << std::endl;
-  rep << "# Wishes off:" << std::endl;
-  for (const auto &pWishes : wishesOff_)
-    for (const auto &pWishes2 : pWishes.second) {
-      rep << "      | " << pWishes.first << ":" << pWishes2.first << "  ->  ";
-      for (const Wish &w : pWishes2.second)
-        rep << (pScenario ? pScenario->shift(w.shift)
-                          : std::to_string(w.shift))
-            << " (" << levelsToString.at(w.level) << ")\t";
-      rep << std::endl;
-    }
-  rep << "# Wished on:" << std::endl;
-  for (const auto &pWishes : wishesOn_)
-    for (const auto &pWishes2 : pWishes.second) {
-      rep << "      | " << pWishes.first << ":" << pWishes2.first << "  ->  ";
-      for (const Wish &w : pWishes2.second)
-        rep << (pScenario ? pScenario->shift(w.shift)
-                          : std::to_string(w.shift))
-            << " (" << levelsToString.at(w.level) << ")\t";
-      rep << std::endl;
-    }
+  for (const auto &p : wishes_) {
+    rep << "#       " << p.first << ": " << toString(p.second);
+  }
+  rep << std::endl;
+
+  return rep.str();
+}
+
+string Preferences::toString(const std::map<int, Wish> &wishes) {
+  std::stringstream rep;
+  for (const auto &p : wishes)
+    rep << p.first << "  ->  " << p.second.toString() << "   ";
+  rep << std::endl;
   return rep.str();
 }
 
@@ -608,6 +500,17 @@ string Preferences::toString(PScenario pScenario) const {
 //
 //-----------------------------------------------------------------------------
 
+// if altShifts, return the complementary of availShifts, otherwise {}
+std::vector<int> alternativeShifts(
+    const std::vector<int> &availShifts, int nShifts) {
+  // build alternativeShifts
+  std::vector<int> altShifts;
+  for (int s = 0; s < nShifts; ++s) {
+    auto it = std::find(availShifts.begin(), availShifts.end(), s);
+    if (it == availShifts.end()) altShifts.push_back(s);
+  }
+  return altShifts;
+}
 // Constructor and destructor
 // Note : need both with const Contract and (non-const) Contract
 // because non-const is used in our code, and const is needed so that
@@ -621,14 +524,19 @@ Nurse::Nurse(int id,
              int nSkills,
              vector<int> skills,
              std::vector<int> availableShifts,
-             PConstContract contract) :
+             PContract pContract) :
     num_(id),
     name_(std::move(name)),
     skills_(std::move(skills)),
     availableShifts_(std::move(availableShifts)),
-    pContract_(std::move(contract)),
+    alternativeSkills_(pContract->alternativeSkill_ ?
+                  alternativeSkills(skills_, nSkills) : vector<int>()),
+    alternativeShifts_(pContract->alternativeShift_ ?
+                       alternativeShifts(availableShifts_, nShifts) :
+                       vector<int>()),
+    pContract_(std::move(pContract)),
     hasSkill_(nSkills, false),
-    isAvailableShifts_(nShifts, false) {
+    isAvailOrAltShift_(nShifts, false) {
   init();
 }
 
@@ -639,15 +547,18 @@ Nurse::Nurse(int id,
              std::vector<int> skills,
              std::vector<int> alternativeSkills,
              std::vector<int> availableShifts,
-             PConstContract contract) :
+             PContract pContract) :
     num_(id),
     name_(std::move(name)),
     skills_(std::move(skills)),
     alternativeSkills_(std::move(alternativeSkills)),
     availableShifts_(std::move(availableShifts)),
-    pContract_(std::move(contract)),
+    alternativeShifts_(pContract->alternativeShift_ ?
+                       alternativeShifts(availableShifts_, nShifts) :
+                       vector<int>()),
+    pContract_(std::move(pContract)),
     hasSkill_(nSkills, false),
-    isAvailableShifts_(nShifts, false) {
+    isAvailOrAltShift_(nShifts, false) {
   init();
 }
 
@@ -658,7 +569,7 @@ Nurse::Nurse(int id,
              std::vector<int> skills,
              bool addOtherSkillsAsAlternative,
              std::vector<int> availableShifts,
-             PConstContract contract) :
+             PContract pContract) :
     num_(id),
     name_(std::move(name)),
     skills_(std::move(skills)),
@@ -666,9 +577,12 @@ Nurse::Nurse(int id,
         std::move(addOtherSkillsAsAlternative ?
                   alternativeSkills(skills_, nSkills) : vector<int>())),
     availableShifts_(std::move(availableShifts)),
-    pContract_(std::move(contract)),
+    alternativeShifts_(pContract->alternativeShift_ ?
+                       alternativeShifts(availableShifts_, nShifts) :
+                       vector<int>()),
+    pContract_(std::move(pContract)),
     hasSkill_(nSkills, false),
-    isAvailableShifts_(nShifts, false) {
+    isAvailOrAltShift_(nShifts, false) {
   init();
 }
 
@@ -678,15 +592,16 @@ Nurse::Nurse(int id, const Nurse &nurse) :
     skills_(nurse.skills_),
     alternativeSkills_(nurse.alternativeSkills_),
     availableShifts_(nurse.availableShifts_),
+    alternativeShifts_(nurse.alternativeShifts_),
     pContract_(nurse.pContract_),
     hasSkill_(nurse.hasSkill_),
-    isAvailableShifts_(nurse.isAvailableShifts_) {}
+    isAvailOrAltShift_(nurse.isAvailOrAltShift_),
+    pBaseResources_(nurse.pBaseResources_) {}
 
-Nurse::~Nurse() {
-  // WARNING: Do NOT delete Contract* contract (eventhough it is a pointer.
-  //          Contracts are common to all nurses and don't "belong" to them
-  //          -> should not be deleted.
-}
+Nurse::~Nurse() = default;
+// WARNING: Do NOT delete Contract* contract (eventhough it is a pointer.
+//          Contracts are common to all nurses and don't "belong" to them
+//          -> should not be deleted.
 
 void Nurse::init() {
   // Verify that the vector of skills is sorted
@@ -709,9 +624,13 @@ void Nurse::init() {
   for (int sk : skills_)
     hasSkill_[sk] = true;
 
-  // build isAvailableShifts_
+  // build isAvailOrAltShift_
   for (int s : availableShifts_)
-    isAvailableShifts_[s] = true;
+    isAvailOrAltShift_[s] = true;
+  for (int s : alternativeShifts_)
+    isAvailOrAltShift_[s] = true;
+
+  pBaseResources_ = pContract_->pBaseResources_;
 }
 
 // Check that the nurse has a given skill
@@ -733,4 +652,8 @@ string Nurse::toString() const {
   if (nSkills() == 1) rep << "\t";
   rep << pContract_->name_;
   return rep.str();
+}
+
+void Nurse::addBaseResource(const PBaseResource& pR) {
+  pBaseResources_.push_back(pR);
 }

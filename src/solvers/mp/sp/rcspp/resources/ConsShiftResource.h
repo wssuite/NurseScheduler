@@ -30,31 +30,75 @@ using std::vector;
  * Resource corresponding to the soft min/max constraints on the number of
  * consecutive shifts: it may be used for any kind of abstract shift
  */
-class SoftConsShiftResource : public SoftBoundedResource {
+class ConsShift {
  public:
-  SoftConsShiftResource(int lb, int ub, double lbCost, double ubCost,
-                        const PAbstractShift& pShift, int totalNbDays,
+  ConsShift(const PAbstractShift &pShift,
+            bool endOnLastDay = false,
+            bool cyclic = false) :
+            pAShift_(pShift),
+            lastDayEndsSequence_(endOnLastDay),
+            cyclic_(cyclic) {
+    if (cyclic_ && lastDayEndsSequence_) {
+      std::cerr << "ConsShift has disabled lastDayEndsSequence_"
+                   " as cyclic_ is enable." << std::endl;
+      lastDayEndsSequence_ = false;
+    }
+  }
+
+  const PAbstractShift &pShift() const { return pAShift_; }
+  bool lastDayEndsSequence() const { return lastDayEndsSequence_; }
+  bool isCyclic() const { return cyclic_; }
+
+ protected:
+  const PAbstractShift pAShift_;
+  // consumption of the resource in the initial state
+  int initialConsumption_ = 0;
+
+  // true if the last day of horizon puts an end to a sequence of shifts (and
+  // thus we need to pay LB cost if it LB is not met)
+  bool lastDayEndsSequence_ = false;
+
+  bool cyclic_;  // true of solving the cyclic version
+};
+
+
+class SoftConsShiftResource : public SoftBoundedResource, public ConsShift {
+ public:
+  SoftConsShiftResource(int lb,
+                        int ub,
+                        double lbCost,
+                        double ubCost,
+                        const PAbstractShift &pShift,
+                        CostType costType,
+                        int totalNbDays,
                         int initialConsumption,
+                        bool endOnLastDay = false,
+                        bool cyclic = false,
                         std::string _name = "") :
       SoftBoundedResource(_name.empty() ?
                           "Soft Cons "+pShift->name : std::move(_name),
                           lb, ub, lbCost, ubCost),
-      pAShift_(pShift),
+      ConsShift(pShift, endOnLastDay, cyclic),
       initialConsumption_(initialConsumption) {
     totalNbDays_ = totalNbDays;
+    costType_ = costType;
+  }
+
+  BaseResource* clone() const override {
+    return new SoftConsShiftResource(
+        lb_, ub_, lbCost_, ubCost_, pAShift_, costType_, totalNbDays_,
+        initialConsumption_, lastDayEndsSequence_, cyclic_, name);
   }
 
   int getConsumption(const State &initialState) const override;
 
   // the resource needs to be checked for dominance only on nodes
   // corresponding to the one checked in this constraint
-  bool isActive(int dayId, const AbstractShift &aShift) const override {
-    return pAShift_->includes(aShift);
+  bool isActive(int dayId, const PAbstractShift &pAShift) const override {
+    return pAShift_->includes(*pAShift);
   }
 
   bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
-
-  const PAbstractShift &pShift() const { return pAShift_; }
 
   // the worst case is when compared with a label of consumption 0
   // that will reach ub_: so we will pay consumption penalties.
@@ -77,78 +121,87 @@ class SoftConsShiftResource : public SoftBoundedResource {
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 
-  const PAbstractShift &pAShift() const { return pAShift_; }
+  int initialConsumption() const { return initialConsumption_; }
 
-  const int initialConsumption() const { return initialConsumption_; }
+  bool isInRosterMaster() const override { return false; };
+  bool isInRotationMaster() const override { return pAShift_->isRest(); };
 
  protected:
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
-                 const PRCArc &pArc) override;
+                 const shared_ptr<RCArc> &pArc,
+                 int indResource) override;
 
-  const PAbstractShift pAShift_;
+  void enumerate(const PRCGraph &pRCGraph, bool forceEnum) override;
+
   // consumption of the resource in the initial state
   int initialConsumption_ = 0;
 };
 
-typedef shared_ptr<SoftConsShiftResource> PSoftConsShiftResource;
-
-class HardConsShiftResource : public HardBoundedResource {
+class HardConsShiftResource : public HardBoundedResource, public ConsShift {
  public:
   HardConsShiftResource(
-      int lb, int ub, const PAbstractShift& pShift, int totalNbDays,
-      int initialConsumption, std::string _name = "") :
+      int lb, int ub, const PAbstractShift& pShift,
+      int totalNbDays, int initialConsumption,
+      bool endOnLastDay = false, bool cyclic = false, std::string _name = "") :
       HardBoundedResource(_name.empty() ?
                           "Hard Cons "+pShift->name : std::move(_name),
                           lb, ub),
-      pAShift_(pShift) {
+      ConsShift(pShift, endOnLastDay, cyclic),
+      initialConsumption_(initialConsumption) {
     totalNbDays_ = totalNbDays;
+  }
+
+  BaseResource* clone() const override {
+    return new HardConsShiftResource(
+        lb_, ub_, pAShift_,
+        totalNbDays_, initialConsumption_,
+        lastDayEndsSequence_, cyclic_, name);
   }
 
   int getConsumption(const State &initialState) const override;
 
   bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
 
-  const PAbstractShift &pShift() const { return pAShift_; }
-
   bool merge(const ResourceValues &vForward,
              const ResourceValues &vBack,
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 
-  const PAbstractShift &pAShift() const { return pAShift_; }
+  int initialConsumption() const { return initialConsumption_; }
 
-  const int initialConsumption() const { return initialConsumption_; }
+  bool isInRosterMaster() const override { return false; };
+  bool isInRotationMaster() const override { return pAShift_->isRest(); };
 
  protected:
   // initialize the expander on a given arc
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
-                 const PRCArc &pArc) override;
+                 const shared_ptr<RCArc> &pArc,
+                 int indResource) override;
 
-  const PAbstractShift pAShift_;
   // consumption of the resource in the initial state
   int initialConsumption_ = 0;
 };
-
-typedef shared_ptr<HardConsShiftResource> PHardConsShiftResource;
 
 /*
  * Expanders for the  resources
  */
 
 struct ConsShiftExpander : public Expander {
-  ConsShiftExpander(int rId, bool start, bool reset,
+  ConsShiftExpander(int rId, CostType costType,
+                    bool start, bool reset,
                     int consBeforeReset, int consAfterReset,
                     bool arcToSink, int nDaysBefore = 0, int nDaysLeft = 0) :
-      Expander(rId),
+      Expander(rId, costType),
       arcToSink(arcToSink),
       start(start),
       reset(reset),
       consBeforeReset(consBeforeReset),
       consAfterReset(consAfterReset),
       nDaysBefore(nDaysBefore),
-      nDaysLeft(nDaysLeft) {}
+      nDaysLeft(nDaysLeft) {
+  }
 
  protected:
   bool arcToSink;  // true if the target of the arc is a sink node
@@ -161,7 +214,8 @@ struct ConsShiftExpander : public Expander {
 };
 
 struct SoftConsShiftExpander : public ConsShiftExpander {
-  SoftConsShiftExpander(const SoftConsShiftResource& resource,
+  SoftConsShiftExpander(int indResource,
+                        const SoftConsShiftResource& resource,
                         bool start,
                         bool reset,
                         int consBeforeReset,
@@ -169,7 +223,8 @@ struct SoftConsShiftExpander : public ConsShiftExpander {
                         bool arcToSink,
                         int nDaysBefore = 0,
                         int nDaysLeft = 0):
-      ConsShiftExpander(resource.id(),
+      ConsShiftExpander(indResource,
+                        resource.costType(),
                         start,
                         reset,
                         consBeforeReset,
@@ -188,7 +243,8 @@ struct SoftConsShiftExpander : public ConsShiftExpander {
 
 
 struct HardConsShiftExpander : public ConsShiftExpander {
-  HardConsShiftExpander(const HardConsShiftResource& resource,
+  HardConsShiftExpander(int indResource,
+                        const HardConsShiftResource& resource,
                         bool start,
                         bool reset,
                         int consBeforeReset,
@@ -196,7 +252,8 @@ struct HardConsShiftExpander : public ConsShiftExpander {
                         bool arcToSink,
                         int nDaysBefore = 0,
                         int nDaysLeft = 0):
-      ConsShiftExpander(resource.id(),
+      ConsShiftExpander(indResource,
+                        NO_COST,
                         start,
                         reset,
                         consBeforeReset,

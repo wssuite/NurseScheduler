@@ -1,0 +1,12 @@
+HISTORY
+0 new2
+
+NURSE_HISTORY
+Patrick 0 0 S1 1 4 0
+Andrea 0 0 S0 3 3 0
+Stefaan 0 0 None 0 0 3
+Sara 0 0 S2 1 4 0
+Nguyen 0 0 None 0 0 1
+Philip 0 0 None 0 0 1
+Alex 0 0 None 0 0 1
+John 0 0 None 0 0 1

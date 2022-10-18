@@ -18,7 +18,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "solvers/Solver.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -36,11 +35,11 @@ struct GlobalStats {
   ~GlobalStats() {}
 
  public:
-  // status of the final solution: optimality can be proved only if the
-  // optimality level is set to 3 in a solution phase that considers the
-  // complete problem
-  //
-  Status status_ = INFEASIBLE;
+//  // status of the final solution: optimality can be proved only if the
+//  // optimality level is set to 3 in a solution phase that considers the
+//  // complete problem
+//  //
+//  Status status_ = INFEASIBLE;
 
   // objective values for an algorithm in which one first phase is run to find
   // an initial solution and a second phase tries to improve it heuristically
@@ -52,7 +51,6 @@ struct GlobalStats {
 
   // global runtimes
   //
-  double timeTotal_ = 0.0;
   double timeInitialSol_ = 0.0;
   double timeImproveSol_ = 0.0;
 
@@ -94,6 +92,8 @@ struct GlobalStats {
 
   // add the information of a stat object to this one
   void add(const GlobalStats &stats);
+
+  double timeTotal() const;
 };
 
 #endif  // SRC_TOOLS_GLOBALSTATS_H_

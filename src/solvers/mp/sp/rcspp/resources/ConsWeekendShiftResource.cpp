@@ -11,234 +11,305 @@
 
 #include "ConsWeekendShiftResource.h"
 
+void ConsWeekend::computeConsumption(
+    const Stretch &stretch,
+    ResourceValues *vChild,
+    const std::function<bool(ResourceValues*)>& processReset) const {
+  // go through the days of the stretch and count the weekends that have not
+  // been counted yet
+  auto itShift = stretch.pShifts().begin();
+  // reset weekend flag
+  if (!weekend_.isWeekend(stretch.firstDayId()) ||
+      !weekend_.isWeekend(stretch.firstDayId() - 1))
+    vChild->readyToConsume = true;
+  for (const auto& pD : stretch.pDays()) {
+    // if a weekend
+    if (weekend_.isWeekend(pD)) {
+      // check if included on this day and
+      // if weekend has not been already counted
+      if (vChild->readyToConsume && pAShift_->includes(**itShift)) {
+        vChild->consumption++;
+        vChild->readyToConsume = false;
+      }
+      // reset weekend flag
+      if (weekend_.isLastWeekendDay(pD)) {
+        // if there has been a consumption -> do no reset
+        if (vChild->readyToConsume) {
+          if (!processReset(vChild)) break;
+          vChild->consumption = 0;
+        }
+        vChild->readyToConsume = true;
+      }
+    }
+    itShift++;
+  }
+}
+
+void ConsWeekend::computeConsumptionBack(
+    const Stretch &stretch,
+    ResourceValues *vChild,
+    const std::function<bool(ResourceValues*)>& processReset) const {
+  // go through the days of the stretch and count the weekends that have not
+  // been counted yet
+  // reset weekend flag
+  if (!weekend_.isWeekend(stretch.lastDayId()) ||
+      !weekend_.isWeekend(stretch.lastDayId() + 1))
+    vChild->readyToConsume = true;
+  auto itShift = stretch.pShifts().end();
+  auto itDay = stretch.pDays().end();
+  while (itDay != stretch.pDays().begin()) {
+    itDay--; itShift--;
+    // if a weekend
+    if (weekend_.isWeekend(*itDay)) {
+      // check if included on this day and
+      // if weekend has not been already counted
+      if (vChild->readyToConsume && pAShift_->includes(**itShift)) {
+        vChild->consumption++;
+        vChild->readyToConsume = false;
+      }
+      // reset weekend flag
+      if (weekend_.isFirstWeekendDay(*itDay)) {
+        // if there has been a consumption -> do no reset
+        if (vChild->readyToConsume) {
+          if (!processReset(vChild)) break;
+          vChild->consumption = 0;
+        }
+        vChild->readyToConsume = true;
+      }
+    }
+  }
+}
 
 template<typename E, typename R>
 shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const Stretch &stretch,
                            const PRCArc &pArc,
                            const R &r,
-                           const std::function<double(int)> &getCost) {
+                           const std::function<double(int)> &getCost,
+                           const int indResource) {
   // check if expander is active
   std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
-  if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
-    return nullptr;
-
-  // we need to count the number of times the considered shift appears in
-  // the arc's stretch on a weekend
-  bool reset = false;
-  int consBeforeReset = 0;
-  int consAfterReset = 0;
-  double cost = 0;
-
-  // Look at consecutive shifts before reset (a different shift)
-  auto itShift = stretch.pShifts().begin();
-  int day = firstLastDays.first;
-  bool weekendCounted =
-      Tools::isWeekend(day-1) && r.pShift()->includes(prevAShift);
-  for (; itShift != stretch.pShifts().end(); itShift++, day++) {
-    if (Tools::isWeekend(day)) {
-      // on a weekend and same shift not counted -> increment consAfterReset
-      if (r.pShift()->includes(**itShift) && !weekendCounted) {
-          consBeforeReset++;
-          weekendCounted = true;
-      }
-      if (Tools::isLastWeekendDay(day)) {
-        // On last weekend day check if some bounds should be checked
-        if (!weekendCounted) {
-          // different shifts during whole weekend
-          reset = true;
-          break;
-        } else {
-          // reset flag
-          weekendCounted = false;
-        }
-      }
-    }
-  }
-
-  // if already exceeding UB
-  if (consBeforeReset > r.getUb()) {
-    // either infeasible
-    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
-    // if feasible -> pay immediately the current excess
-    cost += getCost(consBeforeReset);
-    consBeforeReset =  r.getUb();
-  }
-
-  // then compute the penalty due to consecutive shifts inside the stretch
-  // (should be a monday)
-  weekendCounted = false;
-  for (; itShift != stretch.pShifts().end(); itShift++, day++) {
-    if (Tools::isWeekend(day)) {
-      // on a weekend and same shift not counted -> increment consAfterReset
-      if (r.pShift()->includes(**itShift) && !weekendCounted) {
-          consAfterReset++;
-          weekendCounted = true;
-      }
-      if (Tools::isLastWeekendDay(day)) {
-        // On last weekend day check if some bounds should be checked
-        // if different shifts during whole weekend
-        if (!weekendCounted) {
-          if (consAfterReset == 0) continue;
-          if (consAfterReset < r.getLb() || consAfterReset > r.getUb()) {
-            if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
-            cost += getCost(consAfterReset);
-          }
-          consAfterReset = 0;
-        } else {
-          // reset flag
-          weekendCounted = false;
-        }
-      }
-    }
-  }
-
-  // if nothing before and after reset and no reset (price previous consumption)
-  // -> initialize nothing
-  if (consBeforeReset == 0 && consAfterReset == 0 && !reset)
+  if (!stretch.nWeekends(r.weekend()))
     return nullptr;
 
   // Computing the number of weekends after the last day of the stretch
-  int start = firstLastDays.second+1, end = r.totalNbDays()-1;
-  int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
-  // check if we need to remove current weekend
-  if (Tools::isWeekendDayButNotLastOne(firstLastDays.second))
-    if (r.pShift()->includes(*stretch.pShifts().back()))
-      --nWeekendsAfter;
+  int start = firstLastDays.second + 1,
+      end = r.firstDayId() + r.totalNbDays() - 1;
+  int nWeekendsAfter = r.weekend().nWeekendsInInterval(start, end);
 
-  if (r.isCyclic() && nWeekendsAfter == 0)
-    consAfterReset += consBeforeReset;
+  // Computing the number of weekends before the first day of the stretch
+  start = r.firstDayId(), end = firstLastDays.first - 1;
+  int nWeekendsBefore = r.weekend().nWeekendsInInterval(start, end);
 
-  if (consAfterReset > r.getUb()) {
-    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
-    cost += getCost(consAfterReset);
-    consAfterReset = r.getUb();
-  }
-
-  // add cost to base cost of the arc (cost != 0 if resource is soft
-  pArc->addBaseCost(cost);
-
-  // if the stretch ends with the considered, we get a non-zero number of
-  // consecutive shifts after replenishment
   return std::make_shared<E>(
-      r, false, reset, consBeforeReset, consAfterReset,
-      r.isCyclic(), false, nWeekendsAfter);
+      indResource, r, stretch, r.isCyclic(), nWeekendsBefore, nWeekendsAfter);
 }
 
 int SoftConsWeekendShiftResource::getConsumption(
     const State & initialState) const {
-  if (pShift_->isAnyWork())
+  if (pAShift_->isAnyWork())
     return std::min(ub_, initialState.consWeekendWorked_);
-  if (pShift_->isRest())
+  if (pAShift_->isRest())
     return std::min(ub_, initialState.consWeekendOff_);
   return 0;
 }
 
 PExpander SoftConsWeekendShiftResource::init(const AbstractShift &prevAShift,
                                              const Stretch &stretch,
-                                             const PRCArc &pArc) {
+                                             const shared_ptr<RCArc> &pArc,
+                                             int indResource) {
   return initExpander<SoftConsWeekendShiftExpander,
                       SoftConsWeekendShiftResource>(
       prevAShift, stretch, pArc, *this, [this](int c) {
-    return this->getCost(c);
-  });
+        return this->getCost(c);
+      }, indResource);
+}
+
+bool SoftConsWeekendShiftResource::merge(
+    const ResourceValues &vForward,
+    const ResourceValues &vBack,
+    ResourceValues *vMerged,
+    const PRCLabel &pLMerged) {
+  vMerged->consumption = vForward.consumption + vBack.consumption;
+  // if both not consuming
+  if (vMerged->consumption == 0)
+    return true;
+
+  // behave differently if merging on a weekend
+  bool mergeOnWeekend =
+      weekend().isWeekendDayButNotLastOne(pLMerged->getNode()->dayId);
+
+  // if merging on a weekend, remove one weekend if already counted twice
+  if (mergeOnWeekend && !vForward.readyToConsume && !vBack.readyToConsume)
+    --vMerged->consumption;
+
+  pLMerged->addBaseCost(getCost(vMerged->consumption));
+  return true;
 }
 
 bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
                                           ResourceValues *vChild) {
   // consumption before resetting resource if any reset
-  vChild->consumption += consBeforeReset;
+  resource_.computeConsumption(
+      stretch_, vChild,
+      [pLChild, this](ResourceValues *vChild) {
+        if (vChild->consumption > 0) {
+          // initialize cyclicConsumption on the first reset
+          if (vChild->cyclicConsumption == -1)
+            vChild->cyclicConsumption = vChild->consumption;
+          // pay the cost on the bounds
+          pLChild->addBaseCost(resource_.getCost(vChild->consumption));
+#ifdef DBG
+          pLChild->addConsWeekendShiftCost(
+              resource_.getCost(vChild->consumption));
+#endif
+        }
+        return true;
+      });
 
   // if cyclic, add the initial consumption when close to the end
-  if (cyclic && nWeekendsAfter == 0 && !reset && vChild->cyclicConsumption > 0)
+  if (cyclic && nWeekendsAfter == 0 && vChild->cyclicConsumption > 0)
     vChild->consumption += vChild->cyclicConsumption;
 
   // pay for excess of consumption due to this expansion
   // pay attention that consumptions in the label of the source should not
   // exceed the upper bounds
   if (vChild->consumption > resource_.getUb()) {
-    pLChild->addBaseCost(
-        resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
+    pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
 #ifdef DBG
-    pLChild->addConsWeekendShiftCost(
-        resource_.getUbCost() * (vChild->consumption - resource_.getUb()));
+    pLChild->addConsWeekendShiftCost(resource_.getUbCost(vChild->consumption));
 #endif
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
   }
 
-  // if not resetting counter, set worst case and return
-  if (!reset) {
-    // Setting 'worst case cost'
-    vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
-    vChild->worstUbCost =
-        resource_.getWorstUbCost(vChild->consumption, nWeekendsAfter);
-    if (cyclic && vChild->cyclicConsumption > 0)
-      vChild->worstUbCost += resource_.getUbCost() * vChild->cyclicConsumption;
-    return true;
-  }
-
-  // if cyclic, add the initial consumption when close to the end
-  if (cyclic && nWeekendsAfter == 0 && vChild->cyclicConsumption > 0)
-    vChild->consumption += vChild->cyclicConsumption;
-
-  // pay for violations of soft bounds when resetting a resource
-  // Should check if the resource has been consumed on last weekend
-  if (vChild->consumption  > 0) {
+  // check if lower than LB at the end
+  if (vChild->consumption < resource_.getLb() && vChild->consumption >= 1 &&
+      nWeekendsAfter == 0 && resource_.lastDayEndsSequence()) {
+    // pay cost on lb
+    // pay for violations of soft bounds when at the end of horizon in INRC
     pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
 #ifdef DBG
-    pLChild->addConsWeekendShiftCost(resource_.getLbCost(vChild->consumption));
+    pLChild->addConsWeekendShiftCost(
+        resource_.getLbCost(vChild->consumption));
 #endif
   }
 
-  // initialize cyclicConsumption on the first reset
-  if (vChild->cyclicConsumption == -1)
-    vChild->cyclicConsumption = vChild->consumption;
-
-  // set new consumption to what is consumed after resetting
-  vChild->consumption = consAfterReset;
-  // compute worst case costs only if resource is consumed after reset
-  // otherwise do nothing (use default value)
-  if (consAfterReset) {
-    // Setting 'worst case cost'
-    vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
-    vChild->worstUbCost =
-        resource_.getWorstUbCost(vChild->consumption, nWeekendsAfter);
-    if (cyclic && vChild->cyclicConsumption > 0)
-      vChild->worstUbCost += resource_.getUbCost() * vChild->cyclicConsumption;
-  } else {
-    vChild->worstLbCost = .0;
-    vChild->worstUbCost = .0;
-  }
+//  // if has consumed, set worst case and return
+//  if (vChild->consumption > 0) {
+  // Setting 'worst case cost'
+  // WARNING: even a consumption of 0 could be dominated in the future
+  vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
+  // add -1 to the number of weekends if currently in a weekend
+  // that still has already been counted
+  int nAfter = nWeekendsAfter - !vChild->readyToConsume;
+  if (cyclic && vChild->cyclicConsumption > 0)
+    nAfter += vChild->cyclicConsumption;
+  vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption, nAfter);
+//  if (cyclic && vChild->cyclicConsumption > 0)
+//    vChild->worstUbCost += resource_.getUbCost(vChild->cyclicConsumption);
+//  } else {
+//    // set worst case costs to 0 as no consumption (has reset)
+//    vChild->worstLbCost = .0;
+//    vChild->worstUbCost = .0;
+//  }
 
   return true;
 }
 
 bool SoftConsWeekendShiftExpander::expandBack(const PRCLabel &pLChild,
                                               ResourceValues *vChild) {
-  Tools::throwError("Not implemented.");
-  return false;
+  // consumption before resetting resource if any reset
+  resource_.computeConsumptionBack(
+      stretch_, vChild,
+      [pLChild, this](ResourceValues *vChild) {
+        if (vChild->consumption > 0) {
+          // initialize cyclicConsumption on the first reset
+          if (vChild->cyclicConsumption == -1)
+            vChild->cyclicConsumption = vChild->consumption;
+          // pay the cost on the bounds
+          pLChild->addBaseCost(resource_.getCost(vChild->consumption));
+#ifdef DBG
+          pLChild->addConsWeekendShiftCost(
+              resource_.getCost(vChild->consumption));
+#endif
+        }
+        return true;
+      });
+
+  // if cyclic, add the initial consumption when close to the end
+  if (cyclic && nWeekendsBefore == 0 && vChild->cyclicConsumption > 0)
+    Tools::throwError("SoftConsWeekendShiftExpander::expandBack() "
+                      "not implemented when cyclic enabled.");
+//    vChild->consumption += vChild->cyclicConsumption;
+
+  // pay for excess of consumption due to this expansion
+  // pay attention that consumptions in the label of the source should not
+  // exceed the upper bounds
+  if (vChild->consumption > resource_.getUb()) {
+    pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
+#ifdef DBG
+    pLChild->addConsWeekendShiftCost(resource_.getUbCost(vChild->consumption));
+#endif
+    // beware: we never need to store a consumption larger than the upper bound
+    vChild->consumption = resource_.getUb();
+  }
+
+  // check if lower than LB at the end
+  // should never happen
+//  if (vChild->consumption < resource_.getLb() && vChild->consumption >= 1 &&
+//      nWeekendsBefore == 0 && resource_.lastDayEndsSequence()) {
+//    // pay cost on lb
+//    // pay for violations of soft bounds when at the end of horizon in INRC
+//    pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
+// #ifdef DBG
+//    pLChild->addConsWeekendShiftCost(
+//        resource_.getLbCost(vChild->consumption));
+// #endif
+//  }
+
+//  // if has consumed, set worst case and return
+//  if (vChild->consumption > 0) {
+  // Setting 'worst case cost'
+  // WARNING: even a consumption of 0 could be dominated in the future
+  vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
+  // add -1 to the number of weekends if currently in a weekend
+  // that still has already been counted
+  int nBefore = nWeekendsBefore - !vChild->readyToConsume;
+  if (cyclic && vChild->cyclicConsumption > 0)
+    nBefore += vChild->cyclicConsumption;
+  vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption, nBefore);
+//  if (cyclic && vChild->cyclicConsumption > 0)
+//    vChild->worstUbCost += resource_.getUbCost(vChild->cyclicConsumption);
+//  } else {
+//    // set worst case costs to 0 as no consumption (has reset)
+//    vChild->worstLbCost = .0;
+//    vChild->worstUbCost = .0;
+//  }
+
+  return true;
 }
 
 int HardConsWeekendShiftResource::getConsumption(
     const State & initialState) const {
-  if (pShift_->isAnyWork())
+  if (pAShift_->isAnyWork())
     return initialState.consWeekendWorked_;
-  if (pShift_->isRest())
+  if (pAShift_->isRest())
     return initialState.consWeekendOff_;
   return 0;
 }
 
 PExpander HardConsWeekendShiftResource::init(const AbstractShift &prevAShift,
                                              const Stretch &stretch,
-                                             const PRCArc &pArc) {
+                                             const shared_ptr<RCArc> &pArc,
+                                             int indResource) {
   return initExpander<HardConsWeekendShiftExpander,
                       HardConsWeekendShiftResource>(
-      prevAShift, stretch, pArc, *this, nullptr);
+      prevAShift, stretch, pArc, *this, nullptr, indResource);
 }
 
 bool HardConsWeekendShiftResource::dominates(
-    const PRCLabel &pL1, const PRCLabel &pL2, double *cost) {
+    const PRCLabel &pL1, const PRCLabel &pL2, double *cost) const {
   if (!cyclic_) return BoundedResource::dominates(pL1, pL2, cost);
   const auto &v1 = pL1->getResourceValues(id_),
       &v2 = pL2->getResourceValues(id_);
@@ -254,41 +325,40 @@ bool HardConsWeekendShiftResource::dominates(
 bool HardConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
                                           ResourceValues *vChild) {
   // consumption before resetting resource if any reset
-  vChild->consumption += consBeforeReset;
+  resource_.computeConsumption(
+      stretch_, vChild,
+      [pLChild, this](ResourceValues *vChild) {
+        if (vChild->consumption > 0) {
+          // initialize cyclicConsumption on the first reset
+          if (vChild->cyclicConsumption == -1)
+            vChild->cyclicConsumption = vChild->consumption;
+          // check the bounds
+          if (vChild->consumption < resource_.getLb() ||
+              vChild->consumption > resource_.getUb())
+            return false;
+        }
+        return true;
+      });
 
   // if cyclic, add the initial consumption when close to the end
-  if (cyclic && nWeekendsAfter == 0 && !reset && vChild->cyclicConsumption > 0)
+  if (cyclic && nWeekendsAfter == 0 && vChild->cyclicConsumption > 0)
     vChild->consumption += vChild->cyclicConsumption;
 
-  // detect infeasibility due to upper bound
+  // infeasible as it has exceeded the upper bounds
   if (vChild->consumption > resource_.getUb())
     return false;
 
-  // if resetting counter
-  if (reset) {
-    // initialize cyclicConsumption on the first reset
-    if (vChild->cyclicConsumption == -1)
-      vChild->cyclicConsumption = vChild->consumption;
-    // expansion is infeasible if consumption lower than bound at reset
-    if (vChild->consumption  > 0 && vChild->consumption < resource_.getLb())
+  // check if a reset or if lower than LB at the end
+  if (vChild->consumption < resource_.getLb() && vChild->consumption >= 1)
+    if ((nWeekendsAfter == 0 && resource_.lastDayEndsSequence()))
       return false;
-    // set new consumption to what is consumed after resetting
-    vChild->consumption = consAfterReset;
-  }
-
-  // if cyclic, add the initial consumption when close to the end
-  if (cyclic && nWeekendsAfter == 0 && vChild->cyclicConsumption > 0) {
-    vChild->consumption += vChild->cyclicConsumption;
-    // detect infeasibility due to upper bound
-    if (vChild->consumption > resource_.getUb())
-      return false;
-  }
 
   return true;
 }
 
 bool HardConsWeekendShiftExpander::expandBack(const PRCLabel &pLChild,
                                               ResourceValues *vChild) {
-  Tools::throwError("Not implemented.");
+  Tools::throwError(
+      "HardConsWeekendShiftExpander::expandBack() not implemented.");
   return false;
 }

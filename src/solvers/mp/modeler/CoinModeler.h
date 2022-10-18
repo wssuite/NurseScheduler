@@ -60,11 +60,11 @@ struct CoinVar : public MyVar {
           VarType type,
           double lb,
           double ub,
-          const std::vector<double> &pattern = {},
+          const std::vector<double> &column = {},
           double dualCost = 99999,
           const std::vector<int> &indexRows = {},
           const std::vector<double> &coeffs = {}) :
-      MyVar(name, index, cost, type, lb, ub, pattern),
+      MyVar(name, index, cost, type, lb, ub, column),
       dualCost_(dualCost),
       indexRows_(indexRows),
       coeffs_(coeffs) {}
@@ -103,6 +103,8 @@ struct CoinVar : public MyVar {
 
   double getCoeffRow(int i) const { return coeffs_[i]; }
 
+  double getDualCost() const { return dualCost_; }
+
  protected:
   double dualCost_;  // dualCost of the variable
   // index of the rows of the matrix where the variable has non-zero coefficient
@@ -118,8 +120,7 @@ static const std::map<VarType, char> typesToCoin = {
 
 class CoinModeler : public Modeler {
  public:
-  CoinModeler() :
-      Modeler() {}
+  CoinModeler() : Modeler() { infinity_ = COIN_DBL_MAX; }
   virtual ~CoinModeler() {}
 
   /*
@@ -298,6 +299,10 @@ static OsiSolverInterface * getNewSolver(SolverType type) {
       return pSolver;
     }
 #endif
+    case FirstAvailable: {
+      SolverType type2 = getFirstSolverTypeAvailable();
+      return getNewSolver(type2);
+    }
     default: break;
   }
   return nullptr;

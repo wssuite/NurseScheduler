@@ -33,91 +33,53 @@ typedef struct { int shift; int skill; } task;
 //
 //  C l a s s   R o s t e r
 //
-//  Schedule of a single nurse
+//  Schedule of a single nurse : it's a stretch with some skills
 //
 //-----------------------------------------------------------------------------
-
-class Roster {
+class Roster : public Stretch {
  public:
   // Default constructor
-  //
-  Roster() : nbDays_(0), firstDay_(0) {}
-
-  // Constructor form no particular planning
-  //
-  Roster(int nbDays, int firstDay, const PShift &pSDefault);
-
-  // Constructor: initialize planning from an input set of shifts for the nurse
-  //
-  Roster(int nbDays, int firstDay, const std::vector<PShift> &shifts);
+  Roster() : Stretch() {}
 
   // Constructor: initialize planning from an input set of shifts and skills
-  //
-  Roster(int nbDays,
-         int firstDay,
-         const std::vector<PShift> &shifts,
+  Roster(int firstDay,
+         std::vector<PShift> shifts,
          const std::vector<int> &skills);
 
   // Destructor
   ~Roster();
 
  private:
-  // number of days in the roster and index of the first day
-  //
-  int nbDays_, firstDay_;
-
-  // pointer to the scenario, the nurse under consideration and her wishes in
-  // terms of days off
-  // (the key of the map is the day and the value is the set of wishes)
-  //
-  PScenario pScenario_;
-
-  // vector containing for each day the shift assigned to the nurse
-  // the vector contains exactly one element per day
-  // the shift 0 corresponds to a rest
-  //
-  std::vector<PShift> pShifts_;
-
   // vector containing for each day the shift assigned to the nurse
   // the vector contains exactly one element per day
   // if the nurse is resting, the skill has no importance
-  //
   std::vector<int> skills_;
 
  public:
   // Basic getters
-  int firstDay() const { return firstDay_; }
-  int nbDays() const { return nbDays_; }
-  const PShift & pShift(int day) const { return pShifts_[day]; }
-  const vector<PShift> & pShifts() const { return pShifts_; }
   int skill(int day) const { return skills_[day]; }
   const vector<int> &skills() const { return skills_; }
 
-  // initialize the roster
-  //
-  void init(
-      int nbDays, int firstDay, const PShift &pSDefault, int shiftDefault = 0);
+  // re-initialize the roster
+  void init(int firstDay, int nDays,
+            const PShift &pSDefault, int skillDefault = 0);
 
-  // re-inialize the roster
-  //
-  void reset(const PShift &pSDefault);
-
-  // get a vector of consecutive states that will result from applying the
-  // the roster from a given initial state
-  //
-  std::vector<State> getStates(const State &pStateIni, PScenario pScenario);
+  // clear the shifts and skills and fill it with these default values
+  void reset(const PShift &pSDefault, int skillDefault = 0);
 
   // assign a task at on a given day
-  //
   void assignTask(int day, const PShift &pS, int skill = 0);
 
   // add a roster at the end of the roster
-  //
-  void push_back(const Roster &roster);
+  void pushBack(const Roster &roster);
 
   // copy the input roster
-  //
   void copy(const Roster &roster);
+
+  // get a vector of consecutive states that will result from applying the
+  // the roster from a given initial state
+  std::vector<State> getStates(
+      const State &pStateIni, const PScenario &pScenario);
 };
 
 #endif  // SRC_DATA_ROSTER_H_

@@ -47,7 +47,7 @@ void PrincipalGraph::build() {
     vector<int> vec;
     // For each level of network
     for (int cons = 0; cons <= max_cons_; cons++)
-      vec.emplace_back(pSP_->addSingleNode(PRINCIPAL_NETWORK));
+      vec.push_back(pSP_->addSingleNode(PRINCIPAL_NETWORK));
     principalNetworkNodes_.push_back(vec);
   }
 
@@ -130,7 +130,7 @@ std::vector<int> PrincipalGraph::getConsumption(int day, int shift) const {
 
   // otherwise work => consume one resource of each if needed
   int t = pSP_->scenario()->duration(shift);
-  return {1, t, Tools::isSaturday(day)};
+  return {1, t, pSP_->pLiveNurse()->pContract()->isFirstWeekendDay(day)};
 }
 
 // check if feasible to link this arc at this level
@@ -143,8 +143,8 @@ bool PrincipalGraph::checkFeasibilityEntranceArc(
   // find which level should be reached
   int sh = -1, n = 0;
   if (arc_prop.day == 0) {
-    sh = pSP_->liveNurse()->pStateIni_->pShift_->type;
-    n = pSP_->liveNurse()->pStateIni_->consShifts_;
+    sh = pSP_->pLiveNurse()->pStateIni_->pShift_->type;
+    n = pSP_->pLiveNurse()->pStateIni_->consShifts_;
     if (arc_prop.pShifts.empty()) {
       std::cerr << "Arc must contain at least a shift when starting the first "
                    "to take into account the historical state." << std::endl;

@@ -19,99 +19,6 @@
 
 #include "solvers/Solver.h"
 
-enum RankingStrategy { RK_MEAN, RK_SCORE, RK_NONE };
-
-class StochasticSolverOptions {
- public:
-  StochasticSolverOptions() {
-    SolverParam gp;
-    generationParameters_ = gp;
-    generationParameters_.weightStrategy_ = RANDOMMEANMAX;
-
-    SolverParam ep;
-    evaluationParameters_ = ep;
-    evaluationParameters_.stopAfterXSolution_ = 0;
-    evaluationParameters_.weightStrategy_ = BOUNDRATIO;
-  }
-
-  ~StochasticSolverOptions() {}
-
-  // True -> generate several schedules and chose the "best" one
-  // (according to ranking strategy)
-  // False -> generate only one schedule
-  bool withEvaluation_ = true;
-
-  // True -> generate schedules from random demands of increasing size
-  // (1 week more each time). Keep the last one.
-  // WARNING: Does not work if withEvaluation_=true
-  bool withIterativeDemandIncrease_ = false;
-
-  // True -> Perturb the costs when generating the schedules
-  // The type of perturbation is set in generationParameters_ (weightStrategy_)
-  bool generationCostPerturbation_ = true;
-
-  // True -> When generating a second, third, etc. schedule,
-  // warm-start with previously generated columns
-  // WARNING: should remain false
-  // (if true, no diversity in the generated schedules)
-  bool withResolveForGeneration_ = false;
-
-  // True -> use the real demand for the nExtraDaysGenerationDemands_
-  // put the real demand in demandHistory_[0]
-  bool withRealDemand_ = false;
-
-  Algorithm generationAlgorithm_ = GENCOL;
-
-  // cf. generation
-  // withResolve is useful here, particularly when evaluating
-  // with LP lowest bound
-  bool evaluationCostPerturbation_ = true;
-  bool withResolveForEvaluation_ = true;
-  Algorithm evaluationAlgorithm_ = GENCOL;
-
-  // Choice of ranking strategy:
-  // RK_SCORE: same ranking as for the competition
-  // RK_MEAN: keep the schedule with minimum expected cost over
-  // the generated evaluation demands
-  RankingStrategy rankingStrategy_ = RK_SCORE;
-  bool demandingEvaluation_ = true;
-  int totalTimeLimitSeconds_ = LARGE_TIME;
-
-  // Number of evaluation demands generated
-  // WARNING: if =0 and withEvaluation_=true, ranks the schedules according to
-  // their baseCost (i.e. the "real" cost of the 1-week schedule
-  // [without min/max costs])
-  int nEvaluationDemands_ = 2;
-  int nExtraDaysGenerationDemands_ = 7;
-  int nDaysEvaluation_ = 14;
-  int nGenerationDemandsMax_ = 100;
-
-  std::string logfile_ = "";
-
-  SolverParam generationParameters_;
-  SolverParam evaluationParameters_;
-
-  int verbose_ = 0;
-};
-
-// Set the options of the stochastic solver
-// The solution time depends on the number of nurses
-void setStochasticSolverOptions(
-    StochasticSolverOptions *options,
-    PScenario pScenario,
-    std::string solPath,
-    std::string logPathIni,
-    double timeout = 10000);
-
-void setStochasticSolverOptions(
-    StochasticSolverOptions *stochasticSolverOptions,
-    std::string instanceName,
-    std::string solPath,
-    std::string logPathIni,
-    std::string stochasticOptionsFile,
-    std::string generationOptionsFile,
-    std::string evaluationOptionsFile);
-
 //-----------------------------------------------------------------------------
 //
 //  C l a s s   S t o c h a s t i c S o l v e r
@@ -139,15 +46,13 @@ class StochasticSolver : public Solver {
   //----------------------------------------------------------------------------
 
   // Main function
-  double solve(const std::vector<Roster> &initialSolution = {});
+  double solve(const std::vector<Roster> &initialSolution = {}) override;
 
   // get the number of generated schedules
   //
   int getNbSchedules() { return schedules_.size(); }
 
  protected:
-  void init();
-
   // Options that characterize the execution of the stochastic solver
   StochasticSolverOptions options_;
 

@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "data/Nurse.h"
 #include "data/Scenario.h"
 #include "data/Shift.h"
 #include "tools/Tools.h"
@@ -29,6 +30,51 @@ using std::shared_ptr;
 using std::unique_ptr;
 using std::vector;
 
+
+// Allow to break down the total cost into smaller pieces.
+// It is mainly used for:
+// - Classifying the cost type of a resource or a variable
+// - Retrieving the part of the total cost related to this type
+enum CostType {
+  // parts of the cost depending on a rotation, i.e. the sum of:
+  // CONS_SHIFTS_COST, CONS_WORK_COST, IDENT_WEEKEND_COST, PREFERENCE_COST
+  NO_COST,  // for hard constraint if necessary
+  ANY_COST,
+  CONS_SHIFTS_COST,  // consecutive shifts constraint
+  CONS_WEEKEND_SHIFTS_COST,  // consecutive weekend shifts constraint
+  CONS_WORK_COST,  // consecutive worked shifts constraint
+  IDENT_WEEKEND_COST,  // cost of not working a complete weekend
+  FORBIDDEN_PATTERN_COST,
+  PREFERENCE_COST,  // cost of not respecting nurses' preferences
+  ALTERNATIVE_COST,  // cost of using an alternative skill or shift
+  REST_AFTER_SHIFT_COST,
+  CONS_REST_COST,  // consecutive rest shifts constraint
+  TOTAL_WORK_COST,  // total shifts' duration
+  TOTAL_WEEKEND_COST  // total worked weekends
+};
+
+static const std::map<std::string, CostType> costTypesByName = {
+    {"CONS_SHIFTS_COST", CONS_SHIFTS_COST},
+    {"CONS_WORK_COST", CONS_WORK_COST},
+    {"CONS_REST_COST", CONS_REST_COST},
+    {"CONS_WEEKEND_SHIFTS_COST", CONS_WEEKEND_SHIFTS_COST},
+    {"IDENT_WEEKEND_COST", IDENT_WEEKEND_COST},
+    {"FORBIDDEN_PATTERN_COST", FORBIDDEN_PATTERN_COST},
+    {"PREFERENCE_COST", PREFERENCE_COST},
+    {"ALTERNATIVE_COST", ALTERNATIVE_COST},
+    {"REST_AFTER_SHIFT_COST", REST_AFTER_SHIFT_COST},
+    {"TOTAL_WORK_COST", TOTAL_WORK_COST},
+    {"TOTAL_WEEKEND_COST", TOTAL_WEEKEND_COST},
+    {"ANY_COST", ANY_COST},
+    {"NO_COST", NO_COST}
+};
+
+static const std::map<CostType, std::string> namesByCostType =
+    Tools::buildNamesByType(costTypesByName);
+
+static const std::map<CostType, std::string> prettyNamesByCostType =
+    Tools::buildPrettyNamesByType(costTypesByName);
+
 /** Class describing one label used in the label setting algorithm of the
  * subproblem
 *
@@ -36,17 +82,25 @@ using std::vector;
 class Resource;
 typedef shared_ptr<Resource> PResource;
 
-struct RCNode;
-struct RCArc;
+class RCGraph;
+typedef shared_ptr<RCGraph> PRCGraph;
 
+struct RCNode;
+typedef shared_ptr<RCNode> PRCNode;
+
+struct RCArc;
+typedef shared_ptr<RCArc> PRCArc;
 
 struct ResourceValues {
   int consumption = 0;  // consumption of the resource
   int cyclicConsumption = -1;  // consumption at the beginning of the cycle
   bool readyToConsume = true;  // can be set to false if consumption must
-  // be prevented on next arc (e.g. for worked week-end counts)
+  // be prevented on next arc (e.g. for worked weekend counts)
   double worstLbCost = .0;  // worst costs due to soft lower bound
   double worstUbCost = .0;  // worst costs due to soft upper bounds
+  vector<int> states = {};  // for resources such as Forbidden patterns,
+  // there can be multiple states for the same label, e.g., if a day-shift
+  // appears several time in the pattern
 
   void clear() {
     consumption = 0;
@@ -67,7 +121,7 @@ class RCLabelFactory;
 
 class RCLabel {
  private:
-  void setNumLabel(int idLabel) {
+  void num(int idLabel) {
     num_ = idLabel;
   }
 
@@ -76,10 +130,12 @@ class RCLabel {
  public:
   RCLabel();
   explicit RCLabel(int nResources);
-  RCLabel(const vector<shared_ptr<Resource>> &resources,
+  explicit RCLabel(const vector<PResource> &resources);
+  RCLabel(const vector<PResource> &resources,
           const State &initialState);
   RCLabel(const RCLabel &l);
 
+  ~RCLabel() = default;
   void copy(const RCLabel& l);
 
   // only copy the costs and the resource values
@@ -89,13 +145,6 @@ class RCLabel {
 
   void addCost(double c) { cost_ += c; }
 
-  double baseCost() const { return baseCost_; }
-
-  void addBaseCost(double c) {
-    baseCost_ += c;
-    cost_ += c;
-  }
-
   void setAsNext(const shared_ptr<RCLabel> &pLPrevious,
                  const shared_ptr<RCArc> &pArc);
   void setAsPrevious(const shared_ptr<RCLabel> &pLNext,
@@ -103,12 +152,20 @@ class RCLabel {
   void setAsMerged(const shared_ptr<RCLabel> &pLForward,
                    const shared_ptr<RCLabel> &pLBackward);
 
+  double baseCost() const { return baseCost_; }
+
+  void addBaseCost(double c) {
+    addCost(c);
+    baseCost_ += c;
+  }
+
 #ifdef DBG
   double dualCost() const { return dualCost_; }
-  double consShiftCost() const { return consShiftCost_; }
-  double consWeekendShiftCost() const { return consWeekendShiftCost_; }
-  double totalShiftCost() const { return totalShiftCost_; }
-  double totalWeekendCost() const { return totalWeekendCost_; }
+
+  void addDualCost(double c) {
+    dualCost_ += c;
+  }
+
   void addConsShiftCost(double c) {
     consShiftCost_ += c;
   }
@@ -121,16 +178,14 @@ class RCLabel {
   void addTotalWeekendCost(double c) {
     totalWeekendCost_ += c;
   }
-  void addDualCost(double c) {
-    dualCost_ += c;
+
+  void addPreferencesCost(double c) {
+    preferencesCost_ += c;
   }
 #endif
 
   int getConsumption(int r) const {
     return resourceValues_[r].consumption;
-  }
-  int getReadyToConsume(int r) const {
-    return resourceValues_[r].readyToConsume;
   }
   double getWorstLbCost(int r) const {
     return resourceValues_[r].worstLbCost;
@@ -142,35 +197,32 @@ class RCLabel {
     return resourceValues_[r];
   }
 
-  void setResourceValues(vector<ResourceValues> resourceValues) {
-    resourceValues_ = move(resourceValues);
-  }
-
   vector<ResourceValues> allResourceValues() {
     return resourceValues_;
   }
 
-  int nResources() const { return resourceValues_.size(); }
+  size_t nResources() const { return resourceValues_.size(); }
 
   RCNode* getNode() const { return pNode_; }
-  void setNode(shared_ptr<RCNode> pN) {  pNode_ = pN.get(); }
+  void setNode(const shared_ptr<RCNode> &pN) {  pNode_ = pN.get(); }
 
   shared_ptr<RCArc> getInArc() const { return pInArc_; }
   shared_ptr<RCArc> getOutArc() const { return pOutArc_; }
-
   shared_ptr<RCLabel> getPreviousLabel() const {return pPreviousLabel_;}
-  void setPreviousLabel(shared_ptr<RCLabel> pL) {
-    pPreviousLabel_ = std::move(pL);
-  }
   shared_ptr<RCLabel> getNextLabel() const { return pNextLabel_; }
-  void setNextLabel(shared_ptr<RCLabel> pL) {pNextLabel_ = std::move(pL);}
 
   bool operator()(const shared_ptr<RCLabel> &pr1, const shared_ptr<RCLabel>
   &pr2) {
     return pr1->cost() < pr2->cost();
   }
 
+  // put in a string the label representation
   std::string toString(const vector<PResource> &pResources = {}) const;
+
+  // put in a string the whole chain of labels' representation
+  std::string toStringRecursive(const vector<PResource> &pResources = {}) const;
+
+  int num() const { return num_; }
 
  private:
   int num_;  // Id of the label
@@ -194,6 +246,7 @@ class RCLabel {
   double consWeekendShiftCost_;
   double totalShiftCost_;  // current cumulated cost due to total shifts
   double totalWeekendCost_;  // current cumulated cost due to worked weekends
+  double preferencesCost_;
 #endif
 };
 
@@ -213,9 +266,7 @@ class RCLabelFactory {
     return pL;
   }
 
-  void updateNumlabel(PRCLabel pL) {
-    pL->setNumLabel(numLabels_++);
-  }
+  void updateNumlabel(const PRCLabel& pL) { pL->num(numLabels_++); }
 
  private:
   int numLabels_;  // Total number of labels initialized by the factory
@@ -246,16 +297,85 @@ class LabelCostIncreasing{
   }
 };
 
-
 /**
- * Class used to compare two labels costs in order to sort by decreasing cost
- */
-class LabelCostDecreasing{
- public:
-  bool operator()(const PRCLabel &pr1, const PRCLabel
-  &pr2) {
-    return pr1->cost() > pr2->cost();
+*  Class RCSolution
+*  This class encodes a solution of the resource-constrained problem
+*/
+
+struct RCSolution : public Stretch {
+  explicit RCSolution(int firstDay = -1,
+                      std::vector<PShift> pShifts = {},
+                      double cost = DBL_MAX,
+                      double reducedCost = DBL_MAX) :
+      Stretch(firstDay, std::move(pShifts)),
+      cost_(cost),
+      reducedCost_(reducedCost) {}
+
+  explicit RCSolution(const Stretch& stretch,
+                      double cost = DBL_MAX,
+                      double reducedCost = DBL_MAX) :
+      Stretch(stretch),
+      cost_(cost),
+      reducedCost_(reducedCost) {}
+
+  RCSolution(const Stretch& stretch, const PRCLabel& pL) :
+      Stretch(stretch),
+      cost_(pL->baseCost()),
+      reducedCost_(pL->cost())
+#ifdef DBG
+      , pLabel_(pL)  // NOLINT
+#endif
+      {}
+
+  std::string toString() const override;
+
+  double cost() const { return cost_; }
+
+  double reducedCost() const { return reducedCost_; }
+
+  void addCost(double c, CostType t)  {
+    cost_ += c;
+    costs_[t] += c;
   }
+
+  double costByType(CostType t) const {
+    return costs_.at(t);
+  }
+
+  const std::map<CostType, double>& costs() const {
+    return costs_;
+  }
+
+  std::string costsToString() const;
+
+  void resetCosts() {
+    cost_ = 0;
+    costs_.clear();
+    for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
+      costs_[(CostType)t] = 0;
+  }
+
+  // Compare rotations on cost
+  static bool compareCost(const RCSolution &sol1, const RCSolution &sol2);
+
+  // Compare rotations on dual cost
+  static bool compareReducedCost(
+      const RCSolution &sol1, const RCSolution &sol2);
+
+  static void sort(std::vector<RCSolution> *solutions) {
+    std::stable_sort(solutions->begin(), solutions->end(),
+                     [](const RCSolution &sol1, const RCSolution &sol2) {
+                       return sol1.reducedCost() < sol2.reducedCost();
+                     });
+  }
+
+#ifdef DBG
+  PRCLabel pLabel_ = nullptr;
+#endif
+
+ protected:
+  double cost_, reducedCost_;
+  std::map<CostType, double> costs_;
 };
 
 /**
@@ -263,42 +383,33 @@ class LabelCostDecreasing{
  * through an arc
  */
 struct Expander {
-  explicit Expander(int rId, int consumption = 0):
-      resourceId(rId) {}
+  explicit Expander(int rId, CostType type):
+    indResource(rId), costType(type) {}
   virtual ~Expander() = default;
 
   // TODO(AL) : can we remove vChild as accessible from pLChild ?
   virtual bool expand(const PRCLabel &pLChild, ResourceValues *vChild) = 0;
   virtual bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) = 0;
 
-  const int resourceId;
+  // !! BEWARE THAT THE RESOURCE ID IS FOR THE SPECIFIC SUBPROBLEM WHERE THE
+  // EXPANDER BELONGS, IT CORRESPONDS TO THE POSITIONS OF THE RESOURCE IN THE
+  // VECTOR OF RESOURCES OF THE RCSPP GRAPH
+  const int indResource;
+  const CostType costType;
 };
 typedef shared_ptr<Expander> PExpander;
-
-/**
- * Default expander where no information is precomputed before the expansion
- * of labels. Here, the expander only contains the stretch of the arc and the
- * update of the resource consumption is entirely computed during the expansion
- */
-struct PlainExpander : public Expander {
-  explicit PlainExpander(int rId, const Stretch &stretch) :
-      Expander(rId), stretch(stretch) {}
-
-  const Stretch &getStretch() const { return stretch; }
-
-  const Stretch stretch;
-};
 
 /**  Base class that describes a resource of the RCGraph
 *
 */
-class Resource {
+class Resource : public BaseResource {
  public:
   explicit Resource(std::string _name = "", int id = -1) :
-      name(std::move(_name)), id_(-1) {}
+      name(std::move(_name)), id_(id) {
+    pFirstDay_ = std::make_shared<Day>(MONDAY, 0);
+  }
 
   virtual ~Resource() = default;
-
 
   void setId(int id) { id_ = id; }
 
@@ -306,11 +417,41 @@ class Resource {
 
   PExpander initialize(const AbstractShift &prevAShift,
                        const Stretch &stretch,
-                       const shared_ptr<RCArc> &pArc);
+                       const shared_ptr<RCArc> &pArc,
+                       int indResource);
+
+  // preprocess the input RCGraph to take the resource into consideration
+  virtual void preprocess(const PRCGraph &pRCGraph) {}
+  // preprocess the arc to take the resource into consideration
+  virtual bool preprocess(const PRCArc& pA, double *cost) { return 0; }
+
+  //------------------------------------------------
+  // Enumeration of sub paths
+  //------------------------------------------------
+  // This technique consists of getting rid of some resources by adding
+  // supplement arcs in the rcGraph. Typically, we can delete the resources
+  // corresponding to consecutive shifts types. Arcs with stretches
+  // containing several shifts are added to represent a sequence of
+  // successive shifts of the same type. To set up this technique, we have to
+  // add arcs representing the different possibilities of sequences of shifts
+  // types and we need to set the corresponding cost on these new arcs.  To
+  // set up this technique, we have to  add arcs representing the different
+  // possibilities of sequences of shifts types and we need to set the
+  // corresponding costs of these new arcs (base cost, dual cost and cost due
+  // to penalties on soft bounds for the number consecutive shifts types). Then,
+  // we need to update the cost of the existing arcs (those which existed
+  // before the enumeration process). We mainly add cost due to penalties on
+  // soft bounds for the number of consecutive shifts types (See Antoine’s
+  // internship report for more details).
+  virtual void enumerate(const PRCGraph &pRCGraph, bool forceEnum) {}
 
   virtual bool dominates(const PRCLabel &pL1,
                          const PRCLabel &pL2,
-                         double *cost = nullptr);
+                         double *cost) const;
+
+  bool dominates(const PRCLabel &pL1, const PRCLabel &pL2) const {
+    return dominates(pL1, pL2, nullptr);
+  }
 
   virtual bool merge(const ResourceValues &vForward,
                      const ResourceValues &vBack,
@@ -321,49 +462,63 @@ class Resource {
 
   virtual void useAltenativeDomination() { useDefaultDomination_ = false; }
 
-  virtual bool isActive(int dayId, const AbstractShift &aShift) const {
+  virtual bool isActive(int dayId, const PAbstractShift &pAShift) const {
     return true;
   }
 
   // return true, if to be considered as a hard constraint
-  virtual bool isHard() const = 0;
+  virtual bool isHard() const { return false; }
 
   virtual bool isAnyWorkShiftResource() const { return false; }
 
-  virtual int getConsumption(const State &initialState) const = 0;
+  virtual int getConsumption(const State &initialState) const { return 0; }
 
   int totalNbDays() const { return totalNbDays_; }
 
   void totalNbDays(int totalNbDays) { totalNbDays_ = totalNbDays; }
 
-  int firstDay() const { return firstDay_; }
+  int firstDayId() const { return pFirstDay_->id; }
 
-  void firstDay(int firstDay) { firstDay_ = firstDay; }
+  void firstDayId(int id) {
+    pFirstDay_ = pFirstDay_->addAndGet(id);
+  }
 
   std::pair<int, int> getFirstLastDays(const Stretch &stretch) const {
-    int firstDay = stretch.firstDay(), lastDay = stretch.lastDay();
+    int firstDay = stretch.firstDayId(), lastDay = stretch.lastDayId();
     // if solving a cyclic problem, the first/last could be before the first day
     // of the horizon
-    if (firstDay < firstDay_)
+    if (firstDay < pFirstDay_->id)
       firstDay += totalNbDays();
-    if (lastDay < firstDay_)
+    if (lastDay < pFirstDay_->id)
       lastDay += totalNbDays();
     return {firstDay, lastDay};
   }
 
+  bool isPreprocessed() const {return isPreprocessed_;}
+
   const std::string name;   // name of the resource
+
+  CostType costType() const { return costType_; }
+
+  // these two methods are used to split the resources between the master and
+  // subproblem of each decomposition
+  virtual bool isInRosterMaster() const = 0;
+  virtual bool isInRotationMaster() const = 0;
 
  protected:
   int id_;  // id of the resource
   // allow to switch between two different domination functions is necessary
   bool useDefaultDomination_ = true;
-  int firstDay_ = 0;  // First day of the horizon
+  PDay pFirstDay_;  // first day of the horizon
   int totalNbDays_ = 0;  // Total number of days in the horizon
+  bool isPreprocessed_ = false;  // true if the resource is completely dealt
+  CostType costType_ = ANY_COST;
 
-
+  // with by modifying the RCGraph during the preprocessing step
   virtual PExpander init(const AbstractShift &prevAShift,
                          const Stretch &stretch,
-                         const std::shared_ptr<RCArc> &pArc) = 0;
+                         const shared_ptr<RCArc> &pArc,
+                         int indResource);
 };
 
 /**
@@ -372,14 +527,16 @@ class Resource {
 class BoundedResource : public Resource {
  public:
   // Constructor
-  //
-  BoundedResource(std::string _name, int lb, int ub) :
-      Resource(std::move(_name)), lb_(lb), ub_(ub) {}
+  BoundedResource(std::string _name, double lb, double ub) :
+      Resource(std::move(_name)) {
+    setLb(lb);
+    setUb(ub);
+  }
 
   // true if rl1 dominates rl2, false otherwise
   bool dominates(const PRCLabel &pL1,
                  const PRCLabel &pL2,
-                 double *cost) override;
+                 double *cost) const override;
 
   int getLb() const {
     return lb_;
@@ -389,9 +546,21 @@ class BoundedResource : public Resource {
     return ub_;
   }
 
+  virtual void setLb(int lb) {
+    lb_ = lb;
+  }
+
+  virtual void setUb(int ub) {
+    ub_ = ub;
+  }
+
+  virtual int maxConsumptionPerDay() const {
+    return 1;
+  }
+
  protected:
-  int lb_ = 0;
-  int ub_ = 0;
+  int lb_;
+  int ub_;
 };
 typedef shared_ptr<BoundedResource> PBoundedResource;
 
@@ -411,7 +580,7 @@ class SoftBoundedResource : public BoundedResource {
   // use worst case for the bounds to determinate if domination
   bool dominates(const PRCLabel &pL1,
                  const PRCLabel &pL2,
-                 double *cost) override;
+                 double *cost) const override;
 
   bool isHard() const override {
     return false;
@@ -423,6 +592,14 @@ class SoftBoundedResource : public BoundedResource {
 
   double getUbCost() const {
     return ubCost_;
+  }
+
+  void setLbCost(double cost) {
+    lbCost_ = cost;
+  }
+
+  void setUbCost(double cost) {
+    ubCost_ = cost;
   }
 
   double getLbCost(int consumption) const {
@@ -452,14 +629,15 @@ class SoftBoundedResource : public BoundedResource {
   }
 
  protected:
+  // costs
   double lbCost_ = 0.0;
   double ubCost_ = 0.0;
+
   bool merge(const ResourceValues &vForward,
              const ResourceValues &vBack,
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 };
-typedef shared_ptr<SoftBoundedResource> PSoftBoundedResource;
 
 /**
  * Bounded resource where both lower and upper bounds are hard
@@ -468,7 +646,9 @@ class HardBoundedResource : public BoundedResource {
  public:
   // Constructor
   HardBoundedResource(std::string _name, int lb, int ub) :
-      BoundedResource(std::move(_name), lb, ub) {}
+      BoundedResource(std::move(_name), lb, ub) {
+    costType_ = NO_COST;
+  }
 
   // return true. If soft, should be overridden
   bool isHard() const override {
@@ -480,6 +660,5 @@ class HardBoundedResource : public BoundedResource {
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 };
-typedef shared_ptr<HardBoundedResource> PHardBoundedResource;
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RCLABEL_H_

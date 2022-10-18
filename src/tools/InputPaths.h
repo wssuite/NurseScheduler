@@ -26,8 +26,8 @@ class InputPaths {
   InputPaths();
   InputPaths(const std::string &dataDir,
              const std::string &instanceName,
-             int historyIndex,
-             std::vector<int> weekIndices,
+             int historyIndex = -1,
+             std::vector<int> weekIndices = {},
              const std::string &solutionPath = "",
              const std::string &logPath = "",
              const std::string &paramFile = "",
@@ -62,24 +62,28 @@ class InputPaths {
   std::string history_;
   std::vector<std::string> weeks_;
   std::vector<int> weekIndices_;
-  std::string solutionPath_ = "";
-  std::string logPath_ = "";
-  std::string customInputFile_ = "";
-  std::string customOutputFile_ = "";
-  std::string paramFile_ = "";
+  std::string solutionPath_;
+  std::string logPath_;
+  std::string customInputFile_;
+  std::string customOutputFile_;
+  std::string paramFile_;
   int verbose_ = -1;
   int randSeed_ = 0;
-  int timeOut_ = 3600;
-  std::string SPType_ = "LONG";
+  double timeOut_ = 3600;
+  std::string SPType_ = "ROSTER";
   int SPStrategy_ = 0;
-  std::string RCSPPType_ = "BOOST";
-  int nThreads_ = 1, nCandidates_ = -1;
+  std::string RCSPPType_ = "DEFAULT";
+  int nThreads_ = 1;
+  int nCandidates_ = -1;
 
  public:
   // get/set attributes
   const std::string& instance() const { return instance_; }
   const std::string& scenario() const { return scenario_; }
   void scenario(const std::string &scenario) { scenario_ = scenario; }
+
+  bool inrc() const { return weekIndices_.empty() && weeks_.empty(); }
+  bool inrc2() const { return !inrc(); }
 
   int historyIndex() const { return historyIndex_; }
   const std::string& history() const { return history_; }

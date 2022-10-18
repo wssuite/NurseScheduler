@@ -1,6 +1,6 @@
 # global options of the deterministic procedure
 solutionAlgorithm=GENCOL
-solverType=CLP
+solverType=Clp
 divideIntoConnectedPositions=1
 withRollingHorizon=0
 withPrimalDual=0
@@ -16,17 +16,27 @@ isStabUpdatePenalty=1
 nbDiveIfBranchOnColumns=1
 branchColumnDisjoint=1
 # branchColumnUntilValue=1
-stopAfterXDegenerateIt=10
+weekendAdvantage=0.2
+branchBaseScore=0.2
+stopAfterXDegenerateIt=20
 performHeuristicAfterXNode=0
-heuristicMinIntegerPercent=50
+heuristicMinIntegerPercent=0
+performMIPHeuristic=1
+MIPHeuristicGapLimit=.5
+MIPHeuristicUseRotations=1
+MIPHeuristicNThreads=1
+MIPHeuristicVerbose=1
+MIPHeuristicSolver=FIRST_AVAIL
 spDefaultStrategy=0
 spNbRotationsPerNurse=20
 spNbNursesToPrice=15
 # number of candidate for strong branching
-nCandidates=8
+nCandidates=5
 verbose=1
 rcsppToOptimality=1
+rcsppDssr=0
 rcsppEnumSubpaths=0
 rcsppMinCostToSinks=0
 rcsppEnumSubpathsForMinCostToSinks=0
+rcsppBidirectional=1
 

@@ -1,0 +1,93 @@
+// always separate the elements of vectors by spaces, not comma
+////////////////////////////////////////////////////////////////////
+SCHEDULING_PERIOD;
+////////////////////////////////////////////////////////////////////
+dataName <String>, startDate <yyyy-mm-dd>, endDate <yyyy-mm-dd>;
+
+
+////////////////////////////////////////////////////////////////////
+SKILLS = <int>;
+////////////////////////////////////////////////////////////////////
+skillId <string>;
+
+
+////////////////////////////////////////////////////////////////////
+SHIFT_TYPES = <int>;
+////////////////////////////////////////////////////////////////////
+// problem here in INRC1, they separate shift according to
+// corresponding skill in demand, which is not ideal
+shiftId <string>:
+    startTime <hh:mm>,
+    endTime <hh:mm>,
+    MinConsecutive (value|weight),
+    MaxConsecutive (value|weight),
+    ForbiddenSuccessors <vector<ShiftId>>;
+
+
+
+////////////////////////////////////////////////////////////////////
+CONTRACTS = <int>;
+////////////////////////////////////////////////////////////////////
+// constraints of contracts can appear in any order, because we write
+// the names of every constraint in the input file
+Name <string>:
+	SingleAssignmentPerDay (on|weight) (<boolean>|<int>),
+	MaxNumAssignments (on|weight|value) (<boolean>|<int>|<int>),
+	MinNumAssignments (on|weight|value) (<boolean>|<int>|<int>),
+	MaxConsecutiveWorkingDays (on|weight|value) (<boolean>|<int>|<int>),
+	MinConsecutiveWorkingDays (on|weight|value) (<boolean>|<int>|<int>),
+	MaxConsecutiveFreeDays (on|weight|value) (<boolean>|<int>|<int>),
+	MinConsecutiveFreeDays (on|weight|value) (<boolean>|<int>|<int>),
+	MaxConsecutiveWorkingWeekends (on|weight|value) (<boolean>|<int>|<int>),
+	MinConsecutiveWorkingWeekends (on|weight|value) (<boolean>|<int>|<int>),
+	MaxWorkingWeekendsInFourWeeks (on|weight|value) (<boolean>|<int>|<int>),
+	WeekendDefinition (firstDay|lastDay) (<int>,<int>),
+	CompleteWeekends (on|weight) (<boolean>|<int>),
+	IdentShiftTypesDuringWeekend (on|weight) (<boolean>|<int>),
+	NoNightShiftBeforeFreeWeekend (on|weight) (<boolean>|<int>),
+	TwoFreeDaysAfterNightShifts (on|weight) (<boolean>|<int>),
+	AlternativeSkillCategory (on|weight) (<boolean>|<int>),
+	NumberOfUnwantedPatterns <int>,
+	UnwantedPatterns <vector<patternId>>;
+
+
+////////////////////////////////////////////////////////////////////
+PATTERNS = <int>;
+////////////////////////////////////////////////////////////////////
+id <int>, weight <int>, nbShifts <int>,  listOfShiftDays <vector<(<shiftId>|<dayId>)>>; 
+
+
+////////////////////////////////////////////////////////////////////
+EMPLOYEES = <int>;
+////////////////////////////////////////////////////////////////////
+id <int>, contract <string>, nbSkills <int>, listOfSkills <vector<skillId>>;
+
+
+////////////////////////////////////////////////////////////////////
+MINIMUM_DEMAND = <int>;
+////////////////////////////////////////////////////////////////////
+// compared to INRC1, we enumerate every day and shift, so no need 
+// for specific day covers
+dayId <int>, shiftId <String>, demand <int>;
+
+////////////////////////////////////////////////////////////////////
+OPTIMUM_DEMAND = <int>;
+////////////////////////////////////////////////////////////////////
+// compared to INRC1, we enumerate every day and shift, so no need 
+// for specific day covers
+dayId <int>, shiftId <String>, demand <int>;
+
+
+////////////////////////////////////////////////////////////////////
+OFF_REQUESTS = <int>;
+////////////////////////////////////////////////////////////////////
+// abstract days can be Monday,...,Sunday, Any or a date
+// abstract shift can be Any or one of the shift type Ids
+nurseId <int>, day <abstractDay>, shift <abstractShift>;
+
+////////////////////////////////////////////////////////////////////
+ON_REQUESTS = <int>;
+////////////////////////////////////////////////////////////////////
+nurseId <int>, day <abstractDay>, shift <abstractShift>;
+
+

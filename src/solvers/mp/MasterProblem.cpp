@@ -17,10 +17,6 @@
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
 #include "solvers/mp/sp/rcspp/RCGraph.h"
-#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
-#include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
-#include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
-
 
 /* namespace usage */
 using std::vector;
@@ -33,77 +29,23 @@ using std::cout;
 using std::endl;
 
 
-std::string RCSolution::toString() const {
-  std::stringstream rep;
-  rep.setf(std::ios_base::fixed, std::ios_base::floatfield);
-  rep << "RCSolution: ";
-  if (cost_ < DBL_MAX - 1) rep << "cost=" << std::setprecision(0) << cost_;
-  if (reducedCost_ < DBL_MAX - 1)
-    rep << "  dualCost=" << std::setprecision(2) << reducedCost_;
-  rep << "; " << Stretch::toString();
-  return rep.str();
-}
-
-std::string RCSolution::costsToString() const {
-  if (costs_.empty()) {
-    std::cout << "WARNING: costs are not computed by cost types." << std::endl;
-    return "";
-  }
-  std::stringstream rep;
-  rep.setf(std::ios_base::fixed, std::ios_base::floatfield);
-  rep.precision(0);
-  rep << "#       | Cons. shifts     : "
-      << costs_.at(CONS_SHIFTS_COST) << std::endl;
-  rep << "#       | Cons. weekend    : "
-      << costs_.at(CONS_WEEKEND_SHIFTS_COST) << std::endl;
-  rep << "#       | Cons. days off   : "
-      << costs_.at(CONS_REST_COST) << std::endl;
-  rep << "#       | Cons. days       : "
-      << costs_.at(CONS_WORK_COST) << std::endl;
-  rep << "#       | Complete weekends: "
-      << costs_.at(COMPLETE_WEEKEND_COST) << std::endl;
-  rep << "#       | Preferences      : "
-      << costs_.at(PREFERENCE_COST) << std::endl;
-  rep << "#       | Worked days      : "
-      << costs_.at(TOTAL_WORK_COST) << std::endl;
-  rep << "#       | Worked weekend   : "
-      << costs_.at(TOTAL_WEEKEND_COST) << std::endl;
-  return rep.str();
-}
-
-// Compare rotations on cost
-bool RCSolution::compareCost(
-    const RCSolution &sol1, const RCSolution &sol2) {
-  if (sol1.cost_ == DBL_MAX || sol2.cost_ == DBL_MAX)
-    Tools::throwError("Pattern cost not computed.");
-  return (sol1.cost_ < sol2.cost_);
-}
-
-// Compare rotations on dual cost
-bool RCSolution::compareReducedCost(
-    const RCSolution &sol1, const RCSolution &sol2) {
-  if (sol1.reducedCost_ == DBL_MAX || sol2.reducedCost_ == DBL_MAX)
-    Tools::throwError("Pattern dual cost not computed.");
-  return (sol1.reducedCost_ < sol2.reducedCost_);
-}
-
 // P a t t e r n   s t a t i c   m e t h o d s
-std::vector<PShift> getPShifts(const std::vector<double> &pattern,
+std::vector<PShift> getPShifts(const std::vector<double> &column,
                                const PScenario &pScenario) {
-  int length = Pattern::nDays(pattern);
+  int length = Column::nDays(column);
   std::vector<PShift> pShifts(length);
   for (int k = 0; k < length; k++)
-    pShifts[k] = pScenario->pShift(static_cast<int>(pattern[k + 3]));
+    pShifts[k] = pScenario->pShift(static_cast<int>(column[k + 3]));
   return pShifts;
 }
 
-Pattern::Pattern(MyVar *var, const PScenario &pScenario) :
-    RCSolution(Pattern::firstDay(var->getPattern()),
-               getPShifts(var->getPattern(), pScenario),
+Column::Column(MyVar *var, const PScenario &pScenario) :
+    RCSolution(Column::firstDay(var->getCompactColumn()),
+               getPShifts(var->getCompactColumn(), pScenario),
                var->getCost()),
-    nurseNum_(Pattern::nurseNum(var->getPattern())) {}
+    nurseNum_(Column::nurseNum(var->getCompactColumn())) {}
 
-std::string Pattern::toString() const {
+std::string Column::toString() const {
   std::stringstream rep;
   rep << "Nurse " << nurseNum_ << " - " << RCSolution::toString();
   return rep.str();
@@ -118,13 +60,13 @@ std::string Pattern::toString() const {
 //-----------------------------------------------------------------------------
 
 // Default constructor
-MasterProblem::MasterProblem(PScenario pScenario, SolverType solverType) :
+MasterProblem::MasterProblem(const PScenario& pScenario,
+                             SolverType solverType)  :
     Solver(pScenario),
     PrintSolution(),
     pModel_(nullptr),
     pRCPricer_(nullptr),
-    solverType_(solverType),
-    pResourceCostTypes_(pScenario->nNurses()) {
+    pResources_(pScenario->nNurses()) {
   // build the model
   pModel_ = new BcpModeler(this, PB_NAME, solverType);
   this->preprocessData();
@@ -177,6 +119,10 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
     // if column generation has been solved to optimality
     if (status_ != INFEASIBLE)
       status_ = OPTIMAL;
+
+    // print constraints' costs
+    std::cout << costsConstraintsToString() << std::endl;
+
     return pModel_->getRelaxedObjective();
   }
 
@@ -187,27 +133,50 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
   storeSolution();
 
   // print constraints' costs
-  std::cout << costsConstrainstsToString() << std::endl;
+  std::cout << costsConstraintsToString() << std::endl;
 
   return pModel_->getObjective();
 }
 
 void MasterProblem::solveWithCatch() {
-  // initialize pricer (useful to authorize/forbid shifts for nurses)
-  pPricer()->initNursesAvailabilities();
-  // filter out initial columns that does not respect nurses' availabilities
-  filterInitialColumnsBasedOnAvailability();
-  // then solve
-  pModel_->solve();
+  try {
+    // initialize pricer (useful to authorize/forbid shifts for nurses)
+    pPricer()->initNursesAvailabilities();
+    // filter out initial columns that do not respect nurses' availabilities
+    filterInitialColumnsBasedOnAvailability();
+    // then solve
+    pModel_->solve();
+  } catch (const std::exception &e) {
+    std::stringstream buff;
+    buff << "MasterProblem::solveWithCatch() caught an exception: "
+         << e.what() << std::endl;
+
+    if (strcmp(e.what(), "std::bad_alloc") == 0) {
+      double memGB = Tools::getResidentMemoryGB();
+      buff << "There is a high probability that the program is OUT OF MEMORY;"
+              " it has consumed " << std::setprecision(3) << memGB << " GB."
+              << std::endl;
+      buff << "You may increase maxRelativeLPGapToKeepChild and "
+              "decrease maxLevelDifference to reduce the number of in-memory "
+              "branching nodes, and thus the memory used." << std::endl;
+      buff << "You may also modify the global search strategy by enabling/"
+              "disabling diving, strong branching or/and the heuristic."
+              << std::endl;
+    }
+    if (!pModel_->logfile().empty()) {
+      Tools::LogOutput log(pModel_->logfile(), true);
+      log << buff.str();
+    }
+    std::cerr << buff.str();
+  }
 }
 
 // Resolve the problem with another demand and keep the same preferences
-//
 double MasterProblem::resolve(PDemand pDemand,
                               const SolverParam &param,
                               const std::vector<Roster> &solution) {
-  updateDemand(pDemand);
   setParameters(param);
+  update(pDemand);
   return solve(solution, false);
 }
 
@@ -226,11 +195,11 @@ void MasterProblem::build(const SolverParam &param) {
 
   /* Skills coverage constraints */
   nursePositionCountConstraint_ = new NursePositionCountConstraint(this);
-  columnConstraints_.push_back(nursePositionCountConstraint_);
   allocationConstraint_ = new AllocationConstraint(this);
   minDemandConstraint_ = new DemandConstraint(this, true);
-  optDemandConstraint_ = new DemandConstraint(
-      this, false, true, pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
+  if (pDemand_->isOptDemand_)
+    optDemandConstraint_ = new DemandConstraint(
+        this, false, true, pScenario_->weights().optimalDemand);
 
 
   /* Initialize the objects used in the branch and price
@@ -256,75 +225,10 @@ void MasterProblem::createPResources() {
   pResources_.clear();
   // create the resources for all nurses
   for (const PLiveNurse &pN : theLiveNurses_)
-    pResources_.push_back(generatePResources(pN));
+    pResources_.push_back(pN->pResources());
   // split the resources between the master and the subproblem
   // must initialize spResources_
   splitPResources();
-}
-
-// Functions to generate the resources for a given nurse
-std::map<PResource, CostType>
-MasterProblem::defaultGeneratePResources(const PLiveNurse &pN) const {
-  const Weights &w = pScenario_->weights();
-  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
-  std::map<PResource, CostType> mResources = {
-      // initialize resource on the total number of working days
-      {std::make_shared<SoftTotalShiftDurationResource>(
-          minTotalShifts_[pN->num_],
-          maxTotalShifts_[pN->num_],
-          weightTotalShiftsMin_[pN->num_],
-          weightTotalShiftsMax_[pN->num_],
-          pWork,
-          nDays(),
-          pScenario_->maxDuration()), TOTAL_WORK_COST},
-      // initialize resource on the total number of week-ends
-      {std::make_shared<SoftTotalWeekendsResource>(
-          maxTotalWeekends_[pN->num_],
-          weightTotalWeekendsMax_[pN->num_],
-          pWork,
-          nDays()), TOTAL_WEEKEND_COST},
-      // initialize resource on the number of consecutive worked days
-      {std::make_shared<SoftConsShiftResource>(
-          pN->minConsDaysWork(),
-          pN->maxConsDaysWork(),
-          w.WEIGHT_CONS_DAYS_WORK,
-          w.WEIGHT_CONS_DAYS_WORK,
-          pWork,
-          nDays(),
-          pN->pStateIni_->consDaysWorked_),
-       CONS_WORK_COST}
-  };
-
-  // initialize resources on the number of consecutive shifts of each type
-  for (int st = 0; st < pScenario_->nShiftTypes(); st++) {
-    shared_ptr<AbstractShift> absShift =
-        std::make_shared<AnyOfTypeShift>(st, pScenario_->shiftType(st));
-    if (absShift->isWork()) {
-      int consShiftsInitial =
-          absShift->includes(*pN->pStateIni_->pShift_) ?
-          pN->pStateIni_->consShifts_ : 0;
-      mResources[std::make_shared<SoftConsShiftResource>(
-          pScenario_->minConsShiftsOfType(st),
-          pScenario_->maxConsShiftsOfType(st),
-          w.WEIGHT_CONS_SHIFTS,
-          w.WEIGHT_CONS_SHIFTS,
-          absShift,
-          nDays(),
-          consShiftsInitial)] = CONS_SHIFTS_COST;
-    } else if (absShift->isRest()) {
-      // needed to evaluate thee historical cost
-      mResources[std::make_shared<SoftConsShiftResource>(
-          pN->minConsDaysOff(),
-          pN->maxConsDaysOff(),
-          w.WEIGHT_CONS_DAYS_WORK,
-          w.WEIGHT_CONS_DAYS_WORK,
-          absShift,
-          nDays(),
-          pN->pStateIni_->consDaysOff_)] = CONS_REST_COST;
-    }
-  }
-
-  return mResources;
 }
 
 //------------------------------------------------
@@ -340,7 +244,7 @@ void MasterProblem::relaxDays(const std::vector<bool> &isRelax) {
   }
 
   for (int day = 0; day < pDemand_->nDays_; day++) {
-    isRelaxDay_[day] = isRelaxDay_[day] ? true : isRelax[day];
+    isRelaxDay_[day] = isRelaxDay_[day] || isRelax[day];
   }
 }
 
@@ -349,7 +253,7 @@ void MasterProblem::unrelaxDays(const std::vector<bool> &isUnrelax) {
     isPartialRelaxDays_ = false;
   } else {
     for (int day = 0; day < pDemand_->nDays_; day++)
-      isRelaxDay_[day] = isRelaxDay_[day] ? !isUnrelax[day] : false;
+      isRelaxDay_[day] = isRelaxDay_[day] && !isUnrelax[day];
   }
 }
 
@@ -388,7 +292,7 @@ void MasterProblem::fixNurses(const std::vector<bool> &isFix) {
   }
   // set the list of fixed day
   // + forbid the generation of rotations of the input nurses
-  for (PLiveNurse pNurse : theLiveNurses_) {
+  for (const PLiveNurse& pNurse : theLiveNurses_) {
     int n = pNurse->num_;
     isFixNurse_[n] = isFixNurse_[n] || isFix[n];
     if (isFixNurse_[n]) pPricer()->forbidNurse(n);
@@ -403,7 +307,7 @@ void MasterProblem::unfixNurses(const std::vector<bool> &isUnfix) {
   } else {
     // set the list of unfixed nurses
     // + authorize the generation of rotations for the input nurses
-    for (PLiveNurse pNurse : theLiveNurses_) {
+    for (const PLiveNurse& pNurse : theLiveNurses_) {
       int n = pNurse->num_;
       isFixNurse_[n] = isFixNurse_[n] && !isUnfix[n];
       if (!isFixNurse_[n]) pPricer()->authorizeNurse(n);
@@ -422,8 +326,8 @@ void MasterProblem::filterInitialColumnsBasedOnAvailability() {
   std::vector<MyVar *> initialColumns;
   for (MyVar *var : pModel_->getInitialColumns()) {
     // check if column is feasible
-    PPattern pat = getPattern(var);
-    for (int k = pat->firstDay(); k <= pat->lastDay(); k++)
+    PColumn pat = getPColumn(var);
+    for (int k = pat->firstDayId(); k <= pat->lastDayId(); k++)
       if (!isNurseAvailableOnDayShift(pat->nurseNum(), k, pat->shift(k))) {
         // delete infeasible column
         delete var;
@@ -496,7 +400,7 @@ double MasterProblem::LNSSolve(const SolverParam &param,
   storeSolution();
 
   if (pModel_->getVerbosity() >= 1)
-    std::cout << costsConstrainstsToString() << std::endl;
+    std::cout << costsConstraintsToString() << std::endl;
 
   // output information and save the solution
   if (pModel_->getParameters().printBranchStats_)
@@ -507,18 +411,19 @@ double MasterProblem::LNSSolve(const SolverParam &param,
 
 
 //------------------------------------------------------------------------------
-
+// Store the current solution of the master problem in each LiveNurse
 //------------------------------------------------------------------------------
-void MasterProblem::storeSolution() {
+bool MasterProblem::storeSolution() {
   // check if a solution if loaded
   if (pModel_->getActiveColumns().empty()) {
     if (!pModel_->loadBestSol()) {
       std::cerr << "No solution available to store." << std::endl;
-      return;
+      return false;
     }
   }
 
-  // retrieve a feasible allocation of skills
+  // retrieve a feasible allocation of skills as the current value of the
+  // allocation variables in the master problem
   vector4D<double> skillsAllocation;
   Tools::initVector4D(&skillsAllocation,
                       pDemand_->nDays_,
@@ -527,27 +432,36 @@ void MasterProblem::storeSolution() {
                       0,
                       .0);
 
+
   for (int k = 0; k < pDemand_->nDays_; ++k)
     for (int s = 0; s < pScenario_->nShifts(); ++s)
       for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
         skillsAllocation[k][s][sk] =
             pModel_->getVarValues(getSkillsAllocVars()[k][s][sk]);
 
-  // build the rosters
-  for (PLiveNurse pNurse : theLiveNurses_)
+  // build the rosters: while doing so, substract the value of the active
+  // columns of each nurse to each corresponding allocation in vector
+  // skillsAllocation; if there is no error the skills allocation vector
+  // should contain only zeros at the end
+  solution_.clear();
+  for (const PLiveNurse& pNurse : theLiveNurses_) {
     pNurse->roster_.reset(pScenario_->pRestShift());
+    pNurse->columns_.clear();
+    pNurse->colVals_.clear();
+  }
 
   std::list<MyVar*> activeColumns(
       pModel_->getActiveColumns().begin(), pModel_->getActiveColumns().end());
-  int size = activeColumns.size(), n = 0;
+  int size = static_cast<int>(activeColumns.size());
+  int n = 0;
   while (!activeColumns.empty()) {
     MyVar *var = activeColumns.front();
     activeColumns.pop_front();
     ++n;
     double v = pModel_->getVarValue(var);
     if (v > epsilon()) {
-      PPattern pat = getPattern(var);
-      PLiveNurse pNurse = theLiveNurses_[pat->nurseNum()];
+      PColumn pCol = getPColumn(var);
+      PLiveNurse pNurse = theLiveNurses_[pCol->nurseNum()];
       bool fractional = v < 1 - epsilon();
       // if first round, do not process fractional columns
       // store them for next round
@@ -555,12 +469,16 @@ void MasterProblem::storeSolution() {
         activeColumns.push_back(var);
         continue;
       }
-      for (int k = pat->firstDay(); k <= pat->lastDay(); ++k) {
-        if (fractional && !isRelaxDay(k))
-          Tools::throwError("Column has a fractional value (%.9f) while "
-                            "it should be integer: %s.",
-                            v, pat->toString().c_str());
-        int s = pat->shift(k);
+      // check that each assignment is valid and initialize the assignment
+      // table in the roster_ variable of the LiveNurse
+      for (int k = pCol->firstDayId(); k <= pCol->lastDayId(); ++k) {
+        if (fractional && !isRelaxDay(k)) {
+          std::cerr << "Column has a fractional value (" << v
+                    << ") while it should be integer: " << std::endl
+                    << pCol->toString();
+          return false;
+        }
+        int s = pCol->shift(k);
         if (s == 0) continue;  // nothing to do
         // assign a skill to the nurse for the shift
         bool assigned = false;
@@ -575,7 +493,7 @@ void MasterProblem::storeSolution() {
               std::cout << coverageToString() << std::endl;
               Tools::throwError(
                   "Trying to assign skill %s that Nurse %d (%s) hasn't.",
-                  pScenario_->skill(sk).c_str(),
+                  pScenario_->skillName(sk).c_str(),
                   pNurse->num_, pNurse->name_.c_str());
             }
 #endif
@@ -592,8 +510,8 @@ void MasterProblem::storeSolution() {
                      "on shift %d (%s) for the skill %s.\n",
                      pNurse->num_, pNurse->name_.c_str(),
                      skillsAllocation[k][s][sk][pNurse->pPosition_->id_],
-                     k, s, pScenario_->shift(s).c_str(),
-                     pScenario_->skill(sk).c_str());
+                     k, s, pScenario_->shiftName(s).c_str(),
+                     pScenario_->skillName(sk).c_str());
             vday -= skillsAllocation[k][s][sk][pNurse->pPosition_->id_];
             skillsAllocation[k][s][sk][pNurse->pPosition_->id_] = 0;
           }
@@ -601,15 +519,23 @@ void MasterProblem::storeSolution() {
           std::cout << currentSolToString() << std::endl;
           std::cout << allocationToString() << std::endl;
           std::cout << coverageToString() << std::endl;
-          Tools::throwError(
-              "No skill found for Nurse %d (%s) on day %d on shift %d (%s)",
-              pNurse->num_, pNurse->name_.c_str(),
-              k, s, pScenario_->shift(s).c_str());
+          std::cerr << "No skill found for Nurse " << pNurse->num_ << " ("
+                    << pNurse->name_ << ") on day " << k << " on shift " << s
+                    << " (" << pScenario_->shiftName(s) << ")" << std::endl;
+          return false;
         }
       }
+
+      // record the column (and its value) as one of those active for the
+      // LiveNurse
+      computeColumnCost(pCol.get());
+      pNurse->columns_.push_back(*pCol);
+      pNurse->colVals_.push_back(v);
     }
   }
 
+#ifdef DBG
+  //
   for (int k = 0; k < pDemand_->nDays_; ++k)
     for (int s = 0; s < pScenario_->nShifts(); ++s)
       for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
@@ -620,43 +546,40 @@ void MasterProblem::storeSolution() {
             std::cout << coverageToString() << std::endl;
             Tools::throwError(
                 "Allocation on day %d on shift %d (%s) for skill %s is not "
-                "covered (missing %.9f).", k, s, pScenario_->shift(s).c_str(),
-                pScenario_->skill(sk).c_str(), v);
+                "covered (missing %.9f).", k, s,
+                pScenario_->shiftName(s).c_str(),
+                pScenario_->skillName(sk).c_str(), v);
           }
+#endif
 
   // build the states of each nurse
-  solution_.clear();
-  for (PLiveNurse pNurse : theLiveNurses_) {
+  for (const auto& pNurse : theLiveNurses_) {
     pNurse->buildStates();
     solution_.push_back(pNurse->roster_);
   }
 
   // set the corresponding cost
   solutionCost_ = pModel_->getBestUB();
+
+  return true;
 }
 
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
-void MasterProblem::computePatternCost(Pattern *pat) const {
-  pRCPricer_->computeCost(pat);
+void MasterProblem::computeColumnCost(Column *col) const {
+  pRCPricer_->computeCost(col);
 }
 
 
-void MasterProblem::save(const vector<int> &weekIndices, string outfile) {
-  storeSolution();
-  // initialize the log stream
-  // first, concatenate the week numbers
-  int nbWeeks = weekIndices.size();
-
-  // write separately the solutions of each week in the required output format
-  int firstDay = pDemand_->firstDay_;
-  for (int w = 0; w < nbWeeks; ++w) {
-    // string solutionFile = outdir+std::to_string(weekIndices[w])+".txt";
-    Tools::LogOutput solutionStream(outfile);
-    solutionStream << solutionToString(firstDay, 7, pScenario_->thisWeek() + w);
-    firstDay += 7;
-  }
+void MasterProblem::saveSolution() {
+  if (!storeSolution()) return;
+  if (pScenario_->isINRC2_)
+    // add the number of nurses only when using the default values
+    // for the week indices (i.e. weekIndices_ is empty)
+    displaySolutionMultipleWeeks(param_.weekIndices_.empty());
+  else
+    solutionToXmlINRC();
 }
 
 std::string MasterProblem::currentSolToString() const {
@@ -673,10 +596,10 @@ std::string MasterProblem::currentSolToString() const {
   for (const auto &vec : colsByNurses)
     for (MyVar *var : vec) {
       double v = pModel_->getVarValue(var);
-      rep << "N" << var->getNurseNum() << ": " << v << std::endl;
-      PPattern pat = getPattern(var);
-      computePatternCost(pat.get());
-      rep << pat->toString();
+      rep << var->getNurseNum() << ": " << v << std::endl;
+      PColumn pCol = getPColumn(var);
+      computeColumnCost(pCol.get());
+      rep << pCol->toString() << std::endl;
     }
   return rep.str();
 }
@@ -695,50 +618,59 @@ vector3D<double> MasterProblem::fractionalRoster() const {
 
   // Retrieve current fractional roster for each nurse
   for (MyVar *var : pModel_->getActiveColumns()) {
-    if (var->getPattern().empty()) continue;
+    if (var->getCompactColumn().empty()) continue;
     double value = pModel_->getVarValue(var);
     if (value < epsilon()) continue;
-    PPattern pat = getPattern(var);
+    PColumn pat = getPColumn(var);
     vector2D<double> &fractionalRoster2 = fractionalRoster[pat->nurseNum()];
-    for (int k = pat->firstDay(); k <= pat->lastDay(); ++k)
+    for (int k = pat->firstDayId(); k <= pat->lastDayId(); ++k)
       fractionalRoster2[k][pat->shift(k)] += value;
   }
 
   return fractionalRoster;
 }
 
-void MasterProblem::checkIfPatternAlreadyPresent(
-    const Pattern &pat) const {
-  std::vector<double> pattern = pat.getCompactPattern();
+bool MasterProblem::checkIfColumnAlreadyPresent(
+    const Column &col, bool printErr) const {
+  std::vector<double> column = col.getCompactColumn();
   for (MyVar *var : pModel_->getActiveColumns()) {
     bool equal = true;
-    for (int j = 0; j < pattern.size(); ++j)
-      if (std::fabs(pattern[j] - var->getPattern()[j]) > epsilon()) {
+    for (int j = 0; j < column.size(); ++j)
+      if (std::abs(column[j] - var->getCompactColumn()[j]) > epsilon()) {
         equal = false;
         break;
       }
     if (equal) {
       // check if current pattern is forbidden
-      if (var->getUB() < epsilon()) {
-        std::cerr << "Pattern already present as a forbidden column (ub=0): "
-                  << var->name_ << std::endl;
-        // print branched nodes
-        std::cerr << pTree()->getCurrentNode()->writeInheritance() << std::endl;
-      } else {
-        std::cerr << "Pattern already present as an active column: "
-                  << var->name_ << std::endl;
+      if (printErr) {
+        if (var->getUB() < epsilon()) {
+          std::cerr << "Column already present as a forbidden column (ub=0): "
+                    << var->name_ << std::endl;
+          // print branched nodes
+          std::cerr << pTree()->getCurrentNode()->writeInheritance()
+                    << std::endl;
+        } else {
+          std::cerr << "Column already present as an active column: "
+                    << var->name_ << std::endl;
+        }
+        std::cerr << col.toString() << std::endl;
+
+        DualCosts duals(this);
+        std::cerr << duals.toString(col.nurseNum(), col) << std::endl;
+        break;
       }
-      std::cerr << pat.toString() << std::endl;
+      return true;
     }
   }
+  return false;
 }
 
 // add the column to the problem
-MyVar * MasterProblem::createColumn(const Pattern &col, const char *baseName) {
+MyVar * MasterProblem::createColumn(const Column &col, const char *baseName) {
   // add all constraints to the column
   vector<MyCons *> cons;
   vector<double> coeffs;
-  addConstoCol(&cons, &coeffs, col);
+  addConsToCol(&cons, &coeffs, col);
 
   // create the column variable
   MyVar *var;
@@ -747,7 +679,7 @@ MyVar * MasterProblem::createColumn(const Pattern &col, const char *baseName) {
   pModel_->createIntColumn(&var,
                            name,
                            col.cost(),
-                           col.getCompactPattern(),
+                           col.getCompactColumn(),
                            col.reducedCost(),
                            cons,
                            coeffs);
@@ -756,9 +688,9 @@ MyVar * MasterProblem::createColumn(const Pattern &col, const char *baseName) {
 
 
 // add a given constraint to the column
-void MasterProblem::addConstoCol(std::vector<MyCons *> *cons,
-                  std::vector<double> *coeffs,
-                  const Pattern &col) const {
+void MasterProblem::addConsToCol(std::vector<MyCons *> *cons,
+                                 std::vector<double> *coeffs,
+                                 const Column &col) const {
   for (ConstraintMP *pC : columnConstraints_)
     pC->addConsToCol(cons, coeffs, col);
 }
@@ -766,7 +698,7 @@ void MasterProblem::addConstoCol(std::vector<MyCons *> *cons,
 /******************************************************
 *Get the duals values per day for a nurse
  ******************************************************/
-void MasterProblem::updateDemand(PDemand pDemand) {
+void MasterProblem::update(const PDemand& pDemand) {
   if (pDemand->nDays_ != pDemand_->nDays_)
     Tools::throwError("The new demand must have the same "
                       "size than the old one, so that's ");
@@ -774,97 +706,46 @@ void MasterProblem::updateDemand(PDemand pDemand) {
   // set the pointer
   pDemand_ = pDemand;
 
-  // modify the associated constraints
-  minDemandConstraint_->updateDemand();
-  optDemandConstraint_->updateDemand();
+  // update the other constraints that may have changed
+  for (ConstraintMP* pC : constraints_)
+    pC->update();
 }
 
 // return the costs of all active columns associated to the type
-double MasterProblem::getColumnsCost(CostType costType) const {
-  return getColumnsCost(costType, pModel_->getActiveColumns());
+std::map<CostType, double> MasterProblem::getColumnsCosts() const {
+  return getColumnsCosts(pModel_->getActiveColumns());
 }
 
-double MasterProblem::getColumnsCost(CostType costType,
-                                const std::vector<MyVar *> &vars) const {
-  double cost = 0;
+std::map<CostType, double> MasterProblem::getColumnsCosts(
+    const std::vector<MyVar *> &vars) const {
+  std::map<CostType, double> costs;
   for (MyVar *var : vars) {
     double value = pModel_->getVarValue(var);
     if (value > epsilon()) {
-      PPattern pat = getPattern(var);
-      computePatternCost(pat.get());
-      cost += pat->costByType(costType) * value;
+      PColumn pCol = getPColumn(var);
+      computeColumnCost(pCol.get());
+      for (const auto &p : pCol->costs())
+        costs[p.first] += p.second * value;
     }
   }
-  return cost;
+  return costs;
 }
 
-string MasterProblem::costsConstrainstsToString() const {
+string MasterProblem::costsConstraintsToString() const {
   std::stringstream rep;
-
   char buffer[100];
-  snprintf(buffer, sizeof(buffer),
-           "%-40s %10.0f \n",
-           "Rotation costs",
-           getColumnsCost(ROTATION_COST));
-  rep << buffer;
+
+  rep << costsColumnsToString();
   rep << "-----------------------------------------\n";
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "Cons. shifts costs",
-           getColumnsCost(CONS_SHIFTS_COST));
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "Cons. weekend shifts costs",
-           getColumnsCost(CONS_WEEKEND_SHIFTS_COST));
-  rep << buffer;
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "Cons. worked days costs",
-           getColumnsCost(CONS_WORK_COST));
-  rep << buffer;
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "Complete weekend costs",
-           getColumnsCost(COMPLETE_WEEKEND_COST));
-  rep << buffer;
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "Preferences costs",
-           getColumnsCost(PREFERENCE_COST));
-  rep << buffer;
-  rep << "-----------------------------------------\n";
-  snprintf(buffer, sizeof(buffer),
-           "%5s%-35s %10.0f \n",
-           "",
-           "Cons. rest days costs",
-           getColumnsCost(CONS_REST_COST));
-  rep << buffer;
-  snprintf(buffer,
-           sizeof(buffer),
-           "%-40s %10.0f \n",
-           "Worked days costs",
-           getDaysCost());
-  rep << buffer;
-  snprintf(buffer, sizeof(buffer),
-           "%-40s %10.0f \n",
-           "Worked weekend costs",
-           getWeekendCost());
-  rep << buffer;
-  snprintf(buffer, sizeof(buffer),
-           "%-40s %10.0f \n",
-           "Coverage costs",
-           pModel_->getTotalCost(optDemandConstraint_->getVariables()));
-  rep << buffer;
-  double c = pModel_->getTotalCost(allocationConstraint_->getVariables());
-  if (c > epsilon()) {
-    snprintf(buffer, sizeof(buffer), "%-40s %10.0f \n",
-        "Alternative skills costs", c);
-    rep << buffer;
+
+  for (auto pC : constraints_) {
+    if (!pC->printInSolutionCosts()) continue;
+    double total = pC->getTotalCost();
+    if (abs(total) > epsilon()) {
+      std::string n = pC->name + " costs";
+      snprintf(buffer, sizeof(buffer), "%-40s %10.0f \n", n.c_str(), total);
+      rep << buffer;
+    }
   }
   rep << "-----------------------------------------\n";
   rep << "\n";
@@ -872,12 +753,35 @@ string MasterProblem::costsConstrainstsToString() const {
   return rep.str();
 }
 
-string MasterProblem::allocationToString(bool printInteger) const {
+string MasterProblem::costsColumnsToString() const {
+  std::map<CostType, double> costs = getColumnsCosts();
+
+  std::stringstream rep;
+  char buffer[100];
+
+  double total = 0;
+  for (const auto &p : costs) total += p.second;
+  snprintf(buffer, sizeof(buffer), "%-40s %10.0f \n", "Columns costs", total);
+  rep << buffer;
+  rep << "-----------------------------------------\n";
+
+  for (const auto &p : costs) {
+    if (abs(p.second) < epsilon()) continue;
+    snprintf(buffer, sizeof(buffer),
+             "%5s%-35s %10.0f \n", "",
+             prettyNamesByCostType.at(p.first).c_str(), p.second);
+    rep << buffer;
+  }
+
+  return rep.str();
+}
+
+string MasterProblem::allocationToString() const {
   std::stringstream rep;
 
   int nbNurses = pScenario_->nNurses();
   int nbShifts = pScenario_->nShifts();
-  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nDays_;
+  int firstDay = pDemand_->firstDayId_, nbDays = pDemand_->nDays_;
 
   rep << std::endl;
   rep << "Allocations of the (potentially fractional) current solution:"
@@ -886,8 +790,8 @@ string MasterProblem::allocationToString(bool printInteger) const {
   snprintf(buff, sizeof(buff), "%20s", "");
   rep << buff;
   for (int day = firstDay; day < firstDay + nbDays; day++) {
-    rep << "|" << Tools::intToDay(day) << " ";
-    if (Tools::isSunday(day)) rep << "| ";
+    if (day != firstDay && Day::isFirstDayOfWeek(day)) rep << "| ";
+    rep << "|" << Day::toDayOfWeekShortName(day) << " ";
   }
   rep << "|" << std::endl;
   rep << "-------------------------------------" << std::endl;
@@ -903,9 +807,11 @@ string MasterProblem::allocationToString(bool printInteger) const {
         snprintf(buff, sizeof(buff), "%12s", "");
         rep << buff;
       }
-      snprintf(buff, sizeof(buff), "%-8s", pScenario_->shift(s).c_str());
+      snprintf(buff, sizeof(buff), "%-8s", pScenario_->shiftName(s).c_str());
       rep << buff;
       for (int day = firstDay; day < firstDay + nbDays; day++) {
+        if (day != firstDay && Day::isFirstDayOfWeek(day))
+          rep << "| ";
         double shiftValue = fnurseFractionalRoster[day][s];
         if (shiftValue > 1 - epsilon()) {
           rep << "| 1  ";
@@ -916,7 +822,6 @@ string MasterProblem::allocationToString(bool printInteger) const {
         } else {
           rep << "| -  ";
         }
-        if (Tools::isSunday(day)) rep << "| ";
       }
       rep << "|" << std::endl;
     }
@@ -927,12 +832,12 @@ string MasterProblem::allocationToString(bool printInteger) const {
   return rep.str();
 }
 
-string MasterProblem::coverageToString(bool printInteger) const {
+string MasterProblem::coverageToString() const {
   std::stringstream rep;
 
   int nbShifts = pScenario_->nShifts();
   int nbSkills = pScenario_->nSkills();
-  int firstDay = pDemand_->firstDay_, nbDays = pDemand_->nDays_;
+  int firstDay = pDemand_->firstDayId_, nbDays = pDemand_->nDays_;
 
   rep << std::endl;
   rep << "Coverage of the (potentially fractional) current solution:"
@@ -941,14 +846,14 @@ string MasterProblem::coverageToString(bool printInteger) const {
   snprintf(buff, sizeof(buff), "%21s", "");
   rep << buff;
   for (int day = firstDay; day < firstDay + nbDays; day++) {
-    rep << "|" << Tools::intToDay(day) << " ";
-    if (Tools::isSunday(day)) rep << "| ";
+    if (day != firstDay && Day::isFirstDayOfWeek(day)) rep << "| ";
+    rep << "|" << Day::toDayOfWeekShortName(day) << " ";
   }
   rep << "|" << std::endl;
   rep << "-------------------------------------" << std::endl;
 
   for (int s = 1; s < nbShifts; ++s) {
-    snprintf(buff, sizeof(buff), "%-8s", pScenario_->shift(s).c_str());
+    snprintf(buff, sizeof(buff), "%-8s", pScenario_->shiftName(s).c_str());
     rep << buff;
     for (int sk = 0; sk < nbSkills; sk++) {
       if (sk > 0) {
@@ -956,10 +861,12 @@ string MasterProblem::coverageToString(bool printInteger) const {
         rep << buff;
       }
       snprintf(
-          buff, sizeof(buff), "%-12s", pScenario_->skill(sk).c_str());
+          buff, sizeof(buff), "%-12s", pScenario_->skillName(sk).c_str());
       rep << buff;
 
       for (int day = firstDay; day < firstDay + nbDays; day++) {
+        if (day != firstDay && Day::isFirstDayOfWeek(day))
+          rep << "| ";
         double shiftValue =
             pModel_->getVarValue(getSkillsAllocVars()[day][s][sk]);
         char buffer[100];
@@ -968,7 +875,6 @@ string MasterProblem::coverageToString(bool printInteger) const {
         else
           snprintf(buffer, sizeof(buffer), "|%4.2f", shiftValue);
         rep << buffer;
-        if (Tools::isSunday(day)) rep << "| ";
       }
 
       rep << "|" << std::endl;

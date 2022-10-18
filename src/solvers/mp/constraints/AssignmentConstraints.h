@@ -14,6 +14,7 @@
 
 #include "ConstraintsMP.h"
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -40,7 +41,7 @@ class RosterAssignmentConstraint : public ConstraintMP {
 // add a given constraint to the column
   void addConsToCol(std::vector<MyCons *> *cons,
                     std::vector<double> *coeffs,
-                    const Pattern &col) const override;
+                    const Column &col) const override;
 
   std::string toString() const override;
   std::string toString(int nurseNum, const Stretch &st) const override;
@@ -51,6 +52,10 @@ class RosterAssignmentConstraint : public ConstraintMP {
 
   const vector<MyCons*>& getConstraints() const {
     return assignmentCons_;
+  }
+
+  double getTotalCost() const override {
+    return pModel()->getTotalCost(feasibilityVars_);
   }
 
  protected:
@@ -89,11 +94,15 @@ class RotationGraphConstraint : public ConstraintMP {
   // add a given constraint to the column
   void addConsToCol(std::vector<MyCons *> *cons,
                     std::vector<double> *coeffs,
-                    const Pattern &col) const override;
+                    const Column &col) const override;
 
   std::string toString(int nurseNum, const Stretch &st) const override;
 
-  double getInitialStateCost(CostType costType) const;
+  // return the cost of the initial state by cost
+  std::map<CostType, double> getInitialStateCost() const;
+
+  // return the cost of the variables by cost
+  std::map<CostType, double> getCosts() const;
 
   // get a reference to the restsPerDay_ for a Nurse
   const std::vector<MyVar *> &getVariables(PLiveNurse pNurse, int day) const {
@@ -108,6 +117,14 @@ class RotationGraphConstraint : public ConstraintMP {
     return restCons_;
   }
 
+  double getTotalCost() const override {
+    return pModel()->getTotalCost(restVars_);
+  }
+
+  bool printInSolutionCosts() const override {
+    return false;
+  }
+
  protected:
   /* Build each set of constraints
    * Add also the coefficient of a column for each set */
@@ -117,6 +134,8 @@ class RotationGraphConstraint : public ConstraintMP {
   void addRotationRestCost(const PRCArc &pArc, const PLiveNurse &pN);
   void createRotationArcsVars(const PRCGraph &pG, const PLiveNurse &pN);
   void createRotationNodesCons(const PRCGraph &pG, const PLiveNurse &pN);
+
+  RCSolution computeCost(const PRCArc &pArc, const PLiveNurse &pN) const;
 
   // compute the minimum and maximum consecutive rests based on the resources
   // LBs and UBs. Return the value of the LB and the linear cost associated.
@@ -136,6 +155,9 @@ class RotationGraphConstraint : public ConstraintMP {
   vector3D<MyVar *> restsPerDay_;
   // binary variables for the resting arcs in the rotation network
   vector2D<MyVar *> restVars_;
+  // contains all the arc variables that are associated to
+  // a RC solution of cost != 0
+  std::vector<std::map<PRCArc, RCSolution>> rcSolByArc_;
 
   // stores all the initial solution finishing on the first day
   std::vector<RCSolution> initialStateRCSolutions_;

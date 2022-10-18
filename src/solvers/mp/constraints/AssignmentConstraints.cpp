@@ -11,6 +11,7 @@
 
 #include "AssignmentConstraints.h"
 
+#include <map>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -19,7 +20,7 @@
 
 
 RosterAssignmentConstraint::RosterAssignmentConstraint(MasterProblem *pMaster):
-    ConstraintMP(pMaster, true) {
+    ConstraintMP(pMaster, "Roster assignment", true) {
   build();
 }
 
@@ -33,8 +34,8 @@ void RosterAssignmentConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
   dualValues_ = Tools::randomDoubleVector(
       pMaster_->nNurses(),
-      -10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND,
-      10*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
+      -10*pScenario_->weights().optimalDemand,
+      10*pScenario_->weights().optimalDemand);
 }
 
 // return the dual cost of a stretch based on its consumption of
@@ -45,8 +46,10 @@ double RosterAssignmentConstraint::getDualCost(
     const PAbstractShift &prevS) const {
   // if stretch empty, does not count
   if (st.nDays() == 0) return 0;
-  if (st.firstDay() == 0 ||
-      (st.firstDay() <= pMaster_->nDays() && st.lastDay() >= pMaster_->nDays()))
+  if (st.firstDayId() == 0 ||
+      // for the cyclic, where the first day is not always 0
+      (st.firstDayId() <= pMaster_->nDays()
+       && st.lastDayId() >= pMaster_->nDays()))
     return dualValues_[nurseNum];
   return 0;
 }
@@ -55,14 +58,14 @@ double RosterAssignmentConstraint::getDualCost(
 void RosterAssignmentConstraint::addConsToCol(
     std::vector<MyCons *> *cons,
     std::vector<double> *coeffs,
-    const Pattern &col) const {
+    const Column &col) const {
   cons->push_back(assignmentCons_[col.nurseNum()]);
   coeffs->push_back(1);
 }
 
 std::string RosterAssignmentConstraint::toString() const {
   std::stringstream buff;
-  for (const auto &pN : pMaster_->liveNurses())
+  for (const auto &pN : pMaster_->pLiveNurses())
     buff << "# Duals for nurse " << pN->num_ << ": "
          << -dualValues_[pN->num_] << std::endl;
   return buff.str();
@@ -95,7 +98,7 @@ void RosterAssignmentConstraint::build() {
 RotationGraphConstraint::RotationGraphConstraint(
     MasterProblem *pMaster,
     vector2D<PBoundedResource> masterRotationGraphResources):
-    ConstraintMP(pMaster, true),
+    ConstraintMP(pMaster, "Rotation graph", true),
     masterRotationGraphResources_(std::move(masterRotationGraphResources)),
     restsPerDay_(pScenario_->nNurses()),
     restVars_(pScenario_->nNurses()),
@@ -140,21 +143,21 @@ void RotationGraphConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
   startWorkDualValues_ = Tools::randomDoubleVector2D(
       pMaster_->nNurses(), pMaster_->nDays(),
-      0, 7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
+      0, 7*pScenario_->weights().optimalDemand);
   endWorkDualValues_ = Tools::randomDoubleVector2D(
       pMaster_->nNurses(), pMaster_->nDays(),
-      0, 7*pScenario_->weights().WEIGHT_OPTIMAL_DEMAND);
+      0, 7*pScenario_->weights().optimalDemand);
 }
 
 // return the dual cost of a stretch based on its consumption of
 // the constraints
 double RotationGraphConstraint::getDualCost(int nurseNum,
-                   const Stretch &st,
-                   const PAbstractShift &prevS) const {
+                                            const Stretch &st,
+                                            const PAbstractShift &prevS) const {
   // if prevS is null, consider it's a rest
-  bool work = prevS ? prevS->isWork() : false;
+  bool work = prevS && prevS->isWork();
   double d = 0;
-  int k = st.firstDay();
+  int k = st.firstDayId();
   if (k == 0) work = false;  // always count first worked day as a start
   for (const PShift &pS : st.pShifts()) {
     // start work
@@ -166,7 +169,7 @@ double RotationGraphConstraint::getDualCost(int nurseNum,
     work = pS->isWork();
     k++;
   }
-  // always count last work day as a end
+  // always count last work day at end
   if (k >= pMaster_->nDays() && st.pShifts().back()->isWork())
     d += endWorkDualValues_[nurseNum][k-1];
   return d;
@@ -175,13 +178,13 @@ double RotationGraphConstraint::getDualCost(int nurseNum,
 void RotationGraphConstraint::addConsToCol(
     std::vector<MyCons *> *cons,
     std::vector<double> *coeffs,
-    const Pattern &col) const {
+    const Column &col) const {
   // add the arc corresponding to the rotation
   const PRCGraph &pG = pRotationGraphs_[col.nurseNum()];
   const PRCNode &pOrigin =
-      (col.firstDay() == 0) ? pG->pSource(0) :
-      maxRestNodes_[col.nurseNum()][col.firstDay()-1];
-  const PRCNode &pTarget = firstRestNodes_[col.nurseNum()][col.lastDay()];
+      (col.firstDayId() == 0) ? pG->pSource(0) :
+      maxRestNodes_[col.nurseNum()][col.firstDayId()-1];
+  const PRCNode &pTarget = firstRestNodes_[col.nurseNum()][col.lastDayId()];
   pG->addSingleArc(pOrigin, pTarget, col, col.cost());
   // add the coefficient for both flow conservation constraints
   cons->push_back(restCons_[col.nurseNum()][pOrigin->id]);
@@ -198,16 +201,43 @@ std::string RotationGraphConstraint::toString(
   return buff.str();
 }
 
-double RotationGraphConstraint::getInitialStateCost(CostType costType) const {
-  double cost = 0;
+// return the cost of the initial state by cost
+std::map<CostType, double>
+    RotationGraphConstraint::getInitialStateCost() const {
+  std::map<CostType, double> costs;
   for (int i = 0; i < pMaster_->nNurses(); i++)
     for (const auto &pArc : pRotationGraphs_[i]->pSource(0)->outArcs)
       if (pArc->stretch.pShifts().front()->isRest()) {
         double v = pModel()->getVarValue(restVars_[i][pArc->id]);
-        if (v > pMaster_->epsilon())
-          cost += v * initialStateRCSolutions_[i].costByType(costType);
+        if (v > pMaster_->epsilon()) {
+          for (const auto &p : initialStateRCSolutions_[i].costs())
+            costs[p.first] += v * p.second;
+        }
       }
-  return cost;
+  return costs;
+}
+
+// return the cost of the variables by cost
+std::map<CostType, double> RotationGraphConstraint::getCosts() const {
+  // WARNING: contains all the initial cost of the rotation graph
+  // The initial cost will be subtracted in the loop
+  double restCost = pModel()->getTotalCost(restVars_);
+  std::map<CostType, double> costs;
+  for (int n = 0; n < pMaster_->nNurses(); ++n)
+    // all the rcsolutions of cost != 0
+    for (const auto &p : rcSolByArc_[n]) {
+      MyVar *pV = restVars_[n].at(p.first->id);
+      double v = pModel()->getVarValue(pV);
+      if (v > pMaster_->epsilon()) {
+        for (const auto &p2 : p.second.costs())
+          costs[p2.first] += v * p2.second;
+        // do not count twice this cost
+        restCost -= v * p.second.cost();
+      }
+    }
+  // add the rest cost left
+  costs[CONS_REST_COST] += restCost;
+  return costs;
 }
 
 /*
@@ -218,10 +248,12 @@ void RotationGraphConstraint::build() {
   restVars_.clear();
   restsPerDay_.clear();
   restCons_.clear();
+  rcSolByArc_ = vector<std::map<PRCArc, RCSolution>>(pMaster_->nNurses());
   // build the rotation network for each nurse
-  for (const PLiveNurse &pN : pMaster_->liveNurses()) {
+  for (const PLiveNurse &pN : pMaster_->pLiveNurses()) {
     // build a graph of 2 shifts: rest and work
-    auto pG = std::make_shared<RCGraph>(pMaster_->nDays(), pMaster_->nShifts());
+    auto pG = std::make_shared<RCGraph>(0, pMaster_->nDays(),
+                                        pMaster_->pScenario()->pShifts());
     createRotationNodes(pG, pN);
     createRotationArcs(pG, pN);
     createRotationArcsVars(pG, pN);
@@ -235,13 +267,21 @@ void RotationGraphConstraint::createRotationNodes(
   /* Create nodes: one source, nDays free rest and non free nodes */
   const PShift &pRest = pScenario_->pRestShift();
   PRCNode pSource =
-      pG->addSingleNode(SOURCE_NODE, -1, pN->pStateIni_->pShift_);
+      pG->addSingleNode(SOURCE_NODE,
+                        pScenario_->firstDay_.previous(),
+                        pN->pStateIni_->pShift_);
   // the source is present
   vector<PRCNode> firstRestNodes, maxRestNodes;
   for (int k = 0; k < pMaster_->nDays(); k++) {
     NodeType nT = (k == pMaster_->nDays() - 1) ? SINK_NODE : PRINCIPAL_NETWORK;
-    firstRestNodes.push_back(pG->addSingleNode(nT, k, pRest));
-    maxRestNodes.push_back(pG->addSingleNode(nT, k, pRest));
+    firstRestNodes.push_back(
+        pG->addSingleNode(nT,
+                          pScenario_->firstDay_.addAndGet(k),
+                          pRest));
+    maxRestNodes.push_back(
+        pG->addSingleNode(nT,
+                          pScenario_->firstDay_.addAndGet(k),
+                          pRest));
   }
   firstRestNodes_.push_back(firstRestNodes);
   maxRestNodes_.push_back(maxRestNodes);
@@ -286,7 +326,7 @@ std::pair<int, double> RotationGraphConstraint::minConsRest(
     }
   // otherwise, just use 1 which is always the default LB
   // Do not use a soft LB, as the number of consecutive rest could be lower
-  return {1, pScenario_->weights().WEIGHT_CONS_DAYS_OFF};
+  return {1, pScenario_->weights().consDaysOff};
 }
 
 std::pair<int, double> RotationGraphConstraint::maxConsRest(
@@ -305,7 +345,7 @@ std::pair<int, double> RotationGraphConstraint::maxConsRest(
       // soft UB present
       if (pR->getUb() < pMaster_->nDays() && pR->getUb() > maxR) {
         maxR = pR->getUb();
-        cost = pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
+        cost = pScenario_->weights().consDaysOff;
       } else if (pR->getLb() > maxR) {
         maxR = pR->getLb();
         cost = 0;
@@ -323,33 +363,54 @@ void RotationGraphConstraint::addRotationRestCost(
     if (pS->isWork())
       Tools::throwError("addRotationRestCost works only for a rest arc.");
 #endif
+  // compute rotation cost
+  RCSolution sol = computeCost(pArc, pN);
+
+  // add the label cost to the arc
+  if (abs(sol.cost()) > pMaster_->epsilon()) {
+    pArc->addBaseCost(sol.cost());
+    rcSolByArc_[pN->num_][pArc] = std::move(sol);
+  }
+
+  if (sol.firstDayId() == 0 &&
+      initialStateRCSolutions_[pN->num_].firstDayId() == -1)
+    initialStateRCSolutions_[pN->num_] = sol;
+}
+
+RCSolution RotationGraphConstraint::computeCost(
+    const PRCArc &pArc, const PLiveNurse &pN) const {
   // take a copy of the stretch and add a work shift at the end to ensure
   // to price correctly the rest costs LB if ends before the last day
   Stretch st = pArc->stretch;
-  if (st.lastDay() < pMaster_->nDays() - 1)
-    st.pushBack(Stretch(st.firstDay() + 1, pScenario_->pAnyWorkShift()));
+  if (st.lastDayId() < pMaster_->nDays() - 1)
+    st.pushBack(Stretch(st.firstDayId() + 1, pScenario_->pAnyWorkShift()));
 
   // build rotation
   RCSolution sol(st, 0, DBL_MAX);
   sol.resetCosts();
 
   // get the vector of resources of the subproblem
-  auto pResources = pMaster_->getSPResources(pN);
+  vector<PResource> pResources;
   // create expander for stretch
-  double c = pArc->cost;
-  for (const auto &pR : pResources) {
-    pR->initialize(*pArc->origin->pAShift, sol, pArc);
-    sol.addCost(pArc->cost - c, pMaster_->resourceCostType(pR, pN));
-    c = pArc->cost;
+  double cost = 0;
+  for (const auto &pR : pMaster_->getSPResources(pN)) {
+    double c = 0;
+    pR->preprocess(pArc, &c);
+    pArc->addBaseCost(c);
+    if (pR->initialize(
+        *pArc->origin->pAShift, sol, pArc, static_cast<int>(pResources.size())))
+      pResources.push_back(pR);
+    sol.addCost(pArc->cost - cost, pR->costType());
+    cost = pArc->cost;
   }
 
   // create initial label
   PRCLabel pL;
-  if (st.firstDay() == 0) {
+  if (st.firstDayId() == 0) {
     pL = std::make_shared<RCLabel>(pResources, *pN->pStateIni_);
   } else {
     const PShift &pS = pScenario_->pAnyWorkShift(pN->availableShifts_);
-    State state(st.firstDay() - 1,  // day
+    State state(st.firstDayId() - 1,  // day
                 0,  // totalTimeWorked
                 0,  // totalWeekendsWorked
                 pN->minConsDaysWork(),  // consDaysWorked
@@ -360,21 +421,15 @@ void RotationGraphConstraint::addRotationRestCost(
   }
 
   // expand
-  c = pL->cost();
+  cost = pL->cost();
   for (const auto &pE : pArc->expanders) {
-    ResourceValues &v = pL->getResourceValues(pE->resourceId);
+    ResourceValues &v = pL->getResourceValues(pE->indResource);
     pE->expand(pL, &v);
-    sol.addCost(pL->cost() - c,
-        pMaster_->resourceCostType(pResources[pE->resourceId], pN));
-    c = pL->cost();
+    sol.addCost(pL->cost() - cost, pE->costType);
+    cost = pL->cost();
   }
 
-  // add the label cost to the arc
-  pArc->addBaseCost(pL->cost());
-
-  if (sol.firstDay() == 0 &&
-      initialStateRCSolutions_[pN->num_].firstDay() == -1)
-    initialStateRCSolutions_[pN->num_] = sol;
+  return sol;
 }
 
 void RotationGraphConstraint::createRotationArcsVars(
@@ -386,14 +441,15 @@ void RotationGraphConstraint::createRotationArcsVars(
   MyVar *var;
   for (const PRCArc &pArc : pG->pArcs()) {
     // create a rotation from the stretch
-    RotationPattern rot(
+    RotationColumn rot(
         RCSolution(pArc->stretch, pArc->cost, DBL_MAX), pN->num_);
     snprintf(name, sizeof(name), "RestingVars_N%d_%d_%d", pN->num_,
-             pArc->stretch.firstDay(), pArc->stretch.lastDay());
+             pArc->stretch.firstDayId(), pArc->stretch.lastDayId());
     pModel()->createPositiveVar(
-        &var, name, pArc->cost, rot.getCompactPattern());
+        &var, name, pArc->cost, rot.getCompactColumn());
     vars.push_back(var);
-    for (int k = pArc->stretch.firstDay(); k <= pArc->stretch.lastDay(); k++)
+    for (int k = pArc->stretch.firstDayId(); k <= pArc->stretch.lastDayId();
+         k++)
       varsByDay[k].push_back(var);
   }
   restVars_.push_back(vars);

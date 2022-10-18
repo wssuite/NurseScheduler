@@ -62,13 +62,15 @@ class OffsetRosterSP : public RosterSP {
     return !dayShiftStatus_[k % nDays_][s];
   }
 
-  int firstDay_;  // first day of the graph
+  // TODO(AL): refactor as day instead of day id
+  int firstDayId_;  // first day of the graph
 };
 typedef shared_ptr<OffsetRosterSP> POffsetRosterSP;
 
 class CyclicRosterSP : public RosterSP {
  public:
   CyclicRosterSP(PScenario pScenario,
+                 int firstDayId,
                  int nbDays,
                  PLiveNurse nurse,
                  std::vector<PResource> pResources,
@@ -79,8 +81,8 @@ class CyclicRosterSP : public RosterSP {
   // Solve : Returns TRUE if negative reduced costs path were found;
   // FALSE otherwise.
   bool solve(const PDualCosts &costs,
-             const std::set<std::pair<int, int>> &forbiddenDayShifts = {},
-             double redCostBound = 0) override;
+             const std::set<std::pair<int, int>> &forbiddenDayShifts,
+             double redCostBound) override;
 
   void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const override;
 

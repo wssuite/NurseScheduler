@@ -18,6 +18,10 @@
 #include <vector>
 
 #include "tools/Tools.h"
+#include "data/Shift.h"
+
+class Scenario;
+typedef std::shared_ptr<Scenario> PScenario;
 
 class Demand;
 typedef std::shared_ptr<Demand> PDemand;
@@ -33,9 +37,12 @@ typedef std::shared_ptr<Demand> PDemand;
 class Demand {
  public:
   // generic constructor and destructor
-  Demand() : name_(""), nDays_(0), firstDay_(0), nShifts_(0), nSkills_(0) {}
-  Demand(int nbDays, int firstDay, int nbShifts, int nbSkills, std::string name,
-         vector3D<int> minDemand, vector3D<int> optDemand);
+  Demand() : nDays_(0), firstDayId_(0), nShifts_(0), nSkills_(0),
+             isOptDemand_(true) {}
+  Demand(int nbDays, int firstDayId, int nbShifts, int nbSkills,
+         std::string name, vector3D<int> minDemand);
+  Demand(int nbDays, int firstDayId, int nbShifts, int nbSkills,
+         std::string name, vector3D<int> minDemand, vector3D<int> optDemand);
   ~Demand();
 
   // constant attributes of the demand
@@ -48,7 +55,7 @@ class Demand {
   // number of days covered by the demand and index of the first day
   //
   int nDays_;
-  const int firstDay_;
+  const int firstDayId_;
 
   // number of shifts per day and number of skills to cover
   const int nShifts_, nSkills_;
@@ -56,16 +63,17 @@ class Demand {
   // minimum and optimal demand for each day, shift and skill
   //
   vector3D<int> minDemand_;
+  bool isOptDemand_;
   vector3D<int> optDemand_;
 
  public:
   // total demand in the minimal and optimal demands
   //
-  int minTotal_, optTotal_;
+  int minTotal_{}, optTotal_{};
 
   // preprocessed attributes aggregating the information of the demand
   //
-  bool isPreprocessed_;
+  bool isPreprocessed_{};
 
   // total demand per skill in the minimal and optimal demands
   //
@@ -102,19 +110,17 @@ class Demand {
   void perturbShifts(int minPerturb, int maxPerturb);
 
  public:
-  // Index of the last day covered by the demand
-  int lastDay() { return firstDay_ + nDays_ - 1; }
-
   // compute all the potentially helpful attributes of a demand
   // this includes the total demand per skill, per shift,
-  void preprocessDemand();
+  void preprocessMinDemand();
+  void preprocessOptDemand();
 
   // add another week demand at the end of the current one
   // update all the parameters
-  void pushBack(PDemand pDemand);
+  void pushBack(const PDemand& pDemand);
 
   // Returns a new demand that appends pDemand to the current one
-  PDemand append(PDemand pDemand);
+  PDemand append(const PDemand& pDemand);
 
   // display the demand, and include the preprocessed information if the input
   // boolean is set to true
@@ -133,13 +139,14 @@ class Demand {
   //
   void keepFirstNDays(int nbDays);
 
-  // shorten the demand by removing the nbDays first days
-  //
-  void removeFirstNDays(int nbDays);
+  // compute the total duration needed for the associated demand
+  int getTotalMinDuration(const PScenario &pScenario) const;
+  int getTotalMinDemand() const;
+  int getTotalMinDemand(int shift) const;
+  int getTotalMinDemand(int shift, int skill) const;
 
-  // remove a list of skills from the demand
-  //
-  void removeSkills(std::vector<int> skills);
+  int getTotalDemand(
+      int shift, int skill, const vector3D<int>& demand) const;
 };
 
 #endif  // SRC_DATA_DEMAND_H_

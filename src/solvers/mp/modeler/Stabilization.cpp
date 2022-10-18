@@ -207,8 +207,8 @@ void Stabilization::multiplyUbInSolver(MyVar *pVar,
   double ub = pVar->getUB();
 
   if (ub != solver->getColUpper()[varind]) {
-    Tools::throwError("multiplyUbInSolver: the upper bound stored in the "
-                      "variable is not the same as that in the solver!");
+    Tools::throwException("multiplyUbInSolver: the upper bound stored in the "
+                          "variable is not the same as that in the solver!");
   }
 
   ub *= factor;
@@ -227,8 +227,8 @@ void Stabilization::updateVarUbInSolver(MyVar *pVar,
   double ub = pVar->getUB();
 
   if (ub != solver->getColUpper()[varind]) {
-    Tools::throwError("updateVarUbInSolver: the upper bound stored in the "
-                      "variable is not the same as that in the solver!");
+    Tools::throwException("updateVarUbInSolver: the upper bound stored in the "
+                          "variable is not the same as that in the solver!");
   }
 
   if (value > param().stabBoxBoundMax_) value = param().stabBoxBoundMax_;
@@ -246,8 +246,9 @@ void Stabilization::updateVarCostInSolver(MyVar *pVar,
   double cost = pVar->getCost();
 
   if (cost != solver->getObjCoefficients()[varind]) {
-    Tools::throwError("updateVarCostInSolver: the cost stored in the variable "
-                      "is not the same as that in the solver!");
+    Tools::throwException(
+        "updateVarCostInSolver: the cost stored in the variable "
+        "is not the same as that in the solver!");
   }
 
   if (value > param().stabPenaltyMax_) value = param().stabPenaltyMax_;

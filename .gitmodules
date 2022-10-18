@@ -1,0 +1,3 @@
+[submodule "deps/coin"]
+	path = deps/coin
+	url = https://github.com/wssuite/coin.git

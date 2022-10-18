@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <memory>
 
+
 #include "solvers/mp/sp/rcspp/RCLabel.h"
 #include "solvers/mp/sp/rcspp/RCGraph.h"
 
@@ -31,84 +32,102 @@ using std::vector;
  */
 class TotalShiftDuration {
  public:
-  TotalShiftDuration(const PAbstractShift pShift,
+  TotalShiftDuration(PAbstractShift  pShift,
                      int maxDuration,
-                     int defaultDuration,
-                     BoundedResource *pR) :
-      pShift_(pShift),
+                     int defaultDuration) :
+      pAShift_(std::move(pShift)),
       maxDuration_(maxDuration),
-      defaultDuration_(defaultDuration),
-      pR_(pR) {}
+      defaultDuration_(defaultDuration) {}
 
   int computeConsumption(const Stretch &stretch, bool *ready = nullptr) const;
 
-  const PAbstractShift pShift() const { return pShift_; }
+  const PAbstractShift &pShift() const { return pAShift_; }
 
   int maxDuration() const { return maxDuration_; }
-
-  BoundedResource *pResource() const { return pR_; }
 
   int duration(const PShift &pS) const {
     return defaultDuration_ >= 0 ? defaultDuration_ : pS->duration;
   }
 
  protected:
-  const PAbstractShift pShift_;
-  int maxDuration_;  // maximum duration of a shift
+  const PAbstractShift pAShift_;
+  int maxDuration_;  // maximum duration of a shift: used for the dominance
   int defaultDuration_;  // if defined, override duration of the PShift
-  BoundedResource *pR_;
 };
 
 class SoftTotalShiftDurationResource :
     public SoftBoundedResource, public TotalShiftDuration {
  public:
   SoftTotalShiftDurationResource(int lb, int ub, double lbCost, double ubCost,
-                                 const PAbstractShift pShift,
+                                 const PAbstractShift& pShift,
                                  int totalNbDays,
                                  int maxDuration,
                                  int defaultDuration = -1) :
       SoftBoundedResource("Soft Total "+pShift->name,
                           lb, ub, lbCost, ubCost),
-      TotalShiftDuration(pShift, maxDuration, defaultDuration, this) {
+      TotalShiftDuration(pShift, maxDuration, defaultDuration) {
     totalNbDays_ = totalNbDays;
+    costType_ = TOTAL_WORK_COST;
+  }
+
+  BaseResource* clone() const override {
+    return new SoftTotalShiftDurationResource(
+        lb_, ub_, lbCost_, ubCost_, pAShift_,
+        totalNbDays_, maxDuration_, defaultDuration_);
   }
 
   int getConsumption(const State &initialState) const override;
 
-  bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
+  int maxConsumptionPerDay() const override { return maxDuration_; }
+
+  bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
+
+  bool isInRosterMaster() const override { return false; };
+  bool isInRotationMaster() const override { return true; };
 
  protected:
   // initialize the expander on a given arc
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
-                 const PRCArc &pArc) override;
+                 const shared_ptr<RCArc> &pArc,
+                 int indResource) override;
 };
 
 class HardTotalShiftDurationResource :
     public HardBoundedResource, public TotalShiftDuration {
  public:
   HardTotalShiftDurationResource(
-      int lb, int ub, const PAbstractShift pShift,
+      int lb, int ub, const PAbstractShift& pShift,
       int totalNbDays, int maxDuration, int defaultDuration = -1) :
       HardBoundedResource("Hard Total "+pShift->name, lb, ub),
-      TotalShiftDuration(pShift, maxDuration, defaultDuration, this) {
+      TotalShiftDuration(pShift, maxDuration, defaultDuration) {
     totalNbDays_ = totalNbDays;
+  }
+
+  BaseResource* clone() const override {
+    return new HardTotalShiftDurationResource(
+        lb_, ub_, pAShift_,
+        totalNbDays_, maxDuration_, defaultDuration_);
   }
 
   int getConsumption(const State &initialState) const override;
 
+  int maxConsumptionPerDay() const override { return maxDuration_; }
+
   bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
+
+  bool isInRosterMaster() const override { return false; };
+  bool isInRotationMaster() const override { return true; };
 
  protected:
   // initialize the expander on a given arc
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
-                 const PRCArc &pArc) override;
+                 const shared_ptr<RCArc> &pArc,
+                 int indResource) override;
 
  private:
   const PAbstractShift pShift_;
-  int maxDuration_;  // maximum duration of a shift
-  int defaultDuration_;  // if defined, override duration of the PShift
 };
 
 
@@ -117,12 +136,13 @@ class HardTotalShiftDurationResource :
  * of resources on the count of the occurrences of a given abstract shift
  */
 struct SoftTotalShiftDurationExpander : public Expander {
-  SoftTotalShiftDurationExpander(const SoftTotalShiftDurationResource& resource,
+  SoftTotalShiftDurationExpander(int indResource,
+                                 const SoftTotalShiftDurationResource& resource,
                                  int consumption,
                                  int maxDurationBefore,
                                  int maxDurationLeft,
                                  bool arcToSink) :
-      Expander(resource.id()),
+      Expander(indResource, TOTAL_WORK_COST),
       resource_(resource),
       consumption_(consumption),
       maxDurationBefore_(maxDurationBefore),
@@ -141,13 +161,15 @@ struct SoftTotalShiftDurationExpander : public Expander {
 };
 
 struct HardTotalShiftDurationExpander : public Expander {
-  HardTotalShiftDurationExpander(const HardTotalShiftDurationResource& resource,
+  HardTotalShiftDurationExpander(int indResource,
+                                 const HardTotalShiftDurationResource& resource,
                                  int consumption,
                                  int maxDurationBefore,
                                  int maxDurationLeft,
                                  bool arcToSink) :
-      Expander(resource.id()),
+      Expander(indResource, NO_COST),
       resource_(resource),
+      consumption_(consumption),
       maxDurationBefore_(maxDurationBefore),
       maxDurationLeft_(maxDurationLeft),
       arcToSink_(arcToSink) {}

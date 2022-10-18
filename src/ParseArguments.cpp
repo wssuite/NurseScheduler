@@ -12,6 +12,8 @@
 
 #include "ParseArguments.h"
 
+#include <list>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -101,7 +103,8 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
         __LINE__);
   }
 
-  // Non compact format is only for release versions, so no log file is required
+  // Non compact format is only for the INRCII versions,
+  // so no log file is required
   pInputPaths->logPath("");
 
   return pInputPaths;
@@ -115,7 +118,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   // Default arguments are set to enable simple call to the function without
   // argument.
   std::string dataDir, instanceName, solutionPath, logPath, paramFile,
-      SPType, RCSPPType;
+      SPType, RCSPPType, weeksName;
   int historyIndex = -1, randSeed = 0, nTreads = -1,
       SPStrategy = -1, verbose = -1, nCandidates = -1, timeOut = -1;
   std::vector<int> weekIndices;
@@ -148,6 +151,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
       historyIndex = std::stoi(str);
       narg += 2;
     } else if (!strcmp(arg, "--weeks")) {
+      weeksName = str;
       weekIndices = Tools::tokenize<int>(str, '-');
       narg += 2;
     } else if (!strcmp(arg, "--sol")) {
@@ -197,6 +201,26 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     Tools::throwError("If cyclic option is enable, you can't use "
                       "an historical state for the nurses.");
 
+  if (logPath.empty() && solutionPath.empty()) {
+    auto npos = instanceName.rfind('.');
+    // if INRC format (a file name)
+    if (npos != string::npos) {
+      solutionPath = "outfiles/" + instanceName.substr(0, npos) + "/";
+    } else {
+      // for INRC 2 format
+      solutionPath = "outfiles/" + instanceName + "_" +
+          std::to_string(historyIndex) + "_" + weeksName + "/";
+    }
+//    std::time_t t = std::time(nullptr);
+//    solutionPath += std::to_string(t)+"/";
+  }
+
+  if (!logPath.empty() && logPath.back() != '/')
+    solutionPath += "/";
+
+  if (!solutionPath.empty() && solutionPath.back() != '/')
+    solutionPath += "/";
+
   // Initialize the input paths
   //
   // if cyclic, do not enter any history
@@ -237,6 +261,10 @@ InputPaths *readCompactArguments(int argc, char **argv) {
 * Read the arguments with the right method for the format
 ******************************************************************************/
 InputPaths *readArguments(int argc, char **argv) {
+  if (argc == 3) {
+    // Use basic arguments: datadir then instance file
+    return new InputPaths(argv[1], argv[2]);
+  }
   // check if the arg --dir is present
   int narg = 1;
   while (narg < argc && strcmp(argv[narg], "--dir"))
@@ -245,3 +273,4 @@ InputPaths *readArguments(int argc, char **argv) {
     return readNonCompactArguments(argc, argv);
   return readCompactArguments(argc, argv);
 }
+

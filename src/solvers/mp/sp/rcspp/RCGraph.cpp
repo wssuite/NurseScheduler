@@ -12,32 +12,34 @@
 #include "solvers/mp/sp/rcspp/RCGraph.h"
 
 #include <list>
-#include <utility>
 
 void RCGraph::initializeExpanders() {
-  vector<PResource> softResources;
-  softResources.reserve(nResources());
   // initialize hard resources first
-  for (const auto &pR : pNonEnumResources_) {
-    if (!pR->isHard()) {
-      softResources.push_back(pR);
-      continue;
+  int ind = -1;
+  for (const auto &pR : pResources_) {
+    ind++;
+    if (!pR->isHard()) continue;
+    for (const auto &pA : pArcs_) {
+      pR->initialize(*pA->origin->pAShift, pA->stretch, pA, ind);
     }
-    for (const auto &pA : pArcs_)
-      pR->initialize(*pA->origin->pAShift, pA->stretch, pA);
   }
 
   // then, initialize soft resources
-  for (const auto &pR : softResources)
-    for (const auto &pA : pArcs_)
-      pR->initialize(*pA->origin->pAShift, pA->stretch, pA);
+  ind = -1;
+  for (const auto &pR : pResources_) {
+    ind++;
+    if (pR->isHard()) continue;
+    for (const auto &pA : pArcs_) {
+      pR->initialize(*pA->origin->pAShift, pA->stretch, pA, ind);
+    }
+  }
 }
 
 void RCGraph::initializeDominance() {
   for (const auto &pN : pNodes_) {
     pN->activeResources.clear();
-    for (const auto &pR : pNonEnumResources_)
-      if (pR->isActive(pN->day, *pN->pAShift))
+    for (const auto &pR : pResources_)
+      if (pR->isActive(pN->dayId, pN->pAShift))
         pN->activeResources.push_back(pR);
   }
 }
@@ -82,22 +84,46 @@ std::vector<PRCNode> RCGraph::sortNodes() const {
 void RCGraph::addResource(const PResource& pR) {
   pR->setId(pResources_.size());
   pResources_.push_back(pR);
-  pNonEnumResources_.push_back(pR);
 }
 
 PRCNode RCGraph::addSingleNode(
-    NodeType type, int day, const PAbstractShift& pAS) {
-  pNodes_.emplace_back(
-      std::make_shared<RCNode>(pNodes_.size(), type, day, pAS));
-  if (type == SINK_NODE)  // if a sink
+    NodeType type, const PDay& pDay, const PAbstractShift& pAS) {
+  pNodes_.push_back(
+      std::make_shared<RCNode>(pNodes_.size(), type, pDay, pAS));
+  if (type == SINK_NODE) {
+    // if a sink
     pSinks_.push_back(pNodes_.back());
-  else if (type == SOURCE_NODE)  // if a source
+    pNodesPerDay_[pDay->id - firstDayId_].push_back(pNodes_.back());
+  } else if (type == SOURCE_NODE) {
+    // if a source
     pSources_.push_back(pNodes_.back());
+  } else {
+    pNodesPerDay_[pDay->id - firstDayId_].push_back(pNodes_.back());
+  }
+
   return pNodes_.back();
 }
 
-PRCArc RCGraph::addSingleArc(PRCNode o,
-                             PRCNode d,
+PRCArc RCGraph::findArc(const PRCNode& o, const Stretch &s) {
+  for (auto pA : o->outArcs) {
+    bool isEqual = true;
+    if (pA->stretch.nDays() == s.nDays()) {
+      auto itS = s.pShifts().begin();
+      for (const auto &pS : pA->stretch.pShifts()) {
+        if (!pS->equals(**itS)) {
+          isEqual = false;
+          break;
+        }
+        itS++;
+      }
+      if (isEqual) return pA;
+    }
+  }
+  return nullptr;
+}
+
+PRCArc RCGraph::addSingleArc(const PRCNode& o,
+                             const PRCNode& d,
                              const Stretch &s,
                              double cost) {
 #ifdef DBG
@@ -106,18 +132,37 @@ PRCArc RCGraph::addSingleArc(PRCNode o,
         "Creating an arc with the same origin and destination: %s",
         o->toString().c_str());
 #endif
-  pArcs_.emplace_back(std::make_shared<RCArc>(
-      pArcs_.size(), std::move(o), std::move(d), s, cost));
+
+  // we first check that the arc is not already present in the graph, there
+  // will be errors if the same arc appears twice in the graph
+  PRCArc pArc = findArc(o, s);
+  if (pArc != nullptr) return pArc;
+
+  pArcs_.push_back(std::make_shared<RCArc>(
+      pArcs_.size(), o, d, s, cost));
   // Adding the id of the last arc created in the vector of the incident
   // arcs ids of the target node
-  PRCArc pArc = pArcs_.back();
+  pArc = pArcs_.back();
   pArc->target->inArcs.push_back(pArc);
   pArc->origin->outArcs.push_back(pArc);
   // add the arc to pArcsPerDayShift_ for each day/shift of the stretch
   const Stretch &st = pArc->stretch;
-  for (int k = st.firstDay(); k <= st.lastDay(); k++)
+  for (int k = st.firstDayId(); k <= st.lastDayId(); k++)
     pArcsPerDayShift_[k][st.pShift(k)->id].push_back(pArc);
   return pArc;
+}
+
+// delete an arc from every vector where it appears
+void RCGraph::deleteArc(const PRCArc& pA) {
+  RCNode *pO = pA->origin, *pT = pA->target;
+  Tools::erase(&pArcs_, pA, true);
+  Tools::erase(&pO->outArcs, pA, true);
+  Tools::erase(&pT->inArcs, pA, true);
+
+  const Stretch &st = pA->stretch;
+  for (int k = st.firstDayId(); k <= st.lastDayId(); k++)
+    Tools::erase(&pArcsPerDayShift_[k][st.pShift(k)->id],
+                 pA, true);
 }
 
 void RCGraph::printSummaryOfGraph() const {
@@ -145,23 +190,6 @@ void RCGraph::printAllArcs() const {
 
 const vector<PResource> &RCGraph::pResources() const {
   return pResources_;
-}
-
-const vector<PResource> &RCGraph::pNonEnumResources() const {
-  return pNonEnumResources_;
-}
-
-void RCGraph::pNonEnumResources(const vector<PResource> &pNonEnumResources) {
-  pNonEnumResources_ = pNonEnumResources;
-}
-
-PRCArc RCGraph::getArc(const PRCNode& origin, const PRCNode& target) const {
-  for (auto inArc : target->inArcs) {
-    if (inArc->origin->id == origin->id)
-      return inArc;
-  }
-  Tools::throwException("Arc %d not found.", origin->id);
-  return nullptr;
 }
 
 // Forbid a node / arc

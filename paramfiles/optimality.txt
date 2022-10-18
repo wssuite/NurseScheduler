@@ -16,17 +16,19 @@ isStabUpdatePenalty=1
 nbDiveIfBranchOnColumns=1
 branchColumnDisjoint=1
 # branchColumnUntilValue=1
-stopAfterXDegenerateIt=10
+branchBaseScore=0.2
+weekendAdvantage=0.2
+stopAfterXDegenerateIt=20
 performHeuristicAfterXNode=-1
 heuristicMinIntegerPercent=50
 spDefaultStrategy=0
 spNbRotationsPerNurse=20
 spNbNursesToPrice=15
 # number of candidate for strong branching
-nCandidates=8
+nCandidates=5
 verbose=1
 rcsppToOptimality=1
 rcsppEnumSubpaths=0
 rcsppMinCostToSinks=0
 rcsppEnumSubpathsForMinCostToSinks=0
-
+rcsppBidirectional=1

@@ -7,7 +7,7 @@ withPrimalDual=0
 withLNS=1
 
 # complete solution options
-completeOptimalityLevel=UNTIL_FEASIBILITY
+completeOptimalityLevel=UNTIL_FEASIBLE
 
 # rolling horizon options
 rollingSamplePeriod=7
@@ -47,10 +47,8 @@ rcsppToOptimality=1
 rcsppSortLabels=1
 rcsppMinCostToSinks=0
 rcsppImprovedDomination=1
-rcsppEnumerateSubpaths=0
-rcsppEnumerateSubpathsForMinCostToSinks=0
+rcsppEnumSubpaths=0
+rcsppEnumSubpathsForMinCostToSinks=0
 rcsppDssr=0
 rcsppNbToExpand=0
 rcsppBidirectional=0
-rcsppPulse=0
-rcsppWithRotationGraph=0

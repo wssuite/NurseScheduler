@@ -50,6 +50,8 @@ cmake-build-release/
 bashfiles/*
 logfiles/*
 outfiles/
+results/
+benchmark/*
 *.log
 
 #For eclipse
@@ -68,6 +70,7 @@ formatter*
 
 # clion files
 .idea/
+*.plist
 
 # solver files
 *.lp*

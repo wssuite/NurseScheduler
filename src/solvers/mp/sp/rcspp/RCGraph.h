@@ -27,6 +27,7 @@ using std::vector;
 using std::shared_ptr;
 using std::unique_ptr;
 
+
 /**
  * Description of a node of the RCGraph
  *
@@ -42,25 +43,25 @@ static const std::vector<std::string> nodeTypeName = {
 
 // Different arc types and their names
 enum ArcType {
-  SOURCE_TO_PRINCIPAL,
+  FROM_SOURCE,
   SHIFT_TO_NEWSHIFT,
   SHIFT_TO_SAMESHIFT,
   TO_SINK,
-  NONE_ARC
+  REST_ARC
 };
-
-static const std::vector<std::string> arcTypeName = {
-    "SOURCE_TO_PPL  ", "SHIFT_TO_NEWSH ", "SHIFT_TO_SAMESH",
-    "TO_SINK        ", "NONE           "};
 
 struct RCArc;
 typedef shared_ptr<RCArc> PRCArc;
 
 struct RCNode {
   RCNode(int id, NodeType t, int d, PAbstractShift pAS) :
-      id(id), type(t), day(d), pAShift(pAS) {}
+      id(id), type(t), dayId(d), pAShift(std::move(pAS)),
+      pDay(std::make_shared<Day>((DayOfWeek)(d >= 0 ? d%7 : d%7+7), d)) {}
+  RCNode(int id, NodeType t, const PDay& pD, PAbstractShift pAS) :
+      id(id), type(t), dayId(pD->id), pAShift(std::move(pAS)),
+      pDay(pD) {}
 
-  bool isWorkNode() {return pAShift->isWork();}
+  bool isWorkNode() const {return pAShift->isWork();}
 
   void print() const {
     std::cout << toString();
@@ -69,13 +70,14 @@ struct RCNode {
   std::string toString() const {
     std::stringstream rep;
     rep << "Id: " << id << ", type: " << type << ", day: " <<
-        day << ", shift: " << pAShift->name;
+        dayId << ", shift: " << pAShift->name;
     return rep.str();
   }
 
   const int id;
   NodeType type;
-  const int day;
+  const PDay pDay;
+  const int dayId;
   PAbstractShift pAShift;
   vector<PRCArc> inArcs;  // pointers to the arcs entering in this node
   vector<PRCArc> outArcs;  // pointers to the arcs exiting in this node
@@ -96,7 +98,7 @@ struct RCArc {
                  const PRCNode &t,
                  Stretch s,
                  double c,
-                 ArcType type = NONE_ARC) :
+                 ArcType type = REST_ARC) :
       id(n),
       origin(o.get()),
       target(t.get()),
@@ -109,12 +111,14 @@ struct RCArc {
 
   std::string toString() const {
     std::stringstream rep;
-    rep << id <<" : "
+    rep.setf(std::ios::fixed,  std::ios::floatfield);
+    rep.setf(std::ios::showpoint);
+    rep << id << " : "
         << "(" << origin->id << "," << target->id
-        << "): base cost = " << baseCost
-        << ", dual cost = " << dualCost
-        << ", first day = " << stretch.firstDay()
-        << "(" << Tools::intToDay(stretch.firstDay()) << ")"
+        << "): base cost = " << std::setprecision(DECIMALS) << baseCost
+        << ", dual cost = " << std::setprecision(DECIMALS) << dualCost
+        << ", first day = " << stretch.firstDayId()
+        << "(" << stretch.pDay(0)->toDayOfWeekShortName() << ")"
         << ", origin shift = " << origin->pAShift->name
         << ", stretch =";
     for (const auto& pS : stretch.pShifts())
@@ -170,16 +174,18 @@ struct RCArc {
 
 class RCGraph {
  public:
-  explicit RCGraph(int nDays, int nShifts) :
-      nDays_(nDays), nShifts_(nShifts) {
-    Tools::initVector3D(&pArcsPerDayShift_, nDays, nShifts, 0);
+  RCGraph(int firstDayId, int nDays, const vector<PShift>& pShifts) :
+      firstDayId_(firstDayId), nDays_(nDays),
+      pShifts_(pShifts), nShifts_(pShifts.size()) {
+    Tools::initVector2D(&pNodesPerDay_, nDays+1, 0);
+    Tools::initVector3D(&pArcsPerDayShift_, nDays, nShifts_, 0);
   }
 
   void copy(const RCGraph &g) {
     nDays_ = g.nDays_;
     nShifts_ = g.nShifts_;
     for (const auto &pN : g.pNodes_) {
-      pNodes_.emplace_back(std::make_shared<RCNode>(*pN));
+      pNodes_.push_back(std::make_shared<RCNode>(*pN));
       if (pN->type == SOURCE_NODE) {
         pSources_.push_back(pNodes_.back());
       }
@@ -188,7 +194,7 @@ class RCGraph {
       }
     }
     for (const auto &pA : g.pArcs_) {
-      pArcs_.emplace_back(std::make_shared<RCArc>(*pA));
+      pArcs_.push_back(std::make_shared<RCArc>(*pA));
     }
     Tools::initVector3D(&pArcsPerDayShift_, nDays_, nShifts_, 0);
     for (int k=0; k < nDays_; k++)
@@ -204,25 +210,28 @@ class RCGraph {
 
   // Getters of private attributes
   int nNodes() const {return pNodes_.size();}
+  const vector<PShift>& pShifts() const {return pShifts_;}
   const vector<PRCNode>& pNodes() const {return pNodes_;}
+  const vector<PRCNode>& pNodesPerDayId(int id) const {
+    return pNodesPerDay_[id-firstDayId_];
+  }
   const PRCNode& pNode(int id) const {return pNodes_[id];}
   const vector<PRCNode> &pSources() const { return pSources_; }
   PRCNode pSource(int d) const {return pSources_[d];}
   const vector<PRCNode> &pSinks() const { return pSinks_; }
   PRCNode pSink(int d) const {return pSinks_[d];}
   int nArcs() const {return pArcs_.size();}
+  int firstDayId() const {return firstDayId_;}
   int nDays() const {return nDays_;}
   int nShifts() const {return nShifts_;}
-  const vector<PRCArc> pArcs() const {return pArcs_;}
+  const vector<PRCArc>& pArcs() const {return pArcs_;}
   const PRCArc& pArc(int id) const {return pArcs_[id];}
   const vector<PRCArc>& pArcs(int day, int shift) const {
     return pArcsPerDayShift_[day][shift];
   }
   int nResources() const {return pResources_.size();}
   const vector<PResource> &pResources() const;
-  const vector<PResource> &pNonEnumResources() const;
-  void pNonEnumResources(const vector<PResource> &pNonEnumResources);
-  PRCArc getArc(const PRCNode& origin, const PRCNode& target) const;
+  PResource pResource(int i) {return pResources_[i];}
   const std::set<PRCArc>& pForbiddenArcs() const { return pForbiddenArcs_; }
 
   void reset() {
@@ -241,20 +250,27 @@ class RCGraph {
 
   void clearResources() {
     pResources_.clear();
-    pNonEnumResources_.clear();
   }
 
   void addResource(const PResource& pR);
-  PRCNode addSingleNode(NodeType type, int day, const PAbstractShift& pAS);
+  PRCNode addSingleNode(NodeType type,
+                        const PDay& pDay,
+                        const PAbstractShift& pAS);
 
-  PRCArc addSingleArc(PRCNode o, PRCNode d, const Stretch &s, double d1);
+  static PRCArc findArc(const PRCNode &o, const Stretch &s);
 
-  // preprocess the expansion of every resource on every arc to save cpu at
+  PRCArc addSingleArc(const PRCNode& o, const PRCNode& d, const Stretch &s,
+                      double cost = 0);
+
+  // delete an arc from every vector where it appears
+  void deleteArc(const PRCArc& pA);
+
+  // presolve the expansion of every resource on every arc to save cpu at
   // the actual expansion of labels
   void initializeExpanders();
 
-  // preprocess dominance of every resource on every node to save cpu at the
-  // actual dominance of labels
+  // select the resources that will need to be considered when checking for
+  // dominance at each node
   void initializeDominance();
 
   // return a sorted vector of the nodes from sources to sinks to ensure
@@ -283,11 +299,11 @@ class RCGraph {
 
  protected:
   // THE GRAPH
-  int nDays_, nShifts_;
+  int firstDayId_, nDays_, nShifts_;
+  vector<PShift> pShifts_;
   vector<PRCNode> pNodes_;
-  // source and sink nodes
-  vector<PRCNode> pSources_, pSinks_;
-
+  vector<PRCNode> pSources_, pSinks_;  // source and sink nodes
+  vector2D<PRCNode> pNodesPerDay_;  // list of nodes for each day
   vector<PRCArc> pArcs_;
   // arcs stored by day and shifts contains within the arc stretch
   vector3D<PRCArc> pArcsPerDayShift_;
@@ -297,9 +313,7 @@ class RCGraph {
   std::set<PRCArc> pForbiddenArcs_;
 
   // RESOURCES
-  // Non enum resources contains all the resources that has not been enumerated
-  // in the RC graph when enable
-  vector<PResource> pResources_, pNonEnumResources_;
+  vector<PResource> pResources_;
 };
 
 typedef shared_ptr<RCGraph> PRCGraph;

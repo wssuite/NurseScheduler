@@ -96,33 +96,50 @@ struct MyVar : public MyObject {
         VarType type,
         double lb,
         double ub,
-        const std::vector<double> &pattern = {}) :
+        std::vector<double> column = {}) :
       MyObject(name),
       index_(index),
+      current_epoch_(-1),
+      current_index_(-1),
       type_(type),
       cost_(cost),
       lb_(lb),
       ub_(ub),
-      pattern_(pattern),
-      iteration_creation_(0),
+      compactColumn_(std::move(column)),
+      iteration_creation_(-1),
       active_count_(0),
       last_active_(0) {}
 
-  explicit MyVar(const MyVar &var) :
+  MyVar(const MyVar &var) :
       MyObject(var),
       index_(var.index_),
+      current_epoch_(var.current_epoch_),
+      current_index_(var.current_index_),
       type_(var.type_),
       cost_(var.cost_),
       lb_(var.lb_),
       ub_(var.ub_),
-      pattern_(var.pattern_),
+      compactColumn_(var.compactColumn_),
       iteration_creation_(var.iteration_creation_),
       active_count_(var.active_count_),
       last_active_(var.last_active_) {}
 
-  virtual ~MyVar() {}
+  ~MyVar() override {}
 
   int getIndex() const { return index_; }
+
+  void setCurrentIndex(int epoch, int c_index) {
+    current_epoch_ = epoch;
+    current_index_ = c_index;
+  }
+
+  int getCurrentIndex() const { return current_index_; }
+  int getCurrentIndex(int epoch) const {
+    // epoch == 0 is only used for the core variables
+    if (current_epoch_ == 0 || current_epoch_ == epoch)
+      return current_index_;
+    return -1;
+  }
 
   virtual VarType getVarType() const { return type_; }
 
@@ -142,7 +159,7 @@ struct MyVar : public MyObject {
 
   bool is_integer() const { return type_ != VARTYPE_CONTINUOUS; }
 
-  const std::vector<double> &getPattern() const { return pattern_; }
+  const std::vector<double> &getCompactColumn() const { return compactColumn_; }
 
   int getIterationCreation() const { return iteration_creation_; }
 
@@ -157,38 +174,29 @@ struct MyVar : public MyObject {
     return active_count_ * 1.0 / (currentLPIteration - iteration_creation_);
   }
 
-  void addActiveIteration(int iteration) {
-    if (last_active_ != iteration) {
-      last_active_ = iteration;
-      ++active_count_;
-    }
-  }
+  void addActiveIteration(int iteration);
 
-  void setActiveCounters(int iteration_creation,
-                         int active_count,
-                         int last_active) {
-    iteration_creation_ = iteration_creation;
-    active_count_ = active_count;
-    last_active_ = last_active;
-  }
+  void initActiveCounters(int iteration_creation);
 
   // get the first day of the rotation corresponding to the column
   virtual int getFirstDay() const {
-    return static_cast<int>(pattern_[1]);
+    return static_cast<int>(compactColumn_[1]);
   }
 
   // get the id of the nurse in charge of the rotation
   virtual int getNurseNum() const {
-    return static_cast<int>(pattern_[0]);
+    return static_cast<int>(compactColumn_[0]);
   }
 
  protected:
   int index_;  // count var
+  int current_epoch_;  // epoch when current_index_ has been set
+  int current_index_;  // position of the variables in the current epoch
   VarType type_;  // type of the variable
   double cost_;  // cost of the variable
   double lb_;  // lower bound
   double ub_;  // upper bound
-  const std::vector<double> pattern_;  // pattern for a column
+  const std::vector<double> compactColumn_;  // column for a column
   // save the iteration number at the creation of the variable
   int iteration_creation_;
   // count the number of times where the variable is present in the solution
@@ -216,7 +224,7 @@ struct MyCons : public MyObject {
       lhs_(cons.lhs_),
       rhs_(cons.rhs_) {}
 
-  virtual ~MyCons() {}
+  ~MyCons() override {}
 
   /*
    * Getters
@@ -299,7 +307,7 @@ struct MyNode {
              bestLagLB_(-LARGE_SCORE),
              lastLagLB_(-LARGE_SCORE),
              presolvedUB_(LARGE_SCORE) {}
-  explicit MyNode(MyPNode pParent) :
+  explicit MyNode(const MyPNode &pParent) :
       index_(-1),
       pParent_(pParent.get()),
       bestLB_(pParent_->bestLB_),
@@ -307,10 +315,10 @@ struct MyNode {
       gap_(LARGE_SCORE),
       smallestGap_(LARGE_SCORE),
       depth_(pParent_->depth_ + 1),
-      bestLagLB_(pParent_->bestLagLB_),
-      lastLagLB_(pParent_->bestLB_),
+      bestLagLB_(pParent_->bestLB_),
+      lastLagLB_(-LARGE_SCORE),
       presolvedUB_(LARGE_SCORE) {}
-  virtual ~MyNode() {}
+  virtual ~MyNode() = default;
 
   // parent
   MyNode *pParent_;
@@ -319,27 +327,11 @@ struct MyNode {
     children_.push_back(child);
   }
 
-  bool updateLB(double newLB) {
-    // if not root and the LB is decreasing -> error.
-    // BUG: need to be found. For the moment, return false
-    bool increased = true;
-    if (pParent_ && pParent_->bestLB_ > newLB + 1e-2) {
-      std::cerr << "The node lower bound (" << newLB
-                << ") is smaller than its parent one ("
-                << pParent_->bestLB_ << ")." << std::endl;
-      increased = false;
-      newLB = pParent_->bestLB_;
-    }
-    bestLB_ = newLB;
-    processed_ = true;
-    // if not root
-    if (pParent_) {
-      double parentGap = (bestLB_ - pParent_->bestLB_) / pParent_->bestLB_;
-      if (parentGap < pParent_->smallestGap_)
-        pParent_->smallestGap_ = parentGap;
-    }
-    return increased;
+  const std::vector<MyPNode>& getChildren() const {
+    return children_;
   }
+
+  bool updateLB(double newLB);
 
   void computeGap(double treeBestLB) {
     gap_ = (bestLB_ - treeBestLB) / treeBestLB;
@@ -366,7 +358,7 @@ struct MyNode {
     if (!pParent_)
       return LARGE_SCORE;
     // otherwise return parent's best LB
-    return pParent_->getBestLB();
+    return pParent_->getBestLB() + 1e-6 * depth_;
   }
 
   double getBestLB() const { return bestLB_; }
@@ -454,7 +446,8 @@ struct MyTree {
         printCurrentNode_(printCurrentNode),
         best_lb_in_root(LARGE_SCORE),
         best_lb(LARGE_SCORE),
-        best_ub(LARGE_SCORE) {}
+        best_ub(LARGE_SCORE),
+        best_lb_min_tree_level_(0) {}
 
   virtual ~MyTree() {}
 
@@ -462,28 +455,7 @@ struct MyTree {
 
   double getRootLB() const { return best_lb_in_root; }
 
-  void setCurrentNode(const MyPNode &currentNode, bool diving = false) {
-    // update tree size
-    --tree_size_;
-    // update this parameters only if current exists
-    // (i.e., currentNode is not the root node)
-    if (currentNode_) {
-      ++nb_nodes_processed_;
-      // one more node without new incumbent and since last dive
-      ++nb_nodes_last_incumbent_;
-      ++nb_nodes_since_dive_;
-    }
-    // update current node
-    currentNode_ = currentNode;
-    // if dive length has not been updated and we are not diving
-    // this would be called once at the end of the first dive
-    if (!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
-      diveLength_ = 1 + diveDepth_;
-//  #ifdef DBG
-    if (currentNode_ && printCurrentNode_)
-      std::cout << currentNode_->write() << std::endl;
-//  #endif
-  }
+  void setCurrentNode(const MyPNode &currentNode);
 
   /* clear tree */
   void clear() {
@@ -498,46 +470,20 @@ struct MyTree {
       return "";
   }
 
-  std::vector<MyPNode> addToMapping(const int nbLeaves) {
-    const int size = tree_.size();
-    std::vector<MyPNode> leaves(nbLeaves);
-    for (int i = 0; i < nbLeaves; ++i) {
-      leaves[i] = tree_[size - nbLeaves + i];
-    }
-    activeTreeMapping_[currentNode_.get()] = leaves;
-    tree_size_ += nbLeaves;
-
-    // set dive depth in case of diving
-    if (currentNode_)
-      diveDepth_ = currentNode_->getDepth();
-
-    return leaves;
-  }
-
-  void keepFirstChild(int nLeaves) {
+  void keepFirstChild() {
     // set current node to first child
-    setCurrentNode(tree_[tree_.size() - nLeaves], true);
-    // if only one leave -> update tree_size_ and
-    // diveDepth_ as addToMapping won't be called
-    if (nLeaves == 1) {
-      tree_size_++;
-      diveDepth_++;
-    }
+    setCurrentNode(currentNode_->getChildren()[0]);
   }
 
-  void eraseCurrentSibblings() {
-    activeTreeMapping_.erase(currentNode_->pParent_);
-    // update min_depth_
-    min_depth_ = LARGE_SCORE;
-    for (const auto &p : activeTreeMapping_)
-      if (p.first->getDepth() < min_depth_) min_depth_ = p.first->getDepth();
-  }
+  void eraseCurrentSiblings();
 
   const MyPNode &getNode(const int nodeIndex) const {
     return tree_[nodeIndex];
   }
 
   double getBestLB() const { return best_lb; }
+
+  int getBestLBMinTreeLevel() const { return best_lb_min_tree_level_; }
 
   void setBestUB(double ub) {
     /* reinitialize nb_nodes_last_incumbent_ */
@@ -588,37 +534,12 @@ struct MyTree {
     return nb_nodes_since_dive_ / diveLength_;
   }
 
-  bool updateNodeLB(double lb) {
-    // set lb and gap
-    bool increased = currentNode_->updateLB(lb);
-    // if root -> set root and best lb
-    if (!currentNode_->pParent_) {
-      best_lb_in_root = lb;
-      best_lb = lb;
-    } else {
-      // update best_lb
-      best_lb = computeCurrentBestLB();
-    }
-
-    // compute gap
-    currentNode_->computeGap(best_lb);
-    updateStats(currentNode_);
-
-    return increased;
-  }
+  double updateNodeLB(double lb);
 
   // compute best lb by visiting all unprocessed nodes
-  double computeCurrentBestLB() {
-    double new_best_lb = currentNode_->getBestLB();
-    for (const auto &p : activeTreeMapping_)
-      for (const MyPNode &node : p.second)
-        if (!node->isProcessed() && new_best_lb > node->getBestLB()) {
-          new_best_lb = node->getBestLB();
-          if (new_best_lb < best_lb + 1e-9)  // if same than current one -> stop
-            return new_best_lb;
-        }
-    return new_best_lb;
-  }
+  // return the best lb and its level in tree
+  // (in case of tie, choose the highest one in the tree)
+  std::pair<double, int> computeCurrentBestLB();
 
   // STAB: getter and setter for lagrangian bound
   double getNodeBestLagLB() const { return currentNode_->getBestLagLB(); }
@@ -646,6 +567,7 @@ struct MyTree {
   void pushBackNode(const MyPNode &node) {
     node->setIndex(tree_.size());
     tree_.push_back(node);
+    tree_size_++;
     currentNode_->pushBackChild(node);
   }
 
@@ -656,15 +578,6 @@ struct MyTree {
   }
 
   virtual bool is_columns_node() const { return false; }
-
-  virtual bool continueDiving() const { return false; }
-
-  void addCurrentNodeToStack() {
-    // currentNode_ is finally
-    tree_size_++;
-    --nb_nodes_last_incumbent_;
-    --nb_nodes_since_dive_;
-  }
 
   virtual void addForbiddenShifts(
       PLiveNurse pNurse,
@@ -683,14 +596,14 @@ struct MyTree {
  protected:
   double epsilon_;
   // mapping between the Siblings and MyNode*
-  // a sibblings contains a list of all its leaves MyNode
+  // a siblings contains a list of all its leaves MyNode
   std::map<MyNode*, std::vector<MyPNode>> activeTreeMapping_;
   // branching tree
   std::vector<MyPNode> tree_;
   // tree size, number of nodes since last incumbent,
   // depth of the current dive, length of a dive
   int tree_size_, nb_nodes_processed_, nb_nodes_last_incumbent_, diveDepth_,
-      diveLength_, min_depth_, nb_nodes_since_dive_;
+      diveLength_, min_depth_, nb_nodes_since_dive_, best_lb_min_tree_level_;
   // current node
   MyPNode currentNode_;
   // print current node every time it has been changed
@@ -727,6 +640,8 @@ struct MyBranchingNode {
 
   const MyPNode &pNode() const  {  return pNode_; }
 
+  virtual void removeVariables(const std::vector<int> &indexToRemove);
+
  protected:
   MyPNode pNode_ = nullptr;
   std::vector<double> LB, UB;
@@ -738,7 +653,7 @@ struct MyBranchingCandidate {
   MyBranchingCandidate() = default;
 
   virtual int createNewChild() {
-    children_.emplace_back(std::make_shared<MyBranchingNode>());
+    children_.push_back(std::make_shared<MyBranchingNode>());
     initialize(children_.back());
     return children_.size() - 1;
   }
@@ -823,6 +738,9 @@ struct MyBranchingCandidate {
     return newBranchingVars_;
   }
 
+  virtual void removeDeactivatedColumns(
+      Modeler* pModel, const std::function<bool(MyVar*)> &shouldRemoveCol);
+
  protected:
   std::vector<MyVar *> branchingVars_, newBranchingVars_;
   std::vector<MyCons *> branchingCons_, newBranchingCons_;
@@ -844,13 +762,14 @@ struct MyBranchingRule {
   /* Compute logical fixing decisions */
   // Add the new children to the candidate (just column node).
   // Return true a child if created, false otherwise
-  virtual bool column_node(std::list<MyPBranchingCandidate> *candidates) = 0;
+  virtual bool column_node(std::vector<MyPBranchingCandidate> *candidates) = 0;
 
   /* Compute branching decisions */
   // Add the new children to the candidate (other nodes).
   // Return true if a child is created
   virtual bool branching_candidates(
-      std::list<MyPBranchingCandidate> *candidates) = 0;
+      int nCandidates,
+      std::vector<MyPBranchingCandidate> *candidates) = 0;
 
   void set_search_strategy(SearchStrategy searchStrategy) {
     searchStrategy_ = searchStrategy;
@@ -891,26 +810,7 @@ class Modeler {
   virtual int solve(bool relaxation = false) = 0;
 
   // Reset and clear solving parameters and objects
-  virtual void reset() {
-    // reset tree
-    pTree_->reset();
-    // clear active columns
-    clearActiveColumns();
-    // reset counters and flags
-    var_count = coreVars_.size();
-    column_added = false;
-    cons_count = coreCons_.size();
-    cut_added = false;
-    // check it's an ordered sequence
-    if (coreVars_.back()->getIndex() != (var_count - 1))
-      Tools::throwError("coreVars_ is not an ordered sequence: the last "
-                        "variable does not have the right index.");
-    if (coreCons_.back()->getIndex() != (cons_count - 1))
-      Tools::throwError("coreCons_ is not an ordered sequence: the last "
-                        "constraint does not have the right index.");
-    // reset initial columns to ensure the right index
-    resetInitialColumns();
-  }
+  virtual void reset();
 
   // Add a pricer
   virtual int addPricer(MyPricer *pPricer) {
@@ -967,14 +867,15 @@ class Modeler {
     return {};
   }
 
-  bool branching_decisions(std::list<MyPBranchingCandidate> *candidates) {
+  bool branching_candidates(
+      int nCandidates, std::vector<MyPBranchingCandidate> *candidates) {
     if (pBranchingRule_)
-      return pBranchingRule_->branching_candidates(candidates);
+      return pBranchingRule_->branching_candidates(nCandidates, candidates);
     return false;
   }
 
   // remove all bad candidates from fixingCandidates
-  bool branch_on_column(std::list<MyPBranchingCandidate> *candidates) {
+  bool branch_on_column(std::vector<MyPBranchingCandidate> *candidates) {
     if (pBranchingRule_)
       return pBranchingRule_->column_node(candidates);
     return false;
@@ -994,12 +895,16 @@ class Modeler {
    * Store and set num for objects objects
    */
  protected:
+  std::recursive_mutex mutex_;
+
   void registerObject(MyObject *o) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     if (o->num() < 0)
       o->num(objectsCount++);
   }
 
   void addObject(MyObject *o) {
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     registerObject(o);
     objects_.push_back(o);
   }
@@ -1021,7 +926,7 @@ class Modeler {
                         double lb,
                         double ub,
                         VarType vartype,
-                        const std::vector<double> &pattern,
+                        const std::vector<double> &column,
                         double score) = 0;
 
  public:
@@ -1031,87 +936,42 @@ class Modeler {
                  double lb,
                  double ub,
                  VarType vartype,
-                 const std::vector<double> &pattern,
-                 double score) {
-    // check flag column_added
-    if (column_added)
-      Tools::throwError("Cannot create variable %s, as some columns have "
-                        "already been generated.", var_name);
-    assert(lb <= ub);
-    createVar(var,
-              var_name,
-              var_count++,
-              objCoeff,
-              lb,
-              ub,
-              vartype,
-              pattern,
-              score);
-    coreVars_.push_back(*var);
-    addObject(*var);
-  }
+                 const std::vector<double> &column,
+                 double score);
 
   void createPositiveVar(MyVar **var,
                          const char *var_name,
                          double objCoeff,
-                         const std::vector<double> &pattern = {},
+                         const std::vector<double> &column = {},
                          double score = 0,
-                         double ub = DBL_MAX) {
-    ub = (ub == DBL_MAX) ? infinity_ : ub;
-    createVar(var,
-              var_name,
-              objCoeff,
-              0.0,
-              ub,
-              VARTYPE_CONTINUOUS,
-              pattern,
-              score);
-    positiveCoreVars_.push_back(*var);
-  }
+                         double ub = DBL_MAX);
 
   void createIntVar(MyVar **var,
                     const char *var_name,
                     double objCoeff,
-                    const std::vector<double> &pattern = {},
+                    const std::vector<double> &column = {},
                     double score = 0,
-                    double ub = DBL_MAX) {
-    ub = (ub == DBL_MAX) ? infinity_ : ub;
-    createVar(var, var_name, objCoeff, 0, ub, VARTYPE_INTEGER, pattern, score);
-    integerCoreVars_.push_back(*var);
-  }
+                    double ub = DBL_MAX);
 
   void createBinaryVar(MyVar **var,
                        const char *var_name,
                        double objCoeff,
-                       const std::vector<double> &pattern = {},
-                       double score = 0) {
-    createVar(var,
-              var_name,
-              objCoeff,
-              0.0,
-              1.0,
-              VARTYPE_BINARY,
-              pattern,
-              score);
-    binaryCoreVars_.push_back(*var);
-  }
+                       const std::vector<double> &column = {},
+                       double score = 0);
 
   void createPositiveFeasibilityVar(
       MyVar **var,
       const char *var_name,
-      const std::vector<double> &pattern = {},
+      const std::vector<double> &column = {},
       double score = 0,
-      double ub = DBL_MAX) {
-    createPositiveVar(var, var_name, LARGE_SCORE, pattern, score, ub);
-    feasibilityCoreVars_.push_back(*var);
-  }
+      double ub = DBL_MAX);
 
  protected:
   virtual int createColumnVar(MyVar **var,
                               const char *var_name,
                               int index,
                               double objCoeff,
-                              const std::vector<double> &pattern,
+                              const std::vector<double> &column,
                               double dualObj,
                               double lb,
                               double ub,
@@ -1122,82 +982,35 @@ class Modeler {
   void createColumnVar(MyVar **var,
                        const char *var_name,
                        double objCoeff,
-                       const std::vector<double> &pattern,
+                       const std::vector<double> &column,
                        double dualObj,
                        double lb,
                        double ub,
                        VarType vartype,
-                       double score) {
-    // set flag column_added to true
-    column_added = true;
-    assert(lb <= ub);
-    createColumnVar(var,
-                    var_name,
-                    var_count++,
-                    objCoeff,
-                    pattern,
-                    dualObj,
-                    lb,
-                    ub,
-                    vartype,
-                    score);
-    registerObject(*var);
-  }
+                       double score);
 
   void createPositiveColumnVar(MyVar **var,
                                const char *var_name,
                                double objCoeff,
-                               const std::vector<double> &pattern,
+                               const std::vector<double> &column,
                                double dualObj = LARGE_SCORE,
                                double score = 0,
-                               double ub = DBL_MAX) {
-    ub = (ub == DBL_MAX) ? infinity_ : ub;
-    createColumnVar(var,
-                    var_name,
-                    objCoeff,
-                    pattern,
-                    dualObj,
-                    0.0,
-                    ub,
-                    VARTYPE_CONTINUOUS,
-                    score);
-  }
+                               double ub = DBL_MAX);
 
   void createIntColumnVar(MyVar **var,
                           const char *var_name,
                           double objCoeff,
-                          const std::vector<double> &pattern,
+                          const std::vector<double> &column,
                           double dualObj = LARGE_SCORE,
                           double score = 0,
-                          double ub = DBL_MAX) {
-    ub = (ub == DBL_MAX) ? infinity_ : ub;
-    createColumnVar(var,
-                    var_name,
-                    objCoeff,
-                    pattern,
-                    dualObj,
-                    0,
-                    ub,
-                    VARTYPE_INTEGER,
-                    score);
-  }
+                          double ub = DBL_MAX);
 
   void createBinaryColumnVar(MyVar **var,
                              const char *var_name,
                              double objCoeff,
-                             const std::vector<double> &pattern,
+                             const std::vector<double> &column,
                              double dualObj = LARGE_SCORE,
-                             double score = 0) {
-    createColumnVar(var,
-                    var_name,
-                    objCoeff,
-                    pattern,
-                    dualObj,
-                    0.0,
-                    1.0,
-                    VARTYPE_BINARY,
-                    score);
-  }
+                             double score = 0);
 
   /*
    * Create linear constraint present at the beginning) and cut (generated):
@@ -1225,40 +1038,25 @@ class Modeler {
                         double lhs,
                         double rhs,
                         std::vector<MyVar *> vars = {},
-                        std::vector<double> coeffs = {}) {
-    // check flag cut_added
-    if (cut_added)
-      Tools::throwError("Cannot create constraint %s, as some cuts "
-                        "have already been generated.", con_name);
-    assert(lhs <= rhs);
-    createConsLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
-    coreCons_.push_back(*cons);
-    addObject(*cons);
-  }
+                        std::vector<double> coeffs = {});
 
   void createLEConsLinear(MyCons **cons,
                           const char *con_name,
                           double rhs,
                           std::vector<MyVar *> vars = {},
-                          std::vector<double> coeffs = {}) {
-    createConsLinear(cons, con_name, -infinity_, rhs, vars, coeffs);
-  }
+                          std::vector<double> coeffs = {});
 
   void createGEConsLinear(MyCons **cons,
                           const char *con_name,
                           double lhs,
                           std::vector<MyVar *> vars = {},
-                          std::vector<double> coeffs = {}) {
-    createConsLinear(cons, con_name, lhs, infinity_, vars, coeffs);
-  }
+                          std::vector<double> coeffs = {});
 
   void createEQConsLinear(MyCons **cons,
                           const char *con_name,
                           double eq,
                           std::vector<MyVar *> vars = {},
-                          std::vector<double> coeffs = {}) {
-    createConsLinear(cons, con_name, eq, eq, vars, coeffs);
-  }
+                          std::vector<double> coeffs = {});
 
  protected:
   virtual int createCutLinear(MyCons **cons,
@@ -1276,40 +1074,28 @@ class Modeler {
                        double lhs,
                        double rhs,
                        std::vector<MyVar *> vars = {},
-                       std::vector<double> coeffs = {}) {
-    // set flag cut_added to true
-    cut_added = true;
-    assert(lhs <= rhs);
-    createCutLinear(cons, con_name, cons_count++, lhs, rhs, vars, coeffs);
-    registerObject(*cons);
-  }
+                       std::vector<double> coeffs = {});
 
   // Add a lower or equal constraint
   void createLECutLinear(MyCons **cons,
                          const char *con_name,
                          double rhs,
                          std::vector<MyVar *> vars = {},
-                         std::vector<double> coeffs = {}) {
-    createCutLinear(cons, con_name, -infinity_, rhs, vars, coeffs);
-  }
+                         std::vector<double> coeffs = {});
 
   // Add a greater or equal constraint
   void createGECutLinear(MyCons **cons,
                          const char *con_name,
                          double lhs,
                          std::vector<MyVar *> vars = {},
-                         std::vector<double> coeffs = {}) {
-    createCutLinear(cons, con_name, lhs, infinity_, vars, coeffs);
-  }
+                         std::vector<double> coeffs = {});
 
   // Add an equality constraint
   void createEQCutLinear(MyCons **cons,
                          const char *con_name,
                          double eq,
                          std::vector<MyVar *> vars = {},
-                         std::vector<double> coeffs = {}) {
-    createCutLinear(cons, con_name, eq, eq, vars, coeffs);
-  }
+                         std::vector<double> coeffs = {});
 
   /*
    * Add variables to constraints
@@ -1327,106 +1113,43 @@ class Modeler {
   void createColumn(MyVar **var,
                     const char *var_name,
                     double objCoeff,
-                    const std::vector<double> &pattern,
+                    const std::vector<double> &column,
                     double dualObj,
                     VarType vartype,
                     std::vector<MyCons *> cons = {},
                     std::vector<double> coeffs = {},
                     bool transformed = false,
-                    double score = 0) {
-    switch (vartype) {
-      case VARTYPE_BINARY:
-        createBinaryColumnVar(var,
-                              var_name,
-                              objCoeff,
-                              pattern,
-                              dualObj,
-                              score);
-        break;
-      case VARTYPE_INTEGER:
-        createIntColumnVar(var,
-                           var_name,
-                           objCoeff,
-                           pattern,
-                           dualObj,
-                           score);
-        break;
-      default:
-        createPositiveColumnVar(var,
-                                var_name,
-                                objCoeff,
-                                pattern,
-                                dualObj,
-                                score);
-        break;
-    }
-
-    for (unsigned int i = 0; i < cons.size(); i++)
-      addCoefLinear(cons[i], *var, coeffs[i], transformed);
-  }
+                    double score = 0);
 
   void createPositiveColumn(MyVar **var,
                             const char *var_name,
                             double objCoeff,
-                            const std::vector<double> &pattern,
+                            const std::vector<double> &column,
                             double dualObj,
                             std::vector<MyCons *> cons = {},
                             std::vector<double> coeffs = {},
                             bool transformed = false,
-                            double score = 0) {
-    createColumn(var,
-                 var_name,
-                 objCoeff,
-                 pattern,
-                 dualObj,
-                 VARTYPE_CONTINUOUS,
-                 cons,
-                 coeffs,
-                 transformed,
-                 score);
-  }
+                            double score = 0);
 
   void createBinaryColumn(MyVar **var,
                           const char *var_name,
                           double objCoeff,
-                          const std::vector<double> &pattern,
+                          const std::vector<double> &column,
                           double dualObj,
                           std::vector<MyCons *> cons = {},
                           std::vector<double> coeffs = {},
                           bool transformed = false,
-                          double score = 0) {
-    createColumn(var,
-                 var_name,
-                 objCoeff,
-                 pattern,
-                 dualObj,
-                 VARTYPE_BINARY,
-                 cons,
-                 coeffs,
-                 transformed,
-                 score);
-  }
+                          double score = 0);
 
   void createIntColumn(MyVar **var,
                        const char *var_name,
                        double objCoeff,
-                       const std::vector<double> &pattern,
+                       const std::vector<double> &column,
                        double dualObj,
                        std::vector<MyCons *> cons = {},
                        std::vector<double> coeffs = {},
                        bool transformed = false,
-                       double score = 0) {
-    createColumn(var,
-                 var_name,
-                 objCoeff,
-                 pattern,
-                 dualObj,
-                 VARTYPE_INTEGER,
-                 std::move(cons),
-                 std::move(coeffs),
-                 transformed,
-                 score);
-  }
+                       double score = 0);
 
   /*
    * get the primal values
@@ -1471,22 +1194,32 @@ class Modeler {
 
   virtual double getDual(MyCons *cons, bool transformed = false) const = 0;
 
-  double getDual(const std::vector<MyCons*> &vector) const {
+  double getDual(const std::vector<MyCons*> &vector,
+                 bool transformed = false) const {
     double value = 0;
     for (MyCons* c : vector)
       if (c) value += getDual(c);
     return value;
   }
 
-  template<typename V>
-  double getDual(const std::vector<V> &vector) const {
-    double value = 0;
-    for (const V &vect : vector)
-      value += getDual(vect);
+  template<typename T, typename V>
+  double getDual(const std::pair<T, V> &p,
+                 bool transformed = false) const {
+    double value =
+        getDual(p.first, transformed) + getDual(p.second, transformed);
     return value;
   }
 
   std::vector<double> getDuals(const std::vector<MyCons *> &cons,
+                               bool transformed = false) const {
+    std::vector<double> dualValues(cons.size(), 0);
+    for (unsigned int i = 0; i < cons.size(); ++i)
+      if (cons[i]) dualValues[i] = getDual(cons[i], transformed);
+    return dualValues;
+  }
+
+  template<typename T, typename V>
+  std::vector<double> getDuals(const std::map<T, V> &cons,
                                bool transformed = false) const {
     std::vector<double> dualValues(cons.size(), 0);
     for (unsigned int i = 0; i < cons.size(); ++i)
@@ -1541,6 +1274,13 @@ class Modeler {
     return value;
   }
 
+  template<typename T, typename V>
+  double getTotalCost(const std::pair<T, V> &p, bool print = false) const {
+    double value =
+        getTotalCost(p.first, print) + getTotalCost(p.second, print);
+    return value;
+  }
+
   /**************
    * Parameters *
    *************/
@@ -1555,54 +1295,7 @@ class Modeler {
     return 1;
   }
 
-  virtual int printBestSol() {
-    FILE *pFile;
-    pFile = logfile_.empty() ? stdout : fopen(logfile_.c_str(), "a");
-    // print the value of the relaxation
-    fprintf(pFile, "%-30s %4.2f \n", "Relaxation:", getRelaxedObjective());
-
-    if (!loadBestSol())
-      return 0;
-
-    // print the objective value
-    fprintf(pFile, "%-30s %4.2f \n", "Objective:", Modeler::getObjective());
-
-    // display all objective solution found
-    fprintf(pFile, "%-30s \n", "All Objective:");
-    for (int n = 0; n < nbSolutions(); ++n)
-      fprintf(pFile, "Solution number: %-5d: %4.2f \n", n, getObjective(n));
-
-    if (verbosity_ >= 2) {
-      // print the value of the positive variables
-      fprintf(pFile, "%-30s \n", "Variables:");
-      double tolerance = pow(.1, DECIMALS);
-      // iterate on core variables
-      for (MyVar *var : coreVars_) {
-        double value = getVarValue(var);
-        if (value > tolerance)
-          fprintf(pFile,
-                  "%-30s %4.2f (%6.0f) \n",
-                  var->name_,
-                  value,
-                  var->getCost());
-      }
-      // iterate on column variables
-      for (MyVar *var : activeColumnVars_) {
-        double value = getVarValue(var);
-        if (value > tolerance)
-          fprintf(pFile,
-                  "%-30s %4.2f (%6.0f) \n",
-                  var->name_,
-                  value,
-                  var->getCost());
-      }
-
-      fprintf(pFile, "\n");
-    }
-    if (!logfile_.empty()) fclose(pFile);
-
-    return 1;
-  }
+  virtual int printBestSol();
 
   virtual int writeProblem(std::string fileName) const = 0;
 
@@ -1649,6 +1342,8 @@ class Modeler {
     return true;
   }
 
+  bool isInfeasible() const { return !isFeasible(); }
+
   void printInfeasibleVars() const {
     for (MyVar *var : feasibilityCoreVars_) {
       double v = getVarValue(var);
@@ -1657,6 +1352,10 @@ class Modeler {
                   << std::setprecision(3) << v << std::endl;
       }
     }
+  }
+
+  int getCurrentIndex(MyVar *pVar) const {
+    return pVar->getCurrentIndex(current_epoch_);
   }
 
   int getVerbosity() const { return verbosity_; }
@@ -1673,7 +1372,7 @@ class Modeler {
 
   double getCurrentLB() const { return pTree_->getCurrentLB(); }
 
-  bool updateNodeLB(double lb) { return pTree_->updateNodeLB(lb); }
+  virtual double updateNodeLB(double lb) { return pTree_->updateNodeLB(lb); }
 
   const MyPNode &getNode(const int nodeIndex) const {
     return pTree_->getNode(nodeIndex);
@@ -1690,6 +1389,10 @@ class Modeler {
 
   double getBestLB() const { return pTree_->getBestLB(); }
 
+  int getBestLBMinTreeLevel() const { return pTree_->getBestLBMinTreeLevel(); }
+
+  int getDiveLength() const { return pTree_->getDiveLength(); }
+
   double getIntegralityGap() const { return pTree_->getIntegralityGap(); }
 
   int getTreeSize() const { return pTree_->getTreeSize(); }
@@ -1700,11 +1403,7 @@ class Modeler {
 
   bool is_columns_node() const { return pTree_->is_columns_node(); }
 
-  void keepFirstChild(int nLeaves) { return pTree_->keepFirstChild(nLeaves); }
-
-  bool continueDiving() { return pTree_->continueDiving(); }
-
-  void addCurrentNodeToStack() { pTree_->addCurrentNodeToStack(); }
+  void keepFirstChild() { return pTree_->keepFirstChild(); }
 
   int getNbDives() const { return pTree_->getNbDives(); }
 
@@ -1747,28 +1446,9 @@ class Modeler {
     return activeColumnVars_;
   }
 
-  std::pair<int, int> getFractionalAndPositiveColumns() const {
-    int frac = 0;
-    int non_zero = 0;
-    for (MyVar *var : getActiveColumns()) {
-      double value = getVarValue(var);
-      if (value < epsilon())
-        continue;
-      non_zero++;
-      if (value < 1 - epsilon())
-        frac++;
-    }
-    return {frac, non_zero};
-  }
+  std::pair<int, int> getFractionalAndPositiveColumns() const;
 
-  bool hasFractionalColumns() const {
-    for (MyVar *var : getActiveColumns()) {
-      double value = getVarValue(var);
-      if (value >= epsilon() && value < 1 - epsilon())
-        return true;
-    }
-    return false;
-  }
+  bool hasFractionalColumns() const;
 
   // get the variables that are generating during the resolution (columns)
   // and currently active (i.e. have a positive value in the current solution)
@@ -1802,8 +1482,10 @@ class Modeler {
     objects_.clear();
   }
 
-  virtual void clearActiveColumns() {
-    activeColumnVars_.clear();
+  virtual void clearActiveColumns(size_t new_size = 0) {
+    activeColumnVars_ = std::vector<MyVar *>();
+    if (new_size > 0) activeColumnVars_.reserve(new_size);
+    current_epoch_++;  // go to the next epoch
   }
 
   virtual void clearInitialColumns() {
@@ -1829,7 +1511,7 @@ class Modeler {
 
   virtual bool isSolutionInteger() const  { return false; }
 
-  // Get te current level in the branch and bound tree
+  // Get the current level in the branch and bound tree
   virtual int getCurrentTreeLevel() const { return 0; }
 
   virtual void addNode(
@@ -1842,8 +1524,9 @@ class Modeler {
   int getNbObjectsInMemory() const { return objects_.size(); }
 
  protected:
-  virtual void addActiveColumn(MyVar *var, int index = -1) {
+  virtual void addActiveColumn(MyVar *var, int c_index) {
     activeColumnVars_.push_back(var);
+    var->setCurrentIndex(current_epoch_, c_index);
   }
 
   // store the variables and the constraints that belongs to the core of the
@@ -1856,7 +1539,7 @@ class Modeler {
   // ensure feasibility
   std::vector<MyVar *> feasibilityCoreVars_;
   std::vector<MyCons *> coreCons_;
-  int var_count = 0, cons_count = 0;
+  size_t var_count = 0, cons_count = 0;
   // as soon as columns are added, core variables cannot be added anymore
   // as soon as cut are added, core constraints cannot be added anymore
   // The reason why we implement such a mechanism is that core variables and
@@ -1888,8 +1571,9 @@ class Modeler {
   // log file where outputs must be written
   std::string logfile_ = "";
 
-  // Coin data
-  double infinity_ = 1.2343423E23;
+  // Coin data. It is very important to set this value big enough (>1e27)
+  // as otherwise the model will interpret it as real bound instead of infinity
+  double infinity_ = INFINITY;
 
  protected:
   // store all MyObject* (objects owned by modeler)
@@ -1897,6 +1581,9 @@ class Modeler {
   // count the objects created by the modeler
   // (could be different of objects_.size())
   int objectsCount = 0;
+  // store the current epoch for the active solution stored
+  // current index of the variables are only valid for this epoch
+  int current_epoch_ = 0;
 };
 
 #endif  // SRC_SOLVERS_MP_MODELER_MODELER_H_

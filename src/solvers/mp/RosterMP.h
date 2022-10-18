@@ -31,46 +31,34 @@
 //
 //-----------------------------------------------------------------------------
 
-struct RosterPattern : public Pattern {
+struct RosterColumn : public Column {
   // Specific constructors and destructors
-  RosterPattern(std::vector<PShift> pShifts,
+  RosterColumn(std::vector<PShift> pShifts,
                 int nurseNum,
                 double cost = DBL_MAX,
                 double dualCost = DBL_MAX) :
-      Pattern(RCSolution(0, pShifts, cost, dualCost), nurseNum) {}
+      Column(RCSolution(0, std::move(pShifts), cost, dualCost), nurseNum) {}
 
-  RosterPattern(RCSolution rcSol, int nurseNum) :
-      Pattern(std::move(rcSol), nurseNum) {}
+  RosterColumn(RCSolution rcSol, int nurseNum) :
+      Column(std::move(rcSol), nurseNum) {}
 
-  RosterPattern(MyVar *var,
-                const PScenario &pScenario) :
-      Pattern(var, pScenario) {}
+  RosterColumn(MyVar *var, const PScenario &pScenario) :
+      Column(var, pScenario) {}
 
-  ~RosterPattern() = default;
-
-  // When branching on this pattern, this method add the corresponding
+  // When branching on this column, this method add the corresponding
   // forbidden shifts to the set.
   // It will forbid any shifts on any days as the nurse already has a roster.
-  void addForbiddenShifts(std::set<std::pair<int, int> > *forbidenShifts,
+  void addForbiddenShifts(std::set<std::pair<int, int> > *forbiddenShifts,
                           int nbShifts,
                           PDemand pDemand) const override;
-
-  // Level of the branch and bound tree where the rotation has been generated
-  int treeLevel_ = 0;
-
-  // compact the rotation in a vector
-  std::vector<double> getCompactPattern() const override {
-    std::vector<double> pattern = Pattern::getCompactPattern();
-    return pattern;
-  }
 
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem
   void checkReducedCost(const DualCosts &dualCosts,
-                        bool printBadPricing = true) const override;
+                        bool printBadPricing) const override;
 
   // Returns true if both columns are disjoint (needRest not used)
-  bool isDisjointWith(PPattern pat, bool needRest = true) const override {
+  bool isDisjointWith(const PColumn &pat, bool needRest) const override {
     if (pat->nurseNum() == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
@@ -82,7 +70,7 @@ struct RosterPattern : public Pattern {
   };
 
   // Returns true if both columns are disjoint for shifts
-  bool isShiftDisjointWith(PPattern pat, bool needRest = true) const override {
+  bool isShiftDisjointWith(const PColumn &pat, bool needRest) const override {
     if (pat->nurseNum() == nurseNum_)
       return false;  // cannot be disjoint if same nurse
 
@@ -108,7 +96,7 @@ class RosterMP : public MasterProblem {
            SolverType solver);
   virtual ~RosterMP();
 
-  PPattern getPattern(MyVar *var) const override;
+  PColumn getPColumn(MyVar *var) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 
@@ -133,19 +121,18 @@ class RosterMP : public MasterProblem {
   // If empty, add artificial columns
   void initializeSolution(const std::vector<Roster> &solution) override;
 
-  double getDaysCost() const override;
-  double getWeekendCost() const override;
-
   // split the resources between the master and the subproblem
   // must initialize spResources_
   void splitPResources() override {
     // put all the resources in the sub problem
     spResources_.clear();
-    for (const auto &m : pResources_) {
+    for (const auto &vR : pResources_) {
       vector<PResource> pResources;
-      for (const auto &p : m) {
-        p.first->setId(pResources.size());
-        pResources.push_back(p.first);
+      for (const auto &pR : vR) {
+        if (!pR->isInRosterMaster()) {
+          pR->setId(static_cast<int>(pResources.size()));
+          pResources.push_back(pR);
+        }
       }
       spResources_.push_back(pResources);
     }

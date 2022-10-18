@@ -34,155 +34,89 @@ class MasterProblem;
 
 //---------------------------------------------------------------------------
 //
-// C l a s s   R C S o l u t i o n
+// C l a s s   C o l u m n
 //
-// Contains a solution of the RCSPP
+// Data of the variables of the column generation algorithm
 //
 //---------------------------------------------------------------------------
-struct RCSolution : public Stretch {
-  explicit RCSolution(int firstDay = -1,
-                      std::vector<PShift> pShifts = {},
-                      double cost = DBL_MAX,
-                      double reducedCost = DBL_MAX) :
-      Stretch(firstDay, std::move(pShifts)),
-      cost_(cost),
-      reducedCost_(reducedCost) {}
-
-  RCSolution(Stretch stretch, double cost, double reducedCost) :
-      Stretch(std::move(stretch)),
-      cost_(cost),
-      reducedCost_(reducedCost) {}
-
-  std::string toString() const override;
-
-  double cost() const { return cost_; }
-
-  double reducedCost() const { return reducedCost_; }
-
-  void addCost(double c, CostType t)  {
-    cost_ += c;
-    costs_[t] += c;
-  }
-
-  double costByType(CostType t) const {
-    if (t == ROTATION_COST)
-      return costs_.at(CONS_SHIFTS_COST) + costs_.at(CONS_WORK_COST) +
-          costs_.at(PREFERENCE_COST) + costs_.at(COMPLETE_WEEKEND_COST);
-    else
-      return costs_.at(t);
-  }
-
-  std::string costsToString() const;
-
-  void resetCosts() {
-    cost_ = 0;
-    costs_.clear();
-    for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
-      costs_[(CostType)t] = 0;
-  }
-
-  // Compare rotations on cost
-  static bool compareCost(const RCSolution &sol1, const RCSolution &sol2);
-
-  // Compare rotations on dual cost
-  static bool compareReducedCost(
-      const RCSolution &sol1, const RCSolution &sol2);
-
-  static void sort(std::vector<RCSolution> *solutions) {
-    std::stable_sort(solutions->begin(), solutions->end(),
-                     [](const RCSolution &sol1, const RCSolution &sol2) {
-                       return sol1.reducedCost() < sol2.reducedCost();
-                     });
-  }
-
- protected:
-  double cost_, reducedCost_;
-  std::map<CostType, double> costs_;
-};
-
-
-struct Pattern;
-typedef std::shared_ptr<Pattern> PPattern;
-
 struct DualCosts;
 
-struct Pattern : public RCSolution {
+struct Column : public RCSolution {
   /* Static helpers */
-  static int nurseNum(const std::vector<double> &pattern) {
-    return static_cast<int>(pattern[0]);
+  static int nurseNum(const std::vector<double> &column) {
+    return static_cast<int>(column[0]);
   }
-  static int firstDay(const std::vector<double> &pattern) {
-    return static_cast<int>(pattern[1]);
+  static int firstDay(const std::vector<double> &column) {
+    return static_cast<int>(column[1]);
   }
-  static int lastDay(const std::vector<double> &pattern) {
-    return Pattern::firstDay(pattern) + Pattern::nDays(pattern) - 1;
+  static int lastDay(const std::vector<double> &column) {
+    return Column::firstDay(column) + Column::nDays(column) - 1;
   }
-  static int nDays(const std::vector<double> &pattern) {
-    return static_cast<int>(pattern[2]);
+  static int nDays(const std::vector<double> &column) {
+    return static_cast<int>(column[2]);
   }
-  static int shift(const std::vector<double> &pattern, int d) {
-    return static_cast<int>(pattern[3+d-Pattern::firstDay(pattern)]);
+  static int shift(const std::vector<double> &column, int d) {
+    return static_cast<int>(column[3+d-Column::firstDay(column)]);
   }
-  static int duration(const std::vector<double> &pattern) {
-    return static_cast<int>(pattern[3+Pattern::nDays(pattern)]);
+  static int duration(const std::vector<double> &column) {
+    return static_cast<int>(column[3+Column::nDays(column)]);
   }
 
   static int nurseNum(MyVar *var) {
-    return Pattern::nurseNum(var->getPattern());
+    return Column::nurseNum(var->getCompactColumn());
   }
   static int firstDay(MyVar *var) {
-    return Pattern::firstDay(var->getPattern());
+    return Column::firstDay(var->getCompactColumn());
   }
   static int lastDay(MyVar *var) {
-    return Pattern::lastDay(var->getPattern());
+    return Column::lastDay(var->getCompactColumn());
   }
   static int nDays(MyVar *var) {
-    return Pattern::nDays(var->getPattern());
+    return Column::nDays(var->getCompactColumn());
   }
   static int shift(MyVar *var, int d) {
-    return Pattern::shift(var->getPattern(), d);
+    return Column::shift(var->getCompactColumn(), d);
   }
   static int duration(MyVar *var) {
-    return Pattern::duration(var->getPattern());
+    return Column::duration(var->getCompactColumn());
   }
 
   /* class functions */
-  Pattern(): nurseNum_(-1) {}
+  Column(): nurseNum_(-1) {}
 
-  Pattern(RCSolution rcSol,
-          int nurseNum) :
-          RCSolution(std::move(rcSol)),
-          nurseNum_(nurseNum) {}
+  Column(RCSolution rcSol, int nurseNum) :
+      RCSolution(std::move(rcSol)),
+      nurseNum_(nurseNum) {}
 
-  Pattern(MyVar *var, const PScenario &pScenario);
+  Column(MyVar *var, const PScenario &pScenario);
 
-  virtual ~Pattern() = default;
-
-  virtual bool equals(const PPattern &pat) const {
+  virtual bool equals(const std::shared_ptr<Column> &pat) const {
     if (nurseNum_ != pat->nurseNum_) return false;
     return !(*this != *pat);
   }
 
   // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest)
-  virtual bool isDisjointWith(PPattern pat, bool needRest = true) const {
-    return ((lastDay() < pat->firstDay() - needRest)
-        || (pat->lastDay() < firstDay() - needRest));
+  virtual bool isDisjointWith(
+      const std::shared_ptr<Column> &pat, bool needRest) const {
+    return ((lastDayId() < pat->firstDayId() - needRest)
+        || (pat->lastDayId() < firstDayId() - needRest));
   }
 
   // Returns true if both columns are disjoint PLUS ONE DAY INBETWEEN (needRest)
-  virtual bool isShiftDisjointWith(PPattern pat, bool needRest = true) const {
+  virtual bool isShiftDisjointWith(
+      const std::shared_ptr<Column> &pat, bool needRest) const {
     if (isDisjointWith(pat, needRest))
       return true;
 
-    int commomFirstDay = std::max(firstDay(), pat->firstDay()),
-        commomLastDay = std::min(lastDay(), pat->lastDay());
-    for (int k = commomFirstDay; k <= commomLastDay; ++k)
+    int commonFirstDay = std::max(firstDayId(), pat->firstDayId()),
+        commonLastDay = std::min(lastDayId(), pat->lastDayId());
+    for (int k = commonFirstDay; k <= commonLastDay; ++k)
       if (shift(k) == pat->shift(k)) return false;
 
     return true;
   }
 
-  // when branching on this pattern,
+  // when branching on this column,
   // this method add the corresponding forbidden shifts to the set
   virtual void addForbiddenShifts(
       std::set<std::pair<int, int> > *forbidenShifts,
@@ -191,31 +125,31 @@ struct Pattern : public RCSolution {
 
   std::string toString() const override;
 
-  // need to be able to write the pattern as a vector and
+  // need to be able to write the column as a vector and
   // to create a new one from it
-  virtual std::vector<double> getCompactPattern() const {
-    std::vector<double> pattern;
-    pattern.reserve(nDays()+10);
-    pattern.push_back(nurseNum_);
-    pattern.push_back(firstDay());
-    pattern.push_back(nDays());
+  virtual std::vector<double> getCompactColumn() const {
+    std::vector<double> column;
+    column.reserve(nDays()+10);
+    column.push_back(nurseNum_);
+    column.push_back(firstDayId());
+    column.push_back(nDays());
     for (const PShift& pS : pShifts())
-      pattern.push_back(pS->id);
-    pattern.push_back(duration());
-    return pattern;
+      column.push_back(pS->id);
+    column.push_back(duration());
+    return column;
   }
 
   //  Compute the dual cost of a column
   virtual void checkReducedCost(const DualCosts &dualCosts,
-                                bool printBadPricing = true) const = 0;
+                                bool printBadPricing) const = 0;
 
   int nurseNum() const { return nurseNum_; }
 
   // need to redefine this function because of the static functions
   // having the same name
-  int firstDay() const override { return Stretch::firstDay(); }
+  int firstDayId() const override { return Stretch::firstDayId(); }
 
-  int lastDay() const override { return Stretch::lastDay(); }
+  int lastDayId() const override { return Stretch::lastDayId(); }
 
   int nDays() const override { return Stretch::nDays(); }
 
@@ -226,6 +160,9 @@ struct Pattern : public RCSolution {
  protected:
   const int nurseNum_;
 };
+
+typedef std::shared_ptr<Column> PColumn;
+
 
 //-----------------------------------------------------------------------------
 //
@@ -239,40 +176,37 @@ class RCPricer;
 class MasterProblem : public Solver, public PrintSolution {
  public:
   // Specific constructor and destructor
-  MasterProblem(PScenario pScenario,
+  MasterProblem(const PScenario& pScenario,
                 SolverType solver);
-  ~MasterProblem();
+  ~MasterProblem() override;
 
   // solve the rostering problem
-  double solve(const std::vector<Roster> &solution = {}) override;
+  double solve(const std::vector<Roster> &solution) override;
 
   // solve the rostering problem or just the relaxation(root node)
   double solve(const std::vector<Roster> &solution, bool rebuild);
 
   // Solve with parameters
   double solve(const SolverParam &parameters,
-               const std::vector<Roster> &solution = {}) override;
+               const std::vector<Roster> &solution) override;
 
   // Resolve the problem with another demand and keep the same preferences
   double resolve(PDemand pDemand,
                  const SolverParam &parameters,
-                 const std::vector<Roster> &solution = {}) override;
+                 const std::vector<Roster> &solution) override;
 
   // needs to be specialized: add a column  to the master from a solution of
   // the subproblem
   virtual MyVar *addColumn(int nurseNum, const RCSolution &solution) = 0;
 
-  // retrieve the object represented ny the  vector pattern
-  virtual PPattern getPattern(MyVar *var) const = 0;
+  // retrieve the object represented ny the  vector column
+  virtual PColumn getPColumn(MyVar *var) const = 0;
 
-  void computePatternCost(Pattern *pat) const;
+  void computeColumnCost(Column *col) const;
 
-  CostType resourceCostType(const PResource &pR, const PLiveNurse &pN) const {
-    return pResourceCostTypes_[pN->num_].at(pR);
-  }
-
-  // throw an error if pattern is already present as an active column
-  void checkIfPatternAlreadyPresent(const Pattern &pat) const;
+  // throw an error if column is already present as an active column
+  bool checkIfColumnAlreadyPresent(
+      const Column &column, bool printErr = false) const;
 
   virtual std::vector<MyVar *> getRestVarsPerDay(
       PLiveNurse pNurse, int day) const = 0;
@@ -295,7 +229,7 @@ class MasterProblem : public Solver, public PrintSolution {
   }
 
   // override save and currentSolToString virtual method fom printFunction
-  void save(const std::vector<int> &weekIndices, std::string outdir) override;
+  void saveSolution() override;
   std::string currentSolToString() const override;
 
   bool isSolutionInteger() const override {
@@ -338,16 +272,16 @@ class MasterProblem : public Solver, public PrintSolution {
   // Solve the problem with a method that allows for a warm start
   double rollingSolve(const SolverParam &parameters,
                       int firstDay,
-                      const std::vector<Roster> &solution = {}) override;
+                      const std::vector<Roster> &solution) override;
 
   // Special solve function for LNS
   // It is a priori the same as a regular, but it might be modified if needed
   double LNSSolve(const SolverParam &parameters,
-                  const std::vector<Roster> &solution = {}) override;
+                  const std::vector<Roster> &solution) override;
 
   // Initialization of the master problem with/without solution
   void initialize(const SolverParam &parameters,
-                  const std::vector<Roster> &solution = {}) override;
+                  const std::vector<Roster> &solution) override;
 
   // STAB: compute the lagrangian bound
   bool lagrangianBoundAvailable() const { return lagrangianBoundAvail_; }
@@ -362,7 +296,6 @@ class MasterProblem : public Solver, public PrintSolution {
   * Solving parameter doubles
   */
   const char *PB_NAME = "GenCol";
-  int solvingTime;
 
   const vector3D<MyVar *> &getOptDemandVars() const {
     return optDemandConstraint_->getVariables();
@@ -380,10 +313,15 @@ class MasterProblem : public Solver, public PrintSolution {
     return optDemandConstraint_->getConstraints();
   }
 
+  // solve a solution in the output
+  // return false if fails, true otherwise
+  bool storeSolution() override;
+
   /* Display functions */
-  std::string costsConstrainstsToString() const override;
-  std::string allocationToString(bool printInteger = true) const;
-  std::string coverageToString(bool printInteger = true) const;
+  std::string costsConstraintsToString() const override;
+  std::string costsColumnsToString() const;
+  string allocationToString() const;
+  string coverageToString() const;
 
   vector<PResource> getSPResources(const PLiveNurse &pN) const {
     return spResources_[pN->num_];
@@ -392,12 +330,10 @@ class MasterProblem : public Solver, public PrintSolution {
  protected:
   Modeler *pModel_;
   RCPricer *pRCPricer_;
-  SolverType solverType_;  // which solver is used
   bool lagrangianBoundAvail_ = false;
 
   // PResources for the problem and subproblems
-  vector<std::map<PResource, CostType>> pResources_;  // per  nurse
-  vector2D<PResource> spResources_;  // per nurse
+  vector2D<PResource> pResources_, spResources_;  // per nurse
 
   // create the resources used for the sub problem
   void createPResources();
@@ -405,26 +341,6 @@ class MasterProblem : public Solver, public PrintSolution {
   // split the resources between the master and the subproblem
   // must initialize spResources_
   virtual void splitPResources() = 0;
-
-  // Functions to generate the default resources for a given nurse
-  virtual std::map<PResource, CostType>
-  defaultGeneratePResources(const PLiveNurse &pN) const;
-
-  // create resources and the map that associates a PRessource to its cost type
-  // create resources and the map that associates a PRessource to its cost type
-  virtual std::map<PResource, CostType>
-  generatePResources(const PLiveNurse &pN) {
-    if (pResourceCostTypes_[pN->num_].empty()) {
-      // if defined, do not use the default function
-      if (generatePResourcesFunc_)
-        pResourceCostTypes_[pN->num_] = generatePResourcesFunc_(pN);
-      else
-        pResourceCostTypes_[pN->num_] = defaultGeneratePResources(pN);
-    }
-    return pResourceCostTypes_[pN->num_];
-  }
-
-  vector<std::map<PResource, CostType>> pResourceCostTypes_;
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
@@ -435,30 +351,31 @@ class MasterProblem : public Solver, public PrintSolution {
   /*
   * Master Problem Constraints
   */
-  NursePositionCountConstraint *nursePositionCountConstraint_;
-  AllocationConstraint *allocationConstraint_;
-  DemandConstraint *minDemandConstraint_, *optDemandConstraint_;
+  NursePositionCountConstraint *nursePositionCountConstraint_{};
+  AllocationConstraint *allocationConstraint_{};
+  DemandConstraint *minDemandConstraint_{}, *optDemandConstraint_{};
 
   // vector containing the constraints that are involved
   // in the column generation
-  vector<ConstraintMP*> columnConstraints_;
+  vector<ConstraintMP*> constraints_, columnConstraints_;
 
  public:
   const vector<ConstraintMP*> & columnConstraints() const {
     return columnConstraints_;
   }
 
-  void addColumnConstraint(ConstraintMP* pC) {
-    columnConstraints_.push_back(pC);
+  void addConstraint(ConstraintMP* pC, bool affectColumns) {
+    constraints_.push_back(pC);
+    if (affectColumns) columnConstraints_.push_back(pC);
   }
 
   // add the column to the problem
-  MyVar *createColumn(const Pattern &col, const char *baseName);
+  MyVar *createColumn(const Column &col, const char *baseName);
 
   // add a given constraint to the column
-  void addConstoCol(std::vector<MyCons *> *cons,
+  void addConsToCol(std::vector<MyCons *> *cons,
                     std::vector<double> *coeffs,
-                    const Pattern &col) const;
+                    const Column &col) const;
 
  protected:
   /*
@@ -474,27 +391,20 @@ class MasterProblem : public Solver, public PrintSolution {
   // solve method to catch exception
   void solveWithCatch();
 
-  // solve a solution in the output
-  void storeSolution() override;
-
   // set parameters and update printFunction pointer with this
-  void setParameters(const SolverParam &param) {
+  void setParameters(const SolverParam &param) override {
     pModel_->setParameters(param, this);
     param_ = pModel_->getParameters();
   }
 
   // return the costs of all active columns associated to the type
-  // return the costs of all active columns associated to the type
-  virtual double getColumnsCost(CostType costType) const;
-  double getColumnsCost(CostType costType,
-                        const std::vector<MyVar *> &vars) const;
-
-  virtual double getDaysCost() const = 0;
-  virtual double getWeekendCost() const = 0;
+  virtual std::map<CostType, double> getColumnsCosts() const;
+  std::map<CostType, double> getColumnsCosts(
+      const std::vector<MyVar *> &vars) const;
 
   // update the demand with a new one of the same size
   // change the rhs of the constraints minDemandCons_ and optDemandCons_
-  void updateDemand(PDemand pDemand);
+  virtual void update(const PDemand& pDemand);
 };
 
 #endif  // SRC_SOLVERS_MP_MASTERPROBLEM_H_

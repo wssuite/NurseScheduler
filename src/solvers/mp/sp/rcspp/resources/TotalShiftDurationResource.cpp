@@ -15,7 +15,7 @@ int TotalShiftDuration::computeConsumption(
     const Stretch &stretch, bool *ready) const {
   int consumption = 0;
   for (const auto &pShift : stretch.pShifts())
-    if (pShift_->includes(*pShift))
+    if (pAShift_->includes(*pShift))
       consumption += duration(pShift);
   return consumption;
 }
@@ -24,7 +24,8 @@ template<typename E, typename R>
 shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const Stretch &stretch,
                            const PRCArc &pArc,
-                           const R &r) {
+                           const R &r,
+                           const int indResource) {
   // if nothing happens
   if (stretch.nDays() == 0)
     return nullptr;
@@ -35,26 +36,28 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   // number of days before the start of the stretch (beware that indices of
   // days start at 0)
   std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
-  int nDaysBefore = firstLastDays.first - r.firstDay();
+  int nDaysBefore = firstLastDays.first - r.firstDayId();
   // Number of days left since the day of the target node of the arc
-  int nDaysLeft = r.totalNbDays() + r.firstDay() - firstLastDays.second - 1;
+  int nDaysLeft = r.totalNbDays() + r.firstDayId() - firstLastDays.second - 1;
 
-  return std::make_shared<E>(
+  return std::make_shared<E>(indResource,
       r, consumption, nDaysBefore * r.maxDuration(),
       nDaysLeft  * r.maxDuration(), pArc->target->type == SINK_NODE);
 }
 
 int SoftTotalShiftDurationResource::getConsumption(
     const State &initialState) const {
-  return std::min(ub_, initialState.totalTimeWorked_);
+  return 0;
+//  return std::min(ub_, initialState.totalTimeWorked_);
 }
 
 PExpander SoftTotalShiftDurationResource::init(const AbstractShift &prevAShift,
                                                const Stretch &stretch,
-                                               const PRCArc &pArc) {
+                                               const shared_ptr<RCArc> &pArc,
+                                               int indResource) {
   return initExpander<SoftTotalShiftDurationExpander,
                       SoftTotalShiftDurationResource>(
-      prevAShift, stretch, pArc, *this);
+      prevAShift, stretch, pArc, *this, indResource);
 }
 
 bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
@@ -85,7 +88,6 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
     pLChild->addTotalShiftCost(resource_.getLbCost(vChild->consumption));
 #endif
   }
-
   // Setting 'worst case cost'
   vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost = resource_.getWorstUbCost(vChild->consumption,
@@ -93,6 +95,7 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
 
   return true;
 }
+
 bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
                                                 ResourceValues *vChild) {
   // update consumption
@@ -117,15 +120,17 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
 
 int HardTotalShiftDurationResource::getConsumption(
     const State &initialState) const {
-  return initialState.totalTimeWorked_;
+  return 0;
+//  return initialState.totalTimeWorked_;
 }
 
 PExpander HardTotalShiftDurationResource::init(const AbstractShift &prevAShift,
                                                const Stretch &stretch,
-                                               const PRCArc &pArc) {
+                                               const shared_ptr<RCArc> &pArc,
+                                               int indResource) {
   return initExpander<HardTotalShiftDurationExpander,
                       HardTotalShiftDurationResource>(
-      prevAShift, stretch, pArc, *this);
+      prevAShift, stretch, pArc, *this, indResource);
 }
 
 bool HardTotalShiftDurationExpander::expand(const PRCLabel &pLChild,

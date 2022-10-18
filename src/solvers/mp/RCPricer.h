@@ -92,6 +92,10 @@ class RCPricer : public MyPricer {
   std::recursive_mutex m_subproblem_;
 
  public:
+  MasterProblem* pMaster() const {
+    return pMaster_;
+  }
+
   // METHODS - Solutions, rotations, etc.
   void resetSolutions() {
     allNewColumns_.clear();
@@ -110,7 +114,7 @@ class RCPricer : public MyPricer {
   SubProblem *buildSubproblem(const PLiveNurse &pNurse,
                               const SubProblemParam &spParam) const;
 
-  void computeCost(Pattern *pat) const;
+  void computeCost(Column *col);
 
   // METHODS - Forbidden shifts, nurses, starting days, etc.
   //
@@ -225,7 +229,6 @@ class RCPricer : public MyPricer {
   int nbS_ = 0;
   int nbN_ = 0;
   int nbNL_ = 0;
-  std::minstd_rand rand_;
 };
 
 #endif  // SRC_SOLVERS_MP_RCPRICER_H_

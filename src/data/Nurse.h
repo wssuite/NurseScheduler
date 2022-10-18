@@ -14,13 +14,15 @@
 
 #include <iostream>
 #include <map>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "tools/Tools.h"
-#include "Scenario.h"
+#include "data/Scenario.h"
 
 class Scenario;
 
@@ -31,6 +33,12 @@ class Scenario;
 //  A contract as defined in the subject
 //
 //-----------------------------------------------------------------------------
+class BaseResource {
+ public:
+  virtual BaseResource* clone() const = 0;
+};
+typedef std::shared_ptr<BaseResource> PBaseResource;
+
 class Contract {
  public:
   // Id of the contract and index in the vector intToContract_
@@ -38,55 +46,137 @@ class Contract {
   const int id_;
 
   // Name of the contract
-  //
   const std::string name_;
 
   // Minimum and maximum total number of shifts over the time period
-  //
-  const int minTotalShifts_, maxTotalShifts_;
+  const int minTotalShifts_ = 0, maxTotalShifts_ = 99;
+  const double costMinTotalShifts_ = 20, costMaxTotalShifts_ = 20;
 
   // Minimum and maximum number of consecutive days worked
-  //
-  const int minConsDaysWork_, maxConsDaysWork_;
+  const int minConsDaysWork_ = 0, maxConsDaysWork_ = 99;
+  const double costMinConsDaysWork_ = 30, costMaxConsDaysWork_ = 30;
 
   // Minimum and maximum number of consecutive days off
-  //
-  const int minConsDaysOff_, maxConsDaysOff_;
+  const int minConsDaysOff_ = 0, maxConsDaysOff_ = 99;
+  const double costMinConsDaysOff_ = 30, costMaxConsDaysOff_ = 30;
 
-  // Maximum number of weekends worked, and complete weekend constraint
-  //
-  const int maxTotalWeekends_;
-  const int needCompleteWeekends_;
+  // weekend constraints
+  const Weekend weekend_;
+  const int maxTotalWeekends_ = 99;
+  const double costMaxTotalWeekends_ = 30;
+  const bool needCompleteWeekends_ = false;
+  const double costCompleteWeekends_ = 30;
+  const bool identShiftTypesDuringWeekend_ = false;
+  const bool noNightShiftBeforeFreeWeekend_ = false;
 
-  // weights
-  const PWeights weights_;
+  // true if the resting periods must contain at least two days after a
+  // series of night shifts
+  const bool twoFreeDaysAfterNightShifts_ = false;
+
+  // true if nurses can be assigned to a skill they do not possess
+  const bool alternativeSkill_ = false;
+  const double costAlternativeSkill_ = 0;
+
+  // true if nurses can be assigned to a shift they cannot perform
+  const bool alternativeShift_ = false;
+  const double costAlternativeShift_ = 0;
+
+  // vector of forbidden patterns
+  vector<int> forbiddenPatternIds_;
+
+  // vector of resources
+  vector<PBaseResource> pBaseResources_;
 
   // Constructor and Destructor
   //
-  Contract(int id, std::string name, int minTotalShifts, int maxTotalShifts,
-           int minConsDaysWork, int maxConsDaysWork,
-           int minConsDaysOff, int maxConsDaysOff,
-           int maxTotalWeekends, int needCompleteWeekends, PWeights weights) :
+  Contract(int id,
+           std::string name,
+           int minTotalShifts,
+           int maxTotalShifts,
+           int minConsDaysWork,
+           int maxConsDaysWork,
+           int minConsDaysOff,
+           int maxConsDaysOff,
+           int maxTotalWeekends,
+           int needCompleteWeekends,
+           vector<PBaseResource> pBaseResources = {},
+           DayOfWeek firstWeekendDayId = SATURDAY,
+           DayOfWeek lastWeekendDayId = SUNDAY,
+           bool identShiftTypesDuringWeekend = false,
+           bool noNightShiftBeforeFreeWeekend = false,
+           bool twoFreeDaysAfterNightShifts = false,
+           bool alternativeSkill = false,
+           double costAlternativeSkill = 0,
+           bool alternativeShift = false,
+           double costAlternativeShift = 0) :
       id_(id),
-      name_(name),
+      name_(std::move(name)),
       minTotalShifts_(minTotalShifts),
       maxTotalShifts_(maxTotalShifts),
       minConsDaysWork_(minConsDaysWork),
       maxConsDaysWork_(maxConsDaysWork),
       minConsDaysOff_(minConsDaysOff),
       maxConsDaysOff_(maxConsDaysOff),
+      weekend_(firstWeekendDayId, lastWeekendDayId),
       maxTotalWeekends_(maxTotalWeekends),
       needCompleteWeekends_(needCompleteWeekends),
-      weights_(weights) {}
+      identShiftTypesDuringWeekend_(identShiftTypesDuringWeekend),
+      noNightShiftBeforeFreeWeekend_(noNightShiftBeforeFreeWeekend),
+      twoFreeDaysAfterNightShifts_(twoFreeDaysAfterNightShifts),
+      alternativeSkill_(alternativeSkill),
+      costAlternativeSkill_(costAlternativeSkill),
+      alternativeShift_(alternativeShift),
+      costAlternativeShift_(costAlternativeShift),
+      pBaseResources_(std::move(pBaseResources)) {}
 
-  // Cost function for consecutive identical shifts
-  //
-  double consDaysCost(int n) const;
-  double consDaysOffCost(int n) const;
-  double totalShiftCost(int n) const;
-  double totalWeekendCost(int n) const;
+  Contract(int id,
+           std::string name,
+           vector<PBaseResource> pBaseResources = {},
+           DayOfWeek firstWeekendDayId = SATURDAY,
+           DayOfWeek lastWeekendDayId = SUNDAY,
+           vector<int> patternIds = {},
+           bool alternativeSkill = false,
+           double costAlternativeSkill = 0,
+           bool alternativeShift = false,
+           double costAlternativeShift = 0) :
+      id_(id),
+      name_(std::move(name)),
+      weekend_(firstWeekendDayId, lastWeekendDayId),
+      alternativeSkill_(alternativeSkill),
+      costAlternativeSkill_(costAlternativeSkill),
+      alternativeShift_(alternativeShift),
+      costAlternativeShift_(costAlternativeShift),
+      forbiddenPatternIds_(std::move(patternIds)),
+      pBaseResources_(std::move(pBaseResources)) {}
 
-  // Display methods: toString + override operator<< (easier)
+  // Information about the weekend
+  bool isWeekend(const AbstractDay& d) const {
+    return weekend_.isWeekend(d);
+  }
+
+  bool isWeekend(int dayId) const {
+    return weekend_.isWeekend(dayId);
+  }
+
+  bool isFirstWeekendDay(int dayId) const {
+    return weekend_.isFirstWeekendDay(dayId);
+  }
+
+  bool isLastWeekendDay(int dayId) const {
+    return weekend_.isLastWeekendDay(dayId);
+  }
+
+  // Cost function that recover total penalty for a given number of
+  // consecutive or total assignments
+  double consDaysCost(int ndays) const;
+  double consDaysOffCost(int ndays) const;
+  double totalShiftCost(int ndays) const;
+  double totalWeekendCost(int ndays) const;
+
+  // Add a resource to the vector of PResources
+  void addResource(const PBaseResource& pR) { pBaseResources_.push_back(pR); }
+
+  // Display methods: toStringINRC2 + override operator<< (easier)
   //
   std::string toString();
   friend std::ostream &operator<<(std::ostream &outs, Contract obj) {
@@ -101,7 +191,7 @@ class Contract {
 //  A position (job) is a set of skills that a nurse may possess
 //
 //-----------------------------------------------------------------------------
-class Nuurse;
+class Nurse;
 
 class Position {
  public:
@@ -109,14 +199,16 @@ class Position {
   //
   Position(int index,
            std::vector<int> skills,
-           std::vector<int> alternativeSkills = {});
+           std::vector<int> alternativeSkills = {},
+           double alternativeSkillsCost = 0);
   Position(int index,
            std::vector<int> skills,
            bool addOtherSkillsAsAlternative,
+           double alternativeSkillsCost,
            int nSkills);
   Position(int index, const Nurse &nurse);
 
-  ~Position() {}
+  ~Position() = default;
 
  public:
   // Index of the position
@@ -128,6 +220,7 @@ class Position {
   //
   const std::vector<int> skills_;
   const std::vector<int> alternativeSkills_;
+  const double alternativeSkillsCost_;
 
  private:
   // union of the sklls and alternative skills
@@ -172,7 +265,7 @@ class Position {
   //
   void rank(int i) { rank_ = i; }
 
-  // Display method: toString
+  // Display method: toStringINRC2
   //
   std::string toString() const;
 
@@ -198,8 +291,8 @@ class Position {
 
   // set positions above and below
   //
-  void addBelow(PPosition pPosition);
-  void addAbove(PPosition pPosition);
+  void addBelow(const PPosition& pPosition);
+  void addAbove(const PPosition& pPosition);
 
   // reset the list of positions below and above
   //
@@ -224,7 +317,6 @@ class Position {
 //  the planning of each nurse
 //
 //-----------------------------------------------------------------------------
-
 class Nurse {
  public:
   // Constructor and destructor
@@ -234,7 +326,7 @@ class Nurse {
         int nSkills,
         std::vector<int> skills,
         std::vector<int> availableShifts,
-        PConstContract contract);
+        PContract contract);
 
   Nurse(int id,
         std::string name,
@@ -243,7 +335,7 @@ class Nurse {
         std::vector<int> skills,
         std::vector<int> alternativeSkills,
         std::vector<int> availableShifts,
-        PConstContract contract);
+        PContract contract);
 
   Nurse(int id,
         std::string name,
@@ -252,7 +344,7 @@ class Nurse {
         std::vector<int> skills,
         bool addOtherSkillsAsAlternative,
         std::vector<int> availableShifts,
-        PConstContract contract);
+        PContract contract);
 
   Nurse(int id, const Nurse &nurse);
 
@@ -278,12 +370,11 @@ class Nurse {
   const std::vector<int> skills_;
   const std::vector<int> alternativeSkills_;
 
-  // available shifts
-  const std::vector<int> availableShifts_;
+  // available shifts and alternative ones
+  const std::vector<int> availableShifts_, alternativeShifts_;
 
-  // Her contract type
-  //
-  PConstContract pContract_;
+  // Their contract type
+  PContract pContract_;
 
  protected:
   //-----------------------------------------------------------------------------
@@ -291,10 +382,15 @@ class Nurse {
   // constructor
   // (only getters for these fields)
   //-----------------------------------------------------------------------------
-  std::vector<bool> hasSkill_, isAvailableShifts_;
+  std::vector<bool> hasSkill_, isAvailOrAltShift_;
 
-  // initalize vectors and checked they are sorted
+  // Resources of the nurse
+  //
+  vector<PBaseResource> pBaseResources_;
+
+  // initialize vectors and checked they are sorted
   void init();
+
 
  public:
   // Basic getters
@@ -308,7 +404,16 @@ class Nurse {
   int minConsDaysOff() const { return pContract_->minConsDaysOff_; }
   int maxConsDaysOff() const { return pContract_->maxConsDaysOff_; }
   int maxTotalWeekends() const { return pContract_->maxTotalWeekends_; }
-  int needCompleteWeekends() const { return pContract_->needCompleteWeekends_; }
+  bool needCompleteWeekends() const {
+    return  pContract_->needCompleteWeekends_; }
+  bool alternativeSkillCategory() const {
+    return pContract_->alternativeSkill_; }
+  bool identShiftTypesDuringWeekend() const {
+    return pContract_->identShiftTypesDuringWeekend_;  }
+  bool noNightShiftBeforeFreeWeekEnd_() const {
+    return pContract_->noNightShiftBeforeFreeWeekend_; }
+  bool twoFreeDaysAfterNightShifts() const {
+    return pContract_->twoFreeDaysAfterNightShifts_; }
 
   double consDaysCost(int n) const { return pContract_->consDaysCost(n); }
   double consDaysOffCost(int n) const { return pContract_->consDaysOffCost(n); }
@@ -316,17 +421,27 @@ class Nurse {
   double totalWeekendCost(int n) const {
     return pContract_->totalWeekendCost(n);
   }
+  PContract pContract() const { return pContract_; }
 
   // Avanced getters
   //
   bool hasSkill(int skill) const;
-  std::string contractName() { return pContract_->name_; }
-  bool isShiftAvailable(int s) const { return isAvailableShifts_[s]; }
+  int contractId() const { return pContract_->id_; }
+  std::string contractName() const { return pContract_->name_; }
+  bool isShiftAvailOrAlt(int s) const { return isAvailOrAltShift_[s]; }
+  bool isShiftNotAvailNorAlt(int s) const { return !isShiftAvailOrAlt(s); }
 
-  // Display methods: toString
+  // Add a resource to the vector
+  void addBaseResource(const PBaseResource& pR);
+
+  // Display methods: toStringINRC2
   //
   std::string toString() const;
 };
+
+// Compare nurses in ascending order of their ids
+//
+bool compareNursesById(const PNurse& n1, const PNurse& n2);
 
 //-----------------------------------------------------------------------------
 //
@@ -335,20 +450,97 @@ class Nurse {
 //  Describes the preferences of a nurse for a certain period of time
 //  They are given as a vector (entry = nurseNum).
 //  Each element is a map<int,set<int>> whose keys are the days,
-//  and values are the sets of wished shift(s) OFF on that day.
+//  and values are the sets of wished shift(s) OFF or ON on that day.
 //
 //-----------------------------------------------------------------------------
 
-struct Wish {
-  int shift;
-  PREF_LEVEL level;
+class Wish {
+  std::vector<PAbstractShift> pAShiftsOff_, pAShiftsOn_;
+  std::vector<double> costsOff_, costsOn_;
+
+ public:
+  Wish() = default;
+  Wish(PAbstractShift pAS, double cost, bool off) {
+    if (off) {
+      pAShiftsOff_.push_back(std::move(pAS));
+      costsOff_.push_back(cost);
+    } else {
+      pAShiftsOn_.push_back(std::move(pAS));
+      costsOn_.push_back(cost);
+    }
+  }
+
+  bool off() const { return !pAShiftsOff_.empty(); }
+
+  bool dayOff() const {
+    for (const auto &pAS : pAShiftsOff_)
+      if (pAS->isAnyWork()) return true;
+    return false;
+  }
+
+  bool on() const { return !pAShiftsOn_.empty(); }
+
+  bool dayOn() const {
+    for (const auto &pAS : pAShiftsOn_)
+      if (pAS->isAnyWork()) return true;
+    return false;
+  }
+
+  void add(const Wish &wish) {
+    pAShiftsOff_.insert(pAShiftsOff_.end(),
+                        wish.pAShiftsOff_.begin(), wish.pAShiftsOff_.end());
+    costsOff_.insert(costsOff_.end(),
+                     wish.costsOff_.begin(), wish.costsOff_.end());
+    pAShiftsOn_.insert(pAShiftsOn_.end(),
+                       wish.pAShiftsOn_.begin(), wish.pAShiftsOn_.end());
+    costsOn_.insert(costsOn_.end(),
+                    wish.costsOn_.begin(), wish.costsOn_.end());
+  }
+
+  // Penalize if the wish is violated
+  // return the associated cost (default 0 if nothing is penalized)
+  double cost(const PShift &pShift) const {
+    double cost = 0;
+    auto itC = costsOff_.begin();
+    // OFF: add the costs of the violated wishes
+    for (const auto &pAS : pAShiftsOff_) {
+      if (pAS->includes(*pShift)) cost += *itC;
+      ++itC;
+    }
+    // ON: add the costs of the violated wishes
+    itC = costsOn_.begin();
+    for (const auto &pAS : pAShiftsOn_) {
+      if (!pAS->includes(*pShift)) cost += *itC;
+      ++itC;
+    }
+    return cost;
+  }
+
+  std::string toString() const {
+    std::stringstream rep;
+    if (!pAShiftsOff_.empty()) {
+      rep << "Off:";
+      auto itC = costsOff_.begin();
+      for (const auto &pAS : pAShiftsOff_)
+         rep << (itC == costsOff_.begin() ? "" : ",") << pAS->name
+             << "(" << *itC++ << ")";
+    }
+    if (!pAShiftsOn_.empty()) {
+      rep << "On:";
+      auto itC = costsOn_.begin();
+      for (const auto &pAS : pAShiftsOn_)
+        rep << (itC == costsOn_.begin() ? "" : ",") << pAS->name
+            << "(" << *itC++ << ")";
+    }
+    return rep.str();
+  }
 };
 
 class Preferences {
  public:
   // Constructor and destructor
-  Preferences();
-  ~Preferences();
+  Preferences() = default;
+  ~Preferences() = default;
 
   // Constructor with initialization to a given number of nurses
   Preferences(int nbNurses, int nbDays, int nbShifts);
@@ -357,56 +549,45 @@ class Preferences {
   // and no wished Shift-Off.
   Preferences(const std::vector<PNurse> &pNurses, int nbDays, int nbShifts);
 
-  static int wishLevel(const std::map<int, std::vector<Wish> > &wishes,
-                       int day,
-                       int shift);
+  // Returns the cost of the nurse wish for the shift
+  static double wishCostOfTheShift(const std::map<int, Wish> &wishes,
+                                   int day,
+                                   const PShift &pS);
 
  protected:
-  // Number of nurses
-  //
-  int nbNurses_;
-
   // Number of days considered in that case
-  //
   int nbDays_;
 
   // Total number of possible shifts
-  //
   int nbShifts_;
 
-  // For each nurse, maps the day to the set of shifts
-  // that he/she wants to have off
-  //
-  std::map<int, std::map<int, std::vector<Wish> > > wishesOff_;
-  std::map<int, std::map<int, std::vector<Wish> > > wishesOn_;
+  // For each nurse, maps the day to the abstract shift that
+  // he/she wants to have off/on
+  std::map<int, std::map<int, Wish>> wishes_;
 
  public:
-  // For a given day, and a given shift, adds it to the wish-list for OFF-SHIFT
-  void addShiftOff(int nurse, int day, int shift, PREF_LEVEL level);
-  void addShiftOn(int nurse, int day, int shift, PREF_LEVEL level);
+  // For a given day, and a given shift, adds it to the wish-list
+  const Wish& addShift(int nurse, int day, const Wish &wish);
+
+  const Wish& addShiftOff(
+      int nurse, int day, const PAbstractShift &pShift, double cost);
+  const Wish& addShiftOn(
+      int nurse, int day, const PAbstractShift &pShift, double cost);
 
   // Adds the whole day to the wish-list
-  void addDayOff(int nurse, int day, PREF_LEVEL level);
-  void addDayOn(int nurse, int day, PREF_LEVEL level);
+  const Wish& addDayOff(int nurse, int day, double cost);
+  const Wish& addDayOn(int nurse, int day, double cost);
 
-  const std::map<int, std::vector<Wish>> &nurseWishesOff(int id) const {
-    return wishesOff_.at(id);
-  }
-  const std::map<int, std::vector<Wish>> &nurseWishesOn(int id) const {
-    return wishesOn_.at(id);
+  const std::map<int, Wish> &nurseWishes(int id) const {
+    return wishes_.at(id);
   }
 
-  // True if the nurses wants that shift off
-  bool wantsTheShiftOff(int nurse, int day, int shift) const;
-  bool wantsTheShiftOn(int nurse, int day, int shift) const;
+  // Returns true if the shift respect the nurse wish
+  bool wishTheShift(int nurse, int day, const PShift &pShift) const;
 
-  // Returns level if the nurse wants that shift off : -1 otherwise
-  int wantsTheShiftOffLevel(int nurseNum, int day, int shift) const;
-  int wantsTheShiftOnLevel(int nurseNum, int day, int shift) const;
-
-  // True if the nurses wants the whole day off
-  bool wantsTheDayOff(int nurse, int day) const;
-  bool wantsTheDayOn(int nurse, int day) const;
+  // Returns the cost of the nurse wish for the shift
+  double wishCostOfTheShift(
+      int nurseNum, int day, const PShift &pShift) const;
 
   // Total number of shifts off that the nurse wants
   int howManyShiftsOff(int nurse) const;
@@ -417,22 +598,26 @@ class Preferences {
   int howManyDaysOn(int nurse, int dayMin, int dayMax) const;
 
   // add another week preferences at the end of the current one
-  //
-  void pushBack(PPreferences pPref);
+  void pushBack(const PPreferences& pPref);
 
   // Keep the preferences relative to the days in [begin,end)
-  PPreferences keep(int begin, int end);
+  PPreferences keep(int begin, int end) const;
+
+  // Keep the preferences relative to the nurses
+  PPreferences keep(const std::vector<PNurse> &pNurses) const;
 
   // Remove the preferences relative to the nbDays first days
   PPreferences removeNFirstDays(int nbDays);
 
-  // Display methods: toString + override operator<< (easier)
+  // Display methods: toStringINRC2 + override operator<< (easier)
   //
-  std::string toString(PScenario pScenario = nullptr) const;
+  std::string toString() const;
   friend std::ostream &operator<<(std::ostream &outs,
                                   const Preferences &obj) {
     return outs << obj.toString();
   }
+
+  static string toString(const std::map<int, Wish> &wishes);
 };
 
 #endif  // SRC_DATA_NURSE_H_

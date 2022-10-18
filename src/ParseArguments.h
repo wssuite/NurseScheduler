@@ -12,6 +12,10 @@
 #ifndef SRC_PARSEARGUMENTS_H_
 #define SRC_PARSEARGUMENTS_H_
 
+#include <list>
+#include <string>
+#include <utility>
+
 #include "tools/InputPaths.h"
 
 // Read the arguments in noncompact/compact format

@@ -27,21 +27,21 @@
 //
 //-----------------------------------------------------------------------------
 
-// when branching on this pattern, this method add the corresponding forbidden
+// when branching on this column, this method add the corresponding forbidden
 // shifts to the set.
 // It will forbid any shifts on any days as the nurse already has a roster.
-void RosterPattern::addForbiddenShifts(
-    std::set<std::pair<int, int> > *forbidenShifts,
+void RosterColumn::addForbiddenShifts(
+    std::set<std::pair<int, int> > *forbiddenShifts,
     int nbShifts,
     PDemand pDemand) const {
   // from the previous day to the day after the end of the rotation, forbid any
   // work shifts
-  for (int day = firstDay(); day <= lastDay(); day++)
+  for (int day = firstDayId(); day <= lastDayId(); day++)
     for (int i = 1; i < nbShifts; ++i)
-      forbidenShifts->insert(std::pair<int, int>(day, i));
+      forbiddenShifts->insert(std::pair<int, int>(day, i));
 }
 
-void RosterPattern::checkReducedCost(const DualCosts &dualCosts,
+void RosterColumn::checkReducedCost(const DualCosts &dualCosts,
                                      bool printBadPricing) const {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
@@ -101,8 +101,8 @@ RosterMP::~RosterMP() {
   delete assignmentConstraint_;
 }
 
-PPattern RosterMP::getPattern(MyVar *var) const {
-  return std::make_shared<RosterPattern>(var, pScenario_);
+PColumn RosterMP::getPColumn(MyVar *var) const {
+  return std::make_shared<RosterColumn>(var, pScenario_);
 }
 
 // Main method to build the rostering problem for a given input
@@ -127,8 +127,8 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
     const char *baseName("initialRoster");
     // build the roster of each nurse
     for (int i = 0; i < pScenario_->nNurses(); ++i) {
-      RosterPattern pat(solution[i].pShifts(), i);
-      computePatternCost(&pat);
+      RosterColumn pat(solution[i].pShifts(), i);
+      computeColumnCost(&pat);
       pModel_->addInitialColumn(createColumn(pat, baseName));
     }
   }
@@ -140,15 +140,14 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
 // if s=-1, the nurse works on all shifts
 MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
-  RosterPattern pat(solution, nurseNum);
-  pat.treeLevel_ = pModel_->getCurrentTreeLevel();
+  RosterColumn col(solution, nurseNum);
 #ifdef DBG
-  computePatternCost(&pat);
+  computeColumnCost(&col);
   DualCosts dualCosts(this);
-  pat.checkReducedCost(dualCosts, pPricer()->isLastRunOptimal());
-  checkIfPatternAlreadyPresent(pat);
+  col.checkReducedCost(dualCosts, pPricer()->isLastRunOptimal());
+  checkIfColumnAlreadyPresent(col, true);
 #endif
-  return createColumn(pat, "roster");
+  return createColumn(col, "roster");
 }
 
 // get a reference to the restsPerDay_ for a Nurse
@@ -156,8 +155,8 @@ std::vector<MyVar *> RosterMP::getRestVarsPerDay(PLiveNurse pNurse,
                                                  int day) const {
   std::vector<MyVar *> restRosters;
   for (MyVar *var : pModel_->getActiveColumns()) {
-    if (Pattern::nurseNum(var) == pNurse->num_
-        && pScenario_->isRestShift(Pattern::shift(var, day)))
+    if (Column::nurseNum(var) == pNurse->num_
+        && pScenario_->isRestShift(Column::shift(var, day)))
       restRosters.push_back(var);
   }
   return restRosters;
@@ -175,12 +174,4 @@ double RosterMP::computeLagrangianBound(double objVal) const {
   for (double v : pPricer()->getLastMinReducedCosts())
     sumRedCost += v;
   return objVal + sumRedCost;
-}
-
-double RosterMP::getDaysCost() const {
-  return getColumnsCost(TOTAL_WORK_COST);
-}
-
-double RosterMP::getWeekendCost() const {
-  return getColumnsCost(TOTAL_WEEKEND_COST);
 }

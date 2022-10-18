@@ -45,8 +45,8 @@ numHist=${arrayArgs[1]}
 nbArgs=${#arrayArgs[@]}
 weekList=${parse[2]}
 nbWeeks=$((nbArgs - 2))
-if test ! -d "datasets/$instance" ; then
-	echo "Directory \"datasets/$instance\" doest nos exist."
+if test ! -d "datasets/INRC2/$instance" ; then
+	echo "Directory \"datasets/INRC2/$instance\" doest nos exist."
 	exit 2;
 fi
 
@@ -74,11 +74,11 @@ fi
 mkdir -p $outputDir
 
 # create the files that are going to be used in the execution
-scenarioFile="datasets/${instance}/Sc-${instance}.txt"
-historyFile="datasets/${instance}/H0-${instance}-${numHist}.txt"
+scenarioFile="datasets/INRC2/${instance}/Sc-${instance}.txt"
+historyFile="datasets/INRC2/${instance}/H0-${instance}-${numHist}.txt"
 
 for ((i=2; i<$nbArgs; i++)); do
-	demandFiles[$i-2]="datasets/${instance}/WD-${instance}-${arrayArgs[$i]}.txt"
+	demandFiles[$i-2]="datasets/INRC2/${instance}/WD-${instance}-${arrayArgs[$i]}.txt"
 done
 
 for ((i=0; i<$nbWeeks; i++)); do
@@ -127,7 +127,7 @@ echo "#!/bin/bash -l
 #
 # optimal script: run static scheduler" > ${bashfile}
 
-echo "./bin/staticscheduler --dir datasets/ --instance ${instance} --weeks ${weekList} --his ${numHist} --param ${paramFile} --sol ${outputDir} --timeout ${timeout} 2> ${outputDir}/log.txt"  >> ${bashfile}
+echo "./bin/staticscheduler --dir datasets/INRC2/ --instance ${instance} --weeks ${weekList} --his ${numHist} --param ${paramFile} --sol ${outputDir} --timeout ${timeout} 2> ${outputDir}/log.txt"  >> ${bashfile}
 echo "java -jar validator.jar --sce ${scenarioFile} --his ${historyFile} --weeks ${demandFiles[*]} --sols ${solutionFiles[*]} > ${validatorLog}" >> ${bashfile}
 
 chmod 755 "${bashfile}"

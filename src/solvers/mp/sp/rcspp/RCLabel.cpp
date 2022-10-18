@@ -11,9 +11,10 @@
 
 #include "RCLabel.h"
 
+#include <list>
+
 #include "RCGraph.h"
 #include "solvers/Solver.h"
-
 
 
 RCLabel::RCLabel(): num_(-1),
@@ -24,13 +25,14 @@ RCLabel::RCLabel(): num_(-1),
                     pNextLabel_(nullptr),
                     cost_(0),
                     baseCost_(0) {
-#ifdef DBG
   baseCost_ = 0;
+#ifdef DBG
   dualCost_ = 0;
   consShiftCost_ = 0;
   consWeekendShiftCost_ = 0;
   totalShiftCost_ = 0;
   totalWeekendCost_ = 0;
+  preferencesCost_ = 0;
 #endif
 }
 
@@ -39,11 +41,21 @@ RCLabel::RCLabel(int nResources)
   resourceValues_.resize(nResources);
 }
 
-RCLabel::RCLabel(const vector<shared_ptr<Resource>> &resources,
+RCLabel::RCLabel(const vector<shared_ptr<Resource>> &resources):
+    RCLabel(static_cast<int>(resources.size())) {
+  int ind = 0;
+  for (const auto& r : resources) {
+    resourceValues_[ind].consumption = 0;
+    ind++;
+  }
+}
+
+RCLabel::RCLabel(const vector<PResource> &resources,
                  const State &initialState)
-    : RCLabel(resources.size()) {
+    : RCLabel(static_cast<int>(resources.size())) {
+  int ind = 0;
   for (const auto& r : resources)
-    resourceValues_[r->id()].consumption = r->getConsumption(initialState);
+    resourceValues_[ind++].consumption = r->getConsumption(initialState);
 }
 
 RCLabel::RCLabel(const RCLabel &l): RCLabel() {
@@ -75,6 +87,9 @@ void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
   pNextLabel_ = pLBackward->getNextLabel();
   cost_ = pLForward->cost() + pLBackward->cost();
   baseCost_ = pLForward->baseCost() + pLBackward->baseCost();
+#ifdef DBG
+  dualCost_ = pLForward->dualCost() + pLBackward->dualCost();
+#endif
   resourceValues_ = pLForward->allResourceValues();
   for (auto& r : resourceValues_) {
     r.consumption = 0;
@@ -97,18 +112,21 @@ void RCLabel::copyValues(const RCLabel &l) {
   cost_ = l.cost_;
   baseCost_ = l.baseCost_;
   resourceValues_ = l.resourceValues_;
-#ifdef DBG
   baseCost_ = l.baseCost_;
+#ifdef DBG
   dualCost_ = l.dualCost_;
   consShiftCost_ = l.consShiftCost_;
   consWeekendShiftCost_ = l.consWeekendShiftCost_;
   totalShiftCost_ = l.totalShiftCost_;
   totalWeekendCost_ = l.totalWeekendCost_;
+  preferencesCost_ = l.preferencesCost_;
 #endif
 }
 
 std::string RCLabel::toString(const vector<PResource> &pResources) const {
   std::stringstream rep;
+  rep.setf(std::ios::fixed,  std::ios::floatfield);
+  rep.setf(std::ios::showpoint);
   rep << "Label: cost=" << cost() << ", baseCost=" << baseCost();
 #ifdef DBG
   if (consShiftCost_ > EPSILON)
@@ -133,15 +151,85 @@ std::string RCLabel::toString(const vector<PResource> &pResources) const {
     }
   }
   rep << std::endl;
-  if (pInArc_) rep << "Arc in: " << pInArc_->toString() << std::endl;
   if (pOutArc_) rep << "Arc out: " << pOutArc_->toString() << std::endl;
+  if (pInArc_) rep << "Arc in: " << pInArc_->toString() << std::endl;
   return rep.str();
 }
 
+std::string RCLabel::toStringRecursive(
+    const vector<PResource> &pResources) const {
+  std::stringstream rep;
+  // if has any next labels (bidirectionnal has been used)
+  if (pOutArc_ != nullptr) {
+    const RCLabel *pLabel = this;
+    int lvl = 1;
+    while (pLabel->pNextLabel_.get() != nullptr) {
+      rep << "+" << lvl << " -- " << pLabel->toString(pResources);
+      pLabel = pLabel->pNextLabel_.get();
+      lvl++;
+    }
+    rep << std::endl;
+  }
+  // iterate through previous labels
+  const RCLabel *pLabel = this;
+  int lvl = 1;
+  while (pLabel != nullptr) {
+    rep << "-" << lvl << " -- " << pLabel->toString(pResources);
+    pLabel = pLabel->pPreviousLabel_.get();
+    lvl++;
+  }
+  return rep.str();
+}
+
+std::string RCSolution::toString() const {
+  std::stringstream rep;
+  rep.setf(std::ios_base::fixed, std::ios_base::floatfield);
+  rep << "RCSolution: ";
+  if (cost_ < DBL_MAX - 1) rep << "cost=" << std::setprecision(0) << cost_;
+  if (reducedCost_ < DBL_MAX - 1)
+    rep << "  dualCost=" << std::setprecision(2) << reducedCost_;
+  rep << "; " << Stretch::toString();
+  return rep.str();
+}
+
+std::string RCSolution::costsToString() const {
+  if (costs_.empty()) {
+    std::cout << "WARNING: costs are not computed by cost types." << std::endl;
+    return "";
+  }
+  std::stringstream rep;
+  rep.setf(std::ios_base::fixed, std::ios_base::floatfield);
+  rep.precision(0);
+  for (const auto &p : costs_)
+    if (abs(p.second) > 1e-1)
+      rep << "#     | " <<  std::setw(25) << std::left
+          << prettyNamesByCostType.at(p.first)
+          << " : " << p.second << std::endl;
+  return rep.str();
+}
+
+// Compare rotations on cost
+bool RCSolution::compareCost(
+    const RCSolution &sol1, const RCSolution &sol2) {
+  if (sol1.cost_ == DBL_MAX || sol2.cost_ == DBL_MAX)
+    Tools::throwError("Pattern cost not computed.");
+  return (sol1.cost_ < sol2.cost_);
+}
+
+// Compare rotations on dual cost
+bool RCSolution::compareReducedCost(
+    const RCSolution &sol1, const RCSolution &sol2) {
+  if (sol1.reducedCost_ == DBL_MAX || sol2.reducedCost_ == DBL_MAX)
+    Tools::throwError("Pattern dual cost not computed.");
+  return (sol1.reducedCost_ < sol2.reducedCost_);
+}
+
+
 PExpander Resource::initialize(const AbstractShift &prevAShift,
                                const Stretch &stretch,
-                               const PRCArc &pArc) {
-  PExpander pE = init(prevAShift, stretch, pArc);
+                               const shared_ptr<RCArc> &pArc,
+                               int indResource) {
+  PExpander pE = init(prevAShift, stretch, pArc, indResource);
   if (pE != nullptr)
     pArc->expanders.push_back(pE);
   return pE;
@@ -149,7 +237,7 @@ PExpander Resource::initialize(const AbstractShift &prevAShift,
 
 bool Resource::dominates(const PRCLabel &pL1,
                          const PRCLabel &pL2,
-                         double *cost) {
+                         double *cost) const {
   return pL1->getConsumption(id_) <= pL2->getConsumption(id_);
 }
 
@@ -160,10 +248,16 @@ bool Resource::merge(const ResourceValues &vForward,
   vMerged->consumption = vForward.consumption + vBack.consumption;
   return true;
 }
+PExpander Resource::init(const AbstractShift &prevAShift,
+                         const Stretch &stretch,
+                         const shared_ptr<RCArc> &pArc,
+                         int indResource) {
+  return PExpander();
+}
 
 bool BoundedResource::dominates(const PRCLabel &pL1,
                                 const PRCLabel &pL2,
-                                double *cost) {
+                                double *cost) const {
   double conso1 = pL1->getConsumption(id_), conso2 = pL2->getConsumption(id_);
   if (conso1 == conso2) return true;
   if (conso1 < conso2) return conso1 >= lb_;
@@ -172,15 +266,15 @@ bool BoundedResource::dominates(const PRCLabel &pL1,
 
 bool SoftBoundedResource::dominates(const PRCLabel &pL1,
                                     const PRCLabel &pL2,
-                                    double *cost) {
-  if  (useDefaultDomination_)
+                                    double *cost) const {
+  if  (useDefaultDomination_ || cost == nullptr)
     return BoundedResource::dominates(pL1, pL2, cost);
 
   double ubDiff = pL1->getWorstUbCost(id_) - pL2->getWorstUbCost(id_),
       lbDiff = pL1->getWorstLbCost(id_) - pL2->getWorstLbCost(id_);
 #ifdef DBG
   if (((lbDiff > 0) && (ubDiff > 0)) || ((lbDiff < 0) && (ubDiff < 0)))
-        Tools::throwError("ubDiff and lbDiff should never have the same sign");
+    Tools::throwError("ubDiff and lbDiff should never have the same sign");
 #endif
   *cost += std::max(ubDiff, lbDiff);
   return true;
@@ -191,8 +285,7 @@ bool SoftBoundedResource::merge(const ResourceValues &vForward,
                                 ResourceValues *vMerged,
                                 const PRCLabel &pLMerged) {
   vMerged->consumption = vForward.consumption + vBack.consumption;
-  pLMerged->addBaseCost(getUbCost(vMerged->consumption));
-  pLMerged->addBaseCost(getLbCost(vMerged->consumption));
+  pLMerged->addBaseCost(getCost(vMerged->consumption));
   return true;
 }
 

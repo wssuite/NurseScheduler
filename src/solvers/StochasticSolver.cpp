@@ -17,7 +17,7 @@
 
 #include "tools/DemandGenerator.h"
 #include "solvers/mp/RotationMP.h"
-#include "tools/ReadWrite.h"
+#include "ReadWrite.h"
 
 // #define COMPARE_EVALUATIONS
 
@@ -34,101 +34,6 @@ using std::set;
  * during the tests
  * The solution time depends on the number of nurses
  ******************************************************************************/
-
-void setStochasticSolverOptions(StochasticSolverOptions *options,
-                                PScenario pScenario,
-                                string solPath,
-                                string logPathIni,
-                                double timeout) {
-  string logStochastic =
-      logPathIni.empty() ? "" : logPathIni + "LogStochastic.txt";
-  string logSolver = logPathIni.empty() ? "" : logPathIni + "LogSolver.txt";
-
-  options->withIterativeDemandIncrease_ = false;
-  options->withEvaluation_ = true;
-  options->generationCostPerturbation_ = true;
-  options->evaluationCostPerturbation_ = true;
-  options->withResolveForGeneration_ = false;
-  options->generationAlgorithm_ = GENCOL;
-  options->withResolveForEvaluation_ = true;
-  options->evaluationAlgorithm_ = GENCOL;
-  options->rankingStrategy_ = RK_SCORE;
-  options->nExtraDaysGenerationDemands_ = 7;
-  options->nEvaluationDemands_ = 2;
-  options->nDaysEvaluation_ = 14;
-  options->nGenerationDemandsMax_ = 100;
-  options->logfile_ = logStochastic;
-  options->rankingStrategy_ = RK_SCORE;
-  options->demandingEvaluation_ = false;
-  options->verbose_ = 0;
-#ifdef DBG
-  options->verbose_ = 1;
-#endif
-
-  SolverParam generationParameters;
-  generationParameters.maxSolvingTimeSeconds_ =
-      options->totalTimeLimitSeconds_ - 1.0;
-  generationParameters.printEverySolution_ = false;
-  generationParameters.outfile_ = solPath;
-  generationParameters.logfile_ = logSolver;
-  generationParameters.maxAbsoluteGap_ = 5;
-  generationParameters.minRelativeGap_ = .05;
-  generationParameters.relativeGap_ = .1;
-  generationParameters.nbDiveIfMinGap_ = 1;
-  generationParameters.nbDiveIfRelGap_ = 2;
-  generationParameters.solveToOptimality_ = false;
-  generationParameters.weightStrategy_ = RANDOMMEANMAX;
-
-  options->generationParameters_ = generationParameters;
-
-  SolverParam evaluationParameters;
-  evaluationParameters.maxSolvingTimeSeconds_ =
-      options->totalTimeLimitSeconds_ - 1.0;
-  evaluationParameters.printEverySolution_ = false;
-  // evaluationParameters.outfile_ = "";
-  evaluationParameters.logfile_ = logSolver;
-  evaluationParameters.maxAbsoluteGap_ = 5;
-  evaluationParameters.minRelativeGap_ = .05;
-  evaluationParameters.relativeGap_ = .1;
-  evaluationParameters.nbDiveIfMinGap_ = 1;
-  evaluationParameters.nbDiveIfRelGap_ = 2;
-  evaluationParameters.solveToOptimality_ = false;
-  evaluationParameters.weightStrategy_ = BOUNDRATIO;
-  evaluationParameters.stopAfterXSolution_ = 0;
-
-  options->evaluationParameters_ = evaluationParameters;
-}
-
-void setStochasticSolverOptions(
-    StochasticSolverOptions *stochasticSolverOptions,
-    string instanceName,
-    string solPath,
-    string logPathIni,
-    string stochasticOptionsFile,
-    string generationOptionsFile,
-    string evaluationOptionsFile) {
-  string logStochastic =
-      logPathIni.empty() ? "" : logPathIni + "LogStochastic.txt";
-  string logSolver = logPathIni.empty() ? "" : logPathIni + "LogSolver.txt";
-
-  ReadWrite::readStochasticSolverOptions(stochasticOptionsFile,
-                                         stochasticSolverOptions);
-  stochasticSolverOptions->logfile_ = logStochastic;
-
-  SolverParam generationParameters;
-  ReadWrite::readSolverOptions(generationOptionsFile, &generationParameters);
-  generationParameters.outfile_ = solPath;
-  stochasticSolverOptions->generationParameters_ = generationParameters;
-  stochasticSolverOptions->generationParameters_.verbose_ =
-      stochasticSolverOptions->verbose_;
-
-  SolverParam evaluationParameters;
-  ReadWrite::readSolverOptions(evaluationOptionsFile, &evaluationParameters);
-  evaluationParameters.logfile_ = logSolver;
-  stochasticSolverOptions->evaluationParameters_ = evaluationParameters;
-  stochasticSolverOptions->evaluationParameters_.verbose_ =
-      stochasticSolverOptions->verbose_;
-}
 
 //-----------------------------------------------------------------------------
 //
@@ -215,6 +120,20 @@ StochasticSolver::~StochasticSolver() {
 
 // Main function
 double StochasticSolver::solve(const vector<Roster> &initialSolution) {
+  if (options_.generationParameters_.sp_type_ != ALL_ROTATION &&
+      options_.generationParameters_.sp_type_ != LONG_ROTATION) {
+    std::cout << "WARNING: dynamic scheduler works only with rotations "
+                 "for generation." << std::endl;
+    options_.generationParameters_.sp_type_ = ALL_ROTATION;
+  }
+
+  if (options_.evaluationParameters_.sp_type_ != ALL_ROTATION &&
+      options_.evaluationParameters_.sp_type_ != LONG_ROTATION) {
+    std::cout << "WARNING: dynamic scheduler works only with rotations "
+                 "for evaluation." << std::endl;
+    options_.evaluationParameters_.sp_type_ = ALL_ROTATION;
+  }
+
   options_.nExtraDaysGenerationDemands_ =
       std::min(options_.nExtraDaysGenerationDemands_,
                7 * (pScenario_->nWeeks() - (pScenario_->thisWeek() + 1)));
@@ -234,7 +153,6 @@ double StochasticSolver::solve(const vector<Roster> &initialSolution) {
     // Options for the generation algo
     // (-> optimality, no time limit, write every solution)
     options_.generationParameters_.solveToOptimality_ = true;
-    options_.generationParameters_.printEverySolution_ = true;
   }
 
   if (options_.withEvaluation_) {
@@ -282,7 +200,6 @@ double StochasticSolver::solve(const vector<Roster> &initialSolution) {
 // Does everything for the one week and only keeps the best schedule for it
 void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   // Need to extend the current demand?
-  //
   if (options_.nExtraDaysGenerationDemands_ > 0) {
     generateSingleGenerationDemand();
     pReusableGenerationSolver_ = setSubSolverWithInputAlgorithm(
@@ -295,16 +212,14 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   }
 
   // Need to perturb the costs?
-  //
   if (options_.generationCostPerturbation_) {
     pReusableGenerationSolver_->boundsAndWeights(
         options_.generationParameters_.weightStrategy_);
   }
 
   // Solve
-  //
   (*pLogStream_) << "# Solve without evaluation\n";
-  pReusableGenerationSolver_->solve(options_.generationParameters_);
+  pReusableGenerationSolver_->solve(options_.generationParameters_, {});
   if (!options_.withRealDemand_) {
     solution_ = pReusableGenerationSolver_->solutionAtDay(6);
   } else {
@@ -317,7 +232,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 void StochasticSolver::solveOneWeekWithoutPenalties() {
   Solver *pSolver =
       setSubSolverWithInputAlgorithm(pScenario_->pWeekDemand(), GENCOL);
-  pSolver->solve(options_.generationParameters_);
+  pSolver->solve(options_.generationParameters_, {});
   solution_ = pSolver->solution();
   status_ = pSolver->status(true);
   delete pSolver;
@@ -327,32 +242,26 @@ void StochasticSolver::solveOneWeekWithoutPenalties() {
 void StochasticSolver::solveOneWeekGenerationEvaluation() {
   while (nSchedules_ < options_.nGenerationDemandsMax_) {
     // get the time left to solve another schedule
-    double
-        timeLeft = options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
-    if (nSchedules_ > 0) {
-      if (timeLeft < 1.0) break;
-      // options_.generationParameters_.maxSolvingTimeSeconds_  =
-      // (timeLeft-1.0)/2.0;
-      // options_.evaluationParameters_.maxSolvingTimeSeconds_  =
-      // (timeLeft-1.0)/(2.0*options_.nEvaluationDemands_);
-    }
+    double timeLeft =
+        options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
+    if (nSchedules_ > 0 && timeLeft < 1.0) break;
     (*pLogStream_) << "# Time left: " << timeLeft << std::endl;
 
-    // This the main function that finds a new schedule and evaluates it
+    // print the first solution found ASAP
     bool printOption = options_.generationParameters_.printEverySolution_;
     if (nSchedules_ == 0) {
       options_.generationParameters_.printEverySolution_ = true;
       options_.generationParameters_.weekIndices_ = {pScenario_->thisWeek()};
     }
 
+    // This the main function that finds a new schedule and evaluates it
     if (addAndSolveNewSchedule()) {
       // Get the new best schedule
-      //
       int newBestSchedule = -1;
       double newBestScore = LARGE_SCORE;
       double bestBaseCost = 0;
       double minGap = options_.demandingEvaluation_ ?
-          pScenario_->weights().WEIGHT_OPTIMAL_DEMAND : epsilon();
+                      pScenario_->weights().optimalDemand : epsilon();
       for (int i = 0; i < nSchedules_; i++) {
         if (theScores_[i] + minGap < newBestScore) {
           newBestScore = theScores_[i];
@@ -368,7 +277,6 @@ void StochasticSolver::solveOneWeekGenerationEvaluation() {
       }
 
       // write the output NOW so that it is not lost
-      //
       bestScore_ = newBestScore;
       if (newBestSchedule != bestSchedule_) {
         bestSchedule_ = newBestSchedule;
@@ -376,13 +284,13 @@ void StochasticSolver::solveOneWeekGenerationEvaluation() {
         // solution_ = pGenerationSolvers_[bestSchedule_]->getSolutionAtDay(6);
         solution_ = schedules_[bestSchedule_];
         loadSolution(solution_);
-        Tools::LogOutput outStream(options_.generationParameters_.outfile_);
+        Tools::LogOutput outStream(options_.generationParameters_.outdir_);
         outStream << solutionToString();
 
         (*pLogStream_) << "# New best is schedule n°" << bestSchedule_
                        << " (score: " << bestScore_ << ")" << std::endl;
         (*pLogStream_) << "# The new best solution was written in "
-                       << options_.generationParameters_.outfile_ << std::endl;
+                       << options_.generationParameters_.outdir_ << std::endl;
 
       } else {
         (*pLogStream_) << "# Best schedule did not change and is no. "
@@ -465,7 +373,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
                        << nbAddedWeeks << " extra weeks" << std::endl;
         loadSolution(solution_);
         previousSolution = solution_;
-        Tools::LogOutput outStream(options_.generationParameters_.outfile_);
+        Tools::LogOutput outStream(options_.generationParameters_.outdir_);
         outStream << solutionToString();
       }
 
@@ -482,7 +390,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
                         "write the schedule based on one week"
                      << std::endl;
       previousSolution = solution_;
-      Tools::LogOutput outStream(options_.generationParameters_.outfile_);
+      Tools::LogOutput outStream(options_.generationParameters_.outdir_);
       outStream << solutionToString();
     }
 
@@ -504,8 +412,6 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
 // Do everything for the new schedule (incl. generation, score, ranking)
 bool StochasticSolver::addAndSolveNewSchedule() {
   generateNewSchedule();
-
-//  std::cout << pReusableGenerationSolver_->solutionToLogString() << std::endl;
 
   if (nSchedules_ == 1)
     generateAllEvaluationDemands();
@@ -610,13 +516,16 @@ Solver *StochasticSolver::setGenerationSolverWithInputAlgorithm(
     PDemand pDemand) {
   PScenario pScenario = std::make_shared<Scenario>(*pScenario_);
   pScenario->linkWithDemand(std::move(pDemand));
+  Solver *pSolver = nullptr;
   switch (options_.generationAlgorithm_) {
     case GENCOL:
-      return new RotationMP(pScenario, CLP);
+      pSolver = new RotationMP(pScenario, CLP);
+      break;
     default:Tools::throwError("The algorithm is not handled yet");
       break;
   }
-  return nullptr;
+  pSolver->computeBoundsAccordingToInitialState();
+  return pSolver;
 }
 
 // Generate a new schedule
@@ -624,14 +533,12 @@ void StochasticSolver::generateNewSchedule() {
   bool hasFoundFeasible = false;
 
   while (!hasFoundFeasible) {
-    // A. Generate a demand that will be the origin of the scenario generation
-    //
+    // A. Generate a demand that will be concatenated to the real demand
+    // for the generation
     generateSingleGenerationDemand();
     PDemand newDemand = pGenerationDemands_[nGenerationDemands_ - 1];
 
     // B. Solve this schedule (in a way that should be defined)
-    // so as to have a schedule
-    //
     // Create a new solver if first schedule || if RE-solve is forbidden
     if (nSchedules_ == 0 || !(options_.withResolveForGeneration_)) {
       if (nSchedules_ > 0) delete pReusableGenerationSolver_;
@@ -639,7 +546,10 @@ void StochasticSolver::generateNewSchedule() {
           setGenerationSolverWithInputAlgorithm(newDemand);
     }
 
-    if (options_.generationCostPerturbation_) {
+    int endSchedule = newDemand->nDays_ + 7 * pScenario_->thisWeek();
+    if (options_.generationCostPerturbation_ &&
+        endSchedule < 7 * pScenario_->nWeeks()) {
+//    if (options_.generationCostPerturbation_) {
       pReusableGenerationSolver_->boundsAndWeights(
           options_.generationParameters_.weightStrategy_);
     }
@@ -647,10 +557,10 @@ void StochasticSolver::generateNewSchedule() {
     // If first || no RE-solve, solve normally.
     // Otherwise, re-solve with a new demand
     if (nSchedules_ == 0 || !(options_.withResolveForGeneration_))
-      pReusableGenerationSolver_->solve(options_.generationParameters_);
+      pReusableGenerationSolver_->solve(options_.generationParameters_, {});
     else
       pReusableGenerationSolver_->resolve(newDemand,
-                                          options_.generationParameters_);
+                                          options_.generationParameters_, {});
 
     if (pReusableGenerationSolver_->status(true) == FEASIBLE
         || pReusableGenerationSolver_->status() == OPTIMAL) {
@@ -662,16 +572,13 @@ void StochasticSolver::generateNewSchedule() {
   }
 
   // C. Store the solution
-  //
   schedules_.push_back(pReusableGenerationSolver_->solutionAtDay(6));
   finalStates_.push_back(pReusableGenerationSolver_->statesOfDay(6));
 
   // D. Update the data
-  //
   nSchedules_++;
 
   // E. Display
-  //
   (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                  << "] Candidate schedule no. " << (nSchedules_ - 1)
                  << " generated: (length: "
@@ -707,6 +614,7 @@ Solver *StochasticSolver::setEvaluationWithInputAlgorithm(
     default:Tools::throwError("The algorithm is not handled yet");
       break;
   }
+  pSolver->computeBoundsAccordingToInitialState();
   return pSolver;
 }
 
@@ -730,12 +638,6 @@ bool StochasticSolver::evaluateSchedule(int sched) {
   double baseCost = pReusableGenerationSolver_->computeSolutionCost(7);
   theBaseCosts_.push_back(baseCost);
 
-  // set the time per evaluation to the ratio of the time left
-  // over the number of evaluations
-  // double timeLeft =
-  // options_.totalTimeLimitSeconds_-timerTotal_->dSinceInit();
-  // options_.evaluationParameters_.maxSolvingTimeSeconds_ =
-  // (timeLeft-1.0)/(double)options_.nEvaluationDemands_;
   for (int j = 0; j < options_.nEvaluationDemands_; j++) {
     double timeLeft =
         options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
@@ -758,6 +660,7 @@ bool StochasticSolver::evaluateSchedule(int sched) {
           setEvaluationWithInputAlgorithm(
               pEvaluationDemands_[j], &initialStates));
     }
+    Solver *pSolver = pReusableEvaluationSolvers_[sched];
 
 #ifdef COMPARE_EVALUATIONS
     options_.evaluationAlgorithm_ = GREEDY;
@@ -766,13 +669,14 @@ bool StochasticSolver::evaluateSchedule(int sched) {
     options_.evaluationAlgorithm_ = GENCOL;
 #endif
 
-    // TODO(AL): if some parameters are different between evaluations for a
-    //  given schedule,  the resolve method won't take them into account
     if (options_.evaluationCostPerturbation_) {
-      if (pReusableEvaluationSolvers_[sched]->nDays()
-          + (7 * pScenario_->thisWeek() + 1) < 7 * pScenario_->nWeeks()) {
-        pReusableEvaluationSolvers_[sched]->boundsAndWeights(
-            options_.evaluationParameters_.weightStrategy_);
+      if (pSolver->nDays() <
+          7 * (pScenario_->nWeeks() - pScenario_->thisWeek() - 1)) {
+//        pSolver->boundsAndWeights(
+//            options_.evaluationParameters_.weightStrategy_);
+        // set the bounds of the total resources according to the horizon
+        // and the initial state
+        pSolver->computeBoundsAccordingToDemandSize();
 #ifdef COMPARE_EVALUATIONS
         pGreedyEvaluators[j]->computeWeightsTotalShiftsForStochastic();
 #endif
@@ -788,7 +692,7 @@ bool StochasticSolver::evaluateSchedule(int sched) {
 #endif
 
     if (pReusableGenerationSolver_->status(true) == INFEASIBLE) {
-      currentCost = 1.0e6;
+      currentCost += LARGE_SCORE;
 #ifdef COMPARE_EVALUATIONS
       currentCostGreedy = 1.0e6;
 #endif
@@ -796,12 +700,10 @@ bool StochasticSolver::evaluateSchedule(int sched) {
       // Perform the actual evaluation on demand j
       // by running the chosen algorithm
       if (j == 0) {
-        currentCost += pReusableEvaluationSolvers_[sched]->solve(
-            options_.evaluationParameters_);
+        currentCost += pSolver->solve(options_.evaluationParameters_, {});
       } else {
-        currentCost += pReusableEvaluationSolvers_[sched]->resolve(
-            pEvaluationDemands_[j],
-            options_.evaluationParameters_);
+        currentCost += pSolver->resolve(pEvaluationDemands_[j],
+                                        options_.evaluationParameters_, {});
       }
 
 #ifdef COMPARE_EVALUATIONS
@@ -811,13 +713,11 @@ bool StochasticSolver::evaluateSchedule(int sched) {
     }
 
     // Display
-    //
     (*pLogStream_) << "# [week=" << pScenario_->thisWeek() << "] Schedule no. "
                    << sched << " evaluated over evaluation demand no. " << j
                    << " (solution cost: " << currentCost << ")." << std::endl;
 
     // Insert the solution cost and solution
-    //
     int roundC = static_cast<int>(round(currentCost));
     schedulesFromObjectiveByEvaluationDemand_[j][roundC].insert(sched);
 #ifdef COMPARE_EVALUATIONS
@@ -932,5 +832,6 @@ Solver *StochasticSolver::setSubSolverWithInputAlgorithm(
     default:Tools::throwError("The algorithm is not handled yet");
       break;
   }
+  pSolver->computeBoundsAccordingToInitialState();
   return pSolver;
 }

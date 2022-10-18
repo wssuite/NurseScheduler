@@ -15,7 +15,11 @@ You can run the INSTALL.sh script for performing the first two steps (give as fi
 
 #### 2. COIN-OR BCP
 
-  #####- Download the latest versions of BCP url 
+  #####- a. Use the INSTALL.sh script
+  To compile the source from the repository in the submodule. It's a modified BCP version.
+  Please refer to the README.md of the submodule.
+
+  #####- b. Download the latest versions of BCP url 
   Our published results have been found with BCP-1.4: http://www.coin-or.org/download/source/Bcp. Then, extract the sources in a directory of your choice /path/to/coinor/directory/.
 
   Or, if svn is available, download directly the latest stable versions using the following commands in the terminal:

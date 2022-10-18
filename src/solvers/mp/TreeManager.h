@@ -38,18 +38,18 @@ struct Score {
 //
 struct ColumnsNode : public MyNode {
   ColumnsNode(MyPNode pParent,
-              std::vector<PPattern> patterns) :
-      MyNode(std::move(pParent)), patterns_(std::move(patterns)) {}
+              std::vector<PColumn> Columns) :
+      MyNode(std::move(pParent)), columns_(std::move(Columns)) {}
 
   std::string write() const {
     std::stringstream out;
     out << "ColumnsNode: (" << getInfo()
-        << ", #Cols=" << patterns_.size() << ")";
+        << ", #Cols=" << columns_.size() << ")";
     return out.str();
   }
 
   // vector of the columns on which we have branched.
-  const std::vector<PPattern> patterns_;
+  const std::vector<PColumn> columns_;
 };
 
 // Node that correspond to branching on a resting day
@@ -111,7 +111,7 @@ struct ShiftNode : public MyNode {
 };
 
 // Node that corresponds to branching on a penalized original variable
-// The variable can relate to cover constraints, total shifts or total week-ends
+// The variable can relate to cover constraints, total shifts or total weekends
 //
 struct PenaltyNode : public MyNode {
   PenaltyNode(MyPNode pParent,
@@ -200,9 +200,9 @@ class RCBranchingCandidate : public MyBranchingCandidate {
         std::make_shared<CoverageNode>(currentNode_, cutName, lhs, rhs));
   }
 
-  void addColumnsNode(int index, const std::vector<PPattern> &patterns) {
+  void addColumnsNode(int index, const std::vector<PColumn> &Columns) {
     children_[index]->addPNode(
-        std::make_shared<ColumnsNode>(currentNode_, patterns));
+        std::make_shared<ColumnsNode>(currentNode_, Columns));
   }
 
   void addRestNode(int index, PLiveNurse pNurse, int day, bool rest) {
@@ -262,21 +262,21 @@ struct RestTree : public MyTree {
 };
 
 struct ColumnsComparator {
-  virtual bool is_disjoint(PPattern col1, PPattern col2) const {
+  virtual bool is_disjoint(PColumn col1, PColumn col2) const {
     return true;
   }
 };
 
 struct DayDisjointComparator : public ColumnsComparator {
-  bool is_disjoint(PPattern col1, PPattern col2) const {
-    return col1->isDisjointWith(col2);
+  bool is_disjoint(PColumn col1, PColumn col2) const {
+    return col1->isDisjointWith(col2, true);
   }
 };
 
 struct ShiftDisjointComparator : public ColumnsComparator {
-  bool is_disjoint(PPattern col1, PPattern col2) const {
+  bool is_disjoint(PColumn col1, PColumn col2) const {
     return col1->nurseNum() != col2->nurseNum()
-        && col1->isShiftDisjointWith(col2);
+        && col1->isShiftDisjointWith(col2, true);
   }
 };
 
@@ -289,7 +289,8 @@ struct ScoreVar {
   virtual double score(PLiveNurse pNurse,
                        int day,
                        const std::vector<int> &shifts,
-                       const std::vector<double> & values) const = 0;
+                       const std::vector<double> & values,
+                       double baseScore = 0) const = 0;
 
   const DiveBranchingRule *pRule;
 };
@@ -297,14 +298,26 @@ struct ScoreVar {
 struct ScoreVarCloseHalf : ScoreVar {
   explicit ScoreVarCloseHalf(const DiveBranchingRule *pRule,
                              double advantage = .1) :
-      ScoreVar(pRule), advantage(advantage) {}
+      ScoreVar(pRule), weekendAdvantage_(advantage) {}
 
   double score(PLiveNurse pNurse,
                int day,
                const std::vector<int> &shifts,
-               const std::vector<double> & values) const override;
+               const std::vector<double> & values,
+               double baseScore = 0) const override;
 
-  double advantage;
+  double weekendAdvantage_;
+};
+
+struct ScoreVarCloseHalfWeekendDecrement : ScoreVar {
+  explicit ScoreVarCloseHalfWeekendDecrement(const DiveBranchingRule *pRule) :
+      ScoreVar(pRule) {}
+
+  double score(PLiveNurse pNurse,
+               int day,
+               const std::vector<int> &shifts,
+               const std::vector<double> & values,
+               double baseScore = 0) const override;
 };
 
 class DiveBranchingRule : public MyBranchingRule {
@@ -317,31 +330,32 @@ class DiveBranchingRule : public MyBranchingRule {
 
   /* compute branching decisions */
   bool branching_candidates(
-      std::list<MyPBranchingCandidate> *candidates) override;
+      int nCandidates,
+      std::vector<MyPBranchingCandidate> *candidates) override;
 
   /* branch on a number of nurses working on a shift */
   void branchOnNumberNurses(
-      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
+      int nCandidates, std::vector<MyPBranchingCandidate> *candidates);
 
   /* Branch on opt var */
   void branchOnOptDemand(
-      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
+      int nCandidates, std::vector<MyPBranchingCandidate> *candidates);
 
   /* branch on a set of resting arcs */
   void branchOnRestDay(
-      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
+      int nCandidates, std::vector<MyPBranchingCandidate> *candidates);
 
   /* branch on a set of shifts */
   void branchOnShifts(
-      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
+      int nCandidates, std::vector<MyPBranchingCandidate> *candidates);
 
   /* compute fixing decisions */
-  bool column_node(std::list<MyPBranchingCandidate> *candidates) override;
+  bool column_node(std::vector<MyPBranchingCandidate> *candidates) override;
 
   /* Choose columns */
   std::vector<MyVar *> chooseColumns(
       const std::vector<std::pair<MyVar *, double>> &candidates,
-      std::vector<PPattern> *patterns,
+      std::vector<PColumn> *columns,
       double *maxValue,
       const ColumnsComparator &comparator);
 
@@ -373,7 +387,7 @@ class DiveBranchingRule : public MyBranchingRule {
 
   // branching decisions to test
   typedef void (DiveBranchingRule::*BranchFunc)(
-      int nCandidates, std::list<MyPBranchingCandidate> *candidates);
+      int nCandidates, std::vector<MyPBranchingCandidate> *candidates);
   std::vector<BranchFunc> branchFunctions_ =
       {&DiveBranchingRule::branchOnRestDay,
        &DiveBranchingRule::branchOnShifts};
@@ -401,6 +415,10 @@ class DiveBranchingRule : public MyBranchingRule {
       pTree_->swapLastNodes();
     }
   }
+
+  // compute a base score for each nurse in order to advantage certain nurses
+  // in the branching selection process
+  std::vector<double> computeNurseBaseScore(double coeff);
 };
 
 class RosterBranchingRule : public DiveBranchingRule {

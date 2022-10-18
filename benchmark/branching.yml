@@ -1,0 +1,50 @@
+name: branching
+
+benchmark:
+  exe: ./bin/staticscheduler
+  dir: ./datasets/INRC2/
+  param: ./paramfiles/optimality.txt
+  sp-type: ROSTER
+  n-threads: 4
+  timeout: 3600
+  verbose: 1
+  args: null
+  replications: 1
+  instances:
+    - name: n080w4_2_4-3-3-3
+    - name: n080w4_2_6-0-4-8
+    - name: n110w4_0_1-4-2-8
+    - name: n030w8_1_2-7-0-9-3-6-0-6
+    - name: n035w8_1_0-8-1-6-1-7-2-0
+    - name: n040w8_0_0-6-8-9-2-6-6-4
+    - name: long03.txt
+      dir: ./datasets/INRC/
+    - name: medium_hidden01.txt
+      dir: ./datasets/INRC/
+    - name: long_late03.txt
+      dir: ./datasets/INRC/
+  steps:
+    - addparams:
+        weekendAdvantage: 0.2
+        branchBaseScore: 0.2
+    - addparams:
+        weekendAdvantage: 0.2
+        branchBaseScore: 0.4
+    - addparams:
+        weekendAdvantage: 0.2
+        branchBaseScore: 0.6
+    - addparams:
+        weekendAdvantage: 0.2
+        branchBaseScore: 0.8
+    - addparams:
+        weekendAdvantage: 0.15
+        branchBaseScore: 0.2
+    - addparams:
+        weekendAdvantage: 0.15
+        branchBaseScore: 0.4
+    - addparams:
+        weekendAdvantage: 0.15
+        branchBaseScore: 0.6
+    - addparams:
+        weekendAdvantage: 0.15
+        branchBaseScore: 0.8

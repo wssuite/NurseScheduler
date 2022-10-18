@@ -1,5 +1,6 @@
 set(LIB_NAME modeler)
 set(SOURCE_FILES
+        Modeler.cpp
         BcpModeler.cpp
         Stabilization.h
         Stabilization.cpp
@@ -11,5 +12,5 @@ if (CBC_FOUND)
 endif()
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})
-target_link_libraries(${LIB_NAME} ${LIBS})
+target_link_libraries(${LIB_NAME} mp ${LIBS})
 set_property(TARGET ${LIB_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)

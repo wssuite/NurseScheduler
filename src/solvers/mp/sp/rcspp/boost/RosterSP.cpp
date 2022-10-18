@@ -64,7 +64,7 @@ void RosterSP::createNodes() {
   // 2. PRINCIPAL NETWORK(S) [ONE PER SHIFT TYPE]
   // For each possible worked shift
   for (int sh = 0; sh < pScenario_->nShiftTypes(); sh++)
-    principalGraphs_.emplace_back(PrincipalGraph(sh, this));
+    principalGraphs_.push_back(PrincipalGraph(sh, this));
 
   // 3. SINK
   v = addSingleNode(SINK_NODE);
@@ -78,13 +78,13 @@ void RosterSP::createArcsSourceToPrincipal() {
     for (int dest : pg.getDayNodes(0)) {
       std::vector<int> vec;
       for (int s : pScenario_->shiftTypeIDToShiftID(pg.shiftType()))
-        vec.emplace_back(addSingleArc(origin,
-                                      dest,
-                                      0,
-                                      {},
-                                      SOURCE_TO_PRINCIPAL,
-                                      0,
-                                      pScenario_->pShift(s)));
+        vec.push_back(addSingleArc(origin,
+                                   dest,
+                                   0,
+                                   {},
+                                   SOURCE_TO_PRINCIPAL,
+                                   0,
+                                   pScenario_->pShift(s)));
       vec2.push_back(vec);
     }
     arcsFromSource_[pg.shiftType()] = {vec2};
@@ -116,7 +116,8 @@ void RosterSP::createArcsPrincipalToPrincipal() {
           } else {
             // otherwise, just add a normal arc
             // if start work on sunday (rest to start shift)
-            bool w = (sh == 0 && Tools::isSunday(k + 1));
+            bool w = (sh == 0 &&
+                pLiveNurse_->pContract()->isLastWeekendDay(k + 1));
             a = g_.addSingleArc(o, d, 0, {0, 0, w}, SHIFT_TO_NEWSHIFT, k);
           }
           principalToPrincipal_[sh][newSh][k] = a;
@@ -299,32 +300,34 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   bool rest = false;
   for (const PShift &pS : rcSol->pShifts()) {
     if (pS->isWork()) {
-      if (Tools::isSaturday(k)) {
+      if (pLiveNurse_->pContract()->isFirstWeekendDay(k)) {
         nWeekends++;
-      } else if (rest && Tools::isSunday(k)) {
+      } else if (rest
+          && (pLiveNurse_->pContract()->isLastWeekendDay(k))) {
         nWeekends++;
         if (pLiveNurse_->needCompleteWeekends())
-          rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
-                         COMPLETE_WEEKEND_COST);
+          rcSol->addCost(pScenario_->weights().completeWeekend,
+                         IDENT_WEEKEND_COST);
       }
       rest = false;
     } else {
-      if (pLiveNurse_->needCompleteWeekends() && !rest && Tools::isSunday(k))
-        rcSol->addCost(pScenario_->weights().WEIGHT_COMPLETE_WEEKEND,
-                       COMPLETE_WEEKEND_COST);
+      if (pLiveNurse_->needCompleteWeekends() && !rest &&
+          pLiveNurse_->pContract()->isLastWeekendDay(k))
+        rcSol->addCost(pScenario_->weights().completeWeekend,
+                       IDENT_WEEKEND_COST);
       rest = true;
     }
     k++;
   }
 
   if (pLiveNurse_->minTotalShifts() - rcSol->duration() > 0)
-    rcSol->addCost(pScenario_->weights().WEIGHT_TOTAL_SHIFTS
-        * (pLiveNurse_->minTotalShifts() - rcSol->duration()),
-        TOTAL_WORK_COST);
+    rcSol->addCost(pScenario_->weights().totalShifts
+                       * (pLiveNurse_->minTotalShifts() - rcSol->duration()),
+                   TOTAL_WORK_COST);
   if (rcSol->duration() - pLiveNurse_->maxTotalShifts() > 0)
-    rcSol->addCost(pScenario_->weights().WEIGHT_TOTAL_SHIFTS
-        * (rcSol->duration() - pLiveNurse_->maxTotalShifts()),
-        TOTAL_WORK_COST);
+    rcSol->addCost(pScenario_->weights().totalShifts
+                       * (rcSol->duration() - pLiveNurse_->maxTotalShifts()),
+                   TOTAL_WORK_COST);
   rcSol->addCost(pLiveNurse_->totalWeekendCost(nWeekends), TOTAL_WEEKEND_COST);
 
 #ifdef DBG

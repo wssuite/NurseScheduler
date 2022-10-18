@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 namespace boostRCSPP {
 
@@ -286,7 +287,7 @@ BoostRCSPPSolver::BoostRCSPPSolver(
     epsilon_(epsilon),
     strategy_(strategy),
     nb_max_paths_(nb_max_paths),
-    post_process_rc_(post_process_rc) {}
+    post_process_rc_(std::move(post_process_rc)) {}
 
 std::vector<RCSolution> BoostRCSPPSolver::solve(
     std::vector<LABEL> labels,

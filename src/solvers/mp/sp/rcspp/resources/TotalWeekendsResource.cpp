@@ -18,21 +18,22 @@ int TotalWeekend::computeConsumption(const Stretch &stretch,
   int consumption = 0;
   auto itShift = stretch.pShifts().begin();
   // reset weekend flag
-  if (!Tools::isWeekend(stretch.firstDay()-1)) *ready = true;
-  if (!Tools::isWeekend(stretch.firstDay())) *ready = true;
-  for (int i = stretch.firstDay(); i <= stretch.lastDay(); i++, itShift++) {
+  if (!weekend_.isWeekend(stretch.firstDayId())) *ready = true;
+  else if (!weekend_.isWeekend(stretch.firstDayId() - 1)) *ready = true;
+  for (const auto& pD : stretch.pDays()) {
     // if a weekend
-    if (Tools::isWeekend(i)) {
-      // check if working on this day and
+    if (weekend_.isWeekend(pD)) {
+      // check if included on this day and
       // if weekend has not been already counted
-      if (*ready && pShift_->includes(**itShift)) {
+      if (*ready && pAShift_->includes(**itShift)) {
         consumption++;
         *ready = false;
       }
       // reset weekend flag
-      if (Tools::isLastWeekendDay(i))
+      if (weekend_.isLastWeekendDay(pD))
         *ready = true;
     }
+    itShift++;
   }
   return consumption;
 }
@@ -43,18 +44,18 @@ int TotalWeekend::computeBackConsumption(const Stretch &stretch,
   // count the weekends that have not been counted yet
   int consumption = 0;
   auto itShift = stretch.pShifts().rbegin();
-  int i = stretch.lastDay();
-  for (; i >= stretch.firstDay(); i--, itShift++) {
+  int i = stretch.lastDayId();
+  for (; i >= stretch.firstDayId(); i--, itShift++) {
     // if a weekend
-    if (Tools::isWeekend(i)) {
+    if (weekend_.isWeekend(i)) {
       // check if working on this day and
       // if weekend has not been already counted
-      if (*ready && pShift_->includes(**itShift)) {
+      if (*ready && pAShift_->includes(**itShift)) {
         consumption++;
         *ready = false;
       }
       // reset weekend flag
-      if (Tools::isFirstWeekendDay(i))
+      if (weekend_.isFirstWeekendDay(i))
         *ready = true;
     }
   }
@@ -66,21 +67,28 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
                            const Stretch &stretch,
                            const PRCArc &pArc,
                            const R &r,
-                           const std::function<double(int)> &ubCost) {
+                           const std::function<double(int)> &getCost,
+                           const int indResource) {
   // check if expander is active
   std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
-  if (!Tools::nWeekendsInInterval(firstLastDays.first, firstLastDays.second))
+  if (!stretch.nWeekends(r.weekend()))
     return nullptr;
 
   // Computing the number of weekends after the last day of the stretch
-  int start = firstLastDays.second+1, end = r.firstDay() + r.totalNbDays() - 1;
-  int nWeekendsAfter = Tools::nWeekendsInInterval(start, end);
+  int start = firstLastDays.second+1, end =
+      r.firstDayId() + r.totalNbDays() - 1;
+  int nWeekendsAfter = r.weekend().nWeekendsInInterval(start, end);
 
   // Computing the number of weekends before the first day of the stretch
-  start = r.firstDay(), end = firstLastDays.first - 1;
-  int nWeekendsBefore = Tools::nWeekendsInInterval(start, end);
-
+  start = r.firstDayId(), end = firstLastDays.first - 1;
+  int nWeekendsBefore = r.weekend().nWeekendsInInterval(start, end);
   int consumption = 0;
+  // TODO(JO): we should certainly put back at least a part of the code below
+  //  in the initialization. The only stretches for which it is not correct
+  //  are those that start from a weekend day other than the first, and even
+  //  in this case, we never need to count more than the first weekend met in
+  //  the stretch.
+
 //      r.computeConsumption(firstLastDays.first, stretch, prevAShift);
 //  if (consumption > r.getUb()) {
 //    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
@@ -91,6 +99,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
 //  }
 
   return std::make_shared<E>(
+      indResource,
       r,
       stretch,
       consumption,
@@ -101,16 +110,40 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
 
 int SoftTotalWeekendsResource::getConsumption(
     const State & initialState) const {
-  return std::min(ub_, initialState.totalWeekendsWorked_);
+  return 0;
+//  return std::min(ub_, initialState.totalWeekendsWorked_);
 }
 
 PExpander SoftTotalWeekendsResource::init(const AbstractShift &prevAShift,
                                           const Stretch &stretch,
-                                          const PRCArc &pArc) {
+                                          const shared_ptr<RCArc> &pArc,
+                                          int indResource) {
   return initExpander<SoftTotalWeekendsExpander, SoftTotalWeekendsResource>(
       prevAShift, stretch, pArc, *this, [this](int c) {
         return this->getUbCost(c);
-      });
+      }, indResource);
+}
+
+bool SoftTotalWeekendsResource::merge(
+    const ResourceValues &vForward,
+    const ResourceValues &vBack,
+    ResourceValues *vMerged,
+    const PRCLabel &pLMerged) {
+  vMerged->consumption = vForward.consumption + vBack.consumption;
+  // if both not consuming
+  if (vMerged->consumption == 0)
+    return true;
+
+  // behave differently if merging on a weekend
+  bool mergeOnWeekend =
+      weekend().isWeekendDayButNotLastOne(pLMerged->getNode()->dayId);
+
+  // if merging on a weekend, remove one weekend if already counted twice
+  if (mergeOnWeekend && !vForward.readyToConsume && !vBack.readyToConsume)
+    --vMerged->consumption;
+
+  pLMerged->addBaseCost(getCost(vMerged->consumption));
+  return true;
 }
 
 bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
@@ -172,14 +205,16 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
 
 int HardTotalWeekendsResource::getConsumption(
     const State & initialState) const {
-  return initialState.totalWeekendsWorked_;
+  return 0;
+//  return initialState.totalWeekendsWorked_;
 }
 
 PExpander HardTotalWeekendsResource::init(const AbstractShift &prevAShift,
                                           const Stretch &stretch,
-                                          const PRCArc &pArc) {
+                                          const shared_ptr<RCArc> &pArc,
+                                          int indResource) {
   return initExpander<HardTotalWeekendsExpander, HardTotalWeekendsResource>(
-      prevAShift, stretch, pArc, *this, nullptr);
+      prevAShift, stretch, pArc, *this, nullptr, indResource);
 }
 
 bool HardTotalWeekendsExpander::expand(const PRCLabel &pLChild,

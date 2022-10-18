@@ -25,10 +25,11 @@
 class RosterSP : public RCSPPSubProblem {
  public:
   RosterSP(PScenario pScenario,
+           int firstDayId,
            int nbDays,
            PLiveNurse nurse,
            std::vector<PResource> pResources,
-           SubProblemParam param);
+           const SubProblemParam& param);
 
   void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const override;
 

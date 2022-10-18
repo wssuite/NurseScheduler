@@ -1,0 +1,28 @@
+WEEK_DATA
+new2
+
+REQUIREMENTS
+S0 HeadNurse (0,0) (0,0) (0,0) (0,0) (0,0) (0,0) (0,0)
+S0 Nurse (1,1) (1,1) (1,1) (1,1) (1,1) (1,1) (1,1)
+S1 HeadNurse (0,0) (1,1) (1,1) (0,0) (0,0) (0,0) (0,0)
+S1 Nurse (0,1) (1,1) (1,1) (1,1) (1,1) (0,1) (1,1)
+S2 HeadNurse (1,1) (1,1) (0,0) (0,0) (0,0) (1,1) (1,1)
+S2 Nurse (0,1) (1,1) (1,1) (1,1) (0,1) (1,1) (1,1)
+S4 HeadNurse (0,0) (1,1) (0,0) (0,0) (1,1) (0,0) (0,0)
+S4 Nurse (1,1) (0,1) (0,1) (1,1) (1,1) (1,1) (1,1)
+S5 HeadNurse (1,1) (0,0) (0,0) (0,0) (0,0) (0,0) (1,1)
+S5 Nurse (1,1) (1,1) (1,1) (0,1) (1,1) (1,1) (1,1)
+
+SHIFT_OFF_REQUESTS = 6
+Patrick Any Mon
+Sara Any Thu 0
+Sara Any Fri 3
+Sara S2 Sat 1
+Stefaan S0 Wed 2
+Stefaan S1 Sat 0
+
+SHIFT_ON_REQUESTS = 4
+Andrea S0 Thu 0
+Andrea S4 Fri
+Andrea Any Sat 2
+Nguyen S2 Mon 1

@@ -13,10 +13,9 @@
 
 #include <algorithm>
 #include <memory>
-#include <list>
+#include <utility>
 #include <vector>
 
-#include "solvers/mp/RCPricer.h"
 
 int dominate(const PRCLabel &pL1,
              const PRCLabel &pL2) {
@@ -24,11 +23,11 @@ int dominate(const PRCLabel &pL1,
   double cost1 = pL1->cost(), cost2 = pL2->cost();
   for (const auto &r : pL1->getNode()->activeResources) {
     // if at anytime cost1 > cost2, return false
-    if (cost1 > cost2) return 0;
+    if (cost1 >= cost2 + 1e-6) return 0;
     // if pL1 doesn't dominate pL2 on resource r, stop
     if (!r->dominates(pL1, pL2, &cost1)) return 0;
   }
-  return cost1 <= cost2;
+  return cost1 <= cost2 + 1e-6;
 }
 
 // Variants of the label setting functions when using the decrease state-space
@@ -44,7 +43,7 @@ int dominateNoLB(const PRCLabel &pL1,
   double cost1noLB = pL1->cost(), costOfLBs = 0;
   double cost2 = pL2->cost();
   // if cost1 > cost2, return false
-  if (cost1noLB > cost2) return 0;
+  if (cost1noLB >= cost2  + 1e-6) return 0;
   for (const auto &r : pL1->getNode()->activeResources) {
     // if hard resource, just check both bounds
     if (r->isHard()) {
@@ -52,7 +51,7 @@ int dominateNoLB(const PRCLabel &pL1,
       continue;
     }
     // if at anytime cost1 > cost2, return false
-    if (cost1noLB > cost2) return 0;
+    if (cost1noLB >= cost2  + 1e-6) return 0;
     // if soft resource, evaluate worst case for UB
     double ubDiff =
         pL1->getWorstUbCost(r->id()) - pL2->getWorstUbCost(r->id());
@@ -80,7 +79,8 @@ int dominateNoLB(const PRCLabel &pL1,
     }
     cost1noLB += maxDiff;
   }
-  return cost1noLB > cost2 ? 0 : ((cost1noLB + costOfLBs <= cost2) ? 1 : 2);
+  return cost1noLB >= cost2 + 1e-6 ? 0 :
+        ((cost1noLB + costOfLBs <= cost2 + 1e-6) ? 1 : 2);
 }
 
 PRCLabel LabelPool::getNewLabel() {
@@ -88,7 +88,7 @@ PRCLabel LabelPool::getNewLabel() {
   // if at the end of the vector
   if (endLabel_ == pLabels_.end()) {
     // add it to the vector
-    pLabels_.emplace_back(pFactory_->makePRCLabel());
+    pLabels_.push_back(pFactory_->makePRCLabel());
     // set pL
     pL = pLabels_.back();
     // update end: to be done at the end as vector can be moved
@@ -111,11 +111,11 @@ void LabelPool::sort() {
 
 RCSPPSolver::RCSPPSolver(PRCGraph pRcGraph,
                          SubProblemParam param) :
-    pRcGraph_(pRcGraph),
+    pRcGraph_(std::move(pRcGraph)),
     pFactory_(std::make_shared<RCLabelFactory>()),
     labelPool_(pFactory_, 100),
     bestPrimalBound_(0.0),
-    param_(std::move(param)),
+    param_(param),
     maxReducedCostBound_(0),
     total_number_of_nondominated_labels_(0),
     number_of_infeasible_deleted_labels_(0),
@@ -178,8 +178,8 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound) {
       // otherwise, we prepare for a new iteration where we aim at optimality
       if (!param_.rcsppDssr_ && !param_.rcsppNbToExpand_)
         break;
-      else
-        prepareForNextExecution(pRcGraph_->pNodes());
+      else if (!prepareForNextExecution(pRcGraph_->pNodes()))
+        break;  // should never be reached
     } else {
       // if any heuristic option is activated and we got enough negative cost
       // rosters, we can break, because we got what we were looking for
@@ -187,8 +187,8 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound) {
       // prepared for a new solution
       if (nLabels >= param_.rcsppMinNegativeLabels_)
         break;
-      else
-        prepareForNextExecution(pRcGraph_->pNodes());
+      else if (!prepareForNextExecution(pRcGraph_->pNodes()))
+        break;
     }
   }
 
@@ -200,13 +200,14 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound) {
 
   vector<RCSolution> finalSolutions;
   for (const auto& pL : pLabelsSinks) {
-    if (pL->cost() + param_.epsilon_ < maxReducedCostBound_) {
+    RCSolution solution = createSolution(pL);
 #ifdef DBG
-//      RCSolution solution = createSolution(pL, finalSolutions.empty());
-      RCSolution solution = createSolution(pL, false);
-#else
-      RCSolution solution = createSolution(pL);
+//    if (finalSolutions.empty()) {
+//      std::cout << "Label bound: " << maxReducedCostBound << std::endl;
+//      createSolution(pL, pRcGraph_);
+//    }
 #endif
+    if (pL->cost() + param_.epsilon_ < maxReducedCostBound_) {
       finalSolutions.push_back(solution);
     } else {
       break;
@@ -228,7 +229,7 @@ std::vector<PRCLabel> RCSPPSolver::forwardLabelSetting(
   // Allow to visit each node once
   for (const auto &pN : sortedNodes) {
     // stop if finalDay is overcome
-    if (pN->day >= finalDay + 1) break;
+    if (pN->dayId >= finalDay + 1) break;
 
     // Expand all the labels of the predecessors of the node through the
     // arcs entering the node
@@ -266,11 +267,11 @@ std::vector<PRCLabel> RCSPPSolver::forwardLabelSetting(
   }
 
   // Collect all the labels of the final day nodes
-  // TODO(JO): why break as soon as pN->day > finalDay ? Shouldn't continue ?
-  //  I have replaced pN->day == finalDay by pN->type == SINK_NODE
   for (const auto &pN : sortedNodes) {
-    if (pN->day > finalDay) break;
-    if (pN->type == SINK_NODE) {
+    // we test on the dayId for the bidirectional label-setting
+    // we test also on sink for the rotations
+    if (pN->dayId > finalDay) break;
+    if (pN->dayId == finalDay || pN->type == SINK_NODE) {
       const auto &pLabels = pLabelsToExpandPerNode_.at(pN->id);
       destinationLabels.insert(
           destinationLabels.end(), pLabels.begin(), pLabels.end());
@@ -293,7 +294,7 @@ void RCSPPSolver::pullLabelsFromPredecessors(const PRCNode& pN) {
       // check if possible to obtain a negative cost for the current label
       // when enable, then, expansion on the current arc
       return hasPotentialImprovingPathToSinks(
-          pL, pArc->origin->id, bestPrimalBound_) &&
+          pL, pArc->origin->id, -1e-6) &&
           expand(pL, pArc, labelPool_.getNewLabel());
     };
   }
@@ -317,20 +318,21 @@ bool RCSPPSolver::expand(
   // Expansion of each resource
   for (auto &e : pArc->expanders) {
     // get child ResourceValues (copy of the parent ResourceValues)
-    ResourceValues &v = pLChild->getResourceValues(e->resourceId);
+    ResourceValues &v = pLChild->getResourceValues(e->indResource);
     if (!e->expand(pLChild, &v)) {
       labelPool_.releaseLastLabel();
       return false;
     }
   }
+
   pLChild->addBaseCost(pArc->baseCost);
   pLChild->addCost(-pArc->dualCost);
 #ifdef DBG
   pLChild->addDualCost(pArc->dualCost);
+  pLChild->addPreferencesCost(pArc->baseCost);
 #endif
   return true;
 }
-
 
 void RCSPPSolver::checkDominationsWithPreviousLabels(
     const vector<PRCLabel>::iterator &begin,
@@ -442,12 +444,10 @@ void RCSPPSolver::checkDominationsPairwise
   }
 }
 
-
 void RCSPPSolver::checkAllDominations(
     const vector<PRCLabel>::iterator &begin,
     const vector<PRCLabel>::iterator &end,
-    int (*domFunction)(const PRCLabel &,
-                       const PRCLabel &),
+    int (*domFunction)(const PRCLabel &, const PRCLabel &),
     vector<int> *domStatus,
     vector<int> *domStatusNoExpand) {
   // if no labels, returns
@@ -456,7 +456,6 @@ void RCSPPSolver::checkAllDominations(
   // Sort the labels by increasing order before checking domination
   if (param_.rcsppSortLabels_)
     std::sort(begin, end, LabelCostIncreasing());
-
 
   // compute active resources
   for (const auto &pR : pRcGraph_->pResources()) {
@@ -542,22 +541,27 @@ void RCSPPSolver::selectLabelsToExpand(
   }
 }
 
-void RCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
+bool RCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
   // go over activated heuristic options from the most to the least agressive
   if (param_.rcsppNbToExpand_ >= 1) {
     // if we have expanded only a  small subset of labels at each node, we did
     // not perform any domination, so we just start the algorithm over
+    std::cout << "Did not find negative cost roster by expanding " << param_
+    .rcsppNbToExpand_ << "labels, switch to optimality" << std::endl;
     param_.rcsppNbToExpand_ = 0;
-    if (!param_.rcsppDssr_) param_.rcsppToOptimality_ = true;
+    if (!param_.rcsppDssr_)
+      param_.rcsppToOptimality_ = true;
     for (const auto &pN : nodes) {
       if (pN->type != SOURCE_NODE) {
         pLabelsToExpandPerNode_[pN->id].clear();
       }
     }
+    return true;
   } else if (param_.rcsppDssr_) {
     // if we used a decremental state-space relaxation, we wish to keep the
     // expansion and domination information we got during the execution and
     // warm-start the new execution of the label-setting algorithm
+    std::cout << "Did not find negative cost roster with dssr" << std::endl;
     param_.rcsppDssr_ = false;
     param_.rcsppToOptimality_ = true;
     // move the labels that were expanded to the list of expanded labels
@@ -572,38 +576,42 @@ void RCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
       }
       labelsToExpand.clear();
     }
+    return true;
   }
+  // it has been solved to optimality even if it wasn't a parameters option
+  // should never be reached
+  std::cerr << "RCSPP parameters are not set correctly, as no heuristics are "
+               "enable and, at the same time, the optimality was not set "
+               "to true." << std::endl;
+  param_.rcsppToOptimality_ = true;
+  return false;
 }
 
-#ifdef DBG
-RCSolution RCSPPSolver::createSolution(const PRCLabel &finalLabel, bool print) {
-#else
-RCSolution RCSPPSolver::createSolution(const PRCLabel &finalLabel) {
-#endif
+RCSolution RCSPPSolver::createSolution(
+    const PRCLabel &finalLabel, const PRCGraph pRcGraph) {
   // Backtrack from the label
   PRCLabel pL = finalLabel;
-  Stretch stretch(finalLabel->getNode()->day);
-// #ifdef DBG
-//  if (print)
-//    std::cout << "===========================================" << std::endl;
-// #endif
+  Stretch stretch(finalLabel->getNode()->dayId);
+  if (pRcGraph)
+    std::cout << "===========================================" << std::endl;
+  if (pRcGraph)
+    std::cout << pL->toString(pRcGraph->pResources()) << std::endl;
   while (pL->getPreviousLabel() != nullptr) {
     stretch.pushFront(pL->getInArc()->stretch);
-// #ifdef DBG
-//   if (print) std::cout << pL->toString(pRcGraph_->pResources()) << std::endl;
-// #endif
     pL = pL->getPreviousLabel();
+    if (pRcGraph)
+      std::cout << pL->toString(pRcGraph->pResources()) << std::endl;
   }
+  if (pRcGraph)
+    std::cout << "===========================================" << std::endl;
   // "Track forward" from the label if some backward expansion
   pL = finalLabel;
   while (pL->getNextLabel() != nullptr) {
     stretch.pushBack(pL->getOutArc()->stretch);
     pL = pL->getNextLabel();
   }
-  return RCSolution(stretch, finalLabel->baseCost(), finalLabel->cost());
+  return RCSolution(stretch, finalLabel);
 }
-
-
 
 bool RCSPPSolver::hasPotentialImprovingPathToSinks(
     const PRCLabel &pl, int nodeId, double primalBound) const {
@@ -613,7 +621,7 @@ bool RCSPPSolver::hasPotentialImprovingPathToSinks(
 }
 
 int RCSPPSolver::getNbLabelsBelowMaxBound(const vector<PRCLabel> &labels,
-                                          double *pMinCost) {
+                                          double *pMinCost) const {
   *pMinCost = 0;
   int nbNegativeCosts = 0;
   for (const auto &pL : labels) {
@@ -642,6 +650,8 @@ std::vector<PRCLabel> RCSPPSolver::bidirectionalLabelSetting(
   auto itL = labelPool_.begin();
   for (; itL != labelPool_.end(); ++itL) {
     negativeLabels.push_back(pFactory_->makePRCLabel(**itL));
+//    if (negativeLabels.back()->num() == 19932)
+//      int b = 0;
   }
   labelPool_.clear();
 
@@ -678,13 +688,15 @@ bool RCSPPSolver::merge(const PRCLabel& pLForward,
                         const PRCLabel& pLBackward) {
   // get a new label from the pool for the result of merging
   PRCLabel pLMerged = labelPool_.getNewLabel();
+  if (pLMerged->num() == 19931)
+    int b = 0;
   pLMerged->setAsMerged(pLForward, pLBackward);
   // merge every resource consumption
   for (const auto &pR : pRcGraph_->pResources()) {
-    ResourceValues &vForward = pLForward->getResourceValues(pR->id());
-    ResourceValues &vBackward = pLBackward->getResourceValues(pR->id());
-    ResourceValues &vMerged = pLMerged->getResourceValues(pR->id());
-    if (!pR->merge(vForward, vBackward, &vMerged, pLMerged)) {
+    const ResourceValues &vForward = pLForward->getResourceValues(pR->id());
+    const ResourceValues &vBackward = pLBackward->getResourceValues(pR->id());
+    ResourceValues *vMerged = &pLMerged->getResourceValues(pR->id());
+    if (!pR->merge(vForward, vBackward, vMerged, pLMerged)) {
       labelPool_.releaseLastLabel();
       return false;
     }
@@ -716,7 +728,7 @@ std::vector<PRCLabel> RCSPPSolver::backwardLabelSetting(
   for (; itN != sortedNodes.rend(); ++itN) {
     PRCNode pN = *itN;
     // if (pN->type == SOURCE_NODE) break;
-    if (pN->day < finalDay) break;
+    if (pN->dayId < finalDay) break;
 
     // Expand all the labels of the predecessors of the node through the
     // arcs entering the node
@@ -755,8 +767,8 @@ std::vector<PRCLabel> RCSPPSolver::backwardLabelSetting(
 
   // Collect all the labels of the final day nodes
   for (const auto &pN : sortedNodes) {
-    if (pN->day > finalDay) break;
-    if (pN->day == finalDay) {
+    if (pN->dayId > finalDay) break;
+    if (pN->dayId == finalDay) {
       for (const auto &pl : pLabelsToExpandPerNode_.at(pN->id))
         destinationLabels.push_back(pl);
     }
@@ -787,12 +799,13 @@ bool RCSPPSolver::expandBack(
   // Expansion of each resource
   for (auto &e : pArc->expanders) {
     // get child ResourceValues (copy of the parent ResourceValues)
-    ResourceValues &v = pLPrevious->getResourceValues(e->resourceId);
+    ResourceValues &v = pLPrevious->getResourceValues(e->indResource);
     if (!e->expandBack(pLPrevious, &v)) {
       labelPool_.releaseLastLabel();
       return false;
     }
   }
+
   pLPrevious->addBaseCost(pArc->baseCost);
   pLPrevious->addCost(-pArc->dualCost);
 #ifdef DBG
@@ -823,7 +836,7 @@ void RCSPPSolver::displaySolveInputInfo() {
   }
 }
 
-void RCSPPSolver::displaySolveStatistics() {
+void RCSPPSolver::displaySolveStatistics() const {
   if (param_.verbose_ >= 3) {
     std::cout << "\nLABELS STATISTICS: " << std::endl;
     // We add 1 to nParetoLabels in order to take account the first labels of

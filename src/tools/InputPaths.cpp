@@ -50,16 +50,21 @@ InputPaths::InputPaths(const std::string &dataDir,
     RCSPPType_(RCSPPType),
     nThreads_(nThreads),
     nCandidates_(nCandidates) {
-  std::string instanceDir = dataDir + instanceName + "/";
-  // initialize the scenario and history file names
-  scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
-  history_ = instanceDir + "H0" + "-" + instanceName + "-"
-      + std::to_string(historyIndex) + ".txt";
+  // if inrc2 format (should have a vector of weeks)
+  if (!weekIndices.empty()) {
+    std::string instanceDir = dataDir + instanceName + "/";
+    // initialize the scenario and history file names
+    scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
+    history_ = instanceDir + "H0" + "-" + instanceName + "-"
+        + std::to_string(historyIndex) + ".txt";
 
-  // initialize the file names for each week demand
-  for (int week : weekIndices)
-    weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
-        std::to_string(week) + ".txt");
+    // initialize the file names for each week demand
+    for (int week : weekIndices)
+      weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
+          std::to_string(week) + ".txt");
+  } else {
+    scenario_ = dataDir + instanceName;
+  }
 }
 
 InputPaths::InputPaths(const std::string &dataDir,
@@ -89,12 +94,17 @@ InputPaths::InputPaths(const std::string &dataDir,
     RCSPPType_(RCSPPType),
     nThreads_(nThreads),
     nCandidates_(nCandidates) {
-  std::string instanceDir = dataDir + instanceName + "/";
-  // initialize the scenario and history file names
-  scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
+  // if inrc2 format (should have a vector of weeks)
+  if (!weekIndices.empty()) {
+    std::string instanceDir = dataDir + instanceName + "/";
+    // initialize the scenario and history file names
+    scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
 
-  // initialize the file names for each week demand
-  for (int week : weekIndices)
-    weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
-        std::to_string(week) + ".txt");
+    // initialize the file names for each week demand
+    for (int week : weekIndices)
+      weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
+          std::to_string(week) + ".txt");
+  } else {
+    scenario_ = dataDir + instanceName;
+  }
 }

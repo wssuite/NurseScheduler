@@ -34,7 +34,8 @@ class SubProblem : public SP {
              int nDays,
              PLiveNurse pNurse,
              SubProblemParam param):
-      SP(std::move(scenario), nDays, std::move(pNurse), std::move(param)),
+      SP(std::move(scenario), 0, nDays,
+         std::move(pNurse), std::move(param)),
       CDMin_(pLiveNurse_->minConsDaysWork()),
       minConsDays_(1),
       maxRotationLength_(nDays),
@@ -113,22 +114,22 @@ class SubProblem : public SP {
   // consecutive worked days
   bool isUnlimited(int shift_type) const {
     int maxCons = shift_type ? pScenario_->maxConsShiftsOfType(shift_type)
-                             : pContract_->maxConsDaysOff_;
+                             : pLiveNurse_->maxConsDaysOff();
     return maxCons
         >= std::min(nDays_ + maxOngoingDaysWorked_, NB_SHIFT_UNLIMITED);
   }
 
   int minCons(int shift_type) const {
     return shift_type ? pScenario_->minConsShiftsOfType(shift_type)
-                      : pContract_->minConsDaysOff_;
+                      : pLiveNurse_->minConsDaysOff();
   }
 
   int maxCons(int shift_type) const {
     if (isUnlimited(shift_type))
       return shift_type ? pScenario_->minConsShiftsOfType(shift_type)
-                        : pContract_->minConsDaysOff_;
+                        : pLiveNurse_->minConsDaysOff();
     return shift_type ? pScenario_->maxConsShiftsOfType(shift_type)
-                      : pContract_->maxConsDaysOff_;
+                      : pLiveNurse_->maxConsDaysOff();
   }
 
   std::vector<int> defaultLBs() const {

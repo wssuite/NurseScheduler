@@ -9,11 +9,10 @@
  * full license detail.
  */
 
-#include <exception>
 
 #include "ParseArguments.h"
+#include "ReadWrite.h"
 #include "tools/Tools.h"
-#include "tools/ReadWrite.h"
 #include "solvers/InitializeSolver.h"
 #include "solvers/Solver.h"
 #include "solvers/DeterministicSolver.h"
@@ -27,65 +26,77 @@ using std::pair;
 * Solve the complete planning horizon with the deterministic solver
 ******************************************************************************/
 
-int solveDeterministic(const InputPaths &inputPaths, double timeout) {
-  // set the scenario
-  //
-  std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
-  PScenario pScenario;
-  if (inputPaths.nbWeeks() > 1) {
-    pScenario = initializeMultipleWeeks(inputPaths);
-  } else {
-    pScenario = initializeScenario(inputPaths);
-  }
-  std::cout << std::endl;
-
+int solveDeterministic(const InputPaths &inputPaths) {
   // initialize random of tools
   Tools::initializeRandomGenerator(inputPaths.randSeed());
+
+  // set the scenario
+  std::cout << "# INITIALIZE THE SCENARIO: " << inputPaths.scenario()
+            << std::endl;
+  PScenario pScenario;
+  if (inputPaths.inrc()) {
+    pScenario = ReadWrite::readINRCInstance(inputPaths.scenario());
+  } else if (inputPaths.nbWeeks() > 1) {
+    pScenario = initializeMultipleWeeksINRC2(inputPaths);
+  } else {
+    pScenario = initializeScenarioINRC2(inputPaths);
+  }
+  std::cout << std::endl;
 
   // initialize the solver and call the generic solution where the
   // specific solution processes are called
   //
   std::cout << "# SOLVE THE INSTANCE" << std::endl;
-  DeterministicSolver *pSolver = new DeterministicSolver(pScenario, inputPaths);
+  auto *pSolver = new DeterministicSolver(pScenario, inputPaths);
   double objValue = pSolver->solve();
   std::cout << std::endl;
 
   // Display the solution and write the files for the validator
   //
+  bool noSolution =
+      pSolver->status() == INFEASIBLE || pSolver->status() == UNSOLVED;
   std::cout << "# FINAL SOLUTION" << std::endl;
   std::cout << pSolver->solutionToLogString() << std::endl;
+  std::cout << pSolver->writeResourceCosts() << std::endl;
+  if (!noSolution && !pSolver->solution().empty())
+    std::cout << pSolver->writeResourceCostsPerNurse() << std::endl;
   std::cout << "# Solution status = "
             << statusToString.at(pSolver->status()) << std::endl;
   std::cout << "# Objective value = ";
-  bool noSolution =
-      pSolver->status() == INFEASIBLE || pSolver->status() == UNSOLVED;
   if (noSolution)
     std::cout << "  -  ";
   else
     std::cout << objValue;
   std::cout << std::endl;
-  if (!noSolution) pSolver->displaySolutionMultipleWeeks(inputPaths);
+  std::cout << "# Running time = " << std::setprecision(1) << std::fixed
+      << pSolver->getGlobalStat().timeTotal() << " sec." << std::endl;
+  if (!noSolution) pSolver->displaySolutionMultipleWeeks();
 
   // Write the final statistics
-  //
-  string statPath =
-      inputPaths.solutionPath().empty() ? "" : inputPaths.solutionPath()
-          + "/stat.txt";
+  string statPath = inputPaths.solutionPath().empty() ?
+      "" : inputPaths.solutionPath() + "stat.txt";
   Tools::LogOutput statStream(statPath);
-  statStream << pSolver->getGlobalStat().toString() << std::endl;
+  statStream.printnl(pSolver->getGlobalStat().toString());
 
   if (pSolver->getOptions().withLNS_) {
     string lnsStatPath =
         inputPaths.solutionPath().empty() ? "" : inputPaths.solutionPath()
-            + "/lns_stat.txt";
+            + "lns_stat.txt";
     Tools::LogOutput lnsStatStream(lnsStatPath);
-    lnsStatStream << pSolver->getGlobalStat().lnsStatsToString() << std::endl;
-    lnsStatStream.close();
+    statStream.printnl(pSolver->getGlobalStat().lnsStatsToString());
   }
+
+  // Write the solution in an xml file with INRC format
+  if (inputPaths.inrc() && !noSolution && !pSolver->solution().empty())
+    pSolver->solutionToXmlINRC(inputPaths.solutionPath());
+
+  // display memory used
+  double memGB = Tools::getResidentMemoryGB();
+  std::cout << std::endl << "The program has consumed "
+            << std::setprecision(3) << memGB << " GB of memory." << std::endl;
 
   //  release memory
   delete pSolver;
-  statStream.close();
 
   // 1 if no solution found, 0 otherwise
   return noSolution;
@@ -99,26 +110,13 @@ int main(int argc, char **argv) {
   std::cout << "# SOLVE THE PROBLEM WITH DETERMINISTIC DEMAND" << std::endl;
   std::cout << "Number of arguments= " << argc << std::endl;
 
-  // Retrieve the file names in arguments
-  //
-  InputPaths *pInputPaths = 0;
-  string solutionFile = "";
-  double timeout = 100.0;
-
   // Read the arguments and store them in pInputPaths
-  pInputPaths = readArguments(argc, argv);
-
-
-  // Initialize the random seed
-  //
-  srand(pInputPaths->randSeed());
+  InputPaths *pInputPaths = readArguments(argc, argv);
 
   // Solve the problem
-  //
-  int r = solveDeterministic(*pInputPaths, timeout);
+  int r = solveDeterministic(*pInputPaths);
 
   // Release memory
-  //
   delete pInputPaths;
 
   return r;

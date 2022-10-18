@@ -12,13 +12,12 @@
 #ifndef SRC_SOLVERS_MP_SP_RCSPP_RCSPP_H_
 #define SRC_SOLVERS_MP_SP_RCSPP_RCSPP_H_
 
-#include <limits>
 #include <utility>
 #include <vector>
 
 #include "solvers/mp/sp/rcspp/RCGraph.h"
 #include "solvers/mp/sp/rcspp/RCLabel.h"
-#include "solvers/mp/sp/SubProblem.h"
+#include "Parameters.h"
 
 /**
  * Class used to create an area of storage for labels that prepare to be
@@ -118,9 +117,8 @@ class RCSPPSolver {
   }
 
   // set the values of minimum costs from each node to the sinks
-  void setMinimumCostToSinks(const vector<double>& minCosts) {
-    minimumCostToSinks_.clear();
-    minimumCostToSinks_ = minCosts;
+  void setMinimumCostToSinks(vector<double> minCosts) {
+    minimumCostToSinks_ = std::move(minCosts);
   }
 
   // Solve the resource constrained shortest path problem in the RCGraph
@@ -134,7 +132,7 @@ class RCSPPSolver {
   // forward label-setting algorithm on the input list of topologically
   // sorted nodes, until the input day is reached
   std::vector<PRCLabel> forwardLabelSetting(
-      const std::vector<PRCNode> &sortedNodes, int finalDay = INT_MAX);
+      const std::vector<PRCNode> &sortedNodes, int finalDay);
 
   // expand all the labels at the predecessors of the input node
   void pullLabelsFromPredecessors(const PRCNode &pN);
@@ -176,11 +174,9 @@ class RCSPPSolver {
                             const PRCNode &pN);
 
   // Create a solution object given a label coming from a sink node
-#ifdef DBG
-  RCSolution createSolution(const PRCLabel& finalLabel, bool print);
-#else
-  RCSolution createSolution(const PRCLabel& finalLabel);
-#endif
+  static RCSolution createSolution(
+      const PRCLabel& finalLabel, const PRCGraph pRcGraph = nullptr);
+
 
   // Check if a label can produce a path to a sink node with negative cost
   bool hasPotentialImprovingPathToSinks(const PRCLabel &pl, int nodeId,
@@ -189,14 +185,15 @@ class RCSPPSolver {
   // get the number of negative cost labels in the input vector and update
   // the value of the input minimum cost pointer
   int getNbLabelsBelowMaxBound(const vector<PRCLabel> &labels,
-                               double *pMinCost);
+                               double *pMinCost) const;
 
   // if a heuristic label-setting was just executed and either optimality was
   // required or no negative-cost roster was found, we update the lsts of
   // labels and the parameters values before solving one more time
   // a heuristic may be useful when aiming at optimality, because it may
   // improve the best primal bound
-  void prepareForNextExecution(const vector<PRCNode> &nodes);
+  // return true if a next execution should be done
+  bool prepareForNextExecution(const vector<PRCNode> &nodes);
 
   // backward label-setting from the sink nodes on the input list of
   // topologically sorted nodes and until the final day is treated
@@ -226,7 +223,7 @@ class RCSPPSolver {
 
   // display information about the execution of the label setting algorithm,
   // such as the number of expansions and dominations
-  void displaySolveStatistics();
+  void displaySolveStatistics() const;
 
  private:
   // Graph where the RCSPP is solved
@@ -253,7 +250,8 @@ class RCSPPSolver {
   double maxReducedCostBound_;
   // Total number of not dominated labels during the algorithm's execution
   int total_number_of_nondominated_labels_;
-  // Total number of labels deleted due to the minimum cost from sinks strategy
+  // Total number of labels that has stopped due to the minimum cost from sinks
+  // strategy
   int number_of_infeasible_deleted_labels_;
   // Total number of generated labels during the algorithm's execution
   int total_number_of_generated_labels_;

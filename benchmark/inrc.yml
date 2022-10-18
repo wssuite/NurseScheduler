@@ -1,0 +1,134 @@
+name: inrc
+
+benchmark:
+  exe: ./bin/staticscheduler
+  dir: ./datasets/INRC/
+  sp-type: ROSTER
+  rcspp-type: DEFAULT
+  timeout: 5400
+  n-threads: 6
+  verbose: 1
+  param: ./paramfiles/optimality.txt
+  addparams:
+    performHeuristicAfterXNode: -1
+  instances:
+    - name: sprint01.txt
+      ub: 56
+    - name: sprint02.txt
+      ub: 58
+    - name: sprint03.txt
+      ub: 51
+    - name: sprint04.txt
+      ub: 59
+    - name: sprint05.txt
+      ub: 58
+    - name: sprint06.txt
+      ub: 54
+    - name: sprint07.txt
+      ub: 56
+    - name: sprint08.txt
+      ub: 56
+    - name: sprint09.txt
+      ub: 55
+    - name: sprint10.txt
+      ub: 52
+    - name: medium01.txt
+      ub: 240
+    - name: medium02.txt
+      ub: 240
+    - name: medium03.txt
+      ub: 236
+    - name: medium04.txt
+      ub: 237
+    - name: medium05.txt
+      ub: 303
+    - name: long01.txt
+      ub: 197
+    - name: long02.txt
+      ub: 219
+    - name: long03.txt
+      ub: 240
+    - name: long04.txt
+      ub: 303
+    - name: long05.txt
+      ub: 284
+    - name: sprint_late01.txt
+      ub: 37
+    - name: sprint_late02.txt
+      ub: 42
+    - name: sprint_late03.txt
+      ub: 48
+    - name: sprint_late04.txt
+      ub: 73
+    - name: sprint_late05.txt
+      ub: 44
+    - name: sprint_late06.txt
+      ub: 42
+    - name: sprint_late07.txt
+      ub: 42
+    - name: sprint_late08.txt
+      ub: 17
+    - name: sprint_late09.txt
+      ub: 17
+    - name: sprint_late10.txt
+      ub: 43
+    - name: medium_late01.txt
+      ub: 157
+    - name: medium_late02.txt
+      ub: 18
+    - name: medium_late03.txt
+      ub: 29
+    - name: medium_late04.txt
+      ub: 35
+    - name: medium_late05.txt
+      ub: 107
+    - name: long_late01.txt
+      ub: 235
+    - name: long_late02.txt
+      ub: 229
+    - name: long_late03.txt
+      ub: 220
+    - name: long_late04.txt
+      ub: 221
+    - name: long_late05.txt
+      ub: 83
+    - name: sprint_hidden01.txt
+      ub: 32
+    - name: sprint_hidden02.txt
+      ub: 32
+    - name: sprint_hidden03.txt
+      ub: 62
+    - name: sprint_hidden04.txt
+      ub: 66
+    - name: sprint_hidden05.txt
+      ub: 59
+    - name: sprint_hidden06.txt
+      ub: 130
+    - name: sprint_hidden07.txt
+      ub: 153
+    - name: sprint_hidden08.txt
+      ub: 204
+    - name: sprint_hidden09.txt
+      ub: 338
+    - name: sprint_hidden10.txt
+      ub: 306
+    - name: medium_hidden01.txt
+      ub: 111
+    - name: medium_hidden02.txt
+      ub: 219
+    - name: medium_hidden03.txt
+      ub: 34
+    - name: medium_hidden04.txt
+      ub: 78
+    - name: medium_hidden05.txt
+      ub: 118
+    - name: long_hidden01.txt
+      ub: 346
+    - name: long_hidden02.txt
+      ub: 89
+    - name: long_hidden03.txt
+      ub: 38
+    - name: long_hidden04.txt
+      ub: 22
+    - name: long_hidden05.txt
+      ub: 41

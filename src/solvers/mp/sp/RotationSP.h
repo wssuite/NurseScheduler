@@ -25,6 +25,7 @@
 class RotationSP : public RCSPPSubProblem {
  public:
   RotationSP(PScenario scenario,
+             int firstDayId,
              int nbDays,
              PLiveNurse nurse,
              std::vector<PResource> pResources,

@@ -7,7 +7,7 @@ withPrimalDual=0
 withLNS=1
 
 # complete solution options
-completeOptimalityLevel=UNTIL_FEASIBILITY
+completeOptimalityLevel=UNTIL_FEASIBLE
 
 # rolling horizon options
 rollingSamplePeriod=7

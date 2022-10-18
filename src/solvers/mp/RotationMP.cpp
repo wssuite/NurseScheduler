@@ -16,9 +16,14 @@
 #include <utility>
 
 #include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/PreferenceResource.h"
+#include "solvers/mp/sp/rcspp/resources/IdentWeekendResource.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
+#include "solvers/mp/sp/rcspp/resources/AlternativeShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/ForbiddenPatternResource.h"
+#include "solvers/mp/sp/rcspp/resources/FreeDaysAfterShiftResource.h"
 
 using std::vector;
 using std::map;
@@ -38,28 +43,28 @@ using std::endl;
 //
 //-----------------------------------------------------------------------------
 
-// when branching on this pattern, this method add the corresponding forbidden
+// when branching on this column, this method add the corresponding forbidden
 // shifts to the set.
 // It will forbid all the shifts that would be worked on a day that is already
-// covered by this pattern.
+// covered by this column.
 // Moreover, there needs to be a resting day before and after each rotation,
 // so the shifts can also be forbidden on these two days
 // (if the rotation is not at an extremity of the horizon).
-void RotationPattern::addForbiddenShifts(
+void RotationColumn::addForbiddenShifts(
     std::set<std::pair<int, int> > *forbiddenShifts,
     int nbShifts, PDemand pDemand) const {
   // from the previous day to the day after the end of the rotation,
   // forbid any work shifts
-  for (int day = firstDay()-1; day <= lastDay()+1; day++) {
-    if (day < pDemand->firstDay_) continue;
-    if (day >= pDemand->firstDay_ + pDemand->nDays_) continue;
+  for (int day = firstDayId()-1; day <= lastDayId()+1; day++) {
+    if (day < pDemand->firstDayId_) continue;
+    if (day >= pDemand->firstDayId_ + pDemand->nDays_) continue;
     for (int i = 1; i < nbShifts; ++i)
       forbiddenShifts->insert(pair<int, int>(day, i));
   }
 }
 
-void RotationPattern::checkReducedCost(const DualCosts &dualCosts,
-                                       bool printBadPricing) const {
+void RotationColumn::checkReducedCost(const DualCosts &dualCosts,
+                                      bool printBadPricing) const {
   // check if pNurse points to a nurse
   if (nurseNum_ == -1)
     Tools::throwError("LiveNurse = NULL");
@@ -96,7 +101,7 @@ void RotationPattern::checkReducedCost(const DualCosts &dualCosts,
     // subproblem could under estimate the real cost. These paths won't be
     // found when the subproblems are solved at optimality, but could  be
     // present when using heuristics.
-    if (reducedCost_ < reducedCost + EPSILON) {
+    if (abs(reducedCost_ - reducedCost) > EPSILON) {
       dualCosts.getCost(nurseNum_, st, pRest);
       Tools::throwError("Invalid pricing of a rotation.");
     }
@@ -117,15 +122,24 @@ RotationMP::RotationMP(const PScenario& pScenario,
                        SolverType solver) :
     MasterProblem(pScenario, solver) {}
 
+RotationMP::RotationMP(const PScenario& pScenario,
+                       SolverType solver,
+                       const SolverParam &param):
+    RotationMP(pScenario, solver) {
+  RotationMP::build(param);
+  setParameters(param);
+}
+
 RotationMP::~RotationMP() {
   delete rotationGraphConstraint_;
   delete dynamicConstraints_;
   delete totalShiftDurationConstraint_;
   delete totalWeekendConstraint_;
+//  delete consWeekendConstraints_;
 }
 
-PPattern RotationMP::getPattern(MyVar *var) const {
-  return std::make_shared<RotationPattern>(var, pScenario_);
+PColumn RotationMP::getPColumn(MyVar *var) const {
+  return std::make_shared<RotationColumn>(var, pScenario_);
 }
 
 // build the, possibly fractional, roster corresponding to the solution
@@ -158,9 +172,17 @@ void RotationMP::build(const SolverParam &param) {
   /* Min/Max constraints */
   buildResourceCons(param);
 
-  /* Dynamic constraints */
-  dynamicConstraints_ = new DynamicConstraints(
-      this, totalShiftDurationConstraint_, totalWeekendConstraint_);
+  /* Dynamic constraints (need min/max constraints) */
+  if (dynamicWeights_.version() > 0)
+    dynamicConstraints_ = new DynamicConstraints(
+        this, totalShiftDurationConstraint_, totalWeekendConstraint_);
+}
+
+void RotationMP::update(const PDemand& pDemand) {
+  if (dynamicConstraints_ == nullptr && dynamicWeights_.version() > 0)
+    Tools::throwError("Cannot defined new dynamic weights if none were "
+                      "defined at the initial build.");
+  MasterProblem::update(pDemand);
 }
 
 // Build the columns corresponding to the initial solution
@@ -188,8 +210,8 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
         workedOnPreviousDay = true;
       } else if (workedOnPreviousDay) {
         // if stop to work, build the rotation
-        RotationPattern rotation(firstDay, pShifts, i);
-        computePatternCost(&rotation);
+        RotationColumn rotation(firstDay, pShifts, i);
+        computeColumnCost(&rotation);
         pModel_->addInitialColumn(createColumn(rotation, baseName.c_str()));
         pShifts.clear();
         workedOnPreviousDay = false;
@@ -197,8 +219,8 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
     }
     // if work on the last day, build the rotation
     if (workedOnPreviousDay) {
-      RotationPattern rotation(firstDay, pShifts, i);
-      computePatternCost(&rotation);
+      RotationColumn rotation(firstDay, pShifts, i);
+      computeColumnCost(&rotation);
       pModel_->addInitialColumn(createColumn(rotation, baseName.c_str()));
     }
   }
@@ -214,41 +236,83 @@ void RotationMP::splitPResources() {
   spResources_.clear();
   masterRotationGraphResources_.clear();
   masterConstraintResources_.clear();
-  for (const auto &m : pResources_) {
-    vector<PResource> pSPResources;
-    vector<PBoundedResource> pRotPResources, pMPResources;
-    for (const auto &p : m) {
+  for (const auto &vR : pResources_) {
+    vector<PResource> pSPResources, pRotResources;
+    vector<PBoundedResource> pRotBPResources, pMPResources;
+    for (const auto &pR : vR) {
       // cast to shared_ptr<BoundedResource>
       PBoundedResource pBR =
-          std::dynamic_pointer_cast<BoundedResource>(p.first);
-      if (pBR == nullptr)
-        Tools::throwError("RotationMP cannot handle a resource "
-                          "that does not derive from BoundedResource.");
-      // cast hard constraint
-      if (pBR->isHard()) {
+          std::dynamic_pointer_cast<BoundedResource>(pR);
+      // TODO(AL): this must be corrected, because we need to handle
+      //  constraints that do not derive from BoundedResource: at this stage,
+      //  if we deal with INRC2 instances, the corresponding constraints are
+      //  the preferences and the complete weekends, which both belong to the
+      //  subproblem, so the code below should be a simple fix
+      if (pBR == nullptr) {
+        if (pR->isInRotationMaster()) {
+          std::cerr << "WARNING: Presently, the rotation decomposition cannot "
+                       "handle non-bounded resources that belong to the "
+                       "master problem. " << pR->name
+                    << " is therefore ignored." << std::endl;
+          continue;
+        }
+        // 1. Try and cast as alternative shift resource
+        auto pRAlt = std::dynamic_pointer_cast<AlternativeShiftResource>(pR);
+        if (pRAlt != nullptr) {
+          pRAlt->setId(static_cast<int>(pSPResources.size()));
+          pSPResources.push_back(pRAlt);
+          continue;
+        }
+        // 2. Try and cast as forbidden pattern resource
+        auto pRForb = std::dynamic_pointer_cast<ForbiddenPatternResource>(pR);
+        if (pRForb != nullptr) {
+          pRForb->setId(static_cast<int>(pSPResources.size()));
+          pSPResources.push_back(pRForb);
+          continue;
+        }
+        // 3. first try to cast as PreferenceResource
+        auto pRPref = std::dynamic_pointer_cast<PreferenceResource>(pR);
+        if (pRPref != nullptr) {
+          pRPref->setId(static_cast<int>(pSPResources.size()));
+          pSPResources.push_back(pRPref);
+          continue;
+        }
+        // 4. Try and cast as identical weekend resource
+        auto pRIdent = std::dynamic_pointer_cast<IdentWeekendResource>(pR);
+        if (pRIdent != nullptr) {
+          pRIdent->setId(static_cast<int>(pSPResources.size()));
+          pSPResources.push_back(pRIdent);
+          continue;
+        }
+
+        std::cerr << "WARNING: Presently, the rotation decomposition cannot "
+                     "handle " << pR->name
+                  << ". It is therefore ignored." << std::endl;
+      } else if (pBR->isHard()) {
+        // cast hard constraint
         auto pHR = std::dynamic_pointer_cast<HardConsShiftResource>(pBR);
         // if hard cons -> add to sub problem and rotation if rest
         if (pHR) {
-          pHR->setId(pSPResources.size());
+          pHR->setId(static_cast<int>(pSPResources.size()));
           pSPResources.push_back(pHR);
           if (pHR->pShift()->isRest())
-            pRotPResources.push_back(pHR);
+            pRotBPResources.push_back(pHR);
         } else {
           // add to master
-          pBR->setId(pMPResources.size());
+          pBR->setId(static_cast<int>(pMPResources.size()));
           pMPResources.push_back(pBR);
         }
       } else {
         auto pSR = std::dynamic_pointer_cast<SoftConsShiftResource>(pBR);
         // if soft cons -> add to sub problem and rotation if rest
         if (pSR) {
-          pSR->setId(pSPResources.size());
+          pSR->setId(static_cast<int>(pSPResources.size()));
           pSPResources.push_back(pSR);
           if (pSR->pShift()->isRest())
-            pRotPResources.push_back(pSR);
+            pRotBPResources.push_back(pSR);
         } else {
           // add to master
-          pBR->setId(pMPResources.size());
+          pBR->setId(static_cast<int>(pMPResources.size()));
           pMPResources.push_back(pBR);
         }
       }
@@ -256,16 +320,16 @@ void RotationMP::splitPResources() {
 
     // masterRotationGraphResources_ can contains at max one soft and one hard
     // constraint on Rest
-    if (pRotPResources.size() > 2)
+    if (pRotBPResources.size() > 2)
       Tools::throwError("Cannot have more than two consecutive constraints "
                         "on rest shifts.");
-    if (pRotPResources.size() == 2)
-      if (pRotPResources.front()->isHard() ^ pRotPResources.back()->isHard())
+    if (pRotBPResources.size() == 2)
+      if (pRotBPResources.front()->isHard() ^ pRotBPResources.back()->isHard())
         Tools::throwError("Cannot have two hard or two soft consecutive "
                           "constraints on rest shifts.");
 
     spResources_.push_back(pSPResources);
-    masterRotationGraphResources_.push_back(pRotPResources);
+    masterRotationGraphResources_.push_back(pRotBPResources);
     masterConstraintResources_.push_back(pMPResources);
   }
 }
@@ -276,14 +340,15 @@ void RotationMP::splitPResources() {
 //------------------------------------------------------------------------------
 MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
-  RotationPattern rotation(solution, nurseNum);
-  rotation.treeLevel_ = pModel_->getCurrentTreeLevel();
+  RotationColumn rotation(solution, nurseNum);
+
 #ifdef DBG
-  computePatternCost(&rotation);
+  computeColumnCost(&rotation);
   DualCosts dualCosts(this);
   rotation.checkReducedCost(dualCosts, pPricer()->isLastRunOptimal());
-  checkIfPatternAlreadyPresent(rotation);
+  checkIfColumnAlreadyPresent(rotation, true);
 #endif
+
   return createColumn(rotation, "rotation");
 }
 
@@ -294,11 +359,13 @@ void RotationMP::buildResourceCons(const SolverParam &param) {
   for (const PLiveNurse &pN : theLiveNurses_) {
     for (const PBoundedResource &pR : masterConstraintResources_[pN->num_]) {
       if (pR->isHard()) {
-//       auto pHR = std::dynamic_pointer_cast<HardConsWeekendShiftResource>(pR);
-//        if (pHR) {
-//          buildConsWeekendShiftResourceCons(pHR, nullptr, *pN);
-//          continue;
-//        }
+        auto pHR = std::dynamic_pointer_cast<HardConsWeekendShiftResource>(pR);
+        if (pHR) {
+//          if (consWeekendConstraints_ == nullptr)
+//            consWeekendConstraints_ = new ConsWeekendConstraint(this);
+//          consWeekendConstraints_->addConstraintFor(pHR, nullptr, *pN);
+          continue;
+        }
         auto pHR2 =
             std::dynamic_pointer_cast<HardTotalShiftDurationResource>(pR);
         if (pHR2) {
@@ -310,14 +377,16 @@ void RotationMP::buildResourceCons(const SolverParam &param) {
           totalWeekendConstraint_->addConstraintFor(pHR3, nullptr, *pN);
           continue;
         }
-        Tools::throwError("Hard constraint not defined in "
-                          "RotationMP::buildResourceCons");
+        std::cerr << "Hard constraint " << pR->name << " not defined in "
+                  << "RotationMP::buildResourceCons()." << std::endl;
       } else {
-//       auto pSR = std::dynamic_pointer_cast<SoftConsWeekendShiftResource>(pR);
-//        if (pSR) {
-//          buildConsWeekendShiftResourceCons(nullptr, pSR.get(), *pN);
-//          continue;
-//        }
+        auto pSR = std::dynamic_pointer_cast<SoftConsWeekendShiftResource>(pR);
+        if (pSR) {
+//          if (consWeekendConstraints_ == nullptr)
+//            consWeekendConstraints_ = new ConsWeekendConstraint(this);
+//          consWeekendConstraints_->addConstraintFor(nullptr, pSR, *pN);
+          continue;
+        }
         auto pSR2 =
             std::dynamic_pointer_cast<SoftTotalShiftDurationResource>(pR);
         if (pSR2) {
@@ -329,38 +398,21 @@ void RotationMP::buildResourceCons(const SolverParam &param) {
           totalWeekendConstraint_->addConstraintFor(nullptr, pSR3, *pN);
           continue;
         }
-        Tools::throwError("Soft constraint not defined in "
-                          "RotationMP::buildResourceCons");
+
+        std::cerr << "Soft constraint " << pR->name << " not defined in "
+                  << "RotationMP::buildResourceCons()." << std::endl;
       }
     }
   }
 }
 
-double RotationMP::getColumnsCost(CostType costType) const {
-  double cost = 0;
-  if (costType == CONS_REST_COST)
-    return pModel_->getTotalCost(rotationGraphConstraint_->getVariables())
-        //        + pModel_->getTotalCost(longRestingVars_);
-        // cost for empty rotation: rotation for initial state followed by
-        // rest -> already included in longRestingVars_
-        - rotationGraphConstraint_->getInitialStateCost(costType)
-            // just initial rest costs;
-        + MasterProblem::getColumnsCost(
-            CONS_REST_COST, pModel_->getActiveColumns());
-
-  cost = MasterProblem::getColumnsCost(costType, pModel_->getActiveColumns());
-  if (costType == ROTATION_COST)  // add rest costs + historical costs
-    cost += pModel_->getTotalCost(rotationGraphConstraint_->getVariables());
-//        + pModel_->getTotalCost(longRestingVars_);
-  else  // add historical non resting costs
-    cost += rotationGraphConstraint_->getInitialStateCost(costType);
-  return cost;
-}
-
-double RotationMP::getDaysCost() const {
-  return pModel_->getTotalCost(totalShiftDurationConstraint_->getVariables());
-}
-
-double RotationMP::getWeekendCost() const {
-  return pModel_->getTotalCost(totalWeekendConstraint_->getVariables());
+// return the costs of all active columns associated to the type
+// add the initial costs associated to the rest arcs
+// add the cost of the rest arcs
+std::map<CostType, double> RotationMP::getColumnsCosts() const {
+  std::map<CostType, double> costs = MasterProblem::getColumnsCosts(),
+      rotGraphCosts = rotationGraphConstraint_->getCosts();
+  for (const auto &p : rotGraphCosts)
+    costs[p.first] += p.second;
+  return costs;
 }

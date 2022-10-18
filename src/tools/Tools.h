@@ -14,10 +14,13 @@
 
 #define _USE_MATH_DEFINES  // needed for the constant M_PI
 
-#include <math.h>
-#include <string.h>
-#include <stdio.h>
-#include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+
+#include <cmath>
+#include <cstring>
+#include <cstdio>
+#include <ctime>
 #include <chrono>  // NOLINT (suppress cpplint error)
 #include <memory>
 #include <iostream>
@@ -29,16 +32,18 @@
 #include <set>
 #include <streambuf>
 #include <string>
+#include <utility>
+#include <algorithm>
 #include <vector>
 #include <exception>
-#include <algorithm>
 #include <cfloat>
 #include <random>
 #include <functional>
-#include <utility>
 #include <thread>  // NOLINT (suppress cpplint error)
 #include <mutex>  // NOLINT (suppress cpplint error)
 #include <condition_variable>  // NOLINT (suppress cpplint error)
+#include <cassert>
+
 
 static const int DEBUG = 1;
 static const int SHIFT_PAD = 3;
@@ -47,9 +52,8 @@ static const char REST_DISPLAY[] = " - ";  // should be of the size of pad
 static const int DECIMALS = 3;  // precision when printing floats
 static const int NB_SHIFT_UNLIMITED = 28;
 
-static const int LARGE_SCORE = 9999999;
-static const int LARGE_TIME = 9999999;
-
+static const int LARGE_SCORE = 9999;
+static const int LARGE_TIME = 999999;
 
 // definitions of multi-dimensional int vector types
 //
@@ -91,7 +95,7 @@ class myException : public std::exception {
 struct NSException : std::exception {
   explicit NSException(const char *what) : std::exception(), what_(what) {}
   explicit NSException(std::string what) :
-      std::exception(), what_(what) {}
+      std::exception(), what_(std::move(what)) {}
   template<typename ...Args>
   NSException(const char *str, Args... args) {
     char buff[999];
@@ -99,7 +103,7 @@ struct NSException : std::exception {
     what_ = buff;
   }
 
-  const char *what() const throw() {
+  const char *what() const throw() override {
     return what_.c_str();
   }
 
@@ -127,14 +131,62 @@ void throwError(const char *str, Args... args) {
   throwError(buff);
 }
 
-// Display a debug message
+//  struct rusage {
+//    struct timeval ru_utime; /* user time used */
+//    struct timeval ru_stime; /* system time used */
+//    long   ru_maxrss;        /* maximum resident set size */
+//    long   ru_ixrss;         /* integral shared memory size */
+//    long   ru_idrss;         /* integral unshared data size */
+//    long   ru_isrss;         /* integral unshared stack size */
+//    long   ru_minflt;        /* page reclaims */
+//    long   ru_majflt;        /* page faults */
+//    long   ru_nswap;         /* swaps */
+//    long   ru_inblock;       /* block input operations */
+//    long   ru_oublock;       /* block output operations */
+//    long   ru_msgsnd;        /* messages sent */
+//    long   ru_msgrcv;        /* messages received */
+//    long   ru_nsignals;      /* signals received */
+//    long   ru_nvcsw;         /* voluntary context switches */
+//    long   ru_nivcsw;        /* involuntary context switches */
+//  };
+
+rusage getRUsage();
+
+float getResidentMemoryGB();
+
+// Struct for very simple storage of an hour of the day
 //
-void debugMsg(const char *debugMsg, int debugLevel);
+struct Time {
+  Time() : hh(0), mm(0) {}
+  Time(double hour, double min) : hh(hour), mm(min) {
+    assert(hour >= 0 && hour <= 23);
+    assert(min >= 0 && min <= 59);
+  }
+
+  // number of hours elapsed since time
+  double diff(const Time& time) const {
+    // if time is smaller, we assume it is on the previous day
+    if (hh > time.hh || (hh == time.hh && mm >= time.mm) )
+      return (hh - time.hh) + (mm - time.mm) / 60.0;
+    else
+      return 24.0 + (hh - time.hh) + (mm - time.mm) / 60.0;
+  }
+
+  bool equals(const Time& time) const {
+    return (time.hh == hh) && (time.mm == mm);
+  }
+
+  const double hh;
+  const double mm;
+};
+
+
+tm *dateForDay(const tm *startDate, const int &dayId);
 
 // Read a file stream until the separating character (or one of them) is met
 // Store the characters read until the separating character in pStrRead
 //
-bool readUntilOneOfTwoChar(std::fstream *pFile,
+char readUntilOneOfTwoChar(std::fstream *pFile,
                            char separater1,
                            char separater2,
                            std::string *pStrRead);
@@ -143,14 +195,41 @@ bool readUntilOneOfTwoChar(std::fstream *pFile,
 //
 bool readUntilChar(std::fstream *file, char separator, std::string *pTitle);
 
+// Read a file stream until the separating character is met and keep reading
+// while the delimiter repeats
+//
+bool readUntilAndWhileChar(std::fstream *file, char separator, std::string
+*pTitle);
 
 // Checks if the string (sentence) starts with the given substring (word)
-//
 bool strStartsWith(std::string sentence, std::string word);
+
+// Checks if the string (sentence) starts with the comment character
+bool strStartsWithComment(std::string sentence);
 
 // Checks if the string (sentence) ends with the given substring (word)
 //
 bool strEndsWith(std::string sentence, std::string word);
+
+// split string
+std::vector<std::string> split(std::string sentence, std::string delimiter);
+
+// Read a dash separated date in format yyyy-mm-dd and return a tm* object
+//
+tm * readDateFromStr(const std::string& dateStr);
+
+// Read a colon separated hour in format hh:mm:ss and return a tm* object
+//
+Tools::Time readHourFromStr(const std::string& hourStr);
+
+// Read the parameters of a bounded resource
+//
+int readBoundedResource(std::fstream *file,
+                        int* lbOn, int* lb, int* lbCost,
+                        int* ubOn, int* ub, int* ubCost);
+int readUbResource(std::fstream *file,
+                        int* ubOn, int* ub, int* ubCost);
+
 
 // Parse a T list written as string with a char delimiter
 //
@@ -177,6 +256,12 @@ std::string toUpperCase(std::string str);
 
 // convert to lower case
 std::string toLowerCase(std::string str);
+
+void loadOptions(
+    const std::string &strOptionFile,
+    std::function<bool(const std::string&, std::fstream *file)>);
+
+void openFile(const std::string &fileName, std::fstream *file);
 
 
 // Create a random generator
@@ -272,6 +357,58 @@ void insert_back(std::vector<T> *v1, const std::vector<T> &v2) {
   v1->insert(v1->end(), v2.begin(), v2.end());
 }
 
+// remove an element from a list
+template<class T>
+bool erase(std::vector<T> *vec, const T& el, bool throwErrorNotFound = false) {
+  auto it = std::find(vec->begin(), vec->end(), el);
+  if (it != vec->end()) {
+    vec->erase(it);
+    return true;
+  }
+#ifdef DBG
+  if (throwErrorNotFound)
+    throwError("Element to delete not found in vector.");
+#endif
+  return false;
+}
+
+// return the name for the enum from a given map of name
+template<typename T> static const std::string & getNameForEnum(
+    const std::map<std::string, T> &typesByName, T type) {
+  for (const auto &p : typesByName)
+    if (p.second == type) return p.first;
+  Tools::throwError("No name found in the map for the given type");
+  return typesByName.begin()->first;
+}
+
+template<typename T> static std::map<T, std::string> buildNamesByType(
+    const std::map<std::string, T> &typesByName) {
+  std::map<T, std::string> namesByType;
+  for (const auto &p : typesByName)
+    namesByType[p.second] = p.first;
+  return namesByType;
+}
+
+template<typename T> static std::map<T, std::string> buildPrettyNamesByType(
+    const std::map<std::string, T> &typesByName,
+    const std::string &delimiter = "_") {
+  std::map<T, std::string> prettyNamesByType;
+  for (const auto &p : typesByName) {
+    std::vector<std::string> words = split(p.first, delimiter);
+    std::string sentence;
+    for (const std::string &word : words) {
+      std::string s = toLowerCase(word);
+      if (sentence.empty())  // First case will be an upper case
+        s[0] = toupper(s[0]);
+      else  // add a space between words
+        sentence += " ";
+      sentence += s;
+    }
+    prettyNamesByType[p.second] = sentence;
+  }
+  return prettyNamesByType;
+}
+
 template<class T> class FixedSizeList {
  public:
   explicit FixedSizeList(int size) : fixedSize_(size) {}
@@ -343,33 +480,11 @@ std::vector<T> appendVectors(
   return ANS;
 }
 
-// To get the day from its id and vice-versa
-// First day is always supposed to be a Monday
-//
-std::string intToDay(int dayId);
-
-int dayToInt(std::string day);
-
-bool isSaturday(int dayId);
-
-bool isSunday(int dayId);
-
-bool isWeekend(int dayId);
-bool isFirstWeekDay(int dayId);
-bool isFirstWeekendDay(int dayId);
-bool isLastWeekendDay(int dayId);
-bool isWeekendDayButNotLastOne(int dayId);
-bool isWeekendDayButNotFirstOne(int dayId);
-int nWeekendsInInterval(int startDate, int endDate);
-
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed
 // problems on windows for instance and it requires some precompiler
 // instructions to work on mac
-//
-
-  typedef std::chrono::duration<int, std::nano> nanoseconds_type;
-
+typedef std::chrono::duration<int, std::nano> nanoseconds_type;
 
 class Timer {
  public:
@@ -413,49 +528,25 @@ class Timer {
 // have the same minimum width. Precision can be set to force a maximum width
 // as far as floating numbers are concerned.
 //
+
+bool mkdirs(const std::string& directoryPath);
+
 class LogOutput {
  private:
   std::ostream *pLogStream_;
   int width_;
   int precision_;
   std::string logName_ = "";
+  bool isStdOut_;
 
  public:
-  explicit LogOutput(std::string logName, bool append = false) :
-      width_(0), precision_(5), logName_(logName) {
-    if (logName.empty()) {
-      pLogStream_ = &(std::cout);
-    } else if (append) {
-      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::app);
-    } else {
-      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
-    }
-    // logStream_.open(logName.c_str(), std::fstream::out);
-  }
+  explicit LogOutput(std::string logName, bool append = false);
 
-  LogOutput(std::string logName, int width, bool append = false)
-      : width_(width), precision_(5), logName_(logName) {
-    if (append) {
-      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::app);
-    } else {
-      pLogStream_ = new std::ofstream(logName.c_str(), std::fstream::out);
-    }
-  }
+  LogOutput(std::string logName, int width, bool append = false);
 
-  ~LogOutput() {
-    if (!logName_.empty() && pLogStream_)
-      delete pLogStream_;
-    pLogStream_ = nullptr;
-  }
+  ~LogOutput();
 
-  void close() {
-    std::ofstream *pStream = dynamic_cast<std::ofstream *>(pLogStream_);
-    if (pStream) {
-      if (pStream->is_open()) pStream->close();
-    } else {
-      pLogStream_ = nullptr;
-    }
-  }
+  void close();
 
   // switch from unformatted to formatted inputs and reversely
   //
@@ -489,7 +580,6 @@ class LogOutput {
     pLogStream_->unsetf(std::ios::floatfield);
     pLogStream_->precision(precision_);
     (*pLogStream_) << std::left << std::setprecision(5) << output;
-
     return *this;
   }
 
@@ -498,13 +588,35 @@ class LogOutput {
   template<typename T>
   void print(const T &output) {
     (*pLogStream_) << output;
-    std::cout << output;
+    if (!isStdOut_) std::cout << output;
+  }
+
+  template<typename T, typename ...Args>
+  void print(const char *str, const T& arg0, Args... args) {
+    char buff[999];
+    snprintf(buff, sizeof(buff), str, arg0, args...);
+    print(buff);
+  }
+
+  template<typename T>
+  void printnl(const T &output) {
+    (*pLogStream_) << output << std::endl;
+    if (!isStdOut_) std::cout << output << std::endl;
+  }
+
+  template<typename T, typename ...Args>
+  void printnl(const char *str, const T& arg0, Args... args) {
+    char buff[999];
+    snprintf(buff, sizeof(buff), str, arg0, args...);
+    printnl(buff);
   }
 
   LogOutput &operator<<(std::ostream &(*func)(std::ostream &)) {
     func(*pLogStream_);
     return *this;
   }
+
+  void addCurrentTime();
 };
 
 // Can be used to create an output stream that writes with a
@@ -535,13 +647,170 @@ class FormattedOutput {
 // Create a pool of threads that can be used to run functions in parallel.
 // Each pool has a certain number of threads available,
 // but there is also a global limit on the number of threads used.
-typedef std::function<void(void)> Job;
 class ThreadsPool;
 
 struct PThreadsPool : public std::shared_ptr<ThreadsPool> {
   template<typename ...Args> PThreadsPool(Args... args):  // NOLINT
-      std::shared_ptr<ThreadsPool>(args...) {}
+      std::shared_ptr<ThreadsPool>(args...) {
+    store();
+  }
+
+  void store();
+
   ~PThreadsPool();
+};
+
+class Task {
+  explicit Task(std::function<void(void)> f, int _nThreads) :
+      func_(std::move(f)), nThreads_(_nThreads) {}
+
+  // run the task
+  void run();
+
+  // attach to the pool
+  void attach(const PThreadsPool& pThreadsPool);
+
+  // detach from the pool
+  void detach();
+
+  // check if the task is still active for the pool (i.e. attached)
+  bool active();
+
+  // ask the task to stop
+  void askStop();
+
+  // check if the task has been asked to stop
+  bool shouldStop();
+
+  // ask the task to pause
+  void askPause();
+
+  // check if the task has been asked to pause
+  bool shouldPause();
+
+  // pause the current thread and wait to be resumed by another thread
+  void pause();
+
+  // resume the paused thread
+  void resume();
+
+  // wait for the task to finish
+  void wait();
+
+
+  int nThreads() const { return nThreads_; }
+
+  void nThreads(int n) { nThreads_ = n; }
+
+  int nThreads_;
+  std::function<void(void)> func_;
+  PThreadsPool pThreadsPool_ = nullptr;
+
+  std::mutex mutex_;
+  std::condition_variable cResume_;
+
+  bool needStop_ = false;
+  bool needPause_ = false;
+  bool paused_ = false;
+
+  friend class Job;
+  friend class ThreadsPool;
+};
+typedef std::shared_ptr<Task> PTask;
+
+/* A wrapper around PTask. Also check if a job is associated to a task, i.e.
+ * the class Job has not been initialized with the default constructor */
+class Job {
+ public:
+  Job(): pTask_(nullptr) {}
+  explicit Job(std::function<void(void)> f, int nThreads = 1) :
+      pTask_(new Task(std::move(f), nThreads)) {}
+
+  // true if a task is attached to the job
+  bool defined() const {
+    return pTask_ != nullptr;
+  }
+
+  // check if any active tsk is attached
+  bool active() {
+    return pTask_ != nullptr && pTask_->active();
+  }
+
+  // true if not active
+  bool finish() {
+    return !active();
+  }
+
+  // ask to the attached task to stop if any
+  void askStop() {
+    if (pTask_) pTask_->askStop();
+  }
+
+  // check if the attached task has been asked to stop if any
+  bool shouldStop() {
+    if (pTask_) return pTask_->shouldStop();
+    return false;
+  }
+
+  // ask to the attached task to pause if any
+  void askPause() {
+    if (pTask_) pTask_->askPause();
+  }
+
+  // check if the attached task has been asked to pause if any
+  bool shouldPause() {
+    if (pTask_) return pTask_->shouldPause();
+    return false;
+  }
+
+  // run the task
+  void run();
+
+  // pause the current thread and wait to be resumed by another thread
+  // if any attached task
+  void pause();
+
+  // resume the paused thread if any attached task
+  void resume();
+
+  // wait for the task to finish
+  void wait();
+
+ private:
+  PTask pTask_ = nullptr;
+
+  friend class ThreadsPool;
+};
+
+class Thread {
+ public:
+  Thread();
+  ~Thread() = default;
+
+  void stop();
+
+  void run(std::function<void(void)> f);
+
+ private:
+  std::function<void(void)> f_;
+  bool needStop_;
+  std::mutex mutex_;
+  std::condition_variable cWaiting_;
+  std::thread t_;
+};
+
+class GlobalThreadsPool {
+ public:
+  GlobalThreadsPool() = default;
+  ~GlobalThreadsPool();
+
+  void run(std::function<void(void)> f);
+
+  void makeAvailable(Thread *pThread);
+
+ private:
+  std::list<Thread*> threadsAvailable_, activeThreads;
+  std::mutex mutex_;
 };
 
 class ThreadsPool {
@@ -555,13 +824,14 @@ class ThreadsPool {
   // otherwise decrease of the number of available threads and print a warning.
   // return the new true maxGlobalThreads_
   static int setMaxGlobalThreads(int maxThreads, bool wait = true);
+  static int setMaxGlobalThreadsToMax(bool wait = true);
 
   // method to create a new ThreadsPool
   static PThreadsPool newThreadsPool();
   static PThreadsPool newThreadsPool(int nThreads);
 
   // create a pool to run only one job
-  static void runOneJob(Job job);
+  static void runOneJob(Job job, bool force_detach = false);
 
  private:
   // global maximum number of threads
@@ -574,7 +844,7 @@ class ThreadsPool {
   static std::condition_variable cThreadReleased_;
 
  public:
-  void run(Job job);
+  void run(Job job, bool force_detach = false);
 
   // wait until all threads of the pool are available.
   // returns true if some threads were still running
@@ -597,21 +867,26 @@ class ThreadsPool {
   // local number of available threads for the local pool
   int nThreadsAvailable_;
 
-  void reserve();
+  void reserve(int nThreads);
 
-  void release();
+  void release(int nThreads);
 
   // store the shared_pointer to ensure that a copy is always stored and
-  // thus we can control when to destroy each pool. It it necessary to keep
+  // thus we can control when to destroy each pool. It is necessary to keep
   // at least one copy of the shared pointer until each job running
   // in the pool finishes
   PThreadsPool pThreadsPool_;
+  // count the number of jobs that has been run and are still not deleted
+  int nActivePtr_;
   std::recursive_mutex mutex_;
 
   void store(const PThreadsPool& pT);
-  void remove();
+
+  void addPtr(PTask pTask);
+  void removePtr();
 
   friend class PThreadsPool;
+  friend class Task;
 };
 
 }  // namespace Tools

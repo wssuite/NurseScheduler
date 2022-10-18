@@ -1,0 +1,42 @@
+SCENARIO = new2
+
+WEEKS = 4
+
+SKILLS = 2
+HeadNurse
+Nurse
+
+SHIFT_TYPES = 3
+Early (2,5)
+Late (2,3)
+Night (4,5)
+
+FORBIDDEN_SHIFT_TYPES_SUCCESSIONS
+Early 0
+Late 1 Early
+Night 2 Early Late
+
+SHIFTS = 5
+S0 2 Early
+S2 5 Late
+S1 4 Night
+S4 2 Late
+S5 1 Night
+
+FORBIDDEN_SHIFT_SUCCESSIONS = 2
+S2 2 S1 S5
+S5 1 S1
+
+CONTRACTS = 2
+FullTime (70,90) (3,5) (2,3) 1 1
+PartTime (30,40) (3,5) (3,5) 1 1
+
+NURSES = 8
+Patrick FullTime 2 HeadNurse Nurse 
+Andrea FullTime 2 HeadNurse Nurse
+Stefaan PartTime 2 HeadNurse Nurse
+Sara PartTime 1 Nurse
+Nguyen FullTime 1 Nurse
+Philip FullTime 1 HeadNurse
+Alex FullTime 1 HeadNurse
+John FullTime 2 HeadNurse Nurse

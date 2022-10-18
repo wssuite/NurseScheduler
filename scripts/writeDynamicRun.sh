@@ -41,17 +41,17 @@ numHist=${arrayArgs[1]}
 nbArgs=${#arrayArgs[@]}
 nbWeeks=$((nbArgs - 2))
 
-if test ! -d "datasets/$instance" ; then
-	echo "Directory \"datasets/$instance\" doest nos exist."
+if test ! -d "datasets/INRC2/$instance" ; then
+	echo "Directory \"datasets/INRC2/$instance\" doest nos exist."
 	exit 2;
 fi
 
 # create the files that are going to be used in the execution
-scenarioFile="datasets/${instance}/Sc-${instance}.txt"
-historyFile="datasets/${instance}/H0-${instance}-${numHist}.txt"
+scenarioFile="datasets/INRC2/${instance}/Sc-${instance}.txt"
+historyFile="datasets/INRC2/${instance}/H0-${instance}-${numHist}.txt"
 
 for ((i=2; i<$nbArgs; i++)); do
-	demandFiles[$i-2]="datasets/${instance}/WD-${instance}-${arrayArgs[$i]}.txt"
+	demandFiles[$i-2]="datasets/INRC2/${instance}/WD-${instance}-${arrayArgs[$i]}.txt"
 done
 
 if [ -z ${seeds} ]; then

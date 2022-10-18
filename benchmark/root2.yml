@@ -1,0 +1,27 @@
+name: root
+
+benchmark:
+  exe: ./bin/staticscheduler
+  dir: ./datasets/
+  param: ./paramfiles/root.txt
+  sp-type: ROSTER
+  n-threads: 1
+  verbose: 1
+  args: null
+  replications: 1
+  instances:
+    - name: n030w4_1_6-2-9-1
+    - name: n035w4_0_1-7-1-8
+    - name: n040w4_0_2-0-6-1
+    - name: n030w8_1_2-7-0-9-3-6-0-6
+    - name: n035w8_1_0-8-1-6-1-7-2-0
+    - name: n040w8_0_0-6-8-9-2-6-6-4
+  steps:
+    - addparams:
+        rcsppImprovedDomination: 1
+    - addparams:
+        rcsppImprovedDomination: 1
+        rcsppMinCostToSinks: 1
+    - addparams:
+        rcsppImprovedDomination: 1
+        rcsppEnumSubpathsForMinCostToSinks: 1

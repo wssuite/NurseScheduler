@@ -19,19 +19,26 @@
 #include "data/Shift.h"
 #include "solvers/mp/modeler/Modeler.h"
 
-
 class MasterProblem;
-class Pattern;
+class Column;
 class Modeler;
 
 
 class ConstraintMP {
  public:
-  explicit ConstraintMP(MasterProblem *pMaster, bool impactColumns = false);
+  explicit ConstraintMP(MasterProblem *pMaster,
+                        std::string name,
+                        bool impactColumns = false,
+                        bool addConstraint = true);
+
   virtual ~ConstraintMP() = default;
 
   // update the dual values of the constraints based on the current solution
   virtual void updateDuals() {}
+
+  // update the values of the variables and constraints based
+  // on the current model values
+  virtual void update() {}
 
   // update the dual values of the constraints randomly
   virtual void randomUpdateDuals(bool useInputData, int nPerturbations) {}
@@ -47,14 +54,22 @@ class ConstraintMP {
 // add a given constraint to the column
   virtual void addConsToCol(std::vector<MyCons *> *cons,
                             std::vector<double> *coeffs,
-                            const Pattern &col) const {}
+                            const Column &col) const {}
 
   virtual std::string toString() const { return ""; }
   virtual std::string toString(int nurseNum, const Stretch &st) const {
     return "";
   }
 
+  virtual double getTotalCost() const = 0;
+
+  virtual bool printInSolutionCosts() const {
+    return true;
+  }
+
   Modeler * pModel() const;
+
+  const std::string name;
 
  protected:
   MasterProblem *pMaster_;
@@ -84,7 +99,7 @@ class NursePositionCountConstraint : public ConstraintMP {
 // add a given constraint to the column
   void addConsToCol(std::vector<MyCons *> *cons,
                     std::vector<double> *coeffs,
-                    const Pattern &col) const override;
+                    const Column &col) const override;
 
   std::string toString() const override;
   std::string toString(int nurseNum, const Stretch &st) const override;
@@ -95,6 +110,10 @@ class NursePositionCountConstraint : public ConstraintMP {
 
   const vector3D<MyCons*>& getConstraints() const {
     return numberOfNursesByPositionCons_;
+  }
+
+  double getTotalCost() const override {
+    return 0;
   }
 
  protected:
@@ -122,6 +141,10 @@ class AllocationConstraint : public ConstraintMP {
     return feasibleSkillsAllocCons_;
   }
 
+  double getTotalCost() const override {
+    return 0;
+  }
+
  protected:
   // makes the allocation of the skills
   vector4D<MyVar *> skillsAllocVars_;
@@ -139,7 +162,9 @@ class DemandConstraint : public ConstraintMP {
                    bool soft = false,
                    double weight = 0);
 
-  void updateDemand();
+  // update the values of the variables and constraints based
+  // on the current model values
+  void update() override;
 
   const vector3D<MyVar*>& getVariables() const {
     return slackVars_;
@@ -149,9 +174,14 @@ class DemandConstraint : public ConstraintMP {
     return demandCons_;
   }
 
+  double getTotalCost() const override {
+    return pModel()->getTotalCost(slackVars_) +
+        pModel()->getTotalCost(feasNegVars_);
+  }
+
  protected:
   bool minDemand_;
-  std::string name_;
+  std::string prefix_;
   bool soft_;
   double weight_;
   // demand constraints per day, shift, skills
@@ -159,6 +189,7 @@ class DemandConstraint : public ConstraintMP {
   // slack variables for each constraint
   // if soft has a weight, if hard it's for feasibilty (it has big weight)
   vector3D<MyVar *> slackVars_;
+  vector3D<MyVar *> feasNegVars_;  // useful for INRC
 
   // build the constraints
   void build();

@@ -1,25 +1,31 @@
 #!/bin/bash
 
 valgrindOPT="--leak-check=full --show-leak-kinds=all --track-origins=yes"
+dataDir="datasets/INRC2/"
+instance_description="n005w4_0_1-2-3-3"
+eval="1"
+retries=0
 
 function printBashUsage {
   echo "This script will run the simulator and then the validator."
   echo "Usage:"
-  echo "-h | --help: display this message"
-  echo "-d | --dynamic: Add this flag if you'd like to run the dynamic version."
-  echo "-i | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: n005w4_0_1-2-3-3"
-  echo "-p, -sc | --param, --solver-config: config file for the solver parameters. Default: none"
+  echo "-h  | --help: display this message"
+  echo "-d  | --dynamic: Add this flag if you'd like to run the dynamic version."
+  echo "-i  | --instance: instance to simulate (must follow the pattern (data_weeks_history)). Default: ${instance_description}"
+  echo "-p  | --param: config file for the solver parameters. Default: none"
+  echo "-sc | --solver-config: same than -p | --param"
   echo "-gc | --generation-config: config file for the generation parameters. Default: none"
   echo "-ec | --evaluation-config: config file for the evaluation parameters. Default: none"
-  echo "-s | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: random."
-  echo "-t | --timeout: timeout for the solver or the stage. Default: based on the number of nurses and weeks in the instance."
-  echo "-o | --output: directory for the output. Default: outfiles/{instance}/{timestamp} or outfiles/{instance}/{seeds}_{timestamp} if dynamic"
-  echo "-g | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
-  echo "-v | --valgrind: use valgrind to run the code. Default: false."
+  echo "-s  | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: random."
+  echo "-t  | --timeout: timeout for the solver or the stage. Default: based on the number of nurses and weeks in the instance."
+  echo "-o  | --output: directory for the output. Default: outfiles/{instance}/{timestamp} or outfiles/{instance}/{seeds}_{timestamp} if dynamic"
+  echo "-g  | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
+  echo "-v  | --valgrind: use valgrind to run the code. Default: false."
   echo "-vo | --valgrind-options: options for valgrind. Default: ${valgrindOPT}."
-  echo "-e | --evaluate: use the validator to evaluate thee solution. Default: true."
-  echo "-r | --root-dir-path: set the path where the script should be run. Default: do not move."
-  echo "--retries: set the number of times to retry a failed run. Default: 0."
+  echo "-e  | --evaluate: use the validator to evaluate thee solution. Default: ${eval}."
+  echo "-r  | --root-dir-path: set the path where the script should be run. Default: do not move."
+  echo "--retries: set the number of times to retry a failed run. Default: ${retries}."
+  echo "--dir: set the dataset directory of the instance. Default: ${dataDir}."
 }
 
 # load config arguments in one line
@@ -32,9 +38,6 @@ while [ ! -z "$1" ]; do
 done
 echo "${ARGS[@]}"
 # parse arguments
-instance_description="n005w4_0_1-2-3-3"
-eval="1"
-retries=0
 dynamic_args=""
 other_args=""
 i=0
@@ -58,6 +61,7 @@ while [ ! -z ${ARGS[${i}]} ]; do
    -r | --root-dir-path) rootDir=${ARGS[((i+1))]}; ((i+=2));;
    --pricer) pricer="1"; ((i+=1));;
    --retries) retries=${ARGS[((i+1))]}; ((i+=2));;
+   --dir) dataDir=${ARGS[((i+1))]}; ((i+=2));;
    -*|--*) echo "Option unknown: ${ARGS[${i}]}. It will be passed to the scheduler."
       other_args="${other_args} ${ARGS[${i}]} ${ARGS[((i+1))]}"; ((i+=2));;
    *) echo "Cannot parse this argument: ${ARGS[${i}]}. It will be passed to the scheduler."
@@ -74,8 +78,10 @@ fi
 function run {
   # test pricer if defined
   if [ ! -z ${pricer} ]; then
-     ./bin/pricer ${instance_description} ${other_args}
-     return ${PIPESTATUS[0]}
+    pCMD="./bin/pricer ${instance_description} ${other_args}"
+    echo "Run: ${pCMD}"
+    ${pCMD}
+    return ${PIPESTATUS[0]}
   fi
 
   if [ -z ${dynamic} ]; then
@@ -94,7 +100,7 @@ function run {
     mkdir -p "${outputDir}"
 
     # base output
-    sCMD="./bin/staticscheduler --dir datasets/ --instance ${instance} --weeks ${weeks} --his ${hist} --sol ${outputDir}"
+    sCMD="./bin/staticscheduler --dir ${dataDir} --instance ${instance} --weeks ${weeks} --his ${hist} --sol ${outputDir}"
 
     # set default timeout
     if [ -z ${timeout} ]; then

@@ -12,50 +12,144 @@
 #include "InitializeSolver.h"
 
 #include <dirent.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #include <memory>
 #include <set>
+#include <utility>
 
-#include "tools/ReadWrite.h"
+#include "ReadWrite.h"
 #include "solvers/mp/RotationMP.h"
 #include "tools/Tools.h"
-
+#include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/ConsWeekendShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/ForbiddenPatternResource.h"
+#include "solvers/mp/sp/rcspp/resources/FreeDaysAfterShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/IdentWeekendResource.h"
+#include "solvers/mp/sp/rcspp/resources/PreferenceResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
 
 using std::string;
 using std::vector;
 using std::map;
 using std::pair;
 
+void initializeResourcesINRC2(const PScenario& pScenario) {
+// initialize all the resources of the nurses
+  int nbDays = pScenario->nDays();
+  vector<State> *pInitialState = pScenario->pInitialState();
+  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
+  const Weights &weights = pScenario->weights();
+
+  for (const auto &pN : pScenario->pNurses()) {
+    const auto &stateIni = pInitialState->at(pN->num_);
+    // a. total assignments
+    pN->addBaseResource(
+        std::make_shared<SoftTotalShiftDurationResource>(
+            pN->minTotalShifts() - stateIni.totalTimeWorked_,
+            pN->maxTotalShifts() - stateIni.totalTimeWorked_,
+            weights.totalShifts,
+            weights.totalShifts,
+            pWork,
+            nbDays,
+            pScenario->maxDuration()));
+
+    // b. consecutive assignments
+    pN->addBaseResource(std::make_shared<SoftConsShiftResource>(
+        pN->minConsDaysWork(),
+        pN->maxConsDaysWork(),
+        weights.consDaysWork,
+        weights.consDaysWork,
+        pWork,
+        CONS_WORK_COST,
+        nbDays,
+        stateIni.consDaysWorked_,
+        false));
+
+    // c. total weekend resource; in INRC2 weekends are always on saturday and
+    // sunday
+    pN->addBaseResource(std::make_shared<SoftTotalWeekendsResource>(
+        pN->maxTotalWeekends() - stateIni.totalWeekendsWorked_,
+        weights.totalWeekends,
+        pWork,
+        nbDays));
+
+    // d. complete weekend resource
+    if (pN->needCompleteWeekends())
+      pN->addBaseResource(std::make_shared<SoftIdentWeekendResource>(
+          std::make_shared<ShiftWorkComparator>(),
+          weights.completeWeekend));
+
+    // e. consecutive shift resources (rest included)
+    // initialize resources on the number of consecutive shifts of each type
+    for (int st = 0; st < pScenario->nShiftTypes(); st++) {
+      shared_ptr<AbstractShift> pAShift =
+          std::make_shared<AnyOfTypeShift>(st, pScenario->shiftType(st));
+      if (pAShift->isWork()) {
+        int consShiftsInitial =
+            pAShift->includes(*stateIni.pShift_) ?
+            stateIni.consShifts_ : 0;
+        pN->addBaseResource(std::make_shared<SoftConsShiftResource>(
+            pScenario->minConsShiftsOfType(st),
+            pScenario->maxConsShiftsOfType(st),
+            weights.consShifts,
+            weights.consShifts,
+            pAShift,
+            CONS_SHIFTS_COST,
+            nbDays,
+            consShiftsInitial));
+      } else if (pAShift->isRest()) {
+        // needed to evaluate the historical cost
+        pN->addBaseResource(std::make_shared<SoftConsShiftResource>(
+            pN->minConsDaysOff(),
+            pN->maxConsDaysOff(),
+            weights.consDaysOff,
+            weights.consDaysOff,
+            pAShift,
+            CONS_REST_COST,
+            nbDays,
+            stateIni.consDaysOff_));
+      }
+    }
+
+    // f. preference resources
+    for (const auto &p : pScenario->pWeekPreferences()->nurseWishes(pN->num_))
+      pN->addBaseResource(std::make_shared<SoftPreferenceResource>(
+          std::make_shared<Day>(p.first),
+          p.second));
+  }
+}
+
 /************************************************************************
 * Initialize the week scenario by reading the input files
 *************************************************************************/
-PScenario initializeScenario(const InputPaths &inputPaths, string logPath) {
+PScenario initializeScenarioINRC2(const InputPaths &inputPaths,
+                                  const string& logPath) {
   // Initialize demand and preferences
   PDemand pDemand(nullptr);
   PPreferences pPref(nullptr);
 
   // Read the scenario
-  PScenario pScen = ReadWrite::readScenario(inputPaths.scenario());
+  PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
 
   // Read the demand and preferences and link them with the scenario
-  ReadWrite::readWeek(inputPaths.week(0), pScen, &pDemand, &pPref);
-  pScen->linkWithDemand(pDemand);
-  pScen->linkWithPreferences(pPref);
+  ReadWrite::readWeekINRC2(inputPaths.week(0), pScenario, &pDemand, &pPref);
+  pScenario->linkWithDemand(pDemand);
+  pScenario->linkWithPreferences(pPref);
 
   // Read the history
-  ReadWrite::readHistory(inputPaths.history(), pScen);
+  ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
+
+  // Initialize the resources
+  initializeResourcesINRC2(pScenario);
 
   // Check that the scenario was read properly if logfile specified in input
   if (!logPath.empty()) {
     Tools::LogOutput logStream(logPath);
-    logStream << pScen->toString() << std::endl;
-    logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+    logStream << pScenario->toStringINRC2() << std::endl;
+    logStream << pScenario->pWeekDemand()->toString(true) << std::endl;
   }
 
-  return pScen;
+  return pScenario;
 }
 
 /*****************************************************************************
@@ -63,52 +157,61 @@ PScenario initializeScenario(const InputPaths &inputPaths, string logPath) {
 * When calling this function, the intent is to solve all the weeks at once
 ******************************************************************************/
 
-PScenario initializeMultipleWeeks(string dataDir,
-                                  string instanceName,
-                                  int historyIndex,
-                                  vector<int> weekIndices,
-                                  string logPath) {
+PScenario initializeMultipleWeeksINRC2(const string& dataDir,
+                                       const string& instanceName,
+                                       int historyIndex,
+                                       vector<int> weekIndices,
+                                       const string& logPath) {
   // build the paths of the input files
-  InputPaths inputPaths(dataDir, instanceName, historyIndex, weekIndices);
+  InputPaths inputPaths(dataDir,
+                        instanceName,
+                        historyIndex,
+                        std::move(weekIndices));
 
   // Read the scenario
-  PScenario pScen = ReadWrite::readScenario(inputPaths.scenario());
+  PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
 
   // Read the demand and preferences and link them with the scenario
-  ReadWrite::readWeeks(inputPaths.weeks(), pScen);
+  ReadWrite::readINRC2Weeks(inputPaths.weeks(), pScenario);
 
   // Read the history
-  ReadWrite::readHistory(inputPaths.history(), pScen);
+  ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
+
+  // Initialize the resources
+  initializeResourcesINRC2(pScenario);
 
   // Check that the scenario was read properly if logfile specified in input
   if (!logPath.empty()) {
     Tools::LogOutput logStream(logPath);
-    logStream << pScen->toString() << std::endl;
-    logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+    logStream << pScenario->toStringINRC2() << std::endl;
+    logStream << pScenario->pWeekDemand()->toString(true) << std::endl;
   }
 
-  return pScen;
+  return pScenario;
 }
 
-PScenario initializeMultipleWeeks(const InputPaths &inputPaths,
-                                  string logPath) {
+PScenario initializeMultipleWeeksINRC2(const InputPaths &inputPaths,
+                                       const string& logPath) {
   // Read the scenario
-  PScenario pScen = ReadWrite::readScenario(inputPaths.scenario());
+  PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
 
   // Read the demand and preferences and link them with the scenario
-  ReadWrite::readWeeks(inputPaths.weeks(), pScen);
+  ReadWrite::readINRC2Weeks(inputPaths.weeks(), pScenario);
 
   // Read the history
-  ReadWrite::readHistory(inputPaths.history(), pScen);
+  ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
+
+  // Initialize the resources
+  initializeResourcesINRC2(pScenario);
 
   // Check that the scenario was read properly if logfile specified in input
   if (!logPath.empty()) {
     Tools::LogOutput logStream(logPath);
-    logStream << pScen->toString() << std::endl;
-    logStream << pScen->pWeekDemand()->toString(true) << std::endl;
+    logStream << pScenario->toStringINRC2() << std::endl;
+    logStream << pScenario->pWeekDemand()->toString(true) << std::endl;
   }
 
-  return pScen;
+  return pScenario;
 }
 
 /*****************************************************************************
@@ -116,7 +219,8 @@ PScenario initializeMultipleWeeks(const InputPaths &inputPaths,
 * whose positions are in the same connected component of positions
 ******************************************************************************/
 
-vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
+vector<PScenario> divideScenarioIntoConnectedPositions(
+    const PScenario& pScenario) {
   vector<PScenario> scenariosPerComponent;
 
   // First, identify the connected components of the rcspp of positions
@@ -132,7 +236,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     // component (decreasing order).
     // use a set first, because it manages duplicate skills automatically.
     std::set<int> skillsInTheComponent;
-    for (PPosition pPosition : positionsInTheComponent)
+    for (const PPosition& pPosition : positionsInTheComponent)
       for (int skill : pPosition->skills())
         skillsInTheComponent.insert(skill);
 
@@ -145,6 +249,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     // build a vector containing the skills that need to be removed from the
     // scenario.
     vector<int> skillsToRemove;
+    skillsToRemove.reserve(pScenario->nSkills());
     for (int skill = 0; skill < pScenario->nSkills(); skill++)
       skillsToRemove.push_back(skill);
     for (int skill : skillsVector)
@@ -155,62 +260,52 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
 
     // shorten the vectors intToSkill and skillToInt to match the list of skills
     vector<string> intToSkill(pScenario->nSkills());
-    map<string, int> skillToInt(pScenario->skillsToInt());
     for (int sk : skillsToRemove) {
-      skillToInt.erase(pScenario->skill(sk));
       intToSkill.erase(intToSkill.begin() + sk);
     }
 
     // create the demand that relates only to input skills
-    //
     PDemand pDemand = pScenario->pWeekDemand();
 
     // erase the skills to remove from the minimum and optimal demands
     vector3D<int> minDemand = pDemand->minDemand_;
-    vector3D<int> optDemand = pDemand->optDemand_;
     for (int day = 0; day < pDemand->nDays_; day++)
       for (int shift = 0; shift < pDemand->nShifts_; shift++)
         for (int skill : skillsToRemove) {
           minDemand[day][shift][skill] = 0;
-          optDemand[day][shift][skill] = 0;
         }
-    PDemand pDemandInTheComponent =
-        std::make_shared<Demand>(pDemand->nDays_,
-                                 pDemand->firstDay_,
-                                 pDemand->nShifts_,
-                                 pDemand->nSkills_,
-                                 pDemand->name_,
-                                 minDemand,
-                                 optDemand);
+    PDemand pDemandInTheComponent;
+    if (pDemand->isOptDemand_) {
+      vector3D<int> optDemand = pDemand->optDemand_;
+      for (int day = 0; day < pDemand->nDays_; day++)
+        for (int shift = 0; shift < pDemand->nShifts_; shift++)
+          for (int skill : skillsToRemove) {
+            optDemand[day][shift][skill] = 0;
+          }
+      pDemandInTheComponent =
+          std::make_shared<Demand>(pDemand->nDays_,
+                                   pDemand->firstDayId_,
+                                   pDemand->nShifts_,
+                                   pDemand->nSkills_,
+                                   pDemand->name_,
+                                   minDemand,
+                                   optDemand);
+    } else {
+      pDemandInTheComponent =
+          std::make_shared<Demand>(pDemand->nDays_,
+                                   pDemand->firstDayId_,
+                                   pDemand->nShifts_,
+                                   pDemand->nSkills_,
+                                   pDemand->name_,
+                                   minDemand);
+    }
 
     // create the preferences that relate only to the nurses of the connected
     // component.
     PPreferences pPreferencesInTheComponent =
-        std::make_shared<Preferences>(nursesInTheComponent,
-                                      pDemand->nDays_,
-                                      pScenario->nShifts());
-    PPreferences pPreferences = pScenario->pWeekPreferences();
-
-    // only keep the demand of the nurses in the component
-    for (PNurse pNurse : nursesInTheComponent)
-      for (const auto &itDay : pPreferences->nurseWishesOff(pNurse->num_))
-        for (const auto &itShift : itDay.second)
-          pPreferencesInTheComponent->addShiftOff(pNurse->num_,
-                                                  itDay.first,
-                                                  itShift.shift,
-                                                  itShift.level);
-
-    // only keep the demand of the nurses in the component
-    for (PNurse pNurse : nursesInTheComponent)
-      for (const auto &itDay : pPreferences->nurseWishesOn(pNurse->num_))
-        for (const auto &itShift : itDay.second)
-          pPreferencesInTheComponent->addShiftOn(pNurse->num_,
-                                                 itDay.first,
-                                                 itShift.shift,
-                                                 itShift.level);
+        pScenario->pWeekPreferences()->keep(nursesInTheComponent);
 
     // Create the new scenario
-    //
     PScenario pScenarioInTheConnectedComponent =
         std::make_shared<Scenario>(pScenario,
                                    nursesInTheComponent,
@@ -221,8 +316,8 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
     // component.
     vector<State> intialStatesInTheComponent;
     vector<State> *pInitialState = pScenario->pInitialState();
-
-    for (PNurse pNurse : nursesInTheComponent) {
+    intialStatesInTheComponent.reserve(nursesInTheComponent.size());
+    for (const PNurse& pNurse : nursesInTheComponent) {
       intialStatesInTheComponent.push_back(pInitialState->at(pNurse->num_));
     }
     pScenarioInTheConnectedComponent->setInitialState(
@@ -239,12 +334,14 @@ vector<PScenario> divideScenarioIntoConnectedPositions(PScenario pScenario) {
 /*****************************************************************************
 * Create a solver of the class specified by the input algorithm type
 ******************************************************************************/
-Solver *setSolverWithInputAlgorithm(PScenario pScen, Algorithm algorithm) {
+Solver* setSolverWithInputAlgorithm(
+    const PScenario& pScenario,
+    Algorithm algorithm) {
   Solver *pSolver = nullptr;
   switch (algorithm) {
     case GENCOL:
       // DBG: add solver type as option: CLP, S_GUROBI ...
-      pSolver = new RotationMP(pScen, CLP);
+      pSolver = new RotationMP(pScenario, CLP);
       break;
     default: Tools::throwError("The algorithm is not handled yet");
       break;
@@ -256,18 +353,18 @@ Solver *setSolverWithInputAlgorithm(PScenario pScen, Algorithm algorithm) {
 * When a solution of multiple consecutive weeks is available, load it in a
 * solver for all the weeks and  display the results
 ******************************************************************************/
-void displaySolutionMultipleWeeks(string dataDir,
-                                  string instanceName,
+void displaySolutionMultipleWeeks(const string& dataDir,
+                                  const string& instanceName,
                                   int historyIndex,
                                   const vector<int> &weekIndices,
                                   const vector<Roster> &solution,
                                   Status status,
-                                  string outDir) {
+                                  const string& outDir) {
   if (outDir.empty()) return;
 
   // initialize the log stream
   // first, concatenate the week numbers
-  int nbWeeks = weekIndices.size();
+  int nbWeeks = static_cast<int>(weekIndices.size());
   string catWeeks;
   for (int w = 0; w < nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
   string logPath = outDir + "Log-" + catWeeks + ".txt";
@@ -281,28 +378,39 @@ void displaySolutionMultipleWeeks(string dataDir,
 
   // load the solution in a new solver
   PScenario pScen =
-      initializeMultipleWeeks(dataDir, instanceName, historyIndex, weekIndices);
-  Solver *pSolver = new Solver(pScen);
+      initializeMultipleWeeksINRC2(dataDir,
+                                   instanceName,
+                                   historyIndex,
+                                   weekIndices);
+  auto *pSolver = new Solver(pScen);
   pSolver->loadSolution(solution);
 
   // write the log file for all the weeks
-  outStream << pSolver->solutionToLogString();
+  outStream << pSolver->writeResourceCosts();
 
   // write separately the solutions of each week in the required output format
   vector<string> solutions = pSolver->solutionToString(nbWeeks);
   for (int w = 0; w < nbWeeks; ++w) {
-    string solutionFile = outDir + "Sol-" + instanceName + "-" + catWeeks + "-"
-        + std::to_string(weekIndices[w]) + "-" + std::to_string(w) + ".txt";
+    string solutionFile = outDir;
+    solutionFile += "Sol-";
+    solutionFile += instanceName;
+    solutionFile +=  "-";
+    solutionFile += catWeeks;
+    solutionFile += "-";
+    solutionFile += std::to_string(weekIndices[w]);
+    solutionFile += "-";
+    solutionFile += std::to_string(w);
+    solutionFile += ".txt";
     Tools::LogOutput solutionStream(solutionFile);
     solutionStream << solutions[w];
   }
   delete pSolver;
 }
 
-void displaySolutionMultipleWeeks(InputPaths inputPaths,
+void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
                                   const vector<Roster> &solution,
                                   Status status,
-                                  string outDir) {
+                                  const string& outDir) {
   if (outDir.empty()) return;
 
   // initialize the log stream
@@ -320,12 +428,12 @@ void displaySolutionMultipleWeeks(InputPaths inputPaths,
   }
 
   // load the solution in a new solver
-  PScenario pScen = initializeMultipleWeeks(inputPaths);
+  PScenario pScen = initializeMultipleWeeksINRC2(inputPaths);
   Solver *pSolver = new Solver(pScen);
   pSolver->loadSolution(solution);
 
   // write the log file for all the weeks
-  outStream << pSolver->solutionToLogString();
+  outStream << pSolver->writeResourceCosts();
 
   // write separately the solutions of each week in the required output format
   vector<string> solutions = pSolver->solutionToString(nbWeeks);
@@ -345,7 +453,7 @@ void displaySolutionMultipleWeeks(InputPaths inputPaths,
 * input directory
 ******************************************************************************/
 
-void computeStatsOnTheDemandsOfAllInstances(string inputDir) {
+void computeStatsOnTheDemandsOfAllInstances(const string& inputDir) {
   struct dirent *dirp;
 
   // Open the input directory
@@ -362,6 +470,6 @@ void computeStatsOnTheDemandsOfAllInstances(string inputDir) {
     if (filename[0] != 'n') continue;
     ReadWrite::compareDemands((string) (inputDir + filename),
                               (string) ("outfiles/statDemands/" + filename
-                                  + ".txt"));
+                                            + ".txt"));
   }
 }

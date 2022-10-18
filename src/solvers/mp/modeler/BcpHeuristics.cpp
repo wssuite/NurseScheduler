@@ -12,52 +12,68 @@
 #include "BcpHeuristics.h"
 
 #include <map>
-#include <string>
 #include <utility>
 #include <vector>
+#include <chrono>  // NOLINT (suppress cpplint error)
+
+#include "solvers/mp/RotationMP.h"
+#include "solvers/mp/RosterMP.h"
 
 #include "CoinBuild.hpp"  // NOLINT (suppress cpplint error)
 
+#ifdef USE_CBC
+#include "OsiCbcSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+#include "CbcEventHandler.hpp"  // NOLINT (suppress cpplint error)
+#endif
 
 #ifdef USE_CPLEX
 #include "OsiCpxSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 #include "cplex.h"  // NOLINT
+SolverType BcpHeuristics::defaultSolverType = Cplex
 #endif
 
 #ifdef USE_GUROBI
+#include "gurobi_c++.h"  // NOLINT
 #include "OsiGrbSolverInterface.hpp"  // NOLINT (suppress cpplint error)
 #endif
 
-#ifdef USE_CBC
-#include "OsiCbcSolverInterface.hpp"  // NOLINT (suppress cpplint error)
-#endif
-
-using std::string;
 using std::vector;
 using std::map;
 using std::pair;
 
+
+void HeuristicThread::safe_solve(const std::vector<BcpColumn *> &columns) {
+  if (!start()) return;
+  // solve the roster MP
+  try {
+    solve(columns);
+  } catch (const std::exception &e) {
+    std::cout << "HeuristicThread::safe_solve() caught an exception=: "
+              << e.what() << std::endl;
+  }
+  stop();
+  // delete
+  for (auto *pCol : columns) delete pCol;
+}
+
 BcpHeuristics::BcpHeuristics(
-    BcpModeler *pModel, SolverType type, int verbosity):
-  pModel_(pModel), mip_(std::make_shared<HeuristicMIP>()) {
-  mip_->pInitialSolver_ = getNewSolver(type);
-  if (mip_->pInitialSolver_ == nullptr)
-    Tools::throwError(
-        "%s is not linked to the executable or implemented.",
-        getNameForEnum(SolverTypesByName, type).c_str());
-//  if (type == CLP)
-//    std::cout << "WARNING: using CLP for branch&bound. "
-//                 "You should use at least CBC." << std::endl;
-  mip_->pInitialSolver_->messageHandler()->setLogLevel(verbosity);
-  BcpProblem pb(pModel);
-  mip_->pInitialSolver_->loadProblem(
-      *pb.matrix, &pb.lb[0], &pb.ub[0], &pb.obj[0],
-      &pb.lhs[0], &pb.rhs[0]);
+    BcpModeler *pModel, bool useRotationModel, SolverType type, int verbosity):
+    pModel_(pModel),
+    mip_() {
+  if (useRotationModel && pModel->getParameters().sp_type_ == ROSTER)
+    mip_ = std::make_shared<HeuristicRotation>(
+        pModel->pMaster_, type, verbosity);
+  else
+    mip_ = std::make_shared<HeuristicMIP>(
+        pModel->pMaster_, type, verbosity);
+  if (!pModel_->pMaster_->pHeuristics().empty())
+    lns_ = std::make_shared<HeuristicSolver>(
+        pModel->pMaster_, pModel_->pMaster_->pHeuristics().front(),
+        "LNS", type, verbosity);
 }
 
 BcpHeuristics::~BcpHeuristics() {
-  std::lock_guard<std::recursive_mutex> l(mip_->mutex_);
-  mip_->deleted = true;
+  stop();
 }
 
 static inline bool compareCol(const pair<int, double> &p1,
@@ -72,7 +88,7 @@ BCP_solution_generic * BcpHeuristics::rounding(
 
   // define different size
   const size_t size = vars.size(),
-        coreSize = pModel_->getCoreVars().size();
+      coreSize = pModel_->getCoreVars().size();
 
   // store lower bounds
   map<int, double> indexColLbChanged;
@@ -112,8 +128,8 @@ BCP_solution_generic * BcpHeuristics::rounding(
     } else {
       std::vector<BcpColumn*> columns; columns.reserve(size - coreSize);
       for (int i = coreSize; i < size; ++i)
-          columns.push_back(dynamic_cast<BcpColumn *>(vars[i]));
-      sol = buildSolution(solver, columns);
+        columns.push_back(dynamic_cast<BcpColumn *>(vars[i]));
+      sol = buildSolution(solver, pModel_, columns);
       break;
     }
   }
@@ -131,48 +147,239 @@ BCP_solution_generic * BcpHeuristics::rounding(
   return sol;
 }
 
-BCP_solution_generic * BcpHeuristics::mip_solve(
-    OsiSolverInterface *solver,
-    const BCP_vec<BCP_var*> &vars,
-    SolverType type) {
-  // lock and retrieve the current solution
-  std::lock_guard<std::recursive_mutex> l(mip_->mutex_);
-  BCP_solution_generic *sol = mip_->sol_;
-  mip_->sol_ = nullptr;
+BCP_solution_generic * BcpHeuristics::mip_solve() {
+  std::unique_lock<std::mutex> l(mutex_);
+  BCP_solution_generic *sol;
 
-  // check if solution improved Bcp
-  if (sol && pModel_->getObjective() > sol->objective_value())
-    std::cout << "The MIP heuristic has generated a solution of value "
-              << sol->objective_value() << std::endl;
+  // retrieve the current solution
+  sol = mip_->getEraseSolution();
 
   // if running, return current solution
-  stop();
-  if (mip_->pSolver_) return sol;
+  if (mip_->running()) return sol;
 
   // else, start a new mip
   // Copy the active columns
-  int colSize = pModel_->getActiveColumns().size();
-  std::vector<BcpColumn*> columns; columns.reserve(colSize);
-  for (auto * pVar : pModel_->getActiveColumns())
+  std::vector<BcpColumn *> columns;
+  size_t colSize = pModel_->getActiveColumns().size();
+  columns.reserve(colSize);
+  for (auto *pVar : pModel_->getActiveColumns())
     columns.push_back(new BcpColumn(*dynamic_cast<BcpColumn *>(pVar)));
 
-  double maxObj =
-      pModel_->getObjective() - pModel_->getParameters().optimalAbsoluteGap_;
   auto mip = mip_;
-  Tools::Job job = [columns, mip, maxObj, this]() {
-    // get a clone of the solver
-    mip_->clone();
+  // take copies so they continue to live outside the scope
+  Tools::Job job([columns, mip]() {
+    mip->safe_solve(columns);
+  }, pModel_->getParameters().MIPHeuristicNThreads_);
 
-    // stop as soon as a better solution has been found
-    mip->pSolver_->setDblParam(OsiPrimalObjectiveLimit, maxObj);
-    mip->pSolver_->setIntParam(OsiMaxNumIteration, 1e6);
+  // launch the job
+  Tools::ThreadsPool::runOneJob(job);
 
+  // wait for the resolution to start
+  cRunning_.wait_for(l, std::chrono::milliseconds(1), [mip]() {
+    return mip->running();
+  });
+
+  return sol;
+}
+
+BCP_solution_generic * BcpHeuristics::lns_solve() {
+  // one static field causing an issue is _cols_are_valid.
+  std::cerr << "2 instances of BCP cannot run simultaneously because of many "
+               "static fields. Therefore, BcpHeuristics::lns_solve() "
+               "is ignored." << std::endl;
+  return nullptr;
+//  std::unique_lock<std::mutex> l(mutex_);
+//  // lock and retrieve the current solution
+//  BCP_solution_generic *sol = lns_->getEraseSolution();
+//
+//  // if running, return current solution if any, otherwise continue
+//  if (lns_->running()) {
+//    // check if current solution is better than the one of the solver
+//    if (lns_->objValue() >= pModel_->getObjective() + 1e-1)
+//      lns_->askStop();  // stop current resolution to start a new one
+//    return sol;
+//  }
+//
+//  // else, start the solver
+//  // store the current solution if any
+//  if (pModel_->nbSolutions() > 0) {
+//    // store current primal solution
+//    auto primal = pModel_->getPrimal();
+//    auto activeColumns = pModel_->getActiveColumns();
+//    // store best solutions in the nurse rosters
+//    pModel_->loadBestSol(true);
+//    pModel_->pMaster_->storeSolution();
+//    // reload current primal solution
+//    pModel_->setPrimal(primal);
+//    int colInd = pModel_->getCoreVars().size();
+//    for (auto *pCol : activeColumns)
+//      pModel_->addActiveColumn(pCol, colInd++);
+//
+//    // take copies so they continue to live outside the scope
+//    auto lns = lns_;
+//    Tools::Job job([lns]() { lns->safe_solve({}); });
+//    lns_->attachJob(job);
+//
+//    // launch the job
+//    Tools::ThreadsPool::runOneJob(job);
+//
+//    // wait for the resolution to start
+//    cRunning_.wait_for(l, std::chrono::milliseconds(1), [lns]() {
+//      return lns->running();
+//    });
+//  }
+//
+//  return sol;
+}
+
+void HeuristicMIP::buildBcpSolution(const std::vector<Stretch> &solution) {
+  lock();
+  // check if pMaster still alive
+  if (shouldStop()) return;
+  // fetch columns
+  std::vector<BcpColumn*> columns;
+  for (int n=0; n < solution.size(); ++n) {
+    std::vector<Column> cols;
+    if (pMaster()->pModel()->getParameters().sp_type_ == ROSTER) {
+      RosterColumn rosterCol(RCSolution(solution[n]), n);
+      pMaster()->computeColumnCost(&rosterCol);
+      columns.push_back(dynamic_cast<BcpColumn *>(
+                            pMaster()->createColumn(rosterCol, "roster")));
+    } else {
+      auto rotations = computeWorkedRotations(solution[n], n);
+      for (auto &rot : rotations) {
+        pMaster()->computeColumnCost(&rot);
+        columns.push_back(dynamic_cast<BcpColumn *>(
+                              pMaster()->createColumn(rot, "rotation")));
+      }
+    }
+  }
+  unlock();
+  // solve the MIP with these columns
+  solveMP(columns);
+  // delete
+  for (auto *pCol : columns) delete pCol;
+}
+
+
+void HeuristicMIP::createInitialSolver(
+    MasterProblem *pMaster,
+    SolverType type,
+    int verbosity,
+    OsiSolverInterface **pSolver,
+    std::vector<double> *obj) {
+  *pSolver = getNewSolver(type);
+  if (*pSolver == nullptr)
+    Tools::throwError(
+        "%s is not linked to the executable or implemented.",
+        namesBySolverType.at(type).c_str());
+  (*pSolver)->messageHandler()->setLogLevel(verbosity);
+  BcpProblem pb(dynamic_cast<BcpModeler *>(pMaster->pModel()));
+// add objective as a cut
+  *obj = pb.obj;
+  (*pSolver)->loadProblem(
+      *pb.matrix, &pb.lb[0], &pb.ub[0], &pb.obj[0],
+      &pb.lhs[0], &pb.rhs[0]);
+}
+
+void HeuristicMIP::solve(const std::vector<BcpColumn *> &columns) {
+  solveMP(columns);
+}
+
+void HeuristicMIP::solveMP(const std::vector<BcpColumn*> &columns) {
+  // select rosters
+  std::vector<BcpColumn *> selectedCols = selectColumns(columns);
+  // get a clone of the solver
+  OsiSolverInterface *pSolver = clone(pInitialSolver_);
+  // solve the MIP with the columns
+  bool feasible = solveMIP(pSolver, obj_, selectedCols);
+  // build the solution if feasible
+  lock();
+  if (!shouldStop() && feasible) {
+    BCP_solution_generic * sol = BcpHeuristics::buildSolution(
+        pSolver, pMaster()->pModel(), selectedCols);
+    std::cout << "The MIP heuristic has generated a solution of value "
+              << sol->objective_value() << std::endl;
+    setSolution(sol);
+  }
+  unlock();
+  delete pSolver;
+}
+
+std::vector<BcpColumn*> HeuristicMIP::selectColumns(
+    const std::vector<BcpColumn*> &columns) {
+  // WARNING: do not use master without locking the mutex
+  // select a subset of columns for each nurse
+  vector2D<BcpColumn*> colsPerNurse(nNurses_);
+  vector<BcpColumn*> selectedCols;
+  selectedCols.reserve(nNurses_ * nColsToSelectPerNurses_);
+  for (auto pCol : columns)
+    colsPerNurse.at(Column::nurseNum(pCol)).push_back(pCol);
+  for (auto & cols : colsPerNurse) {
+    if (cols.size() > nColsToSelectPerNurses_) {
+      std::stable_sort(
+          cols.begin(), cols.end(),
+          [](BcpColumn *pCol1, BcpColumn *pCol2) {
+            // keep the most recent one used
+            if (pCol1->getLastActive() > pCol2->getLastActive()) return true;
+            if (pCol2->getLastActive() > pCol1->getLastActive()) return false;
+            // then the cheapest
+            if (pCol1->getCost() <= pCol2->getCost() - 1e-5)
+              return true;
+            if (pCol2->getCost() <= pCol1->getCost() - 1e-5)
+              return false;
+            // keep the latest one created
+            return pCol1->getIndex() > pCol2->getIndex();
+          });
+      cols.resize(nColsToSelectPerNurses_);
+    }
+    selectedCols.insert(selectedCols.end(), cols.begin(), cols.end());
+  }
+  return selectedCols;
+}
+
+#ifdef USE_CBC
+// create a callback to stop if the solution is below the UB
+class SolCallback : public CbcEventHandler {
+ public:
+  explicit SolCallback(HeuristicMIP *pSolver, CbcModel *model = nullptr):
+  CbcEventHandler(model), pSolver_(pSolver) {}
+
+  CbcAction event(CbcEvent whichEvent) override {
+    double ub = pSolver_->safeComputeObjUB();
+    if (!model_->parentModel()) {
+      if (whichEvent == solution || whichEvent == heuristicSolution) {
+        if (model_->getObjValue() <= ub)
+          return stop;  // say finished
+      }
+    }
+    double lb = model_->getBestPossibleObjValue();
+    if (lb >= ub)
+      return stop;  // say finished
+    return noAction;  // carry on
+  }
+
+  CbcEventHandler *clone() const override {
+    return new SolCallback(pSolver_, model_);
+  }
+
+ private:
+  HeuristicMIP *pSolver_;
+};
+#endif
+
+bool HeuristicMIP::solveMIP(OsiSolverInterface *pSolver,
+                            std::vector<double> obj,
+                            const std::vector<BcpColumn*> &columns) {
+  try {
     // add the columns to the new solver
     CoinBuild helper(1);
     std::vector<int> colIndices;
     colIndices.reserve(columns.size());
-    int i = mip->pSolver_->getNumCols();
-    for (auto *pCol : columns) {
+    // add objective as a cut
+    obj.reserve(obj.size() + columns.size());
+    int i = pSolver->getNumCols();
+    for (auto pCol : columns) {
       pCol->resetBounds();
       colIndices.push_back(i++);
       // add it to the solver
@@ -181,76 +388,418 @@ BCP_solution_generic * BcpHeuristics::mip_solve(
                     &pCol->getCoeffRows().front(),
                     pCol->lb(), pCol->ub(),
                     pCol->obj());
+      obj.push_back(pCol->obj());
     }
-    mip->pSolver_->addCols(helper);
-    mip->pSolver_->setInteger(&*colIndices.begin(), columns.size());
+    pSolver->addCols(helper);
+    pSolver->setInteger(&*colIndices.begin(), columns.size());
+
+    // set parameters and objective limit if necessary
+    lock();
+    if (shouldStop()) return false;
+    auto *pModel = dynamic_cast<BcpModeler*>(pMaster()->pModel());
+    double ub = computeObjUB();
+    double maxUb = pModel->getBestLB() *
+        (1 + pModel->getParameters().MIPHeuristicGapLimit_);
+    if (ub >= maxUb) ub = maxUb;
+
+    // add a constraint to bound the objective
+    std::vector<int> elements(obj.size());
+    for (int j = 0; j < obj.size(); ++j) elements[j] = j;
+    double lhs = -pSolver->getInfinity();
+    pSolver->addRow(obj.size(), &elements[0], &obj[0], lhs, ub);
+
+    // stop as soon as a better solution has been found
+    if (pModel->getParameters().MIPHeuristicObjLimit_)
+      pSolver->setDblParam(OsiPrimalObjectiveLimit, ub);
+    pSolver->setIntParam(OsiMaxNumIteration, maxNIterations_);
 
 #ifdef USE_CBC
-    auto cbcSolver = dynamic_cast<OsiCbcSolverInterface *>(mip->pSolver_);
+    auto cbcSolver = dynamic_cast<OsiCbcSolverInterface *>(pSolver);
     if (cbcSolver) {
       auto *cbcModel = cbcSolver->getModelPtr();
-      cbcModel->setLogLevel(mip->pSolver_->messageHandler()->logLevel());
+      cbcModel->setLogLevel(pSolver->messageHandler()->logLevel());
+      // use a callback to check the LB/UB of CBC vs the current UB
+      // it's not necessary, but allows to stop CBC as soon as necessary
+      std::shared_ptr<SolCallback> pCall = std::make_shared<SolCallback>(this);
+      cbcModel->passInEventHandler(pCall.get());
     }
 #endif
 
+#ifdef USE_GUROBI
+    auto grbSolver = dynamic_cast<OsiGrbSolverInterface *>(pSolver);
+    if (grbSolver) {
+      GRBmodel *grbMod =
+          grbSolver->getLpPtr(OsiGrbSolverInterface::KEEPCACHED_ALL);
+      GRBenv *grbEnv = GRBgetenv(grbMod);
+      GRBsetintparam(grbEnv, GRB_INT_PAR_THREADS,
+                     pModel->getParameters().MIPHeuristicNThreads_);
+      if (pModel->getParameters().MIPHeuristicObjLimit_)
+        GRBsetdblparam(grbEnv, GRB_DBL_PAR_BESTOBJSTOP, ub);
+      GRBsetdblparam(grbEnv, GRB_DBL_PAR_MIPGAPABS,
+                     pModel->getParameters().optimalAbsoluteGap_);
+      // use a callback to check the LB of gurobi vs the current UB
+      // it's not necessary, but allows to stop gurobi as soon as necessary
+      auto cb = [](GRBmodel *model, void *cbdata, int where, void *usrdata) {
+        auto *pH = reinterpret_cast<HeuristicRotation *>(usrdata);
+        if (pH->shouldStop()) return GRB_ERROR_CALLBACK;
+        if (where == GRB_CB_MIPNODE) {
+          double lb;
+          if (GRBcbget(cbdata, where, GRB_CB_MIPNODE_OBJBND,
+                       reinterpret_cast<void *>(&lb)))
+            return 0;  // do nothing as an error has been encountered
+          double ub = pH->safeComputeObjUB();
+          if (lb >= ub) return GRB_ERROR_CALLBACK;
+          return 0;
+        }
+        return 0;
+      };
+      GRBsetcallbackfunc(grbMod, cb, this);
+    }
+#else
+    // ensure termination of the solver by setting a maximum number of
+    // iterations
+    if (pModel->getParameters().MIPHeuristicMaxIteration_ > 10e9)
+        pSolver->setIntParam(OsiMaxNumIteration, 10e6);
+#endif
+    pModel = nullptr;
+    unlock();
+
     // solve the MIP
-    mip->pSolver_->branchAndBound();
+    pSolver->branchAndBound();
+    bool feasible =  !pSolver->isProvenPrimalInfeasible() &&
+        !pSolver->isProvenDualInfeasible() && (pSolver->getObjValue() <= ub);
+    if (feasible) {
+      nConsInfeasible_ = 0;
+      return true;
+    }
+  } catch (...) {}
 
-    // build the solution if feasible
-    BCP_solution_generic *sol = nullptr;
-    std::lock_guard<std::recursive_mutex> l(mip->mutex_);
-    if (!mip->deleted && !mip->pSolver_->isProvenPrimalInfeasible() &&
-        !mip->pSolver_->isProvenDualInfeasible())
-      sol = buildSolution(mip->pSolver_, columns);
-
-    for (auto *pCol : columns) delete pCol;
-
-    // if BcpHeuristics has been destroyed, delete everything
-    delete mip->pSolver_;
-    mip->pSolver_ = nullptr;
-    mip->sol_ = sol;
-  };
-
-  // launch the job
-  Tools::ThreadsPool::runOneJob(job);
-
-  return sol;
+  // the solution is infeasible if reaches here
+  // increase the number of rosters per nurses if necessary
+  if (nNurses_ * nColsToSelectPerNurses_ <= columns.size()) {
+    nColsToSelectPerNurses_ *= 2;
+  } else if (pSolver->isIterationLimitReached()) {
+    maxNIterations_ *= 2;
+  } else if (nConsInfeasible_++ > maxConsInfeasible_) {
+    // update nConsInfeasible_
+    nConsInfeasible_ = 0;
+    nSolveToSkip_ = maxSolveToSkip_;
+    maxSolveToSkip_ *= 2;
+  }
+  return false;
 }
 
-void BcpHeuristics::stop() {
-  std::lock_guard<std::recursive_mutex> l(mip_->mutex_);
-  if (mip_->pSolver_) mip_->pSolver_->setIntParam(OsiMaxNumIteration, 0);
+std::vector<RotationColumn> HeuristicMIP::computeWorkedRotations(
+    const Stretch &st, int nurseNum) const {
+  std::vector<RotationColumn> rotations;
+  Stretch rot;
+  int k = st.firstDayId();
+  for (const PShift &pS : st.pShifts()) {
+    // push back shift
+    if (pS->isWork()) {
+      // init if first one
+      if (rot.nDays() == 0)
+        rot = Stretch(k, pS);
+      else
+        rot.pushBack(pS);
+    } else if (rot.nDays() > 0) {
+      // save rotation
+      rotations.emplace_back(RCSolution(rot), nurseNum);
+      // clear rot
+      rot = Stretch();
+    }
+    ++k;
+  }
+
+#ifdef DBG
+  if (k != st.nDays())
+    Tools::throwError("Not all days have been visited as k=%d "
+                      "for this roster: %s", k, st.toString().c_str());
+#endif
+
+  // save last rotation
+  if (rot.nDays() > 0)
+    rotations.emplace_back(RCSolution(rot), nurseNum);
+
+  return rotations;
 }
 
+double HeuristicMIP::safeComputeObjUB() {
+  lock();
+  double ub = computeObjUB();
+  unlock();
+  return ub;
+}
+
+double HeuristicMIP::computeObjUB() {
+  if (pMaster() == nullptr)
+    return -LARGE_SCORE;
+  auto *pModel = pMaster()->pModel();
+  double ub = pModel->getObjective()
+      - pModel->getParameters().optimalAbsoluteGap_
+      + 10 * pModel->epsilon();
+  return ub;
+}
+
+HeuristicRotation::HeuristicRotation(
+    MasterProblem *pMaster, SolverType type, int verbosity):
+    HeuristicMIP(pMaster, type, verbosity) {
+  // create RotationMP
+  if (type == FirstAvailable) type = getFirstSolverTypeAvailable();
+  auto param = pMaster->pModel()->getParameters();
+  param.sp_type_ = ALL_ROTATION;
+  pRotMP_ = new RotationMP(pMaster->pScenario(), type, param);
+  createInitialSolver(pRotMP_, type, verbosity,
+                      &pInitialRotSolver_, &objRot_);
+}
+
+HeuristicRotation::~HeuristicRotation() {
+  delete pInitialRotSolver_;
+  delete pRotMP_;
+}
+
+void HeuristicRotation::solve(const std::vector<BcpColumn *> &columns) {
+  // select the roster columns
+  std::vector<BcpColumn*> allRosters = selectColumns(columns);
+  // solve the rotation MP
+  std::vector<Stretch> solution = solveRotationMP(allRosters);
+
+  if (!solution.empty()) buildBcpSolution(solution);
+}
+
+std::vector<Stretch> HeuristicRotation::solveRotationMP(
+    const std::vector<BcpColumn*> &columns) {
+  // build rotation columns
+  auto *pModel = pRotMP_->pModel();
+  auto param = pModel->getParameters();
+  std::vector<BcpColumn*> rotColumns = buildRotationColumns(columns);
+
+  // solve the roster MP problem
+  OsiSolverInterface *pSolver = clone(pInitialRotSolver_);
+  bool feasible = solveMIP(pSolver, objRot_, rotColumns);
+
+  // check if infeasible or should stop
+  if (!feasible || shouldStop()) {
+    for (auto pCol : rotColumns) delete pCol;
+    delete pSolver;
+    return {};
+  }
+
+  // fetch the rotation in the solution for each nurse
+  std::vector<vector<PColumn>> nurseColumns(pRotMP_->nNurses());
+  size_t coreSize = pModel->getCoreVars().size();
+  // create a BCP_solution_generic to return
+  int nCol = pSolver->getNumCols();
+  bool infeasible = false;
+  for (size_t i = coreSize; i < nCol; ++i) {
+    double vCol = pSolver->getColSolution()[i];
+    MyVar *pCol = rotColumns.at(i - coreSize);
+    if (vCol > pModel->epsilon()) {
+      if (abs(1 - vCol) > pModel->epsilon()) {
+#ifdef DBG
+        Tools::throwError("HeuristicRotation::solveRotationMP: Value of the "
+                          "rotation column should be equal to 1 and not %.2f",
+                          vCol);
+#endif
+        infeasible = true;
+      }
+      auto pRot = pRotMP_->getPColumn(pCol);
+      nurseColumns.at(pRot->nurseNum()).push_back(pRot);
+    }
+  }
+  for (auto pCol : rotColumns) delete pCol;
+  delete pSolver;
+
+  // check if need to stop
+  if (infeasible || shouldStop()) return {};
+
+  // transform the rotations back to a roster
+  std::vector<Stretch> solution;
+  solution.reserve(nurseColumns.size());
+  for (auto &rotations : nurseColumns)
+    solution.push_back(computeRoster(rotations));
+
+  return solution;
+}
+
+std::vector<BcpColumn*> HeuristicRotation::buildRotationColumns(
+    const std::vector<BcpColumn*> &columns) {
+  // separate rosters into rotations and keep unique rotations for each nurse
+  std::vector<BcpColumn*> rotColumns;
+  vector4D<RotationColumn> rotationCols;  // per nurse, first day, last day
+  Tools::initVector3D(
+      &rotationCols, pRotMP_->nNurses(), pRotMP_->nDays(), pRotMP_->nDays());
+  for (BcpColumn *pCol : columns) {
+    PColumn roster =
+        std::make_shared<RosterColumn>(pCol, pRotMP_->pScenario());
+    std::vector<RotationColumn> rotations =
+        computeWorkedRotations(*roster, roster->nurseNum());
+    for (auto &rot : rotations) {
+      // check if rotation already present
+      bool present = false;
+      auto &rotCols = rotationCols.at(rot.nurseNum()).at(
+          rot.firstDayId()).at(rot.nDays() - 1);
+      for (const RotationColumn &rot0 : rotCols) {
+        present = true;
+        auto it = rot.pShifts().begin();
+        for (const auto &pS : rot0.pShifts()) {
+          if (!pS->equals(**it)) {
+            present = false;
+            break;
+          }
+          ++it;
+        }
+        if (present)
+          break;
+      }
+      if (!present) {
+        pRotMP_->computeColumnCost(&rot);
+        MyVar *pRotCol = pRotMP_->createColumn(rot, "rotation");
+        rotColumns.push_back(dynamic_cast<BcpColumn *>(pRotCol));
+        rotCols.push_back(rot);
+      }
+    }
+  }
+
+  return rotColumns;
+}
+
+Stretch HeuristicRotation::computeRoster(std::vector<PColumn> rotations) const {
+  std::stable_sort(
+      rotations.begin(), rotations.end(),
+      [](const PColumn &rot1, const PColumn &rot2) {
+#ifdef DBG
+        if (rot1->nurseNum() != rot2->nurseNum())
+          Tools::throwError("Two rotations for different nurses are used to "
+                            "generate a roster: %s and %s",
+                            rot1->toString().c_str(), rot2->toString().c_str());
+        if (rot1->firstDayId() <= rot2->firstDayId() &&
+            rot1->lastDayId() >= rot2->firstDayId())
+          Tools::throwError("Two overlapping rotations are used to generate a "
+                            "roster: %s and %s",
+                            rot1->toString().c_str(), rot2->toString().c_str());
+#endif
+        return rot1->firstDayId() <= rot2->firstDayId();
+      });
+
+  int nDays = pRotMP_->nDays();
+  const PShift &pRest = pRotMP_->pScenario()->pRestShift();
+  int nextRotationFirstDay = rotations.empty() ?
+                             nDays : rotations.front()->firstDayId();
+  // stretch for the future roster containing the first shift
+  std::vector<PShift> shifts(nextRotationFirstDay, pRest);
+  shifts.reserve(nDays);
+  for (auto itRot = rotations.begin(); itRot != rotations.end();) {
+    // add work days shifts
+#ifdef DBG
+    if (shifts.size() != (*itRot)->firstDayId())
+      Tools::throwError("Rotation should start on %d", shifts.size());
+#endif
+    shifts.insert(
+        shifts.end(), (*itRot)->pShifts().begin(), (*itRot)->pShifts().end());
+
+    // insert rest days shifts between rotations or until the end
+    itRot++;
+    nextRotationFirstDay =
+        itRot == rotations.end() ? nDays : (*itRot)->firstDayId();
+#ifdef DBG
+    if (shifts.size() != nDays && shifts.size() >= nextRotationFirstDay)
+      Tools::throwError("Rotation should start on at least one day after the "
+                        "previous one (%d) instead of before (%d)",
+                        shifts.size(), nextRotationFirstDay);
+#endif
+    std::vector<PShift> restShifts(nextRotationFirstDay - shifts.size(), pRest);
+    shifts.insert(shifts.end(), restShifts.begin(), restShifts.end());
+  }
+
+#ifdef DBG
+  if (shifts.size() != nDays)
+      Tools::throwError("Rotation should end on %d", nDays - 1);
+#endif
+
+  return {0, shifts};
+}
+
+void HeuristicSolver::solve(const std::vector<BcpColumn *> &columns) {
+  // build an initial solution
+  std::vector<Roster> rosters;
+  lock();
+  if (shouldStop()) {
+    for (const PLiveNurse &pN : pMaster()->pLiveNurses()) {
+      // if no valid solution, give an empty solution
+      if (pN->roster_.nDays() != pMaster()->nDays() ||
+          pN->roster_.duration() == 0) {
+        rosters.clear();
+        break;
+      }
+      rosters.push_back(pN->roster_);
+    }
+    unlock();
+    // solve
+    pSolver_->solve(rosters);
+  } else {
+    unlock();
+  }
+}
+
+BCP_solution_generic * HeuristicSolver::getEraseSolution() {
+  lock();
+  // check if has a better solution
+  if (pMaster() && pSolver_->objValue() >=
+      pMaster()->pModel()->getObjective() - 1e-1) {
+    unlock();
+    return nullptr;
+  }
+  std::cout << "HeuristicMIP " << name_ << " found a better solution of cost: "
+            << pSolver_->objValue() << std::endl;
+  // retrieve solution
+  std::vector<Roster> solution = pSolver_->solution();
+  if (solution.empty()) return nullptr;
+  // get BCP solution
+  std::vector<Stretch> stretches;
+  stretches.resize(solution.size());
+  for (const Roster &r : solution) stretches.push_back(r);
+  buildBcpSolution(stretches);
+  unlock();
+  // run parent method
+  return HeuristicMIP::getEraseSolution();
+}
 
 BCP_solution_generic * BcpHeuristics::buildSolution(
-    OsiSolverInterface *solver, const std::vector<BcpColumn*> &columns) const {
-  // define different size
-  const size_t colSize = columns.size(),
-        coreSize = pModel_->getCoreVars().size();
-  // create a BCP_solution_generic to return
-  auto *sol = new BCP_solution_generic();
-  for (size_t i = 0; i < coreSize; ++i)
-    if (solver->getColSolution()[i] > pModel_->epsilon()) {
-        // create new var that will be deleted by the solution sol
-        auto *var0 = dynamic_cast<BcpCoreVar *>(pModel_->getCoreVars()[i]);
-        sol->add_entry(new BcpCoreVar(*var0), solver->getColSolution()[i]);
-      }
-
-  for (int i = 0; i < colSize; ++i)
-    if (solver->getColSolution()[coreSize+i] > pModel_->epsilon()) {
-      // create new var that will be deleted by the solution sol
-        double v = solver->getColSolution()[coreSize+i];
-      sol->add_entry(new BcpColumn(*columns[i]),
-                     solver->getColSolution()[coreSize+i]);
+    OsiSolverInterface *solver,
+    Modeler* pModel,
+    const std::vector<BcpColumn*> &columns) {
+  // check feasibility
+  for (MyVar *var : pModel->getFeasibilityCoreVars())
+    if (solver->getColSolution()[var->getIndex()] > pModel->epsilon()) {
+      std::cerr << "HeuristicMIP found a infeasible solution of value: "
+                << solver->getObjValue() << std::endl;
+      return nullptr;
     }
+
+  // define different size
+  const size_t coreSize = pModel->getCoreVars().size();
+  // create a BCP_solution_generic to return
+  int nCol = solver->getNumCols();
+  auto *sol = new BCP_solution_generic();
+  for (size_t i = 0; i < nCol; ++i) {
+    double vCol = solver->getColSolution()[i];
+    if (vCol > pModel->epsilon()) {
+      // create new var that will be deleted by the solution sol
+      BCP_var* pV;
+      if (i < coreSize)
+        pV = new BcpCoreVar(*dynamic_cast<BcpCoreVar*>(
+            pModel->getCoreVars().at(i)));
+      else
+        pV = new BcpColumn(*columns.at(i - coreSize));
+#ifdef DBG
+      if (abs(vCol - round(vCol)) > pModel->epsilon())
+        Tools::throwError("BcpHeuristics: Column value should be integer "
+                          "and not equals to %.2f", vCol);
+#endif
+      sol->add_entry(pV, vCol);
+    }
+  }
 
   return sol;
 }
-
-HeuristicMIP::~HeuristicMIP() {
-  delete pSolver_;
-  delete pInitialSolver_;
-  delete sol_;
-}
-

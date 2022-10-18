@@ -1,0 +1,3 @@
+http://www.schedulingbenchmarks.org
+
+Le benchmark de Curtois. Il inclut des instances allant jusqu'à 52 semaines avec 150 nurses.

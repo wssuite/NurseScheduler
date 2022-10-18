@@ -14,8 +14,15 @@
 #include <algorithm>
 #include <list>
 #include <map>
+#include <vector>
 
 #include "solvers/mp/modeler/BcpModeler.h"
+
+#include "BCP_lp_functions.hpp"  // NOLINT
+
+#ifdef USE_GUROBI
+#include "OsiGrbSolverInterface.hpp"  // NOLINT (suppress cpplint error)
+#endif
 
 // Copyright (C) 2000, International Business Machines
 // Corporation and others.  All Rights Reserved.
@@ -26,37 +33,56 @@ BcpBranchingCandidates::BcpBranchingCandidates(BcpModeler *pModel):
 
 
 BCP_lp_branching_object * BcpBranchingCandidates::selectCandidates(
-    const std::list<MyPBranchingCandidate> &candidates,
+    const std::vector<MyPBranchingCandidate> &candidates,
     BCP_lp_prob *p,
     // the variables in the current formulation.
     const BCP_vec<BCP_var *> &vars,
     // the cuts in the current formulation.
-    const BCP_vec<BCP_cut *> &cuts) {
+    const BCP_vec<BCP_cut *> &cuts, int lpIt) {
+  // perform strong branching if more than one candidate
+  if (candidates.size() <= 1) {
+    candidate_ = candidates.front();
+  } else {
+    // perform strong branching if more than one candidate
+    candidate_ = BCP_lp_perform_strong_branching(p, candidates);
+  }
+
+  // clean the candidate before branching
+  candidate_->removeDeactivatedColumns(pModel_, [this, lpIt](MyVar* pVar) {
+    auto *pCol = dynamic_cast<BcpColumn*>(pVar);
+    if (!pModel_->canBeRemoved(pCol, lpIt)) return false;
+    pCol->make_to_be_removed();
+    return true;
+  });
+
+  // mark branching vars as non-removable
+  for (auto pVar : candidate_->getBranchingVars()) {
+    auto *pCol = dynamic_cast<BcpColumn*>(pVar);
+    if (pCol) pCol->make_non_removable();
+  }
+
+  // Delete whatever cols/rows we want to delete. This function also updates
+  // var/cut_positions !!!
+  BCP_lp_delete_cols_and_rows(*p, nullptr, 0, 0,
+                              false /* not from fathom */,
+                              true /* to force deletion */);
+
+  // retrieve new vars to get the right positions
+  const BCP_vec<BCP_var *> &updated_vars = p->node->vars;
+
+  // update current index of columns
+  pModel_->updateCurrentIndices(updated_vars);
+
+  // build the candidate object
   int nbNewVar = 0, nbNewCut = 0;  // counters for new columns and cuts
-  BCP_vec<BCP_lp_branching_object*> cands;
-  std::map<BCP_lp_branching_object*, MyPBranchingCandidate> candidatesMap;
-  for (const auto &candidate : candidates) {
-    BCP_lp_branching_object *can =
-        buildCandidate(*candidate, vars, cuts, &nbNewVar, &nbNewCut);
-    cands.push_back(can);
-    candidatesMap[can] = candidate;
-  }
+  BCP_lp_branching_object * can =
+      buildCandidate(*candidate_, updated_vars, cuts, &nbNewVar, &nbNewCut);
 
-  // perform strong branching if more than one candidate
-  if (cands.size() <= 1) {
-    candidate_ = candidatesMap.at(cands[0]);
-    return cands[0];
-  }
-
-  // perform strong branching if more than one candidate
-  BCP_lp_branching_object* best_candidate =
-      BCP_lp_perform_strong_branching(p, cands);
-  candidate_ = candidatesMap.at(best_candidate);
-  return best_candidate;
+  return can;
 }
 
 void BcpBranchingCandidates::updateTree(BCP_presolved_lp_brobj *best) {
-  for (int n=0; n < best->candidate()->child_num; ++n) {
+  for (int n = 0; n < best->candidate()->child_num; ++n) {
     const MyPBranchingNode & pNode = candidate_->getChild(n);
     pModel_->addNode(pNode, best->lpres(n).objval());
   }
@@ -88,11 +114,22 @@ BCP_lp_branching_object * BcpBranchingCandidates::buildCandidate(
   BCP_vec<double> generalVarBounds;
   for (MyVar *var : candidate.getBranchingVars()) {
     // search the var in the vars
-    int index = pModel_->getActiveIndex(var);
-    if (index == -1) {  // new var
+    int index = pModel_->getCurrentIndex(var);
+    if (var->getCurrentIndex() == -1) {  // new var
       index = vars.size() + *nbNewVar;
       ++*nbNewVar;
     }
+#ifdef DBG
+    else if (index == -1) {  // NOLINT
+      Tools::throwError("Current index of var is out of date: %s.", var->name_);
+    } else {
+      auto pVar = dynamic_cast<MyVar*>(vars[index]);
+      if (pVar != var)
+        Tools::throwError("current index of var is invalid as it's pointing "
+                          "to a different variable: %s vs %s.",
+                          var->name_, pVar->name_);
+    }
+#endif
     vpos.push_back(index);
   }
 
@@ -151,6 +188,13 @@ BCP_lp_branching_object * BcpBranchingCandidates::buildCandidate(
       nullptr /* implied parts */);
 }
 
+bool BcpBranchingCandidates::candidateIncludeVariable(MyVar *pVar) const {
+  if (candidate_ == nullptr) return false;
+  for (MyVar *pV : candidate_->getBranchingVars())
+    if (pV == pVar) return true;
+  return false;
+}
+
 // Decide which branching object is preferred for branching.
 // Based on the member fields of the two presolved candidate branching
 // objects decide which one should be preferred for really branching on it.
@@ -199,6 +243,7 @@ BcpBranchingCandidates::compare_branching_candidates(
 
 std::pair<int, int> BcpBranchingCandidates::BCP_add_branching_objects(
     BCP_lp_prob *p,
+    OsiSolverInterface *lp,
     const BCP_vec<BCP_lp_branching_object*> &candidates) {
   // to make things short
   if (candidates.empty())
@@ -224,8 +269,6 @@ std::pair<int, int> BcpBranchingCandidates::BCP_add_branching_objects(
   const int orig_col_num = vars.size();
   const int orig_row_num = cuts.size();
 
-  OsiSolverInterface* lp = p->lp_solver;
-
   // deal with the vars
   if (newvar_num > 0) {
     BCP_vec<BCP_var*> new_vars;
@@ -239,14 +282,15 @@ std::pair<int, int> BcpBranchingCandidates::BCP_add_branching_objects(
     BCP_vec<BCP_col*> cols;
     cols.reserve(newvar_num);
     p->user->vars_to_cols(cuts, new_vars, cols,
-                         *p->lp_result, BCP_Object_Branching, false);
+                          *p->lp_result, BCP_Object_Branching, false);
     BCP_lp_add_cols_to_lp(cols, lp);
     purge_ptr_vector(cols);
 
-    for (int i = 0; i < newvar_num; ++i) {
-      new_vars[i]->set_bcpind(-BCP_lp_next_var_index(*p));
-    }
-    vars.append(new_vars);
+    // DO NOT CHANGE INDEX AND P
+//    for (int i = 0; i < newvar_num; ++i) {
+//      new_vars[i]->set_bcpind(-BCP_lp_next_var_index(*p));
+//    }
+//    vars.append(new_vars);
   }
 
   // now add the rows
@@ -264,19 +308,20 @@ std::pair<int, int> BcpBranchingCandidates::BCP_add_branching_objects(
     BCP_fatal_error::abort_on_error = false;
     try {
       p->user->cuts_to_rows(vars, new_cuts, rows,
-                           *p->lp_result, BCP_Object_Branching, false);
+                            *p->lp_result, BCP_Object_Branching, false);
     } catch (...) {
     }
     BCP_fatal_error::abort_on_error = true;
     BCP_lp_add_rows_to_lp(rows, lp);
     purge_ptr_vector(rows);
 
-    for (int i = 0; i < newcut_num; ++i) {
-      new_cuts[i]->set_bcpind(-BCP_lp_next_cut_index(*p));
-    }
-    cuts.append(new_cuts);
-    p->node->lb_at_cutgen.insert(p->node->lb_at_cutgen.end(), newcut_num,
-                                p->lp_result->objval());
+    // DO NOT CHANGE INDEX AND P
+//    for (int i = 0; i < newcut_num; ++i) {
+//      new_cuts[i]->set_bcpind(-BCP_lp_next_cut_index(*p));
+//    }
+//    cuts.append(new_cuts);
+//    p->node->lb_at_cutgen.insert(p->node->lb_at_cutgen.end(), newcut_num,
+//                                 p->lp_result->objval());
   }
 
   // mark the newly added vars as fixed to 0, and the newly added cuts as
@@ -303,11 +348,11 @@ void BcpBranchingCandidates::BCP_mark_result_of_strong_branching(
     const BCP_lp_branching_object* can,
     const int added_col_num,
     const int added_row_num) {
-  BCP_var_set& vars = p->node->vars;
+  BCP_var_set &vars = p->node->vars;
   if (can->forced_var_pos) {
     BCP_vec<int>::const_iterator ii = can->forced_var_pos->begin();
     BCP_vec<int>::const_iterator lastii = can->forced_var_pos->end();
-    for ( ; ii != lastii; ++ii)
+    for (; ii != lastii; ++ii)
       vars[*ii]->make_non_removable();
   }
   if (can->implied_var_pos) {
@@ -315,24 +360,24 @@ void BcpBranchingCandidates::BCP_mark_result_of_strong_branching(
     // bound change takes place...
     BCP_vec<int>::const_iterator ii = can->implied_var_pos->begin();
     BCP_vec<int>::const_iterator lastii = can->implied_var_pos->end();
-    for ( ; ii != lastii; ++ii)
+    for (; ii != lastii; ++ii)
       vars[*ii]->make_active();
   }
 
   if (added_col_num) {
     BCP_var_set::iterator vari = vars.entry(vars.size() - added_col_num);
     BCP_var_set::const_iterator lastvari = vars.end();
-    for ( ; vari != lastvari; ++vari) {
+    for (; vari != lastvari; ++vari) {
       if (!(*vari)->is_non_removable())
         (*vari)->make_to_be_removed();
     }
   }
 
-  BCP_cut_set& cuts = p->node->cuts;
+  BCP_cut_set &cuts = p->node->cuts;
   if (can->forced_cut_pos) {
     BCP_vec<int>::const_iterator ii = can->forced_cut_pos->begin();
     BCP_vec<int>::const_iterator lastii = can->forced_cut_pos->end();
-    for ( ; ii != lastii; ++ii)
+    for (; ii != lastii; ++ii)
       cuts[*ii]->make_non_removable();
   }
   if (can->implied_cut_pos) {
@@ -340,13 +385,13 @@ void BcpBranchingCandidates::BCP_mark_result_of_strong_branching(
     // bound change takes place...
     BCP_vec<int>::const_iterator ii = can->implied_cut_pos->begin();
     BCP_vec<int>::const_iterator lastii = can->implied_cut_pos->end();
-    for ( ; ii != lastii; ++ii)
+    for (; ii != lastii; ++ii)
       cuts[*ii]->make_active();
   }
   if (added_row_num > 0) {
     BCP_cut_set::iterator cuti = cuts.entry(cuts.size() - added_row_num);
     BCP_cut_set::const_iterator lastcuti = cuts.end();
-    for ( ; cuti != lastcuti; ++cuti) {
+    for (; cuti != lastcuti; ++cuti) {
       if (!(*cuti)->is_non_removable())
         (*cuti)->make_to_be_removed();
     }
@@ -355,32 +400,41 @@ void BcpBranchingCandidates::BCP_mark_result_of_strong_branching(
 
 //#############################################################################
 
-BCP_lp_branching_object*
-BcpBranchingCandidates::BCP_lp_perform_strong_branching(
+MyPBranchingCandidate BcpBranchingCandidates::BCP_lp_perform_strong_branching(
     BCP_lp_prob *p,
-    const BCP_vec<BCP_lp_branching_object*>& candidates) {
+    const std::vector<MyPBranchingCandidate>& candidates) {
   BCP_var_set& vars = p->node->vars;
   BCP_cut_set& cuts = p->node->cuts;
 
-  const int orig_colnum = vars.size();
-
-  const std::pair<int, int> added_object_num =
-      BCP_add_branching_objects(p, candidates);
-
-  const int added_colnum = added_object_num.first;
-  const int added_rownum = added_object_num.second;
-
-  const int colnum = vars.size();
-  const int rownum = cuts.size();
-
-  int i, j;  // loop variable
-
+  // clone LP and set ws
   const CoinWarmStart * ws = p->lp_solver->getWarmStart();
+  OsiSolverInterface* LP = p->lp_solver->clone();
+  LP->setWarmStart(ws);
+  delete ws;
 
-  // prepare for strong branching
-  p->lp_solver->markHotStart();
+  // build candidates
+  BCP_vec<BCP_lp_branching_object*> cands;
+  std::map<BCP_lp_branching_object*, MyPBranchingCandidate> candidatesMap;
+  int nbNewVar = 0, nbNewCut = 0;  // counters for new columns and cuts
+  for (const auto &candidate : candidates) {
+    nbNewVar = 0, nbNewCut = 0;
+    BCP_lp_branching_object *can =
+        buildCandidate(*candidate, vars, cuts, &nbNewVar, &nbNewCut);
+    cands.push_back(can);
+    candidatesMap[can] = candidate;
+  }
+
+  // add new vars and cuts to LP
+  const std::pair<int, int> added_object_num =
+      BCP_add_branching_objects(p, LP, cands);
+
+  // store the new basis
+  ws = LP->getWarmStart();
 
   // save the lower/upper bounds of every var/cut
+  const int colnum = vars.size();
+  const int rownum = cuts.size();
+  int i, j;  // loop variable
   BCP_vec<double> rowbounds(2 * rownum, 0.0);
   BCP_vec<double> colbounds(2 * colnum, 0.0);
 
@@ -389,19 +443,25 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
   for (i = 0; i < maxind; ++i)
     all_indices[i] = i;
 
-  const double * rlb_orig = p->lp_solver->getRowLower();
-  const double * rub_orig = p->lp_solver->getRowUpper();
+  const double * rlb_orig = LP->getRowLower();
+  const double * rub_orig = LP->getRowUpper();
   for (j = -1, i = 0; i < rownum; ++i) {
     rowbounds[++j] = rlb_orig[i];
     rowbounds[++j] = rub_orig[i];
   }
 
-  const double * clb_orig = p->lp_solver->getColLower();
-  const double * cub_orig = p->lp_solver->getColUpper();
+  const double * clb_orig = LP->getColLower();
+  const double * cub_orig = LP->getColUpper();
   for (j = -1, i = 0; i < colnum; ++i) {
     colbounds[++j] = clb_orig[i];
     colbounds[++j] = cub_orig[i];
   }
+
+  // for gurobi, use warmstart, otherwise hotStart
+  bool isGRB = false;
+#ifdef USE_GUROBI
+  isGRB = dynamic_cast<OsiGrbSolverInterface*>(LP) != nullptr;
+#endif
 
   // local thread pool (use all available threads)
   Tools::PThreadsPool pPool = Tools::ThreadsPool::newThreadsPool();
@@ -410,29 +470,27 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
   // Look at the candidates one-by-one and presolve them.
   p->user->print(p->param(BCP_lp_par::LpVerb_StrongBranchResult),
                  "\nLP: Starting strong branching:\n\n");
-  const OsiBabSolver* babSolver = p->user->getOsiBabSolver();
   BCP_presolved_lp_brobj *best_presolved = nullptr;
-  BCP_vec<BCP_lp_branching_object*>::iterator cani;
-  for (auto cani = candidates.begin(); cani != candidates.end(); ++cani) {
-   /**
-   * Start of the job definition (part run in parallel)
-   */
-    Tools::Job job = [&, cani, this]() {
+  for (auto cani = cands.begin(); cani != cands.end(); ++cani) {
+    /**
+    * Start of the job definition (part run in parallel)
+    */
+    Tools::Job job([&, cani, this]() {
       // fetch an LP solver
-      OsiSolverInterface* lp = nullptr;
+      OsiSolverInterface *lp = nullptr;
       std::unique_lock<std::recursive_mutex> l(mutex_);
       if (!lps.empty()) {
         lp = lps.back();
         lps.pop_back();
       }
-      l.unlock();
       // clone the lp if none is available
       if (lp == nullptr) {
-        lp = p->lp_solver->clone();
+        lp = LP->clone();
         // prepare for strong branching
         lp->setWarmStart(ws);
-        lp->markHotStart();
+        if (!isGRB) lp->markHotStart();
       }
+      l.unlock();
 
       // Create a temporary branching object to hold the current results
       BCP_lp_branching_object *can = *cani;
@@ -441,7 +499,12 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
         can->apply_child_bd(lp, i);
         // bound changes always imply that primal feasibility is lost.
         p->user->modify_lp_parameters(lp, 1, true);
-        lp->solveFromHotStart();
+        if (isGRB) {
+          lp->setWarmStart(ws);
+          lp->resolve();
+        } else {
+          lp->solveFromHotStart();
+        }
         tmp_presolved->get_results(*lp, i);
         l.lock();
         BCP_lp_test_feasibility(*p, tmp_presolved->lpres(i));
@@ -453,39 +516,7 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
         if (can->vars_affected() > 0)
           lp->setColSetBounds(all_indices.begin(), all_indices.entry(colnum),
                               colbounds.begin());
-
-//          if (p->param(BCP_lp_par::LpVerb_PresolveResult)) {
-//            p->user->print(true, "LP:   Presolving:");
-//            if (p->param(BCP_lp_par::LpVerb_PresolvePositions)) {
-//              can->print_branching_info(orig_colnum,
-//                                        p->lp_result->x(),
-//                                        p->lp_solver->getObjCoefficients());
-//            }
-//            for (i = 0; i < can->child_num; ++i) {
-//              const BCP_lp_result& res = tmp_presolved->lpres(i);
-//              const double lb = res.objval();
-//              p->user->print(true,
-//                          (lb>BCP_DBL_MAX/10 ? " [%e,%i,%i]":" [%.4f,%i,%i]"),
-//                            lb, res.termcode(), res.iternum());
-//            }
-//            p->user->print(true, "\n");
-//          }
-//      if (babSolver) {
-//        p->user->generate_cuts_in_lp(tmp_presolved->lpres(i),
-//                                    p->node->vars, p->node->cuts,
-//                                    tmp_presolved->get_new_cuts()[i],
-//                                    tmp_presolved->get_new_rows()[i]);
-//      }
       }
-//        for (int i = 0; i < can->child_num; ++i) {
-//          const BCP_lp_result& res = tmp_presolved->lpres(i);
-//          const double lb = res.objval();
-//          p->user->print(true,
-//                        (lb>BCP_DBL_MAX/10 ? " [%e,%i,%i]":" [%.4f,%i,%i]"),
-//                        lb, res.termcode(), res.iternum());
-//        }
-//        p->user->print(true, "\n");
-
       // Compare the current one with the best so far
       l.lock();
       switch (compare_branching_candidates(tmp_presolved,
@@ -508,7 +539,7 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
       lps.push_back(lp);
       l.unlock();
       delete tmp_presolved;
-    };
+    });  // END JOB
     /**
     * End of the job definition (part run in parallel)
     */
@@ -520,36 +551,27 @@ BcpBranchingCandidates::BCP_lp_perform_strong_branching(
 
   // delete lps
   for (auto *lp : lps) {
-    lp->unmarkHotStart();
+    if (!isGRB) lp->unmarkHotStart();
     delete lp;
   }
   lps.clear();
 
   // indicate to the lp solver that strong branching is done
-  p->lp_solver->unmarkHotStart();
-  p->lp_solver->setWarmStart(ws);
   delete ws;
+  delete LP;
 
-  // delete all the candidates but the selected one (candidates will just
-  // silently go out of scope and we'll be left with a pointer to the final
-  // candidate in best_presolved).
+  // delete all the candidates
   BCP_lp_branching_object* can = best_presolved->candidate();
+  MyPBranchingCandidate bestCan = candidatesMap.at(can);
   delete best_presolved;
-  for (auto cani=candidates.begin(); cani != candidates.end(); ++cani) {
-    if (*cani != can)
-      delete *cani;
+  for (auto cani=cands.begin(); cani != cands.end(); ++cani) {
+    // delete new vars and cuts
+    if ((*cani)->vars_to_add)
+      for (BCP_var *var : *(*cani)->vars_to_add) delete var;
+    if ((*cani)->cuts_to_add)
+      for (BCP_cut *cut : *(*cani)->cuts_to_add) delete cut;
+    delete *cani;
   }
 
-  // Mark the cols/rows of the OTHER candidates as removable
-  BCP_mark_result_of_strong_branching(p, can, added_colnum, added_rownum);
-
-  // WARNING: cause some segfault as variables can be deleted but still
-  // referenced in the variables vector used in BcpModeler
-//  // Delete whatever cols/rows we want to delete. This function also updates
-//  // var/cut_positions !!!
-//  BCP_lp_delete_cols_and_rows(p, can, added_colnum, added_rownum,
-//                              false /* not from fathom */,
-//                              true /* to force deletion */);
-
-  return can;
+  return bestCan;
 }

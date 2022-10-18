@@ -19,89 +19,6 @@
 #include "tools/InputPaths.h"
 #include "tools/GlobalStats.h"
 
-enum NursesSelectionOperator {
-  NURSES_RANDOM,
-  NURSES_POSITION,
-  NURSES_CONTRACT
-};
-enum DaysSelectionOperator { TWO_WEEKS, FOUR_WEEKS, ALL_WEEKS };
-enum RepairOperator {
-  REPAIR_TWO_DIVES,
-  REPAIR_REPEATED_DIVES,
-  REPAIR_OPTIMALITY
-};
-
-class DeterministicSolverOptions {
- public:
-  DeterministicSolverOptions() {}
-  ~DeterministicSolverOptions() {}
-
-  // True -> decompose the process to treat nurses with non connected positions
-  // separately
-  bool divideIntoConnectedPositions_ = true;
-
-  // True -> solves the problem with a increasing horizon
-  // False -> solves the whole horizon directly
-  bool withRollingHorizon_ = false;
-
-  // Parameters of the rolling horizon
-  int rollingSamplePeriod_ = 7;
-  int rollingControlHorizon_ = 14;
-  int rollingPredictionHorizon_ = 56;
-
-  // True -> find an initial solution with primal-dual procedure
-  // False -> do it otherwise
-  bool withPrimalDual_ = false;
-
-  // True -> improve an initial solution with an LNS
-  // False -> return directly the best feasible solution
-  bool withLNS_ = false;
-
-  // Parameters of the LNS
-  int lnsMaxItWithoutImprovement_ = 10;
-  bool lnsNursesRandomDestroy_ = true;
-  bool lnsNursesPositionDestroy_ = true;
-  bool lnsNursesContractDestroy_ = true;
-  bool lnsDestroyOverTwoWeeks_ = true;
-  bool lnsDestroyOverFourWeeks_ = true;
-  bool lnsDestroyOverAllWeeks_ = true;
-  int lnsNbNursesDestroyOverTwoWeeks_ = 30;
-  int lnsNbNursesDestroyOverFourWeeks_ = 10;
-  int lnsNbNursesDestroyOverAllWeeks_ = 5;
-
-  // parameters of column generation
-  bool isStabilization_ = false;
-  bool isStabUpdateBoxRadius_ = false;
-  bool isStabUpdatePenalty_ = false;
-  int stopAfterXDegenerateIt_ = 1;
-
-  // Algorithm that we use to solve the problem
-  Algorithm solutionAlgorithm_ = GENCOL;
-
-  // Solver used for the LPs
-  SolverType MySolverType_ = CLP;
-
-  // Level of optimality that is requested to the solvers
-  // 0 -> return the first feasible solution
-  // 1 -> only get a small number of feasible solutions
-  // 2 -> try harder
-  // 3 -> go to optimality
-  int optimalityLevel_ = 1;
-
-  // Time limit
-  int totalTimeLimitSeconds_ = LARGE_TIME;
-
-  // Output options
-  std::string logfile_ = "";
-  int verbose_ = 1;
-
-  // Initial random seed for each solution of a new deterministic solver
-  int randomSeed_ = 0;
-
-  // number of available threads
-  int nThreads_ = 1;
-};
-
 
 //-----------------------------------------------------------------------------
 //
@@ -115,10 +32,15 @@ class DeterministicSolverOptions {
 
 class DeterministicSolver : public Solver {
  public:
-  explicit DeterministicSolver(PScenario pScenario);
-  DeterministicSolver(PScenario pScenario, const InputPaths &inputPaths);
+  explicit DeterministicSolver(
+      const PScenario& pScenario, const InputPaths &inputPaths = InputPaths());
+  DeterministicSolver(
+      const PScenario& pScenario, const DeterministicSolver &solver);
 
   ~DeterministicSolver();
+
+  // stop any solver which has been paused
+  void stop(bool wait = true);
 
 //----------------------------------------------------------------------------
 //
@@ -142,13 +64,10 @@ class DeterministicSolver : public Solver {
   const SolverParam &getCompleteParameters() const {
     return completeParameters_;
   }
-
-  void copyParameters(DeterministicSolver *pSolver) {
-    options_ = pSolver->getOptions();
-    rollingParameters_ = pSolver->getRollingParameters();
-    lnsParameters_ = pSolver->getLnsParameters();
-    completeParameters_ = pSolver->getCompleteParameters();
-    generatePResourcesFunc_ = pSolver->generatePResourcesFunc_;
+  // return true if ignore rolling horizon, LNS etc.
+  bool useCompleteSolverAnyway() const {
+    return (pScenario_->nDays() <= 28 && pScenario_->nNurses() <= 8)
+        || (pScenario_->nDays() <= 56 && pScenario_->nNurses() <= 5);
   }
 
   // Initialize deterministic options with default values
@@ -200,16 +119,14 @@ class DeterministicSolver : public Solver {
 
  public:
   // Main function
-  double solve(const std::vector<Roster> &solution = {});
+  double solve(const std::vector<Roster> &solution = {}) override;
 
   // Solve the problem using a decomposition of the set nurses by connected
   // components of the rcspp of positions
-  double solveByConnectedPositions();
+  double solveByConnectedPositions() override;
+  double solveOneComponent(const vector<Roster> &solution);
 
  protected:
-  // Ready the solver for the solution process
-  void init();
-
   // After the end of a solution process: retrieve status, solution, etc.
   double treatResults(Solver *pSolver);
 
@@ -227,12 +144,14 @@ class DeterministicSolver : public Solver {
  private:
   // Solver that will be called to solve each sampling period in the rolling
   // horizon
-  //
   Solver *pCompleteSolver_;
 
   // Parameters of the complete solution
-  //
   SolverParam completeParameters_;
+
+  // pool to be able to pause the solving process of the complete solver
+  Tools::PThreadsPool pThreadsPool_ = Tools::ThreadsPool::newThreadsPool(1);
+
 
   //----------------------------------------------------------------------------
   //

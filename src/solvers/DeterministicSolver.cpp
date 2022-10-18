@@ -19,7 +19,7 @@
 #include "solvers/mp/RosterMP.h"
 #include "InitializeSolver.h"
 #include "solvers/mp/modeler/BcpModeler.h"
-#include "tools/ReadWrite.h"
+#include "ReadWrite.h"
 
 
 // #define COMPARE_EVALUATIONS
@@ -40,21 +40,22 @@ using std::pair;
 //  solution.
 //
 //-----------------------------------------------------------------------------
-
-DeterministicSolver::DeterministicSolver(PScenario pScenario) :
+DeterministicSolver::DeterministicSolver(
+    const PScenario& pScenario, const DeterministicSolver &solver) :
     Solver(pScenario),
+    options_(solver.options_),
+    rollingParameters_(solver.getRollingParameters()),
+    lnsParameters_(solver.getLnsParameters()),
+    completeParameters_(solver.getCompleteParameters()),
     pCompleteSolver_(nullptr),
     pRollingSolver_(nullptr),
     pLNSSolver_(nullptr) {
-#ifdef DBG
-  std::cout << "# New deterministic solver created!" << std::endl;
-#endif
-
+  generatePResourcesFunc_ = solver.generatePResourcesFunc_;
   // The nurses must be preprocessed to use their positions
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
 }
 
-DeterministicSolver::DeterministicSolver(PScenario pScenario,
+DeterministicSolver::DeterministicSolver(const PScenario& pScenario,
                                          const InputPaths &inputPaths) :
     Solver(pScenario),
     pCompleteSolver_(nullptr), pRollingSolver_(nullptr), pLNSSolver_(nullptr) {
@@ -74,22 +75,26 @@ DeterministicSolver::DeterministicSolver(PScenario pScenario,
   this->initializeOptions(inputPaths);
   std::cout << std::endl;
 
-  if (!options_.logfile_.empty()) {
-    FILE *pFile;
-    pFile = fopen(options_.logfile_.c_str(), "w");
-    fprintf(pFile, "HERE COME THE LOGS OF THE MASTER PROBLEM\n\n");
-    fclose(pFile);
-  }
+  // erase previous log
+  if (!options_.logfile_.empty())
+    Tools::LogOutput log(options_.logfile_);
 }
 
 DeterministicSolver::~DeterministicSolver() {
+  stop();
   // delete also the reusable solvers
   delete pCompleteSolver_;
   delete pRollingSolver_;
   // DBG if (pLNSSolver_) delete pLNSSolver_;
 }
 
-
+void DeterministicSolver::stop(bool wait) {
+  // force to stop if was paused
+  if (pCompleteSolver_) {
+    pCompleteSolver_->getJob().askStop();
+    if (wait) pCompleteSolver_->getJob().wait();
+  }
+}
 //----------------------------------------------------------------------------
 //
 // PARAMETERS FUNCTIONS
@@ -97,9 +102,21 @@ DeterministicSolver::~DeterministicSolver() {
 //
 //----------------------------------------------------------------------------
 
+#define PARAM(field, value) { completeParameters_.field = value; \
+            lnsParameters_.field = value; \
+            rollingParameters_.field = value; }
+
 // Initialize deterministic options with default values
 //
 void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
+  // check if any path in input
+  param_.outdir_ = inputPaths.solutionPath();
+  if (param_.outdir_.empty()) param_.outdir_ = inputPaths.logPath();
+  if (param_.outdir_.empty()) param_.outdir_ = "outfiles/";
+  if (inputPaths.logPath().empty())
+    param_.logfile_ = param_.outdir_+"ns_log.txt";
+  Tools::mkdirs(param_.outdir_);  // create directories
+
   // initialize the log files when no path is specified
   string logDeterministic =
       inputPaths.logPath().empty() ? "" : inputPaths.logPath()
@@ -115,54 +132,53 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   // default parameters for the param
   completeParameters_ =
       SolverParam(options_.verbose_, TWO_DIVES, logDeterministic, logSolver);
-  lnsParameters_ =
-      SolverParam(options_.verbose_, TWO_DIVES, logDeterministic, logSolver);
-  rollingParameters_ =
-      SolverParam(options_.verbose_, TWO_DIVES, logDeterministic, logSolver);
+  completeParameters_.outdir_ = param_.outdir_;
+  lnsParameters_ = completeParameters_;
+  rollingParameters_ = completeParameters_;
+
+  completeParameters_.optimalityLevel(OPTIMALITY);
+
+  if (pScenario_->isINRC_)
+    PARAM(optimalAbsoluteGap_, 1)
 
   // read any options defined in the param file
   if (!inputPaths.paramFile().empty())
     readOptionsFromFile(inputPaths);
 
+//  // deactivate MIPHeuristicUseRotations as it is not working for INRC
+//  if (pScenario_->isINRC_)
+//    PARAM(MIPHeuristicUseRotations_, false);
+
   // override default values with argument values
-  if (inputPaths.verbose() >= 0)
+  if (inputPaths.verbose() >= 0) {
     options_.verbose_ = inputPaths.verbose();
-  completeParameters_.verbose(options_.verbose_);
-  rollingParameters_.verbose(options_.verbose_);
-  lnsParameters_.verbose(options_.verbose_);
+    completeParameters_.verbose(options_.verbose_);
+    rollingParameters_.verbose(options_.verbose_);
+    lnsParameters_.verbose(options_.verbose_);
+  }
 
   if (inputPaths.timeOut() >= 0)
-    options_.totalTimeLimitSeconds_ = inputPaths.timeOut();
-  completeParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
-  rollingParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
-  lnsParameters_.maxSolvingTimeSeconds_ = options_.totalTimeLimitSeconds_;
+    options_.totalTimeLimitSeconds_ = static_cast<int>(inputPaths.timeOut());
+  PARAM(maxSolvingTimeSeconds_, options_.totalTimeLimitSeconds_)
 
   if (!inputPaths.SPType().empty()) {
     std::string type = Tools::toUpperCase(inputPaths.SPType());
-    SPType t = SPTypesByName.at(type);
-    completeParameters_.sp_type_ = t;
-    rollingParameters_.sp_type_ = t;
-    lnsParameters_.sp_type_ = t;
+    SPType t = spTypesByName.at(type);
+    PARAM(sp_type_, t)
   }
 
   if (inputPaths.SPStrategy() >= 0) {
-    completeParameters_.spParam_.strategyLevel_ = inputPaths.SPStrategy();
-    rollingParameters_.spParam_.strategyLevel_ = inputPaths.SPStrategy();
-    lnsParameters_.spParam_.strategyLevel_ = inputPaths.SPStrategy();
+    PARAM(spParam_.strategyLevel_, inputPaths.SPStrategy())
   }
 
   if (!inputPaths.RCSPPType().empty()) {
     std::string type = Tools::toUpperCase(inputPaths.RCSPPType());
-    RCSPPType t = RCSPPTypesByName.at(type);
-    completeParameters_.rcspp_type_ = t;
-    rollingParameters_.rcspp_type_ = t;
-    lnsParameters_.rcspp_type_ = t;
+    RCSPPType t = rcsppTypesByName.at(type);
+    PARAM(rcspp_type_, t)
   }
 
   if (inputPaths.nCandidates() >= 1) {
-    completeParameters_.nCandidates_ = inputPaths.nCandidates();
-    rollingParameters_.nCandidates_ = inputPaths.nCandidates();
-    lnsParameters_.nCandidates_ = inputPaths.nCandidates();
+    PARAM(nCandidates_, inputPaths.nCandidates())
   }
 
   // set the number of threads
@@ -172,187 +188,47 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
 }
 
 // Read deterministic options from a file
-//
 void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
-  // open the file
-  //
-  std::fstream file;
-  ReadWrite::openFile(inputPaths.paramFile(), &file);
-
-
-  // go through all the lines of the parameter file
-  std::string title;
-  while (file.good()) {
-    Tools::readUntilOneOfTwoChar(&file, '#', '=', &title);
-    // ignore line
-    if (title.empty() || Tools::strEndsWith(title, "\n")) {
-      // read line
-      Tools::readUntilChar(&file, '\n', &title);
-      continue;
-    }
-
-
-    // Read the name of the scenario
-    //
-    if (Tools::strEndsWith(title, "divideIntoConnectedPositions")) {
-      file >> options_.divideIntoConnectedPositions_;
-    } else if (Tools::strEndsWith(title, "withRollingHorizon")) {
-      file >> options_.withRollingHorizon_;
-    } else if (Tools::strEndsWith(title, "rollingSamplePeriod")) {
-      file >> options_.rollingSamplePeriod_;
-    } else if (Tools::strEndsWith(title, "rollingControlHorizon")) {
-      file >> options_.rollingControlHorizon_;
-    } else if (Tools::strEndsWith(title, "rollingPredictionHorizon")) {
-      file >> options_.rollingPredictionHorizon_;
-    } else if (Tools::strEndsWith(title, "withLNS")) {
-      file >> options_.withLNS_;
-    } else if (Tools::strEndsWith(title, "lnsMaxItWithoutImprovement")) {
-      file >> options_.lnsMaxItWithoutImprovement_;
-    } else if (Tools::strEndsWith(title, "lnsNursesRandomDestroy")) {
-      file >> options_.lnsNursesRandomDestroy_;
-    } else if (Tools::strEndsWith(title, "lnsNursesPositionDestroy")) {
-      file >> options_.lnsNursesPositionDestroy_;
-    } else if (Tools::strEndsWith(title, "lnsNursesContractDestroy")) {
-      file >> options_.lnsNursesContractDestroy_;
-    } else if (Tools::strEndsWith(title, "lnsDestroyOverTwoWeeks")) {
-      file >> options_.lnsDestroyOverTwoWeeks_;
-    } else if (Tools::strEndsWith(title, "lnsDestroyOverFourWeeks")) {
-      file >> options_.lnsDestroyOverFourWeeks_;
-    } else if (Tools::strEndsWith(title, "lnsDestroyOverAllWeeks")) {
-      file >> options_.lnsDestroyOverAllWeeks_;
-    } else if (Tools::strEndsWith(title, "lnsNbNursesDestroyOverTwoWeeks")) {
-      file >> options_.lnsNbNursesDestroyOverTwoWeeks_;
-    } else if (Tools::strEndsWith(title, "lnsNbNursesDestroyOverFourWeeks")) {
-      file >> options_.lnsNbNursesDestroyOverFourWeeks_;
-    } else if (Tools::strEndsWith(title, "lnsNbNursesDestroyOverAllWeeks")) {
-      file >> options_.lnsNbNursesDestroyOverAllWeeks_;
-    } else if (Tools::strEndsWith(title, "solutionAlgorithm")) {
-      std::string algoName;
-      file >> algoName;
-      algoName = Tools::toUpperCase(algoName);
-      options_.solutionAlgorithm_ = AlgorithmsByName.at(algoName);
-    } else if (Tools::strEndsWith(title, "solverType")) {
-      std::string solverName;
-      file >> solverName;
-      solverName = Tools::toUpperCase(solverName);
-      options_.MySolverType_ = SolverTypesByName.at(solverName);
-#ifdef DBG
-      std::cout << "LP solver :" << solverName << std::endl;
-#endif
-    } else if (Tools::strEndsWith(title, "verbose")) {
-      file >> options_.verbose_;
-    } else if (Tools::strEndsWith(title, "isStabilization")) {
-      // Here and below, read the parameters that refer to branch and price
-      // solution.
-      // They are not options of the deterministic solver, but they need to be
-      // set at this stage
-      file >> completeParameters_.isStabilization_;
-      lnsParameters_.isStabilization_ = completeParameters_.isStabilization_;
-      rollingParameters_.isStabilization_ =
-          completeParameters_.isStabilization_;
-    } else if (Tools::strEndsWith(title, "isStabUpdateBoxRadius")) {
-      file >> completeParameters_.isStabUpdateBoxRadius_;
-      lnsParameters_.isStabUpdateBoxRadius_ =
-          completeParameters_.isStabUpdateBoxRadius_;
-      rollingParameters_.isStabUpdateBoxRadius_ =
-          completeParameters_.isStabUpdateBoxRadius_;
-    } else if (Tools::strEndsWith(title, "isStabUpdatePenalty")) {
-      file >> completeParameters_.isStabUpdatePenalty_;
-      lnsParameters_.isStabUpdatePenalty_ =
-          completeParameters_.isStabUpdatePenalty_;
-      rollingParameters_.isStabUpdatePenalty_ =
-          completeParameters_.isStabUpdatePenalty_;
-    } else if (Tools::strEndsWith(title, "nbDiveIfBranchOnColumns")) {
-      file >> completeParameters_.nbDiveIfBranchOnColumns_;
-      lnsParameters_.nbDiveIfBranchOnColumns_ =
-          completeParameters_.nbDiveIfBranchOnColumns_;
-      rollingParameters_.nbDiveIfBranchOnColumns_ =
-          completeParameters_.nbDiveIfBranchOnColumns_;
-    } else if (Tools::strEndsWith(title, "branchColumnDisjoint")) {
-      file >> completeParameters_.branchColumnDisjoint_;
-      lnsParameters_.branchColumnDisjoint_ =
-          completeParameters_.branchColumnDisjoint_;
-      rollingParameters_.branchColumnDisjoint_ =
-          completeParameters_.branchColumnDisjoint_;
-    } else if (Tools::strEndsWith(title, "branchColumnUntilValue")) {
-      file >> completeParameters_.branchColumnUntilValue_;
-      lnsParameters_.branchColumnUntilValue_ =
-          completeParameters_.branchColumnUntilValue_;
-      rollingParameters_.branchColumnUntilValue_ =
-          completeParameters_.branchColumnUntilValue_;
-    } else if (Tools::strEndsWith(title, "stopAfterXDegenerateIt")) {
-      file >> completeParameters_.stopAfterXDegenerateIt_;
-      lnsParameters_.stopAfterXDegenerateIt_ =
-          completeParameters_.stopAfterXDegenerateIt_;
-      rollingParameters_.stopAfterXDegenerateIt_ =
-          completeParameters_.stopAfterXDegenerateIt_;
-    } else if (Tools::strEndsWith(title, "heuristicMinIntegerPercent")) {
-      file >> completeParameters_.heuristicMinIntegerPercent_;
-      lnsParameters_.heuristicMinIntegerPercent_ =
-          completeParameters_.heuristicMinIntegerPercent_;
-      rollingParameters_.heuristicMinIntegerPercent_ =
-          completeParameters_.heuristicMinIntegerPercent_;
-    } else if (Tools::strEndsWith(title, "performHeuristicAfterXNode")) {
-      file >> completeParameters_.performHeuristicAfterXNode_;
-      lnsParameters_.performHeuristicAfterXNode_ =
-          completeParameters_.performHeuristicAfterXNode_;
-      rollingParameters_.performHeuristicAfterXNode_ =
-          completeParameters_.performHeuristicAfterXNode_;
-    } else if (Tools::strEndsWith(title, "nCandidates")) {
-      file >> completeParameters_.nCandidates_;
-      lnsParameters_.nCandidates_ = completeParameters_.nCandidates_;
-      rollingParameters_.nCandidates_ = completeParameters_.nCandidates_;
-    } else if (Tools::strEndsWith(title, "rollingOptimalityLevel")) {
-      std::string strOpt;
-      file >> strOpt;
-      strOpt = Tools::toUpperCase(strOpt);
-      rollingParameters_.optimalityLevel(stringToOptimalityLevel[strOpt]);
-    } else if (Tools::strEndsWith(title, "lnsOptimalityLevel")) {
-      std::string strOpt;
-      file >> strOpt;
-      strOpt = Tools::toUpperCase(strOpt);
-      lnsParameters_.optimalityLevel(stringToOptimalityLevel[strOpt]);
-    } else if (Tools::strEndsWith(title, "completeOptimalityLevel")) {
-      std::string strOpt;
-      file >> strOpt;
-      strOpt = Tools::toUpperCase(strOpt);
-      completeParameters_.optimalityLevel(stringToOptimalityLevel[strOpt]);
-    } else if (Tools::strEndsWith(title, "spDefaultStrategy")) {
-      file >> completeParameters_.spParam_.strategyLevel_;
-    } else if (Tools::strEndsWith(title, "spNbRotationsPerNurse")) {
-      file >> completeParameters_.spParam_.sp_nbrotationspernurse_;
-    } else if (Tools::strEndsWith(title, "spNbNursesToPrice")) {
-      file >> completeParameters_.spParam_.sp_nbnursestoprice_;
-    } else if (Tools::strEndsWith(title, "spMaxReducedCostBound")) {
-      file >> completeParameters_.spParam_.sp_max_reduced_cost_bound_;
-    } else if (Tools::strEndsWith(title, "rcsppToOptimality")) {
-      file >> completeParameters_.spParam_.rcsppToOptimality_;
-    } else if (Tools::strEndsWith(title, "rcsppSortLabels")) {
-      file >> completeParameters_.spParam_.rcsppSortLabels_;
-    } else if (Tools::strEndsWith(title, "rcsppMinCostToSinks")) {
-      file >> completeParameters_.spParam_.rcsppMinCostToSinks_;
-    } else if (Tools::strEndsWith(title, "rcsppImprovedDomination")) {
-      file >> completeParameters_.spParam_.rcsppImprovedDomination_;
-    } else if (Tools::strEndsWith(title, "rcsppEnumerateSubpaths")) {
-      file >> completeParameters_.spParam_.rcsppEnumSubpaths_;
-    } else if (Tools::strEndsWith(title,
-                                  "rcsppEnumerateSubpathsForMinCostToSinks")) {
-      file >> completeParameters_.spParam_
-           .rcsppEnumSubpathsForMinCostToSinks_;
-    } else if (Tools::strEndsWith(title, "rcsppDssr")) {
-      file >> completeParameters_.spParam_.rcsppDssr_;
-    } else if (Tools::strEndsWith(title, "rcsppNbToExpand")) {
-      file >> completeParameters_.spParam_.rcsppNbToExpand_;
-    } else if (Tools::strEndsWith(title, "rcsppBidirectional")) {
-      file >> completeParameters_.spParam_.rcsppBidirectional_;
-    } else if (Tools::strEndsWith(title, "rcsppPulse")) {
-      file >> completeParameters_.spParam_.rcsppPulse_;
-    } else if (Tools::strEndsWith(title, "rcsppWithRotationGraph")) {
-      file >> completeParameters_.spParam_.rcsppWithRotationGraph_;
-    }
-  }
-  lnsParameters_.spParam_ = completeParameters_.spParam_;
-  rollingParameters_.spParam_ = completeParameters_.spParam_;
+  // load all the options
+  Tools::loadOptions(
+      inputPaths.paramFile(),
+      [this](const std::string &field, std::fstream *file) {
+        // Here and below, read the parameters that refer to branch and price
+        // solution.
+        // They are not options of the deterministic solver, but they need to be
+        // set at this stage
+        if (Tools::strEndsWith(field, "verbose")) {
+          *file >> options_.verbose_;
+          completeParameters_.verbose(options_.verbose_);
+          rollingParameters_.verbose(options_.verbose_);
+          lnsParameters_.verbose(options_.verbose_);
+        } else if (options_.setParameter(field, file)) {
+          // nothing
+        } else if (completeParameters_.setParameter(
+            field, file, {&rollingParameters_, &lnsParameters_})) {
+          // nothing
+        } else if (completeParameters_.spParam_.setParameter(
+            field, file, {&rollingParameters_.spParam_,
+                          &lnsParameters_.spParam_})) {
+          // nothing
+        } else if (Tools::strEndsWith(field, "rollingOptimalityLevel")) {
+          std::string strOpt;
+          *file >> strOpt;
+          rollingParameters_.optimalityLevel(strToOptimalityLevel(strOpt));
+        } else if (Tools::strEndsWith(field, "lnsOptimalityLevel")) {
+          std::string strOpt;
+          *file >> strOpt;
+          lnsParameters_.optimalityLevel(strToOptimalityLevel(strOpt));
+        } else if (Tools::strEndsWith(field, "completeOptimalityLevel")) {
+          std::string strOpt;
+          *file >> strOpt;
+          completeParameters_.optimalityLevel(strToOptimalityLevel(
+              strOpt));
+        } else {
+          return false;
+        }
+        return true;
+      });
 }
 
 //----------------------------------------------------------------------------
@@ -362,18 +238,19 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
 //----------------------------------------------------------------------------
 
 void DeterministicSolver::updateInitialStats(Solver *pSolver) {
-  MasterProblem *pMaster = dynamic_cast<MasterProblem *>(pSolver);
+  auto *pMaster = dynamic_cast<MasterProblem *>(pSolver);
   if (!pMaster) return;
-  BcpModeler *pModel = dynamic_cast<BcpModeler *>(pMaster->pModel());
+  auto *pModel = dynamic_cast<BcpModeler *>(pMaster->pModel());
 
   stats_.bestUBInitial_ = pMaster->computeSolutionCost();
   stats_.bestUB_ = stats_.bestUBInitial_;
   stats_.rootLB_ = pModel->getRootLB();
-  stats_.bestLB_ = std::min(stats_.bestUB_,
-                            5.0 * ceil((pModel->getBestLB() - pModel->epsilon())
-                                           / 5.0));
+  double f = param_.optimalAbsoluteGap_;
+  stats_.bestLB_ = std::min(
+      stats_.bestUB_, f * ceil((pModel->getBestLB() - pModel->epsilon()) / f));
   stats_.timeInitialSol_ = pMaster->timerTotal()->dSinceStart();
-  pMaster->timerTotal()->reset();
+  if (pMaster->getJob().finish())
+    pMaster->timerTotal()->reset();
 
   // Details on Branch and price related runtimes
   //
@@ -389,20 +266,18 @@ void DeterministicSolver::updateInitialStats(Solver *pSolver) {
 }
 
 void DeterministicSolver::updateImproveStats(Solver *pSolver) {
-  MasterProblem *pMaster = dynamic_cast<MasterProblem *>(pSolver);
+  auto *pMaster = dynamic_cast<MasterProblem *>(pSolver);
   if (!pMaster) return;
-  BcpModeler *pModel = dynamic_cast<BcpModeler *>(pMaster->pModel());
+  auto *pModel = dynamic_cast<BcpModeler *>(pMaster->pModel());
 
   stats_.bestUB_ = pMaster->computeSolutionCost();
   stats_.timeImproveSol_ = pMaster->timerTotal()->dSinceStart();
 
   // Details on Branch and price related runtimes
-  //
   stats_.timeGenColMaster_ += pModel->getTimeStats().time_lp_solving;
   stats_.timeGenSubProblems_ += pModel->getTimeStats().time_var_generation;
 
   // details on Branch and price iterations
-  //
   stats_.itGenColImprove_ = pModel->getNbLpIterations();
   stats_.nodesBBImprove_ = pModel->getNbNodes();
 
@@ -423,28 +298,16 @@ void DeterministicSolver::updateImproveStats(Solver *pSolver) {
 
 // Main function
 double DeterministicSolver::solve(const std::vector<Roster> &solution) {
-  objValue_ = 0.0;
+  objValue_ = LARGE_SCORE;
 
   // set the random seed to the same fixed value for every solution of a new
   // scenario
   // this is absolutely necessary for reproducibility of the results
-  //
   Tools::initializeRandomGenerator(this->options_.randomSeed_);
-  srand(this->options_.randomSeed_);
-
-  // Always solve small problems to optimality
-  // This can actually save time
-  //
-  if ((pScenario_->horizon() <= 28 && pScenario_->nNurses() <= 8)
-      || (pScenario_->horizon() <= 56 && pScenario_->nNurses() <= 5)) {
-    completeParameters_.optimalityLevel(OPTIMALITY);
-    objValue_ = solveCompleteHorizon(solution);
-    return objValue_;
-  }
 
   // First divide the scenario into connected positions if requested
-  //
-  if (options_.divideIntoConnectedPositions_) {
+  // and if instance is big enough
+  if (options_.divideIntoConnectedPositions_ && !useCompleteSolverAnyway()) {
     options_.divideIntoConnectedPositions_ = false;
     objValue_ = this->solveByConnectedPositions();
   } else {
@@ -452,23 +315,41 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
     // of the subproblems goes in the "else" below.
     // Find a good feasible solution using a rolling horizon planning or
     // solving directly the complete horizon.
-    //
-    if (options_.withRollingHorizon_)
-      objValue_ = solveWithRollingHorizon(solution);
-    else
-      objValue_ = this->solveCompleteHorizon(solution);
-    // do not bother improving the solution if it is already optimal
-    if (status_ == OPTIMAL)
-      return objValue_;
-
-    // Improve the solution with an LNS
-    //
-    if (options_.withLNS_)
-      objValue_ = this->solveWithLNS(solution);
+    // When providing an initial solution with the LNS, skip this step
+    solveOneComponent(solution);
   }
   return objValue_;
 }
 
+// After dividing into connected components, solve one component
+double DeterministicSolver::solveOneComponent(
+    const std::vector<Roster> &solution) {
+  objValue_ = LARGE_SCORE;
+
+  // Always solve small problems to optimality; this can actually save time
+  if (useCompleteSolverAnyway()) {
+    // if not solving the linear relaxation
+    if (completeParameters_.stopAfterXSolution_ > 0)
+      completeParameters_.optimalityLevel(OPTIMALITY);
+    objValue_ = solveCompleteHorizon(solution);
+    return objValue_;
+  }
+  // Find a good feasible solution using a rolling horizon planning or
+  // solving directly the complete horizon.
+  if (options_.withRollingHorizon_)
+    objValue_ = solveWithRollingHorizon(solution);
+  else
+    objValue_ = this->solveCompleteHorizon(solution);
+  // do not bother improving the solution if it is already optimal
+  if (status_ == OPTIMAL)
+    return objValue_;
+
+  // Improve the solution with an LNS
+  if (options_.withLNS_)
+    objValue_ = this->solveWithLNS(solution);
+
+  return objValue_;
+}
 
 //------------------------------------------------------------------------
 //
@@ -479,13 +360,40 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
 double DeterministicSolver::solveCompleteHorizon(
     const std::vector<Roster> &solution) {
   // Initialize solver and solve
-  //
   bool firstSolve = !pCompleteSolver_;
-  delete pCompleteSolver_;
-  pCompleteSolver_ = setSolverWithInputAlgorithm(options_.solutionAlgorithm_,
-                                                 completeParameters_);
-  pCompleteSolver_->solve(completeParameters_, solution);
-  if (options_.verbose_ > 0 && pCompleteSolver_->isSolutionInteger()) {
+  if (firstSolve || pCompleteSolver_->getJob().finish()) {
+    delete pCompleteSolver_;
+    pCompleteSolver_ = setSolverWithInputAlgorithm(options_.solutionAlgorithm_,
+                                                   completeParameters_);
+    Tools::Job job([this, solution]() {
+      pCompleteSolver_->solve(completeParameters_, solution);
+    });
+    pCompleteSolver_->attachJob(job);
+  } else {
+    firstSolve = true;  // if resuming, it's still the first solve
+    pCompleteSolver_->setParameters(completeParameters_);
+  }
+  // add LNS heuristic if scenario is big enough
+  // WARNING: doesn't work as 2 BCP cannot run in parallel
+//  if (!useCompleteSolverAnyway() && completeParameters_.performLNSHeuristic_){
+//    auto pLNS = new DeterministicSolver(pScenario_, *this);
+//    pLNS->options_.withLNS_ = true;  // activate LNS
+//    pLNS->options_.nThreads_ = 1;
+//    // deactivate heuristic
+//    pLNS->lnsParameters_.performHeuristicAfterXNode_ = -1;
+//    pLNS->options_.divideIntoConnectedPositions_ = false;
+//    pCompleteSolver_->attachHeuristic(pLNS);
+//  }
+  // start or resume the resolution
+  Tools::Job job = pCompleteSolver_->getJob();
+  if (options_.pauseSolveOnTimeout_ || job.active()) {
+    pThreadsPool_->run(job, true);
+    pThreadsPool_->wait();
+  } else {
+    job.run();
+  }
+
+  if (options_.verbose_ > 1 && pCompleteSolver_->isSolutionInteger()) {
     std::cout << pCompleteSolver_->currentSolToString() << std::endl;
     std::cout << pCompleteSolver_->solutionToString() << std::endl;
   }
@@ -520,13 +428,18 @@ double DeterministicSolver::treatResults(Solver *pSolver) {
   // Update nurses' states when a feasible solution has been found
   if (pSolver->isSolutionInteger()) {
     solution_ = pSolver->solution();
-    for (int n = 0; n < pScenario_->nNurses(); ++n) {
-      theLiveNurses_[n]->roster_ = solution_[n];
-      theLiveNurses_[n]->buildStates();
+    for (const auto& pN : pSolver->pLiveNurses()) {
+      theLiveNurses_[pN->num_]->roster_ = solution_[pN->num_];
+      theLiveNurses_[pN->num_]->columns_ = pN->columns_;
+      theLiveNurses_[pN->num_]->colVals_ = pN->colVals_;
+      theLiveNurses_[pN->num_]->buildStates();
     }
   }
 
-  objValue_ = this->computeSolutionCost();
+  if (pSolver->parameters().stopAfterXSolution_ > 0)
+    objValue_ = this->computeSolutionCost();
+  else
+    objValue_ = pSolver->LB();
 
   return objValue_;
 }
@@ -557,7 +470,7 @@ double DeterministicSolver::solveByConnectedPositions() {
     // nurses in each component not solved at optimality.
     // change also the settings to try to consume all the solving time provided
     if (nbNursesToSolve == 0) {
-      for (auto pSc : scenariosToSolve)
+      for (const auto& pSc : scenariosToSolve)
         nbNursesToSolve += pSc->nNurses();
     }
 
@@ -577,29 +490,33 @@ double DeterministicSolver::solveByConnectedPositions() {
 
     if (options_.verbose_ > 0) {
       std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
-      std::cout << pScenario->toString() << std::endl;
+      std::cout << pScenario->toStringINRC2() << std::endl;
     }
 
-    // fetch the solver if already existing or create anew one
-    DeterministicSolver *solver = nullptr;
+    // fetch the pSolver if already existing or create anew one
+    DeterministicSolver *pSolver;
     auto it = solverForScenario.find(pScenario);
     if (it == solverForScenario.end()) {
-      solver = new DeterministicSolver(pScenario);
-      solver->copyParameters(this);
-      solverForScenario[pScenario] = solver;
+      pSolver = new DeterministicSolver(pScenario, *this);
+      solverForScenario[pScenario] = pSolver;
+      // do not pause last component on timeout. There is no need as either:
+      // it's a timeout and thus the last solve or the solver finishes properly
+      if (solverForScenario.size() != scenariosPerComponent.size())
+        pSolver->options_.pauseSolveOnTimeout_ = true;
     } else {
-      solver = it->second;
+      pSolver = it->second;
     }
 
     // solve the component
-    solver->setTotalTimeLimit(allowedTime);
-    solver->solve(solver->solution());
+    pSolver->setTotalTimeLimit(allowedTime);
+    pSolver->solveOneComponent(pSolver->solution());
 
-    // Print the stat of the solver
-    std::cout << solver->getGlobalStat().toString() << std::endl;
+    // Print the stat of the pSolver
+    std::cout << pSolver->getGlobalStat().toString() << std::endl;
 
-    // break if the status is not that of a normally finished solution process
-    Status newStatus = solver->status();
+    // break if job finished and if the status is not that of
+    // a normally finished solution process
+    Status newStatus = pSolver->status();
     if (newStatus == UNSOLVED || newStatus == INFEASIBLE) {
       status_ = newStatus;
       std::cout << "Solution process by connected component did not "
@@ -610,9 +527,14 @@ double DeterministicSolver::solveByConnectedPositions() {
     // STORE THE SOLUTION
     // Be particularly cautious that the nurse indices are not the same in the
     // initial scenario and in the solvers per component
-    for (PLiveNurse pNurse : solver->theLiveNurses_)
-      theLiveNurses_[pNurse->nurseNum_]->roster_ =
-          solver->solution()[pNurse->num_];
+    if (!pSolver->solution().empty()) {
+      for (const PLiveNurse &pNurse : pSolver->theLiveNurses_) {
+        theLiveNurses_[pNurse->nurseNum_]->roster_ =
+            pSolver->solution()[pNurse->num_];
+        theLiveNurses_[pNurse->nurseNum_]->columns_ = pNurse->columns_;
+        theLiveNurses_[pNurse->nurseNum_]->colVals_ = pNurse->colVals_;
+      }
+    }
 
     // update the number of nurses to solve
     nbNursesToSolve -= pScenario->nNurses();
@@ -691,8 +613,6 @@ double DeterministicSolver::solveWithRollingHorizon(
     pRollingSolver_->relaxDays(isRelaxDay);
 
     // Solve the problem with a method that allows for a warm start
-    //
-//    this->rollingSetOptimalityLevel(firstDay);
     pRollingSolver_->rollingSolve(
         rollingParameters_, firstDay, pRollingSolver_->solution());
     if (firstDay == 0)
@@ -752,7 +672,7 @@ double DeterministicSolver::solveWithRollingHorizon(
   if (pRollingSolver_->isSolutionInteger())
     pRollingSolver_->storeSolution();
   if (pRollingSolver_->status() != INFEASIBLE)
-    pRollingSolver_->costsConstrainstsToString();
+    pRollingSolver_->costsConstraintsToString();
 
   std::cout << "END OF ROLLING HORIZON" << std::endl << std::endl;
 
@@ -801,7 +721,6 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
   std::vector<double> repairWeights(repairOperators_.size(), 0.1);
 
   // Initialize the solver that will handle the repair problems
-  //
   if (options_.withRollingHorizon_) {
     pLNSSolver_ = pRollingSolver_;
   } else {
@@ -812,14 +731,14 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
   // set the computational time left for the lns after the initialization
   double timeSinceStart = timerTotal_.dSinceStart();
   lnsParameters_.maxSolvingTimeSeconds_ =
-      options_.totalTimeLimitSeconds_ - timeSinceStart;
+      options_.totalTimeLimitSeconds_ - static_cast<int>(timeSinceStart);
 
   // Perform destroy/repair iterations until a given number of iterations
   // without improvement is reached
   //
   int nbItWithoutImprovement = 0;
   double bestObjVal = this->computeSolutionCost();
-  while (true) {
+  while (!getJob().shouldStop()) {
     // nbItWithoutImprovement < options_.lnsMaxItWithoutImprovement_) {
     // draw the next destroy operators randomly according to the weights
     int nurseIndex = Tools::drawRandomWithWeights(nursesSelectionWeights);
@@ -834,7 +753,7 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
 
     // run the repair operator
     //
-    double currentObjVal = pLNSSolver_->LNSSolve(lnsParameters_);
+    double currentObjVal = pLNSSolver_->LNSSolve(lnsParameters_, solution);
 
     // stop lns if runtime is exceeded
     //
@@ -969,7 +888,7 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
                                           DaysSelectionOperator dayOp) {
   // apply the destroy operator
   std::vector<bool> isFixNurse(pScenario_->nNurses(), true);
-  std::vector<bool> isFixDay(pScenario_->horizon(), true);
+  std::vector<bool> isFixDay(pScenario_->nDays(), true);
   std::vector<int> randIndVector;
 
   // FIRST SET THE NUMBER OF NURSES AND DAYS THAT MUST BE FIXED
@@ -999,7 +918,8 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
     }
     case NURSES_POSITION: {
       int randPos = Tools::drawRandomWithWeights(positionWeights_);
-      int nbNursesWithPos = theLiveNursesByPosition_[randPos].size();
+      int nbNursesWithPos =
+          static_cast<int>(theLiveNursesByPosition_[randPos].size());
       randIndVector =
           Tools::drawRandomIndices(nbNursesDestroy, 0, nbNursesWithPos - 1);
       for (int ind : randIndVector)
@@ -1008,7 +928,8 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
     }
     case NURSES_CONTRACT: {
       int randContract = Tools::drawRandomWithWeights(contractWeights_);
-      int nbNursesWithContract = theLiveNursesByContract_[randContract].size();
+      int nbNursesWithContract =
+          static_cast<int>(theLiveNursesByContract_[randContract].size());
       randIndVector = Tools::drawRandomIndices(
           nbNursesDestroy, 0, nbNursesWithContract - 1);
       for (int ind : randIndVector)
@@ -1024,7 +945,7 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
   if (nbDaysDestroy < this->nDays()) {
     // draw the first day of the relaxed interval
     std::vector<double>
-        weightDays(pScenario_->horizon() - nbDaysDestroy - 1, 1.0);
+        weightDays(pScenario_->nDays() - nbDaysDestroy - 1, 1.0);
     weightDays[0] = 7;
     for (int i = 1; i < std::max(nDays() - nbDaysDestroy - 1, 6); i++) {
       weightDays[i] = 0.1;
@@ -1068,7 +989,7 @@ void DeterministicSolver::organizeTheLiveNursesByPosition() {
     copyTheLiveNurses.erase(copyTheLiveNurses.begin());
 
     // search for the nurses with same position in the remaining nurses
-    int nbNursesLeft = copyTheLiveNurses.size();
+    int nbNursesLeft = static_cast<int>(copyTheLiveNurses.size());
     for (int n = nbNursesLeft - 1; n >= 0; n--) {
       if (copyTheLiveNurses[n]->pPosition_->id_ == thisPosition->id_) {
         theLiveNursesAtPosition.push_back(copyTheLiveNurses[n]);
@@ -1082,7 +1003,8 @@ void DeterministicSolver::organizeTheLiveNursesByPosition() {
   // each position
   //
   for (int p = 0; p < nbPositions_; p++) {
-    positionWeights_.push_back(theLiveNursesByPosition_[p].size());
+    positionWeights_.push_back(
+        static_cast<int>(theLiveNursesByPosition_[p].size()));
   }
 }
 
@@ -1098,13 +1020,13 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 
     // initialize with the first nurse
     theLiveNursesWithContract.push_back(copyTheLiveNurses[0]);
-    PConstContract thisContract = copyTheLiveNurses[0]->pContract_;
+    PContract thisContract = copyTheLiveNurses[0]->pContract();
     copyTheLiveNurses.erase(copyTheLiveNurses.begin());
 
     // search for the nurses with same contract in the remaining nurses
     int nbNursesLeft = copyTheLiveNurses.size();
     for (int n = nbNursesLeft - 1; n >= 0; n--) {
-      if (copyTheLiveNurses[n]->pContract_->id_ == thisContract->id_) {
+      if (copyTheLiveNurses[n]->pContract()->id_ == thisContract->id_) {
         theLiveNursesWithContract.push_back(copyTheLiveNurses[n]);
         copyTheLiveNurses.erase(copyTheLiveNurses.begin() + n);
       }
@@ -1136,10 +1058,10 @@ Solver *DeterministicSolver::setSolverWithInputAlgorithm(
       switch (param.sp_type_) {
         case LONG_ROTATION:
         case ALL_ROTATION:
-          pSolver = new RotationMP(pScenario_, options_.MySolverType_);
+          pSolver = new RotationMP(pScenario_, options_.mySolverType_);
           break;
         case ROSTER:
-          pSolver = new RosterMP(pScenario_, options_.MySolverType_);
+          pSolver = new RosterMP(pScenario_, options_.mySolverType_);
           break;
         default:Tools::throwError("The subproblem type is not handled yet");
       }
@@ -1148,7 +1070,9 @@ Solver *DeterministicSolver::setSolverWithInputAlgorithm(
       break;
   }
   // override the default function if generatePResourcesFunc_
-  if (generatePResourcesFunc_)
+  if (pSolver && generatePResourcesFunc_)
     pSolver->setGeneratePResourcesFunction(generatePResourcesFunc_);
+  // attach job if any
+  pSolver->attachJob(getJob());
   return pSolver;
 }

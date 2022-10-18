@@ -93,7 +93,7 @@ class LongRotationSP : public RotationSP {
   //----------------------------------------------------------------
 
   // FUNCTIONS -- SOLVE
-  bool preprocess() override;
+  bool presolve() override;
   bool solveShortRotations();
 
   // override creation of arcs source -> principal

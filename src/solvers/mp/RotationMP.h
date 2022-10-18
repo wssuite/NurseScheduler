@@ -15,7 +15,6 @@
 #include "MasterProblem.h"
 
 #include <algorithm>
-#include <climits>  // for INT_MAX
 #include <set>
 #include <map>
 #include <string>
@@ -40,30 +39,29 @@
 //
 //-----------------------------------------------------------------------------
 
-struct RotationPattern : public Pattern {
+struct RotationColumn : public Column {
   // Specific constructors and destructors
   //
-
-  RotationPattern(int firstDay,
+  RotationColumn(int firstDay,
                   std::vector<PShift> pShifts,
                   int nurseNum,
                   double cost = DBL_MAX,
                   double dualCost = DBL_MAX) :
-      RotationPattern(RCSolution(firstDay, pShifts, cost, dualCost),
+      RotationColumn(RCSolution(firstDay, std::move(pShifts), cost, dualCost),
                       nurseNum) {}
 
-  RotationPattern(RCSolution sol, int nurseNum) :
-      Pattern(std::move(sol), nurseNum) {}
+  RotationColumn(RCSolution sol, int nurseNum) :
+      Column(std::move(sol), nurseNum) {}
 
-  RotationPattern(MyVar *var, const PScenario &pScenario) :
-      Pattern(var, pScenario) {}
+  RotationColumn(MyVar *var, const PScenario &pScenario) :
+      Column(var, pScenario) {}
 
-  ~RotationPattern() {}
+  ~RotationColumn() override = default;
 
-  // when branching on this pattern, this method add the corresponding
+  // when branching on this column, this method add the corresponding
   // forbidden shifts to the set.
   // It will forbid all the shifts that would be worked on a day
-  // that is already covered by this pattern.
+  // that is already covered by this column.
   // Moreover, there needs to be a resting day before and after each rotation,
   // so the shifts can also be forbidden on these two days
   // (if the rotation is not at an extremity of the horizon).
@@ -71,12 +69,9 @@ struct RotationPattern : public Pattern {
                           int nbShifts,
                           PDemand pDemand) const override;
 
-  // Level of the branch and bound tree where the rotation has been generated
-  int treeLevel_ = 0;
-
   //  Compute the dual cost of a column
   void checkReducedCost(const DualCosts &dualCosts,
-                        bool printBadPricing = true) const override;
+                        bool printBadPricing) const override;
 };
 
 //-----------------------------------------------------------------------------
@@ -90,9 +85,12 @@ class RotationMP : public MasterProblem {
  public:
   RotationMP(const PScenario& pScenario,
              SolverType solver);
-  virtual ~RotationMP();
+  RotationMP(const PScenario& pScenario,
+             SolverType solver,
+             const SolverParam &param);
+  ~RotationMP() override;
 
-  PPattern getPattern(MyVar *var) const override;
+  PColumn getPColumn(MyVar *var) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 
@@ -110,15 +108,17 @@ class RotationMP : public MasterProblem {
   // Main method to build the rostering problem for a given input
   void build(const SolverParam &parameters) override;
 
+  // update the demand with a new one of the same size
+  // change the rhs of the constraints minDemandCons_ and optDemandCons_
+  void update(const PDemand& pDemand) override;
+
   // Provide an initial solution to the solver. If empty, add artificial columns
   void initializeSolution(const std::vector<Roster> &solution) override;
 
   void buildResourceCons(const SolverParam &param);
 
   // return the costs of all active columns associated to the type
-  double getColumnsCost(CostType costType) const override;
-  double getDaysCost() const override;
-  double getWeekendCost() const override;
+  std::map<CostType, double> getColumnsCosts() const override;
 
   // separate the resources between the ones that will be managed by
   // the master, the master rotation graph, and the sub problems
@@ -143,7 +143,8 @@ class RotationMP : public MasterProblem {
   // constraints associated to resources
   TotalShiftDurationConstraint *totalShiftDurationConstraint_;
   TotalWeekendConstraint *totalWeekendConstraint_;
-  DynamicConstraints *dynamicConstraints_;
+//  ConsWeekendConstraint* consWeekendConstraints_ = nullptr;
+  DynamicConstraints *dynamicConstraints_ = nullptr;
 };
 
 #endif  // SRC_SOLVERS_MP_ROTATIONMP_H_

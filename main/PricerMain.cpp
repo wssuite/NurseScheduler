@@ -9,27 +9,24 @@
  * full license detail.
  */
 
-#include "solvers/mp/RotationMP.h"
-#include "solvers/mp/RosterMP.h"
 #include "solvers/mp/sp/RosterSP.h"
 #include "solvers/mp/sp/RotationSP.h"
 #include "solvers/mp/sp/rcspp/boost/RosterSP.h"
 #include "solvers/mp/sp/rcspp/boost/RotationSP.h"
 #include "solvers/InitializeSolver.h"
-#include "solvers/mp/RCPricer.h"
 #include "solvers/mp/sp/SubProblem.h"
+#include "solvers/mp/RosterMP.h"
+#include "solvers/mp/RotationMP.h"
 #include "data/Shift.h"
 
-#define DBG_AG
-
 std::pair<float, float> comparePricing(MasterProblem *pMaster,
-                                       PLiveNurse pNurse,
                                        SubProblem *mSP,
                                        SubProblem *pSP2,
-                                       int verbose,
+                                       SubProblemParam spParam,
                                        bool *errorFound) {
   PDualCosts pDualCosts = std::make_shared<DualCosts>(pMaster);
   pDualCosts->randomUpdateDuals(true);
+  int verbose = spParam.verbose_;
 
   if (verbose)
     std::cout << "\n      SOLVE WITH MY RCSPP SOLVER : \n" <<std::endl;
@@ -54,27 +51,28 @@ std::pair<float, float> comparePricing(MasterProblem *pMaster,
     std::cout << "## Cpu time = " << pSP2->cpuInLastSolve() << std::endl;
   }
 
-  if (std::fabs(pSP2->bestReducedCost() - mSP->bestReducedCost()) > EPSILON ) {
+  if (std::fabs(pSP2->bestReducedCost() - mSP->bestReducedCost()) > EPSILON) {
     std::cerr << "\nNew pricer value = " << mSP->bestReducedCost() <<
               "; 2nd value = " << pSP2->bestReducedCost() << std::endl;
     /*Tools::throwError("The new pricer does not find the same optimal value "
                       "as Boost");*/
-    vector<RCSolution> bSols = pSP2->getSolutions(), mSols = mSP->getSolutions();
+    vector<RCSolution> bSols = pSP2->getSolutions(),
+        mSols = mSP->getSolutions();
     RCSolution::sort(&bSols);
     RCSolution::sort(&mSols);
+#ifdef DBG
     std::cout << bSols.front().toString();
     std::cout << mSols.front().toString();
-#ifdef DBG
     if (pMaster->parameters().sp_type_ == ROSTER) {
-      RosterPattern bPat(bSols.front(), 0);
-      bPat.checkReducedCost(*pDualCosts);
-      RosterPattern mPat(mSols.front(), 0);
-      mPat.checkReducedCost(*pDualCosts);
+      RosterColumn bPat(bSols.front(), 0);
+      bPat.checkReducedCost(*pDualCosts, true);
+      RosterColumn mPat(mSols.front(), 0);
+      mPat.checkReducedCost(*pDualCosts, true);
     } else {
-      RotationPattern bPat(bSols.front(), 0);
-      bPat.checkReducedCost(*pDualCosts);
-      RotationPattern mPat(mSols.front(), 0);
-      mPat.checkReducedCost(*pDualCosts);
+      RotationColumn bPat(bSols.front(), 0);
+      bPat.checkReducedCost(*pDualCosts, true);
+      RotationColumn mPat(mSols.front(), 0);
+      mPat.checkReducedCost(*pDualCosts, true);
     }
 #endif
     *errorFound = true;
@@ -89,12 +87,12 @@ float comparePricing(
   PScenario pScenario = pMaster->pScenario();
   float totalCPU = 0;
   std::cout << "CPU reduction factors = ";
-  for (const PLiveNurse pNurse : pMaster->liveNurses()) {
+  for (const PLiveNurse& pNurse : pMaster->pLiveNurses()) {
     // Solve with boost RCSPP solver first
     if (pMaster->parameters().verbose_)
       std::cout << "Solve subproblem for nurse " << pNurse->name_ << std::endl;
     // create param
-    SubProblemParam spParam(pNurse, pMaster->parameters());
+    SubProblemParam spParam(pMaster->parameters());
     spParam.strategyLevel_ =
         boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
     // retrieve a boost subproblem
@@ -103,23 +101,23 @@ float comparePricing(
     if (!compareToBoost)
       spParam2.rcsppImprovedDomination_ = false;
     if (pMaster->parameters().sp_type_ == ROSTER) {
-      mSP = new RosterSP(pScenario, pScenario->horizon(), pNurse,
+      mSP = new RosterSP(pScenario, 0, pScenario->nDays(), pNurse,
                          pMaster->getSPResources(pNurse), spParam);
       if (compareToBoost)
         pSP2 = new boostRCSPP::RosterSP(
-            pScenario, pScenario->horizon(), pNurse, spParam2);
+            pScenario, pScenario->nDays(), pNurse, spParam2);
       else
-        pSP2 = new RosterSP(pScenario, pScenario->horizon(), pNurse,
+        pSP2 = new RosterSP(pScenario, 0, pScenario->nDays(), pNurse,
                             pMaster->getSPResources(pNurse), spParam2);
     } else {
-      mSP = new RotationSP(pScenario, pScenario->horizon(), pNurse,
+      mSP = new RotationSP(pScenario, 0, pScenario->nDays(), pNurse,
                            pMaster->getSPResources(pNurse), spParam);
       if (compareToBoost)
         pSP2 = new boostRCSPP::RotationSP(
-            pScenario, pScenario->horizon(), pNurse, spParam2);
+            pScenario, pScenario->nDays(), pNurse, spParam2);
       else
-        pSP2 = new RotationSP(pScenario, pScenario->horizon(), pNurse,
-                            pMaster->getSPResources(pNurse), spParam2);
+        pSP2 = new RotationSP(pScenario, 0, pScenario->nDays(), pNurse,
+                              pMaster->getSPResources(pNurse), spParam2);
     }
     mSP->build();
     pSP2->build();
@@ -127,11 +125,10 @@ float comparePricing(
     // build random dual costs
     float cpu = 0;
     for (int i=0; i < nTest; i++) {
-      auto p = comparePricing(
-          pMaster, pNurse, mSP, pSP2, spParam.verbose_, errorFound);
+      auto p = comparePricing(pMaster, mSP, pSP2, spParam, errorFound);
       cpu += p.second/p.first;
     }
-    cpu /= nTest;
+    cpu /= static_cast<float>(nTest);
     totalCPU += cpu;
 
     // delete
@@ -146,7 +143,7 @@ float comparePricing(
     std::flush(std::cout);
   }
 
-  totalCPU /= pMaster->nNurses();
+  totalCPU /= static_cast<float>(pMaster->nNurses());
 
   if (pMaster->parameters().verbose_)
     std::cout << "\nCPU reduction factor = " << totalCPU << std::endl;
@@ -159,11 +156,11 @@ float test_pricer(const std::string &instance,
                   bool compareToBoost = true,
                   int verbose = 0,
                   int nTest = 1,
-                  SubProblemParam spParam = SubProblemParam()) {
+                  const SubProblemParam& spParam = SubProblemParam()) {
   // set input path
   std::vector<std::string> p = Tools::tokenize<std::string>(instance, '_');
   InputPaths inputPaths(
-      "datasets/",
+      "datasets/INRC2/",
       p[0],  // instance name
       p.size() > 2 ? std::stoi(p[1]) :0,  // history
       Tools::tokenize<int>(p[p.size()-1], '-'),  // week indices
@@ -173,9 +170,9 @@ float test_pricer(const std::string &instance,
     std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
   PScenario pScenario;
   if (inputPaths.nbWeeks() > 1)
-    pScenario = initializeMultipleWeeks(inputPaths);
+    pScenario = initializeMultipleWeeksINRC2(inputPaths);
   else
-    pScenario = initializeScenario(inputPaths);
+    pScenario = initializeScenarioINRC2(inputPaths);
   std::cout << std::endl;
   // initialize random of tools
   Tools::initializeRandomGenerator(inputPaths.randSeed());
@@ -194,7 +191,7 @@ float test_pricer(const std::string &instance,
           pSolver->setSolverWithInputAlgorithm(
               pSolver->getOptions().solutionAlgorithm_,
               param));
-  pMaster->initialize(param);
+  pMaster->initialize(param, {});
   // make the tests
   float cpu = comparePricing(pMaster, errorFound, compareToBoost, nTest);
   delete pMaster;
@@ -203,6 +200,7 @@ float test_pricer(const std::string &instance,
   return cpu;
 }
 
+// TODO(AL): some comment would be welcome about the format of input
 int main(int argc, char **argv) {
   std::cout << "# TEST THE NEW PRICER" << std::endl;
 
@@ -211,14 +209,15 @@ int main(int argc, char **argv) {
     insts = {"n005w4_2-0-2-1", "n030w4_1-2-3-4", "n012w8_3-5-0-2-0-4-5-2"};
   else
     insts = Tools::tokenize<string>(string(argv[1]), ',');
-  int n = argc <= 2 ? 30 : std::stoi(argv[2]);
+  int ntests = argc <= 2 ? 30 : std::stoi(argv[2]);
   bool errorFound = false;
 
-  auto test = [&](string name, SubProblemParam spParam) {
+  auto test = [&](const string& name, const SubProblemParam& spParam) {
     std::cout << "###############################" << std::endl;
     std::vector<float> cpus;
+    cpus.reserve(insts.size());
     for (const string &inst : insts)
-      cpus.push_back(test_pricer(inst, &errorFound, true, 0, n, spParam));
+      cpus.push_back(test_pricer(inst, &errorFound, true, 0, ntests, spParam));
     for (size_t i = 0; i < insts.size(); ++i)
       std::cout << name << " CPU reduction factor for "
                 << insts[i] << " = " << cpus[i] << std::endl;

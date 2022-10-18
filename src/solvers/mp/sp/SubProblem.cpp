@@ -15,6 +15,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "solvers/mp/RosterMP.h"
@@ -26,7 +27,6 @@ using std::map;
 using std::pair;
 using std::set;
 
-#define DBG_AG
 
 //---------------------------------------------------------------------------
 //
@@ -78,25 +78,26 @@ std::string DualCosts::toString(int nurseNum, const Stretch &st) const {
 // Constructors and destructor
 SubProblem::SubProblem() :
     pScenario_(nullptr),
+    firstDayId_(0),
     nDays_(0),
-    pContract_(nullptr),
     pLiveNurse_(nullptr),
     pCosts_(nullptr) {}
 
 SubProblem::SubProblem(PScenario scenario,
+                       int firstDayId,
                        int nDays,
                        PLiveNurse pNurse,
-                       SubProblemParam param) :
-    pScenario_(std::move(scenario)), nDays_(nDays),
-    pContract_(pNurse->pContract_),
-    pLiveNurse_(pNurse),
-    param_(std::move(param)) {
+                       const SubProblemParam& param) :
+    pScenario_(std::move(scenario)),
+    firstDayId_(firstDayId), nDays_(nDays),
+    pLiveNurse_(std::move(pNurse)),
+    param_(param) {
   // working everyday on the longest shift
   maxTotalDuration_ = pScenario_->maxDuration() * nDays;
   init(*pScenario_->pInitialState());
 }
 
-SubProblem::~SubProblem() {}
+SubProblem::~SubProblem() = default;
 
 // Initialization function
 void SubProblem::init(const vector<State> &initStates) {
@@ -141,7 +142,7 @@ bool SubProblem::solve() {
   timerSolve_.start();
   // Set of operation applied on the rcGraph to prepare the solving
   timerPresolve_.start();
-  preprocess();
+  presolve();
   timerPresolve_.stop();
 
   bool ANS = solveRCGraph();  // Solve the RCSPP on the rcGraph
@@ -161,7 +162,7 @@ bool SubProblem::solve() {
   return ANS;
 }
 
-bool SubProblem::preprocess() {
+bool SubProblem::presolve() {
   // update dual costs
   updateArcDualCosts();
   return true;
@@ -191,10 +192,10 @@ void SubProblem::initStructuresForSolve() {
 
   if (pLiveNurse_->needCompleteWeekends()) {
     for (int k = 0; k < nDays_; k++) {
-      if (Tools::isSaturday(k))
-        endWeekendCosts_[k] = pScenario_->weights().WEIGHT_COMPLETE_WEEKEND;
-      else if (Tools::isSunday(k))
-        startWeekendCosts_[k] = pScenario_->weights().WEIGHT_COMPLETE_WEEKEND;
+      if (pLiveNurse_->pContract_->isFirstWeekendDay(k))
+        endWeekendCosts_[k] = pScenario_->weights().completeWeekend;
+      else if (pLiveNurse_->pContract_->isLastWeekendDay(k))
+        startWeekendCosts_[k] = pScenario_->weights().completeWeekend;
     }
   }
 
@@ -203,14 +204,9 @@ void SubProblem::initStructuresForSolve() {
   // Preference costs.
   Tools::initVector2D(&preferencesCosts_, nDays_, pScenario_->nShifts(), .0);
 
-  for (const auto &p : pLiveNurse_->wishesOff())
-    for (const Wish &s : p.second)
-      preferencesCosts_[p.first][s.shift] =
-          pScenario_->weights().WEIGHT_PREFERENCES_OFF[s.level];
-  for (const auto &p : pLiveNurse_->wishesOn())
-    for (const Wish &s : p.second)
-      preferencesCosts_[p.first][s.shift] =
-          pScenario_->weights().WEIGHT_PREFERENCES_ON[s.level];
+  for (const auto &wish : pLiveNurse_->wishes())
+    for (const PShift &pS : pScenario_->pShifts())
+      preferencesCosts_[wish.first][pS->id] += wish.second.cost(pS);
 }
 
 // Forbids the nodes that correspond to forbidden shifts
@@ -264,7 +260,7 @@ void SubProblem::printForbiddenDayShift() const {
           std::cout << std::endl << "#      | Day " << k << " :";
           alreadyStarted = true;
         }
-        std::cout << " " << pScenario_->shift(s).at(0);
+        std::cout << " " << pScenario_->shiftName(s).at(0);
       }
     }
   }
@@ -273,7 +269,7 @@ void SubProblem::printForbiddenDayShift() const {
 }
 
 void SubProblem::checkForbiddenDaysAndShifts(const RCSolution &sol) const {
-  int k = sol.firstDay();
+  int k = sol.firstDayId();
   for (const PShift &pS : sol.pShifts())
     if (isDayShiftForbidden(k++, pS->id))
       Tools::throwError(
@@ -285,14 +281,8 @@ void SubProblem::computePreferencesCost(RCSolution *rcSol) const {
   /*
  * Compute preferencesCost
  */
-  for (int k = rcSol->firstDay(); k <= rcSol->lastDay(); ++k) {
-    int level = pLiveNurse_->wishesOffLevel(k, rcSol->shift(k));
-    if (level != -1)
-      rcSol->addCost(pScenario_->weights().WEIGHT_PREFERENCES_OFF[level],
-                     PREFERENCE_COST);
-    level = pLiveNurse_->wishesOnLevel(k, rcSol->shift(k));
-    if (level != -1)
-      rcSol->addCost(pScenario_->weights().WEIGHT_PREFERENCES_ON[level],
-                     PREFERENCE_COST);
+  for (int k = rcSol->firstDayId(); k <= rcSol->lastDayId(); ++k) {
+    double cost = pLiveNurse_->wishCostOfTheShift(k, rcSol->pShift(k));
+    rcSol->addCost(cost, PREFERENCE_COST);
   }
 }

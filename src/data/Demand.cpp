@@ -11,14 +11,13 @@
 
 #include "Demand.h"
 
-#include <math.h>
-
+#include <cmath>
 #include <algorithm>
 #include <sstream>
 #include <utility>
 
+#include "data/Day.h"
 #include "data/Scenario.h"
-
 
 //-----------------------------------------------------------------------------
 //
@@ -31,7 +30,27 @@
 // constructor and destructor
 //
 Demand::Demand(int nbDays,
-               int firstDay,
+               int firstDayId,
+               int nbShifts,
+               int nbSkills,
+               std::string name,
+               vector3D<int> minDemand) :
+    name_(std::move(name)),
+    nDays_(nbDays),
+    firstDayId_(firstDayId),
+    nShifts_(nbShifts),
+    nSkills_(nbSkills),
+    minDemand_(std::move(minDemand)),
+    minTotal_(0),
+    optTotal_(0),
+    isPreprocessed_(false) {
+  isOptDemand_ = false;
+  // run the preprocessing
+  this->preprocessMinDemand();
+}
+
+Demand::Demand(int nbDays,
+               int firstDayId,
                int nbShifts,
                int nbSkills,
                std::string name,
@@ -39,7 +58,7 @@ Demand::Demand(int nbDays,
                vector3D<int> optDemand) :
     name_(std::move(name)),
     nDays_(nbDays),
-    firstDay_(firstDay),
+    firstDayId_(firstDayId),
     nShifts_(nbShifts),
     nSkills_(nbSkills),
     minDemand_(std::move(minDemand)),
@@ -47,48 +66,62 @@ Demand::Demand(int nbDays,
     minTotal_(0),
     optTotal_(0),
     isPreprocessed_(false) {
+  isOptDemand_ = true;
   // run the preprocessing
-  this->preprocessDemand();
+  this->preprocessMinDemand();
+  this->preprocessOptDemand();
 }
 
-Demand::~Demand() {}
+Demand::~Demand() = default;
 
 // compute all the potentially helpful attributes of a demand
 // this includes the total demand per skill, per shift,
 //
-void Demand::preprocessDemand() {
+void Demand::preprocessMinDemand() {
   // initialize the preprocessed vectors
   Tools::initVector(&minPerDay_, nDays_, 0);
-  Tools::initVector(&optPerDay_, nDays_, 0);
   Tools::initVector(&minPerShift_, nShifts_, 0);
-  Tools::initVector(&optPerShift_, nShifts_, 0);
   Tools::initVector(&minPerSkill_, nSkills_, 0);
-  Tools::initVector(&optPerSkill_, nSkills_, 0);
   Tools::initVector(&minHighestPerSkill_, nSkills_, 0);
-  Tools::initVector(&optHighestPerSkill_, nSkills_, 0);
 
   for (int day = 0; day < nDays_; day++) {
     for (int shift = 1; shift < nShifts_; shift++) {
       for (int skill = 0; skill < nSkills_; skill++) {
         // update the total demand
         minTotal_ += minDemand_[day][shift][skill];
-        optTotal_ += optDemand_[day][shift][skill];
-
         // update the demand per day
         minPerDay_[day] += minDemand_[day][shift][skill];
-        optPerDay_[day] += optDemand_[day][shift][skill];
-
         // update the demand per shift
         minPerShift_[shift] += minDemand_[day][shift][skill];
-        optPerShift_[shift] += optDemand_[day][shift][skill];
-
         // update the demand per skill
         minPerSkill_[skill] += minDemand_[day][shift][skill];
-        optPerSkill_[skill] += optDemand_[day][shift][skill];
-
         // update the demand per day
         minHighestPerSkill_[skill] =
             std::max(minDemand_[day][shift][skill], minHighestPerSkill_[skill]);
+      }
+    }
+  }
+  isPreprocessed_ = true;
+}
+void Demand::preprocessOptDemand() {
+  // initialize the preprocessed vectors
+  Tools::initVector(&optPerDay_, nDays_, 0);
+  Tools::initVector(&optPerShift_, nShifts_, 0);
+  Tools::initVector(&optPerSkill_, nSkills_, 0);
+  Tools::initVector(&optHighestPerSkill_, nSkills_, 0);
+
+  for (int day = 0; day < nDays_; day++) {
+    for (int shift = 1; shift < nShifts_; shift++) {
+      for (int skill = 0; skill < nSkills_; skill++) {
+        // update the total demand
+        optTotal_ += optDemand_[day][shift][skill];
+        // update the demand per day
+        optPerDay_[day] += optDemand_[day][shift][skill];
+        // update the demand per shift
+        optPerShift_[shift] += optDemand_[day][shift][skill];
+        // update the demand per skill
+        optPerSkill_[skill] += optDemand_[day][shift][skill];
+        // update the demand per day
         optHighestPerSkill_[skill] =
             std::max(optDemand_[day][shift][skill], optHighestPerSkill_[skill]);
       }
@@ -99,7 +132,7 @@ void Demand::preprocessDemand() {
 
 // add another week demand at the end of the current one
 // update all the parameters
-void Demand::pushBack(PDemand pDemand) {
+void Demand::pushBack(const PDemand& pDemand) {
   // check if same scenario
   if ((nShifts_ != pDemand->nShifts_) || (nSkills_ != pDemand->nSkills_)) {
     std::string error = "Demands are not compatible";
@@ -121,11 +154,11 @@ void Demand::pushBack(PDemand pDemand) {
     optDemand_.push_back(vector);
 
   // run the preprocessing
-  this->preprocessDemand();
+  this->preprocessMinDemand();
 }
 
 // Returns a new demand that appends pDemand to the current one
-PDemand Demand::append(PDemand pDemand) {
+PDemand Demand::append(const PDemand& pDemand) {
   PDemand bigDemand = std::make_shared<Demand>(*this);
 
   // check if same scenario
@@ -148,7 +181,7 @@ PDemand Demand::append(PDemand pDemand) {
   }
 
   // run the preprocessing
-  bigDemand->preprocessDemand();
+  bigDemand->preprocessMinDemand();
 
   return bigDemand;
 }
@@ -215,8 +248,8 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
   int valPerturb = (nbPerturb >= 0) ? 1 : -1;
   nbPerturb = std::abs(nbPerturb);
 
-  // preprocess the demand to find the highest demand per skill
-  if (!isPreprocessed_) this->preprocessDemand();
+  // presolve the demand to find the highest demand per skill
+  if (!isPreprocessed_) this->preprocessMinDemand();
 
   int coTrials = 0;  // used to avoid infinite loop
   for (int i = 0; i < std::abs(nbPerturb); i++) {
@@ -230,8 +263,8 @@ void Demand::perturbShifts(int minPerturb, int maxPerturb) {
       day = Tools::randomInt(0, nDays_ - 1);
       sh = Tools::randomInt(1, nShifts_ - 1);
       sk = Tools::randomInt(0, nSkills_ - 1);
-      isAtUpperBound = (valPerturb >= 0) ? (minDemand_[day][sh][sk]
-          >= minHighestPerSkill_[sk]) : false;
+      isAtUpperBound = (valPerturb >= 0)
+          && (minDemand_[day][sh][sk] >= minHighestPerSkill_[sk]);
       coTrials++;
     }
     if (coTrials >= 10 * nbPerturb) break;
@@ -254,7 +287,7 @@ PDemand Demand::randomPerturbation() {
   pDemand->perturbShifts(-nDays_, nDays_);
 
   // get the main characteristics of the new demand
-  pDemand->preprocessDemand();
+  pDemand->preprocessMinDemand();
 
   return pDemand;
 }
@@ -295,35 +328,6 @@ void Demand::keepFirstNDays(int nbDays) {
   isPreprocessed_ = false;
 }
 
-// shorten the demand by removing the nbDays first days
-//
-void Demand::removeFirstNDays(int nbDays) {
-  minDemand_.erase(minDemand_.begin(), minDemand_.begin() + nbDays);
-  optDemand_.erase(optDemand_.begin(), optDemand_.begin() + nbDays);
-
-  // update the number of days and indicate that this particular demand has not
-  // been preprocessed
-  nDays_ = nDays_ - nbDays;
-  isPreprocessed_ = false;
-}
-
-// remove a list of skills from the demand
-//
-void Demand::removeSkills(std::vector<int> skills) {
-  // make sure that the indices of skills are ordered
-  std::stable_sort(skills.begin(), skills.end());
-
-  // erase the skills for each day/shift
-  for (int day = 0; day < nDays_; day++) {
-    for (int shift = 0; shift < nShifts_; shift++) {
-      for (int skill = skills.size() - 1; skill >= 0; skill--) {
-        minDemand_[day][shift].erase(minDemand_[day][shift].begin() + skill);
-        optDemand_[day][shift].erase(optDemand_[day][shift].begin() + skill);
-      }
-    }
-  }
-}
-
 // display the demand, and include the preprocessed information if the input
 // boolean is set to true
 //
@@ -347,7 +351,7 @@ std::string Demand::toString(bool withPreprocessedInfo) {
   //
   rep << "#\t\t\t\t\t";
   for (int dayId = 0; dayId < 7; dayId++) {
-    rep << " " << Tools::intToDay(dayId) << "\t";
+    rep << " " << Day::toDayOfWeekShortName(dayId) << "\t";
   }
   rep << "# " << std::endl;
   for (int sh = 0; sh < nShifts_; sh++) {
@@ -358,15 +362,16 @@ std::string Demand::toString(bool withPreprocessedInfo) {
       // if(str.length() < 16) rep << "\t";
       rep << "#\tShift " << sh << " Skill " << sk << " " << "\t";
       for (int day = 0; day < 7; day++) {
-        rep << "\t(" << minDemand_[day][sh][sk] << ","
-            << optDemand_[day][sh][sk] << ")";
+        rep << "\t(" << minDemand_[day][sh][sk];
+        if (isOptDemand_)
+          rep << "," << optDemand_[day][sh][sk] << ")";
       }
       rep << std::endl;
     }
     rep << "# " << std::endl;
   }
 
-  // write the preprocessed indicators if preprocess was run
+  // write the preprocessed indicators if presolve was run
   //
   if (withPreprocessedInfo) {
     if (!isPreprocessed_)
@@ -383,8 +388,8 @@ std::string Demand::toString(bool withPreprocessedInfo) {
     rep << "# " << std::endl;
     rep << "# Demand per day" << std::endl;
     for (int i = 0; i < nDays_; i++) {
-      rep << "#\t\t" << Tools::intToDay(i + firstDay_) << " (" << i + firstDay_
-          << ")" << ": ";
+      rep << "#\t\t" << Day::toDayOfWeekShortName(i + firstDayId_) <<
+          " (" << i + firstDayId_ << ")" << ": ";
       rep << "minimum = " << minPerDay_[i] << " ; optimal = " << optPerDay_[i];
       rep << std::endl;
     }
@@ -419,4 +424,38 @@ std::string Demand::toString(bool withPreprocessedInfo) {
   }
 
   return rep.str();
+}
+
+// compute the total duration needed for the associated demand
+int Demand::getTotalMinDuration(const PScenario &pScenario) const {
+  int duration = 0;
+  for (const PShift &pS : pScenario->pShifts())
+    duration += getTotalMinDemand(pS->id) * pS->duration;
+  return duration;
+}
+
+int Demand::getTotalMinDemand() const {
+  int n = 0;
+  for (int sh=0; sh < nShifts_; ++sh)
+    n += getTotalMinDemand(sh);
+  return n;
+}
+
+int Demand::getTotalMinDemand(int shift) const {
+  int n = 0;
+  for (int sk=0; sk < nSkills_; ++sk)
+    n += getTotalMinDemand(shift, sk);
+  return n;
+}
+
+int Demand::getTotalMinDemand(int shift, int skill) const {
+  return getTotalDemand(shift, skill, minDemand_);
+}
+
+int Demand::getTotalDemand(
+    int shift, int skill, const vector3D<int>& demand) const {
+  int n = 0;
+  for (const auto & demandPerDay : demand)
+    n += demandPerDay[shift][skill];
+  return n;
 }

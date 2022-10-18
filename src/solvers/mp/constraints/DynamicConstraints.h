@@ -12,6 +12,8 @@
 #ifndef SRC_SOLVERS_MP_CONSTRAINTS_DYNAMICCONSTRAINTS_H_
 #define SRC_SOLVERS_MP_CONSTRAINTS_DYNAMICCONSTRAINTS_H_
 
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "ConstraintsMP.h"
@@ -25,6 +27,9 @@ class DynamicConstraints : public ConstraintMP {
       TotalShiftDurationConstraint *totalShiftDurationConstraint,
       TotalWeekendConstraint *totalWeekendConstraint);
 
+  // update the right hand side of the constraints based on the dynamic weights
+  void update() override;
+
   // update the dual values of the constraints based on the current solution
   void updateDuals() override;
 
@@ -37,12 +42,26 @@ class DynamicConstraints : public ConstraintMP {
   // add a given constraint to the column
   void addConsToCol(std::vector<MyCons *> *cons,
                     std::vector<double> *coeffs,
-                    const Pattern &col) const override;
+                    const Column &col) const override;
+
+  std::string toString(int nurseNum, const Stretch &st) const override;
+
+  double getTotalCost() const override {
+    return pModel()->getTotalCost(minWorkedDaysAvgVars_) +
+        pModel()->getTotalCost(maxWorkedDaysAvgVars_) +
+        pModel()->getTotalCost(maxWorkedWeekendAvgVars_) +
+        pModel()->getTotalCost(minWorkedDaysContractAvgVars_) +
+        pModel()->getTotalCost(maxWorkedDaysContractAvgVars_) +
+        pModel()->getTotalCost(maxWorkedWeekendContractAvgVars_);
+  }
 
  protected:
+  int dynamicWeightsVersion_;
   TotalShiftDurationConstraint *totalShiftDurationConstraint_;
+  std::vector<SoftTotalShiftDurationResource*> totalShiftDurationResources_;
   TotalWeekendConstraint *totalWeekendConstraint_;
-  vector<double> dualValues_, weekenDualValues_;
+  std::vector<SoftTotalWeekendsResource*> totalWeekendResources_;
+  vector<double> dualValues_, weekendDualValues_;
 
   /*
    * Variables
@@ -78,17 +97,12 @@ class DynamicConstraints : public ConstraintMP {
   //  the number of exceeding worked weekends from average per contract
   std::vector<MyCons *> maxWorkedWeekendContractAvgCons_;
 
-  // vectors of booleans indicating whether some above constraints are present
-  // in the model
-  std::vector<bool> isMinWorkedDaysAvgCons_,
-      isMaxWorkedDaysAvgCons_,
-      isMaxWorkedWeekendAvgCons_,
-      isMinWorkedDaysContractAvgCons_,
-      isMaxWorkedDaysContractAvgCons_,
-      isMaxWorkedWeekendContractAvgCons_;
-
   // build the constraints
   void build();
+
+  // return the consumption for the duration and the weekend resources
+  std::pair<int, int> getConsumptions(
+      int nurseNum, const Stretch &st, const PAbstractShift &prevS) const;
 };
 
 #endif  // SRC_SOLVERS_MP_CONSTRAINTS_DYNAMICCONSTRAINTS_H_

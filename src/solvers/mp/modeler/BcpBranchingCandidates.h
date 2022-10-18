@@ -16,6 +16,7 @@
 #include <list>
 #include <numeric>
 #include <utility>
+#include <vector>
 
 #include "solvers/mp/modeler/Modeler.h"
 
@@ -40,12 +41,13 @@ class BcpBranchingCandidates {
   explicit BcpBranchingCandidates(BcpModeler *pModel);
 
   BCP_lp_branching_object* selectCandidates(
-      const std::list<MyPBranchingCandidate> &candidates,
+      const std::vector<MyPBranchingCandidate> &candidates,
       BCP_lp_prob *p,
       // the variables in the current formulation.
       const BCP_vec<BCP_var *> &vars,
       // the cuts in the current formulation.
-      const BCP_vec<BCP_cut *> &cuts);
+      const BCP_vec<BCP_cut *> &cuts,
+      int lpIt);  // current lp iteration
 
   void updateTree(BCP_presolved_lp_brobj *best);
 
@@ -61,7 +63,12 @@ class BcpBranchingCandidates {
 
   std::pair<int, int> BCP_add_branching_objects(
       BCP_lp_prob *p,
+      OsiSolverInterface *lp,
       const BCP_vec<BCP_lp_branching_object*>& candidates);
+
+  bool hasCandidate() const { return candidate_ != nullptr; }
+
+  bool candidateIncludeVariable(MyVar *pVar) const;
 
   void
   BCP_mark_result_of_strong_branching(BCP_lp_prob *p,
@@ -69,9 +76,9 @@ class BcpBranchingCandidates {
                                       const int added_col_num,
                                       const int added_row_num);
 
-  BCP_lp_branching_object* BCP_lp_perform_strong_branching(
+  MyPBranchingCandidate BCP_lp_perform_strong_branching(
       BCP_lp_prob *p,
-      const BCP_vec<BCP_lp_branching_object*> &candidates);
+      const std::vector<MyPBranchingCandidate> &candidates);
 
   BCP_branching_object_relation compare_branching_candidates(
       BCP_presolved_lp_brobj* new_solved,

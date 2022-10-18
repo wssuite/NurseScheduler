@@ -1,7 +1,7 @@
 #!/bin/bash
 # validator script: launch the validator
 
-dataFile="datasets/"
+dataFile="datasets/INRC2/"
 instance=$1
 solutionDir="outfiles/"
 weeksName=$2

@@ -15,6 +15,12 @@ Every information about INRC-II can be found on their website http://mobiz.vives
 
 These two references can also be found in the directory ./references.
 
+Assumptions
+------------------
+
+Presently, the code makes some restrictive assumptions on the input data. 
+- There is only one rest shift
+
 Guide
 ------------------
 

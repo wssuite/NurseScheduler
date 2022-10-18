@@ -11,6 +11,7 @@
 
 
 #include "tools/GlobalStats.h"
+#include "tools/Tools.h"
 
 //-----------------------------------------------------------------------------
 //
@@ -26,8 +27,8 @@ std::string GlobalStats::toString() {
   statStream.precision(1);
   statStream.setf(std::ios::fixed, std::ios::floatfield);
 
-  statStream << "final statistics= " << bestUBInitial_ << "\t" << bestUB_
-             << "\t";
+  statStream << "# Final statistics = ";
+  statStream << bestUBInitial_ << "\t" << bestUB_ << "\t";
   statStream << rootLB_ << "\t" << bestLB_ << "\t";
   statStream << (bestUBInitial_ - bestLB_) / bestUBInitial_ << "\t"
              << (bestUB_ - bestLB_) / bestUB_ << "\t";
@@ -38,6 +39,7 @@ std::string GlobalStats::toString() {
   statStream << timeGenSubProblems_ << "\t";
   statStream << itGenColInitial_ << "\t" << itGenColImprove_ << "\t";
   statStream << nodesBBInitial_ << "\t" << nodesBBImprove_ << "\t";
+  statStream << Tools::getResidentMemoryGB() << "GB\t";
 
   return statStream.str();
 }
@@ -121,4 +123,8 @@ std::string GlobalStats::lnsStatsToString() {
   statStream << "& ";
 
   return statStream.str();
+}
+
+double GlobalStats::timeTotal() const {
+  return timeInitialSol_ + timeImproveSol_;
 }

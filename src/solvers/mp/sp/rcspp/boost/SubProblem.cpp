@@ -42,7 +42,7 @@ void SubProblem::initSubproblemParam(int strategy) {
       param_.spColumnsRatioForNumberPaths_ * param_.nbMaxColumnsToAdd_));
   param_.strategyLevel_ = strategy;
   switch (strategy) {
-    // 0 -> [Heuristic large search]
+    // 0 -> [HeuristicMIP large search]
     //  short = all,
     //  min   = 0,
     //  max   = CD_max+3
@@ -120,19 +120,19 @@ Penalties SubProblem::initPenalties() const {
   Penalties penalties;
   // Add each label
   // 0: CONS_DAYS
-  penalties.addLabel(pContract_->minConsDaysWork_,
-                     pContract_->maxConsDaysWork_,
-                     pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
+  penalties.addLabel(pLiveNurse()->minConsDaysWork(),
+                     pLiveNurse()->maxConsDaysWork(),
+                     pScenario_->weights().consDaysWork);
 
   // if a live nurse is defined (true when solving)
   if (pLiveNurse_) {
     // 1: DAYS
     penalties.addLabel(pLiveNurse_->minTotalShifts(),
                        pLiveNurse_->maxTotalShifts(),
-                       pScenario_->weights().WEIGHT_TOTAL_SHIFTS);
+                       pScenario_->weights().totalShifts);
     // 2: WEEKEND
     penalties.addLabel(0, pLiveNurse_->maxTotalWeekends(),
-                       pScenario_->weights().WEIGHT_TOTAL_WEEKENDS);
+                       pScenario_->weights().totalWeekends);
   }
 
   return penalties;
@@ -145,7 +145,7 @@ bool SubProblem::solve() {
     // Maximum rotations length: update the bounds on the nodes if needed
     updatedMaxRotationLengthOnNodes(
         std::min(nDays_ + maxOngoingDaysWorked_,
-            std::max(pContract_->maxConsDaysWork_, maxRotationLength_)));
+            std::max(pLiveNurse()->maxConsDaysWork(), maxRotationLength_)));
 
     for (int a : forbiddenArcs) g().authorizeArc(a);
     forbiddenArcs.clear();
@@ -290,15 +290,15 @@ double SubProblem::historicalCost(int currentShift) const {
       // add one penalty as current shift is already over the max
       if (pLiveNurse_->pStateIni_->consDaysOff_
           >= pLiveNurse_->maxConsDaysOff())
-        cost += pScenario_->weights().WEIGHT_CONS_DAYS_OFF;
+        cost += pScenario_->weights().consDaysOff;
     } else {
       // 2. The nurse was working
       // pay just penalty for min
       int diff = pLiveNurse_->minConsDaysWork() - nConsWorkIni;
-      cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
+      cost += std::max(.0, diff * pScenario_->weights().consDaysWork);
 
       int diff2 = pScenario_->minConsShiftsOfType(shiftTypeIni) - nConsShiftIni;
-      cost += std::max(.0, diff2 * pScenario_->weights().WEIGHT_CONS_SHIFTS);
+      cost += std::max(.0, diff2 * pScenario_->weights().consShifts);
     }
   } else {
     // otherwise, currently working
@@ -307,14 +307,14 @@ double SubProblem::historicalCost(int currentShift) const {
       int diffRest =
           pLiveNurse_->minConsDaysOff() - pLiveNurse_->pStateIni_->consDaysOff_;
       cost +=
-          std::max(.0, diffRest * pScenario_->weights().WEIGHT_CONS_DAYS_OFF);
+          std::max(.0, diffRest * pScenario_->weights().consDaysOff);
     } else {
       // 2. The nurse was working
       // a. If the number of consecutive days worked has already exceeded the
       // max, subtract now the cost that will be added later
-      int diffWork = nConsWorkIni - pContract_->maxConsDaysWork_;
+      int diffWork = nConsWorkIni - pLiveNurse()->maxConsDaysWork();
       cost -=
-          std::max(.0, diffWork * pScenario_->weights().WEIGHT_CONS_DAYS_WORK);
+          std::max(.0, diffWork * pScenario_->weights().consDaysWork);
 
       // b. The nurse was working on a different shift: if too short,
       // add the corresponding cost
@@ -322,12 +322,12 @@ double SubProblem::historicalCost(int currentShift) const {
       if (shiftTypeIni != shiftType) {
         int diff =
             pScenario_->minConsShiftsOfType(shiftTypeIni) - nConsShiftIni;
-        cost += std::max(.0, diff * pScenario_->weights().WEIGHT_CONS_SHIFTS);
+        cost += std::max(.0, diff * pScenario_->weights().consShifts);
       } else if (nConsShiftIni >=
           pScenario_->maxConsShiftsOfType(shiftTypeIni)) {
         // c. If working on the same shift type, need to update the
         // consecutive shift cost just if exceeding the max
-        cost += pScenario_->weights().WEIGHT_CONS_SHIFTS;
+        cost += pScenario_->weights().consShifts;
       }
     }
   }
@@ -352,10 +352,11 @@ std::vector<int> SubProblem::startConsumption(
   }
 
   // set the consumption
+  Weekend we;
   std::vector<int> c = {
       size,
       timeDuration,
-      Tools::nWeekendsInInterval(day - size + 1, day)
+      we.nWeekendsInInterval(day - size + 1, day)
   };
 
   // if need to take the historical state

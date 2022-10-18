@@ -29,7 +29,7 @@
 //
 //---------------------------------------------------------------------------
 struct DualCosts {
-  explicit DualCosts(MasterProblem *pMaster) : pMaster_(pMaster) {}
+  explicit DualCosts(const MasterProblem *pMaster) : pMaster_(pMaster) {}
   virtual ~DualCosts() = default;
 
   // update the dual values of every constraints based on the current solution
@@ -48,7 +48,7 @@ struct DualCosts {
   std::string toString() const;
   std::string toString(int nurseNum, const Stretch &st) const;
 
-  MasterProblem *pMaster_;
+  const MasterProblem *pMaster_;
 };
 
 typedef std::shared_ptr<DualCosts> PDualCosts;
@@ -58,9 +58,11 @@ class SubProblem {
   SubProblem();
 
   SubProblem(PScenario scenario,
+             int firstDayId,
              int nDays,
              PLiveNurse pNurse,
-             SubProblemParam param);
+             const SubProblemParam& param);
+
   virtual ~SubProblem();
 
   // Initialization function for all global variables (not those of the rcspp)
@@ -83,15 +85,9 @@ class SubProblem {
   // Some getters
   PScenario scenario() const { return pScenario_; }
 
-  PConstContract contract() const { return pContract_; }
-
-  const PLiveNurse liveNurse() const { return pLiveNurse_; }
+  PContract contract() const { return pLiveNurse_->pContract_; }
 
   int nDays() const { return nDays_; }
-
-  int nPaths() const { return nPaths_; }
-
-  int nFound() const { return nFound_; }
 
   const PLiveNurse &pLiveNurse() const { return pLiveNurse_; }
 
@@ -115,6 +111,14 @@ class SubProblem {
   virtual void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const = 0;
   void computePreferencesCost(RCSolution *rcSol) const;
 
+  void setDefaultDomination(bool isDefault) {
+    param_.rcsppImprovedDomination_ = !isDefault;
+  }
+
+  void setBidirectional(bool enable) {
+    param_.rcsppBidirectional_ = enable;
+  }
+
  protected:
   //----------------------------------------------------------------
   //
@@ -129,14 +133,14 @@ class SubProblem {
   // Pointer to the scenario considered
   PScenario pScenario_;
 
+  // Id of the first day of the scenario
+  int firstDayId_;
+
   // Number of days of the scenario (usually a multiple of 7)
   int nDays_;
 
-  // Contract type
-  PConstContract pContract_;
-
   // (Minimum) number of paths to return to the MP
-  int nPathsMin_;
+  int nPathsMin_{};
 
   // Current live nurse considered
   PLiveNurse pLiveNurse_;
@@ -145,11 +149,11 @@ class SubProblem {
   PDualCosts pCosts_;
 
   // Bound on the reduced cost: if greater than this, the rotation is not added
-  double maxReducedCostBound_;
+  double maxReducedCostBound_{};
 
   // Maximum number of consecutive days already worked by a nurse before
   // the beginning of that period
-  int maxOngoingDaysWorked_;
+  int maxOngoingDaysWorked_{};
 
   //----------------------------------------------------------------
   //
@@ -161,14 +165,14 @@ class SubProblem {
   std::vector<RCSolution> theSolutions_;
 
   // Number of paths found
-  int nPaths_;
+  int nPaths_{};
 
   // Number of rotations found (that match the bound condition)
   // at that iteration
-  int nFound_;
+  int nFound_{};
 
   // Best reduced cost found
-  double bestReducedCost_;
+  double bestReducedCost_{};
 
   // Timer in presolve and in label setting
   Tools::Timer timerPresolve_, timerSolve_, timerPostsolve_;
@@ -186,7 +190,7 @@ class SubProblem {
   //-----------------------
   // WARNING : for those that never change, of no use also.
 
-  // For each day k (<= nDays_ - CDMin), contains WEIGHT_COMPLETE_WEEKEND if
+  // For each day k (<= nDays_ - CDMin), contains completeWeekend cost if
   // [it is a Saturday (resp. Sunday) AND the contract requires complete
   // weekends]; 0 otherwise.
   std::vector<double> startWeekendCosts_, endWeekendCosts_;
@@ -197,7 +201,7 @@ class SubProblem {
   vector2D<double> preferencesCosts_;
 
   // Maximum time duration of a roster
-  int maxTotalDuration_;
+  int maxTotalDuration_{};
 
   //-----------------------
   // THE GRAPH
@@ -214,7 +218,7 @@ class SubProblem {
 
   // FUNCTIONS -- SOLVE
   virtual bool solve();
-  virtual bool preprocess();
+  virtual bool presolve();
   virtual bool postprocess();
 
   virtual bool solveRCGraph() = 0;

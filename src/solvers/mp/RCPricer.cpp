@@ -21,7 +21,6 @@
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/sp/rcspp/boost/LongRotationSP.h"
 #include "solvers/mp/sp/rcspp/boost/RosterSP.h"
-#include "solvers/mp/RosterMP.h"
 
 
 /* namespace usage */
@@ -50,10 +49,10 @@ RCPricer::RCPricer(MasterProblem *pMaster,
     pModel_(pMaster->pModel()),
     nursesToSolve_(pMaster->sortedLiveNurses()),
     minReducedCost_(0),
-    nb_int_solutions_(0),
-    rand_(Tools::getANewRandomGenerator()) {
+    nb_int_solutions_(0) {
   /* sort the nurses */
-  std::shuffle(nursesToSolve_.begin(), nursesToSolve_.end(), rand_);
+  std::shuffle(nursesToSolve_.begin(), nursesToSolve_.end(),
+               Tools::getANewRandomGenerator());
 }
 
 /* Destructs the pricer object. */
@@ -132,7 +131,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
     /**
      * Start of the job definition (part run in parallel)
      */
-    Tools::Job job = [pNurse, pDualCosts, &nSPBeingSolved, &nursesSolved,
+    Tools::Job job([pNurse, pDualCosts, &nSPBeingSolved, &nursesSolved,
         &nursesNoSolution, &solutionsPerNurses,
         &disjointForbidden, &bound, this]() {
       // Add this part again, if we'd like to solve as many sub problem
@@ -169,72 +168,96 @@ vector<MyVar *> RCPricer::pricing(double bound,
       subProblem->solve(pDualCosts,
                         nurseForbiddenShifts,
                         bound);
+      /*if (!subProblem->solve(pDualCosts,
+                        nurseForbiddenShifts,
+                        bound)) {
+        subProblem->setDefaultDomination(true);
+        subProblem->updateParameters(true);
+        bool isColumns = subProblem->solve(pDualCosts,
+                          nurseForbiddenShifts,
+                          bound);
+        subProblem->setDefaultDomination(false);
+        subProblem->updateParameters(true);
+        std::cout << "with default domination, has generated columns ? " <<
+        isColumns << std::endl;
+      }*/
+
 
       // RETRIEVE THE GENERATED ROTATIONS
       std::vector<RCSolution> solutions = subProblem->getSolutions();
 
-#ifdef DBG
+#ifdef CTR
       for (RCSolution &sol : solutions) {
-        subProblem->computeCost(pMaster_, &sol);
         // check if any shifts are forbidden
         for (const auto &p : nurseForbiddenShifts)
-          if (p.first >= sol.firstDay() && p.first <= sol.lastDay()
-          && sol.shift(p.first) == p.second) {
-            std::cerr
-                << "Generated pattern does not respect forbidden (day, shift): "
-                << p.first << "," << p.second << std::endl;
+          if (p.first >= sol.firstDayId() && p.first <= sol.lastDayId()
+              && sol.shift(p.first) == p.second) {
+            std::cerr << "Generated pattern does not respect forbidden "
+                         "(day, shift): " << p.first << "," << p.second
+                      << " for nurse " << pNurse->name_ << std::endl;
             std::cerr << sol.toString() << std::endl;
           }
+        subProblem->computeCost(pMaster_, &sol);
       }
-//      if (pModel_->getParameters().rcspp_type_ == LABEL_SETTING &&
-//          subProblem->isLastRunOptimal()) {
-//        SubProblemParam par2(pNurse, pMaster_->pModel()->getParameters());
-//        par2.strategyLevel_ =
-//            boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
-//        SubProblem *sub2 = nullptr;
-//        if (pModel_->getParameters().sp_type_ == ALL_ROTATION)
-//          sub2 =
-//              new boostRCSPP::RotationSP(pScenario_, nbDays_, pNurse, par2);
-//        else if (pModel_->getParameters().sp_type_ == ROSTER)
-//          sub2 =
-//              new boostRCSPP::RosterSP(pScenario_, nbDays_, pNurse, par2);
-//
-//        if (sub2 != nullptr) {
-//          sub2->build();
-//          sub2->solve(pDualCosts,
-//                      nurseForbiddenShifts,
-//                      bound);
-//          std::vector<RCSolution> sols = sub2->getSolutions();
-//          delete sub2;
-//
-//          RCSolution::sort(&solutions);
-//          RCSolution::sort(&sols);
-//          if (!sols.empty() || !solutions.empty()) {
-//            if (sols.empty() ^ solutions.empty()) {
-//              if (!solutions.empty())
-//                std::cout << solutions.front().toString() << std::endl;
-//              else
-//                std::cout << sols.front().toString() << std::endl;
-//              Tools::throwError("One of the subproblem has found "
-//                                "a solution and the other not.");
-//            }
-//            double diff = sols.front().reducedCost() -
-//                solutions.front().reducedCost();
-//            if (diff > pMaster_->pModel()->epsilon()
-//                || diff < -pMaster_->pModel()->epsilon()) {
-//              std::cout << "All solutions found:" << std::endl;
-//              for (const RCSolution &sol : solutions)
-//                std::cout << sol.toString() << std::endl;
-//              std::cout << std::endl << "Both best solutions:" << std::endl;
-//              std::cout << solutions.front().toString() << std::endl;
-//              std::cout << sols.front().toString() << std::endl;
-//              Tools::throwError("The subproblems haven't found "
-//                                "the same best reduced costs.");
-//            }
-//          }
-//        }
-//      }
+      if (pModel_->getParameters().rcspp_type_ == LABEL_SETTING &&
+          subProblem->isLastRunOptimal()) {
+        SubProblemParam par2(pMaster_->pModel()->getParameters());
+        par2.strategyLevel_ =
+            boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
+        SubProblem *sub2 = nullptr;
+        if (pModel_->getParameters().sp_type_ == ALL_ROTATION)
+          sub2 =
+              new boostRCSPP::RotationSP(pScenario_, nbDays_, pNurse, par2);
+        else if (pModel_->getParameters().sp_type_ == ROSTER)
+          sub2 =
+              new boostRCSPP::RosterSP(pScenario_, nbDays_, pNurse, par2);
+
+//        par2.rcsppBidirectional_ = !par2.rcsppBidirectional_;
+//        sub2 = new RosterSP(pScenario_, 0, nbDays_, pNurse,
+//                            pMaster_->getSPResources(pNurse), par2);
+
+        if (sub2 != nullptr) {
+          sub2->build();
+          sub2->solve(pDualCosts,
+                      nurseForbiddenShifts,
+                      bound);
+          std::vector<RCSolution> sols = sub2->getSolutions();
+          delete sub2;
+
+          RCSolution::sort(&solutions);
+          RCSolution::sort(&sols);
+          if (!sols.empty() || !solutions.empty()) {
+            subProblem->computeCost(pMaster_, &sols.front());
+            if (sols.empty() ^ solutions.empty()) {
+              std::cout << "For nurse " << pNurse->name_ <<std::endl;
+              if (!solutions.empty())
+                std::cout << "Test: " << solutions.front().toString()
+                          << std::endl;
+              else
+                std::cout << "CTR: " << sols.front().toString() << std::endl;
+              Tools::throwError("One of the subproblem has found "
+                                "a solution and the other not.");
+            }
+            double diff = sols.front().reducedCost() -
+                solutions.front().reducedCost();
+            if (diff > pMaster_->pModel()->epsilon()
+                || diff < -pMaster_->pModel()->epsilon()) {
+              std::cout << "All solutions found for nurse "
+                        << pNurse->name_ << ":" << std::endl;
+              for (const RCSolution &sol : solutions)
+                std::cout << sol.toString() << std::endl;
+              std::cout << std::endl << "Both best solutions for nurse "
+                                     << pNurse->name_ << ":" << std::endl;
+              std::cout << solutions.front().toString() << std::endl;
+              std::cout << "CTR: " << sols.front().toString() << std::endl;
+              std::cerr << "The subproblems haven't found the same best "
+                           "reduced costs." << std::endl;
+            }
+          }
+        }
+      }
 #endif
+
       // Lock the pricer
       lock.lock();
 
@@ -262,7 +285,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
         --nSPBeingSolved;
         nursesNoSolution.push_back(pNurse);
       }
-    };
+    });  // END JOB
     /**
      * End of the job definition (part run in parallel)
      */
@@ -314,7 +337,7 @@ vector<MyVar *> RCPricer::pricing(double bound,
   }
 
   // set statistics
-  BcpModeler *model = static_cast<BcpModeler *>(pModel_);
+  auto *model = dynamic_cast<BcpModeler *>(pModel_);
   model->setLastNbSubProblemsSolved(nbSPTried_);
   model->setLastMinReducedCost(minReducedCost_);
 
@@ -368,10 +391,10 @@ bool RCPricer::addForbiddenShifts(const std::vector<RCSolution> &solutions) {
 
   lock_guard<recursive_mutex> lock(m_subproblem_);
   bool shiftAdded = false;
-  int k = bestSolution.firstDay();
+  int k = bestSolution.firstDayId();
   for (const PShift &pS : bestSolution.pShifts()) {
-      forbiddenShifts_.insert(pair<int, int>(k, pS->id));
-      shiftAdded = true;
+    forbiddenShifts_.insert(pair<int, int>(k, pS->id));
+    shiftAdded = true;
     k++;
   }
   return shiftAdded;
@@ -394,15 +417,20 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
   SubProblem *subProblem;
   switch (pModel_->getParameters().sp_type_) {
     case LONG_ROTATION:
-      subProblem = new boostRCSPP::LongRotationSP(
-          pScenario_, nbDays_, pNurse, spParam);
+      if (pModel_->getParameters().rcspp_type_ == BOOST_LABEL_SETTING)
+        subProblem = new boostRCSPP::LongRotationSP(
+            pScenario_, nbDays_, pNurse, spParam);
+      else
+        subProblem = new RotationSP(pScenario_, 0, nbDays_, pNurse,
+                                    pMaster_->getSPResources(pNurse),
+                                    spParam);
       break;
     case ALL_ROTATION: {
       if (pModel_->getParameters().rcspp_type_ == BOOST_LABEL_SETTING)
         subProblem = new boostRCSPP::RotationSP(
             pScenario_, nbDays_, pNurse, spParam);
       else
-        subProblem = new RotationSP(pScenario_, nbDays_, pNurse,
+        subProblem = new RotationSP(pScenario_, 0, nbDays_, pNurse,
                                     pMaster_->getSPResources(pNurse),
                                     spParam);
       break;
@@ -412,11 +440,11 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
         subProblem = new boostRCSPP::RosterSP(
             pScenario_, nbDays_, pNurse, spParam);
       else if (pScenario_->isCyclic())
-        subProblem = new CyclicRosterSP(pScenario_, nbDays_, pNurse,
+        subProblem = new CyclicRosterSP(pScenario_, 0, nbDays_, pNurse,
                                         pMaster_->getSPResources(pNurse),
                                         spParam);
       else
-        subProblem = new RosterSP(pScenario_, nbDays_, pNurse,
+        subProblem = new RosterSP(pScenario_, 0, nbDays_, pNurse,
                                   pMaster_->getSPResources(pNurse),
                                   spParam);
       break;
@@ -430,19 +458,16 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
   return subProblem;
 }
 
-void RCPricer::computeCost(Pattern *pat) const {
-  const PLiveNurse &pNurse = pMaster_->liveNurses()[pat->nurseNum()];
-  auto it = subProblems_.find(pNurse);
-  SubProblem* pSP;
-  if (it == subProblems_.end()) {
-    SubProblemParam sp_param(pNurse,
-                             pMaster_->pModel()->getParameters());
-    pSP = buildSubproblem(
-        pNurse, pMaster_->pModel()->getParameters().spParam_);
-  } else {
-    pSP = it->second;
-  }
-  pSP->computeCost(pMaster_, pat);
+void RCPricer::computeCost(Column *col) {
+  // get the live nurse of the column
+  const PLiveNurse &pNurse = pMaster_->pLiveNurses()[col->nurseNum()];
+
+  // get the subproblem associated to the live nurse
+  SubProblem *pSP =
+      retrieveSubproblem(pNurse, pModel_->getParameters().spParam_);
+
+  // compute the cost of the column from scratch
+  pSP->computeCost(pMaster_, col);
 }
 
 // Add the rotations to the master problem
@@ -456,10 +481,13 @@ int RCPricer::addColumnsToMaster(int nurseNum,
   lock_guard<recursive_mutex> lock(m_subproblem_);
   int nbcolumnsAdded = 0;
   for (const RCSolution &sol : *solutions) {
+    allNewColumns_.push_back(pMaster_->addColumn(nurseNum, sol));
 #ifdef DBG
-//      std::cout << sol.toString() << std::endl;
+//      std::cout << sol.toStringINRC2() << std::endl;
+if (dynamic_cast<BcpColumn*>(allNewColumns_.back()) == nullptr) {
+  std::cerr << "Should be a BcpColumn." << std::endl;
+}
 #endif
-    allNewColumns_.emplace_back(pMaster_->addColumn(nurseNum, sol));
     ++nbcolumnsAdded;
     if (nbcolumnsAdded >= pModel_->getParameters().spParam_.nbMaxColumnsToAdd_)
       break;
