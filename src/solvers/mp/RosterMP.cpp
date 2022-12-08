@@ -17,6 +17,7 @@
 
 #include "solvers/mp/TreeManager.h"
 #include "solvers/mp/sp/SubProblem.h"
+#include "solvers/mp/constraints/DynamicConstraints.h"
 
 
 //-----------------------------------------------------------------------------
@@ -93,7 +94,7 @@ void RosterColumn::checkReducedCost(const DualCosts &dualCosts,
 
 RosterMP::RosterMP(const PScenario& pScenario,
                    SolverType solver) :
-    MasterProblem(pScenario, solver) {
+    MasterProblem(pScenario, solver), assignmentConstraint_(nullptr) {
   lagrangianBoundAvail_ = true;
 }
 
@@ -112,6 +113,10 @@ void RosterMP::build(const SolverParam &param) {
 
   /* build the rest of the model */
   MasterProblem::build(param);
+
+  /* Dynamic constraints */
+  if (dynamicWeights_.version() > 0)
+    dynamicConstraints_ = new DynamicConstraints(this);
 
   /* Change the branching rule */
   auto *pRule = new RosterBranchingRule(this,
@@ -134,6 +139,23 @@ void RosterMP::initializeSolution(const std::vector<Roster> &solution) {
   }
 }
 
+// split the resources between the master and the subproblem
+// must initialize spResources_
+void RosterMP::splitPResources() {
+  // put all the resources in the sub problem
+  spResources_.clear();
+  for (const auto &vR : pResources_) {
+    vector<PResource> pResources;
+    for (const auto &pR : vR) {
+      if (!pR->isInRosterMaster()) {
+        pR->setId(static_cast<int>(pResources.size()));
+        pResources.push_back(pR);
+      }
+    }
+    spResources_.push_back(pResources);
+  }
+}
+
 // Create a new rotation variable
 // add the correct constraints and coefficients for the nurse i working
 // on a rotation
@@ -142,6 +164,7 @@ MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
   RosterColumn col(solution, nurseNum);
 #ifdef DBG
+  // check only if not dynamic, otherwise do no work
   computeColumnCost(&col);
   DualCosts dualCosts(this);
   col.checkReducedCost(dualCosts, pPricer()->isLastRunOptimal());
@@ -167,7 +190,7 @@ double RosterMP::computeLagrangianBound(double objVal) const {
   if (!pModel_->stab().stabCheckStoppingCriterion()) {
     std::cerr << "Cannot compute a lagrangian bound when stabilization "
                  "variables are present in the solution." << std::endl;
-    return -LARGE_SCORE;
+    return -XLARGE_SCORE;
   }
 
   double sumRedCost = 0;

@@ -210,6 +210,27 @@ void BoundedResourceConstraint<H, S>::update() {
   }
 }
 
+template <class H, class S>
+std::string BoundedResourceConstraint<H, S>::individualCostToString() const {
+  std::stringstream rep;
+  rep << "Resource constraints costs:" << std::endl;
+  for (int n=0; n < pMaster_->nNurses(); n++) {
+    std::stringstream rep2;
+    for (const auto &p : resourceVars_[n]) {
+      double c = pModel()->getTotalCost(p.second);
+      if (abs(c) > 1e-3)
+        rep2 << "Cost of "
+             << (p.first.first ? p.first.first->name : p.first.second->name)
+             << ": " << c << std::endl;
+    }
+    if (!rep2.str().empty()) {
+      rep << "Nurse " << pMaster_->pLiveNurses()[n]->name_ << ":" << std::endl;
+      rep << rep2.str();
+    }
+  }
+  return rep.str();
+}
+
 TotalShiftDurationConstraint::TotalShiftDurationConstraint(
     MasterProblem *pMaster) :
     BoundedResourceConstraint<
@@ -229,6 +250,10 @@ void TotalShiftDurationConstraint::randomUpdateDuals(
   createRandomUpdateDuals(2*pScenario_->weights().totalShifts);
 }
 
+std::string TotalShiftDurationConstraint::writeIndividualCost() const {
+  return individualCostToString();
+}
+
 TotalWeekendConstraint::TotalWeekendConstraint(MasterProblem *pMaster) :
     BoundedResourceConstraint<
         HardTotalWeekendsResource, SoftTotalWeekendsResource>(
@@ -245,6 +270,10 @@ void TotalWeekendConstraint::addConstraintFor(
 void TotalWeekendConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
   createRandomUpdateDuals(2*pScenario_->weights().totalWeekends);
+}
+
+std::string TotalWeekendConstraint::writeIndividualCost() const {
+  return individualCostToString();
 }
 
 // ConsWeekendConstraint::ConsWeekendConstraint(MasterProblem *pMaster) :

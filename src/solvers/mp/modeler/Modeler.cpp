@@ -481,7 +481,7 @@ void Modeler::reset() {
 }
 
 int Modeler::printBestSol() {
-  Tools::LogOutput log(logfile_, true);
+  Tools::LogOutput log(logfile_);
 
   // print the value of the relaxation
   log.printnl("Relaxation: %4.2f", getRelaxedObjective());

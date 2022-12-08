@@ -1,6 +1,7 @@
 set(LIB_NAME modeler)
 set(SOURCE_FILES
         Modeler.cpp
+        CoinModeler.cpp
         BcpModeler.cpp
         Stabilization.h
         Stabilization.cpp

@@ -357,7 +357,7 @@ class Stretch {
   virtual int nDays() const { return pShifts_.size(); }
   virtual int lastDayId() const { return firstDayId_+ nDays() - 1; }
   virtual const PShift& pShift(int dayId) const {
-    return pShifts_.at(dayId- firstDayId());
+    return pShifts_.at(dayId - firstDayId());
   }
   virtual const vector<PDay> &pDays() const { return pDays_; }
   virtual const vector<PShift> &pShifts() const { return pShifts_; }

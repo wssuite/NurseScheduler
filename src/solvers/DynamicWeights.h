@@ -27,7 +27,8 @@ typedef std::shared_ptr<LiveNurse> PLiveNurse;
 
 class DynamicWeights {
  public:
-  DynamicWeights(PScenario pScenario, std::vector<PLiveNurse> pLiveNurses);
+  DynamicWeights(PScenario pScenario, std::vector<PLiveNurse> pLiveNurses,
+                 WeightStrategy strategy = NO_STRAT);
 
   // Compute the weights o the violation of the min/max number of working days
   // For now, the update depends only on the initial states and on the contract
@@ -76,6 +77,9 @@ class DynamicWeights {
     return weightTotalWeekendsContractAvg_;
   }
 
+  WeightStrategy getStrategy() const { return strat_; }
+  void setStrategy(WeightStrategy strategy) { strat_ = strategy; }
+
  protected:
   PScenario pScenario_;
   std::vector<PLiveNurse> pLiveNurses_;
@@ -85,6 +89,9 @@ class DynamicWeights {
 
   // increment this flag everytime a set of modifications is performed
   int version_;
+
+  // current strategy associated to the weights
+  WeightStrategy strat_;
 
   // Interval inside of which there is no penalty for the total number of
   // working days (for each nurse)

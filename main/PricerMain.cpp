@@ -63,7 +63,7 @@ std::pair<float, float> comparePricing(MasterProblem *pMaster,
 #ifdef DBG
     std::cout << bSols.front().toString();
     std::cout << mSols.front().toString();
-    if (pMaster->parameters().sp_type_ == ROSTER) {
+    if (pMaster->parameters().spType_ == ROSTER) {
       RosterColumn bPat(bSols.front(), 0);
       bPat.checkReducedCost(*pDualCosts, true);
       RosterColumn mPat(mSols.front(), 0);
@@ -100,7 +100,7 @@ float comparePricing(
     SubProblemParam spParam2 = spParam;
     if (!compareToBoost)
       spParam2.rcsppImprovedDomination_ = false;
-    if (pMaster->parameters().sp_type_ == ROSTER) {
+    if (pMaster->parameters().spType_ == ROSTER) {
       mSP = new RosterSP(pScenario, 0, pScenario->nDays(), pNurse,
                          pMaster->getSPResources(pNurse), spParam);
       if (compareToBoost)
@@ -185,13 +185,13 @@ float test_pricer(const std::string &instance,
   SolverParam param = pSolver->getCompleteParameters();
   param.spParam_ = spParam;
   param.verbose_ = inputPaths.verbose();
-  param.sp_type_ = ROSTER;
+  param.spType_ = ROSTER;
   auto pMaster =
       dynamic_cast<MasterProblem *>(
-          pSolver->setSolverWithInputAlgorithm(
+          pSolver->newSolverWithInputAlgorithm(
               pSolver->getOptions().solutionAlgorithm_,
               param));
-  pMaster->initialize(param, {});
+  pMaster->initialize(param);
   // make the tests
   float cpu = comparePricing(pMaster, errorFound, compareToBoost, nTest);
   delete pMaster;

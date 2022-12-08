@@ -479,7 +479,7 @@ class BcpModeler : public CoinModeler {
     if (!bcpLBs_.empty() && (bcpLBs_.back().lb >= lb + epsilon()))
       std::cerr << "Stored LB should be increasing, instead of:"
                 << bcpLBs_.back().lb << " -> " << lb << std::endl;
-    bcpLBs_.emplace_back(lb, timerTotal_.dSinceInit());
+    bcpLBs_.emplace_back(lb, dSinceStart());
     writeCurrentBounds();
   }
 
@@ -585,6 +585,9 @@ class BcpModeler : public CoinModeler {
   void incrementNbDegenerateIt() { nbDegenerateIt_++; }
 
   // Get/set statistics
+  double dSinceStart() {
+    return timerTotal_.dSinceStart();
+  }
   BCP_lp_statistics getTimeStats() const { return timeStats_; }
   void setTimeStats(const BCP_lp_statistics &stats) {
     timeStats_ = stats;
@@ -594,11 +597,8 @@ class BcpModeler : public CoinModeler {
   }
   double getTimeFirstRoot() const { return timeFirstRoot_; }
   void setTimeFirstRoot(double t) { timeFirstRoot_ = t; }
-  void initTimeFirstRoot() { timeFirstRoot_ = timerTotal_.dSinceStart(); }
+  void initTimeFirstRoot() { timeFirstRoot_ = dSinceStart(); }
   int getNbLpIterations() const { return nbLpIterations_; }
-  void setNbLpIterations(int nbLpIterations) {
-    nbLpIterations_ = nbLpIterations;
-  }
   void addNbLpIterations(int nbLpIterations) {
     nbLpIterations_ += nbLpIterations;
   }
@@ -1118,7 +1118,7 @@ class BcpLpModel : public BCP_lp_user {
     return true;
   }
 
-  double approximatedDualUB_ = -LARGE_SCORE;
+  double approximatedDualUB_;
 
   // rerun the code use to test the integer feasibility of a solution and
   // find why a solution is not feasible

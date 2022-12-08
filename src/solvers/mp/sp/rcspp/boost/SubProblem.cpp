@@ -16,6 +16,9 @@
 #include <set>
 #include <utility>
 
+#include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
+#include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
+
 namespace boostRCSPP {
 
 const int SubProblem::maxSubproblemStrategyLevel_ = 3;
@@ -127,12 +130,13 @@ Penalties SubProblem::initPenalties() const {
   // if a live nurse is defined (true when solving)
   if (pLiveNurse_) {
     // 1: DAYS
-    penalties.addLabel(pLiveNurse_->minTotalShifts(),
-                       pLiveNurse_->maxTotalShifts(),
-                       pScenario_->weights().totalShifts);
+    penalties.addLabel(pLiveNurse_->totalShiftDurationResource_->getLb(),
+                       pLiveNurse_->totalShiftDurationResource_->getUb(),
+                       pLiveNurse_->totalShiftDurationResource_->getUbCost());
     // 2: WEEKEND
-    penalties.addLabel(0, pLiveNurse_->maxTotalWeekends(),
-                       pScenario_->weights().totalWeekends);
+    penalties.addLabel(pLiveNurse_->totalWeekendResource_->getLb(),
+                       pLiveNurse_->totalWeekendResource_->getUb(),
+                       pLiveNurse_->totalWeekendResource_->getUbCost());
   }
 
   return penalties;

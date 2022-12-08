@@ -50,7 +50,7 @@ class StochasticSolver : public Solver {
 
   // get the number of generated schedules
   //
-  int getNbSchedules() { return schedules_.size(); }
+  int getNGeneratedSolutions() { return nGeneratedSolutions_; }
 
  protected:
   // Options that characterize the execution of the stochastic solver
@@ -90,12 +90,10 @@ class StochasticSolver : public Solver {
 
   // History
   std::vector<PDemand> demandHistory_;
-  // Number of demands generated
-  int nGenerationDemands_;
   // Vector of random demands that are used to GENERATE the schedules
   std::vector<PDemand> pGenerationDemands_;
   // Generate a new demand for generation
-  void generateSingleGenerationDemand();
+  PDemand generateSingleGenerationDemand();
 
 
 
@@ -125,20 +123,14 @@ class StochasticSolver : public Solver {
   //
   //----------------------------------------------------------------------------
 
-  // Schedules
-  int nSchedules_;
-  std::vector<Solver *> pGenerationSolvers_;
-  // For reusable solvers
-  Solver *pReusableGenerationSolver_;
-  vector2D<Roster> schedules_;
-  vector2D<State> finalStates_;
+  // Generation Schedule
+  Solver *pGenerationSolver_;
+  int nGeneratedSolutions_;
 
   // Return a solver with the algorithm specified for schedule GENERATION
   Solver *setGenerationSolverWithInputAlgorithm(PDemand pDemand);
   // Generate a new schedule
-  void generateNewSchedule();
-
-
+  bool generateNewSchedule();
 
   //----------------------------------------------------------------------------
   //
@@ -149,15 +141,10 @@ class StochasticSolver : public Solver {
   // Empty preferences -> only 1 to avoid multiplying them
   Preferences *pEmptyPreferencesForEvaluation_;
   // Evaluation
-  vector2D<Solver *> pEvaluationSolvers_;
-  std::vector<Solver *> pReusableEvaluationSolvers_;
   std::vector<std::map<int, std::set<int> > >
       schedulesFromObjectiveByEvaluationDemand_;
-  std::vector<std::map<int, std::set<int> > >
-      schedulesFromObjectiveByEvaluationDemandGreedy_;
   // Scores
   std::vector<double> theScores_;
-  std::vector<double> theScoresGreedy_;
 
   int bestSchedule_;
   double bestScore_;
@@ -166,17 +153,14 @@ class StochasticSolver : public Solver {
 
   // Return a solver with the algorithm specified for schedule EVALUATION
   Solver *setEvaluationWithInputAlgorithm(
-      PDemand pDemand, std::vector<State> *stateEndOfSchedule);
-  // Evaluate 1 schedule and store the corresponding detailed results
+      PDemand pDemand, const vector<State> &stateEndOfSchedule);
+
+  // Evaluate the last schedule and store the corresponding detailed results
   // (returns false if time has run out)
-  bool evaluateSchedule(int sched);
+  bool evaluateLastGeneratedSchedule();
+
   // Recompute all scores after one schedule evaluation
   void updateRankingsAndScores(RankingStrategy strategy);
-  // Getter
-  double valueOfEvaluation(int sched,
-                           int evalDemand) {
-    return pEvaluationSolvers_[sched][evalDemand]->computeSolutionCost();
-  }
 
  protected:
   // Update the weights
@@ -185,8 +169,6 @@ class StochasticSolver : public Solver {
   // already treated and on the number of weeks left
   //
   void computeWeightsTotalShifts();
-
-  Solver *setSubSolverWithInputAlgorithm(PDemand pDemand, Algorithm algo);
 };
 
 #endif  // SRC_SOLVERS_STOCHASTICSOLVER_H_

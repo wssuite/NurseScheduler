@@ -158,32 +158,10 @@ void Demand::pushBack(const PDemand& pDemand) {
 }
 
 // Returns a new demand that appends pDemand to the current one
-PDemand Demand::append(const PDemand& pDemand) {
-  PDemand bigDemand = std::make_shared<Demand>(*this);
-
-  // check if same scenario
-  if ((nShifts_ != pDemand->nShifts_) || (nSkills_ != pDemand->nSkills_)) {
-    std::string error = "Demands are not compatible";
-    Tools::throwError(error.c_str());
-  }
-
-  // number of days covered by the demand and index of the first day
-  //
-  bigDemand->nDays_ += pDemand->nDays_;
-
-  // pushes back the second demand on the first
-  for (const vector2D<int> &vector : pDemand->minDemand_) {
-    bigDemand->minDemand_.push_back(vector);
-  }
-
-  for (const vector2D<int> &vector : pDemand->optDemand_) {
-    bigDemand->optDemand_.push_back(vector);
-  }
-
-  // run the preprocessing
-  bigDemand->preprocessMinDemand();
-
-  return bigDemand;
+PDemand Demand::append(const PDemand& pDemand) const {
+  PDemand pNewDemand = std::make_shared<Demand>(*this);
+  pNewDemand->pushBack(pDemand);
+  return pNewDemand;
 }
 
 // modify the demand by randomly swapping the demand of nnSwaps days

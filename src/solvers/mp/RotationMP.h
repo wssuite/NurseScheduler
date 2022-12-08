@@ -128,7 +128,7 @@ class RotationMP : public MasterProblem {
   // return the value V used to choose the number of columns on which to branch.
   // Choose as many columns as possible such that: sum (1 - value(column)) < V
   double getBranchColumnValueMax() const override {
-    return std::max(1.0, pScenario_->nWeeks() / 2.0);
+    return std::max(1, nDays() / 14) - pModel_->epsilon();
   }
 
   /*

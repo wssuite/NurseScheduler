@@ -18,7 +18,7 @@ function printBashUsage {
   echo "-ec | --evaluation-config: config file for the evaluation parameters. Default: none"
   echo "-s  | --seeds: seeds to run the simulator for each stage (e.g., 22-36-96-5). Default: random."
   echo "-t  | --timeout: timeout for the solver or the stage. Default: based on the number of nurses and weeks in the instance."
-  echo "-o  | --output: directory for the output. Default: outfiles/{instance}/{timestamp} or outfiles/{instance}/{seeds}_{timestamp} if dynamic"
+  echo "-o  | --output | --sol: directory for the output. Default: outfiles/{instance}/{timestamp} or outfiles/{instance}/{seeds}_{timestamp} if dynamic"
   echo "-g  | --goal: goal to reach for the cost of the solution. Used for the unit tests. Default: none."
   echo "-v  | --valgrind: use valgrind to run the code. Default: false."
   echo "-vo | --valgrind-options: options for valgrind. Default: ${valgrindOPT}."
@@ -59,6 +59,7 @@ while [ ! -z ${ARGS[${i}]} ]; do
    -vo | --valgrind-options) valgrindOPT=${ARGS[((i+1))]}; ((i+=2));;
    -e | --evaluate) eval=${ARGS[((i+1))]}; ((i+=2));;
    -r | --root-dir-path) rootDir=${ARGS[((i+1))]}; ((i+=2));;
+   -o | --output | --sol) outputDir=${ARGS[((i+1))]}; ((i+=2));;
    --pricer) pricer="1"; ((i+=1));;
    --retries) retries=${ARGS[((i+1))]}; ((i+=2));;
    --dir) dataDir=${ARGS[((i+1))]}; ((i+=2));;
@@ -94,10 +95,12 @@ function run {
     weeks=${parse[2]}
 
     # create the root of output directory if it does not exist
-    currenttime=$( date +%s )
-    outputDir="outfiles/${instance_description}/${currenttime}"
-    echo "Create output directory: ${outputDir}"
-    mkdir -p "${outputDir}"
+    if [ -z ${outputDir} ]; then
+      currenttime=$( date +%s )
+      outputDir="outfiles/${instance_description}/${currenttime}"
+      echo "Create output directory: ${outputDir}"
+      mkdir -p "${outputDir}"
+    fi
 
     # base output
     sCMD="./bin/staticscheduler --dir ${dataDir} --instance ${instance} --weeks ${weeks} --his ${hist} --sol ${outputDir}"

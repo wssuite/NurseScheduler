@@ -212,6 +212,7 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
    * Compute initial cost
    */
   rcSol->resetCosts();
+
   // initial state of the nurse
   PShift lastPShift = pLiveNurse_->pStateIni_->pShift_;
   int nbConsShifts = pLiveNurse_->pStateIni_->consShifts_;
@@ -320,15 +321,22 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
     k++;
   }
 
-  if (pLiveNurse_->minTotalShifts() - rcSol->duration() > 0)
-    rcSol->addCost(pScenario_->weights().totalShifts
-                       * (pLiveNurse_->minTotalShifts() - rcSol->duration()),
-                   TOTAL_WORK_COST);
-  if (rcSol->duration() - pLiveNurse_->maxTotalShifts() > 0)
-    rcSol->addCost(pScenario_->weights().totalShifts
-                       * (rcSol->duration() - pLiveNurse_->maxTotalShifts()),
-                   TOTAL_WORK_COST);
-  rcSol->addCost(pLiveNurse_->totalWeekendCost(nWeekends), TOTAL_WEEKEND_COST);
+  // Retrieve penalties
+  Penalties penalties = initPenalties();
+  for (int l = 0; l < labels_.size(); l++) {
+    switch (labels_[l]) {
+      case DAYS:
+        rcSol->addCost(
+            penalties.penalty(l, rcSol->duration()), TOTAL_WORK_COST);
+        break;
+      case WEEKEND:
+        rcSol->addCost(
+            penalties.penalty(l, nWeekends), TOTAL_WEEKEND_COST);
+        break;
+      default:
+        break;
+    }
+  }
 
 #ifdef DBG
   if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > EPSILON) {

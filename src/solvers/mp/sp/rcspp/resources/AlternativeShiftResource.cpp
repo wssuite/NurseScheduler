@@ -15,18 +15,12 @@
 void AlternativeShiftResource::preprocess(const PRCGraph &pRCGraph) {
   for (const PRCArc& pA : pRCGraph->pArcs()) {
     double cost = 0;
-    preprocess(pA, &cost);
+    for (const auto& pS : pA->stretch.pShifts())
+      if (isAlternativeShift(pS))
+        cost += cost_;
     pA->addBaseCost(cost);
   }
   isPreprocessed_ = true;
-}
-
-bool AlternativeShiftResource::preprocess(const PRCArc& pA, double *cost) {
-  *cost = 0;
-  for (const auto& pS : pA->stretch.pShifts())
-    if (isAlternativeShift(pS))
-      *cost += cost_;
-  return true;
 }
 
 PExpander AlternativeShiftResource::init(const AbstractShift &prevAShift,

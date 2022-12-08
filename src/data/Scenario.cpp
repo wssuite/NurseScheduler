@@ -277,7 +277,7 @@ Scenario::Scenario(string name,
         forbiddenShiftTypeSuccessors(forbiddenSuccessors_,
                                      shiftTypeIDToShiftID_,
                                      shiftIDToShiftTypeID_)),
-    pWeekDemand_(nullptr),
+    pDemand_(nullptr),
     isINRC_(isINRC),
     isINRC2_(isINRC2),
     nShiftOffRequests_(0),
@@ -286,7 +286,6 @@ Scenario::Scenario(string name,
   // To make sure that it is modified later when reading the history data file
   //
   thisWeek_ = -1;
-  nWeeksLoaded_ = 1;
 
   // Preprocess the vector of nurses
   // This creates the positions
@@ -301,7 +300,7 @@ Scenario::Scenario(string name,
 Scenario::Scenario(const PScenario& pScenario,
                    const vector<PNurse> &theNurses,
                    PDemand pDemand,
-                   PPreferences pWeekPreferences) :
+                   PPreferences pPreferences) :
     Scenario(*pScenario) {
   // change nurses and reset positions
   nNurses_ = theNurses.size();
@@ -316,13 +315,13 @@ Scenario::Scenario(const PScenario& pScenario,
   // The nurses are already preprocessed at this stage
   // Load the input week demand and preferences
   this->linkWithDemand(std::move(pDemand));
-  this->linkWithPreferences(std::move(pWeekPreferences));
+  this->linkWithPreferences(std::move(pPreferences));
 }
 
 Scenario::~Scenario() = default;
 
-void Scenario::setWeekPreferences(PPreferences weekPreferences) {
-  pWeekPreferences_ = std::move(weekPreferences);
+void Scenario::setPreferences(PPreferences pPreferences) {
+  pPreferences_ = std::move(pPreferences);
 }
 
 // return true if the shift shNext is a forbidden successor of sh
@@ -412,13 +411,22 @@ void Scenario::updateNewWeek(PDemand pDemand,
 }
 
 void Scenario::linkWithPreferences(PPreferences pPreferences) {
-  pWeekPreferences_ = std::move(pPreferences);
+  pPreferences_ = std::move(pPreferences);
   nShiftOffRequests_ = 0;
   for (const PNurse& nurse : pNurses_)
-    nShiftOffRequests_ += pWeekPreferences_->howManyShiftsOff(nurse->num_);
+    nShiftOffRequests_ += pPreferences_->howManyShiftsOff(nurse->num_);
   nShiftOnRequests_ = 0;
   for (const PNurse& nurse : pNurses_)
-    nShiftOnRequests_ += pWeekPreferences_->howManyShiftsOn(nurse->num_);
+    nShiftOnRequests_ += pPreferences_->howManyShiftsOn(nurse->num_);
+}
+
+void Scenario::pushBack(PDemand pDemand, PPreferences pPreferences) {
+  pDemand_ = pDemand_->append(pDemand);
+  pPreferences_ = pPreferences_->append(pPreferences);
+  for (const PNurse& nurse : pNurses_)
+    nShiftOffRequests_ += pPreferences->howManyShiftsOff(nurse->num_);
+  for (const PNurse& nurse : pNurses_)
+    nShiftOnRequests_ += pPreferences->howManyShiftsOn(nurse->num_);
 }
 
 //------------------------------------------------
@@ -486,12 +494,12 @@ string Scenario::toStringINRC2() const {
     // write the demand using the member method toStringINRC2
     // do not write the preprocessed information at this stage
     //
-    rep << pWeekDemand_->toString(false) << std::endl;
+    rep << pDemand_->toString(false) << std::endl;
 
     // write the preferences
     //
     rep << "# " << std::endl;
-    rep << pWeekPreferences_->toString();
+    rep << pPreferences_->toString();
   }
   if (thisWeek_ > -1) {
     rep << "# " << std::endl;

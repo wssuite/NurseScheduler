@@ -600,6 +600,10 @@ class Preferences {
   // add another week preferences at the end of the current one
   void pushBack(const PPreferences& pPref);
 
+  // create a new preferences that contains the current preferences and
+  // another week preferences at the end
+  PPreferences append(const PPreferences& pPref) const;
+
   // Keep the preferences relative to the days in [begin,end)
   PPreferences keep(int begin, int end) const;
 

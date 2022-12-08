@@ -120,7 +120,7 @@ class Demand {
   void pushBack(const PDemand& pDemand);
 
   // Returns a new demand that appends pDemand to the current one
-  PDemand append(const PDemand& pDemand);
+  PDemand append(const PDemand& pDemand) const;
 
   // display the demand, and include the preprocessed information if the input
   // boolean is set to true

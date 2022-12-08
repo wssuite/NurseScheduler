@@ -21,6 +21,8 @@
 #include <vector>
 
 #include "solvers/mp/constraints/AssignmentConstraints.h"
+#include "solvers/mp/constraints/DynamicConstraints.h"
+
 
 //-----------------------------------------------------------------------------
 //
@@ -123,26 +125,14 @@ class RosterMP : public MasterProblem {
 
   // split the resources between the master and the subproblem
   // must initialize spResources_
-  void splitPResources() override {
-    // put all the resources in the sub problem
-    spResources_.clear();
-    for (const auto &vR : pResources_) {
-      vector<PResource> pResources;
-      for (const auto &pR : vR) {
-        if (!pR->isInRosterMaster()) {
-          pR->setId(static_cast<int>(pResources.size()));
-          pResources.push_back(pR);
-        }
-      }
-      spResources_.push_back(pResources);
-    }
-  }
+  void splitPResources() override;
 
   /*
   * Constraints
   */
   // Ensure that is nurse has a roster assigned to her
   RosterAssignmentConstraint *assignmentConstraint_;
+  DynamicConstraints *dynamicConstraints_ = nullptr;
 };
 
 #endif  // SRC_SOLVERS_MP_ROSTERMP_H_

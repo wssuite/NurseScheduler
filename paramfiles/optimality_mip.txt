@@ -18,7 +18,6 @@ branchColumnDisjoint=1
 # branchColumnUntilValue=1
 weekendAdvantage=0.2
 branchBaseScore=0.2
-stopAfterXDegenerateIt=20
 performHeuristicAfterXNode=0
 heuristicMinIntegerPercent=0
 performMIPHeuristic=1

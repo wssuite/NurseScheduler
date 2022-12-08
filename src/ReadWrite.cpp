@@ -858,15 +858,6 @@ void ReadWrite::readINRCPreferences(std::fstream *pFile,
     pPref->addShiftOn(nurseId, dayId, pAS, cost);
     Tools::readUntilChar(pFile, ';', &strTmp);
   }
-
-  // create resources
-  for (const PNurse &pN : theNurses)
-    for (const auto &p : pPref->nurseWishes(pN->num_)) {
-      pN->addBaseResource(
-          std::make_shared<SoftPreferenceResource>(
-              std::make_shared<Day>(p.first),
-              p.second));
-  }
 }
 
 //--------------------------------------------------------------------------
@@ -1287,7 +1278,6 @@ PDemand ReadWrite::readINRC2Weeks(const std::vector<std::string>& strWeekFiles,
       // update the current weeks
       pDemand->pushBack(nextDemand);
       pPref->pushBack(nextPref);
-      pScenario->addAWeek();
     }
 
   // link the scenario to the current demand and preferences

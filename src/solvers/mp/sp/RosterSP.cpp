@@ -101,7 +101,7 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
       computeResourcesCosts(*pLiveNurse_->pStateIni_, rcSol);
 
 #ifdef DBG
-  if (cost < DBL_MAX-1 && std::abs(cost - rcSol->cost()) > EPSILON) {
+  if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: rcspp " << cost
               << " != recomputed " << rcSol->cost()
@@ -121,7 +121,8 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   }
 
   // check with boost if default resources
-  if (pMaster->useDefaultResources() && pMaster->isINRC2()) {
+  if (pMaster->useDefaultResources() && pMaster->isINRC2() &&
+      pMaster->getDynamicWeights().version() > 0) {
     boostRCSPP::RosterSP sp(pScenario_, nDays(), pLiveNurse_, param_);
     sp.computeCost(nullptr, rcSol);
   }

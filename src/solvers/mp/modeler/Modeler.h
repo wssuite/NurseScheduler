@@ -299,25 +299,25 @@ typedef std::shared_ptr<MyNode> MyPNode;
 struct MyNode {
   MyNode() : index_(0),
              pParent_(nullptr),
-             bestLB_(LARGE_SCORE),
+             bestLB_(XLARGE_SCORE),
              processed_(false),
-             gap_(LARGE_SCORE),
-             smallestGap_(LARGE_SCORE),
+             gap_(XLARGE_SCORE),
+             smallestGap_(XLARGE_SCORE),
              depth_(0),
-             bestLagLB_(-LARGE_SCORE),
-             lastLagLB_(-LARGE_SCORE),
-             presolvedUB_(LARGE_SCORE) {}
+             bestLagLB_(-XLARGE_SCORE),
+             lastLagLB_(-XLARGE_SCORE),
+             presolvedUB_(XLARGE_SCORE) {}
   explicit MyNode(const MyPNode &pParent) :
       index_(-1),
       pParent_(pParent.get()),
       bestLB_(pParent_->bestLB_),
       processed_(false),
-      gap_(LARGE_SCORE),
-      smallestGap_(LARGE_SCORE),
+      gap_(XLARGE_SCORE),
+      smallestGap_(XLARGE_SCORE),
       depth_(pParent_->depth_ + 1),
       bestLagLB_(pParent_->bestLB_),
-      lastLagLB_(-LARGE_SCORE),
-      presolvedUB_(LARGE_SCORE) {}
+      lastLagLB_(-XLARGE_SCORE),
+      presolvedUB_(XLARGE_SCORE) {}
   virtual ~MyNode() = default;
 
   // parent
@@ -344,7 +344,7 @@ struct MyNode {
   double getHighestGap() const {
     // if root, it is the best
     if (!pParent_)
-      return LARGE_SCORE;
+      return XLARGE_SCORE;
 
     // otherwise compare the current gap
     return pParent_->smallestGap_;
@@ -356,7 +356,7 @@ struct MyNode {
   double getQuality() const {
     // if root, does not apply
     if (!pParent_)
-      return LARGE_SCORE;
+      return XLARGE_SCORE;
     // otherwise return parent's best LB
     return pParent_->getBestLB() + 1e-6 * depth_;
   }
@@ -426,7 +426,7 @@ struct MyNode {
   std::string getInfo() const {
     std::stringstream out;
     out << "depth=" << depth_ << ", LB=" << bestLB_;
-    if (presolvedUB_ < LARGE_SCORE - 1)
+    if (presolvedUB_ < XLARGE_SCORE - 1)
       out << ", presolved=" << presolvedUB_;
     return out.str();
   }
@@ -444,9 +444,9 @@ struct MyTree {
         nb_nodes_since_dive_(0),
         currentNode_(nullptr),
         printCurrentNode_(printCurrentNode),
-        best_lb_in_root(LARGE_SCORE),
-        best_lb(LARGE_SCORE),
-        best_ub(LARGE_SCORE),
+        best_lb_in_root(XLARGE_SCORE),
+        best_lb(XLARGE_SCORE),
+        best_ub(XLARGE_SCORE),
         best_lb_min_tree_level_(0) {}
 
   virtual ~MyTree() {}
@@ -508,7 +508,7 @@ struct MyTree {
   // Reset and clear solving parameters
   virtual void reset() {
     clear();
-    best_ub = LARGE_SCORE;
+    best_ub = XLARGE_SCORE;
     currentNode_ = nullptr;
     tree_size_ = 0;
     nb_nodes_processed_ = 0;
@@ -516,8 +516,8 @@ struct MyTree {
     nb_nodes_since_dive_ = 0;
     diveDepth_ = 0;
     diveLength_ = LARGE_SCORE;
-    best_lb_in_root = LARGE_SCORE;
-    best_lb = LARGE_SCORE;
+    best_lb_in_root = XLARGE_SCORE;
+    best_lb = XLARGE_SCORE;
   }
 
   int getTreeSize() const { return tree_size_; }
@@ -792,10 +792,11 @@ struct MyBranchingRule {
 
 class Modeler {
  public:
-  Modeler() : pPricer_(nullptr),
-              pBranchingRule_(nullptr),
-              pTree_(nullptr),
-              stab_(this) {}
+  Modeler():
+      pPricer_(nullptr),
+      pBranchingRule_(nullptr),
+      pTree_(nullptr),
+      stab_(this) {}
 
   virtual ~Modeler() {
     for (MyVar *var : initialColumnVars_)
@@ -1166,9 +1167,9 @@ class Modeler {
   virtual double getVarValue(MyVar *var) const = 0;
 
   // compute the total cost of a multiple vectors of MyObject* in the solution
-  double getVarValue(const std::vector<MyVar*> &vector) const {
+  double getVarValue(const std::vector<MyVar *> &vector) const {
     double value = 0;
-    for (MyVar* v : vector)
+    for (MyVar *v : vector)
       if (v) value += getVarValue(v);
     return value;
   }
@@ -1194,10 +1195,10 @@ class Modeler {
 
   virtual double getDual(MyCons *cons, bool transformed = false) const = 0;
 
-  double getDual(const std::vector<MyCons*> &vector,
+  double getDual(const std::vector<MyCons *> &vector,
                  bool transformed = false) const {
     double value = 0;
-    for (MyCons* c : vector)
+    for (MyCons *c : vector)
       if (c) value += getDual(c);
     return value;
   }
@@ -1366,7 +1367,7 @@ class Modeler {
 
   virtual double getBestUB() const { return pTree_->getBestUB(); }
 
-  virtual double getObjective(int index) const { return LARGE_SCORE; }
+  virtual double getObjective(int index) const { return XLARGE_SCORE; }
 
   virtual double getRelaxedObjective() const { return pTree_->getRootLB(); }
 
@@ -1509,7 +1510,7 @@ class Modeler {
   virtual bool loadBestSol(bool integer) { return false; }
   virtual bool loadBestSol() { return loadBestSol(true); }
 
-  virtual bool isSolutionInteger() const  { return false; }
+  virtual bool isSolutionInteger() const { return false; }
 
   // Get the current level in the branch and bound tree
   virtual int getCurrentTreeLevel() const { return 0; }

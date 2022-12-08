@@ -69,6 +69,8 @@ class BoundedResourceConstraint : public ConstraintMP {
     return pModel()->getTotalCost(resourceVars_);
   }
 
+  std::string individualCostToString() const;
+
  protected:
   // variables associated to the resources
   std::vector<std::map<std::pair<H*, S*>, std::pair<MyVar*, MyVar*>>>
@@ -107,6 +109,8 @@ class TotalShiftDurationConstraint : public BoundedResourceConstraint<
 
   // update the dual values of the constraints randomly
   void randomUpdateDuals(bool useInputData, int nPerturbations) override;
+
+  std::string writeIndividualCost() const;
 };
 
 class TotalWeekendConstraint : public BoundedResourceConstraint<
@@ -120,6 +124,8 @@ class TotalWeekendConstraint : public BoundedResourceConstraint<
 
   // update the dual values of the constraints randomly
   void randomUpdateDuals(bool useInputData, int nPerturbations) override;
+
+  std::string writeIndividualCost() const;
 };
 
 // class ConsWeekendConstraint : public BoundedResourceConstraint<

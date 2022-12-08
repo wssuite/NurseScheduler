@@ -120,7 +120,11 @@ void RotationColumn::checkReducedCost(const DualCosts &dualCosts,
 
 RotationMP::RotationMP(const PScenario& pScenario,
                        SolverType solver) :
-    MasterProblem(pScenario, solver) {}
+    MasterProblem(pScenario, solver),
+    rotationGraphConstraint_(nullptr),
+    dynamicConstraints_(nullptr),
+    totalShiftDurationConstraint_(nullptr),
+    totalWeekendConstraint_(nullptr) {}
 
 RotationMP::RotationMP(const PScenario& pScenario,
                        SolverType solver,

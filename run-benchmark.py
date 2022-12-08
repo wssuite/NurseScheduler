@@ -31,24 +31,27 @@ stats_indexes = {
     'lb': 3
 }
 
+alt_stats_field = 'Total cost:'
+alt_stats_indexes = {
+    'ub': 2
+}
+
 output_keys = ['root-lb', 'lb', 'ub', 'status', 'stats', 'lbs', 'ubs', 'time']
 
 markers_plt = {'H': '.', 'D': 'v', 'B': 'x'}
 markers_name = {'H': 'Heuristic', 'D': 'Dive', 'B': 'Branch'}
 
 
-def is_INRC2_instance(name):
-    inst = name.split('_')
-    return len(inst) == 3 and len(inst[1]) == 1
-
-
 def find_bounds(line, indexes):
     l_values = line.split()
     print(line[:-1])
     try:
-        r_lb = float(l_values[indexes['root lb']])
-        lb = float(l_values[indexes['lb']])
-        ub = int(float(l_values[indexes['ub']]))
+        r_lb = float(l_values[indexes['root lb']]) \
+            if 'root lb' in indexes else 0
+        lb = float(l_values[indexes['lb']]) \
+            if 'lb' in indexes else 0
+        ub = int(float(l_values[indexes['ub']])) \
+            if 'ub' in indexes else 1e6
         print('root-lb={}, lb={}, ub={}{}'.format(
             r_lb, lb, ub, '*' if ub - lb < 5 - 1e-5 else ''))
         return r_lb, lb, ub, line
@@ -104,8 +107,16 @@ def find_stats_bounds(stream):
         r = find_bounds(line, stats_indexes)
         bounds.append(r)
     stats = find_fields(stream, stats_field, extract_bounds)
-    if len(bounds) == 0:
-        raise ValueError("No bounds found")
+    if not bounds:
+        def extract_alt_bounds(line):
+            r = find_bounds(line, alt_stats_indexes)
+            bounds.append(r)
+        find_fields(stream, alt_stats_field, extract_alt_bounds)
+        if not bounds:
+            return 10e6, 10e6, 10e6, 'INFEASIBLE', [''], [10e6], [10e6]
+        r_lb, lb, ub, l = bounds[-1]
+        return r_lb, lb, ub, 'FEASIBLE', [l[:-1]], [lb], [ub]
+
     # if len(bounds) >= 2:
     #     sum_bounds = [sum(bds[i] for bds in bounds) for i in range(3)]
     #     sum_bounds.append('')
@@ -134,19 +145,21 @@ def run_cmd(cmd, i=0, n=1, pipe=True, logPath=None, r=None):
     print("[{}] Running test {:2d}/{}{}: {}".format(
         st, i, n, "" if r is None else " (%d)" % r, cmd))
     start = time.time()
-    out = subprocess.PIPE if pipe else sys.stdout
-    if logPath is not None:
+    out = subprocess.PIPE
+    if not pipe:
+        out = sys.stdout
+    elif logPath is not None:
         out = open("%s/log.txt" % logPath, 'w')
     p = subprocess.Popen(cmd.split(), stdout=out, stderr=out)
     stdout, stderr = p.communicate()
     end = int(time.time() - start)
     print("run time: {} s.".format(end))
-    if logPath is not None:
+    if logPath is not None and os.path.exists("%s/log.txt" % logPath):
         with open("%s/log.txt" % logPath, 'rb') as f:
             stdout = f.read()
     try:
         if p.returncode > 0:
-            raise "ended with a positive return code: {}".format(p.returncode)
+            return 10e6, 10e6, 10e6, 'ERROR', [''], [10e6], [10e6]
         return (*find_stats_bounds(stdout.decode("utf-8")), end) if stdout else {}
     except:
         sys.stderr.write("Fail test {}: {}".format(i, cmd))
@@ -236,12 +249,9 @@ def run_benchmark(benchmark_file, exe, pipe=True,
                         continue
                     # check if inrc2 format
                     i_name = t['name']
-                    if is_INRC2_instance(t['name']):
-                        cmd = '--instance {a[0]} --his {a[1]} ' \
-                              '--weeks {a[2]} '.format(a=t['name'].split('_'))
-                    else:
-                        cmd = '--instance {} '.format(t['name'])
-                        i_name = t['name'].rsplit('.', 1)[0]
+                    cmd = '--instance {} '.format(t['name'])
+                    # remove the extension if any
+                    i_name = t['name'].rsplit('.', 1)[0]
                     # add common args
                     cmd += ns_args
                     # add local dir if any
@@ -345,31 +355,28 @@ def create_graph(lbs_line, ubs_line, x_max=None, file=None, gap=1.25, granularit
 def validate(name, b_name, dir, ub, env):
     sol_path = 'outfiles/%s' % b_name
     i_name = name.split('.')[0]
-    if is_INRC2_instance(name):
-        print("Not implemented.")
-    else:
-        inst = "%sinstances_xml/%s.xml" % (dir, i_name)
-        sol = "%s/%s/%s.xml" % (sol_path, i_name, i_name)
-        cmd = 'java -jar validatorINRC.jar %s %s' % (inst, sol)
-        p = subprocess.Popen(cmd, shell=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        if stderr:
-            print(stderr.decode("utf-8"))
+    inst = "%sinstances_xml/%s.xml" % (dir, i_name)
+    sol = "%s/%s/%s.xml" % (sol_path, i_name, i_name)
+    cmd = 'java -jar validatorINRC.jar %s %s' % (inst, sol)
+    p = subprocess.Popen(cmd, shell=True, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    if stderr:
+        print(stderr.decode("utf-8"))
+        return False
+    try:
+        buf = io.StringIO(stdout.decode("utf-8"))
+        lines = buf.readlines()
+        if len(lines) < 2:
             return False
-        try:
-            buf = io.StringIO(stdout.decode("utf-8"))
-            lines = buf.readlines()
-            if len(lines) < 2:
-                return False
-            m = re.search("[0-9]+", lines[-2])
-            if m.group():
-                if ub == int(m.group()):
-                    return True
-                print("Found UB="+m.group())
-            return False
-        except Exception as e:
-            print(e)
-            return False
+        m = re.search("[0-9]+", lines[-2])
+        if m.group():
+            if ub == int(m.group()):
+                return True
+            print("Found UB="+m.group())
+        return False
+    except Exception as e:
+        print(e)
+        return False
 
 
 def run_validator(benchmark_file, env, status='.', name='.'):
@@ -429,9 +436,12 @@ def extract_results(results_file, plot=False, status='.', name='.'):
                         if 'ubs' in r and len(r['ubs']) > 1:
                             tub = 0
                             for l in r['ubs'][-2:]:
-                                t = float((l.split()[-1]).split(',')[1])
-                                if t > tub:
-                                    tub = t
+                                try:
+                                    t = float((l.split()[-1]).split(',')[1])
+                                    if t > tub:
+                                        tub = t
+                                except:
+                                    break
                             res += ", %.0f" % tub
                         print(res)
                         if plot and 'lbs' in r and 'ubs' in r:

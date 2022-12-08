@@ -48,7 +48,6 @@ class AlternativeShiftResource : public Resource {
 
   // add the cost of preference violation to all the arcs of the input graph
   void preprocess(const PRCGraph &pRCGraph) override;
-  bool preprocess(const PRCArc& pA, double *cost) override;
 
   bool isAlternativeShift(int s) const { return isAlternativeShift_[s]; }
   bool isAlternativeShift(const PShift &pS) const {

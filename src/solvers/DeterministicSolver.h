@@ -198,7 +198,7 @@ class DeterministicSolver : public Solver {
 
   // Return a solver with the algorithm specified in the options_
   //
-  Solver *setSolverWithInputAlgorithm(Algorithm algorithm,
+  Solver *newSolverWithInputAlgorithm(Algorithm algorithm,
                                       const SolverParam &param);
 
  protected:

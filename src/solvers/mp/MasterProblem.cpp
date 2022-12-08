@@ -105,10 +105,7 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
     pModel_->reset();
   }
 
-  // input an initial solution
-  this->initializeSolution(solution);
-
-  this->solveWithCatch();
+  this->solveWithCatch(solution);
 
   if (pModel_->getParameters().printBranchStats_) {
     pModel_->printStats();
@@ -138,8 +135,10 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
   return pModel_->getObjective();
 }
 
-void MasterProblem::solveWithCatch() {
+void MasterProblem::solveWithCatch(const vector<Roster> &solution) {
   try {
+    // input an initial solution
+    initializeSolution(solution);
     // initialize pricer (useful to authorize/forbid shifts for nurses)
     pPricer()->initNursesAvailabilities();
     // filter out initial columns that do not respect nurses' availabilities
@@ -164,7 +163,7 @@ void MasterProblem::solveWithCatch() {
               << std::endl;
     }
     if (!pModel_->logfile().empty()) {
-      Tools::LogOutput log(pModel_->logfile(), true);
+      Tools::LogOutput log(pModel_->logfile());
       log << buff.str();
     }
     std::cerr << buff.str();
@@ -181,10 +180,8 @@ double MasterProblem::resolve(PDemand pDemand,
 }
 
 // Initialization of the master problem with/without solution
-void MasterProblem::initialize(const SolverParam &param,
-                               const std::vector<Roster> &solution) {
+void MasterProblem::initialize(const SolverParam &param) {
   build(param);
-  initializeSolution(solution);
   setParameters(param);
 }
 
@@ -260,25 +257,37 @@ void MasterProblem::unrelaxDays(const std::vector<bool> &isUnrelax) {
 // set availability for the days before fixBefore (<=) based on
 // the current solution
 void MasterProblem::fixAvailabilityBasedOnSolution(
-    const std::vector<bool> &fixDays) {
+    const std::vector<bool> &fixDays, const std::vector<Roster> &solution) {
   // check if a solution has been loaded
-  if (pModel_->getActiveColumns().empty())
+  if (solution.empty() && pModel_->getActiveColumns().empty())
     Tools::throwError("Cannot call fixAvailabilityBasedOnSolution "
-                      "if no solutions in the solver");
+                      "if no solutions in the solver or provided.");
 
   // by default set all availabilities to true
   vector3D<bool> availableNursesDaysShifts;
   Tools::initVector3D(&availableNursesDaysShifts,
                       nNurses(), nDays(), nShifts(), true);
+
   // then get the solution and set to true only the shift belonging to
-  // a solution
-  vector3D<double> roster = fractionalRoster();
-  for (int k = 0; k < nDays(); ++k)
-    if (fixDays[k]) {
-      for (int n = 0; n < nNurses(); ++n)
-        for (int s = 0; s < nShifts(); ++s)
-          availableNursesDaysShifts[n][k][s] = roster[n][k][s] > epsilon();
-    }
+  // a solution: use the given solution first if any
+  if (!solution.empty()) {
+    for (int k = 0; k < nDays(); ++k)
+      if (fixDays[k]) {
+        for (int n = 0; n < nNurses(); ++n) {
+          int assignedShift = solution[n].shift(k);
+          for (int s = 0; s < nShifts(); ++s)
+            availableNursesDaysShifts[n][k][s] = (assignedShift == s);
+        }
+      }
+  } else {
+    vector3D<double> roster = fractionalRoster();
+    for (int k = 0; k < nDays(); ++k)
+      if (fixDays[k]) {
+        for (int n = 0; n < nNurses(); ++n)
+          for (int s = 0; s < nShifts(); ++s)
+            availableNursesDaysShifts[n][k][s] = roster[n][k][s] > epsilon();
+      }
+  }
 
   nursesAvailabilities(availableNursesDaysShifts);
 }
@@ -353,20 +362,20 @@ double MasterProblem::rollingSolve(const SolverParam &param,
   // build the model and initialize with artificial columns
   // at the first iteration
   if (firstDay == 0) {
-    initialize(param, solution);
+    build(param);
   } else {
     // copy active columns (the solution) from previous run to initial and
     // clear solution
     pModel_->copyActiveToInitialColumns();
     // reset the model
     pModel_->reset();
-    setParameters(param);
-    // add the solution in the model
-    initializeSolution(solution);
   }
 
+  // set parameters
+  setParameters(param);
+
   // solve the problem
-  solveWithCatch();
+  solveWithCatch(solution);
   pModel_->loadBestSol(false);
 
   // output information and save the solution
@@ -380,27 +389,27 @@ double MasterProblem::rollingSolve(const SolverParam &param,
 // Solve the problem with a method that can be specific to our implementation
 // of LNS
 //------------------------------------------------------------------------------
-double MasterProblem::LNSSolve(const SolverParam &param,
-                               const std::vector<Roster> &solution) {
+double MasterProblem::LNSSolve(const SolverParam &param) {
   // copy active columns (the solution) to initial from previous run and
   // clear solution
-  pModel_->copyActiveToInitialColumns();
+  if (!pModel_->getActiveColumns().empty())
+    pModel_->copyActiveToInitialColumns();
+  else if (!solution_.empty())
+    initializeSolution(solution_);
 
   // reset the model
   pModel_->reset();
   setParameters(param);
-  // add the solution
-  initializeSolution(solution);
 
   // solve the problem
-  solveWithCatch();
+  solveWithCatch({});
 
   // load and store best solution
-  pModel_->loadBestSol();
-  storeSolution();
-
-  if (pModel_->getVerbosity() >= 1)
-    std::cout << costsConstraintsToString() << std::endl;
+  if (pModel_->loadBestSol()) {
+    storeSolution();
+    if (pModel_->getVerbosity() >= 1)
+      std::cout << costsConstraintsToString() << std::endl;
+  }
 
   // output information and save the solution
   if (pModel_->getParameters().printBranchStats_)
@@ -889,7 +898,7 @@ string MasterProblem::coverageToString() const {
 double MasterProblem::computeLagrangianBound(double objVal) const {
   Tools::throwError("Lagrangian bound not implemented "
                     "for this master problem.");
-  return -LARGE_SCORE;
+  return -XLARGE_SCORE;
 // return objVal+sumRedCost-getStabCost();
 }
 

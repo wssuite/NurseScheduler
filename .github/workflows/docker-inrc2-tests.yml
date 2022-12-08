@@ -263,19 +263,19 @@ jobs:
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
-          ns-args: -d -s 68-54-78-98 -g 1670-2000
+          ns-args: -d -s 68-54-78-98 -g 1670-1900
           retries: 3
 
       - name: n030w4_1_6-7-5-3 dynamic
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-7-5-3
-          ns-args: -d -s 50-35-70-80 -g 1815-2150
+          ns-args: -d -s 50-35-70-80 -g 1815-2100
           retries: 3
 
-      - name: n035w4_1_1-7-1-8 dynamic
+      - name: n035w4_0_1-7-1-8 dynamic
         uses: ./ # Uses an action in the root directory
         with:
-          instance: n035w4_1_1-7-1-8
-          ns-args: -d -s 85-76-52-66 -g 1360-1700
+          instance: n035w4_0_1-7-1-8
+          ns-args: -d -s 85-76-52-66 -g 1360-1750
           retries: 3

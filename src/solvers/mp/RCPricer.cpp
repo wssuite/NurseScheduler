@@ -199,16 +199,16 @@ vector<MyVar *> RCPricer::pricing(double bound,
           }
         subProblem->computeCost(pMaster_, &sol);
       }
-      if (pModel_->getParameters().rcspp_type_ == LABEL_SETTING &&
+      if (pModel_->getParameters().rcsppType_ == LABEL_SETTING &&
           subProblem->isLastRunOptimal()) {
         SubProblemParam par2(pMaster_->pModel()->getParameters());
         par2.strategyLevel_ =
             boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
         SubProblem *sub2 = nullptr;
-        if (pModel_->getParameters().sp_type_ == ALL_ROTATION)
+        if (pModel_->getParameters().spType_ == ALL_ROTATION)
           sub2 =
               new boostRCSPP::RotationSP(pScenario_, nbDays_, pNurse, par2);
-        else if (pModel_->getParameters().sp_type_ == ROSTER)
+        else if (pModel_->getParameters().spType_ == ROSTER)
           sub2 =
               new boostRCSPP::RosterSP(pScenario_, nbDays_, pNurse, par2);
 
@@ -415,9 +415,9 @@ SubProblem *RCPricer::retrieveSubproblem(const PLiveNurse &pNurse,
 SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
                                       const SubProblemParam &spParam) const {
   SubProblem *subProblem;
-  switch (pModel_->getParameters().sp_type_) {
+  switch (pModel_->getParameters().spType_) {
     case LONG_ROTATION:
-      if (pModel_->getParameters().rcspp_type_ == BOOST_LABEL_SETTING)
+      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING)
         subProblem = new boostRCSPP::LongRotationSP(
             pScenario_, nbDays_, pNurse, spParam);
       else
@@ -426,7 +426,7 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
                                     spParam);
       break;
     case ALL_ROTATION: {
-      if (pModel_->getParameters().rcspp_type_ == BOOST_LABEL_SETTING)
+      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING)
         subProblem = new boostRCSPP::RotationSP(
             pScenario_, nbDays_, pNurse, spParam);
       else
@@ -436,7 +436,7 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
       break;
     }
     case ROSTER: {
-      if (pModel_->getParameters().rcspp_type_ == BOOST_LABEL_SETTING)
+      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING)
         subProblem = new boostRCSPP::RosterSP(
             pScenario_, nbDays_, pNurse, spParam);
       else if (pScenario_->isCyclic())

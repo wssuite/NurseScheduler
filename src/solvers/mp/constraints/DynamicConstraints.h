@@ -12,6 +12,7 @@
 #ifndef SRC_SOLVERS_MP_CONSTRAINTS_DYNAMICCONSTRAINTS_H_
 #define SRC_SOLVERS_MP_CONSTRAINTS_DYNAMICCONSTRAINTS_H_
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,10 +23,12 @@
 
 class DynamicConstraints : public ConstraintMP {
  public:
-  explicit DynamicConstraints(
+  explicit DynamicConstraints(MasterProblem *pMaster, bool do_build = true);
+
+  DynamicConstraints(
       MasterProblem *pMaster,
-      TotalShiftDurationConstraint *totalShiftDurationConstraint,
-      TotalWeekendConstraint *totalWeekendConstraint);
+      TotalShiftDurationConstraint *totalShiftDurationCtr,
+      TotalWeekendConstraint *totalWeekendCtr);
 
   // update the right hand side of the constraints based on the dynamic weights
   void update() override;
@@ -54,6 +57,8 @@ class DynamicConstraints : public ConstraintMP {
         pModel()->getTotalCost(maxWorkedDaysContractAvgVars_) +
         pModel()->getTotalCost(maxWorkedWeekendContractAvgVars_);
   }
+
+  std::string writeIndividualCost() const;
 
  protected:
   int dynamicWeightsVersion_;
@@ -96,6 +101,12 @@ class DynamicConstraints : public ConstraintMP {
   std::vector<MyCons *> maxWorkedDaysContractAvgCons_;
   //  the number of exceeding worked weekends from average per contract
   std::vector<MyCons *> maxWorkedWeekendContractAvgCons_;
+
+  /* Average resources for the ROSTER formulation */
+  std::vector<std::shared_ptr<SoftTotalShiftDurationResource>>
+  totalShiftDurationResourcesAvg_;
+  std::vector<std::shared_ptr<SoftTotalWeekendsResource>>
+  totalWeekendResourcesAvg_;
 
   // build the constraints
   void build();

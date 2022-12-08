@@ -52,8 +52,8 @@ class StatCtNurse {
   std::vector<double> costConsShifts_;
   std::vector<double> costPref_;
   std::vector<double> costWeekEnd_;
-  double costTotalDays_{};
-  double costTotalWeekEnds_{};
+  double costTotalDays_, costMissingDays_, costExceedingDays_;
+  double costTotalWeekEnds_;
 
   // vector of booleans equal to true if the corresponding hard contraint is
   // violated on each day
@@ -275,6 +275,7 @@ class LiveNurse : public Nurse {
   void checkConstraints(const Roster &roster,
                         const std::vector<State> &states,
                         int nbDays,
+                        bool payExcessImmediately,
                         StatCtNurse *stat);
 
   // Build States from the roster
@@ -321,6 +322,9 @@ class Solver {
   // Specific constructor
   explicit Solver(const PScenario& pScenario);
 
+  static Solver * newSolver(
+      PScenario pScenario, Algorithm algo, SPType spType, SolverType sType);
+
   // Main method to solve the rostering problem for a given input and an
   // initial solution
   virtual double solve(const std::vector<Roster> &solution = {}) {
@@ -330,7 +334,7 @@ class Solver {
   // Main method to solve the rostering problem for a given input and an
   // initial solution and parameters
   virtual double solve(const SolverParam &parameters,
-                       const std::vector<Roster> &solution) {
+                       const std::vector<Roster> &solution = {}) {
     param_ = parameters;
     return solve(solution);
   }
@@ -338,7 +342,7 @@ class Solver {
   // Resolve the problem with another demand and keep the same preferences
   virtual double resolve(PDemand pDemand,
                          const SolverParam &parameters,
-                         const std::vector<Roster> &solution) {
+                         const std::vector<Roster> &solution = {}) {
     pDemand_ = std::move(pDemand);
     return solve(parameters, solution);
   }
@@ -412,7 +416,7 @@ class Solver {
 
   // Objective value of the current solution
   // Warning: this value may not be updated every time it should be
-  double objValue_ = LARGE_SCORE;
+  double objValue_ = XLARGE_SCORE;
 
   // staffing in the solution : a 3D vector that contains the number of nurses
   //  for each triple (day,shift,skill)
@@ -444,6 +448,10 @@ class Solver {
 
   const DynamicWeights& getDynamicWeights() const {
     return dynamicWeights_;
+  }
+
+  void setDynamicWeightsStrategy(WeightStrategy strategy) {
+    dynamicWeights_.setStrategy(strategy);
   }
 
   void attachJob(Tools::Job job) {
@@ -494,17 +502,19 @@ class Solver {
   // set availability for the days in fixDays based on
   // the current solution
   virtual void fixAvailabilityBasedOnSolution(
-      const std::vector<bool> &fixDays) {
+      const std::vector<bool> &fixDays,
+      const std::vector<Roster> &solution = {}) {
     Tools::throwError(
         "Solver::fixAvailabilityBasedOnSolution() not implemented");
   }
 
   // set availability for the days before fixBefore (<=) based on
   // the current solution
-  virtual void fixAvailabilityBasedOnSolution(int fixBefore) {
+  virtual void fixAvailabilityBasedOnSolution(
+      int fixBefore, const std::vector<Roster> &solution = {}) {
     std::vector<bool> fixDays(nDays(), false);
     for (int k = 0; k <= fixBefore; ++k) fixDays[k] = true;
-    fixAvailabilityBasedOnSolution(fixDays);
+    fixAvailabilityBasedOnSolution(fixDays, solution);
   }
 
   // set the availability for each nurse
@@ -536,9 +546,7 @@ class Solver {
 
   // Special solve function for LNS
   // It is a priori the same as a regular, but it might be modified if needed
-  virtual double LNSSolve(
-      const SolverParam &parameters,
-      const std::vector<Roster> &solution) {
+  virtual double LNSSolve(const SolverParam &parameters) {
     return 0.0;
   }
 
@@ -570,9 +578,8 @@ class Solver {
   // Load a solution in the solver and build the states of the live nurses
   void loadSolution(const std::vector<Roster> &solution);
 
-  // Initialization of the rostering problem with/without solution
-  virtual void initialize(const SolverParam &parameters,
-                          const std::vector<Roster> &solution = {}) {}
+  // copy the solver solution to this solver
+  void copySolution(Solver *pSolver);
 
   //------------------------------------------------
   // Preprocess functions
@@ -606,10 +613,14 @@ class Solver {
   // set the bounds based on the initial state (resources already consumed)
   void computeBoundsAccordingToInitialState();
 
-  // Compute min/max bounds as the ratio :
+  // Compute min/max bounds as the ratio and based on
+  // the initial state (resources already consumed):
   // number of days in demand / total number of remaining days
   void computeBoundsAccordingToDemandSize();
-  void computeBoundsAccordingToDemandSize(int horizon);
+
+  // Compute min/max bounds as the ratio and based on
+  // the initial state (resources already consumed)
+  void computeBoundsAccordingToRatio(double ratio);
 
   // preprocees the skills to get their rarity
   // the value depends on the demand for this skill, on the number of nurses
@@ -649,16 +660,16 @@ class Solver {
 
   // get the total cost of the current solution
   // the solution is simply given by the roster of each nurse
-  double computeSolutionCost(int nbDays);
+  double computeSolutionCost(int nbDays, bool payExcessImmediately = true);
 
-  double computeSolutionCost() {
+  double computeSolutionCost(bool payExcessImmediately = true) {
     int cost = 0;
     if (pScenario_->isINRC_) {
       for (const auto& pN : theLiveNurses_)
         cost += pN->computeCostPerType();
       return cost;
     } else if (pScenario_->isINRC2_) {
-      return computeSolutionCost(pDemand_->nDays_);
+      return computeSolutionCost(pDemand_->nDays_, payExcessImmediately);
     }
     return -1;
   }
@@ -690,7 +701,11 @@ class Solver {
   double objValue() const { return objValue_; }
 
   // get the timer
-  Tools::Timer *timerTotal() { return &timerTotal_; }
+  const Tools::Timer& timerTotal() const { return timerTotal_; }
+
+  void resetTimerTotal() {
+    timerTotal_.reset();
+  }
 
   // return the solution, but only for the k first days
   std::vector<Roster> solutionAtDay(int k);
@@ -709,6 +724,7 @@ class Solver {
 
   // display the whole solution in the required format
   std::string solutionToString();
+  void solutionToTxt(string outdir);
   void solutionToXmlINRC(string outdir = "");
   std::string solutionToSolINRC();
 
@@ -724,7 +740,8 @@ class Solver {
   // information on the solution quality
   std::string writeResourceCosts();
   std::string solutionToLogString();
-  string writeResourceCostsPerNurse();
+  // if resetInitialState, do not count previous totals in the initial state
+  string writeResourceCostsPerNurse(bool resetInitialState = false);
   string writeResourceCostsINRC2();
 
   PScenario pScenario() const { return pScenario_; }
@@ -752,7 +769,7 @@ class Solver {
   // Returns the demand
   PDemand pDemand() const { return pDemand_; }
 
-  virtual double LB() const { return -LARGE_SCORE; }
+  virtual double LB() const { return -XLARGE_SCORE; }
 
   // Extend the rosters in the solution with the days covered by the input
   // solution
@@ -773,13 +790,22 @@ class Solver {
   void setGeneratePResourcesFunction(
       const std::function<std::vector<PResource>(const PLiveNurse &)> &f) {
     generatePResourcesFunc_ = f;
+    useDefaultResources_ = !f;
   }
 
   bool useDefaultResources() const {
-    return generatePResourcesFunc_ == nullptr;
+    return useDefaultResources_;
+  }
+
+  std::function<std::vector<PResource>(const PLiveNurse &)>
+      generatePResourcesFunc() const {
+    return generatePResourcesFunc_;
   }
 
  protected:
+  bool useDefaultResources_ = true;
+
+ private:
   // Functions to generate the resources for a given nurse for the subproblem
   // if this function is defined, it will override any default function
   std::function<std::vector<PResource>(const PLiveNurse &)>

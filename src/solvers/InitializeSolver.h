@@ -43,10 +43,6 @@ PScenario initializeMultipleWeeksINRC2(const InputPaths &inputPaths,
 std::vector<PScenario> divideScenarioIntoConnectedPositions(
     const PScenario& pScenario);
 
-// Create a solver of the class specified by the input algorithm type
-Solver *setSolverWithInputAlgorithm(const PScenario& pScenario,
-                                    Algorithm algorithm);
-
 // When a solution of multiple consecutive weeks is available, load it in a
 // solver for all the weeks and  display the results
 void displaySolutionMultipleWeeks(const std::string& dataDir,

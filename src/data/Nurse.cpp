@@ -444,6 +444,14 @@ void Preferences::pushBack(const PPreferences& pPref) {
   nbDays_ += pPref->nbDays_;
 }
 
+// create a new preferences that contains the current preferences and
+// another week preferences at the end
+PPreferences Preferences::append(const PPreferences& pPref) const {
+  PPreferences pNewPref = std::make_shared<Preferences>(*this);
+  pNewPref->pushBack(pPref);
+  return pNewPref;
+}
+
 // K the preferences relative to the nbDays first days
 PPreferences Preferences::keep(int begin, int end) const {
   PPreferences pPref = std::make_shared<Preferences>();

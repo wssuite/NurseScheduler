@@ -239,8 +239,7 @@ class Scenario {
   // starting date of the horizon
   std::tm startDate_ = std::tm();
 
-  // total number of weeks and current week being planned
-  //
+  // total number of weeks
   const int nWeeks_;
 
   // number of skills, a std::map and a std::vector matching the name
@@ -298,14 +297,14 @@ class Scenario {
   std::string weekName_;
   // Current week demand for each DAY, SHIFT, and SKILL
   //
-  PDemand pWeekDemand_ = nullptr;
+  PDemand pDemand_ = nullptr;
 
   // Shift off requests : Preferences for each nurse :
   // which (day,shift) do they want off ?
   //
   int nShiftOffRequests_;
   int nShiftOnRequests_;
-  PPreferences pWeekPreferences_ = nullptr;
+  PPreferences pPreferences_ = nullptr;
   //------------------------------------------------
 
 
@@ -322,7 +321,7 @@ class Scenario {
   // range of the weeks that are being scheduled
   //
   int thisWeek_;
-  int nWeeksLoaded_;
+
   //------------------------------------------------
 
 
@@ -418,14 +417,13 @@ class Scenario {
   const std::string &name() const { return name_; }
   int nWeeks() const { return nWeeks_; }
   int thisWeek() const { return thisWeek_; }
-  int nWeeksLoaded() const { return nWeeksLoaded_; }
   const std::string &weekName() const { return weekName_; }
-  PDemand pWeekDemand() { return pWeekDemand_; }
+  PDemand pDemand() { return pDemand_; }
   int nShifts() const { return nShifts_; }
   int nShiftTypes() const { return nShiftTypes_; }
   int nShiftOffRequests() const { return nShiftOffRequests_; }
   int nShiftOnRequests() const { return nShiftOnRequests_; }
-  PPreferences pWeekPreferences() { return pWeekPreferences_; }
+  PPreferences pWeekPreferences() { return pPreferences_; }
   std::vector<State> *pInitialState() { return &initialState_; }
   int nSkills() const { return nSkills_; }
   int nContracts() const { return nContracts_; }
@@ -501,16 +499,16 @@ class Scenario {
 
   // getters for the attribute of the demand
   //
-  int firstDayIdOfWeekDemand() const { return pWeekDemand_->firstDayId_; }
-  int nDays() const { return pWeekDemand_->nDays_; }
+  int firstDayIdOfDemand() const { return pDemand_->firstDayId_; }
+  int nDays() const { return pDemand_->nDays_; }
 
   // Setters to class attributes
 
   // when reading the week file (Demand and preferences)
   //
   void setWeekName(std::string weekName) { weekName_ = std::move(weekName); }
-  void setWeekDemand(PDemand pDemand) {
-    pWeekDemand_ = std::move(pDemand);
+  void setDemand(PDemand pDemand) {
+    pDemand_ = std::move(pDemand);
   }
   void setTNbShiftOffRequests(int nbShiftOffRequests) {
     nShiftOffRequests_ = nbShiftOffRequests;
@@ -518,12 +516,11 @@ class Scenario {
   void setTNbShiftOnRequests(int nbShiftOnRequests) {
     nShiftOnRequests_ = nbShiftOnRequests;
   }
-  void setWeekPreferences(PPreferences weekPreferences);
+  void setPreferences(PPreferences pPreferences);
 
   // when reading the history file
   //
   void setThisWeek(int thisWeek) { thisWeek_ = thisWeek; }
-  void addAWeek() { ++nWeeksLoaded_; }
   void setInitialState(const std::vector<State> &initialState) {
     initialState_ = initialState;
   }
@@ -544,10 +541,12 @@ class Scenario {
   //
   void linkWithDemand(PDemand pDemand) {
     weekName_ = pDemand->name_;
-    pWeekDemand_ = pDemand;
+    pDemand_ = pDemand;
   }
 
   void linkWithPreferences(PPreferences pPreferences);
+
+  void pushBack(PDemand pDemand, PPreferences pPreferences);
 
   //------------------------------------------------
   // Display functions

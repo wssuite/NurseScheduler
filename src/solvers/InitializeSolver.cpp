@@ -110,12 +110,6 @@ void initializeResourcesINRC2(const PScenario& pScenario) {
             stateIni.consDaysOff_));
       }
     }
-
-    // f. preference resources
-    for (const auto &p : pScenario->pWeekPreferences()->nurseWishes(pN->num_))
-      pN->addBaseResource(std::make_shared<SoftPreferenceResource>(
-          std::make_shared<Day>(p.first),
-          p.second));
   }
 }
 
@@ -144,9 +138,9 @@ PScenario initializeScenarioINRC2(const InputPaths &inputPaths,
 
   // Check that the scenario was read properly if logfile specified in input
   if (!logPath.empty()) {
-    Tools::LogOutput logStream(logPath);
+    Tools::LogOutput logStream(logPath, false);
     logStream << pScenario->toStringINRC2() << std::endl;
-    logStream << pScenario->pWeekDemand()->toString(true) << std::endl;
+    logStream << pScenario->pDemand()->toString(true) << std::endl;
   }
 
   return pScenario;
@@ -182,9 +176,9 @@ PScenario initializeMultipleWeeksINRC2(const string& dataDir,
 
   // Check that the scenario was read properly if logfile specified in input
   if (!logPath.empty()) {
-    Tools::LogOutput logStream(logPath);
+    Tools::LogOutput logStream(logPath, false);
     logStream << pScenario->toStringINRC2() << std::endl;
-    logStream << pScenario->pWeekDemand()->toString(true) << std::endl;
+    logStream << pScenario->pDemand()->toString(true) << std::endl;
   }
 
   return pScenario;
@@ -206,9 +200,9 @@ PScenario initializeMultipleWeeksINRC2(const InputPaths &inputPaths,
 
   // Check that the scenario was read properly if logfile specified in input
   if (!logPath.empty()) {
-    Tools::LogOutput logStream(logPath);
+    Tools::LogOutput logStream(logPath, false);
     logStream << pScenario->toStringINRC2() << std::endl;
-    logStream << pScenario->pWeekDemand()->toString(true) << std::endl;
+    logStream << pScenario->pDemand()->toString(true) << std::endl;
   }
 
   return pScenario;
@@ -265,7 +259,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(
     }
 
     // create the demand that relates only to input skills
-    PDemand pDemand = pScenario->pWeekDemand();
+    PDemand pDemand = pScenario->pDemand();
 
     // erase the skills to remove from the minimum and optimal demands
     vector3D<int> minDemand = pDemand->minDemand_;
@@ -331,24 +325,6 @@ vector<PScenario> divideScenarioIntoConnectedPositions(
   return scenariosPerComponent;
 }
 
-/*****************************************************************************
-* Create a solver of the class specified by the input algorithm type
-******************************************************************************/
-Solver* setSolverWithInputAlgorithm(
-    const PScenario& pScenario,
-    Algorithm algorithm) {
-  Solver *pSolver = nullptr;
-  switch (algorithm) {
-    case GENCOL:
-      // DBG: add solver type as option: CLP, S_GUROBI ...
-      pSolver = new RotationMP(pScenario, CLP);
-      break;
-    default: Tools::throwError("The algorithm is not handled yet");
-      break;
-  }
-  return pSolver;
-}
-
 /******************************************************************************
 * When a solution of multiple consecutive weeks is available, load it in a
 * solver for all the weeks and  display the results
@@ -368,7 +344,7 @@ void displaySolutionMultipleWeeks(const string& dataDir,
   string catWeeks;
   for (int w = 0; w < nbWeeks; w++) catWeeks += std::to_string(weekIndices[w]);
   string logPath = outDir + "Log-" + catWeeks + ".txt";
-  Tools::LogOutput outStream(logPath);
+  Tools::LogOutput outStream(logPath, false);
 
   // treat the case where the solver was unable to find a feasible solution
   if (status == INFEASIBLE) {
@@ -401,7 +377,7 @@ void displaySolutionMultipleWeeks(const string& dataDir,
     solutionFile += "-";
     solutionFile += std::to_string(w);
     solutionFile += ".txt";
-    Tools::LogOutput solutionStream(solutionFile);
+    Tools::LogOutput solutionStream(solutionFile, false);
     solutionStream << solutions[w];
   }
   delete pSolver;
@@ -419,7 +395,7 @@ void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
   string catWeeks;
   for (int w = 0; w < nbWeeks; w++) catWeeks += inputPaths.week(w);
   string logPath = outDir + "Log-" + catWeeks + ".txt";
-  Tools::LogOutput outStream(logPath);
+  Tools::LogOutput outStream(logPath, false);
 
   // treat the case where the solver was unable to find a feasible solution
   if (status == INFEASIBLE) {
@@ -441,7 +417,7 @@ void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
     string solutionFile =
         outDir + "Sol-" + inputPaths.instance() + "-" + catWeeks + "-"
             + inputPaths.week(w) + "-" + std::to_string(w) + ".txt";
-    Tools::LogOutput solutionStream(solutionFile);
+    Tools::LogOutput solutionStream(solutionFile, false);
     solutionStream << solutions[w];
   }
 

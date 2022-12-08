@@ -15,14 +15,9 @@
 #include <list>
 #include <map>
 
-#include "solvers/mp/RotationMP.h"
-#include "solvers/mp/RosterMP.h"
 #include "InitializeSolver.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "ReadWrite.h"
-
-
-// #define COMPARE_EVALUATIONS
 
 
 using std::string;
@@ -50,7 +45,7 @@ DeterministicSolver::DeterministicSolver(
     pCompleteSolver_(nullptr),
     pRollingSolver_(nullptr),
     pLNSSolver_(nullptr) {
-  generatePResourcesFunc_ = solver.generatePResourcesFunc_;
+  setGeneratePResourcesFunction(solver.generatePResourcesFunc());
   // The nurses must be preprocessed to use their positions
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
 }
@@ -74,10 +69,6 @@ DeterministicSolver::DeterministicSolver(const PScenario& pScenario,
 #endif
   this->initializeOptions(inputPaths);
   std::cout << std::endl;
-
-  // erase previous log
-  if (!options_.logfile_.empty())
-    Tools::LogOutput log(options_.logfile_);
 }
 
 DeterministicSolver::~DeterministicSolver() {
@@ -145,10 +136,6 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   if (!inputPaths.paramFile().empty())
     readOptionsFromFile(inputPaths);
 
-//  // deactivate MIPHeuristicUseRotations as it is not working for INRC
-//  if (pScenario_->isINRC_)
-//    PARAM(MIPHeuristicUseRotations_, false);
-
   // override default values with argument values
   if (inputPaths.verbose() >= 0) {
     options_.verbose_ = inputPaths.verbose();
@@ -164,7 +151,7 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   if (!inputPaths.SPType().empty()) {
     std::string type = Tools::toUpperCase(inputPaths.SPType());
     SPType t = spTypesByName.at(type);
-    PARAM(sp_type_, t)
+    PARAM(spType_, t)
   }
 
   if (inputPaths.SPStrategy() >= 0) {
@@ -174,7 +161,7 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   if (!inputPaths.RCSPPType().empty()) {
     std::string type = Tools::toUpperCase(inputPaths.RCSPPType());
     RCSPPType t = rcsppTypesByName.at(type);
-    PARAM(rcspp_type_, t)
+    PARAM(rcsppType_, t)
   }
 
   if (inputPaths.nCandidates() >= 1) {
@@ -190,7 +177,7 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
 // Read deterministic options from a file
 void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
   // load all the options
-  Tools::loadOptions(
+  string content = Tools::loadOptions(
       inputPaths.paramFile(),
       [this](const std::string &field, std::fstream *file) {
         // Here and below, read the parameters that refer to branch and price
@@ -229,6 +216,13 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
         }
         return true;
       });
+
+  Tools::LogOutput log(options_.logfile_, true, true);
+  log << "===================================================" << std::endl;
+  log.addCurrentTime() << "Deterministic options : "
+                       << inputPaths.paramFile() << std::endl;
+  log << content;
+  log << "===================================================" << std::endl;
 }
 
 //----------------------------------------------------------------------------
@@ -245,12 +239,12 @@ void DeterministicSolver::updateInitialStats(Solver *pSolver) {
   stats_.bestUBInitial_ = pMaster->computeSolutionCost();
   stats_.bestUB_ = stats_.bestUBInitial_;
   stats_.rootLB_ = pModel->getRootLB();
-  double f = param_.optimalAbsoluteGap_;
+  double f = param_.absoluteGap_;
   stats_.bestLB_ = std::min(
       stats_.bestUB_, f * ceil((pModel->getBestLB() - pModel->epsilon()) / f));
-  stats_.timeInitialSol_ = pMaster->timerTotal()->dSinceStart();
+  stats_.timeInitialSol_ = pMaster->timerTotal().dSinceInit();
   if (pMaster->getJob().finish())
-    pMaster->timerTotal()->reset();
+    pMaster->resetTimerTotal();
 
   // Details on Branch and price related runtimes
   //
@@ -271,7 +265,7 @@ void DeterministicSolver::updateImproveStats(Solver *pSolver) {
   auto *pModel = dynamic_cast<BcpModeler *>(pMaster->pModel());
 
   stats_.bestUB_ = pMaster->computeSolutionCost();
-  stats_.timeImproveSol_ = pMaster->timerTotal()->dSinceStart();
+  stats_.timeImproveSol_ = pMaster->timerTotal().dSinceInit();
 
   // Details on Branch and price related runtimes
   stats_.timeGenColMaster_ += pModel->getTimeStats().time_lp_solving;
@@ -298,7 +292,7 @@ void DeterministicSolver::updateImproveStats(Solver *pSolver) {
 
 // Main function
 double DeterministicSolver::solve(const std::vector<Roster> &solution) {
-  objValue_ = LARGE_SCORE;
+  objValue_ = XLARGE_SCORE;
 
   // set the random seed to the same fixed value for every solution of a new
   // scenario
@@ -324,7 +318,7 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
 // After dividing into connected components, solve one component
 double DeterministicSolver::solveOneComponent(
     const std::vector<Roster> &solution) {
-  objValue_ = LARGE_SCORE;
+  objValue_ = XLARGE_SCORE;
 
   // Always solve small problems to optimality; this can actually save time
   if (useCompleteSolverAnyway()) {
@@ -363,7 +357,7 @@ double DeterministicSolver::solveCompleteHorizon(
   bool firstSolve = !pCompleteSolver_;
   if (firstSolve || pCompleteSolver_->getJob().finish()) {
     delete pCompleteSolver_;
-    pCompleteSolver_ = setSolverWithInputAlgorithm(options_.solutionAlgorithm_,
+    pCompleteSolver_ = newSolverWithInputAlgorithm(options_.solutionAlgorithm_,
                                                    completeParameters_);
     Tools::Job job([this, solution]() {
       pCompleteSolver_->solve(completeParameters_, solution);
@@ -426,15 +420,8 @@ double DeterministicSolver::treatResults(Solver *pSolver) {
   }
 
   // Update nurses' states when a feasible solution has been found
-  if (pSolver->isSolutionInteger()) {
-    solution_ = pSolver->solution();
-    for (const auto& pN : pSolver->pLiveNurses()) {
-      theLiveNurses_[pN->num_]->roster_ = solution_[pN->num_];
-      theLiveNurses_[pN->num_]->columns_ = pN->columns_;
-      theLiveNurses_[pN->num_]->colVals_ = pN->colVals_;
-      theLiveNurses_[pN->num_]->buildStates();
-    }
-  }
+  if (pSolver->isSolutionInteger())
+    copySolution(pSolver);
 
   if (pSolver->parameters().stopAfterXSolution_ > 0)
     objValue_ = this->computeSolutionCost();
@@ -521,19 +508,17 @@ double DeterministicSolver::solveByConnectedPositions() {
       status_ = newStatus;
       std::cout << "Solution process by connected component did not "
                    "terminate normally" << std::endl;
-      return LARGE_SCORE;
+      return XLARGE_SCORE;
     }
 
     // STORE THE SOLUTION
     // Be particularly cautious that the nurse indices are not the same in the
     // initial scenario and in the solvers per component
-    if (!pSolver->solution().empty()) {
-      for (const PLiveNurse &pNurse : pSolver->theLiveNurses_) {
-        theLiveNurses_[pNurse->nurseNum_]->roster_ =
-            pSolver->solution()[pNurse->num_];
-        theLiveNurses_[pNurse->nurseNum_]->columns_ = pNurse->columns_;
-        theLiveNurses_[pNurse->nurseNum_]->colVals_ = pNurse->colVals_;
-      }
+    for (const PLiveNurse &pN : pSolver->theLiveNurses_) {
+      PLiveNurse pNurse = theLiveNurses_[pN->nurseNum_];
+      pNurse->roster(pN->roster_);
+      pNurse->columns_ = pN->columns_;
+      pNurse->colVals_ = pN->colVals_;
     }
 
     // update the number of nurses to solve
@@ -559,6 +544,7 @@ double DeterministicSolver::solveByConnectedPositions() {
   }
 
   // update nurses' states
+  solution_.clear();
   for (int n = 0; n < pScenario_->nNurses(); ++n) {
     solution_.push_back(theLiveNurses_[n]->roster_);
     theLiveNurses_[n]->buildStates();
@@ -585,7 +571,7 @@ double DeterministicSolver::solveWithRollingHorizon(
   //
   bool firstSolve = !pRollingSolver_;
   delete pRollingSolver_;
-  pRollingSolver_ = setSolverWithInputAlgorithm(options_.solutionAlgorithm_,
+  pRollingSolver_ = newSolverWithInputAlgorithm(options_.solutionAlgorithm_,
                                                 rollingParameters_);
   pRollingSolver_->solution(solution);
 
@@ -629,11 +615,9 @@ double DeterministicSolver::solveWithRollingHorizon(
       std::cout << pRollingSolver_->currentSolToString() << std::endl;
 
     // fix the days of the sample horizon to the values of the solution
-    //
     pRollingSolver_->fixAvailabilityBasedOnSolution(lastDaySample);
 
     // update the first and last day of the sample period
-    //
     firstDay = firstDay + samplePeriod;
     lastDayControl = std::min(firstDay + controlPeriod - 1,
                               pDemand_->nDays_ - 1);
@@ -662,8 +646,7 @@ double DeterministicSolver::solveWithRollingHorizon(
       pRollingSolver_->isSolutionInteger()) {
     double UB = computeSolutionCost();
     // If UB is not optimal over the whole horizon
-    if (UB + pRollingSolver_->epsilon()
-        > LB + rollingParameters_.optimalAbsoluteGap_)
+    if (UB + pRollingSolver_->epsilon() > LB + rollingParameters_.absoluteGap_)
       pRollingSolver_->status(FEASIBLE);
   }
 
@@ -726,18 +709,16 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
   } else {
     pLNSSolver_ = pCompleteSolver_;
   }
-  if (!solution.empty()) pLNSSolver_->solution(solution);
 
-  // set the computational time left for the lns after the initialization
-  double timeSinceStart = timerTotal_.dSinceStart();
-  lnsParameters_.maxSolvingTimeSeconds_ =
-      options_.totalTimeLimitSeconds_ - static_cast<int>(timeSinceStart);
+  // load solution
+  if (!solution.empty()) pLNSSolver_->solution(solution);
 
   // Perform destroy/repair iterations until a given number of iterations
   // without improvement is reached
   //
   int nbItWithoutImprovement = 0;
   double bestObjVal = this->computeSolutionCost();
+  std::vector<Roster> bestSolution = solution;
   while (!getJob().shouldStop()) {
     // nbItWithoutImprovement < options_.lnsMaxItWithoutImprovement_) {
     // draw the next destroy operators randomly according to the weights
@@ -749,69 +730,71 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
     DaysSelectionOperator dayOperator = daysSelectionOperators_[dayIndex];
 
     // apply the destroy operator
-    this->adaptiveDestroy(nurseOperator, dayOperator);
+    adaptiveDestroy(nurseOperator, dayOperator);
+
+    // set the computational time left for the lns after the initialization
+    double timeSinceStart = timerTotal_.dSinceStart();
+    lnsParameters_.maxSolvingTimeSeconds_ =
+        options_.totalTimeLimitSeconds_ - static_cast<int>(timeSinceStart);
 
     // run the repair operator
-    //
-    double currentObjVal = pLNSSolver_->LNSSolve(lnsParameters_, solution);
+    double currentObjVal = pLNSSolver_->LNSSolve(lnsParameters_);
 
     // stop lns if runtime is exceeded
-    //
     timeSinceStart = timerTotal_.dSinceStart();
-    std::cout << "Time spent until then: " << timeSinceStart << " s";
-    std::cout << "(time limit is " << options_.totalTimeLimitSeconds_ << " s)"
+    std::cout << "Time spent until then: " << timeSinceStart << " s "
+              << "(time limit is " << options_.totalTimeLimitSeconds_ << " s)"
               << std::endl;
     if (pLNSSolver_->status() == TIME_LIMIT
         && timeSinceStart <= options_.totalTimeLimitSeconds_ - 5.0) {
       Tools::throwError("Error with the timers in LNS!");
     }
-    if (pLNSSolver_->status() == TIME_LIMIT
-        || timeSinceStart > options_.totalTimeLimitSeconds_) {
-      std::cout << "Stop the lns: time limit is reached" << std::endl;
-      break;
-    }
 
     // store the solution
-    //
-    solution_ = pLNSSolver_->solution();
-    status_ = pLNSSolver_->status();
-    if (lnsParameters_.printIntermediarySol_) {
-      std::cout << pLNSSolver_->currentSolToString() << std::endl;
-    }
+    if (pLNSSolver_->isSolutionInteger()) {
+      status_ = pLNSSolver_->status();
+      if (lnsParameters_.printIntermediarySol_) {
+        std::cout << pLNSSolver_->currentSolToString() << std::endl;
+      }
 
-    // update the weight of adaptive lns
-    //
-    if (currentObjVal < bestObjVal - lnsParameters_.epsilon_) {
-      // update stats
-      stats_.lnsImprovementValueTotal_ += bestObjVal - currentObjVal;
-      stats_.lnsNbIterationsWithImprovement_++;
+      // update the weight of adaptive lns
+      //
+      if (currentObjVal < bestObjVal - lnsParameters_.epsilon_) {
+        // update stats
+        stats_.lnsImprovementValueTotal_ += bestObjVal - currentObjVal;
+        stats_.lnsNbIterationsWithImprovement_++;
 
-      // update weights of the destroy operators
-      bestObjVal = currentObjVal;
-      nbItWithoutImprovement = 0;
-      lnsParameters_.optimalityLevel(TWO_DIVES);
-      nursesSelectionWeights[nurseIndex] =
-          nursesSelectionWeights[nurseIndex] + 1.0;
-      daysSelectionWeights[nurseIndex] = daysSelectionWeights[nurseIndex] + 1.0;
+        // update best solution
+        bestObjVal = currentObjVal;
+        bestSolution = pLNSSolver_->solution();
 
-      // update weights of the repair operators
-      double timeIteration = timerTotal_.dSinceInit() - timeSinceStart;
-      repairWeights[repairIndex] += 10.0 / timeIteration;
+        // update weights of the destroy operators
+        nbItWithoutImprovement = 0;
+        lnsParameters_.optimalityLevel(TWO_DIVES);
+        nursesSelectionWeights[nurseIndex] =
+            nursesSelectionWeights[nurseIndex] + 1.0;
+        daysSelectionWeights[nurseIndex] =
+            daysSelectionWeights[nurseIndex] + 1.0;
+
+        // update weights of the repair operators
+        double timeIteration = timerTotal_.dSinceInit() - timeSinceStart;
+        repairWeights[repairIndex] += 10.0 / timeIteration;
 
 
-      // update the counters of iterations with improvement
-      stats_.nbImprovementsWithNursesSelection_[nurseIndex]++;
-      stats_.nbImprovementsWithDaysSelection_[dayIndex]++;
-      stats_.nbImprovementsWithRepair_[repairIndex]++;
-    } else {
-      nbItWithoutImprovement++;
+        // update the counters of iterations with improvement
+        stats_.nbImprovementsWithNursesSelection_[nurseIndex]++;
+        stats_.nbImprovementsWithDaysSelection_[dayIndex]++;
+        stats_.nbImprovementsWithRepair_[repairIndex]++;
+      } else {
+        nbItWithoutImprovement++;
 
-      if (nbItWithoutImprovement
-          > std::min(30, options_.lnsMaxItWithoutImprovement_ / 2)) {
-        lnsParameters_.optimalityLevel(OPTIMALITY);
-      } else if (nbItWithoutImprovement
-          > std::min(10, options_.lnsMaxItWithoutImprovement_ / 4)) {
-        lnsParameters_.optimalityLevel(REPEATED_DIVES);
+        if (nbItWithoutImprovement
+            > std::min(30, options_.lnsMaxItWithoutImprovement_ / 2)) {
+          lnsParameters_.optimalityLevel(OPTIMALITY);
+        } else if (nbItWithoutImprovement
+            > std::min(10, options_.lnsMaxItWithoutImprovement_ / 4)) {
+          lnsParameters_.optimalityLevel(REPEATED_DIVES);
+        }
       }
     }
 
@@ -820,8 +803,13 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
               << "\t" << "Best solution: " << bestObjVal << std::endl
               << "**********************************************" << std::endl;
 
+    if (pLNSSolver_->status() == TIME_LIMIT
+        || timeSinceStart > options_.totalTimeLimitSeconds_) {
+      std::cout << "Stop the lns: time limit is reached" << std::endl;
+      break;
+    }
+
     // unfix every nurse and/or days for next iteration
-    //
     std::vector<bool> isUnfixNurse(pScenario_->nNurses(), true);
     pLNSSolver_->unfixNurses(isUnfixNurse);
     pLNSSolver_->resetNursesAvailabilities();
@@ -831,6 +819,10 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
 
   std::cout << "END OF LNS" << std::endl << std::endl;
 
+  // reload best solution
+  pLNSSolver_->loadSolution(bestSolution);
+
+  // treat results
   this->updateImproveStats(pLNSSolver_);
 
   return treatResults(pLNSSolver_);
@@ -955,7 +947,8 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
     for (int day = 0; day < nbDaysDestroy; day++) {
       isFixDay[firstDay + day] = false;
     }
-    pLNSSolver_->fixAvailabilityBasedOnSolution(isFixDay);
+    pLNSSolver_->fixAvailabilityBasedOnSolution(
+        isFixDay, pLNSSolver_->solution());
   }
 
   // DBG
@@ -1050,28 +1043,14 @@ void DeterministicSolver::organizeTheLiveNursesByContract() {
 //----------------------------------------------------------------------------
 
 // Return a solver with the input algorithm
-Solver *DeterministicSolver::setSolverWithInputAlgorithm(
+Solver *DeterministicSolver::newSolverWithInputAlgorithm(
     Algorithm algorithm, const SolverParam &param) {
-  Solver *pSolver = nullptr;
-  switch (algorithm) {
-    case GENCOL:
-      switch (param.sp_type_) {
-        case LONG_ROTATION:
-        case ALL_ROTATION:
-          pSolver = new RotationMP(pScenario_, options_.mySolverType_);
-          break;
-        case ROSTER:
-          pSolver = new RosterMP(pScenario_, options_.mySolverType_);
-          break;
-        default:Tools::throwError("The subproblem type is not handled yet");
-      }
-      break;
-    default:Tools::throwError("The algorithm is not handled yet");
-      break;
-  }
+  Solver *pSolver = newSolver(pScenario_, algorithm,
+                              param.spType_,
+                              options_.mySolverType_);
   // override the default function if generatePResourcesFunc_
-  if (pSolver && generatePResourcesFunc_)
-    pSolver->setGeneratePResourcesFunction(generatePResourcesFunc_);
+  if (pSolver && generatePResourcesFunc())
+    pSolver->setGeneratePResourcesFunction(generatePResourcesFunc());
   // attach job if any
   pSolver->attachJob(getJob());
   return pSolver;

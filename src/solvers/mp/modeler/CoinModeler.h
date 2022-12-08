@@ -266,7 +266,7 @@ class CoinModeler : public Modeler {
   virtual int nbSolutions() const { return 0; }
 
   virtual double getObjective() const { return pTree_->getBestUB(); }
-  virtual double getObjective(int index) const { return LARGE_SCORE; }
+  virtual double getObjective(int index) const { return XLARGE_SCORE; }
 
   virtual int writeProblem(std::string fileName) const { return 0; }
 
@@ -280,33 +280,7 @@ class CoinModeler : public Modeler {
   }
 };
 
-static OsiSolverInterface * getNewSolver(SolverType type) {
-  switch (type) {
-    case CLP: return new OsiClpSolverInterface();
-    case Gurobi:
-#ifdef USE_GUROBI
-      return new OsiGrbSolverInterface();
-#endif
-    case Cplex:
-#ifdef USE_CPLEX
-      return new OsiCpxSolverInterface();
-#endif
-    case CBC:
-#ifdef USE_CBC
-    {
-      auto pSolver = new OsiCbcSolverInterface();
-      pSolver->getModelPtr()->setLogLevel(0);
-      return pSolver;
-    }
-#endif
-    case FirstAvailable: {
-      SolverType type2 = getFirstSolverTypeAvailable();
-      return getNewSolver(type2);
-    }
-    default: break;
-  }
-  return nullptr;
-}
+OsiSolverInterface * getNewSolver(SolverType type);
 
 #endif  // SRC_SOLVERS_MP_MODELER_COINMODELER_H_
 

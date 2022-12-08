@@ -60,7 +60,7 @@ BcpHeuristics::BcpHeuristics(
     BcpModeler *pModel, bool useRotationModel, SolverType type, int verbosity):
     pModel_(pModel),
     mip_() {
-  if (useRotationModel && pModel->getParameters().sp_type_ == ROSTER)
+  if (useRotationModel && pModel->getParameters().spType_ == ROSTER)
     mip_ = std::make_shared<HeuristicRotation>(
         pModel->pMaster_, type, verbosity);
   else
@@ -240,7 +240,7 @@ void HeuristicMIP::buildBcpSolution(const std::vector<Stretch> &solution) {
   std::vector<BcpColumn*> columns;
   for (int n=0; n < solution.size(); ++n) {
     std::vector<Column> cols;
-    if (pMaster()->pModel()->getParameters().sp_type_ == ROSTER) {
+    if (pMaster()->pModel()->getParameters().spType_ == ROSTER) {
       RosterColumn rosterCol(RCSolution(solution[n]), n);
       pMaster()->computeColumnCost(&rosterCol);
       columns.push_back(dynamic_cast<BcpColumn *>(
@@ -436,7 +436,7 @@ bool HeuristicMIP::solveMIP(OsiSolverInterface *pSolver,
       if (pModel->getParameters().MIPHeuristicObjLimit_)
         GRBsetdblparam(grbEnv, GRB_DBL_PAR_BESTOBJSTOP, ub);
       GRBsetdblparam(grbEnv, GRB_DBL_PAR_MIPGAPABS,
-                     pModel->getParameters().optimalAbsoluteGap_);
+                     pModel->getParameters().absoluteGap_);
       // use a callback to check the LB of gurobi vs the current UB
       // it's not necessary, but allows to stop gurobi as soon as necessary
       auto cb = [](GRBmodel *model, void *cbdata, int where, void *usrdata) {
@@ -533,10 +533,10 @@ double HeuristicMIP::safeComputeObjUB() {
 
 double HeuristicMIP::computeObjUB() {
   if (pMaster() == nullptr)
-    return -LARGE_SCORE;
+    return -XLARGE_SCORE;
   auto *pModel = pMaster()->pModel();
   double ub = pModel->getObjective()
-      - pModel->getParameters().optimalAbsoluteGap_
+      - pModel->getParameters().absoluteGap_
       + 10 * pModel->epsilon();
   return ub;
 }
@@ -547,7 +547,7 @@ HeuristicRotation::HeuristicRotation(
   // create RotationMP
   if (type == FirstAvailable) type = getFirstSolverTypeAvailable();
   auto param = pMaster->pModel()->getParameters();
-  param.sp_type_ = ALL_ROTATION;
+  param.spType_ = ALL_ROTATION;
   pRotMP_ = new RotationMP(pMaster->pScenario(), type, param);
   createInitialSolver(pRotMP_, type, verbosity,
                       &pInitialRotSolver_, &objRot_);

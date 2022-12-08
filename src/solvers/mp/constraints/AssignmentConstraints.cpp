@@ -223,7 +223,7 @@ std::map<CostType, double> RotationGraphConstraint::getCosts() const {
   // The initial cost will be subtracted in the loop
   double restCost = pModel()->getTotalCost(restVars_);
   std::map<CostType, double> costs;
-  for (int n = 0; n < pMaster_->nNurses(); ++n)
+  for (int n = 0; n < pMaster_->nNurses(); ++n) {
     // all the rcsolutions of cost != 0
     for (const auto &p : rcSolByArc_[n]) {
       MyVar *pV = restVars_[n].at(p.first->id);
@@ -235,6 +235,7 @@ std::map<CostType, double> RotationGraphConstraint::getCosts() const {
         restCost -= v * p.second.cost();
       }
     }
+  }
   // add the rest cost left
   costs[CONS_REST_COST] += restCost;
   return costs;
@@ -266,22 +267,16 @@ void RotationGraphConstraint::createRotationNodes(
     const PRCGraph &pG, const PLiveNurse &pN) {
   /* Create nodes: one source, nDays free rest and non free nodes */
   const PShift &pRest = pScenario_->pRestShift();
-  PRCNode pSource =
-      pG->addSingleNode(SOURCE_NODE,
-                        pScenario_->firstDay_.previous(),
-                        pN->pStateIni_->pShift_);
+  PRCNode pSource = pG->addSingleNode(
+      SOURCE_NODE, pScenario_->firstDay_.previous(), pN->pStateIni_->pShift_);
   // the source is present
   vector<PRCNode> firstRestNodes, maxRestNodes;
   for (int k = 0; k < pMaster_->nDays(); k++) {
     NodeType nT = (k == pMaster_->nDays() - 1) ? SINK_NODE : PRINCIPAL_NETWORK;
-    firstRestNodes.push_back(
-        pG->addSingleNode(nT,
-                          pScenario_->firstDay_.addAndGet(k),
-                          pRest));
-    maxRestNodes.push_back(
-        pG->addSingleNode(nT,
-                          pScenario_->firstDay_.addAndGet(k),
-                          pRest));
+    firstRestNodes.push_back(pG->addSingleNode(
+        nT, pScenario_->firstDay_.addAndGet(k), pRest));
+    maxRestNodes.push_back(pG->addSingleNode(
+        nT, pScenario_->firstDay_.addAndGet(k), pRest));
   }
   firstRestNodes_.push_back(firstRestNodes);
   maxRestNodes_.push_back(maxRestNodes);
@@ -319,14 +314,18 @@ void RotationGraphConstraint::createRotationArcs(
 
 std::pair<int, double> RotationGraphConstraint::minConsRest(
     const PLiveNurse &pN) {
+  double cost = 0;
   for (const auto &pR : masterRotationGraphResources_[pN->num_])
     if (pR->isHard()) {
       // Override LB if define a real hard bound
       if (pR->getLb() > 1) return {pR->getLb(), LARGE_SCORE};
+    } else {
+      auto pS = std::dynamic_pointer_cast<SoftBoundedResource>(pR);
+      if (cost < pS->getLbCost()) cost = pS->getLbCost();
     }
   // otherwise, just use 1 which is always the default LB
   // Do not use a soft LB, as the number of consecutive rest could be lower
-  return {1, pScenario_->weights().consDaysOff};
+  return {1, cost};
 }
 
 std::pair<int, double> RotationGraphConstraint::maxConsRest(
@@ -334,18 +333,22 @@ std::pair<int, double> RotationGraphConstraint::maxConsRest(
   int maxR = 1;
   double cost = 0;
   for (const auto &pR : masterRotationGraphResources_[pN->num_]) {
+    int minC = pR->getUb() - pR->getConsumption(*pN->pStateIni_);
+    bool isLimited = minC < pMaster_->nDays() &&
+        pR->getUb() < 7 * pScenario_->nWeeks();
     if (pR->isHard()) {
       // Override UB if define a real bound
-      if (pR->getUb() < pMaster_->nDays()) return {pR->getUb(), LARGE_SCORE};
+      if (isLimited) return {pR->getUb(), LARGE_SCORE};
       if (pR->getLb() > maxR) {
         maxR = pR->getLb();
         cost = 0;
       }
     } else {
       // soft UB present
-      if (pR->getUb() < pMaster_->nDays() && pR->getUb() > maxR) {
-        maxR = pR->getUb();
-        cost = pScenario_->weights().consDaysOff;
+      if (isLimited && pR->getUb() > maxR) {
+        auto pS = std::dynamic_pointer_cast<SoftBoundedResource>(pR);
+        maxR = pS->getUb();
+        cost = pS->getUbCost();
       } else if (pR->getLb() > maxR) {
         maxR = pR->getLb();
         cost = 0;

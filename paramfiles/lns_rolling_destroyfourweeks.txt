@@ -34,7 +34,6 @@ isStabUpdateBoxRadius=1
 isStabUpdatePenalty=1
 branchColumnDisjoint=1
 RCArc *pA
-stopAfterXDegenerateIt=5
 performHeuristicAfterXNode=-1
 heuristicMinIntegerPercent=50
 spDefaultStrategy=0

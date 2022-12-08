@@ -28,7 +28,7 @@ void solveOneWeek(InputPaths *pInputPaths) {
   string::size_type found = solPath.find_last_of('.');
   string logPathIni = solPath.substr(0, found),
       logPath = logPathIni + "Log.txt";
-  Tools::LogOutput logStream(logPath);
+  Tools::LogOutput logStream(logPath, false, true);
 
 
   // set the scenario
@@ -68,7 +68,7 @@ void solveOneWeek(InputPaths *pInputPaths) {
   // get history demands by reading the custom file
   //
   vector<PDemand> demandHistory;
-  demandHistory.push_back(pScen->pWeekDemand());
+  demandHistory.push_back(pScen->pDemand());
   if (!pInputPaths->customInputFile().empty())
     ReadWrite::readCustom(
         pInputPaths->customInputFile(), pScen, &demandHistory);
@@ -79,9 +79,9 @@ void solveOneWeek(InputPaths *pInputPaths) {
   pSolver->solve();
   int solutionStatus = pSolver->status();
   logStream << "# Solution status = " << solutionStatus << std::endl;
+//  pSolver->solutionToTxt(solPath);
 
-  Tools::LogOutput solStream(solPath);
-  solStream << pSolver->solutionToString() << std::endl;
+  logStream << pSolver->writeResourceCostsPerNurse() << std::endl;
 
   //  release memory
   delete pSolver;
@@ -96,11 +96,6 @@ void solveOneWeek(InputPaths *pInputPaths) {
   }
   std::cout << "Custom output file : "
             << pInputPaths->customOutputFile() << std::endl;
-  // TODO(AL): the method that writes the history file corresponding to the
-  //  solution
-  // string outputHistoryFile("history-week");
-  // outputHistoryFile += std::to_string(pScen->thisWeek()) + ".txt";
-  // std::cout << "Output history file: " << outputHistoryFile << std::endl;
 }
 
 /******************************************************************************
@@ -123,15 +118,18 @@ pair<double, int> testMultipleWeeksStochastic(
   // initialize the scenario object of the first week
   PScenario pScen = initializeScenarioINRC2(inputPaths);
   stochasticSolverOptions.setStochasticSolverOptions(
-      pScen, outdir, "", stochasticSolverOptions.totalTimeLimitSeconds_);
+      pScen, outdir, "", stochasticSolverOptions.totalTimeLimitSeconds_, true);
 
   // solve the problem for each week and store the solution in the vector below
   vector<Roster> solution;
   int nbWeeks = weekIndices.size();
   Status solutionStatus;
 
+  // whole scenario for the whole horizon
+  PScenario pWholeScen = initializeScenarioINRC2(inputPaths);
+
   vector<PDemand> demandHistory;
-  double currentCost = 0;
+  double partialCost = 0, totalCost = 0;
   int nbSched = 0;
 
   for (int week = 0; week < nbWeeks; week++) {
@@ -140,18 +138,22 @@ pair<double, int> testMultipleWeeksStochastic(
       seeds.emplace_back(rdm());
     Tools::initializeRandomGenerator(seeds[week]);
 
-    demandHistory.push_back(pScen->pWeekDemand());
+    demandHistory.push_back(pScen->pDemand());
 
     std::cout << pScen->toStringINRC2() << std::endl;
 
     auto *pSolver = new StochasticSolver(pScen,
                                          stochasticSolverOptions,
                                          demandHistory,
-                                         currentCost);
+                                         partialCost);
 
-    currentCost += pSolver->solve();
-    nbSched += pSolver->getNbSchedules();
-    printf("Current cost = %.2f \n", currentCost);
+    totalCost = pSolver->solve();
+    nbSched += pSolver->getNGeneratedSolutions();
+    partialCost += pSolver->computeSolutionCost(false);
+
+    printf("Current cost = %.2f (partial cost = %.2f) \n\n",
+           totalCost, partialCost);
+
     solutionStatus = pSolver->status();
     if (solutionStatus == INFEASIBLE) {
       delete pSolver;
@@ -170,7 +172,26 @@ pair<double, int> testMultipleWeeksStochastic(
         solution[n].pushBack(weekSolution[n]);
     }
 
+    std::cout << "============== Current solver ===============" << std::endl;
     std::cout << pSolver->writeResourceCosts() << std::endl;
+
+    // compute whole cost and compare to current cost
+    std::cout << "============== Whole solver ===============" << std::endl;
+    Solver wholeSolver(pWholeScen);
+    wholeSolver.loadSolution(solution);
+    double wholeCost = wholeSolver.computeSolutionCost();
+    std::cout << wholeSolver.writeResourceCosts() << std::endl;
+
+    if (abs(wholeCost - totalCost) >= 1) {
+      std::cout << "Current solver:" << std::endl;
+      std::cout << pSolver->writeResourceCostsINRC2() << std::endl;
+      std::cout << "============================================" << std::endl;
+      std::cout << "Whole solver:" << std::endl;
+      std::cout << wholeSolver.writeResourceCostsINRC2() << std::endl;
+      std::cout << wholeSolver.solutionToLogString() << std::endl;
+      Tools::throwError("Issue with current cost (%.1f) that is different of "
+                        "the real cost (%.1f).", totalCost, wholeCost);
+    }
 
     // prepare the scenario for next week if we did not reach the last week yet
     if (week < nbWeeks - 1) {
@@ -187,25 +208,30 @@ pair<double, int> testMultipleWeeksStochastic(
       // read the initial state of the new week from the last state of the
       // last week
       // modify the dayId_ to show that this is the first day of the new week
-      vector<State> initialStates = pSolver->statesOfDay(6);
+      vector<State> initialStates = pSolver->statesOfDay(7);
       for (int i = 0; i < pScen->nNurses(); i++) {
         initialStates[i].dayId_ = 0;
       }
 
       // update the scenario to treat next week
       pScen->updateNewWeek(pDemand, pPref, initialStates);
+
+      // append demand and preferences
+      pWholeScen->pushBack(pDemand, pPref);
+    } else {
+      std::cout << wholeSolver.writeResourceCostsPerNurse() << std::endl;
     }
 
     delete pSolver;
   }
 
-  printf("Total cost = %.2f \n", currentCost);
+  printf("Total cost = %.2f \n", totalCost);
 
   string seedOutfile = outdir + "seeds.txt";
   Tools::LogOutput seedStream(seedOutfile, true);
   char str[50];
   snprintf(str, sizeof(str),
-           "Cost %.2f; NbGene %d; Seeds", currentCost, nbSched);
+           "Cost %.2f; NbGene %d; Seeds", totalCost, nbSched);
   seedStream << str;
   for (int s : seeds)
     seedStream << " " << s;
@@ -215,7 +241,7 @@ pair<double, int> testMultipleWeeksStochastic(
   // displaySolutionMultipleWeeks(dataDir, instanceName, historyIndex,
   // weekIndices, solution, solutionStatus, outDir);
 
-  return {currentCost, nbSched};
+  return {totalCost, nbSched};
 }
 
 /******************************************************************************
@@ -236,22 +262,19 @@ int main(int argc, char **argv) {
   // Simulate default behavior for a test instance
   if (argc == 1) {
     std::cout << "Running the default method..." << std::endl;
-    string dataDir = "datasets/";
-    int historyIndex = 1;
-    // n030w4_1_6-2-9-1
-    string instanceName = "n030w4";
-    vector<int> weekIndices = {6, 2, 9, 1};
-    std::vector<int> seeds = {68, 54, 78, 98};
-//    // n030w4_1_6-7-5-3
-//    string instanceName = "n030w4";
-//    vector<int> weekIndices = {6, 7, 5, 3};
-//    std::vector<int> seeds = {50, 35, 70, 80};
-//    // n035w4_1_1-7-1-8
-//    string instanceName = "n035w4";
-//    vector<int> weekIndices = {1, 7, 1, 8};
-//    std::vector<int> seeds = {85, 76, 52, 66};
+    string dataDir = "datasets/INRC2/";
+    string instanceName = "n030w4_1_2-7-0-9";
+//    instanceName = "n060w4_1_6-1-1-5";
+//    instanceName = "n030w8_1_2-7-0-9-3-6-0-6";
+//    instanceName = "n110w8_0_2-1-1-7-2-6-4-7";
+    std::vector<string> inst = Tools::tokenize<string>(instanceName, '_');
+    int historyIndex = std::stoi(inst[1]);
+    vector<int> weekIndices = Tools::tokenize<int>(inst[2], '-');
+    instanceName = inst[0];
+    std::vector<int> seeds = {68, 54, 78, 98, 68, 54, 78, 98};
+    Tools::ThreadsPool::setMaxGlobalThreadsToMax();
     StochasticSolverOptions stochasticSolverOptions;
-    stochasticSolverOptions.totalTimeLimitSeconds_ = 40;
+    stochasticSolverOptions.totalTimeLimitSeconds_ = 20;
     string outdir = "outfiles/" + instanceName + "/";
     testMultipleWeeksStochastic(dataDir,
                                 instanceName,

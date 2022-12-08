@@ -423,7 +423,7 @@ class Resource : public BaseResource {
   // preprocess the input RCGraph to take the resource into consideration
   virtual void preprocess(const PRCGraph &pRCGraph) {}
   // preprocess the arc to take the resource into consideration
-  virtual bool preprocess(const PRCArc& pA, double *cost) { return 0; }
+  virtual bool preprocess(const PRCArc& pA, double *cost) { return false; }
 
   //------------------------------------------------
   // Enumeration of sub paths

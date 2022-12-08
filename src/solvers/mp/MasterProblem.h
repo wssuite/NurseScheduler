@@ -181,19 +181,19 @@ class MasterProblem : public Solver, public PrintSolution {
   ~MasterProblem() override;
 
   // solve the rostering problem
-  double solve(const std::vector<Roster> &solution) override;
+  double solve(const std::vector<Roster> &solution = {}) override;
 
   // solve the rostering problem or just the relaxation(root node)
   double solve(const std::vector<Roster> &solution, bool rebuild);
 
   // Solve with parameters
   double solve(const SolverParam &parameters,
-               const std::vector<Roster> &solution) override;
+               const std::vector<Roster> &solution = {}) override;
 
   // Resolve the problem with another demand and keep the same preferences
   double resolve(PDemand pDemand,
                  const SolverParam &parameters,
-                 const std::vector<Roster> &solution) override;
+                 const std::vector<Roster> &solution = {}) override;
 
   // needs to be specialized: add a column  to the master from a solution of
   // the subproblem
@@ -260,7 +260,8 @@ class MasterProblem : public Solver, public PrintSolution {
   // set availability for the days in fixDays based on
   // the current solution
   void fixAvailabilityBasedOnSolution(
-      const std::vector<bool> &fixDays) override;
+      const std::vector<bool> &fixDays,
+      const std::vector<Roster> &solution = {}) override;
 
   // fix/unfix all the variables corresponding to the input vector of nurses
   void fixNurses(const std::vector<bool> &isFixNurse) override;
@@ -275,13 +276,10 @@ class MasterProblem : public Solver, public PrintSolution {
                       const std::vector<Roster> &solution) override;
 
   // Special solve function for LNS
-  // It is a priori the same as a regular, but it might be modified if needed
-  double LNSSolve(const SolverParam &parameters,
-                  const std::vector<Roster> &solution) override;
+  double LNSSolve(const SolverParam &parameters) override;
 
-  // Initialization of the master problem with/without solution
-  void initialize(const SolverParam &parameters,
-                  const std::vector<Roster> &solution) override;
+  // Initialization of the master problem
+  void initialize(const SolverParam &parameters);
 
   // STAB: compute the lagrangian bound
   bool lagrangianBoundAvailable() const { return lagrangianBoundAvail_; }
@@ -327,6 +325,12 @@ class MasterProblem : public Solver, public PrintSolution {
     return spResources_[pN->num_];
   }
 
+  void addNewSPResources(const PLiveNurse &pN, const PResource &pR) {
+    pR->setId(static_cast<int>(spResources_[pN->num_].size()));
+    spResources_[pN->num_].push_back(pR);
+    pResources_[pN->num_].push_back(pR);
+  }
+
  protected:
   Modeler *pModel_;
   RCPricer *pRCPricer_;
@@ -337,6 +341,8 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // create the resources used for the sub problem
   void createPResources();
+
+  void addPResources();
 
   // split the resources between the master and the subproblem
   // must initialize spResources_
@@ -389,7 +395,7 @@ class MasterProblem : public Solver, public PrintSolution {
   virtual void initializeSolution(const std::vector<Roster> &solution) = 0;
 
   // solve method to catch exception
-  void solveWithCatch();
+  void solveWithCatch(const vector<Roster> &solution);
 
   // set parameters and update printFunction pointer with this
   void setParameters(const SolverParam &param) override {

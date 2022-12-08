@@ -137,11 +137,14 @@ static const std::map<std::string, RCSPPType> rcsppTypesByName = {
 };
 
 // Strategy for the dynamic scheduler
-enum WeightStrategy { MAX, MEAN, RANDOMMEANMAX, NO_STRAT };
+enum WeightStrategy { MAX, MEAN, RANDOMMEANMAX, ALTMEANMAX, NO_STRAT };
 
 static const std::map<std::string, WeightStrategy> weightStrategiesByName =
-    {{"MAX", MAX}, {"MEAN", MEAN},
-     {"RANDOMMEANMAX", RANDOMMEANMAX}, {"NO_STRAT", NO_STRAT}};
+    {{"MAX", MAX}, {"MEAN", MEAN}, {"RANDOMMEANMAX", RANDOMMEANMAX},
+     {"ALTMEANMAX", ALTMEANMAX}, {"NO_STRAT", NO_STRAT}};
+
+static std::map<WeightStrategy, std::string> namesByWeightStrategy =
+    Tools::buildNamesByType(weightStrategiesByName);
 
 // enum to define how to search the rc graph when solving
 enum SPSearchStrategy {
@@ -330,7 +333,7 @@ class SolverParam {
 
   /* PARAMETERS OF THE BRANCH AND BOUND */
   // relative and absolute gap (with the current LB)
-  // if sol below optimalAbsoluteGap_, we stop immediately
+  // optimalAbsoluteGap_ stores the minimum gap between two optimal solutions
   // (the difference between two solution costs is at least 5) -> optimal
   // if sol below absoluteGap_, we stop immediately;
   // if sol below minRelativeGap_, we stop immediately;
@@ -355,7 +358,7 @@ class SolverParam {
   int maxLevelDifference_ = -1;
   // maximum number of times that the BcpModeler decides to dive on a child
   // node without improvement of the node LB
-  int maxDivingWithoutLBImprovements_ = 10e6;
+  int maxDivingWithoutLBImprovements_ = 1e6;
   // number of consecutive dive if branching on columns
   // if 0, the solver won't branch on columns
   int nbDiveIfBranchOnColumns_ = 1;
@@ -367,20 +370,20 @@ class SolverParam {
   // compute a base cost for each nurse based on the cost of her columns as
   // their number. This base score will be used when choosing the potential
   // branching candidates
-  double branchBaseScore_ = 1;
+  double branchBaseScore_ = .2;
 
   bool solveToOptimality_ = false;
 
   // stop the algorithm after finding X solutions
   // if 0, the algorithm computes the relaxation if the algorithm is a column
   // generation procedure
-  int stopAfterXSolution_ = 5;
+  int stopAfterXSolution_ = LARGE_SCORE;
 
   // number of candidates to create for strong branching
   int nCandidates_ = 1;
   // weekendAdvantage_ gives an advantage to the weekend when choosing
   // the branching variables
-  double weekendAdvantage_ = .1;
+  double weekendAdvantage_ = .2;
 
   // generate variables just after solving LP.
   // The main disadvantage is that the node could have been pruned before
@@ -399,7 +402,7 @@ class SolverParam {
         performLNSHeuristic_ = false;
   // maximum number of iteration that the MIP solver in the heuristic
   // can perform to find a better solution than the current one
-  int MIPHeuristicMaxIteration_ = 10e6;
+  int MIPHeuristicMaxIteration_ = 1e6;
   // stop as soon as the MIP finds a solution better than the limit
   bool MIPHeuristicObjLimit_ = true;
   // if MIPHeuristicObjLimit_, the limit cannot be greater than (1 + gap) * LB
@@ -419,7 +422,7 @@ class SolverParam {
   bool isStabilization_ = false;
   // update duals' box radius / primals' cost
   bool isStabUpdateBoxRadius_ = true;
-  double stabBoxRadiusIni_ = 1E-4;
+  double stabBoxRadiusIni_ = 1e-4;
   double stabBoxRadiusMax_ = 100;
   double stabBoxBoundMax_ = LARGE_SCORE;
   double stabBoxRadiusFactor_ = 2;
@@ -430,8 +433,11 @@ class SolverParam {
   double stabPenaltyFactor_ = 2;
 
   // other technique against degeneracy: simply stop the solution process when
-  // it starts begin degenerate
-  int stopAfterXDegenerateIt_ = 10e6;
+  // it starts begin degenerate (not valid for the root node)
+  int stopAfterXDegenerateIt_ = 20;
+
+  // if too many degenerate iterations, throw an error.
+  int errorAfterXDegenerateIt_ = 1e3;
 
   // fathom a node is upper bound is smaller than the lagrangian bound
   bool isLagrangianFathom_ = true;
@@ -459,9 +465,9 @@ class SolverParam {
 
   SubProblemParam spParam_;
   // type of the subproblem used
-  SPType sp_type_ = ROSTER;
+  SPType spType_ = ROSTER;
   // type of the RCSPP solver used in the subproblem
-  RCSPPType rcspp_type_ = LABEL_SETTING;  // BOOST_LABEL_SETTING
+  RCSPPType rcsppType_ = LABEL_SETTING;  // BOOST_LABEL_SETTING
 
   // Initialize all the parameters according to a small number of
   // verbose options
@@ -511,12 +517,6 @@ class DeterministicSolverOptions {
   int lnsNbNursesDestroyOverFourWeeks_ = 10;
   int lnsNbNursesDestroyOverAllWeeks_ = 5;
 
-  // parameters of column generation
-  bool isStabilization_ = false;
-  bool isStabUpdateBoxRadius_ = false;
-  bool isStabUpdatePenalty_ = false;
-  int stopAfterXDegenerateIt_ = 1;
-
   // Algorithm that we use to solve the problem
   Algorithm solutionAlgorithm_ = GENCOL;
 
@@ -562,7 +562,6 @@ class StochasticSolverOptions {
     SolverParam ep;
     evaluationParameters_ = ep;
     evaluationParameters_.stopAfterXSolution_ = 0;
-//    evaluationParameters_.weightStrategy_ = BOUNDRATIO;
   }
 
   ~StochasticSolverOptions() = default;
@@ -587,6 +586,9 @@ class StochasticSolverOptions {
   bool setParameter(const string &field, std::fstream *file);
 
   void read(const string &strFile);
+
+  // Solver used for the LPs
+  SolverType mySolverType_ = CLP;
 
   // True -> generate several schedules and chose the "best" one
   // (according to ranking strategy)
@@ -636,7 +638,6 @@ class StochasticSolverOptions {
   int nEvaluationDemands_ = 2;
   int nExtraDaysGenerationDemands_ = 7;
   int nDaysEvaluation_ = 14;
-  int nGenerationDemandsMax_ = 100;
 
   std::string logfile_ = "";
 

@@ -45,7 +45,6 @@
 #include <cassert>
 
 
-static const int DEBUG = 1;
 static const int SHIFT_PAD = 3;
 static const char REST_SHIFT[] = "None";
 static const char REST_DISPLAY[] = " - ";  // should be of the size of pad
@@ -53,6 +52,7 @@ static const int DECIMALS = 3;  // precision when printing floats
 static const int NB_SHIFT_UNLIMITED = 28;
 
 static const int LARGE_SCORE = 9999;
+static const int XLARGE_SCORE = 999999;
 static const int LARGE_TIME = 999999;
 
 // definitions of multi-dimensional int vector types
@@ -257,7 +257,7 @@ std::string toUpperCase(std::string str);
 // convert to lower case
 std::string toLowerCase(std::string str);
 
-void loadOptions(
+std::string loadOptions(
     const std::string &strOptionFile,
     std::function<bool(const std::string&, std::fstream *file)>);
 
@@ -498,7 +498,7 @@ class Timer {
   std::chrono::time_point<std::chrono::system_clock> cpuInit_;
   std::chrono::duration<double> cpuSinceStart_, cpuSinceInit_;
 
-  int coStop_;  // number of times the timer was stopped
+  int nStop_;  // number of times the timer was stopped
   bool isStarted_;
   bool isStopped_;
 
@@ -538,11 +538,15 @@ class LogOutput {
   int precision_;
   std::string logName_ = "";
   bool isStdOut_;
+  LogOutput *pLogCout;
 
  public:
-  explicit LogOutput(std::string logName, bool append = false);
+  explicit LogOutput(std::string logName = "",
+                     bool append = true,
+                     bool alwaysPrint = false);
 
-  LogOutput(std::string logName, int width, bool append = false);
+  LogOutput(std::string logName, int width,
+            bool append = false, bool alwaysPrint = false);
 
   ~LogOutput();
 
@@ -580,6 +584,7 @@ class LogOutput {
     pLogStream_->unsetf(std::ios::floatfield);
     pLogStream_->precision(precision_);
     (*pLogStream_) << std::left << std::setprecision(5) << output;
+    if (pLogCout) (*pLogCout) << output;
     return *this;
   }
 
@@ -613,10 +618,11 @@ class LogOutput {
 
   LogOutput &operator<<(std::ostream &(*func)(std::ostream &)) {
     func(*pLogStream_);
+    if (pLogCout) (*pLogCout) << func;
     return *this;
   }
 
-  void addCurrentTime();
+  LogOutput & addCurrentTime();
 };
 
 // Can be used to create an output stream that writes with a

@@ -110,8 +110,8 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
 
 int SoftTotalWeekendsResource::getConsumption(
     const State & initialState) const {
+  // always 0, as bounds have been modified according to this value
   return 0;
-//  return std::min(ub_, initialState.totalWeekendsWorked_);
 }
 
 PExpander SoftTotalWeekendsResource::init(const AbstractShift &prevAShift,
@@ -205,8 +205,8 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
 
 int HardTotalWeekendsResource::getConsumption(
     const State & initialState) const {
+  // always 0, as bounds have been modified according to this value
   return 0;
-//  return initialState.totalWeekendsWorked_;
 }
 
 PExpander HardTotalWeekendsResource::init(const AbstractShift &prevAShift,

@@ -47,18 +47,40 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
 
 int SoftTotalShiftDurationResource::getConsumption(
     const State &initialState) const {
+  // always 0, as bounds have been modified according to this value
   return 0;
-//  return std::min(ub_, initialState.totalTimeWorked_);
 }
 
 PExpander SoftTotalShiftDurationResource::init(const AbstractShift &prevAShift,
                                                const Stretch &stretch,
                                                const shared_ptr<RCArc> &pArc,
                                                int indResource) {
+  if (isPreprocessed_) return nullptr;
   return initExpander<SoftTotalShiftDurationExpander,
                       SoftTotalShiftDurationResource>(
       prevAShift, stretch, pArc, *this, indResource);
 }
+
+void SoftTotalShiftDurationResource::preprocess(const PRCGraph &pRCGraph) {
+  if (ub_ > 0) return;
+
+  for (const PRCArc& pA : pRCGraph->pArcs()) {
+    double cost = 0;
+    preprocess(pA, &cost);
+    pA->addBaseCost(cost);
+  }
+  isPreprocessed_ = true;
+}
+
+bool SoftTotalShiftDurationResource::preprocess(
+    const PRCArc& pA, double *cost) {
+  if (ub_ > 0) return false;
+  bool ready = true;
+  int c = computeConsumption(pA->stretch, &ready);
+  *cost = c * ubCost_;
+  return true;
+}
+
 
 bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
                                             ResourceValues *vChild) {
@@ -120,8 +142,8 @@ bool SoftTotalShiftDurationExpander::expandBack(const PRCLabel &pLChild,
 
 int HardTotalShiftDurationResource::getConsumption(
     const State &initialState) const {
+  // always 0, as bounds have been modified according to this value
   return 0;
-//  return initialState.totalTimeWorked_;
 }
 
 PExpander HardTotalShiftDurationResource::init(const AbstractShift &prevAShift,

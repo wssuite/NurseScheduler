@@ -76,6 +76,9 @@ class SoftTotalShiftDurationResource :
         totalNbDays_, maxDuration_, defaultDuration_);
   }
 
+  void preprocess(const PRCGraph &pRCGraph) override;
+  bool preprocess(const PRCArc& pA, double *cost) override;
+
   int getConsumption(const State &initialState) const override;
 
   int maxConsumptionPerDay() const override { return maxDuration_; }

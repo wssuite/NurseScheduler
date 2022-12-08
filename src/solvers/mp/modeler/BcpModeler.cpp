@@ -57,7 +57,8 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
     nbNodesSinceLastHeuristic_(0),
     nbCurrentNodeGeneratedColumns_(0),
     nbGeneratedColumns_(0),
-    nbCurrentNodeSPSolved_(0) {
+    nbCurrentNodeSPSolved_(0),
+    approximatedDualUB_(-XLARGE_SCORE) {
   const auto &param = pModel_->getParameters();
   // Initialization of nb_dives_to_wait_before_branching_on_columns_
   if (param.nbDiveIfBranchOnColumns_) {
@@ -169,7 +170,7 @@ OsiSolverInterface *BcpLpModel::initialize_solver_interface() {
     set_param(entry.first, entry.second);
   // set the optimal absolute gap for BCP
   set_param(BCP_lp_par::Granularity,
-            pModel_->getParameters().optimalAbsoluteGap_ - pModel_->epsilon());
+            pModel_->getParameters().absoluteGap_ - pModel_->epsilon());
   set_param(BCP_lp_par::IntegerTolerance, pModel_->epsilon() - 1e-20);
   if (pModel_->getParameters().nCandidates_ == 1)
     set_param(pModel_->strong_branching.first, -1);
@@ -283,7 +284,7 @@ void BcpLpModel::modify_lp_parameters(OsiSolverInterface *lp,
 
   if (current_index() != last_node) {
     last_node = current_index();
-    currentNodeStartTime_ = CoinWallclockTime();
+    currentNodeStartTime_ = pModel_->dSinceStart();
 
 
     // print a line as it is the first iteration of this node
@@ -363,7 +364,7 @@ void BcpLpModel::modify_lp_parameters(OsiSolverInterface *lp,
 void BcpLpModel::printSummaryLineHeaders() const {
   if (pModel_->getVerbosity() == 0) return;
 
-  Tools::LogOutput log(pModel_->logfile(), true);
+  Tools::LogOutput log(pModel_->logfile());
 
   log.printnl("BCP: %13s %5s | %10s  %10s  %10s | "
               "%8s %14s %14s %13s %10s | %14s %5s %5s | %8s ",
@@ -410,14 +411,14 @@ void BcpLpModel::printSummaryLine(bool printNode,
 
 // print in cout a line summary of the current solver state
 void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
-  Tools::LogOutput log(pModel_->logfile(), true);
+  Tools::LogOutput log(pModel_->logfile());
 
   double ub = pModel_->getObjective(), root = pModel_->getRootLB(),
       lb = pModel_->getBestLB(), lagLb = pModel_->getNodeLastLagLB();
-  if (ub >= LARGE_SCORE - 1) ub = INFINITY;
-  if (root >= LARGE_SCORE - 1) root = INFINITY;
-  if (lb >= LARGE_SCORE - 1) lb = INFINITY;
-  if (lagLb <= -LARGE_SCORE + 1) lagLb = -INFINITY;
+  if (ub >= XLARGE_SCORE - 1) ub = INFINITY;
+  if (root >= XLARGE_SCORE - 1) root = INFINITY;
+  if (lb >= XLARGE_SCORE - 1) lb = INFINITY;
+  if (lagLb <= -XLARGE_SCORE + 1) lagLb = -INFINITY;
 
   // if has some variables
   if (!vars.empty()) {
@@ -443,7 +444,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
                   pModel_->getLastMinReducedCost(),
                   pModel_->getLastNbSubProblemsSolved(),
                   nbGeneratedColumns_,
-                  CoinWallclockTime());
+                  pModel_->dSinceStart());
     } else {
       log.printnl("BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
                   "%8s %14.2f %14s %5d / %5d %10ld | %14s %5s %5s | "
@@ -463,7 +464,7 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
                   "-",
                   "-",
                   "-",
-                  CoinWallclockTime());
+                  pModel_->dSinceStart());
     }
   } else {
     log.printnl("BCP: %5d / %5d %5d | %10.0f  %10.2f  %10.2f | "
@@ -484,12 +485,12 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
                 "-",
                 "-",
                 "-",
-                CoinWallclockTime());
+                pModel_->dSinceStart());
   }
 }
 
 void BcpLpModel::printNodeSummaryLine(int nbChildren) const {
-  Tools::LogOutput log(pModel_->logfile(), true);
+  Tools::LogOutput log(pModel_->logfile());
 
   log.printnl("BCP %6s: Node %5d processed; %4d nodes lefts; "
               "%5d nodes processed -- Node's totals: #It=%3d; "
@@ -501,8 +502,8 @@ void BcpLpModel::printNodeSummaryLine(int nbChildren) const {
               getNbCurrentNodeLpIterations(),
               nbCurrentNodeSPSolved_,
               nbCurrentNodeGeneratedColumns_,
-              CoinWallclockTime() - currentNodeStartTime_,
-              CoinWallclockTime());
+              pModel_->dSinceStart() - currentNodeStartTime_,
+              pModel_->dSinceStart());
 }
 
 // stop this node or BCP
@@ -793,7 +794,7 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(
   pModel_->incrementNbNodes();
   // deactivate stabilization, feasibility, and dual UB
   feasible_ = false;
-  approximatedDualUB_ = -LARGE_SCORE;
+  approximatedDualUB_ = -XLARGE_SCORE;
   if (pModel_->getParameters().isStabilization_)
     pModel_->stab().stabDeactivateBoundAndCost(
         getLpProblemPointer()->lp_solver);
@@ -839,7 +840,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     // It should normally not happen. One possibility is that th LP solution
     // changed between process_lp_result and generate_vars_in_lp.
     if (pModel_->getLastMinReducedCost() < -pModel_->epsilon()) {
-      Tools::LogOutput log(pModel_->logfile(), true);
+      Tools::LogOutput log(pModel_->logfile());
       log << "Column generation has finished with a negative reduced cost ("
           << pModel_->getLastMinReducedCost()
           << "). There is a problem with the pricing." << std::endl;
@@ -890,8 +891,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // 2. The subproblem were solved at optimality
   // 3. There are no stabilization variables in the solution
   if (pModel_->getMaster()->lagrangianBoundAvailable() &&
-      pModel_->isLastPricingOptimal() &&
-      !isStabActive) {
+      pModel_->isLastPricingOptimal() && !isStabActive) {
     double lagLb = pModel_->getMaster()->computeLagrangianBound(lpres.objval());
     pModel_->updateNodeLagLB(lagLb);
     double bestLagLb = pModel_->getNodeBestLagLB();
@@ -939,6 +939,10 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
                      "(stop column generation)" << std::endl;
       column_generated = false;
       lb = std::max(pModel_->getNodeBestLagLB(), pModel_->getCurrentLB());
+    } else if (pModel_->getNbDegenerateIt() >=
+        pModel_->getParameters().errorAfterXDegenerateIt_) {
+      Tools::throwException("Too many degenerated iterations (>%d).",
+                            pModel_->getParameters().errorAfterXDegenerateIt_);
     }
   } else {
     // reset counter to 0 as soon as a significant step has been made
@@ -963,7 +967,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   //   std::cout << pModel_->pMaster_->costsConstraintsToString() << std::endl;
 #endif
 
-  // if root and a variable with the obj LARGE_SCORE is positive -> INFEASIBLE
+  // if root and an infeasible variable is positive -> INFEASIBLE
   // otherwise, record the root solution for future use
   if (current_index() == 0) {
     if (pModel_->getTimeFirstRoot() < 0)
@@ -1380,7 +1384,8 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var *> &added_vars,
 BCP_solution *BcpBranchingTree::unpack_feasible_solution(BCP_buffer &buf) {  // NOLINT
   BCP_solution *sol = BCP_tm_user::unpack_feasible_solution(buf);
 
-  if (pModel_->getVerbosity() >= 3 && sol->objective_value() <= LARGE_SCORE)
+  if (pModel_->getVerbosity() >= 3 &&
+      sol->objective_value() <= XLARGE_SCORE)
     std::cout << pModel_->getMaster()->costsConstraintsToString() << std::endl;
 
   // store the solution
@@ -1548,7 +1553,7 @@ int BcpModeler::solve(bool relaxation) {
   char **argv = nullptr;
   int value = -1;
   std::exception_ptr pError = nullptr;
-  timerTotal_ = Tools::Timer(true);
+  timerTotal_.start();
   writeBoundsHeader();
   try {
     value = bcp_main(0, argv, pBcp_);
@@ -1563,7 +1568,7 @@ int BcpModeler::solve(bool relaxation) {
          << memGB << " GB of memory." << std::endl;
     std::cerr << buff.str();
     if (!parameters_.logfile_.empty()) {
-      Tools::LogOutput log(parameters_.logfile_, true);
+      Tools::LogOutput log(parameters_.logfile_);
       log << buff.str();
     }
     if (bcpSolutions_.empty()) getMaster()->status(INFEASIBLE);
@@ -1601,6 +1606,9 @@ void BcpModeler::reset() {
   CoinModeler::reset();
 
   // reset all solutions related objects
+  currentTreeLevel_ = 0;
+  nbDegenerateIt_ = 0;
+  nbDivedNodesWithoutImprovements_ = 0;
   lastNbSubProblemsSolved_ = 0;
   lastMinReducedCost_ = 0;
   solHasChanged_ = false;
@@ -1802,7 +1810,7 @@ void BcpModeler::addBcpSol(double objValue,
                            const std::vector<T *> &vars,
                            const std::vector<double> &values,
                            bool isInteger) {
-  if (objValue > LARGE_SCORE) return;
+  if (objValue > XLARGE_SCORE) return;
 
   if (bcpSolutions_.empty() ||
       bcpSolutions_.back().objective_value() > objValue + epsilon()) {
@@ -1828,7 +1836,7 @@ void BcpModeler::addBcpSol(double objValue,
       } else {
         BcpCoreVar *var = getCoreVar(vars[i]);
         mySol.add_entry(var, values[i]);
-        if (var->getCost() >= LARGE_SCORE - 1 && values[i] > epsilon()) {
+        if (var->getCost() >= XLARGE_SCORE - 1 && values[i] > epsilon()) {
           isArtificialSol = true;
           break;
         }
@@ -1867,7 +1875,7 @@ void BcpModeler::addBcpSol(double objValue,
 // Get the index of the best solution in the vector of solutions of BCP
 int BcpModeler::getBestSolIndex(bool integer) const {
   int i = 0, index = -1;
-  double bestObj = LARGE_SCORE;
+  double bestObj = XLARGE_SCORE;
   for (const MyBCPSolution &sol : bcpSolutions_) {
     if ((!integer || sol.isInteger_) && sol.objective_value() < bestObj) {
       bestObj = sol.objective_value();
@@ -1958,7 +1966,7 @@ const MyPNode & BcpModeler::getNode(const CoinTreeSiblings *s) {
 double BcpModeler::updateNodeLB(double lb) {
   double bestLB = getBestLB();
   double increase = Modeler::updateNodeLB(lb);
-  if ((bestLB >= LARGE_SCORE - 1) || (getBestLB() > bestLB + epsilon()))
+  if ((bestLB >= XLARGE_SCORE - 1) || (getBestLB() > bestLB + epsilon()))
     addBcpLB(getBestLB());
   if (increase < epsilon()) {
     nbDivedNodesWithoutImprovements_++;
@@ -2113,20 +2121,16 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
   // if already stooped
   if (isStopped())
     return true;
-  // continue if doesn't have a lb
-  if (pTree_->getBestLB() >= LARGE_SCORE - 1)
-    return false;
 
-  Tools::LogOutput log(logfile(), true);
+  Tools::LogOutput log(logfile());
 
   // check stopping criteria
-  if (pTree_->getBestUB() - pTree_->getBestLB()
-      < parameters_.optimalAbsoluteGap_ - epsilon()) {
+  if (currentTreeLevel_ > 0 && pTree_->getBestUB() - pTree_->getBestLB()
+      < parameters_.absoluteGap_ - epsilon()) {
     pMaster_->status(OPTIMAL);
     log.printnl("BCP STOPPED: optimal absolute gap < %.2f.",
-                parameters_.optimalAbsoluteGap_);
-  } else if (timerTotal_.dSinceStart() >
-      getParameters().maxSolvingTimeSeconds_ ||
+                parameters_.absoluteGap_);
+  } else if (dSinceStart() > getParameters().maxSolvingTimeSeconds_ ||
       pMaster_->getJob().shouldPause()) {
     pMaster_->status(TIME_LIMIT);
 #ifdef MBCP
@@ -2134,8 +2138,7 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
     // if needed in the future
     Tools::Job job = pMaster_->getJob();
     if (job.active()) {
-      log.printnl("BCP PAUSED: Time has run out after %.2f s.",
-                  timerTotal_.dSinceStart());
+      log.printnl("BCP PAUSED: Time has run out after %.2f s.", dSinceStart());
       // print stats on bounds
       std::cout << statsOnBounds() << std::endl;
       // store best integer solution if any
@@ -2156,8 +2159,10 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
       }
     }
 #endif
-    log.printnl("BCP STOPPED: Time has run out after %.2f s.",
-                timerTotal_.dSinceStart());
+    log.printnl("BCP STOPPED: Time has run out after %.2f s.", dSinceStart());
+  } else if (pTree_->getBestLB() >= XLARGE_SCORE - 1) {
+    // continue if doesn't have a lb
+    return false;
   } else if (pMaster_->getJob().shouldStop()) {
     pMaster_->status(FEASIBLE);
     log.printnl("BCP STOPPED: thread should stop.");
@@ -2173,10 +2178,10 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
     pMaster_->status(FEASIBLE);
     log.printnl("BCP STOPPED: %d solutions have been founded.", nbSolutions());
   } else if (pTree_->getBestUB() - pTree_->getBestLB()
-      < parameters_.optimalAbsoluteGap_ - epsilon()) {
+      < parameters_.absoluteGap_ - epsilon()) {
     pMaster_->status(FEASIBLE);
     log.printnl("BCP STOPPED: absolute gap < %.2f.",
-                parameters_.optimalAbsoluteGap_);
+                parameters_.absoluteGap_);
   } else if (pTree_->getBestUB() - pTree_->getBestLB()
       < parameters_.minRelativeGap_ * pTree_->getBestLB() - epsilon()) {
     pMaster_->status(FEASIBLE);
@@ -2186,7 +2191,7 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
       < parameters_.relativeGap_ * pTree_->getBestLB() - epsilon()) {
     // if the relative gap is small enough and if same incumbent
     // since the last dive, stop
-    if (pTree_->getNbNodesSinceLastIncumbent()
+    if (!is_columns_node() && pTree_->getNbNodesSinceLastIncumbent()
         > parameters_.nbDiveIfMinGap_ * pTree_->getDiveLength()) {
       pMaster_->status(FEASIBLE);
       log.printnl("BCP STOPPED: relative gap < %.2f and more than %d nodes "
@@ -2197,10 +2202,8 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
       return false;
     }
   } else if (nbSolutions() > 0) {
-    // if(pTree_->getBestUB() - pTree_->getBestLB() <
-    // 10.0 * pTree_->getBestLB()) {
     // if the relative gap is too big, wait 2 dives before stopping
-    if (pTree_->getNbNodesSinceLastIncumbent()
+    if (!is_columns_node() && pTree_->getNbNodesSinceLastIncumbent()
         > parameters_.nbDiveIfRelGap_ * pTree_->getDiveLength()) {
       pMaster_->status(FEASIBLE);
       log.printnl("BCP STOPPED: relative gap > %.2f and more than %d nodes"
@@ -2234,7 +2237,7 @@ void BcpModeler::stop() {
 std::string BcpModeler::statsOnBounds() const {
   std::stringstream rep;
   rep << "# Upper bounds =";
-  double ub = LARGE_SCORE;
+  double ub = XLARGE_SCORE;
   for (const auto &sol : bcpSolutions_)
     if (sol.objective_value() < ub - epsilon()) {
       std::string origin;
@@ -2249,7 +2252,7 @@ std::string BcpModeler::statsOnBounds() const {
   rep << std::endl;
 
   rep << "# Lower bounds =";
-  double lb = -LARGE_SCORE;
+  double lb = -XLARGE_SCORE;
   for (const auto &myLB : bcpLBs_) {
     lb = myLB.lb;
     rep << " " << lb << "," << myLB.time;
@@ -2260,7 +2263,7 @@ std::string BcpModeler::statsOnBounds() const {
 }
 void BcpModeler::writeBoundsHeader() const {
   std::string boundsFile = parameters_.outdir_ + "bounds.txt";
-  Tools::LogOutput rep(boundsFile, true);
+  Tools::LogOutput rep(boundsFile);
   rep << "================================================" << std::endl;
   rep << "=============== Solve " << std::setw(3) << pMaster_->nNurses()
       << " nurses ===============" << std::endl;
@@ -2269,7 +2272,7 @@ void BcpModeler::writeBoundsHeader() const {
 
 void BcpModeler::writeCurrentBounds() const {
   std::string boundsFile = parameters_.outdir_ + "bounds.txt";
-  Tools::LogOutput rep(boundsFile, true);
+  Tools::LogOutput rep(boundsFile);
   rep.addCurrentTime();
   rep << "Root LB:" << getRootLB();
   if (!bcpLBs_.empty())

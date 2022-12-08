@@ -1,0 +1,5 @@
+# default branch and price solver parameters
+weekendAdvantage=0.2
+branchBaseScore=0.2
+spType=ROSTER
+

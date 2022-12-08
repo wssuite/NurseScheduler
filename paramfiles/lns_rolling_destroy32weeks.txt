@@ -33,7 +33,6 @@ isStabilization=0
 isStabUpdateBoxRadius=1
 isStabUpdatePenalty=1
 branchColumnDisjoint=1
-stopAfterXDegenerateIt=5
 performHeuristicAfterXNode=-1
 heuristicMinIntegerPercent=50
 spDefaultStrategy=0

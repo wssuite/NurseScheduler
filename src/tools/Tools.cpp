@@ -306,7 +306,7 @@ std::string toLowerCase(std::string str) {
 /************************************************************************
 * Read the options
 *************************************************************************/
-void loadOptions(
+std::string loadOptions(
     const std::string &strOptionFile,
     std::function<bool(const std::string&, std::fstream *file)> load) {
   // open the file
@@ -333,6 +333,13 @@ void loadOptions(
           field.c_str(), strOptionFile.c_str());
     }
   }
+
+  // return content of the file for the log if any
+  file.close();
+  openFile(strOptionFile, &file);
+  std::stringstream buff;
+  buff << file.rdbuf();
+  return buff.str();
 }
 
 void openFile(const std::string &fileName, std::fstream *file) {
@@ -343,9 +350,9 @@ void openFile(const std::string &fileName, std::fstream *file) {
   file->open(fileName.c_str(), std::fstream::in);
   if (!file->is_open()) {
     std::cout << "While trying to read the file " << fileName << std::endl;
-    std::cout << "The input file was not opened properly!" << std::endl;
-    Tools::throwError("The input file (%s) was not opened properly!",
-                      fileName.c_str());
+    std::cout << "The input file does not exist or was not opened properly!"
+              << std::endl;
+    Tools::throwError("The input file (%s) does not exist!", fileName.c_str());
   }
 }
 
@@ -391,7 +398,8 @@ int randomInt(int minVal, int maxVal) {
   if (minVal > maxVal) {
     throwError("Tools::randomInt: minVal must be smaller than maxVal");
   }
-  return minVal + rdm0() % (maxVal - minVal + 1);
+  int r = rdm0();
+  return minVal + r % (maxVal - minVal + 1);
 }
 
 // Returns a double with random value (uniform) within [minVal, maxVal]
@@ -496,11 +504,13 @@ bool mkdirs(const std::string& dirPath) {
 #endif
 }
 
-LogOutput::LogOutput(std::string logName, bool append) :
-    LogOutput(std::move(logName), 0, append) {}
+LogOutput::LogOutput(std::string logName, bool append, bool alwaysPrint) :
+    LogOutput(std::move(logName), 0, append, alwaysPrint) {}
 
-LogOutput::LogOutput(std::string logName, int width, bool append):
-     width_(width), precision_(5), logName_(std::move(logName)) {
+LogOutput::LogOutput(
+    std::string logName, int width, bool append, bool alwaysPrint):
+     width_(width), precision_(5), logName_(std::move(logName)),
+     pLogCout(nullptr) {
   if (logName_.empty()) {
     pLogStream_ = &(std::cout);
     isStdOut_ = true;
@@ -517,6 +527,7 @@ LogOutput::LogOutput(std::string logName, int width, bool append):
         pLogStream_ = new std::ofstream(logName_.c_str(), std::fstream::out);
       }
       isStdOut_ = false;
+      if (alwaysPrint) pLogCout = new LogOutput("", width);
     } catch (const std::exception &e) {
       std::cout << "LogOutput::LogOutput() caught an exception=: "
                 << e.what() << std::endl;
@@ -527,15 +538,18 @@ LogOutput::LogOutput(std::string logName, int width, bool append):
 LogOutput::~LogOutput() {
   close();
   delete pLogStream_;
+  delete pLogCout;
 }
 
-void LogOutput::addCurrentTime() {
+LogOutput & LogOutput::addCurrentTime() {
   auto now = std::chrono::system_clock::now();
   std::time_t current_time = std::chrono::system_clock::to_time_t(now);
   std::tm* time_info = std::localtime(&current_time);
   char buffer[128];
   strftime(buffer, sizeof(buffer), "%F %T", time_info);
   (*pLogStream_) << "[" << buffer << "]    ";
+  if (pLogCout) (*pLogCout) << "[" << buffer << "]    ";
+  return *this;
 }
 
 void LogOutput::close() {
@@ -557,7 +571,7 @@ void LogOutput::close() {
 Timer::Timer(bool start) : cpuInit_(std::chrono::system_clock::now()),
                            cpuSinceStart_(0),
                            cpuSinceInit_(0),
-                           coStop_(0),
+                           nStop_(0),
                            isStarted_(false),
                            isStopped_(true) {
   if (start) this->start();
@@ -586,7 +600,7 @@ void Timer::stop() {
 
   isStarted_ = false;
   isStopped_ = true;
-  coStop_++;
+  nStop_++;
 }  // end stop
 
 // Get the time spent since the initialization of the timer without stopping it

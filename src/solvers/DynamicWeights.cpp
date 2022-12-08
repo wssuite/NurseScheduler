@@ -21,9 +21,10 @@
 using std::vector;
 
 DynamicWeights::DynamicWeights(
-    PScenario pScenario, std::vector<PLiveNurse> pLiveNurses):
+    PScenario pScenario, std::vector<PLiveNurse> pLiveNurses,
+    WeightStrategy strategy):
     pScenario_(std::move(pScenario)), pLiveNurses_(std::move(pLiveNurses)),
-    version_(0) {
+    version_(0), strat_(strategy) {
   clear();  // fill all vectors with a 0 for each nurse
 }
 
@@ -40,25 +41,35 @@ void DynamicWeights::boundsAndWeights(WeightStrategy strategy, int horizon) {
   clear();
   version_++;
   switch (strategy) {
+    case NO_STRAT:
+      strat_ = strategy;
+      computeWeightsTotalShiftsForStochastic(horizon);
+      return;
+
     case MAX :
     case MEAN:
-      computeWeightsTotalShiftsForPrimalDual(strategy, horizon);
+      strat_ = strategy;
+      break;
+
+    case ALTMEANMAX:
+      switch (strat_) {
+        // alternate strategy
+        case MEAN: strat_ = MAX; break;
+        case MAX: strat_ = MEAN; break;
+        // otherwise, choose randomly
+        default: strat_ = Tools::randomInt(0, 1) ? MEAN : MAX;
+      }
       break;
 
     case RANDOMMEANMAX:
-      if (Tools::randomInt(0, 1) == 0)
-        computeWeightsTotalShiftsForPrimalDual(MEAN, horizon);
-      else
-        computeWeightsTotalShiftsForPrimalDual(MAX, horizon);
-      break;
-
-    case NO_STRAT:
-      computeWeightsTotalShiftsForStochastic(horizon);
+      strat_ = Tools::randomInt(0, 1) ? MEAN : MAX;
       break;
 
     default: Tools::throwError("Weight/bound strategy not defined");
       break;
   }
+
+  computeWeightsTotalShiftsForPrimalDual(strat_, horizon);
 }
 
 void DynamicWeights::computeWeightsTotalShiftsForStochastic(int horizon) {
@@ -122,6 +133,8 @@ void DynamicWeights::computeWeightsTotalShiftsForStochastic(int horizon) {
 
 void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
     WeightStrategy strategy, int horizon) {
+  vector<double> minPrimalDualCostForContractDays(pScenario_->nContracts());
+  vector<double> minPrimalDualCostForContractWE(pScenario_->nContracts());
   vector<double> maxPrimalDualCostForContractDays(pScenario_->nContracts());
   vector<double> maxPrimalDualCostForContractWE(pScenario_->nContracts());
   vector<double> meanPrimalDualCostForContractDays(pScenario_->nContracts());
@@ -134,9 +147,18 @@ void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
     minTotalShiftsContractAvg_[p] = 0;
     maxTotalShiftsContractAvg_[p] = 0;
     weightTotalShiftsContractAvg_[p] = pScenario_->weights().totalShifts;
+    minPrimalDualCostForContractDays[p] = pScenario_->weights().totalShifts;
     maxTotalWeekendsContractAvg_[p] = 0;
     weightTotalWeekendsContractAvg_[p] = pScenario_->weights().totalWeekends;
+    minPrimalDualCostForContractWE[p] = pScenario_->weights().totalWeekends;
   }
+
+  // compute several useful quantities
+  double remainingWeeks = pScenario_->nWeeks() - pScenario_->thisWeek();
+  double remainingDays = 7 * remainingWeeks;
+  int nWeeksInHorizon = (horizon + 1) / 7;
+  double ratioDays = horizon / remainingDays;
+  double ratioWeeks = nWeeksInHorizon / remainingWeeks;
 
   // Compute the non-penalized intervals and the associated penalties
   // for each contract
@@ -152,8 +174,8 @@ void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
     // If this does not apply -> find another formulation
     pTotalDuration->setUb(0);
     // Primal-dual cost of max working days
-    double w = pScenario_->weights().totalShifts / pN->maxTotalShifts()
-        * pN->pStateIni_->totalTimeWorked_;
+    double w = pScenario_->weights().totalShifts / pN->maxTotalShifts() *
+        pN->pStateIni_->totalTimeWorked_;
     // Must not be higher that WEIGHT
     if (w > pScenario_->weights().totalShifts)
       w = pScenario_->weights().totalShifts;
@@ -162,8 +184,8 @@ void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
     // Activate maximum constraints (WE) with primal-dual cost
     const auto &pTotalWeekend = pN->totalWeekendResource_;
     pTotalWeekend->setUb(0);
-    w = pScenario_->weights().totalWeekends / pN->maxTotalWeekends()
-        * pN->pStateIni_->totalWeekendsWorked_;
+    w = pScenario_->weights().totalWeekends / pN->maxTotalWeekends() *
+        pN->pStateIni_->totalWeekendsWorked_;
     if (w > pScenario_->weights().totalWeekends)
       w = pScenario_->weights().totalWeekends;
     pTotalWeekend->setUbCost(w);
@@ -178,6 +200,10 @@ void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
         0, pN->maxTotalWeekends() - pN->pStateIni_->totalWeekendsWorked_);
 
     // Check for maximum primal-dual costs
+    minPrimalDualCostForContractDays[p] = std::min(
+        minPrimalDualCostForContractDays[p], pTotalDuration->getUbCost());
+    minPrimalDualCostForContractWE[p] = std::min(
+        minPrimalDualCostForContractWE[p], pTotalWeekend->getUbCost());
     maxPrimalDualCostForContractDays[p] = std::max(
         maxPrimalDualCostForContractDays[p], pTotalDuration->getUbCost());
     maxPrimalDualCostForContractWE[p] = std::max(
@@ -188,67 +214,58 @@ void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
   }
 
   // round the min/max values of the interval associated to the contract
-  int remainingWeeks = pScenario_->nWeeks() - pScenario_->thisWeek();
-  int remainingDays = 7 * remainingWeeks;
-  int nWeekendsInHorizon = (horizon + 1) / 7;
-  double ratioDays = horizon * (1.0 / remainingDays);
-  double ratioWeekends = nWeekendsInHorizon * (1.0 / remainingWeeks);
-
   for (int p = 0; p < pScenario_->nContracts(); ++p) {
+    // update bounds
     minTotalShiftsContractAvg_[p] =
         Tools::roundWithProbability(minTotalShiftsContractAvg_[p] * ratioDays);
     maxTotalShiftsContractAvg_[p] =
         Tools::roundWithProbability(maxTotalShiftsContractAvg_[p] * ratioDays);
     maxTotalWeekendsContractAvg_[p] = Tools::roundWithProbability(
-        maxTotalWeekendsContractAvg_[p] * ratioWeekends);
+        maxTotalWeekendsContractAvg_[p] * ratioWeeks);
 
+    // update costs per contract
     meanPrimalDualCostForContractDays[p] /= nbNursesPerContract[p];
     meanPrimalDualCostForContractWE[p] /= nbNursesPerContract[p];
 
-    // to penalize some contracts vs the others
+    // penalize some contracts vs the others
     PContract pContract = pScenario_->pContract(p);
-    int lengthStintMin =
+    double lengthStintMin =
         pContract->minConsDaysWork_ + pContract->maxConsDaysOff_;
     // compute the number of days worked, if the nurse works the minimum days
     // without penalties
-    int minWorkDaysNoPenalty = pContract->minConsDaysWork_ *
-        (7 * pScenario_->nWeeks()) / lengthStintMin;
+    double baseMinWorkDaysNoPenalty = pContract->minConsDaysWork_ *
+        7 * pScenario_->nWeeks() / lengthStintMin;
     // compute the ratio between the min work days without penalties and the
     // maximum number of shifts
-    double ratioMinMax =
-        minWorkDaysNoPenalty * 1.0 / pContract->maxTotalShifts_;
-    double weightContract = 1 + ratioMinMax / 10;
-    weightTotalShiftsContractAvg_[p] *= weightContract;
+    double baseRatioMinMax =
+        baseMinWorkDaysNoPenalty / pContract->maxTotalShifts_;
+    double weightContract = 1 + baseRatioMinMax / 10;
+    double w = weightTotalShiftsContractAvg_[p] * weightContract;
 
     if (strategy == MAX) {
-      weightTotalShiftsContractAvg_[p] -= maxPrimalDualCostForContractDays[p];
+      w -= maxPrimalDualCostForContractDays[p];
       weightTotalWeekendsContractAvg_[p] -= maxPrimalDualCostForContractWE[p];
     } else if (strategy == MEAN) {
-      weightTotalShiftsContractAvg_[p] -= meanPrimalDualCostForContractDays[p];
+      w -= meanPrimalDualCostForContractDays[p];
       weightTotalWeekendsContractAvg_[p] -= meanPrimalDualCostForContractWE[p];
     }
+    weightTotalShiftsContractAvg_[p] = w;
 
     if (false) {
-      std::cout << "# " << std::endl;
-      std::cout << "##################################################"
-                << std::endl;
+      std::cout << "################### " << (strategy == MAX ? "MAX" : "MEAN")
+                << " ###################" << std::endl;
       std::cout << "# " << (*(pScenario_->pContract(p)))
-                << std::endl;
-      std::cout << "# min/max : " << std::endl;
-      std::cout << "#    | min total shifts: " << minTotalShiftsContractAvg_[p]
-                << std::endl;
-      std::cout << "#    | max total shifts: " << maxTotalShiftsContractAvg_[p]
-                << std::endl;
-      std::cout << "#    | max total we    : "
+                << ": " << nbNursesPerContract[p] << " nurses, ratio: "
+                << baseRatioMinMax << std::endl;
+      std::cout << "# min/max : "
+                << "    | min total shifts: " << minTotalShiftsContractAvg_[p]
+                << "    | max total shifts: " << maxTotalShiftsContractAvg_[p]
+                << "    | max total we    : "
                 << maxTotalWeekendsContractAvg_[p] << std::endl;
-      std::cout << "# costs   : " << std::endl;
-      std::cout << "#    | cost shift: " << weightTotalShiftsContractAvg_[p]
+      std::cout << "# costs   : "
+                << "    | cost shift: " << weightTotalShiftsContractAvg_[p]
+                << "    | cost we   : " << weightTotalWeekendsContractAvg_[p]
                 << std::endl;
-      std::cout << "#    | cost we   : " << weightTotalWeekendsContractAvg_[p]
-                << std::endl;
-      std::cout << "##################################################"
-                << std::endl;
-      std::cout << "# " << std::endl;
     }
   }
 }

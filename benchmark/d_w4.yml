@@ -1,0 +1,36 @@
+name: d_w4
+
+benchmark:
+  exe: ./docker-entrypoint.sh
+  replications: 10
+  args: -d
+  steps:
+    - generation-config: ./paramfiles/all_rotation.txt
+      evaluation-config: ./paramfiles/all_rotation.txt
+    - generation-config: ./paramfiles/roster.txt
+      evaluation-config: ./paramfiles/all_rotation.txt
+    - generation-config: ./paramfiles/all_rotation.txt
+      evaluation-config: ./paramfiles/roster.txt
+    - generation-config: ./paramfiles/roster.txt
+      evaluation-config: ./paramfiles/roster.txt
+  instances:
+    - name: n030w4_1_6-2-9-1
+    - name: n030w4_1_6-7-5-3
+    - name: n035w4_0_1-7-1-8
+    - name: n035w4_2_8-8-7-5
+    - name: n040w4_0_2-0-6-1
+    - name: n040w4_2_6-1-0-6
+    - name: n050w4_0_0-4-8-7
+    - name: n050w4_0_7-2-7-2
+    - name: n060w4_1_6-1-1-5
+    - name: n060w4_1_9-6-3-8
+    - name: n070w4_0_3-6-5-1
+    - name: n070w4_0_4-9-6-7
+    - name: n080w4_2_4-3-3-3
+    - name: n080w4_2_6-0-4-8
+    - name: n100w4_0_1-1-0-8
+    - name: n100w4_2_0-6-4-6
+    - name: n110w4_0_1-4-2-8
+    - name: n110w4_0_1-9-3-5
+    - name: n120w4_1_4-6-2-6
+    - name: n120w4_1_5-6-9-8
