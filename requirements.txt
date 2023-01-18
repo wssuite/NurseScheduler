@@ -1,4 +1,4 @@
-certifi==2021.10.8
+certifi==2022.12.7
 cpplint @ file:///home/conda/feedstock_root/build_artifacts/cpplint_1645442975583/work
 cycler @ file:///home/conda/feedstock_root/build_artifacts/cycler_1635519461629/work
 fonttools @ file:///Users/runner/miniforge3/conda-bld/fonttools_1651017805703/work
