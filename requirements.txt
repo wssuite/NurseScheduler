@@ -10,8 +10,8 @@ packaging @ file:///home/conda/feedstock_root/build_artifacts/packaging_16372396
 Pillow==9.0.1
 pyparsing @ file:///home/conda/feedstock_root/build_artifacts/pyparsing_1652235407899/work
 python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1626286286081/work
-PyYAML==5.4.1
+PyYAML==6.0
 six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
 tornado @ file:///Users/runner/miniforge3/conda-bld/tornado_1648827296753/work
-typing-extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1650370875435/work
+typing_extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1650370875435/work
 unicodedata2 @ file:///Users/runner/miniforge3/conda-bld/unicodedata2_1649112008529/work
