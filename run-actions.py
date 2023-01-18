@@ -38,7 +38,7 @@ def run_travis(build=True, tag=None, script=None, pipe=subprocess.PIPE):
             print(exc)
 
 
-def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE, start=0, end=None, t_name='inrc2'):
+def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE, start=0, end=None):
     if docker:
         passed, err = run_cmd('docker build -t {} .'.format(tag))
         if not passed:
@@ -46,7 +46,7 @@ def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE, start=0, 
         run = 'docker run --rm {}'.format(tag)
     else:
         run = './docker-entrypoint.sh'
-    with open(".github/workflows/docker-%s-tests.yml" % t_name, 'r') as stream:
+    with open(".github/workflows/docker-scheduler-tests.yml", 'r') as stream:
         try:
             d = yaml.safe_load(stream)
             i = -1
@@ -110,8 +110,6 @@ if __name__ == "__main__":
                          "greater than its start.")
 
     if args.docker:
-        # run_travis()
         run_actions(args.name, start=i, end=j)
     else:
-        # run_travis(False, 'ns', './docker-entrypoint.sh')
         run_actions(args.name, docker=False, start=i, end=j)
