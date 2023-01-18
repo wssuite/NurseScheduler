@@ -1,0 +1,63 @@
+name: nrp
+
+benchmark:
+  exe: ./bin/staticscheduler
+  dir: ./datasets/nrp/
+  rcspp-type: DEFAULT
+  timeout: 86400
+  n-threads: 8
+  verbose: 1
+  sp-type: ROSTER
+  args: null
+  steps:
+    - param: ./paramfiles/optimality_mip_large.txt
+    - param: ./paramfiles/heuristic_mip.txt
+  instances:
+    - name: Instance1.txt
+      ub: 607
+    - name: Instance2.txt
+      ub: 828
+    - name: Instance3.txt
+      ub: 1001
+    - name: Instance4.txt
+      ub: 1716
+    - name: Instance5.txt
+      ub: 1143
+    - name: Instance6.txt
+      ub: 1950
+    - name: Instance7.txt
+      ub: 1056
+    - name: Instance8.txt
+      ub: 1300
+    - name: Instance9.txt
+      ub: 439
+    - name: Instance10.txt
+      ub: 4631
+    - name: Instance11.txt
+      ub: 3443
+    - name: Instance12.txt
+      ub: 4040
+    - name: Instance13.txt
+      ub: 1348
+    - name: Instance14.txt
+      ub: 1278
+    - name: Instance15.txt
+      ub: 3829
+    - name: Instance16.txt
+      ub: 3225
+    - name: Instance17.txt
+      ub: 5746
+    - name: Instance18.txt
+      ub: 4459
+    - name: Instance19.txt
+      ub: 3149
+    - name: Instance20.txt
+      ub: 4769
+    - name: Instance21.txt
+      ub: 21133
+    - name: Instance22.txt
+      ub: 30241
+    - name: Instance23.txt
+      ub: 17428
+    - name: Instance24.txt
+      ub: 42463

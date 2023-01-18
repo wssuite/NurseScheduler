@@ -4,7 +4,8 @@ set(SOURCE_FILES
         Nurse.cpp
         Roster.cpp
         Scenario.cpp
-        Day.cpp)
+        Day.cpp
+        Shift.cpp)
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})
 target_link_libraries(${LIB_NAME} tools ${LIBS})

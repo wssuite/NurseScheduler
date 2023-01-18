@@ -201,6 +201,7 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // retrieve the object represented ny the  vector column
   virtual PColumn getPColumn(MyVar *var) const = 0;
+  virtual PColumn getPColumn(const RCSolution &st, int nurseNum) const = 0;
 
   void computeColumnCost(Column *col) const;
 

@@ -28,7 +28,7 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "Rel
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer -fsanitize=leak")
         set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address -fno-omit-frame-pointer -fsanitize=leak")
     endif()
-    add_definitions(-DDBG)
+    add_definitions(-DNS_DEBUG)
 endif()
 add_definitions(-pedantic -Wno-deprecated -Wno-sign-compare)
 

@@ -74,8 +74,9 @@ void RotationColumn::checkReducedCost(const DualCosts &dualCosts,
    ************************************************/
   // add a rest shift at the end to mark the end of the rotation
   Stretch st(*this);
-  PShift pRest = std::make_shared<Shift>();
-  st.pushBack(pRest);
+  PShift pEnd = std::make_shared<Shift>(-1, "End"),
+      pRest = std::make_shared<Shift>();
+  st.pushBack(pEnd);
   double reducedCost = cost_ - dualCosts.getCost(nurseNum_, st, pRest);
 
   // Display: set to true if you want to display the details of the cost
@@ -146,6 +147,10 @@ PColumn RotationMP::getPColumn(MyVar *var) const {
   return std::make_shared<RotationColumn>(var, pScenario_);
 }
 
+PColumn RotationMP::getPColumn(const RCSolution &st, int nurseNum) const {
+  return std::make_shared<RotationColumn>(st, nurseNum);
+}
+
 // build the, possibly fractional, roster corresponding to the solution
 // currently stored in the model
 vector3D<double> RotationMP::fractionalRoster() const {
@@ -166,6 +171,9 @@ vector3D<double> RotationMP::fractionalRoster() const {
 
 // build the rostering problem
 void RotationMP::build(const SolverParam &param) {
+  if (param.spParam_.rcsppBidirectional_)
+    Tools::throwError("Bidirectional search cannot be enabled when solving "
+                      "a rotation formulation.");
   /* build the base of the model */
   MasterProblem::build(param);
 
@@ -299,7 +307,7 @@ void RotationMP::splitPResources() {
         if (pHR) {
           pHR->setId(static_cast<int>(pSPResources.size()));
           pSPResources.push_back(pHR);
-          if (pHR->pShift()->isRest())
+          if (pHR->pAShift()->isRest())
             pRotBPResources.push_back(pHR);
         } else {
           // add to master
@@ -312,7 +320,7 @@ void RotationMP::splitPResources() {
         if (pSR) {
           pSR->setId(static_cast<int>(pSPResources.size()));
           pSPResources.push_back(pSR);
-          if (pSR->pShift()->isRest())
+          if (pSR->pAShift()->isRest())
             pRotBPResources.push_back(pSR);
         } else {
           // add to master
@@ -346,7 +354,7 @@ MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
   RotationColumn rotation(solution, nurseNum);
 
-#ifdef DBG
+#ifdef NS_DEBUG
   computeColumnCost(&rotation);
   DualCosts dualCosts(this);
   rotation.checkReducedCost(dualCosts, pPricer()->isLastRunOptimal());

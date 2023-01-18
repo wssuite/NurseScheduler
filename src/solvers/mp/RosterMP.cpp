@@ -70,6 +70,14 @@ void RosterColumn::checkReducedCost(const DualCosts &dualCosts,
     std::cerr << toString();
     std::cerr << "# " << std::endl;
 
+#ifdef NS_DEBUG
+    if (pLabel_) {
+      std::cerr << "Associated rcspp label: " << std::endl;
+      std::cerr << pLabel_->toStringRecursive(
+          pLabel_->getNode()->activeResources) << std::endl;
+    }
+#endif
+
     // throw an error only when a significant misprice
     // Indeed, if the real reduced cost (reducedCost) is greater than the one
     // found by the pricing, some columns with a positive reduced cost could be
@@ -104,6 +112,10 @@ RosterMP::~RosterMP() {
 
 PColumn RosterMP::getPColumn(MyVar *var) const {
   return std::make_shared<RosterColumn>(var, pScenario_);
+}
+
+PColumn RosterMP::getPColumn(const RCSolution &st, int nurseNum) const {
+  return std::make_shared<RosterColumn>(st, nurseNum);
 }
 
 // Main method to build the rostering problem for a given input
@@ -163,7 +175,7 @@ void RosterMP::splitPResources() {
 MyVar *RosterMP::addColumn(int nurseNum, const RCSolution &solution) {
   // Build rotation from RCSolution
   RosterColumn col(solution, nurseNum);
-#ifdef DBG
+#ifdef NS_DEBUG
   // check only if not dynamic, otherwise do no work
   computeColumnCost(&col);
   DualCosts dualCosts(this);
@@ -194,7 +206,7 @@ double RosterMP::computeLagrangianBound(double objVal) const {
   }
 
   double sumRedCost = 0;
-  for (double v : pPricer()->getLastMinReducedCosts())
+  for (double v : pPricer()->getLastReducedCostLBs())
     sumRedCost += v;
   return objVal + sumRedCost;
 }

@@ -45,6 +45,8 @@ struct DualCosts {
                  const Stretch &st,
                  const PAbstractShift &prevS) const;
 
+  vector<double> getMaxDualValues() const;
+
   std::string toString() const;
   std::string toString(int nurseNum, const Stretch &st) const;
 
@@ -75,7 +77,8 @@ class SubProblem {
   virtual bool solve(
       const PDualCosts &costs,
       const std::set<std::pair<int, int>> &forbiddenDayShifts = {},
-      double redCostBound = 0);
+      double redCostBound = 0,
+      bool relaxation = false);
 
   // Returns all rotations saved during the process of solving the SPPRC
   const std::vector<RCSolution> &getSolutions() const {
@@ -83,9 +86,9 @@ class SubProblem {
   }
 
   // Some getters
-  PScenario scenario() const { return pScenario_; }
+  PScenario pScenario() const { return pScenario_; }
 
-  PContract contract() const { return pLiveNurse_->pContract_; }
+  PContract pContract() const { return pLiveNurse_->pContract_; }
 
   int nDays() const { return nDays_; }
 
@@ -96,10 +99,16 @@ class SubProblem {
   double cpuInLastSolve() { return timerSolve_.dSinceStart(); }
 
   virtual bool isLastRunOptimal() const = 0;
+  virtual bool hasANextExecutionAvailable() const {
+    return true;
+  }
+
+  // return a lower bound on the reduced cost. By default, worst case
+  virtual double minRedCostLB() const { return -DBL_MAX; }
 
   // reset parameters of the subproblems. Used to give a change to the solver
   // to change their parameters. It will be used after a node has been fathomed
-  virtual void updateParameters(bool masterFeasible) = 0;
+  virtual void updateParameters(bool useMoreTime = false) = 0;
 
   // Print and check functions.
   void printAllSolutions() const;
@@ -111,12 +120,24 @@ class SubProblem {
   virtual void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const = 0;
   void computePreferencesCost(RCSolution *rcSol) const;
 
+  void setPreferences(const SubProblemParam &param) {
+    param_ = param;
+  }
+
   void setDefaultDomination(bool isDefault) {
     param_.rcsppImprovedDomination_ = !isDefault;
   }
 
   void setBidirectional(bool enable) {
     param_.rcsppBidirectional_ = enable;
+  }
+
+  void setSpMaxSolvingTimeRatioForRelaxation(double ratio) {
+    param_.spMaxSolvingTimeRatioForRelaxation_ = ratio;
+  }
+
+  void attachJob(Tools::Job job) {
+    job_ = job;
   }
 
  protected:
@@ -185,6 +206,9 @@ class SubProblem {
 
   SubProblemParam param_;
 
+  // store the job running the solver if it's the case
+  Tools::Job job_;
+
   //-----------------------
   // THE BASE COSTS
   //-----------------------
@@ -203,6 +227,9 @@ class SubProblem {
   // Maximum time duration of a roster
   int maxTotalDuration_{};
 
+  // random generator
+  std::minstd_rand rdm_;
+
   //-----------------------
   // THE GRAPH
   //-----------------------
@@ -217,11 +244,12 @@ class SubProblem {
   virtual void updateArcDualCosts() = 0;
 
   // FUNCTIONS -- SOLVE
-  virtual bool solve();
+  virtual bool solve(bool initialSolve = true, bool relaxation = false);
   virtual bool presolve();
   virtual bool postprocess();
 
-  virtual bool solveRCGraph() = 0;
+  virtual bool solveRCGraph(
+      bool initialSolve = true, bool relaxation = false) = 0;
 
   // Initializes some cost vectors that depend on the nurse
   virtual void initStructuresForSolve();

@@ -100,10 +100,10 @@ void SubProblem::initSubproblemParam(int strategy) {
   }
 }
 
-void SubProblem::updateParameters(bool masterFeasible) {
+void SubProblem::updateParameters(bool useMoreTime) {
   // if backtracking -> restart at 0
   int diff = param_.strategyLevel_ - defaultStrategy_;
-  if (!masterFeasible || diff <= 1) initSubproblemParam(defaultStrategy_);
+  if (useMoreTime || diff <= 1) initSubproblemParam(defaultStrategy_);
   else
     // otherwise, just try previous level if more than 2 levels
     initSubproblemParam(param_.strategyLevel_ - 1);
@@ -142,7 +142,7 @@ Penalties SubProblem::initPenalties() const {
   return penalties;
 }
 
-bool SubProblem::solve() {
+bool SubProblem::solve(bool initialSolve, bool relaxation) {
   bool ANS = false;
   vector<int> forbiddenArcs;
   while (!ANS) {
@@ -169,7 +169,7 @@ bool SubProblem::solve() {
 }
 
 // shortest path problem is to be solved
-bool SubProblem::solveRCGraph() {
+bool SubProblem::solveRCGraph(bool initialSolve, bool relaxation) {
   // solve the RC SPP
   std::vector<boost::graph_traits<Graph>::vertex_descriptor> sinks = g_.sinks();
 
@@ -443,7 +443,7 @@ vector<int> SubProblem::forbidViolationConsecutiveConstraints() {
   vector<int> forbiddenArcs;
   for (PrincipalGraph &pg : principalGraphs_) {
     vector<int> fArcs = pg.forbidViolationConsecutiveConstraints();
-    forbiddenArcs.insert(forbiddenArcs.end(), fArcs.begin(), fArcs.end());
+    forbiddenArcs = Tools::appendVectors(forbiddenArcs, fArcs);
   }
   return forbiddenArcs;
 }

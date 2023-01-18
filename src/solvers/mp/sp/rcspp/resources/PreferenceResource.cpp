@@ -11,31 +11,39 @@
 
 #include "PreferenceResource.h"
 
-void SoftPreferenceResource::preprocess(const PRCGraph &pRCGraph) {
+void PreferenceResource::preprocess(const PRCGraph &pRCGraph) {
   for (const PRCArc& pA : pRCGraph->pArcs()) {
     double cost = 0;
-    preprocess(pA, &cost);
-    pA->addBaseCost(cost);
+    if (preprocess(pA, &cost)) {
+      pA->addBaseCost(cost);
+    } else {
+      // forbid arc forever. Must be changed manually if needed
+      pRCGraph->forbidArc(pA, true);
+    }
   }
   isPreprocessed_ = true;
 }
 
-bool SoftPreferenceResource::preprocess(const PRCArc& pA, double *cost) {
+bool PreferenceResource::preprocess(const PRCArc& pA, double *cost) {
   *cost = 0;
   auto itS = pA->stretch.pShifts().begin();
   for (const auto& pDay : pA->stretch.pDays()) {
-    if (pADay_->includes(*pDay))
+    if (!pEndShift_->equals(**itS) && pADay_->includes(*pDay)) {
       *cost += wish_.cost(*itS);
+      if (wish_.forbid(*itS))
+        return false;
+    }
     itS++;
   }
-  return true;
-}
 
-PExpander SoftPreferenceResource::init(const AbstractShift &prevAShift,
-                                       const Stretch &stretch,
-                                       const shared_ptr<RCArc> &pArc,
-                                       int indResource) {
-  /*Tools::throwError("This resource should never be initialized since it is "
-                    "not a resource of the RCSPP");*/
-  return nullptr;
+  // check also the previous day to ensure to forbid
+  // all the arcs leaving a forbidden day
+  if (pADay_->includes(*pA->origin->pDay)) {
+    if (wish_.forbid(pA->origin->pAShift)) {
+      *cost += wish_.cost(pA->origin->pAShift);
+      return false;
+    }
+  }
+
+  return true;
 }

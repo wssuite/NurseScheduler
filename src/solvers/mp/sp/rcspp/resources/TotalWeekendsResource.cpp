@@ -153,7 +153,7 @@ bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
 
   if (vChild->consumption > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addTotalWeekendCost(resource_.getUbCost(vChild->consumption));
 #endif
 
@@ -163,7 +163,7 @@ bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
 
   if (arcToSink_) {
     pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addTotalWeekendCost(resource_.getLbCost(vChild->consumption));
 #endif
   }
@@ -186,7 +186,7 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
   // initial label
   if (vChild->consumption > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addTotalWeekendCost(resource_.getUbCost(vChild->consumption));
 #endif
 

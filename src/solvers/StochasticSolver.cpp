@@ -242,7 +242,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation() {
       double newBestScore = XLARGE_SCORE;
       double bestBaseCost = 0;
       double minGap = options_.demandingEvaluation_ ?
-                      pScenario_->weights().optimalDemand : epsilon();
+                      pScenario_->weights().underCoverage : epsilon();
       for (int i = 0; i < nGeneratedSolutions_; i++) {
         if (theScores_[i] + minGap < newBestScore) {
           newBestScore = theScores_[i];
@@ -295,7 +295,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
   // Initialize the values that intervene in the stopping criterion
   double timeLeft =
       options_.totalTimeLimitSeconds_ - timerTotal_.dSinceInit();
-  Tools::Timer timerSolve;
+  Tools::Timer timerSolve("StochasticSolver with increasing demand");
   double timeLastSolve = 0.0;
   int maxNbAddedWeeks = pScenario_->nWeeks() - (pScenario_->thisWeek() + 1);
   int nbAddedWeeks = 0;

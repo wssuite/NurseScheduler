@@ -35,12 +35,40 @@ void RCGraph::initializeExpanders() {
   }
 }
 
-void RCGraph::initializeDominance() {
-  for (const auto &pN : pNodes_) {
+void RCGraph::initializeDominance(int dssrLvl) {
+  // clear active resources
+  for (const auto &pN : pNodes_)
     pN->activeResources.clear();
-    for (const auto &pR : pResources_)
-      if (pR->isActive(pN->dayId, pN->pAShift))
-        pN->activeResources.push_back(pR);
+
+  // sort resources to dominate first with the most useful
+  vector<PResource> pResources = pResources_;
+  std::stable_sort(pResources.begin(), pResources.end(),
+            [dssrLvl](const PResource &pR1, const PResource &pR2) {
+              // first, use always active resource
+              if (pR1->isActive(dssrLvl) && !pR2->isActive(dssrLvl))
+                return true;
+              if (!pR1->isActive(dssrLvl) && pR2->isActive(dssrLvl))
+                return false;
+              // second, hard first
+              if (pR1->isHard() && !pR2->isHard()) return true;
+              if (!pR1->isHard() && pR2->isHard()) return false;
+              // third, use any work resource
+              if (pR1->isAnyWorkShiftResource() &&
+                  !pR2->isAnyWorkShiftResource())
+                return true;
+              if (!pR1->isAnyWorkShiftResource() &&
+                  pR2->isAnyWorkShiftResource())
+                return false;
+              // then, just use id
+              return pR1->id() < pR2->id();
+            });
+
+  // filter inactive resources out
+  for (const auto &pR : pResources) {
+    if (!pR->isActive(dssrLvl))
+      continue;
+    for (const auto &pN : pNodes_)
+      pN->activateResourceIfNecessary(pR);
   }
 }
 
@@ -69,16 +97,29 @@ std::vector<PRCNode> RCGraph::sortNodes() const {
       Tools::throwError("The RC graph is cyclic.");
   }
 
-  // order the nodes starting from the deepest nodee
-  std::vector<PRCNode> sortedNodes;
-  int depth = maxDepth;
-  for (; depth >= 0; depth--) {
-    // find all nodes of the right depth
-    for (int i = 0; i < depths.size(); i++)
-      if (depths[i] == depth)
-        sortedNodes.push_back(pNode(i));
-  }
-  return sortedNodes;
+//  // order the nodes starting from the deepest node
+//  std::vector<PRCNode> sortedNodes;
+//  int depth = maxDepth;
+//  for (; depth >= 0; depth--) {
+//    // find all nodes of the right depth
+//    for (int i = 0; i < depths.size(); i++)
+//      if (depths[i] == depth)
+//        sortedNodes.push_back(pNode(i));
+//  }
+
+  // order the nodes by day
+  std::vector<PRCNode> sortedNodesPerDay = pNodes_;
+  std::stable_sort(
+      sortedNodesPerDay.begin(), sortedNodesPerDay.end(),
+      [](const PRCNode &pN1, const PRCNode &pN2) {
+        if (pN1->dayId != pN2->dayId)
+          return pN1->dayId < pN2->dayId;
+        if (pN1->type != pN2->type)
+          return pN1->type < pN2->type;
+        return pN1->id < pN2->id;
+      });
+
+  return sortedNodesPerDay;
 }
 
 void RCGraph::addResource(const PResource& pR) {
@@ -126,7 +167,7 @@ PRCArc RCGraph::addSingleArc(const PRCNode& o,
                              const PRCNode& d,
                              const Stretch &s,
                              double cost) {
-#ifdef DBG
+#ifdef NS_DEBUG
   if (o->id == d->id) Tools::throwError(
         "It is forbidden to create loop arc for an acyclic graph. "
         "Creating an arc with the same origin and destination: %s",
@@ -148,21 +189,9 @@ PRCArc RCGraph::addSingleArc(const PRCNode& o,
   // add the arc to pArcsPerDayShift_ for each day/shift of the stretch
   const Stretch &st = pArc->stretch;
   for (int k = st.firstDayId(); k <= st.lastDayId(); k++)
-    pArcsPerDayShift_[k][st.pShift(k)->id].push_back(pArc);
+    if (st.pShift(k)->id >= 0)  // not an end shift
+      pArcsPerDayShift_[k][st.pShift(k)->id].push_back(pArc);
   return pArc;
-}
-
-// delete an arc from every vector where it appears
-void RCGraph::deleteArc(const PRCArc& pA) {
-  RCNode *pO = pA->origin, *pT = pA->target;
-  Tools::erase(&pArcs_, pA, true);
-  Tools::erase(&pO->outArcs, pA, true);
-  Tools::erase(&pT->inArcs, pA, true);
-
-  const Stretch &st = pA->stretch;
-  for (int k = st.firstDayId(); k <= st.lastDayId(); k++)
-    Tools::erase(&pArcsPerDayShift_[k][st.pShift(k)->id],
-                 pA, true);
 }
 
 void RCGraph::printSummaryOfGraph() const {
@@ -204,9 +233,15 @@ void RCGraph::authorizeDayShift(int k, int s) {
     authorizeArc(pA);
 }
 
-void RCGraph::forbidArc(const PRCArc &pA) {
-  pA->forbidden = true;
-  pForbiddenArcs_.insert(pA);
+void RCGraph::forbidArc(const PRCArc &pA, bool final) {
+  // if already forbidden -> do nothing to avoid overriding a previous final
+  // decision
+  if (!pA->forbidden) {
+    pA->forbidden = true;
+    if (!final) pForbiddenArcs_.insert(pA);
+  } else if (final) {
+    pForbiddenArcs_.erase(pA);
+  }
 }
 
 // Authorize a node / arc

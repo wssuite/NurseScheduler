@@ -287,7 +287,8 @@ BoostRCSPPSolver::BoostRCSPPSolver(
     epsilon_(epsilon),
     strategy_(strategy),
     nb_max_paths_(nb_max_paths),
-    post_process_rc_(std::move(post_process_rc)) {}
+    post_process_rc_(std::move(post_process_rc)),
+    timer_("BoostRCSPPSolver") {}
 
 std::vector<RCSolution> BoostRCSPPSolver::solve(
     std::vector<LABEL> labels,
@@ -524,7 +525,7 @@ void BoostRCSPPSolver::backtrack(
       // heuristically and the bounds are tighter)
       if (!ref(g, &cur_cont, old_cont, path[i])) return;
     }
-#ifdef DBG
+#ifdef NS_DEBUG
     assert(dominance(&cur_cont,
                      &(p_original_label->cumulated_resource_consumption)));
 #endif

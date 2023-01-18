@@ -90,9 +90,16 @@ function run {
     # parse the input competition instance name
     echo "Instance: ${instance_description}"
     parse=(`echo ${instance_description} | tr '_' ' ' `)
-    instance=${parse[0]}
-    hist=${parse[1]}
-    weeks=${parse[2]}
+    i_args="--instance ${instance_description}"
+    if [ "${#parse[@]}" -eq 3 ]; then
+      instance=${parse[0]}
+      hist=${parse[1]}
+      weeks=${parse[2]}
+      i_args="--instance ${instance} --weeks ${weeks} --his ${hist}"
+    else
+      parse=(`echo ${instance_description} | tr '.' ' ' `)
+      instance_description=${parse[0]}
+    fi
 
     # create the root of output directory if it does not exist
     if [ -z ${outputDir} ]; then
@@ -103,7 +110,7 @@ function run {
     fi
 
     # base output
-    sCMD="./bin/staticscheduler --dir ${dataDir} --instance ${instance} --weeks ${weeks} --his ${hist} --sol ${outputDir}"
+    sCMD="./bin/staticscheduler --dir ${dataDir} --sol ${outputDir} ${i_args}"
 
     # set default timeout
     if [ -z ${timeout} ]; then
@@ -128,7 +135,7 @@ function run {
 
       # run the validator
       echo ${ret}
-      if [ ${ret} -eq 0 -a ${eval} -eq 1 ]; then
+      if [ ${ret} -eq 0 -a ${eval} -eq 1 -a ! -z ${weeks} ]; then
           ./validator.sh ${instance} ${weeks} ${hist} ${outputDir} --verbose
       fi
     else
@@ -207,7 +214,6 @@ function run {
   fi
 
   rcost=$(echo ${result} | tr -dc '0-9')
-  echo "::set-output name=cost::${rcost}"
   if [ ${rcost} -lt ${lb} ] || [ ${rcost} -gt ${ub} ]
   then
     echo "error: bounds not respected"

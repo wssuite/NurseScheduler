@@ -102,19 +102,17 @@ class SkillSorter {
 class ShiftSorter {
  public:
   // take the field to sort by in the constructor
-  explicit ShiftSorter(std::vector<int> nbForbiddenSuccessors)
-      : reverse_(false),
-        nbForbiddenSuccessors_(std::move(nbForbiddenSuccessors)) {}
-  ShiftSorter(std::vector<int> nbForbiddenSuccessors, bool reverse)
+  explicit ShiftSorter(std::vector<PShift> pShifts, bool reverse = false)
       : reverse_(reverse),
-        nbForbiddenSuccessors_(std::move(nbForbiddenSuccessors)) {}
-  bool operator()(const int sh1, const int sh2) {
-    return (reverse_ ? -1 : 1) * nbForbiddenSuccessors_[sh1]
-        < (reverse_ ? -1 : 1) * nbForbiddenSuccessors_[sh2];
+        pShifts_(std::move(pShifts)) {}
+  bool operator()(const int s1, const int s2) {
+    if (reverse_)
+      return pShifts_[s1]->successors.size() < pShifts_[s2]->successors.size();
+    return pShifts_[s1]->successors.size() > pShifts_[s2]->successors.size();
   }
  private:
   bool reverse_;
-  std::vector<int> nbForbiddenSuccessors_;
+  std::vector<PShift> pShifts_;
 };
 
 //-----------------------------------------------------------------------------
@@ -175,14 +173,6 @@ class LiveNurse : public Nurse {
   // nurse constraints
   Roster roster_;
   StatCtNurse statCt_;
-  vector<RCSolution> columns_;
-  vector<double> colVals_;
-  double colCost_;
-  std::map<int, double> colCostPerType_;
-
-  // compute the cost of the current active columns of the live nurse and
-  // separate the costs among the cost types
-  double computeCostPerType();
 
   // a vector of rosters with no penalty and a maximum number of worked days
   std::vector<Roster> maxFreeRosters_;
@@ -430,8 +420,6 @@ class Solver {
   // vectors of nurses, skills and shifts that shall be sorted before running
   // the greedy algorithms
   std::vector<PLiveNurse> theNursesSorted_;
-  std::vector<int> shiftsSorted_;
-  std::vector<int> skillsSorted_;
 
  public:
   // check the type of instance we are solving
@@ -663,15 +651,7 @@ class Solver {
   double computeSolutionCost(int nbDays, bool payExcessImmediately = true);
 
   double computeSolutionCost(bool payExcessImmediately = true) {
-    int cost = 0;
-    if (pScenario_->isINRC_) {
-      for (const auto& pN : theLiveNurses_)
-        cost += pN->computeCostPerType();
-      return cost;
-    } else if (pScenario_->isINRC2_) {
-      return computeSolutionCost(pDemand_->nDays_, payExcessImmediately);
-    }
-    return -1;
+    return computeSolutionCost(pDemand_->nDays_, payExcessImmediately);
   }
 
   // get aggregate information on the solution and write them in a string

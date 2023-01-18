@@ -193,29 +193,28 @@ void MasterProblem::build(const SolverParam &param) {
   /* Skills coverage constraints */
   nursePositionCountConstraint_ = new NursePositionCountConstraint(this);
   allocationConstraint_ = new AllocationConstraint(this);
-  minDemandConstraint_ = new DemandConstraint(this, true);
+  bool softCtr = pScenario_->weights().overCoverage >= 0;
+  minDemandConstraint_ = new DemandConstraint(
+      this, true, softCtr,
+      pScenario_->weights().underCoverage, pScenario_->weights().overCoverage);
   if (pDemand_->isOptDemand_)
     optDemandConstraint_ = new DemandConstraint(
-        this, false, true, pScenario_->weights().optimalDemand);
+        this, false, true, pScenario_->weights().underCoverage);
 
 
-  /* Initialize the objects used in the branch and price
-   * unless the CBC is used to solve the problem
-   */
-//  if (solverType_ != CBC) {
-    /* Rotation pricer */
-    pRCPricer_ = new RCPricer(this, "pricer", param);
-    pModel_->addPricer(pRCPricer_);  // transfer ownership
+  /* Initialize the objects used in the branch and price */
+  /* Rotation pricer */
+  pRCPricer_ = new RCPricer(this, "pricer", param);
+  pModel_->addPricer(pRCPricer_);  // transfer ownership
 
-    /* Tree */
-    RestTree *pTree =
-        new RestTree(pScenario_, pDemand_, param.epsilon_, param.verbose_ > 0);
-    pModel_->addTree(pTree);
+  /* Tree */
+  RestTree *pTree =
+      new RestTree(pScenario_, pDemand_, param.epsilon_, param.verbose_ > 0);
+  pModel_->addTree(pTree);
 
-    /* Branching rule */
-    auto *pRule = new DiveBranchingRule(this, pTree, "branching rule");
-    pModel_->addBranchingRule(pRule);
-//  }
+  /* Branching rule */
+  auto *pRule = new DiveBranchingRule(this, pTree, "branching rule");
+  pModel_->addBranchingRule(pRule);
 }
 
 void MasterProblem::createPResources() {
@@ -453,11 +452,8 @@ bool MasterProblem::storeSolution() {
   // skillsAllocation; if there is no error the skills allocation vector
   // should contain only zeros at the end
   solution_.clear();
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse& pNurse : theLiveNurses_)
     pNurse->roster_.reset(pScenario_->pRestShift());
-    pNurse->columns_.clear();
-    pNurse->colVals_.clear();
-  }
 
   std::list<MyVar*> activeColumns(
       pModel_->getActiveColumns().begin(), pModel_->getActiveColumns().end());
@@ -495,7 +491,7 @@ bool MasterProblem::storeSolution() {
         for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
           if (skillsAllocation[k][s][sk][pNurse->pPosition_->id_]
               > epsilon()) {
-#ifdef DBG
+#ifdef NS_DEBUG
             if (!pNurse->hasSkill(sk)) {
               std::cout << currentSolToString() << std::endl;
               std::cout << allocationToString() << std::endl;
@@ -534,16 +530,10 @@ bool MasterProblem::storeSolution() {
           return false;
         }
       }
-
-      // record the column (and its value) as one of those active for the
-      // LiveNurse
-      computeColumnCost(pCol.get());
-      pNurse->columns_.push_back(*pCol);
-      pNurse->colVals_.push_back(v);
     }
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   //
   for (int k = 0; k < pDemand_->nDays_; ++k)
     for (int s = 0; s < pScenario_->nShifts(); ++s)
@@ -564,6 +554,12 @@ bool MasterProblem::storeSolution() {
   // build the states of each nurse
   for (const auto& pNurse : theLiveNurses_) {
     pNurse->buildStates();
+    // compute cost per type
+    PColumn pCol = getPColumn(RCSolution(pNurse->roster_), pNurse->num_);
+    computeColumnCost(pCol.get());
+    pNurse->roster_.cost(pCol->cost());
+    for (const auto &p : pCol->costs())
+      pNurse->roster_.cost(p.first, p.second);
     solution_.push_back(pNurse->roster_);
   }
 
@@ -907,7 +903,7 @@ double MasterProblem::computeLagrangianBound(double objVal) const {
 // stabilizing).
 double MasterProblem::computeApproximateDualUB(double objVal) const {
   double sumRedCost = 0, minRedCost = pPricer()->getLastMinReducedCost();
-  for (double v : pPricer()->getLastMinReducedCosts()) {
+  for (double v : pPricer()->getLastReducedCostLBs()) {
     if (v < minRedCost) v = minRedCost;
     sumRedCost += v;
   }

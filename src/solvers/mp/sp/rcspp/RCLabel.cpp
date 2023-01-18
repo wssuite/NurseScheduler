@@ -16,6 +16,19 @@
 #include "RCGraph.h"
 #include "solvers/Solver.h"
 
+std::map<CostType, double> initCostPerType() {
+  std::map<CostType, double> costPerType;
+  for (int t = NO_COST + 1; t < END_INDEX_COST; t++)
+    costPerType[(CostType) t] = 0;
+  return costPerType;
+}
+
+std::map<int, double> initCostPerIntType() {
+  std::map<int, double> costPerType;
+  for (int t = NO_COST + 1; t < END_INDEX_COST; t++)
+    costPerType[t] = 0;
+  return costPerType;
+}
 
 RCLabel::RCLabel(): num_(-1),
                     pNode_(nullptr),
@@ -26,7 +39,7 @@ RCLabel::RCLabel(): num_(-1),
                     cost_(0),
                     baseCost_(0) {
   baseCost_ = 0;
-#ifdef DBG
+#ifdef NS_DEBUG
   dualCost_ = 0;
   consShiftCost_ = 0;
   consWeekendShiftCost_ = 0;
@@ -41,7 +54,7 @@ RCLabel::RCLabel(int nResources)
   resourceValues_.resize(nResources);
 }
 
-RCLabel::RCLabel(const vector<shared_ptr<Resource>> &resources):
+RCLabel::RCLabel(const vector<PResource> &resources):
     RCLabel(static_cast<int>(resources.size())) {
   int ind = 0;
   for (const auto& r : resources) {
@@ -62,32 +75,31 @@ RCLabel::RCLabel(const RCLabel &l): RCLabel() {
   copy(l);
 }
 
-void RCLabel::setAsNext(const PRCLabel &pLPrevious, const PRCArc &pArc) {
+void RCLabel::setAsNext(PRCLabel pLPrevious, const PRCArc &pArc) {
   copyValues(*pLPrevious);
   pNode_ = pArc->target;
   pInArc_ = pArc;
   pOutArc_ = nullptr;
-  pPreviousLabel_ = pLPrevious;
+  pPreviousLabel_ = std::move(pLPrevious);
   pNextLabel_ = nullptr;
 }
 
-void RCLabel::setAsPrevious(const shared_ptr<RCLabel> &pLNext,
-                            const shared_ptr<RCArc> &pArc) {
+void RCLabel::setAsPrevious(PRCLabel pLNext, const PRCArc &pArc) {
   copyValues(*pLNext);
   pNode_ = pArc->origin;
   pInArc_ = nullptr;
   pOutArc_ = pArc;
   pPreviousLabel_ = nullptr;
-  pNextLabel_ = pLNext;
+  pNextLabel_ = std::move(pLNext);
 }
 
-void RCLabel::setAsMerged(const shared_ptr<RCLabel> &pLForward,
-                          const shared_ptr<RCLabel> &pLBackward) {
+void RCLabel::setAsMerged(const PRCLabel &pLForward,
+                          const PRCLabel &pLBackward) {
   pPreviousLabel_ = pLForward->getPreviousLabel();
   pNextLabel_ = pLBackward->getNextLabel();
   cost_ = pLForward->cost() + pLBackward->cost();
   baseCost_ = pLForward->baseCost() + pLBackward->baseCost();
-#ifdef DBG
+#ifdef NS_DEBUG
   dualCost_ = pLForward->dualCost() + pLBackward->dualCost();
 #endif
   resourceValues_ = pLForward->allResourceValues();
@@ -113,7 +125,7 @@ void RCLabel::copyValues(const RCLabel &l) {
   baseCost_ = l.baseCost_;
   resourceValues_ = l.resourceValues_;
   baseCost_ = l.baseCost_;
-#ifdef DBG
+#ifdef NS_DEBUG
   dualCost_ = l.dualCost_;
   consShiftCost_ = l.consShiftCost_;
   consWeekendShiftCost_ = l.consWeekendShiftCost_;
@@ -128,7 +140,7 @@ std::string RCLabel::toString(const vector<PResource> &pResources) const {
   rep.setf(std::ios::fixed,  std::ios::floatfield);
   rep.setf(std::ios::showpoint);
   rep << "Label: cost=" << cost() << ", baseCost=" << baseCost();
-#ifdef DBG
+#ifdef NS_DEBUG
   if (consShiftCost_ > EPSILON)
     rep << ", consShiftCost="
         << std::setprecision(DECIMALS) << consShiftCost_;
@@ -171,12 +183,14 @@ std::string RCLabel::toStringRecursive(
     rep << std::endl;
   }
   // iterate through previous labels
-  const RCLabel *pLabel = this;
-  int lvl = 1;
-  while (pLabel != nullptr) {
-    rep << "-" << lvl << " -- " << pLabel->toString(pResources);
-    pLabel = pLabel->pPreviousLabel_.get();
-    lvl++;
+  if (pInArc_ != nullptr) {
+    const RCLabel *pLabel = this;
+    int lvl = 1;
+    while (pLabel != nullptr) {
+      rep << "-" << lvl << " -- " << pLabel->toString(pResources);
+      pLabel = pLabel->pPreviousLabel_.get();
+      lvl++;
+    }
   }
   return rep.str();
 }
@@ -227,7 +241,7 @@ bool RCSolution::compareReducedCost(
 
 PExpander Resource::initialize(const AbstractShift &prevAShift,
                                const Stretch &stretch,
-                               const shared_ptr<RCArc> &pArc,
+                               const PRCArc &pArc,
                                int indResource) {
   PExpander pE = init(prevAShift, stretch, pArc, indResource);
   if (pE != nullptr)
@@ -235,10 +249,10 @@ PExpander Resource::initialize(const AbstractShift &prevAShift,
   return pE;
 }
 
-bool Resource::dominates(const PRCLabel &pL1,
-                         const PRCLabel &pL2,
-                         double *cost) const {
-  return pL1->getConsumption(id_) <= pL2->getConsumption(id_);
+DominationStatus Resource::dominates(
+    RCLabel *pL1,  RCLabel *pL2, double *cost) const {
+  return pL1->getConsumption(id_) <= pL2->getConsumption(id_) ?
+         DOMINATED : NOT_DOMINATED;
 }
 
 bool Resource::merge(const ResourceValues &vForward,
@@ -248,36 +262,39 @@ bool Resource::merge(const ResourceValues &vForward,
   vMerged->consumption = vForward.consumption + vBack.consumption;
   return true;
 }
+
 PExpander Resource::init(const AbstractShift &prevAShift,
                          const Stretch &stretch,
-                         const shared_ptr<RCArc> &pArc,
+                         const PRCArc &pArc,
                          int indResource) {
   return PExpander();
 }
 
-bool BoundedResource::dominates(const PRCLabel &pL1,
-                                const PRCLabel &pL2,
-                                double *cost) const {
+DominationStatus BoundedResource::dominates(
+    RCLabel *pL1, RCLabel *pL2, double *cost) const {
   double conso1 = pL1->getConsumption(id_), conso2 = pL2->getConsumption(id_);
-  if (conso1 == conso2) return true;
-  if (conso1 < conso2) return conso1 >= lb_;
-  return false;
+  if (conso1 == conso2) return DOMINATED;
+  if (conso1 < conso2) return conso1 >= lb_ ? DOMINATED : UB_DOMINATED;
+  return NOT_DOMINATED;
 }
 
-bool SoftBoundedResource::dominates(const PRCLabel &pL1,
-                                    const PRCLabel &pL2,
-                                    double *cost) const {
+DominationStatus SoftBoundedResource::dominates(
+    RCLabel *pL1, RCLabel *pL2, double *cost) const {
   if  (useDefaultDomination_ || cost == nullptr)
     return BoundedResource::dominates(pL1, pL2, cost);
 
   double ubDiff = pL1->getWorstUbCost(id_) - pL2->getWorstUbCost(id_),
       lbDiff = pL1->getWorstLbCost(id_) - pL2->getWorstLbCost(id_);
-#ifdef DBG
+#ifdef NS_DEBUG
   if (((lbDiff > 0) && (ubDiff > 0)) || ((lbDiff < 0) && (ubDiff < 0)))
     Tools::throwError("ubDiff and lbDiff should never have the same sign");
 #endif
-  *cost += std::max(ubDiff, lbDiff);
-  return true;
+  if (lbDiff <= ubDiff) {
+    *cost += ubDiff;
+    return DOMINATED;
+  }
+  *cost += lbDiff;
+  return UB_DOMINATED;
 }
 
 bool SoftBoundedResource::merge(const ResourceValues &vForward,

@@ -23,12 +23,14 @@ namespace boostRCSPP {
 
 PrincipalGraph::PrincipalGraph(int shift_type, SubProblem *sp) :
     SubGraph(), pSP_(sp), shift_type_(shift_type), max_cons_(-1),
-    pAS_(std::make_shared<AnyOfTypeShift>(shift_type)) {
+    pAS_(sp == nullptr ? nullptr :
+         sp->pScenario()->pAnyTypeShift(shift_type_)) {
   if (sp) {
     max_cons_ = sp->maxCons(shift_type);
     int i = 0;
-    for (int s : sp->scenario()->shiftTypeIDToShiftID(shift_type_))
-      shifts_to_indices_[s] = i++;
+    for (const PShift &pS : sp->pScenario()->shiftsFactory().
+         pAnyTypeShift(shift_type_)->pIncludedShifts())
+      shifts_to_indices_[pS->id] = i++;
     Tools::initVector<SubGraph *>(&inSubGraphs_, pSP_->nDays(), nullptr);
     Tools::initVector<SubGraph *>(&outSubGraphs_, pSP_->nDays(), nullptr);
 
@@ -39,7 +41,7 @@ PrincipalGraph::PrincipalGraph(int shift_type, SubProblem *sp) :
 PrincipalGraph::~PrincipalGraph() {}
 
 void PrincipalGraph::build() {
-  PScenario pScenario = pSP_->scenario();
+  PScenario pScenario = pSP_->pScenario();
   int nDays = pSP_->nDays();
 
   // CREATE THE NODES
@@ -53,7 +55,7 @@ void PrincipalGraph::build() {
 
 
   // CREATE THE ARCS
-  unsigned int nShifts = pScenario->shiftTypeIDToShiftID(shift_type_).size();
+  unsigned int nShifts = pScenario->pShiftsOfType(shift_type_).size();
 
   // initialization
   Tools::initVector3D(&arcsShiftToSameShift_,
@@ -72,32 +74,32 @@ void PrincipalGraph::build() {
     for (int nCons = 0; nCons < max_cons_; nCons++) {
       origin = principalNetworkNodes_[k][nCons];
       destin = principalNetworkNodes_[k + 1][nCons + 1];
-      for (unsigned int s = 0; s < nShifts; s++) {
-        int shiftID = pScenario->shiftTypeIDToShiftID(shift_type_)[s];
+      int s = 0;
+      for (const PShift &pS : pScenario->pShiftsOfType(shift_type_)) {
         int a = pSP_->addSingleArc(origin,
                                    destin,
                                    0,
-                                   getConsumption(k + 1, shiftID),
+                                   getConsumption(k + 1, pS->id),
                                    SHIFT_TO_SAMESHIFT,
                                    k + 1,
-                                   pScenario->pShift(shiftID));
-        arcsShiftToSameShift_[k][nCons][s] = a;
+                                   pS);
+        arcsShiftToSameShift_[k][nCons][s++] = a;
       }
     }
 
     // 2. WORK ONE MORE DAY ON THE SAME SHIFT WHEN MAXIMUM IS ALREADY REACHED
     origin = principalNetworkNodes_[k][max_cons_];
     destin = principalNetworkNodes_[k + 1][max_cons_];
-    for (unsigned int s = 0; s < nShifts; s++) {
-      int shiftID = pScenario->shiftTypeIDToShiftID(shift_type_)[s];
+    int s = 0;
+    for (const PShift &pS : pScenario->pShiftsOfType(shift_type_)) {
       int a = pSP_->addSingleArc(origin,
                                  destin,
                                  cost,
-                                 getConsumption(k + 1, shiftID),
+                                 getConsumption(k + 1, pS->id),
                                  REPEATSHIFT,
                                  k + 1,
-                                 pScenario->pShift(shiftID));
-      arcsRepeatShift_[k][s] = a;
+                                 pS);
+      arcsRepeatShift_[k][s++] = a;
     }
 
     // 3. END THE CONSECUTIVE SHIFT SEQUENCE
@@ -129,7 +131,7 @@ std::vector<int> PrincipalGraph::getConsumption(int day, int shift) const {
   if (day < 0 || shift_type_ == 0) return {0, 0, 0};
 
   // otherwise work => consume one resource of each if needed
-  int t = pSP_->scenario()->duration(shift);
+  int t = pSP_->pScenario()->duration(shift);
   return {1, t, pSP_->pLiveNurse()->pContract()->isFirstWeekendDay(day)};
 }
 
@@ -179,8 +181,8 @@ void PrincipalGraph::updateArcCosts() {
 
 double PrincipalGraph::consCost(int n) const {
   if (shift_type_ == 0)
-    return pSP_->contract()->consDaysOffCost(n);
-  return pSP_->scenario()->consShiftTypeCost(shift_type_, n);
+    return pSP_->pContract()->consDaysOffCost(n);
+  return pSP_->pScenario()->consShiftTypeCost(shift_type_, n);
 }
 
 void PrincipalGraph::linkInSubGraph(SubGraph *inSubGraph, int day) {
@@ -256,7 +258,7 @@ vector<int> PrincipalGraph::forbidViolationConsecutiveConstraints() {
 
 bool PrincipalGraph::checkIfShiftBelongsHere(int s, bool print_err) const {
   if (pSP_ == nullptr) return false;
-  int sh = pSP_->scenario()->shiftIDToShiftTypeID(s);
+  int sh = pSP_->pScenario()->shiftIDToShiftTypeID(s);
   if (shift_type_ != sh) {
     if (print_err)
       std::cerr << "Shift " << s << " of type " << sh <<

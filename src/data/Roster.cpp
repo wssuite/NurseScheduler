@@ -12,7 +12,9 @@
 #include "data/Roster.h"
 
 #include <utility>
+
 #include "tools/Tools.h"
+#include "solvers/mp/sp/rcspp/RCLabel.h"
 
 using std::vector;
 using std::map;
@@ -24,10 +26,11 @@ using std::pair;
 Roster::Roster(int firstDay,
                std::vector<PShift> shifts,
                const std::vector<int> &skills) :
-    Stretch(firstDay, std::move(shifts)) {
+    Stretch(firstDay, std::move(shifts)), cost_(LARGE_SCORE) {
   // set the skill assignment
   skills_ = skills;
   skills_.resize(nDays());
+  costPerType_ = initCostPerIntType();
 }
 
 // Destructor
@@ -39,6 +42,8 @@ void Roster::init(
   Stretch::init(firstDay, nDays, pSDefault);
   skills_.clear();
   skills_.resize(nDays, skillDefault);
+  cost_ = LARGE_SCORE;
+  costPerType_ = initCostPerIntType();
 }
 
 // re-initialize the roster
@@ -60,7 +65,7 @@ void Roster::pushBack(const Roster &roster) {
     this->copy(roster);
   } else {
     Stretch::pushBack(roster);
-    skills_.insert(skills_.end(), roster.skills_.begin(), roster.skills_.end());
+    skills_ = Tools::appendVectors(skills_, roster.skills_);
   }
 }
 
@@ -74,7 +79,7 @@ void Roster::copy(const Roster &roster) {
 // get a vector of consecutive states that will result from applying the
 // the roster from a given initial state
 //
-vector<State> Roster::getStates(
+vector<State> Roster::states(
     const State &stateIni, const PScenario &pScenario) {
   vector<State> states;
 
@@ -88,3 +93,24 @@ vector<State> Roster::getStates(
 
   return states;
 }
+
+double Roster::cost() const {
+  return cost_;
+}
+
+void Roster::cost(double cost) {
+  cost_ = cost;
+}
+
+const std::map<int, double> & Roster::costs() const {
+  return costPerType_;
+}
+
+void Roster::costs(const std::map<int, double> &costPerType) {
+  costPerType_ = costPerType;
+}
+
+void Roster::cost(int type, double cost) {
+  costPerType_[type] += cost;
+}
+

@@ -17,9 +17,6 @@ inputs:
     description: 'Number of times that the job will be retried.'
     required: false
     default: '0'
-outputs:
-  cost: # id of output
-    description: 'The cost of the solution found'
 runs:
   using: 'docker'
   image: 'Dockerfile'

@@ -76,10 +76,10 @@ void MyTree::setCurrentNode(const MyPNode &currentNode) {
   // (i.e., currentNode is not the root node)
   if (currentNode_) {
     currentNode_->processed_ = true;
-    ++nb_nodes_processed_;
+    ++nbNodesProcessed_;
     // one more node without new incumbent
-    ++nb_nodes_last_incumbent_;
-    ++nb_nodes_since_dive_;
+    ++nbNodesLastIncumbent_;
+    ++nbNodesSinceDive_;
     // set dive depth in case of diving
     diveDepth_ = currentNode_->getDepth();
     // add the children if any
@@ -88,13 +88,13 @@ void MyTree::setCurrentNode(const MyPNode &currentNode) {
   }
   // update current node
   currentNode_ = currentNode;
-  --tree_size_;
+  --treeSize_;
   // remove the parent from the mapping if not the root node and
   // if the last one to be processed
   if (currentNode_->pParent_ &&
       activeTreeMapping_.at(currentNode_->pParent_).back() == currentNode_)
     eraseCurrentSiblings();
-//  #ifdef DBG
+//  #ifdef NS_DEBUG
   if (currentNode_ && printCurrentNode_)
     std::cout << currentNode_->write() << std::endl;
 //  #endif
@@ -111,10 +111,10 @@ void MyTree::eraseCurrentSiblings() {
     Tools::throwException("The active mapping wasn't containing "
                           "the parent node (" + currentNode_->pParent_->write()
                           + ") of: " + currentNode_->write());
-  // update min_depth_
-  min_depth_ = LARGE_SCORE;
+  // update minDepth_
+  minDepth_ = LARGE_SCORE;
   for (const auto &p : activeTreeMapping_)
-    if (p.first->getDepth() < min_depth_) min_depth_ = p.first->getDepth();
+    if (p.first->getDepth() < minDepth_) minDepth_ = p.first->getDepth();
 }
 
 double MyTree::updateNodeLB(double lb) {
@@ -123,23 +123,24 @@ double MyTree::updateNodeLB(double lb) {
   // if root -> set root and best lb
   double parentLB;
   if (!currentNode_->pParent_) {
-    best_lb_in_root = lb;
-    best_lb = lb;
-    best_lb_min_tree_level_ = currentNode_->getDepth();
+    bestLbInRoot = lb;
+    bestLb = lb;
+    bestLbMinTreeLevel_ = currentNode_->getDepth();
     parentLB = 0;
   } else {
-    // update best_lb
+    // update bestLb
     auto bestLBAndMinLevel = computeCurrentBestLB();
-    if (bestLBAndMinLevel.first + 1e-5 < best_lb)
+    if (bestLBAndMinLevel.first + 1e-5 < bestLb)
       std::cerr << "Best LB is decreasing from " << std::setprecision(10)
-                << best_lb << " to " << bestLBAndMinLevel.first << std::endl;
-    best_lb = bestLBAndMinLevel.first;
-    best_lb_min_tree_level_ = bestLBAndMinLevel.second;
+                << bestLb << " to " << bestLBAndMinLevel.first << std::endl;
+    bestLb = bestLBAndMinLevel.first;
+    if (bestLb > maxBestLb) bestLb = maxBestLb;
+    bestLbMinTreeLevel_ = bestLBAndMinLevel.second;
     parentLB = currentNode_->pParent_->getBestLB();
   }
 
   // compute gap
-  currentNode_->computeGap(best_lb);
+  currentNode_->computeGap(bestLb);
   updateStats(currentNode_);
 
   return lb - parentLB;

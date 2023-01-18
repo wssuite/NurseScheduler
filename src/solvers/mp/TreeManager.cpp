@@ -487,7 +487,7 @@ void DiveBranchingRule::branchOnNumberNurses(
     }
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   // if did not find enough fractional coverage
   if (bestScores.list().empty()) {
     std::cout << pMaster_->currentSolToString() << std::endl;
@@ -560,7 +560,7 @@ void DiveBranchingRule::branchOnOptDemand(
       }
     }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   if (bestScores.list().empty()) {
     std::cout << pMaster_->currentSolToString() << std::endl;
     std::cout << pMaster_->allocationToString() << std::endl;

@@ -165,6 +165,11 @@ class HardTotalWeekendsResource :
   // instantiate TotalWeekEndLabel
   int getConsumption(const State &initialState) const override;
 
+  bool isActive(int dssrLvl) const override {
+    return dssrLvl == 0 || pAShift_->isAnyWork() || pAShift_->isRest() ||
+        ub_ > dssrLvl;
+  }
+
   bool isInRosterMaster() const override { return false; };
   bool isInRotationMaster() const override { return true; };
 

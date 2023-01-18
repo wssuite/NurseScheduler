@@ -18,24 +18,29 @@ branchColumnDisjoint=1
 # branchColumnUntilValue=1
 weekendAdvantage=0.2
 branchBaseScore=0.2
+# number of candidate for strong branching
+nCandidates=5
+verbose=1
+
+# MIP heuristic
 performHeuristicAfterXNode=0
 heuristicMinIntegerPercent=0
 performMIPHeuristic=1
 MIPHeuristicGapLimit=.5
 MIPHeuristicUseRotations=1
 MIPHeuristicNThreads=1
-MIPHeuristicVerbose=1
+MIPHeuristicVerbose=0
 MIPHeuristicSolver=FIRST_AVAIL
-spDefaultStrategy=0
+# MIPHeuristicMaxIteration=-1
+
+# subproblem
 spNbRotationsPerNurse=20
 spNbNursesToPrice=15
-# number of candidate for strong branching
-nCandidates=5
-verbose=1
 rcsppToOptimality=1
 rcsppDssr=0
 rcsppEnumSubpaths=0
 rcsppMinCostToSinks=0
 rcsppEnumSubpathsForMinCostToSinks=0
+rcsppNbToExpand=0
 rcsppBidirectional=1
-
+rcsppRandomStartDay=0

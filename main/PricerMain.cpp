@@ -13,7 +13,7 @@
 #include "solvers/mp/sp/RotationSP.h"
 #include "solvers/mp/sp/rcspp/boost/RosterSP.h"
 #include "solvers/mp/sp/rcspp/boost/RotationSP.h"
-#include "solvers/InitializeSolver.h"
+#include "InitializeInstance.h"
 #include "solvers/mp/sp/SubProblem.h"
 #include "solvers/mp/RosterMP.h"
 #include "solvers/mp/RotationMP.h"
@@ -60,7 +60,7 @@ std::pair<float, float> comparePricing(MasterProblem *pMaster,
         mSols = mSP->getSolutions();
     RCSolution::sort(&bSols);
     RCSolution::sort(&mSols);
-#ifdef DBG
+#ifdef NS_DEBUG
     std::cout << bSols.front().toString();
     std::cout << mSols.front().toString();
     if (pMaster->parameters().spType_ == ROSTER) {
@@ -168,11 +168,7 @@ float test_pricer(const std::string &instance,
   // set the scenario
   if (verbose)
     std::cout << "# INITIALIZE THE SCENARIO" << std::endl;
-  PScenario pScenario;
-  if (inputPaths.nbWeeks() > 1)
-    pScenario = initializeMultipleWeeksINRC2(inputPaths);
-  else
-    pScenario = initializeScenarioINRC2(inputPaths);
+  PScenario pScenario = buildInstance(inputPaths);
   std::cout << std::endl;
   // initialize random of tools
   Tools::initializeRandomGenerator(inputPaths.randSeed());

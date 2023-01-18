@@ -98,7 +98,7 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
   // pay for excess of consumption due to this expansion
   if (vChild->consumption  > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addTotalShiftCost(resource_.getUbCost(vChild->consumption));
 #endif
     // beware: we never need to store a consumption larger than the upper bound
@@ -106,7 +106,7 @@ bool SoftTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
   }
   if (arcToSink_ && vChild->consumption < resource_.getLb()) {
     pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addTotalShiftCost(resource_.getLbCost(vChild->consumption));
 #endif
   }
@@ -144,6 +144,39 @@ int HardTotalShiftDurationResource::getConsumption(
     const State &initialState) const {
   // always 0, as bounds have been modified according to this value
   return 0;
+}
+
+DominationStatus HardTotalShiftDurationResource::dominates(
+    RCLabel *pL1, RCLabel *pL2, double *cost) const {
+  int c1 = pL1->getConsumption(id_), c2 = pL2->getConsumption(id_);
+  if (c1 == c2) return DOMINATED;
+  if (c1 < c2) return c1 >= lb_ ? DOMINATED : UB_DOMINATED;
+  // do not work if counting rest shifts
+  if (pShift()->isRest()) return NOT_DOMINATED;
+  // check if c1 could be exceeded before the end of horizon
+  int day = pL1->getNode()->dayId;
+  int remainingDays =
+      (pL1->getOutArc() == nullptr) ? totalNbDays_ - day: day + 1;
+  int remainingDuration = maxDurationForRemainingDays_[remainingDays];
+  // if max possible duration worked is lower than the remaining consumption
+  // available, the resource ub cannot be violated
+  if (remainingDuration <= (ub_ - c1))
+    return DOMINATED;
+  return NOT_DOMINATED;
+}
+
+void HardTotalShiftDurationResource::maxDurationForRemainingDays(
+    int maxConsWorkedDays, int minConsRestDays) {
+  maxDurationForRemainingDays_.clear();
+  int nLength = maxConsWorkedDays + minConsRestDays;
+  for (int d=0; d <= totalNbDays_; d++) {
+    // max number of remaining work days
+    int nSequences = d / nLength;
+    int nLeft = d - nSequences * nLength;
+    int remainingW = nSequences * maxConsWorkedDays +
+        std::min(nLeft, maxConsWorkedDays);
+    maxDurationForRemainingDays_.push_back(remainingW * maxDuration_);
+  }
 }
 
 PExpander HardTotalShiftDurationResource::init(const AbstractShift &prevAShift,

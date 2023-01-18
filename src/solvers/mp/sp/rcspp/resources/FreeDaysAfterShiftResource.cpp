@@ -11,19 +11,24 @@
 
 #include "FreeDaysAfterShiftResource.h"
 
+#include <algorithm>
+
 // The enumeration creates one arc from each node with shift pAShift_ to the
 // rest nodes at days +2,...,+nbFreeDays_ if they do not exist.
 void SoftFreeDaysAfterShiftResource::enumerate(const PRCGraph &pRCGraph,
                                                bool forceEnum)  {
   auto it = std::find_if(
-      pRCGraph->pShifts().begin(), pRCGraph->pShifts().end(),
-      [](const PShift &pS) {
+      pRCGraph->pAShifts().begin(), pRCGraph->pAShifts().end(),
+      [](const PAbstractShift &pS) {
         return pS->isRest();
       });
-  if (it == pRCGraph->pShifts().end())
+  if (it == pRCGraph->pAShifts().end())
     Tools::throwError("There is no rest shift in the RCGraph "
                       "for the resource SoftFreeDaysAfterShiftResource.");
-  PShift pRestShift = *it;
+  // no arcs to create if need only one rest day
+  if (nbFreeDays_ == 1) return;
+
+  PShift pRestShift = (*it)->pIncludedShifts().front();
   totalNbDays_ = pRCGraph->nDays();
   for (const PRCNode &pN : pRCGraph->pNodes()) {
     // only consider the nodes that correspond to a shift included in
@@ -36,12 +41,11 @@ void SoftFreeDaysAfterShiftResource::enumerate(const PRCGraph &pRCGraph,
     // create the missing arcs
     // the arc corresponding to exactly one rest should exist, we thus add
     // only the arcs corresponding to more than one rest
-    Stretch stretch(pN->pDay->next(), pRestShift);
-    for (int nbRestDays = 2 ; nbRestDays <= nbFreeDays_ ; ++nbRestDays) {
-      if (stretch.lastDayId() + 1 >= totalNbDays_) break;
-      stretch.pushBack(pRestShift);
-      for (const auto& pTarget :
-           pRCGraph->pNodesPerDayId(stretch.lastDayId()))
+    int nFree = std::min(nbFreeDays_, totalNbDays_ - 1 - pN->pDay->id);
+    if (nFree > 1) {
+      std::vector<PShift> pRestShifts(nFree, pRestShift);
+      Stretch stretch(pN->pDay->id + 1, pRestShifts);
+      for (const auto& pTarget : pRCGraph->pNodesPerDayId(stretch.lastDayId()))
         if (!pTarget->isWorkNode())
           PRCArc pA = pRCGraph->addSingleArc(pN, pTarget, stretch);
     }
@@ -65,16 +69,15 @@ bool SoftFreeDaysAfterShiftResource::preprocess(
   bool startCounting = false;  // true when pAShift_ is met
   int count = 0;  // nb of free days after a pAShift_
   if (pAShift_->includes(*pA->origin->pAShift)) startCounting = true;
-  auto itS = pA->stretch.pShifts().begin();
   for (const auto& pS : pA->stretch.pShifts()) {
     if (startCounting) {
       if (pS->isRest()) {
         count++;
       } else if ((count >= 1) || !(pAShift_->includes(*pS))) {
-        if (count < nbFreeDays_) {
+        if (count < nbFreeDays_)
           *cost += cost_;
-        }
-        startCounting = false;
+        // reset flag based on current shift in case a new sequence is starting
+        startCounting = pAShift_->includes(*pS);
         count = 0;
       }
     } else if (pAShift_->includes(*pS)) {
@@ -93,8 +96,6 @@ PExpander SoftFreeDaysAfterShiftResource::init(const AbstractShift &prevAShift,
                                                const Stretch &stretch,
                                                const shared_ptr<RCArc> &pArc,
                                                int indResource) {
-//  Tools::throwError("This resource should never be initialized since it is "
-//                    "not a resource of the RCSPP");
   return nullptr;
 }
 
@@ -102,7 +103,5 @@ PExpander FreeDaysAfterShiftResource::init(const AbstractShift &prevAShift,
                                            const Stretch &stretch,
                                            const shared_ptr<RCArc> &pArc,
                                            int indResource) {
-//  Tools::throwError("This resource should never be initialized since it is "
-//                    "not a resource of the RCSPP");
   return nullptr;
 }

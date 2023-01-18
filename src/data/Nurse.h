@@ -456,16 +456,19 @@ bool compareNursesById(const PNurse& n1, const PNurse& n2);
 
 class Wish {
   std::vector<PAbstractShift> pAShiftsOff_, pAShiftsOn_;
+  std::vector<bool> hardOff_, hardOn_;
   std::vector<double> costsOff_, costsOn_;
 
  public:
   Wish() = default;
-  Wish(PAbstractShift pAS, double cost, bool off) {
+  Wish(PAbstractShift pAS, bool off, double cost = LARGE_SCORE) {
     if (off) {
       pAShiftsOff_.push_back(std::move(pAS));
+      hardOff_.push_back(cost == LARGE_SCORE);
       costsOff_.push_back(cost);
     } else {
       pAShiftsOn_.push_back(std::move(pAS));
+      hardOn_.push_back(cost == LARGE_SCORE);
       costsOn_.push_back(cost);
     }
   }
@@ -487,19 +490,34 @@ class Wish {
   }
 
   void add(const Wish &wish) {
-    pAShiftsOff_.insert(pAShiftsOff_.end(),
-                        wish.pAShiftsOff_.begin(), wish.pAShiftsOff_.end());
-    costsOff_.insert(costsOff_.end(),
-                     wish.costsOff_.begin(), wish.costsOff_.end());
-    pAShiftsOn_.insert(pAShiftsOn_.end(),
-                       wish.pAShiftsOn_.begin(), wish.pAShiftsOn_.end());
-    costsOn_.insert(costsOn_.end(),
-                    wish.costsOn_.begin(), wish.costsOn_.end());
+    pAShiftsOff_ = Tools::appendVectors(pAShiftsOff_, wish.pAShiftsOff_);
+    hardOff_ = Tools::appendVectors(hardOff_, wish.hardOff_);
+    costsOff_ = Tools::appendVectors(costsOff_, wish.costsOff_);
+    pAShiftsOn_ = Tools::appendVectors(pAShiftsOn_, wish.pAShiftsOn_);
+    hardOn_ = Tools::appendVectors(hardOn_, wish.hardOn_);
+    costsOn_ = Tools::appendVectors(costsOn_, wish.costsOn_);
+  }
+
+  // return true if forbid the current shift
+  bool forbid(const PAbstractShift &pShift) const {
+    auto itC = hardOff_.begin();
+    // OFF: check if one wish is violated
+    for (const auto &pAS : pAShiftsOff_) {
+      if (*itC && pAS->includes(*pShift)) return true;
+      ++itC;
+    }
+    // ON: check if one wish is violated
+    itC = hardOn_.begin();
+    for (const auto &pAS : pAShiftsOn_) {
+      if (*itC && !pAS->includes(*pShift)) return true;
+      ++itC;
+    }
+    return false;
   }
 
   // Penalize if the wish is violated
   // return the associated cost (default 0 if nothing is penalized)
-  double cost(const PShift &pShift) const {
+  double cost(const PAbstractShift &pShift) const {
     double cost = 0;
     auto itC = costsOff_.begin();
     // OFF: add the costs of the violated wishes
@@ -520,17 +538,31 @@ class Wish {
     std::stringstream rep;
     if (!pAShiftsOff_.empty()) {
       rep << "Off:";
+      auto itH = hardOff_.begin();
       auto itC = costsOff_.begin();
-      for (const auto &pAS : pAShiftsOff_)
-         rep << (itC == costsOff_.begin() ? "" : ",") << pAS->name
-             << "(" << *itC++ << ")";
+      for (const auto &pAS : pAShiftsOff_) {
+        rep << (itC == costsOff_.begin() ? "" : ",") << pAS->name
+            << "(";
+        if (*itH++) rep << "hard";
+        else
+          rep << *itC;
+        itC++;
+        rep << ")";
+      }
     }
     if (!pAShiftsOn_.empty()) {
       rep << "On:";
+      auto itH = hardOn_.begin();
       auto itC = costsOn_.begin();
-      for (const auto &pAS : pAShiftsOn_)
+      for (const auto &pAS : pAShiftsOn_) {
         rep << (itC == costsOn_.begin() ? "" : ",") << pAS->name
-            << "(" << *itC++ << ")";
+            << "(";
+        if (*itH++) rep << "hard";
+        else
+          rep << *itC;
+        itC++;
+        rep << ")";
+      }
     }
     return rep.str();
   }
@@ -570,13 +602,11 @@ class Preferences {
   const Wish& addShift(int nurse, int day, const Wish &wish);
 
   const Wish& addShiftOff(
-      int nurse, int day, const PAbstractShift &pShift, double cost);
+      int nurse, int day, const PAbstractShift &pShift,
+      double cost = LARGE_SCORE);
   const Wish& addShiftOn(
-      int nurse, int day, const PAbstractShift &pShift, double cost);
-
-  // Adds the whole day to the wish-list
-  const Wish& addDayOff(int nurse, int day, double cost);
-  const Wish& addDayOn(int nurse, int day, double cost);
+      int nurse, int day, const PAbstractShift &pShift,
+      double cost = LARGE_SCORE);
 
   const std::map<int, Wish> &nurseWishes(int id) const {
     return wishes_.at(id);

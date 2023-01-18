@@ -77,14 +77,9 @@ void RosterSP::createArcsSourceToPrincipal() {
     vector2D<int> vec2;
     for (int dest : pg.getDayNodes(0)) {
       std::vector<int> vec;
-      for (int s : pScenario_->shiftTypeIDToShiftID(pg.shiftType()))
-        vec.push_back(addSingleArc(origin,
-                                   dest,
-                                   0,
-                                   {},
-                                   SOURCE_TO_PRINCIPAL,
-                                   0,
-                                   pScenario_->pShift(s)));
+      for (const PShift & pS : pScenario_->pShiftsOfType(pg.shiftType()))
+        vec.push_back(addSingleArc(
+            origin, dest, 0, {}, SOURCE_TO_PRINCIPAL, 0, pS));
       vec2.push_back(vec);
     }
     arcsFromSource_[pg.shiftType()] = {vec2};
@@ -205,7 +200,7 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   /************************************************
    * Compute all the costs of a roster:
    ************************************************/
-#ifdef DBG
+#ifdef NS_DEBUG
   double cost = rcSol->cost();
 #endif
   /*
@@ -338,7 +333,7 @@ void RosterSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
     }
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost

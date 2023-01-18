@@ -28,45 +28,38 @@ RotationSP::RotationSP(PScenario scenario,
                     nbDays,
                     std::move(nurse),
                     std::move(pResources),
-                    std::move(param)) {
+                    param) {
 }
 
 
 void RotationSP::createNodes(const PRCGraph &pRCGraph) {
   // create a source for every day except last one (from -1 to nDays_-2)
-  const PAbstractShift &pRestShift = pScenario_->pRestShift();
+  int initT = pLiveNurse_->pStateIni_->pShift_->type;
+  const auto &pASSource = initT < pScenario_->nShiftTypes() ?
+      pScenario_->pAnyTypeShift(initT) :
+      pLiveNurse_->pStateIni_->pShift_;
   for (int d = -1; d < nDays_ - 1; d++)
     pRCGraph->addSingleNode(
         SOURCE_NODE, pScenario_->firstDay_.addAndGet(d),
-        d >= 0 ? pRestShift : pLiveNurse_->pStateIni_->pShift_);
-  // principal network is from day 0 to day nDays_-2
-  for (int d = 0; d < nDays_ - 1; ++d)
-    for (const auto& pShift : pScenario_->pShifts()) {
-      PRCNode &pN = pNodesPerDay_[d][pShift->id];
-      // if rest, create a sink node
-      if (pShift->isRest())
-        pN = pRCGraph->addSingleNode(SINK_NODE,
-                                     pScenario_->firstDay_.addAndGet(d),
-                                     pShift);
-      else
-        // else, create a work arc
-        pN = pRCGraph->addSingleNode(PRINCIPAL_NETWORK,
-                                     pScenario_->firstDay_.addAndGet(d),
-                                     pShift);
-    }
+        d >= 0 ? pScenario_->shiftsFactory().pAnyRestShift() : pASSource);
 
-  // every shift on the last day is a sink
-  for (const auto& pShift : pScenario_->pShifts())
-    pNodesPerDay_[nDays_ - 1][pShift->id] =
-        pRCGraph->addSingleNode(SINK_NODE,
-                                pScenario_->firstDay_.addAndGet(nDays_-1),
-                                pShift);
+  // principal network is from day 0 to day nDays_-2
+  for (int d = 0; d <= nDays_ - 1; ++d)
+    for (int st=0; st < pScenario_->nShiftTypes(); st++) {
+      const auto &pAS = pScenario_->pAnyTypeShift(st);
+      // create a sink node if rest or last day
+      pNodesPerDay_[d][st] = pRCGraph->addSingleNode(
+          (pAS->isRest() || d == nDays_ - 1) ? SINK_NODE : PRINCIPAL_NETWORK,
+          pScenario_->firstDay_.addAndGet(d),
+          pAS);
+    }
 }
 
 
 void RotationSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from sources
   const PShift &pRestShift = pScenario_->pRestShift();
+  const PShift &pEndShift = pScenario_->shiftsFactory().pEndShift();
   // previous shift is rest except for the first day
   PShift prevS = pLiveNurse_->pStateIni_->pShift_;
   int day = 0;
@@ -74,11 +67,12 @@ void RotationSP::createArcs(const PRCGraph &pRCGraph) {
     for (auto shiftId : prevS->successors) {
       if (shiftId == 0) continue;  // no resting arc from the source, must work
       if (pLiveNurse_->isShiftNotAvailNorAlt(shiftId)) continue;
-      PRCNode pN = pNodesPerDay_[day][shiftId];
-      addSingleArc(pRCGraph, pSource, pN, pScenario_->pShift(shiftId), day);
+      const PShift &pS = pScenario_->pShift(shiftId);
+      PRCNode pN = pNodesPerDay_[day][pS->type];
+      addSingleArc(pRCGraph, pSource, pN, pS, day);
     }
-    // update previous shift and day
-    prevS = pRestShift;
+    // update previous shift to rest (allow all successors) and day
+    prevS = pScenario_->pRestShift();
     day++;
   }
 
@@ -87,13 +81,14 @@ void RotationSP::createArcs(const PRCGraph &pRCGraph) {
   // those from nDays-2 to nDays-1 are the arcs to the sinks
   for (int d = 1; d < nDays_; ++d)
     for (const PShift &pS : pScenario_->pShifts()) {
-      PRCNode pOrigin = pNodesPerDay_[d-1][pS->id];
+      PRCNode pOrigin = pNodesPerDay_[d-1][pS->type];
       if (pOrigin->type ==  SINK_NODE) continue;  // rest nodes are the sinks
       for (int succId : pS->successors) {
         if (pLiveNurse_->isShiftNotAvailNorAlt(succId)) continue;
-        PRCNode pTarget = pNodesPerDay_[d][succId];
-        addSingleArc(pRCGraph, pOrigin, pTarget,
-                     pScenario_->pShift(succId), d);
+        const PShift &pS = pScenario_->pShift(succId);
+        PRCNode pTarget = pNodesPerDay_[d][pS->type];
+        PRCArc pArc = addSingleArc(pRCGraph, pOrigin, pTarget,
+                                   pS->isRest() ? pEndShift : pS, d);
       }
     }
 }
@@ -120,12 +115,14 @@ void RotationSP::createInitialLabels() {
 }
 
 bool RotationSP::postprocess() {
+  const Shift &endShift = *pScenario_->shiftsFactory().pEndShift();
   for (RCSolution &sol : theSolutions_) {
-    if (sol.pShifts().back()->isRest())
+    // if none shift
+    if (sol.pShifts().back()->equals(endShift))
       sol.popBack();
     else if (sol.lastDayId() + 1 < nDays_)
       Tools::throwError("Rotation SP should produce solutions that end with "
-                        "a rest shift when not ending on the last");
+                        "an end shift when not ending on the last");
   }
   return true;
 }
@@ -134,7 +131,7 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   /************************************************
    * Compute all the costs of a roster:
    ************************************************/
-#ifdef DBG
+#ifdef NS_DEBUG
   double cost = rcSol->cost();
   PRCLabel pL = rcSol->pLabel_;
 #endif
@@ -152,18 +149,19 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
         rcSol->firstDayId() - 1, 0, 0, 0,
         nCons, nCons, pScenario_->pRestShift());
   }
-  // add a rest shift at the end of the stretch to ensure
-  // that all resources are priced (only if not the last day)
-  bool restShiftAdded  = false;
-  if (rcSol->pShifts().back()->isWork() &&
-      rcSol->lastDayId() < pMaster->nDays() - 1) {
-    rcSol->pushBack(pScenario_->pRestShift());
-    restShiftAdded = true;
-  }
-  computeResourcesCosts(state, rcSol);
-  if (restShiftAdded) rcSol->popBack();
 
-#ifdef DBG
+  bool addEndShift = rcSol->pShifts().back()->isWork() &&
+      rcSol->lastDayId() < pMaster->nDays() - 1;
+  // add a rest shift (if needed) at the end of the stretch to ensure
+  // that all resources are priced (only if not the last day)
+  if (addEndShift)
+    rcSol->pushBack(pScenario_->shiftsFactory().pEndShift());
+  // price resources
+  computeResourcesCosts(state, rcSol);
+  // remove rest shift if added
+  if (addEndShift) rcSol->popBack();
+
+#ifdef NS_DEBUG
   if (cost < DBL_MAX-1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "# " << std::endl;
@@ -175,6 +173,10 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
     std::cerr << rcSol->costsToString();
     std::cerr << rcSol->toString();
     std::cerr << "# " << std::endl;
+    if (addEndShift)
+      rcSol->pushBack(pScenario_->shiftsFactory().pEndShift());
+    vector<PResource> pActiveResources2 =
+        computeResourcesCosts(state, rcSol);
     if (rcSol->pLabel_ && pL) {
       std::cerr << "Associated rcspp label: " << std::endl;
       std::cerr << pL->toStringRecursive(pResources_) << std::endl;

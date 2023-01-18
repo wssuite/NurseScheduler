@@ -159,7 +159,7 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
             vChild->cyclicConsumption = vChild->consumption;
           // pay the cost on the bounds
           pLChild->addBaseCost(resource_.getCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
           pLChild->addConsWeekendShiftCost(
               resource_.getCost(vChild->consumption));
 #endif
@@ -176,7 +176,7 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
   // exceed the upper bounds
   if (vChild->consumption > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addConsWeekendShiftCost(resource_.getUbCost(vChild->consumption));
 #endif
     // beware: we never need to store a consumption larger than the upper bound
@@ -189,7 +189,7 @@ bool SoftConsWeekendShiftExpander::expand(const PRCLabel &pLChild,
     // pay cost on lb
     // pay for violations of soft bounds when at the end of horizon in INRC
     pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addConsWeekendShiftCost(
         resource_.getLbCost(vChild->consumption));
 #endif
@@ -229,7 +229,7 @@ bool SoftConsWeekendShiftExpander::expandBack(const PRCLabel &pLChild,
             vChild->cyclicConsumption = vChild->consumption;
           // pay the cost on the bounds
           pLChild->addBaseCost(resource_.getCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
           pLChild->addConsWeekendShiftCost(
               resource_.getCost(vChild->consumption));
 #endif
@@ -248,7 +248,7 @@ bool SoftConsWeekendShiftExpander::expandBack(const PRCLabel &pLChild,
   // exceed the upper bounds
   if (vChild->consumption > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addConsWeekendShiftCost(resource_.getUbCost(vChild->consumption));
 #endif
     // beware: we never need to store a consumption larger than the upper bound
@@ -262,7 +262,7 @@ bool SoftConsWeekendShiftExpander::expandBack(const PRCLabel &pLChild,
 //    // pay cost on lb
 //    // pay for violations of soft bounds when at the end of horizon in INRC
 //    pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
-// #ifdef DBG
+// #ifdef NS_DEBUG
 //    pLChild->addConsWeekendShiftCost(
 //        resource_.getLbCost(vChild->consumption));
 // #endif
@@ -308,17 +308,18 @@ PExpander HardConsWeekendShiftResource::init(const AbstractShift &prevAShift,
       prevAShift, stretch, pArc, *this, nullptr, indResource);
 }
 
-bool HardConsWeekendShiftResource::dominates(
-    const PRCLabel &pL1, const PRCLabel &pL2, double *cost) const {
+DominationStatus HardConsWeekendShiftResource::dominates(
+    RCLabel *pL1, RCLabel *pL2, double *cost) const {
   if (!cyclic_) return BoundedResource::dominates(pL1, pL2, cost);
   const auto &v1 = pL1->getResourceValues(id_),
       &v2 = pL2->getResourceValues(id_);
-  if (v1.consumption > v2.consumption) return false;
+  if (v1.consumption > v2.consumption) return NOT_DOMINATED;
   int c1 = v1.consumption + v1.cyclicConsumption,
       c2 = v2.consumption + v2.cyclicConsumption;
-  if (v1.consumption == v2.consumption) return c1 <= c2;
-  if (v1.consumption < lb_) return false;
-  return c1 <= c2;
+  if (v1.consumption == v2.consumption)
+    return c1 <= c2 ? DOMINATED : NOT_DOMINATED;
+  if (v1.consumption < lb_) return UB_DOMINATED;
+  return c1 <= c2 ? DOMINATED : NOT_DOMINATED;
 }
 
 

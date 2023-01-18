@@ -4,7 +4,6 @@ set(LIB_NAME solvers)
 
 set(SOURCE_FILES
         DeterministicSolver.cpp
-        InitializeSolver.cpp
         Solver.cpp
         StochasticSolver.cpp
         DynamicWeights.cpp)

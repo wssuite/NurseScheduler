@@ -9,9 +9,10 @@
  * full license detail.
  */
 
-#include "InitializeSolver.h"
+#include "InitializeInstance.h"
 
 #include <dirent.h>
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <utility>
@@ -33,11 +34,52 @@ using std::vector;
 using std::map;
 using std::pair;
 
+#include "ReadWrite.h"
+
+PScenario buildInstance(const InputPaths &inputPaths) {
+  if (REST_SHIFT_ID != 0)
+    Tools::throwError("Scenario reader works only with REST_SHIFT_ID = 0.");
+
+  std::fstream file;
+  Tools::openFile(inputPaths.scenario(), &file);
+  string strTmp;
+  int intTmp;
+
+  while (strTmp.empty() || strTmp[0] == '#' || strTmp[0] == '/') {
+    if (!Tools::readLine(&file, &strTmp)) break;
+  }
+
+  // NRP file
+  if (Tools::strStartsWith(strTmp, "SECTION_HORIZON")) {
+    return ReadWrite::readNRPInstance(inputPaths.scenario());
+  }
+
+  // INRC file
+  if (Tools::strStartsWith(strTmp, "SCHEDULING_PERIOD")) {
+    return ReadWrite::readINRCInstance(inputPaths.scenario());
+  }
+
+  // INRC2 file
+  if (Tools::strStartsWith(strTmp, "SCENARIO")) {
+    // Read the scenario
+    PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
+    // Read the demand and preferences and link them with the scenario
+    ReadWrite::readINRC2Weeks(inputPaths.weeks(), pScenario);
+    // Read the history
+    ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
+    // Initialize the resources
+    initializeResourcesINRC2(pScenario);
+    return pScenario;
+  }
+
+  Tools::throwError("The instance file is not recognized.");
+  return nullptr;
+}
+
 void initializeResourcesINRC2(const PScenario& pScenario) {
 // initialize all the resources of the nurses
   int nbDays = pScenario->nDays();
   vector<State> *pInitialState = pScenario->pInitialState();
-  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
   const Weights &weights = pScenario->weights();
 
   for (const auto &pN : pScenario->pNurses()) {
@@ -45,11 +87,11 @@ void initializeResourcesINRC2(const PScenario& pScenario) {
     // a. total assignments
     pN->addBaseResource(
         std::make_shared<SoftTotalShiftDurationResource>(
-            pN->minTotalShifts() - stateIni.totalTimeWorked_,
-            pN->maxTotalShifts() - stateIni.totalTimeWorked_,
+            std::max(0, pN->minTotalShifts() - stateIni.totalTimeWorked_),
+            std::max(0, pN->maxTotalShifts() - stateIni.totalTimeWorked_),
             weights.totalShifts,
             weights.totalShifts,
-            pWork,
+            pScenario->shiftsFactory().pAnyWorkShift(),
             nbDays,
             pScenario->maxDuration()));
 
@@ -59,7 +101,7 @@ void initializeResourcesINRC2(const PScenario& pScenario) {
         pN->maxConsDaysWork(),
         weights.consDaysWork,
         weights.consDaysWork,
-        pWork,
+        pScenario->shiftsFactory().pAnyWorkShift(),
         CONS_WORK_COST,
         nbDays,
         stateIni.consDaysWorked_,
@@ -68,9 +110,9 @@ void initializeResourcesINRC2(const PScenario& pScenario) {
     // c. total weekend resource; in INRC2 weekends are always on saturday and
     // sunday
     pN->addBaseResource(std::make_shared<SoftTotalWeekendsResource>(
-        pN->maxTotalWeekends() - stateIni.totalWeekendsWorked_,
+        std::max(0, pN->maxTotalWeekends() - stateIni.totalWeekendsWorked_),
         weights.totalWeekends,
-        pWork,
+        pScenario->shiftsFactory().pAnyWorkShift(),
         nbDays));
 
     // d. complete weekend resource
@@ -83,7 +125,7 @@ void initializeResourcesINRC2(const PScenario& pScenario) {
     // initialize resources on the number of consecutive shifts of each type
     for (int st = 0; st < pScenario->nShiftTypes(); st++) {
       shared_ptr<AbstractShift> pAShift =
-          std::make_shared<AnyOfTypeShift>(st, pScenario->shiftType(st));
+          pScenario->shiftsFactory().pAnyTypeShift(st);
       if (pAShift->isWork()) {
         int consShiftsInitial =
             pAShift->includes(*stateIni.pShift_) ?
@@ -111,101 +153,6 @@ void initializeResourcesINRC2(const PScenario& pScenario) {
       }
     }
   }
-}
-
-/************************************************************************
-* Initialize the week scenario by reading the input files
-*************************************************************************/
-PScenario initializeScenarioINRC2(const InputPaths &inputPaths,
-                                  const string& logPath) {
-  // Initialize demand and preferences
-  PDemand pDemand(nullptr);
-  PPreferences pPref(nullptr);
-
-  // Read the scenario
-  PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
-
-  // Read the demand and preferences and link them with the scenario
-  ReadWrite::readWeekINRC2(inputPaths.week(0), pScenario, &pDemand, &pPref);
-  pScenario->linkWithDemand(pDemand);
-  pScenario->linkWithPreferences(pPref);
-
-  // Read the history
-  ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
-
-  // Initialize the resources
-  initializeResourcesINRC2(pScenario);
-
-  // Check that the scenario was read properly if logfile specified in input
-  if (!logPath.empty()) {
-    Tools::LogOutput logStream(logPath, false);
-    logStream << pScenario->toStringINRC2() << std::endl;
-    logStream << pScenario->pDemand()->toString(true) << std::endl;
-  }
-
-  return pScenario;
-}
-
-/*****************************************************************************
-* Initialize the scenario for multiple weeks
-* When calling this function, the intent is to solve all the weeks at once
-******************************************************************************/
-
-PScenario initializeMultipleWeeksINRC2(const string& dataDir,
-                                       const string& instanceName,
-                                       int historyIndex,
-                                       vector<int> weekIndices,
-                                       const string& logPath) {
-  // build the paths of the input files
-  InputPaths inputPaths(dataDir,
-                        instanceName,
-                        historyIndex,
-                        std::move(weekIndices));
-
-  // Read the scenario
-  PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
-
-  // Read the demand and preferences and link them with the scenario
-  ReadWrite::readINRC2Weeks(inputPaths.weeks(), pScenario);
-
-  // Read the history
-  ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
-
-  // Initialize the resources
-  initializeResourcesINRC2(pScenario);
-
-  // Check that the scenario was read properly if logfile specified in input
-  if (!logPath.empty()) {
-    Tools::LogOutput logStream(logPath, false);
-    logStream << pScenario->toStringINRC2() << std::endl;
-    logStream << pScenario->pDemand()->toString(true) << std::endl;
-  }
-
-  return pScenario;
-}
-
-PScenario initializeMultipleWeeksINRC2(const InputPaths &inputPaths,
-                                       const string& logPath) {
-  // Read the scenario
-  PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
-
-  // Read the demand and preferences and link them with the scenario
-  ReadWrite::readINRC2Weeks(inputPaths.weeks(), pScenario);
-
-  // Read the history
-  ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
-
-  // Initialize the resources
-  initializeResourcesINRC2(pScenario);
-
-  // Check that the scenario was read properly if logfile specified in input
-  if (!logPath.empty()) {
-    Tools::LogOutput logStream(logPath, false);
-    logStream << pScenario->toStringINRC2() << std::endl;
-    logStream << pScenario->pDemand()->toString(true) << std::endl;
-  }
-
-  return pScenario;
 }
 
 /*****************************************************************************
@@ -353,11 +300,8 @@ void displaySolutionMultipleWeeks(const string& dataDir,
   }
 
   // load the solution in a new solver
-  PScenario pScen =
-      initializeMultipleWeeksINRC2(dataDir,
-                                   instanceName,
-                                   historyIndex,
-                                   weekIndices);
+  InputPaths inputPaths(dataDir, instanceName, historyIndex, weekIndices);
+  PScenario pScen = buildInstance(inputPaths);
   auto *pSolver = new Solver(pScen);
   pSolver->loadSolution(solution);
 
@@ -404,7 +348,7 @@ void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
   }
 
   // load the solution in a new solver
-  PScenario pScen = initializeMultipleWeeksINRC2(inputPaths);
+  PScenario pScen = buildInstance(inputPaths);
   Solver *pSolver = new Solver(pScen);
   pSolver->loadSolution(solution);
 

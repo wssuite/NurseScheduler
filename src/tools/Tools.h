@@ -46,7 +46,7 @@
 
 
 static const int SHIFT_PAD = 3;
-static const char REST_SHIFT[] = "None";
+static const char REST_SHIFT[] = "Rest";
 static const char REST_DISPLAY[] = " - ";  // should be of the size of pad
 static const int DECIMALS = 3;  // precision when printing floats
 static const int NB_SHIFT_UNLIMITED = 28;
@@ -70,6 +70,13 @@ template<typename T>
 bool compareObject(const std::pair<T, double> &p1,
                    const std::pair<T, double> &p2) {
   return (p1.second < p2.second);
+}
+
+template<typename ...Args>
+std::string string(const char *str, Args... args) {
+  char buff[999];
+  snprintf(buff, sizeof(buff), str, args...);
+  return buff;
 }
 
 // class defining my own type of exceptions
@@ -185,19 +192,23 @@ tm *dateForDay(const tm *startDate, const int &dayId);
 
 // Read a file stream until the separating character (or one of them) is met
 // Store the characters read until the separating character in pStrRead
-//
 char readUntilOneOfTwoChar(std::fstream *pFile,
                            char separater1,
                            char separater2,
                            std::string *pStrRead);
 
+// Store the next line which is not a comment in pStrRead
+bool readLinesUntilNotAComment(
+    std::fstream *pFile, std::string *pStrRead, bool acceptEmptyLine = true);
+
+// read until end of line
+bool readLine(std::fstream *pFile, std::string *pStrRead);
+
 // Read a file stream until the separating character is met
-//
 bool readUntilChar(std::fstream *file, char separator, std::string *pTitle);
 
 // Read a file stream until the separating character is met and keep reading
 // while the delimiter repeats
-//
 bool readUntilAndWhileChar(std::fstream *file, char separator, std::string
 *pTitle);
 
@@ -238,14 +249,18 @@ std::vector<T> tokenize(std::string str, char delim) {
   std::vector<T> Tlist;
   size_t start;
   size_t end = 0;
-  T i;
   while ((start = str.find_first_not_of(delim, end)) != std::string::npos) {
+    T i;
     end = str.find(delim, start);
     std::stringstream ss(str.substr(start, end - start));
     ss >> i;
-    if (ss.rdbuf()->in_avail() >0)
+    if (ss.rdbuf()->in_avail() > 0)
       Tools::throwError("%s cannot be tokenized with the type %s",
           str.c_str(), typeid(T).name());
+    Tlist.push_back(i);
+  }
+  if (str.back() == delim) {
+    T i;
     Tlist.push_back(i);
   }
   return Tlist;
@@ -267,9 +282,9 @@ void openFile(const std::string &fileName, std::fstream *file);
 // Create a random generator
 // the objective is to be sure to have always the same sequence of number
 //
-std::minstd_rand getANewRandomGenerator();
+std::minstd_rand getANewRandomGenerator(bool printSeed = false);
 
-std::minstd_rand getANewRandomGenerator(int rdmSeed);
+std::minstd_rand getANewRandomGenerator(int rdmSeed, bool printSeed = false);
 
 // Initialize the random generator with a given seed
 void initializeRandomGenerator();
@@ -365,7 +380,7 @@ bool erase(std::vector<T> *vec, const T& el, bool throwErrorNotFound = false) {
     vec->erase(it);
     return true;
   }
-#ifdef DBG
+#ifdef NS_DEBUG
   if (throwErrorNotFound)
     throwError("Element to delete not found in vector.");
 #endif
@@ -474,9 +489,8 @@ std::vector<int> drawRandomIndices(int nbInd, int indMin, int indMax);
 template<typename T>
 std::vector<T> appendVectors(
     const std::vector<T> &v1, const std::vector<T> &v2) {
-  std::vector<T> ANS;
-  for (int i = 0; i < v1.size(); i++) ANS.push_back(v1[i]);
-  for (int i = 0; i < v2.size(); i++) ANS.push_back(v2[i]);
+  std::vector<T> ANS = v1;
+  ANS.insert(ANS.end(), v2.begin(), v2.end());
   return ANS;
 }
 
@@ -490,11 +504,13 @@ class Timer {
  public:
   // constructor and destructor
   //
-  explicit Timer(bool start = false);
+  explicit Timer(std::string name, bool start = false);
 
   ~Timer() {}
 
  private:
+  std::string name_;
+
   std::chrono::time_point<std::chrono::system_clock> cpuInit_;
   std::chrono::duration<double> cpuSinceStart_, cpuSinceInit_;
 
@@ -666,12 +682,14 @@ struct PThreadsPool : public std::shared_ptr<ThreadsPool> {
   ~PThreadsPool();
 };
 
+class Job;
+
 class Task {
-  explicit Task(std::function<void(void)> f, int _nThreads) :
+  explicit Task(std::function<void(Job)> f, int _nThreads) :
       func_(std::move(f)), nThreads_(_nThreads) {}
 
   // run the task
-  void run();
+  void run(const Job &job);
 
   // attach to the pool
   void attach(const PThreadsPool& pThreadsPool);
@@ -709,7 +727,7 @@ class Task {
   void nThreads(int n) { nThreads_ = n; }
 
   int nThreads_;
-  std::function<void(void)> func_;
+  std::function<void(Job)> func_;
   PThreadsPool pThreadsPool_ = nullptr;
 
   std::mutex mutex_;
@@ -729,8 +747,12 @@ typedef std::shared_ptr<Task> PTask;
 class Job {
  public:
   Job(): pTask_(nullptr) {}
-  explicit Job(std::function<void(void)> f, int nThreads = 1) :
+  explicit Job(std::function<void(Job)> f, int nThreads = 1) :
       pTask_(new Task(std::move(f), nThreads)) {}
+
+  void copy(const Job &job) {
+    pTask_ = job.pTask_;
+  }
 
   // true if a task is attached to the job
   bool defined() const {
@@ -845,7 +867,7 @@ class ThreadsPool {
   // global number of available threads  for the local pool
   static int nGlobalThreadsAvailable_;
   // true if currently trying to set the maxGlobalThreads_
-  static bool settingMaxGlobalThreads_;
+  static bool resizingMaxGlobalThreads_;
   static std::mutex mThreadMutex_;
   static std::condition_variable cThreadReleased_;
 

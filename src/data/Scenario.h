@@ -35,7 +35,7 @@ const std::map<PREF_LEVEL, std::string>
                       {STRONG, "STRONG"}, {COMPULSORY, "COMPULSORY"}};
 struct Weights {
   Weights() = default;
-  Weights(double weightOptimalDemand,
+  Weights(double underCoverage,
           double weightAlternativeSkills,
           double weightConsShifts,
           const double weightConsDaysWork,
@@ -43,8 +43,10 @@ struct Weights {
           std::vector<double> weightPreferences,
           const double weightCompleteWeekend,
           const double weightTotalShifts,
-          const double weightTotalWeekends) :
-      optimalDemand(weightOptimalDemand),
+          const double weightTotalWeekends,
+          double overCoverage = -1) :
+      underCoverage(underCoverage),
+      overCoverage(overCoverage),
       alternativeSkills(weightAlternativeSkills),
       consShifts(weightConsShifts),
       consDaysWork(weightConsDaysWork),
@@ -55,7 +57,8 @@ struct Weights {
       totalWeekends(weightTotalWeekends) {}
 
 
-  const double optimalDemand = 30;
+  const double underCoverage = 30;
+  const double overCoverage = -1;
   const double alternativeSkills = 20;
   const double consShifts = 15;
   const double consDaysWork = 30;
@@ -156,21 +159,16 @@ class State {
   //
   int dayId_;
 
-  // Total nummber of days and weekends worked
-  //
+  // Total number of days and weekends worked
   int totalTimeWorked_, totalWeekendsWorked_;
 
-  // number of consecutive days worked ending at D,
-  // and of consecutive days worked on the same shiftType
-  // ending at D (including RESTSHIFT = 0) and shiftType worked on D-Day.
-  //
+  // number of consecutive days worked
   int consDaysWorked_, consShifts_, consDaysOff_,
       consWeekendWorked_, consWeekendOff_;
 
   // Type of shift worked on D-Day. It can be a rest shift (=0).
   // A negative value -d means that the nurse has not been assigned a task for
   // the last d days
-  //
   PShift pShift_;
 };
 
@@ -191,19 +189,10 @@ class Scenario {
            int nbSkills,
            vector<std::string> intToSkill,
            std::map<std::string, int> skillToInt,
-           int nbShifts,
-           std::map<std::string, int> shiftToInt,
-           vector<double> hoursToWork,
-           vector<int> shiftIDToShiftTypeID,
-           int nbShiftsType,
+           vector<PShift> pShifts,
            vector<std::string> intToShiftType,
-           std::map<std::string, int> shiftTypeToInt,
-           vector<vector<int> > shiftTypeIDToShiftID,
            vector<int> minConsShiftsType,
            vector<int> maxConsShiftsType,
-           vector<int> nbForbiddenSuccessors,
-           vector2D<int> forbiddenSuccessors,
-           vector<PShift> pShifts,
            int nbContracts,
            vector<PContract> contracts,
            int nbNurses,
@@ -244,29 +233,25 @@ class Scenario {
 
   // number of skills, a std::map and a std::vector matching the name
   // of each skill to an index and reversely
-  //
   const int nSkills_;
   const std::vector<std::string> intToSkill_;
   const std::map<std::string, int> skillToInt_;
 
   // number of shifts, a std::map and a std::vector matching the name
   // of each shift to an index and reversely
-
   const int nShifts_;
-  const std::map<std::string, int> shiftToInt_;
-  const std::vector<int> shiftIDToShiftTypeID_;
-  const std::vector<double> timeDurationToWork_;  // duration of each shift type
+  std::map<std::string, int> shiftToInt_;
+  const vector<PShift> pShifts_;
+
+  // Shifts factory creating the shifts hierarchy
+  ShiftsFactory shiftsFactory_;
 
   // number of typeshifts, a std::map and a std::vector matching the name of
   // each type shift to an index and,
   // reversely minimum and maximum number consecutive assignments
   // for each shift, and penalty for violations of these bounds.
-  //
-  const int nShiftTypes_;
-  const std::vector<std::string> intToShiftType_;
-  const std::map<std::string, int> shiftTypeToInt_;
-  const vector2D<int> shiftTypeIDToShiftID_;
-  const vector<PShift> pShifts_;
+  int nShiftTypes_;
+  std::map<std::string, int> shiftTypeToInt_;
 
   // std::vector of possible contract types
   //
@@ -277,18 +262,11 @@ class Scenario {
   const PWeights pWeights_;
 
   // number of nurses, and std::vector of all the nurses
-  //
   int nNurses_;
   std::vector<PNurse> pNurses_;
   std::map<std::string, int> nurseNameToInt_;
 
   const std::vector<int> minConsShiftType_, maxConsShiftType_;
-
-  // for each shift, the number of forbidden successors and a table containing
-  // the indices of these forbidden successors
-  //
-  const std::vector<int> nForbiddenSuccessors_;
-  const vector2D<int> forbiddenSuccessors_, forbiddenShiftTypeSuccessors_;
 
   //------------------------------------------------
   // From the Week data file
@@ -314,9 +292,13 @@ class Scenario {
   // Initial historical state of the nurses
   //
   std::vector<State> initialState_;
+
   // True when the rosters created must be cyclic
   // When activated, the initial states are all default values
   bool cyclic_ = false;
+
+  // True when using shift types for nodes in the graph sub problems
+  bool shiftTypeGraph_ = false;
 
   // range of the weeks that are being scheduled
   //
@@ -352,51 +334,40 @@ class Scenario {
   const std::tm& startDate() {return startDate_;}
   void setStartDate(std::tm date) {startDate_ = date;}
   bool isRestShift(int shift) const {
-    return shiftIDToShiftTypeID_[shift] == 0;
+    return pShifts_.at(shift)->isRest();
   }
   bool isWorkShift(int shift) const { return !isRestShift(shift); }
-  static bool isAnyShift(int shift) { return shift == -1; }
-  static bool isRestShiftType(int st) {
-    return st == 0;
-  }
-  int duration(int s) const { return timeDurationToWork_[s]; }
+  int duration(int s) const { return pShift(s)->duration; }
   double maxDuration() const {
-    return *max_element(timeDurationToWork_.begin(), timeDurationToWork_.end());
+    auto it = max_element(pShifts_.begin(), pShifts_.end(),
+                          [](const PShift &pS1, const PShift &pS2) {
+      return pS1->duration < pS2->duration;
+    });
+    return (*it)->duration;
   }
 
   const std::string &shiftName(int i) const { return pShift(i)->name; }
   int shift(const std::string &s) const { return shiftToInt_.at(s); }
-  const PShift &pRestShift() const { return pShifts_[REST_SHIFT_ID]; }
-  const PShift &pAnyWorkShift() const {
-    for (const auto &pS : pShifts_)
-      if (pS->isWork())
-        return pS;
-    Tools::throwError("There is no work shift defined.");
-    return pShifts_.back();
-  }
-  const PShift &pAnyWorkShift(const std::vector<int> &shifts) const {
-    for (int s : shifts)
-      if (pShift(s)->isWork())
-        return pShift(s);
-    Tools::throwError(
-        "There is no work shift defined within the given vector.");
-    return pShift(shifts.back());
-  }
-  const PShift &pShift(int s) const { return pShifts_[s]; }
+
+  const ShiftsFactory& shiftsFactory() const { return shiftsFactory_; }
+
+  const PShift &pShift(int s) const { return pShifts_.at(s); }
   const PShift &pShift(const std::string &s) const {
     return pShifts_[shift(s)];
   }
   const vector<PShift> &pShifts() const { return pShifts_; }
-  PShift pFirstWorkShift() const {
-    for (const PShift &pS : pShifts_)
-      if (pS->isWork()) return pS;
-    return nullptr;
+
+  const PShift &pRestShift() const {
+    return shiftsFactory_.pAnyRestShift()->pIncludedShifts().front();
   }
+
 
   const std::string &skillName(int i) const { return intToSkill_[i]; }
   int skillId(const std::string &s) const { return skillToInt_.at(s); }
 
-  const std::string &shiftType(int i) const { return intToShiftType_[i]; }
+  const std::string &shiftType(int i) const {
+    return shiftsFactory_.pAnyTypeShift(i)->name;
+  }
   int shiftType(const std::string &s) const { return shiftTypeToInt_.at(s); }
 
   const std::vector<PContract> &pContracts() const {
@@ -406,10 +377,18 @@ class Scenario {
     return theContracts[c];
   }
 
-  int shiftIDToShiftTypeID(int s) const { return shiftIDToShiftTypeID_[s]; }
+  int shiftIDToShiftTypeID(int s) const { return pShift(s)->type; }
 
-  const std::vector<int> &shiftTypeIDToShiftID(int st) const {
-    return shiftTypeIDToShiftID_[st];
+  const PAbstractShift & pAnyTypeShift(int st) const {
+    return shiftsFactory_.pAnyTypeShift(st);
+  }
+
+  const std::vector<PShift> & pShiftsOfType(int st) const {
+    return pAnyTypeShift(st)->pIncludedShifts();
+  }
+
+  const std::vector<PShift> & pWorkShifts() const {
+    return shiftsFactory_.pAnyWorkShift()->pIncludedShifts();
   }
 
   // getters for the private class attributes
@@ -448,10 +427,6 @@ class Scenario {
   }
   const Weights &weights() const { return *pWeights_; }
 
-  const std::vector<int> &nForbiddenSuccessors() const {
-    return nForbiddenSuccessors_;
-  }
-
   // getter for the maximum number of consecutive worked days
   // before the planning horizon
   //
@@ -471,6 +446,14 @@ class Scenario {
 
   bool isCyclic() const {
     return cyclic_;
+  }
+
+  void enableShiftTypeGraph() {
+    shiftTypeGraph_ = true;
+  }
+
+  bool shiftTypeGraph() const {
+    return shiftTypeGraph_;
   }
 
   // getters for consecutive type of shifts

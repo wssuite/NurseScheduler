@@ -31,3 +31,4 @@ rcsppEnumSubpaths=0
 rcsppMinCostToSinks=0
 rcsppEnumSubpathsForMinCostToSinks=0
 rcsppBidirectional=1
+rcsppRandomStartDay=0

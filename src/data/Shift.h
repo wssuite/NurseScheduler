@@ -25,21 +25,26 @@ using std::string;
 using std::vector;
 using std::shared_ptr;
 
+struct Shift;
+typedef shared_ptr<Shift> PShift;
 
 struct AbstractShift {
-  explicit AbstractShift(std::string  _name = "None") :
+  friend class ShiftsFactory;
+
+  explicit AbstractShift(std::string  _name = REST_SHIFT) :
       name(std::move(_name)) {}
   virtual ~AbstractShift() = default;
 
   virtual bool isWork() const { return false; }
   virtual bool isRest() const { return false; }
-  virtual bool isAnyWork() const {return false;}
-  virtual bool isAnyRest() const {return false;}
-  virtual bool isAnyOfType(int t) const {return false;}
   virtual bool isType(int t) const { return false; }
   virtual bool isSameType(const AbstractShift &s) const { return false; }
   virtual bool isShift(int i) const { return false; }
   virtual bool isSameShift(const AbstractShift &s) const { return false; }
+  virtual bool isAnyWork() const { return false; }
+  virtual bool isAnyRest() const { return false; }
+  virtual bool isAnyType() const { return false; }
+  virtual bool isAnyShift() const { return false; }
   virtual int workTime() const { return 0; }
 
   virtual void print() const {
@@ -48,62 +53,46 @@ struct AbstractShift {
 
   virtual bool includes(const AbstractShift &) const { return false; }
 
-  bool equals(const AbstractShift & s) const {
+  virtual bool equals(const AbstractShift & s) const {
     return includes(s) && s.includes(*this);
   }
 
+  const std::vector<PShift> & pIncludedShifts() const { return pShifts_; }
+
+  const PShift & findIncludedShift(const std::vector<int> &shifts) const;
+
   const string name;
+
+ protected:
+  std::vector<PShift> pShifts_;
+
+  void addShift(const PShift& pS) { pShifts_.push_back(pS); }
 };
 
 typedef shared_ptr<AbstractShift> PAbstractShift;
 
-struct ShiftType : public AbstractShift {
+struct Shift : public AbstractShift {
   // Default constructor builds a resting shift
-  ShiftType() : AbstractShift(),
-                type(0), work(false), rest(true) {}
-
-  ShiftType(string str, int t) : AbstractShift(std::move(str)), type(t),
-                                 work(type >= 1), rest(type == 0) {}
-
-  ShiftType(const ShiftType &shift):
-      AbstractShift(shift.name), type(shift.type),
-      work(shift.work), rest(shift.rest) {}
-
-  ShiftType(string str, int t, bool w, bool r) :
-      AbstractShift(std::move(str)), type(t), work(w), rest(r) {}
-
-  ~ShiftType() override = default;
-
-  bool isRest() const override { return rest; }
-  bool isWork() const override { return work; }
-  bool isType(int t) const override { return t == type; }
-  bool includes(const AbstractShift &s) const override {
-    return s.isType(type);
-  }
-  bool isSameType(const AbstractShift &s) const override {
-    return includes(s);
-  }
-
-  const int type;
-  const bool work;
-  const bool rest;
-};
-
-struct Shift : public ShiftType {
-  // Default constructor builds a resting shift
-  Shift() : ShiftType(),
-            id(0),
-            duration(0),
-            timeStart(),
-            timeEnd(),
-            successors(vector<int>()),
-            skills(vector<int>()) {}
+  explicit Shift(int _id = 0, string name = REST_SHIFT) :
+      AbstractShift(name),
+      type(0),
+      work(false),
+      rest(true),
+      id(_id),
+      duration(0),
+      timeStart(),
+      timeEnd(),
+      successors(vector<int>()),
+      skills(vector<int>()) {}
 
   Shift(string str, int i, int t, int time, vector<int> list,
         vector<int> skList = vector<int>(),
         Tools::Time tStart = Tools::Time(),
         Tools::Time tEnd = Tools::Time()) :
-      ShiftType(std::move(str), t),
+      AbstractShift(std::move(str)),
+      type(t),
+      work(type >= 1),
+      rest(type == 0),
       id(i),
       duration(time),
       timeStart(tStart),
@@ -115,7 +104,10 @@ struct Shift : public ShiftType {
         vector<int> skList = vector<int>(),
         Tools::Time tStart = Tools::Time(),
         Tools::Time tEnd = Tools::Time()) :
-      ShiftType(std::move(str), t, w, r),
+      AbstractShift(std::move(str)),
+      type(t),
+      work(w),
+      rest(r),
       id(i),
       duration(time),
       timeStart(tStart),
@@ -123,9 +115,11 @@ struct Shift : public ShiftType {
       successors(std::move(list)),
       skills(std::move(skList)) {}
 
-
-  Shift(const Shift &shift):
-      ShiftType(shift.name, shift.type),
+  Shift(const Shift &shift) :
+      AbstractShift(shift.name),
+      type(shift.type),
+      work(shift.work),
+      rest(shift.rest),
       id(shift.id),
       duration(shift.duration),
       timeStart(shift.timeStart),
@@ -140,7 +134,14 @@ struct Shift : public ShiftType {
 
   ~Shift() override = default;
 
-  bool isShift(int i) const override { return i == id;}
+  bool isRest() const override { return rest; }
+  bool isWork() const override { return work; }
+  bool isType(int t) const override { return t == type; }
+  bool isSameType(const AbstractShift &s) const override {
+    return includes(s);
+  }
+
+  bool isShift(int i) const override { return i == id; }
   int workTime() const override { return duration; }
   bool includes(const AbstractShift &s) const override {
     return s.isShift(id);
@@ -153,7 +154,7 @@ struct Shift : public ShiftType {
     return prevShift.canPrecede(*this);
   }
   // if the lists of skills is empty, the shift is for any skill
-  bool hasSkills() const {return !skills.empty();}
+  bool hasSkills() const { return !skills.empty(); }
   bool hasSkill(int skillId) const {
     if (!hasSkills()) return true;
     return std::any_of(skills.begin(), skills.end(),
@@ -165,7 +166,9 @@ struct Shift : public ShiftType {
   }
 
   // member variables
-  //
+  const int type;
+  const bool work;
+  const bool rest;
   const int id;
   const int duration;
   Tools::Time timeStart;
@@ -176,51 +179,67 @@ struct Shift : public ShiftType {
   vector<int> skills;
 };
 
-typedef shared_ptr<Shift> PShift;
-
 
 struct AnyRestShift : public AbstractShift {
-  AnyRestShift(): AbstractShift("rest") {}
+  friend class ShiftsFactory;
 
   bool isRest() const override { return true; }
   bool isWork() const override { return false; }
   bool isAnyRest() const override {return true;}
   bool includes(const AbstractShift &s) const override { return s.isRest(); }
+
+ private:
+  AnyRestShift(): AbstractShift("rest") {}
 };
 
 struct AnyWorkShift : public AbstractShift {
-  AnyWorkShift(): AbstractShift("work") {}
+  friend class ShiftsFactory;
 
   bool isWork() const override { return true; }
   bool isType(int t) const override { return true; }
   bool isAnyWork() const override {return true;}
   bool includes(const AbstractShift &s) const override { return s.isWork(); }
+
+ private:
+  AnyWorkShift(): AbstractShift("work") {}
+};
+
+struct NoneShift : public AbstractShift {
+  friend class ShiftsFactory;
+
+  bool isRest() const override { return false; }
+  bool isWork() const override { return false; }
+  bool includes(const AbstractShift &s) const override { return false; }
+  bool isType(int t) const override { return false; }
+  bool isSameType(const AbstractShift &s) const override { return false; }
+  bool isShift(int i) const override { return false; }
+  bool isSameShift(const AbstractShift &s) const override { return false; }
+
+ private:
+  NoneShift(): AbstractShift("none") {}
 };
 
 struct AnyShift : public AbstractShift {
-  AnyShift(): AbstractShift("any") {}
+  friend class ShiftsFactory;
 
   bool isRest() const override { return true; }
   bool isWork() const override { return true; }
-  bool isAnyRest() const override {return true;}
-  bool isAnyWork() const override {return true;}
   bool includes(const AbstractShift &s) const override { return true; }
-  bool isAnyOfType(int t) const override {return true;}
   bool isType(int t) const override { return true; }
   bool isSameType(const AbstractShift &s) const override { return true; }
   bool isShift(int i) const override { return true; }
   bool isSameShift(const AbstractShift &s) const override { return true; }
+  bool isAnyShift() const override {return true;}
+
+ private:
+  AnyShift(): AbstractShift("any") {}
 };
 
 struct AnyOfTypeShift : public AbstractShift {
-  explicit AnyOfTypeShift(int t, std::string _name = "") :
-      AbstractShift(_name.empty() ?
-                    "type_"+std::to_string(t) : std::move(_name)),
-      type(t) {}
+  friend class ShiftsFactory;
 
   bool isWork() const override { return type >= 1; }
   bool isRest() const override { return type == 0; }
-  bool isAnyOfType(int t) const override { return type == t; }
   bool isType(int t) const override { return t == type; }
   bool includes(const AbstractShift &s) const override {
     return s.isType(type);
@@ -228,8 +247,58 @@ struct AnyOfTypeShift : public AbstractShift {
   bool isSameType(const AbstractShift &s) const override {
     return includes(s);
   }
+  bool isAnyType() const override {return true;}
 
   const int type;
+
+ private:
+  explicit AnyOfTypeShift(int t, std::string _name = "") :
+      AbstractShift(_name.empty() ?
+                    "type_"+std::to_string(t) : std::move(_name)),
+      type(t) {}
+};
+
+class ShiftsFactory {
+ public:
+  explicit ShiftsFactory(const vector<PShift> &pShifts,
+                         const std::vector<string> shiftTypeNames = {});
+
+  const PAbstractShift &pNoneShift() const { return pNoneShift_; }
+  const PAbstractShift &pAnyShift() const { return pAnyShift_; }
+  const PAbstractShift &pAnyRestShift() const { return pAnyRestShift_; }
+  const PAbstractShift &pAnyWorkShift() const { return pAnyWorkShift_; }
+  const PShift &pAnyWorkShift(const std::vector<int> &shifts) const;
+
+
+  const PAbstractShift &pAnyTypeShift(int t) const {
+    return pAnyTypeShifts_.at(t);
+  }
+  const PAbstractShift &pAnyTypeShift(const PShift &pS) const {
+    return pAnyTypeShifts_.at(pS->type);
+  }
+
+  const vector<PAbstractShift> &pAnyTypeShifts() const {
+    return pAnyTypeShifts_;
+  }
+
+  const vector<PShift> &pShifts() const {
+    return pShifts_;
+  }
+
+  const PShift &pShift(int id) const {
+    return pShifts_.at(id);
+  }
+
+  const PShift &pEndShift() const {
+    return pEndShift_;
+  }
+
+ private:
+  PAbstractShift pNoneShift_, pAnyShift_,
+      pAnyRestShift_ = nullptr, pAnyWorkShift_ = nullptr;
+  vector<PAbstractShift> pAnyTypeShifts_;
+  vector<PShift> pShifts_;
+  PShift pEndShift_;  // like a res shift, but use to end a sequence
 };
 
 /** comparator for shifts based on id, type, rest, work **/
@@ -320,7 +389,7 @@ class Stretch {
       pDays_(std::move(pDays)),
       pShifts_(std::move(pShifts)),
       duration_(computeDuration()) {
-#ifdef DBG
+#ifdef NS_DEBUG
     if (pDays_.size() != pShifts_.size()) {
       Tools::throwError("stretches must have as many days as shifts");
     }
@@ -372,18 +441,14 @@ class Stretch {
   virtual void pushFront(const Stretch &stretch) {
     firstDayId_ = stretch.firstDayId_;
     duration_ += stretch.duration_;
-    pShifts_.insert(
-        pShifts_.begin(), stretch.pShifts_.begin(), stretch.pShifts_.end());
-    pDays_.insert(
-        pDays_.begin(), stretch.pDays_.begin(), stretch.pDays_.end());
+    pShifts_ = Tools::appendVectors(stretch.pShifts_, pShifts_);
+    pDays_ = Tools::appendVectors(stretch.pDays_, pDays_);
   }
 
   virtual void pushBack(const Stretch &stretch) {
     duration_ += stretch.duration_;
-    pShifts_.insert(
-        pShifts_.end(), stretch.pShifts_.begin(), stretch.pShifts_.end());
-    pDays_.insert(
-        pDays_.end(), stretch.pDays_.begin(), stretch.pDays_.end());
+    pShifts_ = Tools::appendVectors(pShifts_, stretch.pShifts_);
+    pDays_ = Tools::appendVectors(pDays_, stretch.pDays_);
   }
 
   virtual void pushBack(const PShift &pS) {
@@ -413,9 +478,9 @@ class Stretch {
     auto start = pShifts_.end() - n;
     if (n < 0)  start -= length;
     vector<PShift> toInsert(start, pShifts_.end());
-    pShifts_.insert(pShifts_.begin(), toInsert.begin(), toInsert.end());
+    pShifts_ = Tools::appendVectors(toInsert, pShifts_);
     firstDayId_ -= n;
-#ifdef DBG
+#ifdef NS_DEBUG
     if (firstDayId_ < 0)
       Tools::throwError("stretch has a negative first day. "
                         "Too many shifts have been rotated.");

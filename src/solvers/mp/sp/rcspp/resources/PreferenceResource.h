@@ -24,13 +24,21 @@
 class PreferenceResource : public Resource {
  public:
   explicit PreferenceResource(
-      const std::string &_name,
       PAbstractDay pADay,
-      Wish wish) :
+      Wish wish,
+      const PAbstractShift &pEndShift,
+      const std::string &_name = "") :
       Resource(_name.empty() ? "Pref. on day "+std::to_string(pADay->getId())+
                " for "+wish.toString() : _name),
       pADay_(std::move(pADay)),
-      wish_(std::move(wish)) {}
+      wish_(std::move(wish)),
+      pEndShift_(pEndShift) {
+    costType_ = PREFERENCE_COST;
+  }
+
+  BaseResource* clone() const override {
+    return new PreferenceResource(pADay_, wish_, pEndShift_, name);
+  }
 
   int getConsumption(const State &initialState) const override {return 0;}
 
@@ -38,40 +46,27 @@ class PreferenceResource : public Resource {
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
                  const shared_ptr<RCArc> &pArc,
-                 int indResource) override = 0;
+                 int indResource) override {
+    return nullptr;
+  }
 
   bool isInRosterMaster() const override { return false; };
   bool isInRotationMaster() const override { return false; };
 
- protected:
-  const PAbstractDay pADay_;
-  const Wish wish_;
-};
-
-class SoftPreferenceResource : public PreferenceResource {
- public:
-  explicit SoftPreferenceResource(
-      PAbstractDay pADay, Wish wish, const std::string &_name = "") :
-      PreferenceResource(_name, std::move(pADay), std::move(wish)) {
-    costType_ = PREFERENCE_COST;
-  }
-
-  BaseResource* clone() const override {
-    return new SoftPreferenceResource(pADay_, wish_);
-  }
-
   // getters
-  bool isHard() const override {return false;}
-
-  // initialize the expander on a given arc
-  PExpander init(const AbstractShift &prevAShift,
-                 const Stretch &stretch,
-                 const shared_ptr<RCArc> &pArc,
-                 int indResource) override;
+  bool isHard() const override {
+    Tools::throwError("Not defined for the preferences as could be both.");
+    return false;
+  }
 
   // add the cost of preference violation to all the arcs of the input graph
   void preprocess(const PRCGraph &pRCGraph) override;
   bool preprocess(const PRCArc& pA, double *cost) override;
+
+ protected:
+  const PAbstractDay pADay_;
+  const Wish wish_;
+  PAbstractShift pEndShift_;
 };
 
 #endif  // SRC_SOLVERS_MP_SP_RCSPP_RESOURCES_PREFERENCERESOURCE_H_

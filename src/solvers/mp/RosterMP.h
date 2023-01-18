@@ -99,6 +99,7 @@ class RosterMP : public MasterProblem {
   virtual ~RosterMP();
 
   PColumn getPColumn(MyVar *var) const override;
+  PColumn getPColumn(const RCSolution &st, int nurseNum) const override;
 
   MyVar *addColumn(int nurseNum, const RCSolution &solution) override;
 

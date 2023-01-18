@@ -13,7 +13,7 @@
 #include "ParseArguments.h"
 #include "ReadWrite.h"
 #include "tools/Tools.h"
-#include "solvers/InitializeSolver.h"
+#include "InitializeInstance.h"
 #include "solvers/Solver.h"
 #include "solvers/DeterministicSolver.h"
 
@@ -33,14 +33,7 @@ int solveDeterministic(const InputPaths &inputPaths) {
   // set the scenario
   std::cout << "# INITIALIZE THE SCENARIO: " << inputPaths.scenario()
             << std::endl;
-  PScenario pScenario;
-  if (inputPaths.inrc()) {
-    pScenario = ReadWrite::readINRCInstance(inputPaths.scenario());
-  } else if (inputPaths.nbWeeks() > 1) {
-    pScenario = initializeMultipleWeeksINRC2(inputPaths);
-  } else {
-    pScenario = initializeScenarioINRC2(inputPaths);
-  }
+  PScenario pScenario = buildInstance(inputPaths);
   std::cout << std::endl;
 
   // initialize the solver and call the generic solution where the

@@ -50,7 +50,8 @@ enum CostType {
   REST_AFTER_SHIFT_COST,
   CONS_REST_COST,  // consecutive rest shifts constraint
   TOTAL_WORK_COST,  // total shifts' duration
-  TOTAL_WEEKEND_COST  // total worked weekends
+  TOTAL_WEEKEND_COST,  // total worked weekends
+  END_INDEX_COST  // mark the last index of the enum: NOT TO BE USED
 };
 
 static const std::map<std::string, CostType> costTypesByName = {
@@ -74,6 +75,16 @@ static const std::map<CostType, std::string> namesByCostType =
 
 static const std::map<CostType, std::string> prettyNamesByCostType =
     Tools::buildPrettyNamesByType(costTypesByName);
+
+std::map<CostType, double> initCostPerType();
+std::map<int, double> initCostPerIntType();
+
+// Enum to return the domination status
+enum DominationStatus {
+  NOT_DOMINATED,  // not dominated in any case
+  DOMINATED,  // dominated in any case
+  UB_DOMINATED  // dominated only if looking at UB
+};
 
 /** Class describing one label used in the label setting algorithm of the
  * subproblem
@@ -145,9 +156,9 @@ class RCLabel {
 
   void addCost(double c) { cost_ += c; }
 
-  void setAsNext(const shared_ptr<RCLabel> &pLPrevious,
+  void setAsNext(shared_ptr<RCLabel> pLPrevious,
                  const shared_ptr<RCArc> &pArc);
-  void setAsPrevious(const shared_ptr<RCLabel> &pLNext,
+  void setAsPrevious(shared_ptr<RCLabel> pLNext,
                      const shared_ptr<RCArc> &pArc);
   void setAsMerged(const shared_ptr<RCLabel> &pLForward,
                    const shared_ptr<RCLabel> &pLBackward);
@@ -159,7 +170,7 @@ class RCLabel {
     baseCost_ += c;
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   double dualCost() const { return dualCost_; }
 
   void addDualCost(double c) {
@@ -197,7 +208,7 @@ class RCLabel {
     return resourceValues_[r];
   }
 
-  vector<ResourceValues> allResourceValues() {
+  const vector<ResourceValues> &allResourceValues() const {
     return resourceValues_;
   }
 
@@ -206,10 +217,10 @@ class RCLabel {
   RCNode* getNode() const { return pNode_; }
   void setNode(const shared_ptr<RCNode> &pN) {  pNode_ = pN.get(); }
 
-  shared_ptr<RCArc> getInArc() const { return pInArc_; }
-  shared_ptr<RCArc> getOutArc() const { return pOutArc_; }
-  shared_ptr<RCLabel> getPreviousLabel() const {return pPreviousLabel_;}
-  shared_ptr<RCLabel> getNextLabel() const { return pNextLabel_; }
+  const shared_ptr<RCArc>& getInArc() const { return pInArc_; }
+  const shared_ptr<RCArc>& getOutArc() const { return pOutArc_; }
+  const shared_ptr<RCLabel>& getPreviousLabel() const {return pPreviousLabel_;}
+  const shared_ptr<RCLabel>& getNextLabel() const { return pNextLabel_; }
 
   bool operator()(const shared_ptr<RCLabel> &pr1, const shared_ptr<RCLabel>
   &pr2) {
@@ -240,7 +251,7 @@ class RCLabel {
   vector<ResourceValues> resourceValues_;   // vector containing all the
   // resource values
 
-#ifdef DBG
+#ifdef NS_DEBUG
   double dualCost_;  // current part of the cost due to dual cost
   double consShiftCost_;  // current cumulated cost due to consecutive shifts
   double consWeekendShiftCost_;
@@ -280,8 +291,7 @@ typedef shared_ptr<RCLabelFactory> PRCLabelFactory;
 */
 class SortForFewExpansions {
  public:
-  bool operator()(const PRCLabel &pr1, const PRCLabel
-  &pr2) {
+  bool operator()(const PRCLabel &pr1, const PRCLabel &pr2) {
     return pr1->cost() < pr2->cost();
   }
 };
@@ -291,8 +301,7 @@ class SortForFewExpansions {
 */
 class LabelCostIncreasing{
  public:
-  bool operator()(const PRCLabel &pr1, const PRCLabel
-  &pr2) {
+  bool operator()(const PRCLabel &pr1, const PRCLabel &pr2) {
     return pr1->cost() < pr2->cost();
   }
 };
@@ -322,7 +331,7 @@ struct RCSolution : public Stretch {
       Stretch(stretch),
       cost_(pL->baseCost()),
       reducedCost_(pL->cost())
-#ifdef DBG
+#ifdef NS_DEBUG
       , pLabel_(pL)  // NOLINT
 #endif
       {}
@@ -350,9 +359,7 @@ struct RCSolution : public Stretch {
 
   void resetCosts() {
     cost_ = 0;
-    costs_.clear();
-    for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
-      costs_[(CostType)t] = 0;
+    costs_ = initCostPerType();
   }
 
   // Compare rotations on cost
@@ -369,7 +376,7 @@ struct RCSolution : public Stretch {
                      });
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   PRCLabel pLabel_ = nullptr;
 #endif
 
@@ -423,7 +430,10 @@ class Resource : public BaseResource {
   // preprocess the input RCGraph to take the resource into consideration
   virtual void preprocess(const PRCGraph &pRCGraph) {}
   // preprocess the arc to take the resource into consideration
-  virtual bool preprocess(const PRCArc& pA, double *cost) { return false; }
+  virtual bool preprocess(const PRCArc &pA, double *cost) {
+    cost = 0;
+    return false;
+  }
 
   //------------------------------------------------
   // Enumeration of sub paths
@@ -445,11 +455,11 @@ class Resource : public BaseResource {
   // internship report for more details).
   virtual void enumerate(const PRCGraph &pRCGraph, bool forceEnum) {}
 
-  virtual bool dominates(const PRCLabel &pL1,
-                         const PRCLabel &pL2,
-                         double *cost) const;
+  virtual DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const;
 
-  bool dominates(const PRCLabel &pL1, const PRCLabel &pL2) const {
+  // return domination status of pL2
+  DominationStatus dominates(RCLabel *pL1, RCLabel *pL2) const {
     return dominates(pL1, pL2, nullptr);
   }
 
@@ -458,11 +468,18 @@ class Resource : public BaseResource {
                      ResourceValues *vMerged,
                      const PRCLabel &pLMerged);
 
+  virtual bool isDefaultDomination() const { return useDefaultDomination_; }
+
   virtual void useDefaultDomination() { useDefaultDomination_ = true; }
 
-  virtual void useAltenativeDomination() { useDefaultDomination_ = false; }
+  // do nothing if not a SoftBoundedResource
+  virtual void useAltenativeDomination() {}
 
   virtual bool isActive(int dayId, const PAbstractShift &pAShift) const {
+    return true;
+  }
+
+  virtual bool isActive(int dssrLvl) const {
     return true;
   }
 
@@ -494,7 +511,7 @@ class Resource : public BaseResource {
     return {firstDay, lastDay};
   }
 
-  bool isPreprocessed() const {return isPreprocessed_;}
+  bool isPreprocessed() const { return isPreprocessed_; }
 
   const std::string name;   // name of the resource
 
@@ -529,14 +546,16 @@ class BoundedResource : public Resource {
   // Constructor
   BoundedResource(std::string _name, double lb, double ub) :
       Resource(std::move(_name)) {
+    if (lb > ub)
+      Tools::throwError("LB cannot be greater than the UB for "
+                        "BoundedResource: %d > %d", lb, ub);
     setLb(lb);
     setUb(ub);
   }
 
   // true if rl1 dominates rl2, false otherwise
-  bool dominates(const PRCLabel &pL1,
-                 const PRCLabel &pL2,
-                 double *cost) const override;
+  DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const override;
 
   int getLb() const {
     return lb_;
@@ -578,9 +597,12 @@ class SoftBoundedResource : public BoundedResource {
 
   // true if rl1 dominates rl2, false otherwise
   // use worst case for the bounds to determinate if domination
-  bool dominates(const PRCLabel &pL1,
-                 const PRCLabel &pL2,
-                 double *cost) const override;
+  DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const override;
+
+  void useAltenativeDomination() override {
+    useDefaultDomination_ = false;
+  }
 
   bool isHard() const override {
     return false;
@@ -603,12 +625,12 @@ class SoftBoundedResource : public BoundedResource {
   }
 
   double getLbCost(int consumption) const {
-    if (consumption >= lb_) return  0;
+    if (consumption >= lb_) return 0;
     return lbCost_ * (lb_ - consumption);
   }
 
   double getUbCost(int consumption) const {
-    if (consumption <= ub_) return  0;
+    if (consumption <= ub_) return 0;
     return ubCost_ * (consumption - ub_);
   }
 

@@ -28,11 +28,16 @@ BoundedResourceConstraint<H, S>::BoundedResourceConstraint(
 template <class H, class S>
 void BoundedResourceConstraint<H, S>::updateDuals() {
   dualValues_.clear();
+  resetMaxDualValues();
+  int n = 0;
   for (const auto &constraints : resourceCons_) {
     std::map<std::pair<H*, S*>, double> duals;
     for (const auto &p : constraints)
       duals[p.first] = pModel()->getDual(p.second);
     dualValues_.push_back(duals);
+    for (const auto &p : duals)
+      if (maxDualValues_[n] < p.second) maxDualValues_[n] = p.second;
+    n++;
   }
 }
 
@@ -73,10 +78,12 @@ void BoundedResourceConstraint<H, S>::addConsToCol(
     const Column &col) const {
   for (const auto &p : resourceCons_[col.nurseNum()]) {
     int c = computeConsumption(col, p.first, pScenario_->pRestShift());
-    cons->push_back(p.second.first);
-    cons->push_back(p.second.second);
-    coeffs->push_back(c);
-    coeffs->push_back(c);
+    if (c != 0) {
+      cons->push_back(p.second.first);
+      cons->push_back(p.second.second);
+      coeffs->push_back(c);
+      coeffs->push_back(c);
+    }
   }
 }
 
@@ -118,6 +125,7 @@ BoundedResourceConstraint<H, S>::computeBounds(H *pHR, S *pSR) const {
   if (pHR) {
     lb = pHR->getLb();
     ub = pHR->getUb();
+    lb_slack = max;
   } else {
     lb_slack = std::max(0, pSR->getLb() - lb);
     if (pSR->getLb() > lb)
@@ -154,26 +162,22 @@ void BoundedResourceConstraint<H, S>::build(
   // LB slack and constraint
   vector<double> lbCoeffs;
   vector<MyVar*> lbVars;
-  if (pSR) {
-    snprintf(name, sizeof(name), "%s_lb_N%d_slack", cName, pN.num_);
-    pModel()->createPositiveVar(
-        &vLB, name, pSR->getLbCost(), {}, 0, slack_bounds.first);
-    lbCoeffs = {1};
-    lbVars = {vLB};
-  }
+  snprintf(name, sizeof(name), "%s_lb_N%d_slack", cName, pN.num_);
+  double cost = pSR ? pSR->getLbCost(): LARGE_SCORE;
+  pModel()->createPositiveVar(&vLB, name, cost, {}, 0, slack_bounds.first);
+  lbCoeffs = {1};
+  lbVars = {vLB};
   snprintf(name, sizeof(name), "%s_lb_N%d", cName, pN.num_);
   pModel()->createGEConsLinear(&cLB, name, bounds.first, lbVars, lbCoeffs);
 
   // UB slack and constraint
   vector<double> ubCoeffs;
   vector<MyVar*> ubVars;
-  if (pSR) {
-    snprintf(name, sizeof(name), "%s_ub_N%d_slack", cName, pN.num_);
-    pModel()->createPositiveVar(
-        &vUB, name, pSR->getUbCost(), {}, 0, slack_bounds.second);
-    ubCoeffs = {-1};
-    ubVars = {vUB};
-  }
+  snprintf(name, sizeof(name), "%s_ub_N%d_slack", cName, pN.num_);
+  cost = pSR ? pSR->getUbCost(): LARGE_SCORE;
+  pModel()->createPositiveVar(&vUB, name, cost, {}, 0, slack_bounds.second);
+  ubCoeffs = {-1};
+  ubVars = {vUB};
   snprintf(name, sizeof(name), "%s_ub_N%d", cName, pN.num_);
   pModel()->createLEConsLinear(&cUB, name, bounds.second, ubVars, ubCoeffs);
 

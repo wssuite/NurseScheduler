@@ -61,6 +61,20 @@ double DualCosts::getCost(
   return d;
 }
 
+vector<double> DualCosts::getMaxDualValues() const {
+  vector<double> maxDuals(pMaster_->nNurses());
+  for (int n=0; n < maxDuals.size(); n++) {
+    double d = 0, maxD = -XLARGE_SCORE;
+    for (ConstraintMP* pC : pMaster_->columnConstraints()) {
+      double v = pC->maxDualValue(n);
+      d += v;
+      if (maxD < v) maxD = v;
+    }
+    maxDuals[n] = d;
+  }
+  return maxDuals;
+}
+
 std::string DualCosts::toString() const {
   std::stringstream buff;
   for (ConstraintMP* pC : pMaster_->columnConstraints())
@@ -81,7 +95,11 @@ SubProblem::SubProblem() :
     firstDayId_(0),
     nDays_(0),
     pLiveNurse_(nullptr),
-    pCosts_(nullptr) {}
+    pCosts_(nullptr),
+    rdm_(Tools::getANewRandomGenerator()),
+    timerPresolve_("SP pre-solve"),
+    timerSolve_("SP solve"),
+    timerPostsolve_("SP post-solve") {}
 
 SubProblem::SubProblem(PScenario scenario,
                        int firstDayId,
@@ -91,7 +109,11 @@ SubProblem::SubProblem(PScenario scenario,
     pScenario_(std::move(scenario)),
     firstDayId_(firstDayId), nDays_(nDays),
     pLiveNurse_(std::move(pNurse)),
-    param_(param) {
+    param_(param),
+    rdm_(Tools::getANewRandomGenerator()),
+    timerPresolve_("SP pre-solve"),
+    timerSolve_("SP solve"),
+    timerPostsolve_("SP post-solve") {
   // working everyday on the longest shift
   maxTotalDuration_ = pScenario_->maxDuration() * nDays;
   init(*pScenario_->pInitialState());
@@ -121,7 +143,20 @@ void SubProblem::init(const vector<State> &initStates) {
 // FALSE otherwise.
 bool SubProblem::solve(const PDualCosts &costs,
                        const std::set<std::pair<int, int>> &forbiddenDayShifts,
-                       double redCostBound) {
+                       double redCostBound,
+                       bool relaxation) {
+  // if not a new run, resolve now
+  if (pCosts_ == costs) {
+    if (param_.verbose_ >= 2)
+      std::cout << "Resolving subproblem for nurse " << pLiveNurse_->name_
+                << " (" << pLiveNurse_->num_ << ")" << std::endl;
+    return solve(false, relaxation);
+  }
+
+  if (param_.verbose_ >= 2)
+    std::cout << "Solving subproblem for nurse " << pLiveNurse_->name_
+              << " (" << pLiveNurse_->num_ << ")" << std::endl;
+
   bestReducedCost_ = 0;
   nFound_ = 0;
   maxReducedCostBound_ = redCostBound;  // Cost bound
@@ -135,17 +170,20 @@ bool SubProblem::solve(const PDualCosts &costs,
   // Set to true if you want to display contract + preferences (for debug)
 //  if (false) pLiveNurse_->printContractAndPreferences(pScenario_);
 
-  return solve();
+  return solve(true, relaxation);
 }
 
-bool SubProblem::solve() {
+bool SubProblem::solve(bool initialSolve, bool relaxation) {
   timerSolve_.start();
-  // Set of operation applied on the rcGraph to prepare the solving
-  timerPresolve_.start();
-  presolve();
-  timerPresolve_.stop();
+  if (initialSolve) {
+    // Set of operation applied on the rcGraph to prepare the solving
+    timerPresolve_.start();
+    presolve();
+    timerPresolve_.stop();
+  }
 
-  bool ANS = solveRCGraph();  // Solve the RCSPP on the rcGraph
+  // Solve the RCSPP on the rcGraph
+  bool ANS = solveRCGraph(initialSolve, relaxation);
 
   timerPostsolve_.start();
   postprocess();
@@ -153,7 +191,7 @@ bool SubProblem::solve() {
   timerSolve_.stop();
 
   // and check that all solution respects forbidden shifts
-#ifdef DBG
+#ifdef NS_DEBUG
   for (RCSolution &sol : theSolutions_) {
     checkForbiddenDaysAndShifts(sol);
   }

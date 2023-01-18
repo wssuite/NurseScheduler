@@ -157,6 +157,7 @@ void DynamicConstraints::update() {
 void DynamicConstraints::updateDuals() {
   dualValues_.clear();
   weekendDualValues_.clear();
+  resetMaxDualValues();
   for (const PLiveNurse &pNurse : pMaster_->pLiveNurses()) {
     const int i = pNurse->num_;
     const int p = pNurse->pContract_->id_;
@@ -179,6 +180,8 @@ void DynamicConstraints::updateDuals() {
     if (maxWorkedWeekendContractAvgCons_[p])
       wd += pModel()->getDual(maxWorkedWeekendContractAvgCons_[p], true);
     weekendDualValues_.push_back(wd);
+
+    maxDualValues_[pNurse->num_] = d + wd;
   }
 }
 
@@ -289,7 +292,7 @@ std::string DynamicConstraints::toString(
 
 void DynamicConstraints::build() {
   char name[255];
-  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
+  PAbstractShift pWork = pScenario_->shiftsFactory().pAnyWorkShift();
   const DynamicWeights dW = pMaster_->getDynamicWeights();
 
   // Individual constraints

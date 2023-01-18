@@ -81,7 +81,6 @@ LiveNurse::LiveNurse(const Nurse &nurse,
     pStateIni_(pStateIni),
     pPreferences_(std::move(pPreferences)),
     pPosition_(nullptr),
-    colCost_(0),
     minWorkDaysNoPenaltyConsDays_(-1),
     maxWorkDaysNoPenaltyConsDays_(-1),
     minWorkDaysNoPenaltyTotalDays_(-1),
@@ -92,7 +91,8 @@ LiveNurse::LiveNurse(const Nurse &nurse,
   statCt_.init(nbDays);
 
   // check if initial state is valid
-  if ((pStateIni->pShift_->id < pScenario_->nShifts())
+  if (pStateIni->pShift_->id >= 0 &&
+      pStateIni->pShift_->id < pScenario_->nShifts()
       && isShiftNotAvailNorAlt(pStateIni->pShift_->id))
     Tools::throwError("Invalid initial shift %s, "
                       "as it is unavailable for nurse %s",
@@ -125,8 +125,9 @@ LiveNurse::LiveNurse(const Nurse &nurse,
 
   // add preferences
   for (const auto &p : wishes())
-    pResources_.push_back(std::make_shared<SoftPreferenceResource>(
-        std::make_shared<Day>(p.first), p.second));
+    pResources_.push_back(std::make_shared<PreferenceResource>(
+        std::make_shared<Day>(p.first), p.second,
+        pScenario_->shiftsFactory().pEndShift()));
 }
 
 LiveNurse::~LiveNurse() = default;
@@ -380,23 +381,6 @@ void LiveNurse::printContractAndPreferences(const PScenario& pScenario) const {
   std::cout << "# " << std::endl;
 }
 
-double LiveNurse::computeCostPerType() {
-  // reset the costs
-  colCost_ = 0;
-  colCostPerType_.clear();
-  for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
-    colCostPerType_[(CostType)t] = 0;
-  // sum the costs of all the columns
-  int ind = 0;
-  for (const auto& col : columns_) {
-    colCost_ += colVals_[ind] * col.cost();
-    for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
-      colCostPerType_[(CostType)t] =
-          colVals_[ind] * col.costByType((CostType)t);
-  }
-  return colCost_;
-}
-
 //-----------------------------------------------------------------------------
 //  C l a s s   S o l v e r
 //  Solves the offline problem
@@ -426,7 +410,7 @@ Solver::Solver(const PScenario& pScenario) :
     theLiveNurses_(createLiveNurse(pScenario_)),
     dynamicWeights_(pScenario, theLiveNurses_),
     // create the timer that records the lifetime of the solver and start it
-    timerTotal_(true),
+    timerTotal_("Solver main", true),
     job_(),
     status_(UNSOLVED),
     totalCostUnderStaffing_(-1),
@@ -497,10 +481,6 @@ void Solver::loadSolution(const vector<Roster> &solution) {
 // copy the solver solution to this solver
 void Solver::copySolution(Solver *pSolver) {
   loadSolution(pSolver->solution());
-  for (const PLiveNurse &pN : pSolver->theLiveNurses_) {
-    theLiveNurses_[pN->num_]->columns_ = pN->columns_;
-    theLiveNurses_[pN->num_]->colVals_ = pN->colVals_;
-  }
 }
 
 //------------------------------------------------------------------------
@@ -774,14 +754,6 @@ void Solver::preprocessData() {
   if (!isPreprocessedSkills_) this->preprocessTheSkills();
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
 
-  // sort the skills
-  SkillSorter compareSkills(skillRarity_);
-  std::stable_sort(skillsSorted_.begin(), skillsSorted_.end(), compareSkills);
-
-  // sort the shifts (except the shift 0 which must always be rest)
-  ShiftSorter compareShifts(pScenario_->nForbiddenSuccessors());
-  std::stable_sort(shiftsSorted_.begin(), shiftsSorted_.end(), compareShifts);
-
   // sort the nurses
   sortShuffleTheNurses();
 }
@@ -936,16 +908,7 @@ double Solver::computeFractionOfIntegerInCurrentSolution() const {
 
 // get the total cost of the current solution
 // the solution is simply given by the roster of each nurse
-// TODO(AL): this needs to be refactored to use resources (each live nurse
-//  now has its active columns from which individual costs can be extracted)
 double Solver::computeSolutionCost(int nbDays, bool payExcessImmediately) {
-  if (!useDefaultResources()) {
-    std::cout << "WARNING: computeSolutionCost() works only with the default "
-                 "resources. Instead, the direct cost solution will be used."
-              << std::endl;
-    return solutionCost_;
-  }
-
   double totalCost = 0;
   int nbNurses = pScenario_->nNurses();
   int nbShifts = pScenario_->nShifts(), nbSkills = pScenario_->nSkills();
@@ -963,21 +926,26 @@ double Solver::computeSolutionCost(int nbDays, bool payExcessImmediately) {
         pNurse->roster_, pNurse->states_, nbDays, payExcessImmediately, &stat);
 
     for (int day = 0; day < nbDays; day++) {
-      totalCost += stat.costConsDays_[day] + stat.costConsDaysOff_[day] +
-          stat.costConsShifts_[day] + stat.costPref_[day]
-          + stat.costWeekEnd_[day];
-
       if (pNurse->roster_.pShift(day)->isWork()) {
         int s = pNurse->roster_.pShift(day)->id;
         satisfiedDemand_[day][s][pNurse->roster_.skill(day)]++;
       }
     }
 
-    // add total costs
-    if (reachedHorizon) {
-      totalCost += stat.costTotalDays_ + stat.costTotalWeekEnds_;
-    } else if (payExcessImmediately) {
-      totalCost += stat.costExceedingDays_ + stat.costTotalWeekEnds_;
+    // add total costs -> for INRC2 use the original cost of the problem
+    if (pScenario_->isINRC2_) {
+      for (int day = 0; day < nbDays; day++) {
+          totalCost += stat.costConsDays_[day] + stat.costConsDaysOff_[day] +
+              stat.costConsShifts_[day] + stat.costPref_[day]
+              + stat.costWeekEnd_[day];
+      }
+      if (reachedHorizon) {
+        totalCost += stat.costTotalDays_ + stat.costTotalWeekEnds_;
+      } else if (payExcessImmediately) {
+        totalCost += stat.costExceedingDays_ + stat.costTotalWeekEnds_;
+      }
+    } else {
+      totalCost += pNurse->roster_.cost();
     }
   }
 
@@ -985,13 +953,26 @@ double Solver::computeSolutionCost(int nbDays, bool payExcessImmediately) {
   for (int day = 0; day < nbDays; day++) {
     for (int sh = 1; sh < nbShifts; sh++) {
       for (int sk = 0; sk < nbSkills; sk++) {
-        // infeasible
-        if (satisfiedDemand_[day][sh][sk] < pDemand_->minDemand_[day][sh][sk])
-          return XLARGE_SCORE;
-        int missingStaff;
-        missingStaff = std::max(0, pDemand_->optDemand_[day][sh][sk]
-            - satisfiedDemand_[day][sh][sk]);
-        totalCost += pScenario_->weights().optimalDemand * missingStaff;
+        // check min demand
+        int diff = satisfiedDemand_[day][sh][sk] -
+            pDemand_->minDemand_[day][sh][sk];
+        // hard if over-coverage forbidden
+        if (pScenario_->weights().overCoverage < 0) {
+          if (diff < 0) return XLARGE_SCORE;
+        } else {
+          if (diff < 0) {
+            totalCost -= diff * pScenario_->weights().underCoverage;
+          } else if (diff > 0) {
+            totalCost += diff * pScenario_->weights().overCoverage;
+          }
+        }
+        // check opt demand
+        if (pDemand_->isOptDemand_) {
+          int missingStaff;
+          missingStaff = std::max(0, pDemand_->optDemand_[day][sh][sk]
+              - satisfiedDemand_[day][sh][sk]);
+          totalCost += pScenario_->weights().underCoverage * missingStaff;
+        }
       }
     }
   }
@@ -1235,8 +1216,7 @@ string Solver::writeResourceCostsPerNurse(bool resetInitialState) {
 
   double totalCost = 0, totalS = 0, totalWE = 0;
   for (const auto& pN : theLiveNurses_) {
-    pN->computeCostPerType();
-    totalCost += pN->colCost_;
+    totalCost += pN->roster_.cost();
     rep << "================================" << std::endl;
     rep << "Employee: " << pN->name_
         << ", Contract: " << pN->pContract_->name_ << std::endl;
@@ -1269,9 +1249,9 @@ string Solver::writeResourceCostsPerNurse(bool resetInitialState) {
     }
     for (int t = CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++) {
       auto ct = (CostType) t;
-      if (pN->colCostPerType_.at(ct) > 0) {
+      if (pN->roster_.costs().at(ct) > 0) {
         rep << "\t" << namesByCostType.at(ct)
-            << ": " << pN->colCostPerType_.at(ct) << std::endl;
+            << ": " << pN->roster_.costs().at(ct) << std::endl;
       }
     }
   }
@@ -1315,7 +1295,7 @@ string Solver::writeResourceCostsINRC2() {
       for (int sk = 0; sk < nbSkills; sk++) {
         violMinCover += std::max(0, pDemand_->minDemand_[day][sh][sk]
             - satisfiedDemand_[day][sh][sk]);
-        costOptCover += pScenario_->weights().optimalDemand
+        costOptCover += pScenario_->weights().underCoverage
             * std::max(0, pDemand_->optDemand_[day][sh][sk]
                 - satisfiedDemand_[day][sh][sk]);
       }

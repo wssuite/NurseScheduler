@@ -102,26 +102,25 @@ class SoftForbiddenPatternResource : public ForbiddenPatternResource {
   explicit SoftForbiddenPatternResource(
       Pattern pattern,
       double cost,
-      const std::string& _name = "Soft forbidden pattern cons") :
+      const std::string &_name = "Soft forbidden pattern cons") :
       ForbiddenPatternResource(_name, std::move(pattern)), cost_(cost) {
     costType_ = FORBIDDEN_PATTERN_COST;
   }
 
-  BaseResource* clone() const override {
+  BaseResource *clone() const override {
     return new SoftForbiddenPatternResource(
         pattern_, cost_, name);
   }
 
-  bool isHard() const override {return false;}
+  bool isHard() const override { return false; }
 
-  double getCost() const override {return cost_;}
+  double getCost() const override { return cost_; }
 
   void preprocess(const PRCGraph &pRCGraph) override;
-  bool preprocess(const PRCArc& pA, double *cost) override;
+  bool preprocess(const PRCArc &pA, double *cost) override;
 
-  bool dominates(const PRCLabel &pL1,
-                 const PRCLabel &pL2,
-                 double *cost) const override;
+  DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const override;
 
   bool merge(const ResourceValues &vForward,
              const ResourceValues &vBack,
@@ -157,24 +156,23 @@ class SoftForbiddenPatternResource : public ForbiddenPatternResource {
 class HardForbiddenPatternResource : public ForbiddenPatternResource {
  public:
   explicit HardForbiddenPatternResource(
-      Pattern  pattern,
-      const std::string& name = "Hard forbidden pattern cons") :
+      Pattern pattern,
+      const std::string &name = "Hard forbidden pattern cons") :
       ForbiddenPatternResource(name, std::move(pattern)) {
     costType_ = NO_COST;
   }
 
-  BaseResource* clone() const override {
+  BaseResource *clone() const override {
     return new HardForbiddenPatternResource(pattern_, name);
   }
 
-  bool isHard() const override {return true;}
+  bool isHard() const override { return true; }
 
   void preprocess(const PRCGraph &pRCGraph) override;
-  bool preprocess(const PRCArc& pA, double *cost) override;
+  bool preprocess(const PRCArc &pA, double *cost) override;
 
-  bool dominates(const PRCLabel &pL1,
-                 const PRCLabel &pL2,
-                 double *cost) const override;
+  DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const override;
 
   bool merge(const ResourceValues &vForward,
              const ResourceValues &vBack,
@@ -185,7 +183,7 @@ class HardForbiddenPatternResource : public ForbiddenPatternResource {
   // TODO(AL): we will hit an issue when the pattern includes rest shifts in
   //  the rotation decomposition ; this is not handled at all
   bool isInRotationMaster() const override {
-    for (const auto& pS : pattern_.pAShifts_)
+    for (const auto &pS : pattern_.pAShifts_)
       if (pS->isRest())
         Tools::throwError("ForbiddenPatternResource cannot handle a rest shift "
                           "in the pattern if using a rotation decomposition.");

@@ -515,6 +515,10 @@ class BcpModeler : public CoinModeler {
     return pPricer_->isLastRunOptimal();
   }
 
+  bool isLastPricingLowerBounded() const {
+    return pPricer_->isLastRunLowerBounded();
+  }
+
   double getLastObj() const {
     return obj_history_.empty() ? INFINITY : obj_history_.back();
   }
@@ -533,6 +537,11 @@ class BcpModeler : public CoinModeler {
   const MyPNode &getNode(const CoinTreeSiblings *s);
 
   double updateNodeLB(double lb) override;
+
+  // fix maximum value of the best LB. In general, it's due to a branch that has
+  // been cut, but should have not. It can only happen when not solving
+  // subproblems to optimality.
+  void fixMaxBestLb(double lb);
 
   /*
    * Parameters getters

@@ -30,9 +30,6 @@ add_subdirectory(data)
 add_subdirectory(solvers)
 add_subdirectory(tools)
 
-set(SOURCE_FILES ParseArguments.cpp
-        ReadWrite.cpp)
-
 # build the dynamic library
 if (DEFINED RCSPP_SHARED)
     MESSAGE("Linking rcspp as a shared library.")
@@ -40,13 +37,13 @@ if (DEFINED RCSPP_SHARED)
     add_library(nsbase SHARED Parameters.cpp ParseArguments.cpp)
     target_link_libraries(nsbase data tools ${LIBS})
     # shared library for rcspp
-    add_library(${NURSE_SCHEDULER_LIB} SHARED ReadWrite.cpp)
+    add_library(${NURSE_SCHEDULER_LIB} SHARED ReadWrite.cpp InitializeInstance.cpp)
     target_link_libraries(${NURSE_SCHEDULER_LIB} solvers nsbase rcspp ${LIBS})
     # ensure that relink is always build before nsbase and NURSE_SCHEDULER_LIB
     add_dependencies(nsbase relink)
 else()
     add_library(${NURSE_SCHEDULER_LIB} SHARED
-            Parameters.cpp ParseArguments.cpp ReadWrite.cpp solvers/InitializeSolver.cpp solvers/DeterministicSolver.cpp)
+            Parameters.cpp ParseArguments.cpp ReadWrite.cpp InitializeInstance.cpp solvers/DeterministicSolver.cpp)
     target_link_libraries(${NURSE_SCHEDULER_LIB} data solvers tools ${LIBS})
     # ensure that relink is always build before NURSE_SCHEDULER_LIB
     add_dependencies(${NURSE_SCHEDULER_LIB} relink)

@@ -164,10 +164,7 @@ void Position::init() {
   for (int sk = 0; sk < nSkills(); sk++)
     skillRarity_.push_back(1.0);
 
-  allSkills_ = skills_;
-  allSkills_.reserve(nSkills() + nAltSkills());
-  allSkills_.insert(allSkills_.end(),
-                    alternativeSkills_.begin(), alternativeSkills_.end());
+  allSkills_ = Tools::appendVectors(skills_, alternativeSkills_);
   std::sort(allSkills_.begin(), allSkills_.end());
 }
 
@@ -361,13 +358,7 @@ const Wish& Preferences::addShiftOff(int nurseNum,
                                      int day,
                                      const PAbstractShift &pAShift,
                                      double cost) {
-  return addShift(nurseNum, day, Wish(pAShift, cost, true));
-}
-
-// Adds the whole day to the wish-list
-const Wish& Preferences::addDayOff(int nurseNum, int day, double cost) {
-  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
-  return addShiftOff(nurseNum, day, pWork, cost);
+  return addShift(nurseNum, day, Wish(pAShift, true, cost));
 }
 
 // Returns the cost of the nurse wish for the shift
@@ -401,13 +392,7 @@ const Wish& Preferences::addShiftOn(int nurseNum,
                                     int day,
                                     const PAbstractShift &pAShift,
                                     double cost) {
-  return addShift(nurseNum, day, Wish(pAShift, cost, false));
-}
-
-// Adds the whole day to the wish-list
-const Wish& Preferences::addDayOn(int nurseNum, int day, double cost) {
-  PAbstractShift pWork = std::make_shared<AnyWorkShift>();
-  return addShiftOn(nurseNum, day, pWork, cost);
+  return addShift(nurseNum, day, Wish(pAShift, false, cost));
 }
 
 // Total number of shifts on that the nurse wants

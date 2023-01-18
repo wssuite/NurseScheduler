@@ -231,13 +231,13 @@ struct RestTree : public MyTree {
   void addForbiddenShifts(PLiveNurse pNurse,
                           std::set<std::pair<int, int> > *forbidenShifts);
 
-  bool is_columns_node() const {
+  bool isColumnsNode() const {
     return dynamic_cast<ColumnsNode*>(currentNode_.get()) != nullptr;
   }
 
   bool continueDiving() const {
-    if (is_columns_node()) return true;
-    return (diveDepth_ <= std::max(min_depth_ + 10, diveLength_));
+    if (isColumnsNode()) return true;
+    return (diveDepth_ <= std::max(minDepth_ + 10, diveLength_));
   }
 
   void reset();

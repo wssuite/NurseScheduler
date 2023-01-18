@@ -33,19 +33,23 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   auto itShift = stretch.pShifts().begin();
   for (; itShift != stretch.pShifts().end(); itShift++) {
     // same shift ->increment consBeforeReset
-    if (r.pShift()->includes(**itShift)) {
+    if (r.pAShift()->includes(**itShift)) {
       consBeforeReset += 1;
       continue;
     }
     // reset ? either was working on this shift just before or
     // has already worked some same shifts here
-    reset = r.pShift()->includes(prevAShift) || consBeforeReset > 0;
+    reset = r.pAShift()->includes(prevAShift) || consBeforeReset > 0;
     if (reset)
       break;
   }
 
   if (consBeforeReset > r.getUb()) {
-    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+    if (r.isHard()) {
+      std::cerr << "Infeasible arc for " << r.name <<std::endl;
+      std::cerr << stretch.toString() << std::endl;
+      Tools::throwError("RCSPP arc is infeasible");
+    }
     cost += getCost(consBeforeReset);
     consBeforeReset = r.getUb();
   }
@@ -54,13 +58,17 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   // -> after reset
   for (; itShift != stretch.pShifts().end(); itShift++) {
     // same shift
-    if (r.pShift()->includes(**itShift)) {
+    if (r.pAShift()->includes(**itShift)) {
       consAfterReset++;
     } else {
       // different shifts
       if (consAfterReset == 0) continue;
       if (consAfterReset < r.getLb() || consAfterReset > r.getUb()) {
-        if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+        if (r.isHard()) {
+          std::cerr << "Infeasible arc for " << r.name <<std::endl;
+          std::cerr << stretch.toString() << std::endl;
+          Tools::throwError("RCSPP arc is infeasible");
+        }
         cost += getCost(consAfterReset);
       }
       consAfterReset = 0;
@@ -73,14 +81,22 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   // pay all cost if it's the end of the sequence
   bool arcToSink = pArc->target->type == SINK_NODE;
   if (consAfterReset > r.getUb()) {
-    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+    if (r.isHard()) {
+      std::cerr << "Infeasible arc for " << r.name <<std::endl;
+      std::cerr << stretch.toString() << std::endl;
+      Tools::throwError("RCSPP arc is infeasible");
+    }
     cost += getCost(consAfterReset);
     consAfterReset = r.getUb();
   }
 
   if (arcToSink && r.lastDayEndsSequence() &&
       consAfterReset > 0 && consAfterReset < r.getLb()) {
-    if (r.isHard()) Tools::throwError("RCSPP arc is infeasible");
+    if (r.isHard()) {
+      std::cerr << "Infeasible arc for " << r.name <<std::endl;
+      std::cerr << stretch.toString() << std::endl;
+      Tools::throwError("RCSPP arc is infeasible");
+    }
     // pay for violations of soft bounds when at the end of horizon in INRC
     cost += getCost(consAfterReset);
   }
@@ -96,7 +112,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
   // The arc starts the consumption of the resource if the previous shift is
   // not included in the resource abstract shift, and if the resource shift
   // is consumed before reset
-  bool start = (!r.pShift()->includes(prevAShift)) && (consBeforeReset > 0);
+  bool start = (!r.pAShift()->includes(prevAShift)) && (consBeforeReset > 0);
   // number of days before the start of the stretch (beware that indices of
   // days start at 0)
   std::pair<int, int> firstLastDays = r.getFirstLastDays(stretch);
@@ -143,12 +159,6 @@ void SoftConsShiftResource::enumerate(const PRCGraph &pRCGraph,
 
   // check if ub is active
   bool activeUB = ub_ < totalNbDays_ * maxConsumptionPerDay();
-
-  // enumerate for all possibilities of shifts succession of this type
-  std::set<PShift> includedShifts;
-  for (const PShift &pS : pRCGraph->pShifts())
-    if (pAShift_->includes(*pS))
-      includedShifts.insert(pS);
 
   for (const PRCNode &pOrigin : pRCGraph->pNodes()) {
     // do not treat a sink node
@@ -205,12 +215,12 @@ void SoftConsShiftResource::enumerate(const PRCGraph &pRCGraph,
         vector<Stretch> newStretches;
 
         // add a shift of same type
-        for (const PShift &pShift : includedShifts) {
+        for (const PShift &pShift : pAShift_->pIncludedShifts()) {
           // Target node of the arc that will be added
           PRCNode pTarget = nullptr;
-          for (const PRCNode &pN : pRCGraph->pNodesPerDayId(
-              pOrigin->dayId + d)) {
-            if (pShift->equals(*pN->pAShift)) {
+          for (const PRCNode &pN :
+              pRCGraph->pNodesPerDayId(pOrigin->dayId + d)) {
+            if (pN->pAShift->includes(*pShift)) {
               pTarget = pN;
               break;
             }
@@ -235,7 +245,7 @@ void SoftConsShiftResource::enumerate(const PRCGraph &pRCGraph,
             // if always counted).
             // also, add initialCons in case of starting from day -1,
             // generally it's 0.
-            if (pTarget->type != SINK_NODE  || lastDayEndsSequence_)
+            if (pTarget->type != SINK_NODE || lastDayEndsSequence_)
               pNewArc->addBaseCost(getLbCost(st.nDays() + initialCons));
           }
         }
@@ -271,7 +281,7 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
   // exceed the upper bounds
   if (vChild->consumption > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addConsShiftCost(resource_.getUbCost(vChild->consumption));
 #endif
     // beware: we never need to store a consumption larger than the upper bound
@@ -285,9 +295,10 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
 
     // pay for violations of soft bounds when resetting a resource if the
     // consumption is > 0. It could be null when pricing rotations
-    if (vChild->consumption > 0) {
+    if (vChild->consumption > 0 &&
+       (resource_.enforceLBAtStart() || vChild->consumption < nDaysBefore)) {
       pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
       pLChild->addConsShiftCost(
           resource_.getLbCost(vChild->consumption));
 #endif
@@ -302,7 +313,7 @@ bool SoftConsShiftExpander::expand(const PRCLabel &pLChild,
     // when a reset has happened, this lb cost has been already paid in the init
     pLChild->addBaseCost(
         resource_.getLbCost(vChild->consumption));
-#ifdef DBG
+#ifdef NS_DEBUG
     pLChild->addConsShiftCost(
           resource_.getLbCost(vChild->consumption));
 #endif
@@ -416,6 +427,14 @@ bool HardConsShiftResource::merge(const ResourceValues &vForward,
   return HardBoundedResource::merge(vForward, vBack, vMerged, pLMerged);
 }
 
+DominationStatus HardConsShiftResource::dominates(
+    RCLabel *pL1, RCLabel *pL2, double *cost) const {
+  double conso1 = pL1->getConsumption(id_), conso2 = pL2->getConsumption(id_);
+  if (conso1 == conso2) return DOMINATED;
+  if (conso1 < conso2) return conso1 >= lb_ ? DOMINATED : UB_DOMINATED;
+  return ub_ >= totalNbDays_ ? DOMINATED : NOT_DOMINATED;
+}
+
 bool HardConsShiftExpander::expand(const PRCLabel &pLChild,
                                    ResourceValues *vChild) {
   // consumption before resetting resource if any reset
@@ -435,7 +454,7 @@ bool HardConsShiftExpander::expand(const PRCLabel &pLChild,
 
   // if resetting counter
   if (reset) {
-#ifdef DBG
+#ifdef NS_DEBUG
     // It could never be equal to 0, as there is at least 1 consumption for the
     // shift of the current node
     if (vChild->consumption  == 0)
@@ -445,7 +464,9 @@ bool HardConsShiftExpander::expand(const PRCLabel &pLChild,
     if (vChild->cyclicConsumption == -1)
       vChild->cyclicConsumption = vChild->consumption;
     // expansion is infeasible if consumption lower than bound at reset
-    if (vChild->consumption < resource_.getLb())
+    // if enforce lower bound at start
+    if (vChild->consumption < resource_.getLb() &&
+        (resource_.enforceLBAtStart() || vChild->consumption < nDaysBefore))
       return false;
     // set new consumption to what is consumed after resetting
     vChild->consumption = consAfterReset;
@@ -469,7 +490,9 @@ bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
       if (vChild->consumption > resource_.getUb()) return false;
       // expansion is infeasible if consumption lower than bound at reset
       // check lower bound only if the consecutive shifts did not end at a sink
-      if (vChild->consumption < nDaysLeft + 1)
+      // or the sequence must be priced at the end
+      if (vChild->consumption < nDaysLeft + 1 ||
+          resource_.lastDayEndsSequence())
         if (vChild->consumption < resource_.getLb()) return false;
     }
     // set new consumption to what is consumed before resetting
@@ -483,7 +506,7 @@ bool HardConsShiftExpander::expandBack(const PRCLabel &pLChild,
 
   // check lower bound if the arc starts the consumption of the resource
   if (start) {
-    if (vChild->consumption < nDaysLeft + 1)
+    if (resource_.lastDayEndsSequence() || vChild->consumption < nDaysLeft + 1)
       if (vChild->consumption < resource_.getLb()) return false;
     vChild->consumption = 0;
   }

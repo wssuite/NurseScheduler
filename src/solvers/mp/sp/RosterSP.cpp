@@ -32,22 +32,25 @@ RosterSP::RosterSP(PScenario pScenario,
 
 
 void RosterSP::createNodes(const PRCGraph &pRCGraph) {
+  // create source
   auto pDay = pScenario_->firstDay_.previous();
-  pRCGraph->addSingleNode(SOURCE_NODE, pDay,
-                          pLiveNurse_->pStateIni_->pShift_);
-  // principal network is from day 0 to day nDays_-2
-  for (int d = 0; d < nDays_ - 1 ; ++d) {
-    pDay = pDay->next();
-    for (const auto &pShift : pScenario_->pShifts())
-      pNodesPerDay_[d][pShift->id] =
-          pRCGraph->addSingleNode(PRINCIPAL_NETWORK, pDay, pShift);
-  }
+  int t = pLiveNurse_->pStateIni_->pShift_->type;
+  // it may happen that the initial shift is a special shift, so no shift type
+  // will be counted for it
+  const auto &pASSource = t >= 0 ?
+      pScenario_->pAnyTypeShift(t) :
+      pLiveNurse_->pStateIni_->pShift_;
+  pRCGraph->addSingleNode(SOURCE_NODE, pDay, pASSource);
 
-  // every shift on the last day is a sink
-  pDay = pDay->next();
-  for (const auto &pShift : pScenario_->pShifts())
-    pNodesPerDay_[nDays_ - 1][pShift->id] =
-        pRCGraph->addSingleNode(SINK_NODE, pDay, pShift);
+  // principal network is from day 0 to day nDays_-1 (the sinks)
+  for (int d = 0; d <= nDays_ - 1 ; ++d) {
+    pDay = pDay->next();
+    for (int t=0; t < pScenario_->nShiftTypes(); t++)
+      pNodesPerDay_[d][t] =
+          pRCGraph->addSingleNode(
+              d == nDays_ - 1 ? SINK_NODE : PRINCIPAL_NETWORK, pDay,
+              pScenario_->pAnyTypeShift(t));
+  }
 }
 
 
@@ -59,20 +62,21 @@ void RosterSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from source to first day
   for (auto shiftId : pLiveNurse_->pStateIni_->pShift_->successors) {
     if (pLiveNurse_->isShiftNotAvailNorAlt(shiftId)) continue;
-    const PRCNode &pN = pNodesPerDay_[0][shiftId];
-    addSingleArc(
-        pRCGraph, pRCGraph->pSource(0), pN, pScenario_->pShift(shiftId), 0);
+    const PShift &pS = pScenario_->pShift(shiftId);
+    const PRCNode &pN = pNodesPerDay_[0][pS->type];
+    addSingleArc(pRCGraph, pRCGraph->pSource(0), pN, pS, 0);
   }
 
   // arcs from the previous day to current day;
   // those from nDays-2 to nDays-1 are the arcs to the sinks
   for (int d = 1; d < nDays_; ++d) {
     for (const PShift &pS : pScenario_->pShifts()) {
-      const PRCNode &pOrigin = pNodesPerDay_[d-1][pS->id];
+      const PRCNode &pOrigin = pNodesPerDay_[d-1][pS->type];
       for (int succId : pS->successors) {
         if (pLiveNurse_->isShiftNotAvailNorAlt(succId)) continue;
-        const PRCNode &pTarget = pNodesPerDay_[d][succId];
-        addSingleArc(pRCGraph, pOrigin, pTarget, pScenario_->pShift(succId), d);
+        const PShift &pS = pScenario_->pShift(succId);
+        const PRCNode &pTarget = pNodesPerDay_[d][pS->type];
+        addSingleArc(pRCGraph, pOrigin, pTarget, pS, d);
       }
     }
   }
@@ -89,7 +93,7 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   /************************************************
    * Compute all the costs of a roster:
    ************************************************/
-#ifdef DBG
+#ifdef NS_DEBUG
   double cost = rcSol->cost();
   PRCLabel pL = rcSol->pLabel_;
 #endif
@@ -100,7 +104,7 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   vector<PResource> pActiveResources =
       computeResourcesCosts(*pLiveNurse_->pStateIni_, rcSol);
 
-#ifdef DBG
+#ifdef NS_DEBUG
   if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: rcspp " << cost

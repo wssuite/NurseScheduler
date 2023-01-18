@@ -2,9 +2,6 @@
 add_executable(staticscheduler DeterministicMain.cpp)
 target_link_libraries(staticscheduler ${NURSE_SCHEDULER_LIB})
 
-add_executable(inrc INRCMain.cpp)
-target_link_libraries(inrc ${NURSE_SCHEDULER_LIB})
-
 add_executable(dynamicscheduler DynamicMain.cpp)
 target_link_libraries(dynamicscheduler ${NURSE_SCHEDULER_LIB})
 

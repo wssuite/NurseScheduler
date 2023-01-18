@@ -198,7 +198,7 @@ shared_ptr<E> initExpander(const AbstractShift &prevAShift,
             Tools::throwError("Forbidden patterns should be detected earlier "
                               "in hard constraints");
           } else {
-            // if the resource is soft, the the cost of the arc has already
+            // if the resource is soft, the cost of the arc has already
             // been updated, so we just need to go on with the computation of
             // the start consumption
             conso = 0;
@@ -351,16 +351,17 @@ double SoftForbiddenPatternResource::computeBaseCost(
 
 // TODO(AL): ensure later that domination could be improved.
 //  Beware of the indices and conso = 0
-bool SoftForbiddenPatternResource::dominates(const PRCLabel &pL1,
-                                             const PRCLabel &pL2,
-                                             double *cost) const {
+DominationStatus SoftForbiddenPatternResource::dominates(
+    RCLabel *pL1, RCLabel *pL2, double *cost) const {
   int conso1 = pL1->getConsumption(id_);
   int conso2 = pL2->getConsumption(id_);
   // first, treat the  cases where the pattern cannot appear in the
   // propagation of L1 if it does not appear in that of L2
   if ((conso1 == 0) || (conso2 == conso1)) {
-    return true;
+    return DOMINATED;
   }
+  // compute the size of repeatStartPattern_[c2] \ repeatStartPattern_[c1]
+  int nRepeat = 1;
   if (conso2 > conso1) {
     // when the consumption of pL2 is greater than that in pL1, we must check
     // if the piece of the pattern recorded in pL2 is not repeated at the end
@@ -368,33 +369,35 @@ bool SoftForbiddenPatternResource::dominates(const PRCLabel &pL1,
     // this test must be done differently in forward and backward propagation,
     // which can be tested with the presence of an inArc in the label
     if (pL1->getInArc() != nullptr) {
-      for (const auto &c : repeatStartPattern_[conso1])
-        if (c == conso2) return true;
+      for (const auto &c : repeatStartPattern_[conso1]) {
+        if (c == conso2) break;
+        nRepeat++;
+      }
     } else {
-      for (const auto &c : repeatEndPattern_[conso1])
-        if (c == conso2) return true;
+      for (const auto &c : repeatEndPattern_[conso1]) {
+        if (c == conso2) break;
+        nRepeat++;
+      }
     }
   }
 
   // if no cost -> same as hard domination
-  if (cost == nullptr) return false;
+  if (cost == nullptr) return NOT_DOMINATED;
 
   // in every other case, the pattern can appear in the propagation of L1,
   // but not in that of L2
-  *cost += this->cost_;
-  return true;
+  *cost += this->cost_ * nRepeat;
+  return DOMINATED;
 }
 
-bool HardForbiddenPatternResource::dominates(const PRCLabel &pL1,
-                                             const PRCLabel &pL2,
-                                             double *cost) const {
+DominationStatus HardForbiddenPatternResource::dominates(
+    RCLabel *pL1, RCLabel *pL2, double *cost) const {
   int conso1 = pL1->getConsumption(id_);
   int conso2 = pL2->getConsumption(id_);
   // first, treat the  cases where the pattern cannot appear in the
   // propagation of L1 if it does not appear in that of L2
-  if ((conso1 == 0) || (conso2 == conso1)) {
-    return true;
-  }
+  if ((conso1 == 0) || (conso2 == conso1))
+    return DOMINATED;
 
   if (conso2 > conso1) {
     // when the consumption of pL2 is greater than that in pL1, we must check
@@ -404,16 +407,16 @@ bool HardForbiddenPatternResource::dominates(const PRCLabel &pL1,
     // which can be tested with the presence of an inArc in the label
     if (pL1->getInArc() != nullptr) {
       for (const auto &c : repeatStartPattern_[conso1])
-        if (c == conso2) return true;
+        if (c == conso2) return DOMINATED;
     } else {
       for (const auto &c : repeatEndPattern_[conso1])
-        if (c == conso2) return true;
+        if (c == conso2) return DOMINATED;
     }
   }
 
   // in every other case, the pattern can appear in the propagation of L1,
   // but not in that of L2
-  return false;
+  return NOT_DOMINATED;
 }
 
 bool SoftForbiddenPatternResource::merge(const ResourceValues &vForward,
@@ -505,6 +508,7 @@ bool HardForbiddenPatternExpander::expandBack(const PRCLabel &pLChild,
 
   return vChild->consumption < resource_.getUb();
 }
+
 void SoftForbiddenPatternResource::preprocess(const PRCGraph &pRCGraph) {
   if (pattern_.size_ == 2) {
     // as a generic preprocessing, we only want to preprocess the forbidden
@@ -560,7 +564,7 @@ bool SoftForbiddenPatternResource::preprocess(
       isStarted = false;
     ++itS;
   }
-#ifdef DBG
+#ifdef NS_DEBUG
   double c = computeBaseCost(pA->stretch, pA->origin->pAShift);
   if (abs(c-*cost) > 1e-5) {
     std::cout << pA->stretch.toString() << std::endl;
@@ -578,7 +582,7 @@ void HardForbiddenPatternResource::preprocess(const PRCGraph &pRCGraph) {
     for (const PRCArc &pA : pRCGraph->pArcs()) {
       double cost = 0;
       if (!preprocess(pA, &cost))
-        pRCGraph->forbidArc(pA);
+        pRCGraph->forbidArc(pA, true);
     }
     // mark the resource as preprocessed to ignore in the RCSPP
     isPreprocessed_ = true;

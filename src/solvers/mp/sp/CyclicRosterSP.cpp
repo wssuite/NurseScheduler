@@ -114,7 +114,7 @@ void OffsetRosterSP::createArcs(const PRCGraph &pRCGraph) {
 
 bool OffsetRosterSP::postprocess() {
   for (RCSolution &sol : theSolutions_) {
-#ifdef DBG
+#ifdef NS_DEBUG
     if (sol.firstDayId() != firstDayId_)
       Tools::throwError("The RC solution and the offset grapb do not start "
                         "on the same day.");
@@ -123,7 +123,7 @@ bool OffsetRosterSP::postprocess() {
           "A cyclic roster cannot work on the last day before being erased.");
 #endif
     sol.popBack();  // erase last rest shift
-#ifdef DBG
+#ifdef NS_DEBUG
     if (sol.pShifts().back()->isRest())
       Tools::throwError(
           "A cyclic roster cannot rest on the last day before being rotated "
@@ -132,7 +132,7 @@ bool OffsetRosterSP::postprocess() {
     // put the last n shifts at the start of the roster
     sol.rotate(sol.firstDayId());
 
-#ifdef DBG
+#ifdef NS_DEBUG
     if (sol.firstDayId() != 0)
       Tools::throwError("A roster cannot have a first day different of 0");
     if (nDays() != sol.nDays())
@@ -187,13 +187,14 @@ void CyclicRosterSP::build() {
 bool CyclicRosterSP::solve(
     const PDualCosts &costs,
     const std::set<std::pair<int, int>> &forbiddenDayShifts,
-    double redCostBound) {
+    double redCostBound,
+    bool relaxation) {
   // resolve SPs while ont of them produces at least solution or
   // they have all been solved
   POffsetRosterSP pSP = popOffsetFront();
   std::list<POffsetRosterSP> offsetSolved = {pSP};
   timerSolve_.start();
-  while (!pSP->solve(costs, forbiddenDayShifts, redCostBound) &&
+  while (!pSP->solve(costs, forbiddenDayShifts, redCostBound, relaxation) &&
       !offsetSPs_.empty()) {
     // update offsets
     pSP = popOffsetFront();
@@ -221,7 +222,7 @@ void CyclicRosterSP::computeCost(
     MasterProblem *pMaster, RCSolution *rcSol) const {
   // check if need to rotate
   bool rotate = rcSol->firstDayId() == 0 && rcSol->pShifts().front()->isWork();
-#ifdef DBG
+#ifdef NS_DEBUG
   if (rcSol->pShifts().front()->isWork())
     Tools::throwError(
         "A cyclic roster cannot work on the first day before being rotated.");
@@ -243,7 +244,7 @@ void CyclicRosterSP::computeCost(
     rcSol->pushBack(Stretch(rcSol->lastDayId(), pScenario_->pRestShift()));
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   double cost = rcSol->cost();
 #endif
   /*
@@ -251,7 +252,7 @@ void CyclicRosterSP::computeCost(
   */
   computeResourcesCosts(*pLiveNurse_->pStateIni_, rcSol);
 
-#ifdef DBG
+#ifdef NS_DEBUG
   if (std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost
@@ -264,13 +265,13 @@ void CyclicRosterSP::computeCost(
 #endif
 
   if (rotate) {
-#ifdef DBG
+#ifdef NS_DEBUG
     if (rcSol->pShifts().back()->isWork())
       Tools::throwError(
           "A cyclic roster cannot work on the last day before being erased.");
 #endif
     rcSol->popBack();  // erase last rest shift
-#ifdef DBG
+#ifdef NS_DEBUG
     if (rcSol->pShifts().back()->isRest())
       Tools::throwError(
           "A cyclic roster cannot rest on the last day before being rotated "
@@ -279,7 +280,7 @@ void CyclicRosterSP::computeCost(
     // put the last n shifts at the start of the roster
     rcSol->rotate(rcSol->firstDayId());
 
-#ifdef DBG
+#ifdef NS_DEBUG
     if (rcSol->firstDayId() != 0)
       Tools::throwError("A roster cannot have a first day different of 0");
     if (nDays() != pMaster->nDays())

@@ -12,75 +12,70 @@
 #include "solvers/mp/sp/rcspp/RCSPP.h"
 
 #include <algorithm>
+#include <map>
 #include <memory>
+#include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
-
-int dominate(const PRCLabel &pL1,
-             const PRCLabel &pL2) {
+// return domination status of pL2
+DominationStatus dominate(RCLabel *pL1, RCLabel *pL2) {
   // Improved domination
   double cost1 = pL1->cost(), cost2 = pL2->cost();
-  for (const auto &r : pL1->getNode()->activeResources) {
+  for (const auto &pR : pL1->getNode()->activeResources) {
     // if at anytime cost1 > cost2, return false
-    if (cost1 >= cost2 + 1e-6) return 0;
-    // if pL1 doesn't dominate pL2 on resource r, stop
-    if (!r->dominates(pL1, pL2, &cost1)) return 0;
+    if (cost1 >= cost2 + 1e-6) return NOT_DOMINATED;
+    // if pL1 doesn't dominate pL2 on resource pR, stop
+    // when using default domination, only DOMINATED counts
+    // i.e.: UB_DOMINATED is like a NOT_DOMINATED when LB counts
+    if (pR->isDefaultDomination()) {
+      if (pR->dominates(pL1, pL2) != DOMINATED)
+        return NOT_DOMINATED;
+    } else {
+      // will be just paying for LB as only active for soft resources
+      if (pR->dominates(pL1, pL2, &cost1) == NOT_DOMINATED)
+        return NOT_DOMINATED;
+    }
   }
-  return cost1 <= cost2 + 1e-6;
+  return cost1 <= cost2 + 1e-6 ? DOMINATED : NOT_DOMINATED;
 }
 
 // Variants of the label setting functions when using the decrease state-space
 // relaxation where lower bounds are first ignored for the constraints on the
 // total number of shifts and the number of shifts per rotation
-// returned statuses:
-// - 0 if no domination when LBs are ignored
-// - 1 if domination with every constraint
-// - 2 if domination when LBs are ignored but not with every constraint
-int dominateNoLB(const PRCLabel &pL1,
-                 const PRCLabel &pL2)  {
+// returned statuses for pL2:
+// - NOT_DOMINATED if no domination in any case
+// - DOMINATED if domination with every constraint
+// - UB_DOMINATED if domination when LBs are ignored
+DominationStatus dominateNoLB(RCLabel *pL1, RCLabel *pL2)  {
   // We implement only improved domination for DSSR
   double cost1noLB = pL1->cost(), costOfLBs = 0;
   double cost2 = pL2->cost();
+  bool dominated = true;
   // if cost1 > cost2, return false
-  if (cost1noLB >= cost2  + 1e-6) return 0;
-  for (const auto &r : pL1->getNode()->activeResources) {
+  if (cost1noLB >= cost2  + 1e-6) return NOT_DOMINATED;
+  for (const auto &pR : pL1->getNode()->activeResources) {
     // if hard resource, just check both bounds
-    if (r->isHard()) {
-      if (!r->dominates(pL1, pL2)) return 0;
+    if (pR->isDefaultDomination()) {
+      DominationStatus status = pR->dominates(pL1, pL2);
+      if (status == NOT_DOMINATED) return NOT_DOMINATED;
+      if (status == UB_DOMINATED) dominated = false;
       continue;
     }
-    // if at anytime cost1 > cost2, return false
-    if (cost1noLB >= cost2  + 1e-6) return 0;
-    // if soft resource, evaluate worst case for UB
-    double ubDiff =
-        pL1->getWorstUbCost(r->id()) - pL2->getWorstUbCost(r->id());
-    double lbDiff =
-        pL1->getWorstLbCost(r->id()) - pL2->getWorstLbCost(r->id());
-#ifdef DBG
-    if (((lbDiff > .0) && (ubDiff > .0)) || ((lbDiff < .0) && (ubDiff < .0))) {
-      std::cout << "ubDiff = " << ubDiff << "; lbDiff = " << lbDiff <<
-                std::endl;
-      Tools::throwError("ubDiff and lbDiff should never have the same sign");
-    }
-#endif
-    double maxDiff;
-    if (r->isAnyWorkShiftResource()) {
-      // ignore the lower bounds for any resource on any working shift
-      if (lbDiff > .0) {
-        costOfLBs += lbDiff;
-        maxDiff = .0;
-      } else {
-        maxDiff = std::max(.0, ubDiff);
-      }
-    } else {
-      // for other resources, do as usual
-      maxDiff = std::max(ubDiff, lbDiff);
-    }
-    cost1noLB += maxDiff;
+    // evaluate resource
+    double c = 0;
+    DominationStatus status = pR->dominates(pL1, pL2, &c);
+    if (status == NOT_DOMINATED) return NOT_DOMINATED;
+    // ignore the lower bounds for any resource
+    if (status == UB_DOMINATED)
+      costOfLBs += c;
+    // if at anytime cost1noLB > cost2, return false
+    if (cost1noLB >= cost2  + 1e-6) return NOT_DOMINATED;
   }
-  return cost1noLB >= cost2 + 1e-6 ? 0 :
-        ((cost1noLB + costOfLBs <= cost2 + 1e-6) ? 1 : 2);
+  if (dominated && cost1noLB + costOfLBs <= cost2 + 1e-6)
+    return DOMINATED;
+  return UB_DOMINATED;
 }
 
 PRCLabel LabelPool::getNewLabel() {
@@ -109,21 +104,51 @@ void LabelPool::sort() {
   std::sort(begin(), end(), LabelCostIncreasing());
 }
 
+const std::map<std::string, RCSPPSolver::SearchLevel>
+    RCSPPSolver::searchLevelByName_ = {
+    {"NB_TO_EXPAND", NB_TO_EXPAND_},
+    {"DSSR_NO_LB", DSSR_NO_LB_},
+    {"DSSR_LB", DSSR_LB_},
+    {"INCR_DSSR_NO_LB", INCR_DSSR_NO_LB_},
+    {"INCR_DSSR_LB", INCR_DSSR_LB_},
+    {"OPTIMAL", OPTIMAL_}
+};
+
+const std::map<RCSPPSolver::SearchLevel, std::string>
+    RCSPPSolver::namesBySearchLevel_ =
+        Tools::buildNamesByType(RCSPPSolver::searchLevelByName_);
+
+std::recursive_mutex RCSPPSolver::gMutex_;
+bool RCSPPSolver::gCanComputeLB_ = true;
+bool RCSPPSolver::gWarningHasBeenPrinted_ = false;
+RCSPPSolver::SearchLevel RCSPPSolver::gMaxSearchLevel_ = OPTIMAL_;
+
 RCSPPSolver::RCSPPSolver(PRCGraph pRcGraph,
-                         SubProblemParam param) :
+                         SubProblemParam param,
+                         int seed,
+                         RCSPPSolver* pSolver) :
     pRcGraph_(std::move(pRcGraph)),
     pFactory_(std::make_shared<RCLabelFactory>()),
     labelPool_(pFactory_, 100),
     bestPrimalBound_(0.0),
+    dssrLvl_(0),
     param_(param),
     maxReducedCostBound_(0),
+    redCostLB_(-DBL_MAX),
+    useDominateNoLb_(true),
     total_number_of_nondominated_labels_(0),
     number_of_infeasible_deleted_labels_(0),
     total_number_of_generated_labels_(0),
-    total_number_of_dominations_(0) {
+    total_number_of_dominations_(0),
+    rdm_(Tools::getANewRandomGenerator(seed)),
+    timer_("RCSPP solver"),
+    maxSearchLevel_(pSolver ? pSolver->maxSearchLevel_ : OPTIMAL_),
+    computingRelaxation_(false) {
   // if we are not solving to optimality and rcsppMinNegativeLabels_ has is
   // default value, override it based on the number of columns to generate
-  if (!param_.rcsppToOptimality_) {
+  if (param_.rcsppToOptimality_ && !param.rcsppRandomStartDay_) {
+    param_.rcsppMaxNegativeLabels_ = XLARGE_SCORE;
+  } else {
     if (param_.rcsppMinNegativeLabels_ == -1)
       param_.rcsppMinNegativeLabels_ = static_cast<int>(round(
           param_.spMinColumnsRatioForIncrease_ * param_.nbMaxColumnsToAdd_));
@@ -143,45 +168,91 @@ void RCSPPSolver::resetLabels() {
   pLabelsNoExpandPerNode_.resize(nNodes);
 }
 
-std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound) {
+std::vector<RCSolution> RCSPPSolver::solve(
+    double maxReducedCostBound, bool relaxation) {
   maxReducedCostBound_ = maxReducedCostBound;
+  maxSolvingTime_ = param_.spMaxSolvingTimeSeconds_;
+
+  // set domination rules
+  for (const auto &pR : pRcGraph_->pResources()) {
+    if (param_.rcsppImprovedDomination_) pR->useAltenativeDomination();
+    else
+      pR->useDefaultDomination();
+  }
+
+  // compute a LB if possible (i.e., if it has enough time to compute an LB)
+  if (relaxation) return solveRelaxation();
+
+  // initialize the resources used for dominance
+  // if dssrLvl_ == 0 (not set or to optimality)
+  if (dssrLvl_ == 0) {
+    dssrLvl_ = param_.rcsppDssr_ ? pRcGraph_->nDays() : 0;
+    pRcGraph_->initializeDominance(dssrLvl_);
+  }
+  if (!param_.rcsppDssr_) useDominateNoLb_ = false;
+
+  // normal solve
+  return solve();
+}
+
+std::vector<RCSolution> RCSPPSolver::solve() {
+  redCostLB_ = -DBL_MAX;
+  timeRanOut_ = false;
+  timer_.start();
 
   // Displaying of the activated options for the algorithm
   displaySolveInputInfo();
 
   bestPrimalBound_ = DBL_MAX;
   vector<PRCLabel> pLabelsSinks;
+  vector<RCSolution> finalSolutions;
   // sort nodes as the graph should be acyclic
   vector<PRCNode> sortedNodes = pRcGraph_->sortNodes();
   while (true) {
+    // reset counters for infeasible labels
+    number_of_infeasible_deleted_labels_per_resource_.clear();
+    number_of_infeasible_deleted_labels_per_resource_.resize(
+        pRcGraph_->pResources().size());
+
+    // initialize the search level based on the current parameters
+    initSearchLevel();
+
+    // should normally be solved until optimality if no heuristic activated
+    isOptimal_ = param_.rcsppToOptimality_;
     vector<PRCLabel> destinationLabels;
-    if (param_.rcsppBidirectional_) {
+    // use bidirectional, only if rcsppNbToExpand_ is deactivated
+    if (param_.rcsppBidirectional_ && param_.rcsppNbToExpand_ == 0) {
       destinationLabels = bidirectionalLabelSetting(sortedNodes);
     } else {
       destinationLabels = forwardLabelSetting(sortedNodes,
                                               pRcGraph_->nDays() - 1);
     }
-    pLabelsSinks.insert(pLabelsSinks.end(),
-                        destinationLabels.begin(),
-                        destinationLabels.end());
+    pLabelsSinks = Tools::appendVectors(pLabelsSinks, destinationLabels);
+
     // Sorting by increasing cost all the labels of the sink nodes
     int nLabels = getNbLabelsBelowMaxBound(pLabelsSinks, &bestPrimalBound_);
     if (param_.verbose_ >= 3) {
       std::cout << "Current best primal bound = "
                 << bestPrimalBound_ << std::endl;
-      std::cout << "Number of negative cost labels = " << nLabels << std::endl;
+      std::cout << "Number of negative cost labels = " << nLabels
+                << std::endl;
+    }
+
+    // check if enough time left
+    if (!enoughTimeLeft()) {
+      isOptimal_ = false;
+      break;
     }
 
     if (param_.rcsppToOptimality_) {
       // if no heuristic option is activated, we can break, because
       // optimality must be reached
-      // otherwise, we prepare for a new iteration where we aim at optimality
       if (!param_.rcsppDssr_ && !param_.rcsppNbToExpand_)
         break;
       else if (!prepareForNextExecution(pRcGraph_->pNodes()))
         break;  // should never be reached
     } else {
-      // if any heuristic option is activated and we got enough negative cost
+      // if any heuristic option is activated, and we got enough negative cost
       // rosters, we can break, because we got what we were looking for
       // otherwise, we deactivate the most restrictive heuristic and get
       // prepared for a new solution
@@ -192,20 +263,20 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound) {
     }
   }
 
+  // stop timer
+  timer_.stop();
+
   // Creation of the vector containing the negative cost rosters
   // first, sort by increasing cost all the labels of the sink nodes
-  std::sort(pLabelsSinks.begin(),
-            pLabelsSinks.end(),
-            LabelCostIncreasing());
+  std::sort(pLabelsSinks.begin(), pLabelsSinks.end(), LabelCostIncreasing());
 
-  vector<RCSolution> finalSolutions;
-  for (const auto& pL : pLabelsSinks) {
+  for (const auto &pL : pLabelsSinks) {
     RCSolution solution = createSolution(pL);
-#ifdef DBG
-//    if (finalSolutions.empty()) {
-//      std::cout << "Label bound: " << maxReducedCostBound << std::endl;
-//      createSolution(pL, pRcGraph_);
-//    }
+#ifdef NS_DEBUG
+    //    if (finalSolutions.empty()) {
+    //      std::cout << "Label bound: " << maxReducedCostBound << std::endl;
+    //      createSolution(pL, pRcGraph_);
+    //    }
 #endif
     if (pL->cost() + param_.epsilon_ < maxReducedCostBound_) {
       finalSolutions.push_back(solution);
@@ -214,6 +285,197 @@ std::vector<RCSolution> RCSPPSolver::solve(double maxReducedCostBound) {
     }
   }
   displaySolveStatistics();
+
+  if (isOptimal_) {
+    redCostLB_ = maxReducedCostBound_;
+    for (const RCSolution &sol : finalSolutions)
+      if (sol.reducedCost() < redCostLB_) redCostLB_ = sol.reducedCost();
+  }
+
+  return finalSolutions;
+}
+
+std::vector<RCSolution> RCSPPSolver::solveRelaxation() {
+  // if wants a LB, check if was able to solve with a search level greater
+  // than DSSR_NO_LB_
+  if (gCanComputeLB_) {
+    maxSolvingTime_ =
+        maxSolvingTime_ * param_.spMaxSolvingTimeRatioForRelaxation_;
+    bool relaxed = maxSearchLevel_ <= DSSR_NO_LB_;
+    auto sols = computeValidLB(relaxed);
+    // stop now if asked
+    if (job_.shouldStop()) return sols;
+    // if wasn't able to compute an LB with enforced LBs, try without LBs
+    if (timeRanOut_ && !relaxed)
+      sols = computeValidLB(true);
+    // if time ran out, stop computing an LB
+    if (timeRanOut_) {
+      std::lock_guard<std::recursive_mutex> l(gMutex_);
+      gCanComputeLB_ = false;
+    }
+    // clean the graph as infeasible labels could now exist
+    resetLabels();
+    return sols;
+  }
+  return {};
+}
+
+// alert other RCSPPSolver that time ran out for this solver
+void RCSPPSolver::timeRanOut() {
+  // if already ran out of time, nothing to do
+  if (timeRanOut_) return;
+  timeRanOut_ = true;
+  std::lock_guard<std::recursive_mutex> l(gMutex_);
+  // if computing LB, nothing else
+  if (computingRelaxation_)
+    return;
+  // if already at minimum level, nothing to do
+  if (maxSearchLevel_ == NB_TO_EXPAND_) return;
+  SearchLevel newLevel = SearchLevel(searchLevel_ - 1);
+  if (newLevel == NB_TO_EXPAND_) {
+    newLevel = DSSR_NO_LB_;
+    if (!gWarningHasBeenPrinted_)
+      std::cout << "Max search was not decrease to "
+                << namesBySearchLevel_.at(NB_TO_EXPAND_)
+                << ", but " << namesBySearchLevel_.at(DSSR_NO_LB_)
+                << " instead. You should consider giving more computational "
+                   "time to the subproblems (currently "
+                << param_.spMaxSolvingTimeSeconds_
+                << " seconds)." << std::endl;
+    gWarningHasBeenPrinted_ = true;
+  }
+  if (maxSearchLevel_ > newLevel) {
+    if (param_.verbose_ >= 2)
+      std::cout << "RCSPPSolver: Decrease max search to level "
+                << namesBySearchLevel_.at(newLevel) << std::endl;
+    maxSearchLevel_ = newLevel;
+  }
+  if (gMaxSearchLevel_ > newLevel) {
+    if (param_.verbose_ >= 1)
+      std::cout << "RCSPPSolver: Decrease global max search to level "
+                << namesBySearchLevel_.at(newLevel) << std::endl;
+    gMaxSearchLevel_ = newLevel;
+  }
+}
+
+// check if there is enough time left to continue the resolution
+// if not, update timeRanOut
+bool RCSPPSolver::enoughTimeLeft() {
+  // always perform at least NB_TO_EXPAND
+  if (searchLevel_ == NB_TO_EXPAND_) return true;
+  // if exceed time limit
+  if (timer_.dSinceStart() > maxSolvingTime_)
+    timeRanOut();
+  else if (computingRelaxation_)
+    return gCanComputeLB_ && !job_.shouldStop();
+  if (param_.rcsppUseGlobalMaxLevel_ && gMaxSearchLevel_ < maxSearchLevel_)
+    maxSearchLevel_ = gMaxSearchLevel_;
+  if (searchLevel_ <= maxSearchLevel_) return true;
+  return false;
+}
+
+void RCSPPSolver::initSearchLevel() {
+  if (param_.rcsppNbToExpand_ > 0) {
+    searchLevel_ = NB_TO_EXPAND_;
+  } else if (param_.rcsppToOptimality_) {
+    searchLevel_ = OPTIMAL_;
+  } else if (param_.rcsppDssr_) {
+    if (dssrLvl_ == pRcGraph_->nDays())
+      searchLevel_ = useDominateNoLb_ ? DSSR_NO_LB_ : DSSR_LB_;
+    else
+      searchLevel_ = useDominateNoLb_ ? INCR_DSSR_NO_LB_ : INCR_DSSR_LB_;
+  } else {
+    Tools::throwError("There is no valid RCSPP search level for those "
+                      "current parameters");
+  }
+}
+
+// compute a LB by using relaxing many resources
+std::vector<RCSolution> RCSPPSolver::computeValidLB(bool relaxedLBs) {
+  // use only necessary resources
+  std::set<int> alwaysActiveResources;
+  std::vector<PResource> otherResources;
+  for (const auto &pR : pRcGraph_->pResources()) {
+    if (pR->isActive(LARGE_SCORE))
+      alwaysActiveResources.insert(pR->id());
+    else
+      otherResources.push_back(pR);
+  }
+
+  // deactivate the others expanders
+  vector2D<PExpander> expanders(pRcGraph_->nArcs());
+  for (const PRCArc &pA : pRcGraph_->pArcs()) {
+    expanders[pA->id] = pA->expanders;
+    std::vector<PExpander> activeExpanders;
+    for (const PExpander &pE : pA->expanders)
+      if (alwaysActiveResources.find(pE->indResource) !=
+          alwaysActiveResources.end())
+        activeExpanders.push_back(pE);
+    pA->expanders = activeExpanders;
+  }
+
+  // clean the graph as a looser dominance would be used
+  resetLabels();
+
+  // solve the graph (and update redCostLB_ in the solve function)
+  SubProblemParam spParam = param_;
+  param_.rcsppToOptimality_ = true;
+  param_.rcsppNbToExpand_ = 0;
+  param_.rcsppDssr_ = false;
+  param_.rcsppMaxNegativeLabels_ = XLARGE_SCORE;
+  dssrLvl_ = 0;
+  pRcGraph_->initializeDominance(0);
+  useDominateNoLb_ = relaxedLBs;
+  computingRelaxation_ = true;
+  vector<RCSolution> sols = solve();
+  computingRelaxation_ = false;
+  param_ = spParam;
+
+  if (param_.verbose_ >= 2)
+    std::cout << "LB found in " << timer_.dSinceStart() << "seconds"
+              << (timeRanOut_ ? " (time ran out)" : "")
+              << (job_.shouldStop() ? " (has been stopped)" : "") << ": "
+              << redCostLB_ << " for " << (relaxedLBs ? "relaxed" : "enforced")
+              << " LBs." << std::endl;
+
+  // reactivate the others expanders
+  for (const PRCArc &pA : pRcGraph_->pArcs())
+    pA->expanders = expanders[pA->id];
+
+  // if time ran out or should stop, nothing has been produced
+  if (timeRanOut_ || job_.shouldStop())
+    return {};
+
+  // check feasibility of the paths
+  vector<RCSolution> finalSolutions;
+  double bestSolRedCost = maxReducedCostBound_;
+  for (const RCSolution &sol : sols) {
+    bool feasible = true;
+    // all the other resources must be feasible
+    const PRCNode &pO = pRcGraph_->pSource(sol.firstDayId()),
+        &pT = pRcGraph_->pNodesPerDayId(sol.lastDayId()).at(
+        sol.pShifts().back()->type);
+    PRCArc pA = std::make_shared<RCArc>(0, pO, pT, sol, 0, TO_SINK);
+    PRCLabel pL = std::make_shared<RCLabel>(*pLSources_[sol.firstDayId()]);
+    try {
+      for (const PResource &pR : otherResources) {
+        auto pE = pR->initialize(*pO->pAShift, sol, pA, pR->id());
+        ResourceValues &v = pL->getResourceValues(pR->id());
+        if (pE && !pE->expand(pL, &v)) {
+          feasible = false;
+          break;
+        }
+      }
+      if (feasible) {
+        finalSolutions.push_back(sol);
+        if (sol.reducedCost() < bestSolRedCost)
+          bestSolRedCost = sol.reducedCost();
+      }
+    } catch (...) {}
+  }
+
+  // update optimality
+  isOptimal_ = (redCostLB_ + param_.epsilon_ > bestSolRedCost);
 
   return finalSolutions;
 }
@@ -227,34 +489,72 @@ std::vector<PRCLabel> RCSPPSolver::forwardLabelSetting(
   for (const PRCLabel &pL : pLSources_) addLabelToExpand(pL);
 
   // Allow to visit each node once
-  for (const auto &pN : sortedNodes) {
-    // stop if finalDay is overcome
-    if (pN->dayId >= finalDay + 1) break;
+  int nLabelsFound = 0;
+  int k = param_.rcsppRandomStartDay_ ? rdm_() % pLSources_.size() : 0;
+  const PRCNode &pFirstSource = pRcGraph_->pSources()[k];
+  auto it = find(sortedNodes.begin(), sortedNodes.end(), pFirstSource);
+  bool hasExpandedLabels = false;
+  int currentDay = (*it)->dayId;
+  int nProcessedNodes = 0;
+  // loop while has done one whole tour or
+  // has finished to treat nodes of the current day or
+  // at least one label has been expanded on current day
+  while (nProcessedNodes < sortedNodes.size() ||
+         currentDay == (*it)->dayId || hasExpandedLabels) {
+    // check if enough time left
+    if (!enoughTimeLeft())
+      break;
+
+    const PRCNode &pN = *it;
+
+    // update day and hasExpandedLabels
+    if (currentDay != pN->dayId) {
+      hasExpandedLabels = false;
+      currentDay = pN->dayId;
+    }
 
     // Expand all the labels of the predecessors of the node through the
-    // arcs entering the node
-    pullLabelsFromPredecessors(pN);
+    // arcs entering the node if starts early enough
+    pullLabelsFromPredecessors(pN, finalDay - 1);
 
     // information of domination of newly generated labels
     size_t nLabels = labelPool_.nLabels();
-    vector<int> domStatusNew(nLabels, 0);
+    vector<DominationStatus> domStatusNew(nLabels, NOT_DOMINATED);
 
     // information of domination of former labels that have not been
     // expanded yet
     std::vector<PRCLabel> &labelsNoExpand = pLabelsNoExpandPerNode_[pN->id];
     size_t nLabelsNoExpand = labelsNoExpand.size();
-    vector<int> domStatusNewNoExpand(nLabelsNoExpand, 0);
+    vector<DominationStatus> domStatusNewNoExpand(
+        nLabelsNoExpand, NOT_DOMINATED);
 
     // if expand all the labels at the node, dominate all labels first
     if (param_.rcsppNbToExpand_ == 0) {
+      // copy any labelsToExpand in expanded (could be there from previous pass)
+      if (pN->type != SOURCE_NODE &&
+          !pLabelsToExpandPerNode_[pN->id].empty()) {
+        pExpandedLabelsPerNode_[pN->id].insert(
+            pExpandedLabelsPerNode_[pN->id].end(),
+            pLabelsToExpandPerNode_[pN->id].begin(),
+            pLabelsToExpandPerNode_[pN->id].end());
+        pLabelsToExpandPerNode_[pN->id].clear();
+      }
+
       // Domination of all the labels of the current node to get a
       // pareto-optimal set of labels
       checkAllDominations(labelPool_.begin(),
                           labelPool_.end(),
-                          !param_.rcsppDssr_ ? dominate : dominateNoLB,
+                          useDominateNoLb_ ? dominateNoLB : dominate,
                           &domStatusNew,
                           &domStatusNewNoExpand);
     }
+
+    // check if any not_dominated new labels
+    for (auto s : domStatusNew)
+      if (s == NOT_DOMINATED) {
+        hasExpandedLabels = true;
+        break;
+      }
 
     // For heuristic search, select only a subset of labels for expansion
     selectLabelsToExpand(labelPool_.begin(),
@@ -262,26 +562,46 @@ std::vector<PRCLabel> RCSPPSolver::forwardLabelSetting(
                          domStatusNew,
                          domStatusNewNoExpand, pN);
 
+    if (param_.verbose_ >= 4)
+      std::cout << "RCSSP: process node " << pN->toString()
+                << " (active resources=" << pN->activeResources.size()
+                << ", expanded labels=" << nLabels
+                << ", non dominated=" <<  pLabelsToExpandPerNode_[pN->id].size()
+                << ")" << std::endl;
+
     // clear the pool (allow to reuse labels for next node)
     labelPool_.clear();
-  }
 
-  // Collect all the labels of the final day nodes
-  for (const auto &pN : sortedNodes) {
+    // Collect all the labels of the final day nodes
     // we test on the dayId for the bidirectional label-setting
     // we test also on sink for the rotations
-    if (pN->dayId > finalDay) break;
-    if (pN->dayId == finalDay || pN->type == SINK_NODE) {
+    if (pN->dayId >= finalDay || pN->type == SINK_NODE) {
       const auto &pLabels = pLabelsToExpandPerNode_.at(pN->id);
-      destinationLabels.insert(
-          destinationLabels.end(), pLabels.begin(), pLabels.end());
+      for (const auto &pL : pLabels)
+        if (pL->getOutArc() == nullptr)
+          destinationLabels.push_back(pL);
+      // count labels that have reached a sink
+      if (pN->type == SINK_NODE) {
+        double minCost;
+        nLabelsFound += getNbLabelsBelowMaxBound(pLabels, &minCost);
+        if (nLabelsFound >= param_.rcsppMaxNegativeLabels_) {
+          isOptimal_ = false;
+          break;
+        }
+      }
     }
+
+    // next node
+    if (++it == sortedNodes.end())
+      it = sortedNodes.begin();
+    ++nProcessedNodes;
   }
 
   return destinationLabels;
 }
 
-void RCSPPSolver::pullLabelsFromPredecessors(const PRCNode& pN) {
+void RCSPPSolver::pullLabelsFromPredecessors(
+    const PRCNode& pN, int predecessorMaxDay) {
   // Define default expansion function
   std::function<bool(const PRCLabel &, const PRCArc &)> func  =
       [&](const PRCLabel &pL, const PRCArc &pArc) {
@@ -293,8 +613,7 @@ void RCSPPSolver::pullLabelsFromPredecessors(const PRCNode& pN) {
     func = [&](const PRCLabel &pL, const PRCArc &pArc) {
       // check if possible to obtain a negative cost for the current label
       // when enable, then, expansion on the current arc
-      return hasPotentialImprovingPathToSinks(
-          pL, pArc->origin->id, -1e-6) &&
+      return hasPotentialImprovingPathToSinks(pL, pArc->origin->id, -1e-6) &&
           expand(pL, pArc, labelPool_.getNewLabel());
     };
   }
@@ -302,6 +621,8 @@ void RCSPPSolver::pullLabelsFromPredecessors(const PRCNode& pN) {
   // expand labels from all predecessors
   for (const auto &pArc : pN->inArcs) {
     if (pArc->forbidden) continue;  // do not use forbidden arcs
+    // arcs that do not start early enough
+    if (pArc->origin->dayId > predecessorMaxDay) continue;
     for (const auto &pL : pLabelsToExpandPerNode_.at(pArc->origin->id)) {
       // Expand the labels
       if (func(pL, pArc)) total_number_of_generated_labels_++;
@@ -321,13 +642,14 @@ bool RCSPPSolver::expand(
     ResourceValues &v = pLChild->getResourceValues(e->indResource);
     if (!e->expand(pLChild, &v)) {
       labelPool_.releaseLastLabel();
+      number_of_infeasible_deleted_labels_per_resource_[e->indResource]++;
       return false;
     }
   }
 
   pLChild->addBaseCost(pArc->baseCost);
   pLChild->addCost(-pArc->dualCost);
-#ifdef DBG
+#ifdef NS_DEBUG
   pLChild->addDualCost(pArc->dualCost);
   pLChild->addPreferencesCost(pArc->baseCost);
 #endif
@@ -337,12 +659,9 @@ bool RCSPPSolver::expand(
 void RCSPPSolver::checkDominationsWithPreviousLabels(
     const vector<PRCLabel>::iterator &begin,
     const vector<PRCLabel>::iterator &end,
-    int (*domFunction)(const PRCLabel &,
-                       const PRCLabel &),
-    vector<int> *domStatus,
-    vector<int> *domStatusNoExpand) {
-
-
+    DominationStatus (*domFunction)(RCLabel *, RCLabel *),
+    vector<DominationStatus> *domStatus,
+    vector<DominationStatus> *domStatusNoExpand) {
   auto pN = (*begin)->getNode();
   std::vector<PRCLabel> &expandedLabels = pExpandedLabelsPerNode_[pN->id];
   std::vector<PRCLabel> &labelsNoExpand = pLabelsNoExpandPerNode_[pN->id];
@@ -360,25 +679,31 @@ void RCSPPSolver::checkDominationsWithPreviousLabels(
   for (auto itD1 = domStatus->begin();
        itD1 != domStatus->end();
        ++itD1, ++itL1) {
-    if (*itD1 == 1) continue;
+    if (*itD1 == DOMINATED) continue;
 
     // check if the expanded labels dominate the newly generated ones
     for (const auto& pL2 : expandedLabels) {
       total_number_of_dominations_++;
-      status = domFunction(pL2, *itL1);
-      *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
-      if (*itD1 == 1) break;
+      status = domFunction(pL2.get(), itL1->get());
+      if (status == DOMINATED) {
+        *itD1 = DOMINATED;
+        break;
+      }
+      if (status == UB_DOMINATED) *itD1 = UB_DOMINATED;
     }
-    if (*itD1 == 1) continue;
+    if (*itD1 == DOMINATED) continue;
 
     // check if the non-expanded labels dominate the newly generated ones
     for (const auto& pL2 : labelsNoExpand) {
       total_number_of_dominations_++;
-      status = domFunction(pL2, *itL1);
-      *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
-      if (*itD1 == 1) break;
+      status = domFunction(pL2.get(), itL1->get());
+      if (status == DOMINATED) {
+        *itD1 = DOMINATED;
+        break;
+      }
+      if (status == UB_DOMINATED) *itD1 = UB_DOMINATED;
     }
-    if (*itD1 == 1) continue;
+    if (*itD1 == DOMINATED) continue;
 
     // check if the non-dominated newly generated labels dominate the stored
     // labels that have not been expanded yet
@@ -386,45 +711,47 @@ void RCSPPSolver::checkDominationsWithPreviousLabels(
     for (auto itD2 = domStatusNoExpand->begin();
          itD2 != domStatusNoExpand->end();
          ++itD2, ++itL2) {
-      if (*itD2 == 1) continue;
+      if (*itD2 == DOMINATED) continue;
       total_number_of_dominations_++;
-      status = domFunction(*itL1, *itL2);
-      *itD2 = (status == 1) ? 1 : std::max(*itD2, status);
+      status = domFunction(itL1->get(), itL2->get());
+      if (status == DOMINATED) *itD2 = DOMINATED;
+      else if (status == UB_DOMINATED) *itD2 = UB_DOMINATED;
     }
   }
 }
 
-void RCSPPSolver::checkDominationsPairwise
-    (const vector<PRCLabel>::iterator &begin,
-     const vector<PRCLabel>::iterator &end,
-     int (*domFunction)(const PRCLabel &,
-                        const PRCLabel &),
-     vector<int> *domStatus) {
+void RCSPPSolver::checkDominationsPairwise(
+    const vector<PRCLabel>::iterator &begin,
+    const vector<PRCLabel>::iterator &end,
+    DominationStatus (*domFunction)(RCLabel *, RCLabel *),
+    vector<DominationStatus> *domStatus) {
   // compare newly generated labels pairwise for domination
   auto itL1 = begin;
   for (auto itD1 = domStatus->begin();
        itD1 != domStatus->end();
        ++itD1, ++itL1) {
-    if (*itD1 == 1) continue;
+    if (*itD1 == DOMINATED) continue;
 
     auto itL2 = itL1 + 1;
     int status;
     for (auto itD2 = itD1 + 1; itD2 != domStatus->end(); ++itD2, ++itL2) {
-      if (*itD2 == 1) continue;
+      if (*itD2 == DOMINATED) continue;
 
       total_number_of_dominations_++;
-      status = domFunction(*itL1, *itL2);
-      *itD2 = (status == 1) ? 1 : std::max(*itD2, status);
+      status = domFunction(itL1->get(), itL2->get());
+      if (status == DOMINATED) *itD2 = DOMINATED;
+      else if (status == UB_DOMINATED) *itD2 = UB_DOMINATED;
     }
     itL2 = itL1 + 1;
     if (param_.rcsppSortLabels_) {
       for (auto itD2 = itD1 + 1; itD2 != domStatus->end(); ++itD2, ++itL2) {
-        if (*itD2 == 1) continue;
+        if (*itD2 == DOMINATED) continue;
 
         total_number_of_dominations_++;
-        status = domFunction(*itL2, *itL1);
-        *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
-        if (*itD1 == 1) break;
+        status = domFunction(itL2->get(), itL1->get());
+        if (status == DOMINATED) *itD1 = DOMINATED;
+        else if (status == UB_DOMINATED) *itD1 = UB_DOMINATED;
+        if (*itD1 == DOMINATED) break;
 
         // when the labels are sorted by increasing cost, domination of L2
         // over L1 can be stopped being checked as soon as we find L2 with
@@ -433,12 +760,13 @@ void RCSPPSolver::checkDominationsPairwise
       }
     } else {
       for (auto itD2 = itD1 + 1; itD2 != domStatus->end(); ++itD2, ++itL2) {
-        if (*itD2 == 1) continue;
+        if (*itD2 == DOMINATED) continue;
 
         total_number_of_dominations_++;
-        status = domFunction(*itL2, *itL1);
-        *itD1 = (status == 1) ? 1 : std::max(*itD1, status);
-        if (*itD1 == 1) break;
+        status = domFunction(itL2->get(), itL1->get());
+        if (status == DOMINATED) *itD1 = DOMINATED;
+        else if (status == UB_DOMINATED) *itD1 = UB_DOMINATED;
+        if (*itD1 == DOMINATED) break;
       }
     }
   }
@@ -447,22 +775,15 @@ void RCSPPSolver::checkDominationsPairwise
 void RCSPPSolver::checkAllDominations(
     const vector<PRCLabel>::iterator &begin,
     const vector<PRCLabel>::iterator &end,
-    int (*domFunction)(const PRCLabel &, const PRCLabel &),
-    vector<int> *domStatus,
-    vector<int> *domStatusNoExpand) {
+    DominationStatus (*domFunction)(RCLabel *, RCLabel *),
+    vector<DominationStatus> *domStatus,
+    vector<DominationStatus> *domStatusNoExpand) {
   // if no labels, returns
   if (begin == end) return;
 
   // Sort the labels by increasing order before checking domination
   if (param_.rcsppSortLabels_)
     std::sort(begin, end, LabelCostIncreasing());
-
-  // compute active resources
-  for (const auto &pR : pRcGraph_->pResources()) {
-    if (param_.rcsppImprovedDomination_) pR->useAltenativeDomination();
-    else
-      pR->useDefaultDomination();
-  }
 
   // check for domination between the newly generated labels and those that
   // are already stored at the node
@@ -478,10 +799,9 @@ void RCSPPSolver::checkAllDominations(
 void RCSPPSolver::selectLabelsToExpand(
     const vector<PRCLabel>::iterator &begin,
     const vector<PRCLabel>::iterator &end,
-    const vector<int>& domStatus,
-    const vector<int>& domStatusNoExpand,
+    const vector<DominationStatus>& domStatus,
+    const vector<DominationStatus>& domStatusNoExpand,
     const PRCNode &pN) {
-
   // if no labels, returns
   size_t nLabels = std::distance(begin, end);
   vector<PRCLabel>& labelsNoExpand = pLabelsNoExpandPerNode_[pN->id];
@@ -492,7 +812,7 @@ void RCSPPSolver::selectLabelsToExpand(
   vector<PRCLabel>& labelsToExpand = pLabelsToExpandPerNode_[pN->id];
 
   // set the list of non-dominated labels for current node
-  if (param_.rcsppNbToExpand_ >= 1) {
+  if (param_.rcsppNbToExpand_ > 0) {
     std::sort(begin, end, SortForFewExpansions());
     int cnt = 0;
     for (auto itL = begin; itL != end; ++itL) {
@@ -504,12 +824,12 @@ void RCSPPSolver::selectLabelsToExpand(
   } else if (param_.rcsppDssr_) {
     auto itL = begin;
     // add the newly generated non-dominated labels
-    for (int d : domStatus) {
-      if (d == 0) {
+    for (DominationStatus d : domStatus) {
+      if (d == NOT_DOMINATED) {
         // expand the label if not dominated with relaxed constraints
         labelsToExpand.push_back(pFactory_->makePRCLabel(**itL));
         total_number_of_nondominated_labels_++;
-      } else if (d == 2) {
+      } else if (d == UB_DOMINATED) {
         // store the label without expanding it if not dominated with every
         // constraint
         labelsNoExpand.push_back(pFactory_->makePRCLabel(**itL));
@@ -519,8 +839,8 @@ void RCSPPSolver::selectLabelsToExpand(
   } else {
     auto itL = labelsNoExpand.begin();
     // add the non-expanded non-dominated labels
-    for (int d : domStatusNoExpand) {
-      if (d == 0) {
+    for (DominationStatus d : domStatusNoExpand) {
+      if (d == NOT_DOMINATED) {
         // expand the label if not dominated with every constraint
         labelsToExpand.push_back(*itL);
         total_number_of_nondominated_labels_++;
@@ -531,7 +851,7 @@ void RCSPPSolver::selectLabelsToExpand(
     itL = begin;
     // add the newly generated non-dominated labels
     for (int d : domStatus) {
-      if (d == 0) {
+      if (d == NOT_DOMINATED) {
         // expand the label if not dominated with every constraint
         labelsToExpand.push_back(pFactory_->makePRCLabel(**itL));
         total_number_of_nondominated_labels_++;
@@ -542,47 +862,211 @@ void RCSPPSolver::selectLabelsToExpand(
 }
 
 bool RCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
-  // go over activated heuristic options from the most to the least agressive
-  if (param_.rcsppNbToExpand_ >= 1) {
+  // set optimality to false, as a next execution is needed
+  isOptimal_ = false;
+  // go over activated heuristic options from the most to the least aggressive
+  if (param_.rcsppNbToExpand_ > 0) {
     // if we have expanded only a  small subset of labels at each node, we did
     // not perform any domination, so we just start the algorithm over
-    std::cout << "Did not find negative cost roster by expanding " << param_
-    .rcsppNbToExpand_ << "labels, switch to optimality" << std::endl;
+    if (param_.verbose_ >= 3) {
+      std::cout << "Did not find negative cost roster by expanding "
+                << param_.rcsppNbToExpand_ << " labels, switch to "
+                << (param_.rcsppDssr_ ? "dssr" : "optimality") << std::endl;
+    }
     param_.rcsppNbToExpand_ = 0;
     if (!param_.rcsppDssr_)
       param_.rcsppToOptimality_ = true;
-    for (const auto &pN : nodes) {
-      if (pN->type != SOURCE_NODE) {
+
+    for (const auto &pN : nodes)
+      if (pN->type != SOURCE_NODE)
         pLabelsToExpandPerNode_[pN->id].clear();
-      }
-    }
-    return true;
+    // stop current execution (return false) if enable and
+    // max search level is DSSR_NO_LB_
+    return !param_.rcsspWaitBeforeStartingNextExecution_
+        || maxSearchLevel_ != DSSR_NO_LB_;
   } else if (param_.rcsppDssr_) {
-    // if we used a decremental state-space relaxation, we wish to keep the
+    // if we used a decremental state-space relaxation, we may wish to keep the
     // expansion and domination information we got during the execution and
     // warm-start the new execution of the label-setting algorithm
-    std::cout << "Did not find negative cost roster with dssr" << std::endl;
-    param_.rcsppDssr_ = false;
-    param_.rcsppToOptimality_ = true;
     // move the labels that were expanded to the list of expanded labels
     for (const auto &pN : nodes) {
       std::vector<PRCLabel>
           &expandedLabels = pExpandedLabelsPerNode_[pN->id];
       std::vector<PRCLabel>
           &labelsToExpand = pLabelsToExpandPerNode_[pN->id];
-      expandedLabels.reserve(expandedLabels.size() + labelsToExpand.size());
-      for (const auto &pL : labelsToExpand) {
-        expandedLabels.push_back(pL);
-      }
+      expandedLabels = Tools::appendVectors(expandedLabels, labelsToExpand);
       labelsToExpand.clear();
     }
-    return true;
+
+    // DSSR will deactivate some hard constraints
+    // compute always active constraints
+    bool anyHardConstraints = false, hasLB = false;
+    std::set<int> alwaysActiveResources;
+    for (const auto &pR : pRcGraph_->pResources()) {
+      if (pR->isActive(LARGE_SCORE))
+        alwaysActiveResources.insert(pR->id());
+      if (pR->isHard())
+        anyHardConstraints = true;
+      auto pRB = std::dynamic_pointer_cast<BoundedResource>(pR);
+      if (pRB && pRB->getLb() > 0) hasLB = true;
+    }
+
+    // if all resources are always active: go to optimality (dssr lvl = 0)
+    bool sameSearchLevel = false;
+    if (pRcGraph_->pResources().size() == alwaysActiveResources.size())
+      dssrLvl_ = 0;
+
+    // if not incremental: go to no lb or optimality (dssr lvl = 0)
+    if (!param_.rcsppIncrementalDssr_) {
+      // DSSR_NO_LB -> DSSR_LB
+      if (searchLevel_ == DSSR_NO_LB_ && hasLB) {
+        useDominateNoLb_ = false;
+        if (param_.verbose_ >= 3)
+          std::cout << "Solving with dssr and LBs." << std::endl;
+        return !param_.rcsspWaitBeforeStartingNextExecution_;
+      }
+      // optimality
+      dssrLvl_ = 0;
+    } else {
+      // Incremental dssr
+      // First, find active resources
+      vector<bool> activeResources(pRcGraph_->pResources().size(), false);
+      for (const auto &pN : nodes)
+        for (const PResource &pR : pN->activeResources)
+          activeResources[pR->id()] = true;
+
+      // Second: DSSR_NO_LB -> INCR_DSSR_NO_LB (ignore LBs and adding resources)
+      // or already INCR_DSSR_NO_LB
+      bool activated = false;
+      if (useDominateNoLb_) {
+        if (searchLevel_ == DSSR_NO_LB_ && param_.verbose_ >= 3)
+          std::cout << "Solving with incremental dssr and without LB."
+                    << std::endl;
+        useDominateNoLb_ = true;
+        sameSearchLevel = (searchLevel_ == INCR_DSSR_NO_LB_);
+        // check if any inactive resource for domination has eliminated
+        // some infeasible labels. If the case, add it to the domination
+        for (const auto &pR : pRcGraph_->pResources()) {
+          if (!pR->isActive(dssrLvl_) &&
+              number_of_infeasible_deleted_labels_per_resource_[pR->id()] > 0) {
+            for (const auto &pN : nodes)
+              if (pN->activateResourceIfNecessary(pR))
+                activated = true;
+            if (activated) {
+              if (param_.verbose_ >= 3)
+                std::cout << "Activating resource " << pR->id() << " ("
+                          << pR->name << ") for dssr no LB" << std::endl;
+              return true;
+            }
+          }
+        }
+        // Then, decrease dssrLvl_ until one new resource is activated
+        int dssrLvl = dssrLvl_;
+        while (dssrLvl_ > 0) {
+          for (const auto &pR : pRcGraph_->pResources()) {
+            if (pR->isActive(dssrLvl_) && !activeResources[pR->id()]) {
+              for (const auto &pN : nodes)
+                pN->activateResourceIfNecessary(pR);
+              if (param_.verbose_ >= 3)
+                std::cout << "Activating resource " << pR->id() << " ("
+                          << pR->name << ") for dssr no LB." << std::endl;
+              activated = true;
+              break;
+            }
+          }
+          if (activated) break;
+          dssrLvl_--;
+        }
+        // if reach 0 (i.e., not activated), reset if for DSSR_LB
+        if (dssrLvl_ == 0) {
+          // DSSR_LB if any resources with LB
+          if (hasLB) {
+            useDominateNoLb_ = false;
+            dssrLvl_ = pRcGraph_->nDays();
+            // make all resources inactive except the always present ones
+            pRcGraph_->initializeDominance(dssrLvl_);
+            if (param_.verbose_ >= 3)
+              std::cout << "Solving with dssr and LBs." << std::endl;
+            return !param_.rcsspWaitBeforeStartingNextExecution_;
+          }
+          // optimality
+          dssrLvl_ = 0;
+        } else if (dssrLvl_ < dssrLvl) {
+          if (param_.verbose_ >= 3)
+            std::cout << "Increase dssr lvl to " << dssrLvl_ << std::endl;
+        }
+      }
+      // Third, INCR_DSSR_LB: Activate next resource, deactivate current one
+      // We must have more than one resource to activate,
+      // otherwise it's the same than solving to optimality
+      if (!useDominateNoLb_ &&
+          pRcGraph_->pResources().size() > alwaysActiveResources.size() + 1) {
+        // find current activated resource if any
+        int maxR = 0;
+        for (const auto &pN : nodes)
+          for (const PResource &pR : pN->activeResources)
+            if (alwaysActiveResources.find(pR->id()) ==
+                alwaysActiveResources.end() && pR->id() > maxR)
+              maxR = pR->id();
+        // initialize dominance to remove all the unnecessary resources
+        pRcGraph_->initializeDominance(pRcGraph_->nDays());
+        // find next resource
+        dssrLvl_ = 1;
+        for (const auto &pR : pRcGraph_->pResources()) {
+          // select an inactive resource bigger than current activated one
+          if (activeResources[pR->id()] || !pR->isActive(dssrLvl_)
+              || pR->id() < maxR)
+            continue;
+          // if no always active constraints has any LB,
+          // ensure the new resource has one
+          if (!hasLB) {
+            auto pRB = std::dynamic_pointer_cast<BoundedResource>(pR);
+            if (!pRB || pRB->getLb() == 0) continue;
+          }
+          // activate resource at every node
+          for (const auto &pN : nodes)
+            pN->activateResourceIfNecessary(pR);
+          if (param_.verbose_ >= 3)
+            std::cout << "Activating resource " << pR->id() << " ("
+                      << pR->name << ") for dssr with LBs." << std::endl;
+          activated = true;
+          sameSearchLevel = (searchLevel_ == INCR_DSSR_LB_);
+          break;
+        }
+      }
+
+      // if new resources are taken into account in the dominance,
+      // labels must be reset
+      if (activated)
+        resetLabels();
+      else
+        dssrLvl_ = 0;  // solve to optimality
+    }
+
+    // try other subproblems when going from dssr to incremental dssr
+    if (dssrLvl_ > 0)
+      return !param_.rcsspWaitBeforeStartingNextExecution_ || sameSearchLevel;
+
+    // set to optimality (dssrLvl = 0)
+    useDominateNoLb_ = false;
+    param_.rcsppDssr_ = false;
+    dssrLvl_ = 0;
+    param_.rcsppToOptimality_ = true;
+    pRcGraph_->initializeDominance(0);
+    // Has LB were totally ignored, domination issues could happen
+    // -> reset
+    if (anyHardConstraints)
+      resetLabels();
+    if (param_.verbose_ >= 2)
+      std::cout << "Solving to optimality." << std::endl;
+    // stop process here if set this way, and wait to being called again
+    return !param_.rcsspWaitBeforeStartingNextExecution_;
   }
   // it has been solved to optimality even if it wasn't a parameters option
   // should never be reached
-  std::cerr << "RCSPP parameters are not set correctly, as no heuristics are "
-               "enable and, at the same time, the optimality was not set "
-               "to true." << std::endl;
+  Tools::throwError("RCSPP parameters are not set correctly, as no heuristics "
+                    "are enable and, at the same time, the optimality was not "
+                    "set to true.");
   param_.rcsppToOptimality_ = true;
   return false;
 }
@@ -639,20 +1123,31 @@ std::vector<PRCLabel> RCSPPSolver::bidirectionalLabelSetting(
   int middleDay = this->pRcGraph_->nDays()/2;
   this->initializeLabels();
   vector<PRCLabel> forwardLabels = forwardLabelSetting(sortedNodes, middleDay);
-  resetLabels();
-  vector<PRCLabel> backwardLabels = backwardLabelSetting(sortedNodes,
-                                                         middleDay);
+  // store nodes where a merge should happen
+  std::vector<PRCNode> mergingNodes;
+  for (const PRCNode &pN : sortedNodes)
+    if (pN->dayId >= middleDay && !pLabelsToExpandPerNode_[pN->id].empty())
+      mergingNodes.push_back(pN);
+//  resetLabels();
+  vector<PRCLabel> backwardLabels =
+      backwardLabelSetting(sortedNodes, mergingNodes, middleDay);
+
+  // check if enough time left
+  if (!enoughTimeLeft())
+    return {};
+
   // merge the labels built by forward and backward propagation
+  if (param_.verbose_ >= 4)
+    std::cout << "RCSSP: merging ..." << std::flush;
   mergeLabels(&forwardLabels, &backwardLabels);
+  if (param_.verbose_ >= 4)
+    std::cout << " Done" << std::endl;
 
   // store the resulting negative cost labels
   vector<PRCLabel> negativeLabels;
   auto itL = labelPool_.begin();
-  for (; itL != labelPool_.end(); ++itL) {
+  for (; itL != labelPool_.end(); ++itL)
     negativeLabels.push_back(pFactory_->makePRCLabel(**itL));
-//    if (negativeLabels.back()->num() == 19932)
-//      int b = 0;
-  }
   labelPool_.clear();
 
   return negativeLabels;
@@ -672,8 +1167,6 @@ void RCSPPSolver::mergeLabels(
   for (const auto& pLForward : *pForwardLabels) {
     for (const auto& pLBackward : *pBackwardLabels) {
       // break if no future merge can yield a better negative cost roster
-      // TODO(JO): should we adapt break earlier when we have a maximum
-      //  number of negative rosters we wish to return?
       if (pLForward->cost() + pLBackward->cost() >
           std::min(bestPrimalBound_, 0.0) - param_.epsilon_) break;
       // merge only the labels that are hosted by the same node
@@ -698,6 +1191,7 @@ bool RCSPPSolver::merge(const PRCLabel& pLForward,
     ResourceValues *vMerged = &pLMerged->getResourceValues(pR->id());
     if (!pR->merge(vForward, vBackward, vMerged, pLMerged)) {
       labelPool_.releaseLastLabel();
+      number_of_infeasible_deleted_labels_per_resource_[pR->id()]++;
       return false;
     }
   }
@@ -712,12 +1206,13 @@ bool RCSPPSolver::merge(const PRCLabel& pLForward,
 }
 
 std::vector<PRCLabel> RCSPPSolver::backwardLabelSetting(
-    const std::vector<PRCNode> &sortedNodes, int finalDay) {
+    const std::vector<PRCNode> &sortedNodes,
+    const std::vector<PRCNode> &mergingNodes, int finalDay) {
   // vector of non-dominated labels at the nodes of day=finalDay
   vector<PRCLabel> destinationLabels;
 
   // add zero labels to the sink nodes and to the expansion list
-  for (const auto& pN : pRcGraph_->pSinks()) {
+  for (const auto &pN : pRcGraph_->pSinks()) {
     auto pL = std::make_shared<RCLabel>(pRcGraph_->nResources());
     pL->setNode(pN);
     pLabelsToExpandPerNode_[pN->id].push_back(pL);
@@ -726,8 +1221,11 @@ std::vector<PRCLabel> RCSPPSolver::backwardLabelSetting(
   // Allow to visit each node once
   auto itN = sortedNodes.rbegin();
   for (; itN != sortedNodes.rend(); ++itN) {
+    // check if enough time left
+    if (!enoughTimeLeft())
+      break;
+
     PRCNode pN = *itN;
-    // if (pN->type == SOURCE_NODE) break;
     if (pN->dayId < finalDay) break;
 
     // Expand all the labels of the predecessors of the node through the
@@ -736,13 +1234,21 @@ std::vector<PRCLabel> RCSPPSolver::backwardLabelSetting(
 
     // information of domination of newly generated labels
     size_t nLabels = labelPool_.nLabels();
-    vector<int> domStatusNew(nLabels, 0);
+    vector<DominationStatus> domStatusNew(nLabels, NOT_DOMINATED);
 
     // information of domination of former labels that have not been
     // expanded yet
     std::vector<PRCLabel> &labelsNoExpand = pLabelsNoExpandPerNode_[pN->id];
     size_t nLabelsNoExpand = labelsNoExpand.size();
-    vector<int> domStatusNewNoExpand(nLabelsNoExpand, 0);
+    vector<DominationStatus> domStatusNewNoExpand(
+        nLabelsNoExpand, NOT_DOMINATED);
+
+    if (param_.verbose_ >= 4)
+      std::cout << "RCSSP: process node " << pN->toString()
+                << " (active resources=" << pN->activeResources.size()
+                << ", expanded labels=" << nLabels
+                << ", non dominated=" <<  pLabelsToExpandPerNode_[pN->id].size()
+                << ")" << std::endl;
 
     // if expand all the labels at the node, dominate all labels first
     if (param_.rcsppNbToExpand_ == 0) {
@@ -750,7 +1256,7 @@ std::vector<PRCLabel> RCSPPSolver::backwardLabelSetting(
       // pareto-optimal set of labels
       checkAllDominations(labelPool_.begin(),
                           labelPool_.end(),
-                          !param_.rcsppDssr_ ? dominate : dominateNoLB,
+                          useDominateNoLb_ ? dominateNoLB : dominate,
                           &domStatusNew,
                           &domStatusNewNoExpand);
     }
@@ -766,13 +1272,10 @@ std::vector<PRCLabel> RCSPPSolver::backwardLabelSetting(
   }
 
   // Collect all the labels of the final day nodes
-  for (const auto &pN : sortedNodes) {
-    if (pN->dayId > finalDay) break;
-    if (pN->dayId == finalDay) {
-      for (const auto &pl : pLabelsToExpandPerNode_.at(pN->id))
-        destinationLabels.push_back(pl);
-    }
-  }
+  for (const auto &pN : mergingNodes)
+    for (const auto &pL : pLabelsToExpandPerNode_.at(pN->id))
+      if (pL->getInArc() == nullptr)
+        destinationLabels.push_back(pL);
 
   return destinationLabels;
 }
@@ -802,13 +1305,14 @@ bool RCSPPSolver::expandBack(
     ResourceValues &v = pLPrevious->getResourceValues(e->indResource);
     if (!e->expandBack(pLPrevious, &v)) {
       labelPool_.releaseLastLabel();
+      number_of_infeasible_deleted_labels_per_resource_[e->indResource]++;
       return false;
     }
   }
 
   pLPrevious->addBaseCost(pArc->baseCost);
   pLPrevious->addCost(-pArc->dualCost);
-#ifdef DBG
+#ifdef NS_DEBUG
   pLPrevious->addDualCost(pArc->dualCost);
 #endif
   return true;

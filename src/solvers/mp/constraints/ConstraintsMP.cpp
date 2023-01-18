@@ -45,7 +45,6 @@ void NursePositionCountConstraint::build() {
                                 pScenario_->nShifts(),
                                 nullptr);
 
-  char name[255];
   MyVar *var;
   for (int k = 0; k < pMaster_->nDays(); k++) {
     for (const PShift &pS : pScenario_->pShifts()) {
@@ -54,13 +53,15 @@ void NursePositionCountConstraint::build() {
       int s = pS->id;
       for (int p = 0; p < pScenario_->nPositions(); p++) {
         // creating variable
-        snprintf(name, sizeof(name), "nursesNumber_%d_%d_%d", k, s, p);
-        pModel()->createPositiveVar(&var, name, 0);
+        char nameV[255];
+        snprintf(nameV, sizeof(nameV), "nursesNumber_%d_%d_%d", k, s, p);
+        pModel()->createPositiveVar(&var, nameV, 0);
         numberOfNursesByPositionVars_[k][s][p] = var;
         // creating constraint
-        snprintf(name, sizeof(name), "nursesNumberCons_%d_%d_%d", k, s, p);
+        char nameC[255];
+        snprintf(nameC, sizeof(nameC), "nursesNumberCons_%d_%d_%d", k, s, p);
         pModel()->createEQConsLinear(
-            &numberOfNursesByPositionCons_[p][k][s], name, 0, {var}, {-1});
+            &numberOfNursesByPositionCons_[p][k][s], nameC, 0, {var}, {-1});
       }
     }
   }
@@ -69,11 +70,15 @@ void NursePositionCountConstraint::build() {
 // update the dual values of the constraints based on the current solution
 void NursePositionCountConstraint::updateDuals() {
   dualValues_.clear();
+  resetMaxDualValues();
   for (const PLiveNurse &pNurse : pMaster_->pLiveNurses()) {
     vector2D<double> duals(pMaster_->nDays());
-    for (int k = 0; k < pMaster_->nDays(); ++k)
+    for (int k = 0; k < pMaster_->nDays(); ++k) {
       duals[k] = pModel()->getDuals(
           numberOfNursesByPositionCons_[pNurse->pPosition_->id_][k]);
+      for (double d : duals[k])
+        if (maxDualValues_[pNurse->num_] < d) maxDualValues_[pNurse->num_] = d;
+    }
     dualValues_.push_back(duals);
   }
 }
@@ -107,12 +112,12 @@ void NursePositionCountConstraint::randomUpdateDuals(
       for (auto day : daysToBeModified) {
         int idShift = Tools::randomInt(1, pScenario_->nShifts()-1);
         int coeff = Tools::randomInt(1, 3);
-        duals[day][idShift] = coeff*pScenario_->weights().optimalDemand;
+        duals[day][idShift] = coeff*pScenario_->weights().underCoverage;
       }
     } else {
       duals = Tools::randomDoubleVector2D(
           pMaster_->nDays(), pScenario_->nShifts(),
-          0, 3*pScenario_->weights().optimalDemand);
+          0, 3*pScenario_->weights().underCoverage);
       for (auto &dVect : duals) dVect[pScenario_->pRestShift()->id] = 0;
     }
     dualValues_.push_back(duals);
@@ -128,7 +133,8 @@ double NursePositionCountConstraint::getDualCost(
   double d = 0;
   const auto &duals = dualValues_[nurseNum];
   for (int k = st.firstDayId(); k <= st.lastDayId(); k++)
-    d += duals[k % pMaster_->nDays()][st.pShift(k)->id];
+    if (st.pShift(k)->isWork())
+      d += duals[k % pMaster_->nDays()][st.pShift(k)->id];
   return d;
 }
 
@@ -140,7 +146,7 @@ void NursePositionCountConstraint::addConsToCol(
   int p = pMaster_->pLiveNurses()[col.nurseNum()]->pPosition()->id_;
   for (int k = col.firstDayId(); k <= col.lastDayId(); ++k) {
     int s = col.shift(k);
-    if (pScenario_->isAnyShift(s)) {
+    if (s < 0) {
       for (const auto &c : numberOfNursesByPositionCons_[p][k])
         if (c) {
           cons->push_back(c);
@@ -221,7 +227,6 @@ void AllocationConstraint::build() {
   const auto &numberOfNursesByPositionVars =
       pMaster_->getNursePositionCountVars();
 
-  char name[255];
   for (int k = 0; k < pMaster_->nDays(); k++) {
     for (const PShift &pS : pScenario_->pShifts()) {
       // forget resting shift
@@ -230,17 +235,19 @@ void AllocationConstraint::build() {
       for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
         if (!pS->hasSkill(sk)) continue;
         for (int p : positionsPerSkill[sk]) {
-          snprintf(name, sizeof(name),
+          char nameV[255];
+          snprintf(nameV, sizeof(nameV),
                    "skillsAllocVar_%d_%d_%d_%d", k, s, sk, p);
           pModel()->createPositiveVar(
-              &skillsAllocVars_[k][s][sk][p], name, 0);
+              &skillsAllocVars_[k][s][sk][p], nameV, 0);
         }
         for (int p : positionsPerAltSkill[sk]) {
-          snprintf(name, sizeof(name),
+          char nameV[255];
+          snprintf(nameV, sizeof(nameV),
                    "altSkillsAllocVar_%d_%d_%d_%d", k, s, sk, p);
           pModel()->createPositiveVar(
               &skillsAllocVars_[k][s][sk][p],
-              name,
+              nameV,
               pScenario_->pPosition(p)->alternativeSkillsCost_);
         }
       }
@@ -254,21 +261,24 @@ void AllocationConstraint::build() {
             vars.push_back(skillsAllocVars_[k][s][sk][p]);
             coeffs.push_back(-1);
           }
-        snprintf(name, sizeof(name),
+        char nameC[255];
+        snprintf(nameC, sizeof(nameC),
                  "feasibleSkillsAllocCons_%d_%d_%d", k, s, p);
         pModel()->createEQConsLinear(
-            &feasibleSkillsAllocCons_[k][s][p], name, 0, vars, coeffs);
+            &feasibleSkillsAllocCons_[k][s][p], nameC, 0, vars, coeffs);
       }
     }
   }
 }
 
 DemandConstraint::DemandConstraint(
-    MasterProblem *pMaster, bool minDemand, bool soft, double weight) :
+    MasterProblem *pMaster, bool minDemand, bool soft,
+    double underCoverage, double overCoverage) :
     ConstraintMP(pMaster, minDemand ? "Hard coverage" : "Soft coverage"),
     minDemand_(minDemand), prefix_(minDemand ? "minDemand" : "optDemand"),
-    soft_(soft), weight_(weight), demandCons_(pMaster->nDays()) {
-  if (soft_) slackVars_.resize(pMaster->nDays());
+    soft_(soft), underCoverage_(underCoverage), overCoverage_(overCoverage),
+    demandCons_(pMaster->nDays()) {
+  if (soft_) underCovVars_.resize(pMaster->nDays());
   build();
 }
 
@@ -286,11 +296,11 @@ void DemandConstraint::update() {
 
 void DemandConstraint::build() {
   // initialize vectors
-  Tools::initVector3D<MyVar*>(&slackVars_, pMaster_->nDays(),
+  Tools::initVector3D<MyVar*>(&underCovVars_, pMaster_->nDays(),
                               pScenario_->nShifts(),
                               pScenario_->nSkills(),
                               nullptr);
-  Tools::initVector3D<MyVar*>(&feasNegVars_, pMaster_->nDays(),
+  Tools::initVector3D<MyVar*>(&overCovVars_, pMaster_->nDays(),
                               pScenario_->nShifts(),
                               pScenario_->nSkills(),
                               nullptr);
@@ -302,7 +312,6 @@ void DemandConstraint::build() {
 
   const auto &skillsAllocVars = pMaster_->getSkillsAllocVars();
 
-  char name[255];
   for (int k = 0; k < pMaster_->nDays(); k++) {
     for (const PShift &pS : pScenario_->pShifts()) {
       // forget resting shift
@@ -310,46 +319,56 @@ void DemandConstraint::build() {
       int s = pS->id;
       for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
         // create slack
-        MyVar *varPos;
-        MyVar *varNeg = nullptr;
+        MyVar *underVar;
+        MyVar *overVar = nullptr;
         if (soft_) {
-          snprintf(name, sizeof(name),
-                   "slack%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
-          pModel()->createPositiveVar(&varPos, name, weight_);
+          char nameV[255];
+          snprintf(nameV, sizeof(nameV),
+                   "underCov%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
+          pModel()->createPositiveVar(&underVar, nameV, underCoverage_);
+          if (overCoverage_ > 1e-3) {
+            char nameV2[255];
+            snprintf(nameV2, sizeof(nameV2),
+                     "overCov%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
+            pModel()->createPositiveVar(&overVar, nameV2, overCoverage_);
+          }
         } else {
-          snprintf(name, sizeof(name),
-                   "feasibility%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
-          pModel()->createPositiveFeasibilityVar(&varPos, name);
+          char nameV[255];
+          snprintf(nameV, sizeof(nameV),
+                   "underFeas%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
+          pModel()->createPositiveFeasibilityVar(&underVar, nameV);
           if (pScenario_->isINRC_) {
-            snprintf(name, sizeof(name),
-                     "feasibility%sNegVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
-            pModel()->createPositiveFeasibilityVar(&varNeg, name);
+            char nameV2[255];
+            snprintf(nameV2, sizeof(nameV2),
+                     "overFeas%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
+            pModel()->createPositiveFeasibilityVar(&overVar, nameV2);
           }
         }
-        slackVars_[k][s][sk] = varPos;
-        feasNegVars_[k][s][sk] = varNeg;
+        underCovVars_[k][s][sk] = underVar;
+        overCovVars_[k][s][sk] = overVar;
 
         // adding variables and building demand constraints
-        vector<MyVar *> vars = {varPos};
+        vector<MyVar *> vars = {underVar};
         for (MyVar *v : skillsAllocVars[k][s][sk])
           if (v) vars.push_back(v);
         vector<double> coeffs(vars.size(), 1);
-        if (varNeg) {
-          vars.push_back(varNeg);
+        if (overVar) {
+          vars.push_back(overVar);
           coeffs.push_back(-1);
         }
 
-        snprintf(name, sizeof(name),
+        char nameC[255];
+        snprintf(nameC, sizeof(nameC),
                  "%sCons_%d_%d_%d", prefix_.c_str(), k, s, sk);
         if (pScenario_->isINRC_)
           pModel()->createEQConsLinear(&demandCons_[k][s][sk],
-                                     name,
+                                       nameC,
                                      demand()[k][s][sk],
                                      vars,
                                      coeffs);
         else
           pModel()->createGEConsLinear(&demandCons_[k][s][sk],
-                                       name,
+                                       nameC,
                                        demand()[k][s][sk],
                                        vars,
                                        coeffs);

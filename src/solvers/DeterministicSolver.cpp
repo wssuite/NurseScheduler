@@ -15,7 +15,7 @@
 #include <list>
 #include <map>
 
-#include "InitializeSolver.h"
+#include "InitializeInstance.h"
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "ReadWrite.h"
 
@@ -54,7 +54,7 @@ DeterministicSolver::DeterministicSolver(const PScenario& pScenario,
                                          const InputPaths &inputPaths) :
     Solver(pScenario),
     pCompleteSolver_(nullptr), pRollingSolver_(nullptr), pLNSSolver_(nullptr) {
-#ifdef DBG
+#ifdef NS_DEBUG
   std::cout << "# New deterministic solver created!" << std::endl;
 #endif
 
@@ -64,7 +64,7 @@ DeterministicSolver::DeterministicSolver(const PScenario& pScenario,
   // set the options of the deterministic solver
   // (the corresponding method needs to be changed manually for tests)
   //
-#ifdef DBG
+#ifdef NS_DEBUG
   std::cout << "# Set the options" << std::endl;
 #endif
   this->initializeOptions(inputPaths);
@@ -127,10 +127,12 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   lnsParameters_ = completeParameters_;
   rollingParameters_ = completeParameters_;
 
-  completeParameters_.optimalityLevel(OPTIMALITY);
+  if (pScenario_->isINRC2_) {
+    PARAM(optimalAbsoluteGap_, 5)
+    PARAM(absoluteGap_, 5)
+  }
 
-  if (pScenario_->isINRC_)
-    PARAM(optimalAbsoluteGap_, 1)
+  completeParameters_.optimalityLevel(OPTIMALITY);
 
   // read any options defined in the param file
   if (!inputPaths.paramFile().empty())
@@ -172,6 +174,31 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   if (inputPaths.nThreads() >= 0)
     options_.nThreads_ = inputPaths.nThreads();
   Tools::ThreadsPool::setMaxGlobalThreads(options_.nThreads_);
+
+  // override default values if not solving relaxation to optimality
+  if (!completeParameters_.solveRelaxationToOptimality_) {
+    if (completeParameters_.spParam_.spMaxSolvingTimeSeconds_
+        > LARGE_TIME - 1) {
+      double availTime = completeParameters_.maxSolvingTimeSeconds_
+          * completeParameters_.maxSolvingTimeRatioForSubproblems_
+          / nNurses() * options_.nThreads_;
+      PARAM(spParam_.spMaxSolvingTimeSeconds_, availTime)
+    }
+  }
+
+  if (completeParameters_.spType_ != ROSTER &&
+      completeParameters_.spParam_.rcsppBidirectional_) {
+    std::cout << "Disable bidirectional search when solving "
+                 "a rotation sub problem." << std::endl;
+    PARAM(spParam_.rcsppBidirectional_, false)
+  }
+
+  if (completeParameters_.spType_ == ROSTER &&
+      completeParameters_.spParam_.rcsppRandomStartDay_) {
+    std::cout << "Disable RandomStartDay when solving "
+                 "a roster sub problem." << std::endl;
+    PARAM(spParam_.rcsppRandomStartDay_, false)
+  }
 }
 
 // Read deterministic options from a file
@@ -219,9 +246,9 @@ void DeterministicSolver::readOptionsFromFile(const InputPaths &inputPaths) {
 
   Tools::LogOutput log(options_.logfile_, true, true);
   log << "===================================================" << std::endl;
-  log.addCurrentTime() << "Deterministic options : "
+  log.addCurrentTime() << std::endl << "Deterministic options : "
                        << inputPaths.paramFile() << std::endl;
-  log << content;
+  log << content << std::endl;
   log << "===================================================" << std::endl;
 }
 
@@ -359,7 +386,7 @@ double DeterministicSolver::solveCompleteHorizon(
     delete pCompleteSolver_;
     pCompleteSolver_ = newSolverWithInputAlgorithm(options_.solutionAlgorithm_,
                                                    completeParameters_);
-    Tools::Job job([this, solution]() {
+    Tools::Job job([this, solution](Tools::Job job) {
       pCompleteSolver_->solve(completeParameters_, solution);
     });
     pCompleteSolver_->attachJob(job);
@@ -517,8 +544,6 @@ double DeterministicSolver::solveByConnectedPositions() {
     for (const PLiveNurse &pN : pSolver->theLiveNurses_) {
       PLiveNurse pNurse = theLiveNurses_[pN->nurseNum_];
       pNurse->roster(pN->roster_);
-      pNurse->columns_ = pN->columns_;
-      pNurse->colVals_ = pN->colVals_;
     }
 
     // update the number of nurses to solve

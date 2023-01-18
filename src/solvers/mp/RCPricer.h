@@ -43,16 +43,22 @@ class RCPricer : public MyPricer {
                                bool after_fathom = false,
                                bool backtracked = false) override;
 
+  void updateParameters(bool useMoreTime) override;
+
   double getLastMinReducedCost() const override {
     return minReducedCost_;
   }
 
-  const std::vector<double> &getLastMinReducedCosts() const override {
-    return minReducedCosts_;
+  const std::vector<double> &getLastReducedCostLBs() const override {
+    return reducedCostLBs_;
   }
 
   bool isLastRunOptimal() const override {
     return optimal_;
+  }
+
+  bool isLastRunLowerBounded() const override {
+    return lowerBounded_;
   }
 
   void initNursesAvailabilities() override;
@@ -75,6 +81,9 @@ class RCPricer : public MyPricer {
   // True if all subproblems have been solved to optimality
   bool optimal_;
 
+  // True if all subproblems have a lower bound
+  bool lowerBounded_;
+
   // Stats on the number of subproblems solved and successfully solved
   int nbSPTried_;
   int nSPSolvedWithSuccess_;
@@ -85,7 +94,7 @@ class RCPricer : public MyPricer {
   std::set<int> forbiddenNursesIds_;
 
   // store the min reduced cost find for each subproblem solved
-  std::vector<double> minReducedCosts_;
+  std::vector<double> reducedCostLBs_;
   double minReducedCost_;
 
   // mutex for concurrency (can be locked several times by the same thread)
@@ -100,10 +109,12 @@ class RCPricer : public MyPricer {
   void resetSolutions() {
     allNewColumns_.clear();
     forbiddenShifts_.clear();
-    optimal_ = true;  // will be set to false whenever possible
+    // will be set to false whenever possible
+    optimal_ = true;
+    lowerBounded_ = false;
     nSPSolvedWithSuccess_ = 0;
     nbSPTried_ = 0;
-    Tools::initVector(&minReducedCosts_, pMaster_->nNurses(), -DBL_MAX);
+    Tools::initVector(&reducedCostLBs_, pMaster_->nNurses(), -DBL_MAX);
     minReducedCost_ = 0;
   }
 
@@ -130,7 +141,7 @@ class RCPricer : public MyPricer {
   template<typename T>
   void reversePushBackNurses(vector<T> *vec) {
     std::reverse(vec->begin(), vec->end());  // reverse array
-    nursesToSolve_.insert(nursesToSolve_.end(), vec->begin(), vec->end());
+    nursesToSolve_ = Tools::appendVectors(nursesToSolve_, *vec);
   }
 
   template<typename T>
@@ -140,7 +151,7 @@ class RCPricer : public MyPricer {
                      [&order](const T &v1, const T &v2) {
                        return order.at(v1) > order.at(v2);
                      });
-    nursesToSolve_.insert(nursesToSolve_.end(), vec->begin(), vec->end());
+    nursesToSolve_ = Tools::appendVectors(nursesToSolve_, *vec);
   }
 
   // Shifts
@@ -183,12 +194,6 @@ class RCPricer : public MyPricer {
    * Methods
    */
 
-  // get the duals values per day and per shift for a nurse
-  vector2D<double> getShiftsDualValues(PLiveNurse pNurse);
-  std::vector<double> getStartWorkDualValues(PLiveNurse pNurse);
-  std::vector<double> getEndWorkDualValues(PLiveNurse pNurse);
-  double getWorkedWeekendDualValue(PLiveNurse pNurse);
-
   // compute some forbidden shifts from the lasts solutions and add them to
   // forbidden shifts.
   // only the shift from the best solution with a negative dual costs are
@@ -201,14 +206,7 @@ class RCPricer : public MyPricer {
   // Sort the rotations that just were generated for a nurse.
   // Default option is sort by increasing reduced cost but we
   // could try something else (involving disjoint columns for ex.)
-  void sortGeneratedSolutions(std::vector<RCSolution> *solutions) const;
-
-  // Set the subproblem options depending on the parameters
-//  void setSubproblemOptions(vector<SolveOption> &options,
-//                            int &maxRotationLengthForSubproblem,
-//                            pLiveNurse pNurse);
-
-  int nb_int_solutions_;
+  void sortGeneratedSolutions(std::vector<RCSolution> *solutions);
 
   // Print functions
   //
@@ -229,6 +227,9 @@ class RCPricer : public MyPricer {
   int nbS_ = 0;
   int nbN_ = 0;
   int nbNL_ = 0;
+
+ private:
+  std::minstd_rand rdm_;
 };
 
 #endif  // SRC_SOLVERS_MP_RCPRICER_H_

@@ -9,8 +9,8 @@
  * full license detail.
  */
 
-#ifndef SRC_SOLVERS_INITIALIZESOLVER_H_
-#define SRC_SOLVERS_INITIALIZESOLVER_H_
+#ifndef SRC_INITIALIZEINSTANCE_H_
+#define SRC_INITIALIZEINSTANCE_H_
 
 #include <string>
 #include <vector>
@@ -21,22 +21,11 @@
 #include "solvers/Solver.h"
 
 
+// build the scenario, demand, preferences from the input path
+PScenario buildInstance(const InputPaths &inputPaths);
+
 // Initialize the resources of all the nurses
 void initializeResourcesINRC2(const PScenario& pScenario);
-
-// Initialize the week scenario by reading the input files
-PScenario initializeScenarioINRC2(const InputPaths &inputPaths,
-                                  const std::string& logPath = "");
-
-// Initialize the scenario for multiple weeks
-// When calling this function, the intent is to solve all the weeks at once
-PScenario initializeMultipleWeeksINRC2(const std::string& dataDir,
-                                       const std::string& instanceName,
-                                       int historyIndex,
-                                       std::vector<int> weekIndices,
-                                       const std::string& logPath = "");
-PScenario initializeMultipleWeeksINRC2(const InputPaths &inputPaths,
-                                       const std::string& logPath = "");
 
 // Separate the scenario into multiple scenarios that only focus on the nurses
 // whose positions are in the same connected component of positions
@@ -61,4 +50,4 @@ void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
 // input directory
 void computeStatsOnTheDemandsOfAllInstances(const std::string& inputDir);
 
-#endif  // SRC_SOLVERS_INITIALIZESOLVER_H_
+#endif  // SRC_INITIALIZEINSTANCE_H_

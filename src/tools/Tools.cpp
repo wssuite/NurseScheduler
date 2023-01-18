@@ -113,7 +113,7 @@ char readUntilOneOfTwoChar(std::fstream *pFile,
   // empty the title string if it is not
   //
   if (!pStrRead->empty())
-    pStrRead->erase();
+    pStrRead->clear();
 
   // go through the file until the delimiter is met
   //
@@ -128,6 +128,30 @@ char readUntilOneOfTwoChar(std::fstream *pFile,
   return cTmp;
 }
 
+// Store the next line which is not a comment in pStrRead
+bool readLinesUntilNotAComment(std::fstream *pFile,
+                               std::string *pStrRead,
+                               bool acceptEmptyLine) {
+  while (pFile->good()) {
+    readLine(pFile, pStrRead);
+    if (!strStartsWithComment(*pStrRead) &&
+        (acceptEmptyLine || !pStrRead->empty()))
+      return true;
+    pStrRead->clear();
+  }
+
+  return false;
+}
+
+// read until end of line
+bool readLine(std::fstream *pFile, std::string *pStrRead) {
+  bool fileGood = readUntilChar(pFile, '\n', pStrRead);
+  // remove carriage return if any at the end
+  if (!pStrRead->empty() && pStrRead->back() == '\r')
+    pStrRead->pop_back();
+  return fileGood;
+}
+
 // Read a file stream until the separating character is met
 //
 bool readUntilChar(std::fstream *file, char separator, std::string *pTitle) {
@@ -136,7 +160,7 @@ bool readUntilChar(std::fstream *file, char separator, std::string *pTitle) {
   // empty the title string if it is not
   //
   if (!pTitle->empty())
-    pTitle->erase();
+    pTitle->clear();
 
   // go through the file until the delimiter is met
   //
@@ -154,14 +178,14 @@ bool readUntilChar(std::fstream *file, char separator, std::string *pTitle) {
   return true;
 }
 
-bool readUntilAndWhileChar(std::fstream *file, char separator, std::string
-*pTitle) {
+bool readUntilAndWhileChar(
+    std::fstream *file, char separator, std::string *pTitle) {
   char cTmp = 'A';
 
   // empty the title string if it is not
   //
   if (!pTitle->empty())
-    pTitle->erase();
+    pTitle->clear();
 
   // go through the file until the delimiter is met
   //
@@ -323,10 +347,10 @@ std::string loadOptions(
     } else if (Tools::strStartsWithComment(field)) {
       // read line
       if (sep == '=')
-        Tools::readUntilChar(&file, '\n', &field);
+        Tools::readLine(&file, &field);
     } else if (load(field, &file)) {
       // read line
-      Tools::readUntilChar(&file, '\n', &field);
+      Tools::readLine(&file, &field);
     } else {
       Tools::throwError(
           "Field not recognized (%s) when reading the options from file %s",
@@ -344,7 +368,7 @@ std::string loadOptions(
 
 void openFile(const std::string &fileName, std::fstream *file) {
   // open the file
-#ifdef DBG
+#ifdef NS_DEBUG
   std::cout << "Reading " << fileName << std::endl;
 #endif
   file->open(fileName.c_str(), std::fstream::in);
@@ -371,13 +395,14 @@ void initializeRandomGenerator(int rdmSeed) {
 // Create a random generator
 // the objective is to be sure to have always the same sequence of number
 //
-minstd_rand getANewRandomGenerator() {
-  return getANewRandomGenerator(rdm0());
+minstd_rand getANewRandomGenerator(bool printSeed) {
+  return getANewRandomGenerator(rdm0(), printSeed);
 }
 
-minstd_rand getANewRandomGenerator(int rdmSeed) {
-  std::cout << "The new random seed of random generator is " << rdmSeed
-            << std::endl;
+minstd_rand getANewRandomGenerator(int rdmSeed, bool printSeed) {
+  if (printSeed)
+    std::cout << "The new random seed of random generator is "
+              << rdmSeed << std::endl;
   minstd_rand rdm(rdmSeed);
   return rdm;
 }
@@ -568,20 +593,22 @@ void LogOutput::close() {
 
 // constructor of Timer
 //
-Timer::Timer(bool start) : cpuInit_(std::chrono::system_clock::now()),
-                           cpuSinceStart_(0),
-                           cpuSinceInit_(0),
-                           nStop_(0),
-                           isStarted_(false),
-                           isStopped_(true) {
+Timer::Timer(std::string name, bool start) :
+  name_(std::move(name)),
+  cpuInit_(std::chrono::system_clock::now()),
+  cpuSinceStart_(0),
+  cpuSinceInit_(0),
+  nStop_(0),
+  isStarted_(false),
+  isStopped_(true) {
   if (start) this->start();
 }
 
 // start the timer
-//
 void Timer::start() {
   if (isStarted_)
-    throwError("Trying to start an already started timer!");
+    throwError("Trying to start an already started timer (%s) !",
+               name_.c_str());
 
   cpuInit_ = std::chrono::system_clock::now();
   isStarted_ = true;
@@ -593,7 +620,7 @@ void Timer::start() {
 //
 void Timer::stop() {
   if (isStopped_)
-    throwError("Trying to stop an already stopped timer!");
+    throwError("Trying to stop an already stopped timer (%s) !", name_.c_str());
 
   cpuSinceStart_ = std::chrono::system_clock::now() - cpuInit_;
   cpuSinceInit_ += cpuSinceStart_;
@@ -643,7 +670,7 @@ PThreadsPool::~PThreadsPool() {
 
 int ThreadsPool::maxGlobalThreads_ = 1;
 int ThreadsPool::nGlobalThreadsAvailable_ = ThreadsPool::maxGlobalThreads_;
-bool ThreadsPool::settingMaxGlobalThreads_ = false;
+bool ThreadsPool::resizingMaxGlobalThreads_ = false;
 std::mutex ThreadsPool::mThreadMutex_;
 std::condition_variable ThreadsPool::cThreadReleased_;
 
@@ -663,16 +690,16 @@ int ThreadsPool::setMaxGlobalThreadsToMax(bool wait) {
 int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
   std::unique_lock<mutex> l(mThreadMutex_);
 
-  // set to true the flag settingMaxGlobalThreads_
+  // set to true the flag resizingMaxGlobalThreads_
   // if already setting the max number of threads, print a warning and return
-  if (settingMaxGlobalThreads_) {
+  if (resizingMaxGlobalThreads_) {
     std::cerr
         << "WARNING: another thread is already trying to "
            "change the max number of available threads"
         << std::endl;
     return maxGlobalThreads_;
   }
-  settingMaxGlobalThreads_ = true;
+  resizingMaxGlobalThreads_ = true;
 
   // check max number of cores on the system
   int sysThreads = thread::hardware_concurrency();
@@ -708,7 +735,7 @@ int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
   // update the number of threads
   maxGlobalThreads_ += diff;
   nGlobalThreadsAvailable_ += diff;
-  settingMaxGlobalThreads_ = false;
+  resizingMaxGlobalThreads_ = false;
 
   return maxGlobalThreads_;
 }
@@ -757,12 +784,12 @@ void ThreadsPool::run(Job job, bool force_detach) {
   if (pTask->pThreadsPool_ != nullptr) {
     pTask->resume();  // if already attached, resume the job
   } else if (maxGlobalThreads_ <= 1 && !force_detach) {  // no concurrency
-    pTask->run();
+    pTask->run(job);
   } else {
     reserve(pTask->nThreads());  // reserve a thread
     addPtr(pTask);  // attach the task to the pool
-    globalThreadsPool.run([this, pTask]() {
-      pTask->run();  // run the function
+    globalThreadsPool.run([this, job, pTask]() {
+      pTask->run(job);  // run the function
       release(pTask->nThreads());  // release the thread
       pTask->detach();  // detach from the pool
     });
@@ -771,7 +798,7 @@ void ThreadsPool::run(Job job, bool force_detach) {
 
 void Job::run() {
   if (pTask_ != nullptr)
-    pTask_->run();
+    pTask_->run(*this);
 }
 
 void Job::pause() {
@@ -789,13 +816,17 @@ void Job::wait() {
     pTask_->wait();
 }
 
-void Task::run() {
+void Task::run(const Job &job) {
+#ifdef NS_DEBUG
+  func_(job);
+#else
   try {
-    func_();
+    func_(job);
   } catch (const std::exception &e) {
     std::cout << "Task::run() caught an exception=: "
               << e.what() << std::endl;
   }
+#endif
 }
 
 void Task::attach(const PThreadsPool& pThreadsPool) {
@@ -819,6 +850,7 @@ void Task::askStop() {
   needStop_ = true;
   needPause_ = false;
   if (paused_) {
+    // resume thread and stop it
     // reserve again the threads
     pThreadsPool_->reserve(nThreads_);
     // and notify the paused thread
@@ -949,7 +981,7 @@ bool ThreadsPool::wait(int nThreadsToWait) {
   int threadsAvailableTarget =
       std::min(maxThreads_, nThreadsAvailable_ + nThreadsToWait);
   cThreadReleased_.wait(l, [&]() {
-    return !settingMaxGlobalThreads_
+    return !resizingMaxGlobalThreads_
         && nThreadsAvailable_ >= threadsAvailableTarget;
   });
   return true;
@@ -977,15 +1009,15 @@ void ThreadsPool::addPtr(PTask pTask) {
 
 void ThreadsPool::reserve(int nThreads) {
   std::unique_lock<mutex> l(mThreadMutex_);
-  // reserve ont thread if available, otherwise wait for one
+  // reserve nThreads threads
   bool reserved = false;
   while (!reserved) {
-    // wait until one thread is available and settingMaxGlobalThreads_ is false
+    // wait until one thread is available and resizingMaxGlobalThreads_ is false
     cThreadReleased_.wait(l, [this]() {
       return nGlobalThreadsAvailable_ > 0 && nThreadsAvailable_ > 0
-          && !settingMaxGlobalThreads_;
+          && !resizingMaxGlobalThreads_;
     });
-    // reserved one thread
+    // try to reserve nThreads threads
     int minThreads = std::min(
         nThreads, std::min(nGlobalThreadsAvailable_, nThreadsAvailable_));
     nGlobalThreadsAvailable_ -= minThreads;  // reserve global threads

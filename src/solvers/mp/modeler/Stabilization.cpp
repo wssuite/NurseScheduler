@@ -176,7 +176,7 @@ void Stabilization::stabDeactivateBoundAndCost(OsiSolverInterface *solver) {
 // STAB
 // Stop when the stabilization variables are all null
 bool Stabilization::stabCheckStoppingCriterion() const {
-  if (!pModel_->getParameters().isStabilization_)
+  if (!param().isStabilization_)
     return true;
 
   for (MyVar *var : stabVariablesPlus_)
@@ -192,7 +192,7 @@ bool Stabilization::stabCheckStoppingCriterion() const {
 // STAB
 // return the current cost of the stabilization variables
 double Stabilization::getStabCost() const {
-  if (!pModel_->getParameters().isStabilization_)
+  if (!param().isStabilization_)
     return 0;
   return pModel_->getTotalCost(stabVariablesPlus_) +
       pModel_->getTotalCost(stabVariablesMinus_);

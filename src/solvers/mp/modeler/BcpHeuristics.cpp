@@ -167,7 +167,7 @@ BCP_solution_generic * BcpHeuristics::mip_solve() {
 
   auto mip = mip_;
   // take copies so they continue to live outside the scope
-  Tools::Job job([columns, mip]() {
+  Tools::Job job([columns, mip](Tools::Job job) {
     mip->safe_solve(columns);
   }, pModel_->getParameters().MIPHeuristicNThreads_);
 
@@ -188,7 +188,7 @@ BCP_solution_generic * BcpHeuristics::lns_solve() {
                "static fields. Therefore, BcpHeuristics::lns_solve() "
                "is ignored." << std::endl;
   return nullptr;
-//  std::unique_lock<std::mutex> l(mutex_);
+//  std::unique_lock<std::mutex> l(gMutex_);
 //  // lock and retrieve the current solution
 //  BCP_solution_generic *sol = lns_->getEraseSolution();
 //
@@ -333,7 +333,7 @@ std::vector<BcpColumn*> HeuristicMIP::selectColumns(
           });
       cols.resize(nColsToSelectPerNurses_);
     }
-    selectedCols.insert(selectedCols.end(), cols.begin(), cols.end());
+    selectedCols = Tools::appendVectors(selectedCols, cols);
   }
   return selectedCols;
 }
@@ -398,20 +398,30 @@ bool HeuristicMIP::solveMIP(OsiSolverInterface *pSolver,
     if (shouldStop()) return false;
     auto *pModel = dynamic_cast<BcpModeler*>(pMaster()->pModel());
     double ub = computeObjUB();
-    double maxUb = pModel->getBestLB() *
+    double maxUb = pModel->getLastObj() *
         (1 + pModel->getParameters().MIPHeuristicGapLimit_);
     if (ub >= maxUb) ub = maxUb;
 
     // add a constraint to bound the objective
-    std::vector<int> elements(obj.size());
-    for (int j = 0; j < obj.size(); ++j) elements[j] = j;
+    std::vector<int> elements;
+    elements.reserve(obj.size());
+    std::vector<double> obj2;
+    obj2.reserve(obj.size());
+    for (int j = 0; j < obj.size(); ++j)
+      if (abs(obj[j]) > pModel->epsilon()) {
+        elements.push_back(j);
+        obj2.push_back(obj[j]);
+      }
     double lhs = -pSolver->getInfinity();
-    pSolver->addRow(obj.size(), &elements[0], &obj[0], lhs, ub);
+    pSolver->addRow(obj2.size(), &elements[0], &obj2[0], lhs, ub);
 
     // stop as soon as a better solution has been found
     if (pModel->getParameters().MIPHeuristicObjLimit_)
       pSolver->setDblParam(OsiPrimalObjectiveLimit, ub);
-    pSolver->setIntParam(OsiMaxNumIteration, maxNIterations_);
+    // maxNIterations_
+    int maxIt = maxNIterations_ >= 0 ? maxNIterations_ :
+        10 * nNurses_ * nColsToSelectPerNurses_;
+    pSolver->setIntParam(OsiMaxNumIteration, maxIt);
 
 #ifdef USE_CBC
     auto cbcSolver = dynamic_cast<OsiCbcSolverInterface *>(pSolver);
@@ -511,7 +521,7 @@ std::vector<RotationColumn> HeuristicMIP::computeWorkedRotations(
     ++k;
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   if (k != st.nDays())
     Tools::throwError("Not all days have been visited as k=%d "
                       "for this roster: %s", k, st.toString().c_str());
@@ -533,7 +543,7 @@ double HeuristicMIP::safeComputeObjUB() {
 
 double HeuristicMIP::computeObjUB() {
   if (pMaster() == nullptr)
-    return -XLARGE_SCORE;
+    return XLARGE_SCORE;
   auto *pModel = pMaster()->pModel();
   double ub = pModel->getObjective()
       - pModel->getParameters().absoluteGap_
@@ -548,6 +558,7 @@ HeuristicRotation::HeuristicRotation(
   if (type == FirstAvailable) type = getFirstSolverTypeAvailable();
   auto param = pMaster->pModel()->getParameters();
   param.spType_ = ALL_ROTATION;
+  param.spParam_.rcsppBidirectional_ = false;
   pRotMP_ = new RotationMP(pMaster->pScenario(), type, param);
   createInitialSolver(pRotMP_, type, verbosity,
                       &pInitialRotSolver_, &objRot_);
@@ -596,7 +607,7 @@ std::vector<Stretch> HeuristicRotation::solveRotationMP(
     MyVar *pCol = rotColumns.at(i - coreSize);
     if (vCol > pModel->epsilon()) {
       if (abs(1 - vCol) > pModel->epsilon()) {
-#ifdef DBG
+#ifdef NS_DEBUG
         Tools::throwError("HeuristicRotation::solveRotationMP: Value of the "
                           "rotation column should be equal to 1 and not %.2f",
                           vCol);
@@ -668,7 +679,7 @@ Stretch HeuristicRotation::computeRoster(std::vector<PColumn> rotations) const {
   std::stable_sort(
       rotations.begin(), rotations.end(),
       [](const PColumn &rot1, const PColumn &rot2) {
-#ifdef DBG
+#ifdef NS_DEBUG
         if (rot1->nurseNum() != rot2->nurseNum())
           Tools::throwError("Two rotations for different nurses are used to "
                             "generate a roster: %s and %s",
@@ -691,28 +702,27 @@ Stretch HeuristicRotation::computeRoster(std::vector<PColumn> rotations) const {
   shifts.reserve(nDays);
   for (auto itRot = rotations.begin(); itRot != rotations.end();) {
     // add work days shifts
-#ifdef DBG
+#ifdef NS_DEBUG
     if (shifts.size() != (*itRot)->firstDayId())
       Tools::throwError("Rotation should start on %d", shifts.size());
 #endif
-    shifts.insert(
-        shifts.end(), (*itRot)->pShifts().begin(), (*itRot)->pShifts().end());
+    shifts = Tools::appendVectors(shifts, (*itRot)->pShifts());
 
     // insert rest days shifts between rotations or until the end
     itRot++;
     nextRotationFirstDay =
         itRot == rotations.end() ? nDays : (*itRot)->firstDayId();
-#ifdef DBG
+#ifdef NS_DEBUG
     if (shifts.size() != nDays && shifts.size() >= nextRotationFirstDay)
       Tools::throwError("Rotation should start on at least one day after the "
                         "previous one (%d) instead of before (%d)",
                         shifts.size(), nextRotationFirstDay);
 #endif
     std::vector<PShift> restShifts(nextRotationFirstDay - shifts.size(), pRest);
-    shifts.insert(shifts.end(), restShifts.begin(), restShifts.end());
+    shifts = Tools::appendVectors(shifts, restShifts);
   }
 
-#ifdef DBG
+#ifdef NS_DEBUG
   if (shifts.size() != nDays)
       Tools::throwError("Rotation should end on %d", nDays - 1);
 #endif
@@ -792,7 +802,7 @@ BCP_solution_generic * BcpHeuristics::buildSolution(
             pModel->getCoreVars().at(i)));
       else
         pV = new BcpColumn(*columns.at(i - coreSize));
-#ifdef DBG
+#ifdef NS_DEBUG
       if (abs(vCol - round(vCol)) > pModel->epsilon())
         Tools::throwError("BcpHeuristics: Column value should be integer "
                           "and not equals to %.2f", vCol);

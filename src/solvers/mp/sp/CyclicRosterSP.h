@@ -82,7 +82,8 @@ class CyclicRosterSP : public RosterSP {
   // FALSE otherwise.
   bool solve(const PDualCosts &costs,
              const std::set<std::pair<int, int>> &forbiddenDayShifts,
-             double redCostBound) override;
+             double redCostBound,
+             bool relaxation) override;
 
   void computeCost(MasterProblem *pMaster, RCSolution *rcSol) const override;
 

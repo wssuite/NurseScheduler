@@ -262,8 +262,8 @@ int CbcModeler::solve(bool relaxation) {
   this->setModel();
 //  this->setBranchingRule();
 //  // set an upper bound
-//  if (best_ub < DBL_MAX)
-//    model_->setCutoff(best_ub);
+//  if (bestUb < DBL_MAX)
+//    model_->setCutoff(bestUb);
   // set verbosity
   model_->setLogLevel(verbosity_);
 //  // set solving time

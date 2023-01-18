@@ -76,7 +76,7 @@ struct spp_res_cont {
   int dominanceLvl = 0, parentDominanceLvl = 0;
 
   int first_day = -1, day = -1;
-#ifdef DBG
+#ifdef NS_DEBUG
   int pred_arc = -1;
   std::vector<int> shifts_;
 #endif

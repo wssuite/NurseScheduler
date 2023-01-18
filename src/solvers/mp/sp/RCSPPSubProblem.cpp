@@ -31,13 +31,14 @@ RCSPPSubProblem::RCSPPSubProblem(
                nbDays,
                std::move(nurse),
                param),
-    pRCGraph_(std::make_shared<RCGraph>(firstDayId, nbDays,
-                                        pScenario_->pShifts())),
+    pRCGraph_(std::make_shared<RCGraph>(
+        firstDayId, nbDays, pScenario_->nShifts(),
+        pScenario_->shiftsFactory().pAnyTypeShifts())),
     pEnumGraph_(nullptr),
     pResources_(std::move(pResources)),
     pRcsppSolver_(nullptr),
-    timerEnumerationOfSubPath_(),
-    timerComputeMinCostFromSink_() {
+    timerEnumerationOfSubPath_("Sub path enumeration"),
+    timerComputeMinCostFromSink_("Min cost from sink") {
   Tools::initVector2D<PRCNode>(&pNodesPerDay_, nDays_,
                                pScenario_->nShifts(), nullptr);
   fixParameters();
@@ -70,7 +71,8 @@ void RCSPPSubProblem::build() {
       param_.rcsppEnumSubpathsForMinCostToSinks_) {
     pEnumGraph_ = std::make_shared<RCGraph>(pRCGraph_->firstDayId(),
                                             pRCGraph_->nDays(),
-                                            pRCGraph_->pShifts());
+                                            pRCGraph_->nShifts(),
+                                            pRCGraph_->pAShifts());
     build(pEnumGraph_);
     preprocessRCGraph(pEnumGraph_, true);
   }
@@ -160,7 +162,7 @@ void RCSPPSubProblem::build() {
 //      bool succFound = false;
 //      for (const PRCArc &pArc : pTarget->outArcs) {
 //        pShift = std::dynamic_pointer_cast<Shift>(pArc->target->pAShift);
-// #ifdef DBG
+// #ifdef NS_DEBUG
 //        if (!pShift)
 //          Tools::throwError("Enumerate works only with graph where"
 //                            " the nodes represent a shift.");
@@ -298,8 +300,10 @@ void RCSPPSubProblem::createResources(const PRCGraph &pRCGraph) {
   }
 }
 
-void RCSPPSubProblem::createRCSPPSolver() {
-  pRcsppSolver_ = std::make_shared<RCSPPSolver>(pRCGraph_, param_);
+void RCSPPSubProblem::createRCSPPSolver(int seed) {
+  if (seed < 0) seed = rdm_();
+  pRcsppSolver_ = std::make_shared<RCSPPSolver>(
+      pRCGraph_, param_, seed, pRcsppSolver_ ? pRcsppSolver_.get() : nullptr);
 }
 
 void RCSPPSubProblem::preprocessRCGraph(const PRCGraph &pRCGraph,
@@ -329,14 +333,13 @@ void RCSPPSubProblem::preprocessRCGraph(const PRCGraph &pRCGraph,
   // resources of the RCSPP
   createResources(pRCGraph);
   pRCGraph->initializeExpanders();
-
-  // initialize the label
-  pRCGraph->initializeDominance();
 }
 
-void RCSPPSubProblem::updateParameters(bool masterFeasible) {
+void RCSPPSubProblem::updateParameters(bool useMoreTime) {
   // re-create a solver with the initial parameters
   createRCSPPSolver();
+  if (useMoreTime)
+    pRcsppSolver_->resetSearchLevel();
 }
 
 void RCSPPSubProblem::fixParameters() {
@@ -374,7 +377,7 @@ bool RCSPPSubProblem::presolve() {
     fixParameters();
 
     // update parameters (create a new solver)
-    updateParameters(true);
+    updateParameters();
   }
 
   if (param_.rcsppEnumSubpathsForMinCostToSinks_) {
@@ -388,7 +391,7 @@ bool RCSPPSubProblem::presolve() {
     auto minEnumCosts = minCostPathToSinks(pEnumGraph_, pRCGraph_);
     pRcsppSolver_->setMinimumCostToSinks(minEnumCosts);
     timerComputeMinCostFromSink_.stop();
-#ifdef DBG
+#ifdef NS_DEBUG
     auto minCosts = minCostPathToSinks(pRCGraph_);
     int equal = 0, bigger = 0;
     for (int n=0; n < pRCGraph_->nNodes(); ++n) {
@@ -501,7 +504,7 @@ vector<double> RCSPPSubProblem::minCostPathToSinks(
             }
           }
         }
-#ifdef DBG
+#ifdef NS_DEBUG
       if (inter_cost >= o_cost + 1e-3)
         std::cerr << "Through path cost (" << inter_cost
                   << ") should never be greater than enum min cost ("
@@ -523,20 +526,25 @@ void RCSPPSubProblem::updateArcDualCost(const PRCArc &pA) {
   pA->addDualCost(dualCost(pA));
 }
 
-bool RCSPPSubProblem::solveRCGraph() {
-  // set the ids of the resources to make sure that the access to resource
-  // values is correct
-  int id = 0;
-  for (const PResource& pR : pRCGraph_->pResources()) {
-    pR->setId(id);
-    id++;
+bool RCSPPSubProblem::solveRCGraph(bool initialSolve, bool relaxation) {
+  if (initialSolve) {
+    // set the ids of the resources to make sure that the access to resource
+    // values is correct
+    int id = 0;
+    for (const PResource &pR : pRCGraph_->pResources()) {
+      pR->setId(id);
+      id++;
+    }
+
+    // create the first label on the source node
+    createInitialLabels();
   }
 
-  // create the first label on the source node
-  createInitialLabels();
+  // attach job to the solver
+  pRcsppSolver_->attachJob(job_);
 
   // Solution of the RCSPP obtained with the RCSPP Solver
-  theSolutions_ = pRcsppSolver_->solve(maxReducedCostBound_);
+  theSolutions_ = pRcsppSolver_->solve(maxReducedCostBound_, relaxation);
 
   // Extract the best reduced cost
   if (!theSolutions_.empty())
@@ -544,6 +552,7 @@ bool RCSPPSubProblem::solveRCGraph() {
 
   return !theSolutions_.empty();
 }
+
 
 // Forbids a day-shift couple
 void RCSPPSubProblem::forbidDayShift(int k, int s) {
@@ -567,46 +576,13 @@ void RCSPPSubProblem::resetAuthorizations() {
 }
 
 vector<PResource> RCSPPSubProblem::computeResourcesCosts(
-    const Stretch &stretch,
     const State &initialState,
+    const Stretch &stretch,
     std::map<CostType, double> *costsPerType) {
-  // reset costs
-  costsPerType->clear();
-  for (int t=CONS_SHIFTS_COST; t <= TOTAL_WEEKEND_COST; t++)
-    costsPerType->at((CostType)t) = 0;
-
-  // create origin, destination and arc
-  PRCNode pSource = std::make_shared<RCNode>(
-      0, SOURCE_NODE, stretch.firstDayId() - 1, initialState.pShift_),
-      pSink = std::make_shared<RCNode>(
-      1, SINK_NODE, stretch.lastDayId(), stretch.pShifts().back());
-  PRCArc pArc = std::make_shared<RCArc>(
-      0, pSource, pSink, stretch, 0, TO_SINK);
-  vector<PResource> pActiveResources;
-  double cost = 0;
-  // create expander for stretch
-  for (const auto &pR : pResources_) {
-    double c = 0;
-    pR->preprocess(pArc, &c);
-    pArc->addBaseCost(c);
-    if (pR->initialize(*pSource->pAShift, stretch, pArc,
-                       static_cast<int>(pActiveResources.size())))
-      pActiveResources.push_back(pR);
-    costsPerType->at(pR->costType()) += pArc->cost - cost;
-    cost = pArc->cost;
-  }
-  // expand
-  PRCLabel pL = std::make_shared<RCLabel>(pActiveResources, initialState);
-  double c = pL->cost();
-  for (const auto &pE : pArc->expanders) {
-    ResourceValues &v = pL->getResourceValues(pE->indResource);
-    pE->expand(pL, &v);
-    cost += pL->cost() - c;
-    costsPerType->at(pE->costType) += pL->cost() - c;
-    c = pL->cost();
-  }
-
-  return pActiveResources;
+  RCSolution sol(stretch);
+  vector<PResource> pResources = computeResourcesCosts(initialState, &sol);
+  *costsPerType = sol.costs();
+  return pResources;
 }
 
 vector<PResource> RCSPPSubProblem::computeResourcesCosts(
@@ -620,19 +596,25 @@ vector<PResource> RCSPPSubProblem::computeResourcesCosts(
       1, SINK_NODE, rcSol->lastDayId(), rcSol->pShifts().back());
   PRCArc pArc = std::make_shared<RCArc>(
       0, pSource, pSink, *rcSol, 0, TO_SINK);
+
+  // preprocess resources for arc
+  for (const auto &pR : pResources_) {
+    double c = 0;
+    pR->preprocess(pArc, &c);
+    rcSol->addCost(c, pR->costType());
+  }
+
   // create expander for stretch
   double cost = pArc->cost;
   vector<PResource> pActiveResources;
   for (const auto &pR : pResources_) {
-    double c = 0;
-    pR->preprocess(pArc, &c);
-    pArc->addBaseCost(c);
     if (pR->initialize(*pSource->pAShift, *rcSol, pArc,
                        static_cast<int>(pActiveResources.size())))
       pActiveResources.push_back(pR);
     rcSol->addCost(pArc->cost - cost, pR->costType());
     cost = pArc->cost;
   }
+
   // expand
   PRCLabel pL = std::make_shared<RCLabel>(pActiveResources, initialState);
   cost = pL->cost();
@@ -642,7 +624,7 @@ vector<PResource> RCSPPSubProblem::computeResourcesCosts(
     rcSol->addCost(pL->cost() - cost, pE->costType);
     cost = pL->cost();
   }
-#ifdef DBG
+#ifdef NS_DEBUG
   rcSol->pLabel_ = pL;
 #endif
 

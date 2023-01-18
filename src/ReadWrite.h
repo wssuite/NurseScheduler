@@ -106,26 +106,26 @@ class ReadWrite {
 
   // Read the preferences from INRC file
   static void readINRCPreferences(std::fstream *pFile,
-                                  const std::map<string, int> &shiftToInt,
-                                  const vector<PShift> &pShifts,
+                                  const PScenario &pScenario,
                                   const vector<PNurse> &theNurses,
                                   const tm &tmStart,
                                   const PPreferences &pPref);
 
   // Read the forbidden patterns and store the corresponding resources in the
   // contracts
-  static void readINRCPatterns(const std::map<string, int> &shiftToInt,
-                               const vector<PContract> &pContracts,
+  static void readINRCPatterns(const vector<PContract> &pContracts,
                                std::fstream *pFile,
-                               const vector<PShift> &pShifts);
+                               const ShiftsFactory &shiftsFactory);
+
   static void readINRCDemand(int nbDays,
                              int nbWeeks,
                              int nbSkills,
                              int nbShifts,
                              const tm &tmStart,
-                             const std::map<string, int> &shiftToInt,
                              const vector<PShift> &pShifts,
                              std::fstream *pFile,
                              PDemand *pDemand);
+
+  static PScenario readNRPInstance(const string &fileName);
 };
 #endif  // SRC_READWRITE_H_

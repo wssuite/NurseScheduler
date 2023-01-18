@@ -55,6 +55,10 @@ bool SolverParam::setParameter(const string &field, std::fstream *file,
       ALLPARAMS(maxDivingWithoutLBImprovements_)
     } else if (Tools::strEndsWith(field, "solveToOptimality")) {
       ALLPARAMS(solveToOptimality_)
+    } else if (Tools::strEndsWith(field, "solveRelaxationToOptimality")) {
+      ALLPARAMS(solveRelaxationToOptimality_)
+    } else if (Tools::strEndsWith(field, "maxSolvingTimeRatioForSubproblems")) {
+      ALLPARAMS(maxSolvingTimeRatioForSubproblems_)
     } else if (Tools::strEndsWith(field, "stopAfterXSolution")) {
       ALLPARAMS(stopAfterXSolution_)
     } else if (Tools::strEndsWith(field, "printRelaxationSol")) {
@@ -159,6 +163,7 @@ void SolverParam::verbose(int v) {
   // so new values are given only if set to true
   //
   verbose_ = v;
+  spParam_.verbose_ = v;
   switch (v) {
     case 0: printRelaxationSol_ = false;
       printIntermediarySol_ = false;
@@ -239,6 +244,7 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       nbDiveIfRelGap_ = 2;
       solveToOptimality_ = true;
       stopAfterXSolution_ = LARGE_SCORE;
+      solveRelaxationToOptimality_ = true;
       break;
   }
 }
@@ -254,8 +260,18 @@ bool SubProblemParam::setParameter(
       ALLPARAMS(spNbNursesToPrice_)
     } else if (Tools::strEndsWith(field, "spMaxReducedCostBound")) {
       ALLPARAMS(spMaxReducedCostBound_)
+    } else if (Tools::strEndsWith(field, "spMaxSolvingTimeSeconds")) {
+      ALLPARAMS(spMaxSolvingTimeSeconds_)
+    } else if (Tools::strEndsWith(
+        field, "spMaxSolvingTimeRatioForRelaxation")) {
+      ALLPARAMS(spMaxSolvingTimeRatioForRelaxation_)
+    } else if (Tools::strEndsWith(field, "spComputeLB")) {
+      ALLPARAMS(spComputeLB_)
     } else if (Tools::strEndsWith(field, "rcsppResetParamAtEachIteration")) {
       ALLPARAMS(rcsppResetParamAtEachIteration_)
+    } else if (Tools::strEndsWith(
+        field, "rcsspWaitBeforeStartingNextExecution")) {
+      ALLPARAMS(rcsspWaitBeforeStartingNextExecution_)
     } else if (Tools::strEndsWith(field, "rcsppToOptimality")) {
       ALLPARAMS(rcsppToOptimality_)
     } else if (Tools::strEndsWith(field, "rcsppSortLabels")) {
@@ -266,17 +282,25 @@ bool SubProblemParam::setParameter(
       ALLPARAMS(rcsppImprovedDomination_)
     } else if (Tools::strEndsWith(field, "rcsppEnumSubpaths")) {
       ALLPARAMS(rcsppEnumSubpaths_)
-    } else if (Tools::strEndsWith(field,
-                                  "rcsppEnumSubpathsForMinCostToSinks")) {
+    } else if (Tools::strEndsWith(
+        field, "rcsppEnumSubpathsForMinCostToSinks")) {
       ALLPARAMS(rcsppEnumSubpathsForMinCostToSinks_)
     } else if (Tools::strEndsWith(field, "rcsppDssr")) {
       ALLPARAMS(rcsppDssr_)
+    } else if (Tools::strEndsWith(field, "rcsppIncrementalDssr")) {
+      ALLPARAMS(rcsppIncrementalDssr_)
     } else if (Tools::strEndsWith(field, "rcsppNbToExpand")) {
       ALLPARAMS(rcsppNbToExpand_)
     } else if (Tools::strEndsWith(field, "rcsppBidirectional")) {
       ALLPARAMS(rcsppBidirectional_)
+    } else if (Tools::strEndsWith(field, "rcsppRandomStartDay")) {
+      ALLPARAMS(rcsppRandomStartDay_)
+    } else if (Tools::strEndsWith(field, "rcsppUseGlobalMaxLevel")) {
+      ALLPARAMS(rcsppUseGlobalMaxLevel_)
     } else if (Tools::strEndsWith(field, "spDefaultStrategy")) {
       ALLPARAMS(strategyLevel_)
+    } else if (Tools::strEndsWith(field, "spSortNursesBasedOnDuals")) {
+      ALLPARAMS(spSortNursesBasedOnDuals_)
     } else {
       return false;
     }
@@ -338,7 +362,7 @@ bool DeterministicSolverOptions::setParameter(
       *file >> solverName;
       solverName = Tools::toUpperCase(solverName);
       mySolverType_ = solverTypesByName.at(solverName);
-#ifdef DBG
+#ifdef NS_DEBUG
       std::cout << "LP solver :" << solverName << std::endl;
 #endif
     } else {
@@ -375,7 +399,7 @@ void StochasticSolverOptions::setStochasticSolverOptions(
   rankingStrategy_ = RK_MEAN;
   demandingEvaluation_ = true;
   verbose_ = 0;
-#ifdef DBG
+#ifdef NS_DEBUG
   verbose_ = 1;
 #endif
 
@@ -458,7 +482,7 @@ bool StochasticSolverOptions::setParameter(
       *file >> solverName;
       solverName = Tools::toUpperCase(solverName);
       mySolverType_ = solverTypesByName.at(solverName);
-#ifdef DBG
+#ifdef NS_DEBUG
       std::cout << "LP solver :" << solverName << std::endl;
 #endif
     } else if (Tools::strEndsWith(field, "evaluationAlgorithm")) {

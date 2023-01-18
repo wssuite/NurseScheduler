@@ -100,37 +100,49 @@ class HardTotalShiftDurationResource :
     public HardBoundedResource, public TotalShiftDuration {
  public:
   HardTotalShiftDurationResource(
-      int lb, int ub, const PAbstractShift& pShift,
+      int lb, int ub, const PAbstractShift &pShift,
       int totalNbDays, int maxDuration, int defaultDuration = -1) :
-      HardBoundedResource("Hard Total "+pShift->name, lb, ub),
+      HardBoundedResource("Hard Total " + pShift->name, lb, ub),
       TotalShiftDuration(pShift, maxDuration, defaultDuration) {
     totalNbDays_ = totalNbDays;
+    maxDurationForRemainingDays(totalNbDays, 1);
   }
 
-  BaseResource* clone() const override {
-    return new HardTotalShiftDurationResource(
+  BaseResource *clone() const override {
+    auto pR = new HardTotalShiftDurationResource(
         lb_, ub_, pAShift_,
         totalNbDays_, maxDuration_, defaultDuration_);
+    pR->maxDurationForRemainingDays_ = maxDurationForRemainingDays_;
+    return pR;
   }
 
   int getConsumption(const State &initialState) const override;
 
   int maxConsumptionPerDay() const override { return maxDuration_; }
 
-  bool isAnyWorkShiftResource() const override { return pShift_->isAnyWork(); }
+  bool isAnyWorkShiftResource() const override { return pAShift_->isAnyWork(); }
 
   bool isInRosterMaster() const override { return false; };
   bool isInRotationMaster() const override { return true; };
 
+  DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const override;
+
+  bool isActive(int dssrLvl) const override {
+    return dssrLvl == 0 || pAShift_->isAnyWork() || pAShift_->isRest() ||
+        ub_ > dssrLvl;
+  }
+
+  void maxDurationForRemainingDays(int maxConsWorkedDays, int minConsRestDays);
+
  protected:
+  // maximum number of worked days per remaining days
+  vector<int> maxDurationForRemainingDays_;
   // initialize the expander on a given arc
   PExpander init(const AbstractShift &prevAShift,
                  const Stretch &stretch,
                  const shared_ptr<RCArc> &pArc,
                  int indResource) override;
-
- private:
-  const PAbstractShift pShift_;
 };
 
 

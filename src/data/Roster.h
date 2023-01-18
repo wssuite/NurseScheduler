@@ -32,7 +32,7 @@
 class Roster : public Stretch {
  public:
   // Default constructor
-  Roster() : Stretch() {}
+  Roster() : Stretch(), cost_(LARGE_SCORE) {}
 
   // Constructor: initialize planning from an input set of shifts and skills
   Roster(int firstDay,
@@ -47,6 +47,8 @@ class Roster : public Stretch {
   // the vector contains exactly one element per day
   // if the nurse is resting, the skill has no importance
   std::vector<int> skills_;
+  double cost_;
+  std::map<int, double> costPerType_;
 
  public:
   // Basic getters
@@ -69,9 +71,16 @@ class Roster : public Stretch {
   // copy the input roster
   void copy(const Roster &roster);
 
+  double cost() const;
+  void cost(double cost);
+
+  const std::map<int, double> &costs() const;
+  void costs(const std::map<int, double> &costPerType);
+  void cost(int type, double cost);
+
   // get a vector of consecutive states that will result from applying the
   // the roster from a given initial state
-  std::vector<State> getStates(
+  std::vector<State> states(
       const State &pStateIni, const PScenario &pScenario);
 };
 

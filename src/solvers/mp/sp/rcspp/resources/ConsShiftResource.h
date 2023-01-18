@@ -33,32 +33,46 @@ using std::vector;
 class ConsShift {
  public:
   ConsShift(const PAbstractShift &pShift,
+            int initialConsumption = 0,
             bool endOnLastDay = false,
-            bool cyclic = false) :
+            bool cyclic = false,
+            bool enforceLBAtStart = true):
             pAShift_(pShift),
+            initialConsumption_(initialConsumption),
             lastDayEndsSequence_(endOnLastDay),
-            cyclic_(cyclic) {
+            cyclic_(cyclic),
+            enforceLBAtStart_(enforceLBAtStart) {
     if (cyclic_ && lastDayEndsSequence_) {
       std::cerr << "ConsShift has disabled lastDayEndsSequence_"
                    " as cyclic_ is enable." << std::endl;
       lastDayEndsSequence_ = false;
     }
+    if (cyclic_ && !enforceLBAtStart_) {
+      std::cerr << "ConsShift has enabled enforceLBAtStart_"
+                   " as cyclic_ is enable." << std::endl;
+      enforceLBAtStart_ = true;
+    }
   }
 
-  const PAbstractShift &pShift() const { return pAShift_; }
+  const PAbstractShift &pAShift() const { return pAShift_; }
   bool lastDayEndsSequence() const { return lastDayEndsSequence_; }
   bool isCyclic() const { return cyclic_; }
+  bool enforceLBAtStart() const { return enforceLBAtStart_; }
+  int initialConsumption() const { return initialConsumption_; }
 
  protected:
   const PAbstractShift pAShift_;
   // consumption of the resource in the initial state
-  int initialConsumption_ = 0;
+  int initialConsumption_;
 
   // true if the last day of horizon puts an end to a sequence of shifts (and
   // thus we need to pay LB cost if it LB is not met)
-  bool lastDayEndsSequence_ = false;
+  bool lastDayEndsSequence_;
 
   bool cyclic_;  // true of solving the cyclic version
+
+  // true if LB violations count on the first sequence starting on day 0
+  bool enforceLBAtStart_;
 };
 
 
@@ -74,12 +88,13 @@ class SoftConsShiftResource : public SoftBoundedResource, public ConsShift {
                         int initialConsumption,
                         bool endOnLastDay = false,
                         bool cyclic = false,
+                        bool enforceLBAtStart = true,
                         std::string _name = "") :
       SoftBoundedResource(_name.empty() ?
                           "Soft Cons "+pShift->name : std::move(_name),
                           lb, ub, lbCost, ubCost),
-      ConsShift(pShift, endOnLastDay, cyclic),
-      initialConsumption_(initialConsumption) {
+      ConsShift(pShift, initialConsumption, endOnLastDay,
+                cyclic, enforceLBAtStart) {
     totalNbDays_ = totalNbDays;
     costType_ = costType;
   }
@@ -87,7 +102,8 @@ class SoftConsShiftResource : public SoftBoundedResource, public ConsShift {
   BaseResource* clone() const override {
     return new SoftConsShiftResource(
         lb_, ub_, lbCost_, ubCost_, pAShift_, costType_, totalNbDays_,
-        initialConsumption_, lastDayEndsSequence_, cyclic_, name);
+        initialConsumption_, lastDayEndsSequence_, cyclic_,
+        enforceLBAtStart_, name);
   }
 
   int getConsumption(const State &initialState) const override;
@@ -121,8 +137,6 @@ class SoftConsShiftResource : public SoftBoundedResource, public ConsShift {
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 
-  int initialConsumption() const { return initialConsumption_; }
-
   bool isInRosterMaster() const override { return false; };
   bool isInRotationMaster() const override { return pAShift_->isRest(); };
 
@@ -133,30 +147,28 @@ class SoftConsShiftResource : public SoftBoundedResource, public ConsShift {
                  int indResource) override;
 
   void enumerate(const PRCGraph &pRCGraph, bool forceEnum) override;
-
-  // consumption of the resource in the initial state
-  int initialConsumption_ = 0;
 };
 
 class HardConsShiftResource : public HardBoundedResource, public ConsShift {
  public:
   HardConsShiftResource(
-      int lb, int ub, const PAbstractShift& pShift,
+      int lb, int ub, const PAbstractShift &pShift,
       int totalNbDays, int initialConsumption,
-      bool endOnLastDay = false, bool cyclic = false, std::string _name = "") :
+      bool endOnLastDay = false, bool cyclic = false,
+      bool enforceLBAtStart = true, std::string _name = "") :
       HardBoundedResource(_name.empty() ?
-                          "Hard Cons "+pShift->name : std::move(_name),
+                          "Hard Cons " + pShift->name : std::move(_name),
                           lb, ub),
-      ConsShift(pShift, endOnLastDay, cyclic),
-      initialConsumption_(initialConsumption) {
+      ConsShift(pShift, initialConsumption,
+                endOnLastDay, cyclic, enforceLBAtStart) {
     totalNbDays_ = totalNbDays;
   }
 
-  BaseResource* clone() const override {
+  BaseResource *clone() const override {
     return new HardConsShiftResource(
         lb_, ub_, pAShift_,
         totalNbDays_, initialConsumption_,
-        lastDayEndsSequence_, cyclic_, name);
+        lastDayEndsSequence_, cyclic_, enforceLBAtStart_, name);
   }
 
   int getConsumption(const State &initialState) const override;
@@ -168,7 +180,13 @@ class HardConsShiftResource : public HardBoundedResource, public ConsShift {
              ResourceValues *vMerged,
              const PRCLabel &pLMerged) override;
 
-  int initialConsumption() const { return initialConsumption_; }
+  DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const override;
+
+  bool isActive(int dssrLvl) const override {
+    return dssrLvl == 0 || pAShift_->isAnyWork() || pAShift_->isRest() ||
+        ub_ > dssrLvl;
+  }
 
   bool isInRosterMaster() const override { return false; };
   bool isInRotationMaster() const override { return pAShift_->isRest(); };
@@ -179,9 +197,6 @@ class HardConsShiftResource : public HardBoundedResource, public ConsShift {
                  const Stretch &stretch,
                  const shared_ptr<RCArc> &pArc,
                  int indResource) override;
-
-  // consumption of the resource in the initial state
-  int initialConsumption_ = 0;
 };
 
 /*

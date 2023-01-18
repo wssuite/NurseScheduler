@@ -226,13 +226,6 @@ jobs:
           ns-args: -g 1800-2200 -t 300 --n-threads 2
           retries: 5
 
-      - name: n035w4_1_1-7-1-8  2 threads
-        uses: ./ # Uses an action in the root directory
-        with:
-          instance: n035w4_1_1-7-1-8
-          ns-args: -g 1150-1500 -t 300 --n-threads 2
-          retries: 5
-
       - name: new1_0_0-1 ALL
         uses: ./ # Uses an action in the root directory
         with:
@@ -245,37 +238,41 @@ jobs:
           instance: new1_0_0-1
           ns-args: --dir datasets/ -g 1310 -e 0 --sp-type ROSTER
 
-      - name: new2_0_0-0-1-0 ALL  2 threads
-        uses: ./ # Uses an action in the root directory
-        with:
-          instance: new2_0_0-0-1-0
-          ns-args: --dir datasets/ -g 2210-2310 -e 0 --sp-type ALL -t 120
-          retries: 5
-
       - name: new2_0_0-0-1-0 ROSTER  2 threads
         uses: ./ # Uses an action in the root directory
         with:
           instance: new2_0_0-0-1-0
-          ns-args: --dir datasets/ -g 2210-2280 -e 0 --sp-type ROSTER -t 180 --n-threads 2
+          ns-args: --dir datasets/ -g 2055-2080 -e 0 --sp-type ROSTER -t 120 --n-threads 2
           retries: 5
 
-      - name: n030w4_1_6-2-9-1 dynamic
+      - name: new2_0_0-0-1-0 ALL  2 threads
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: new2_0_0-0-1-0
+          ns-args: --dir datasets/ -g 2055 -e 0 --sp-type ALL -t 180
+          retries: 5
+
+      - name: INRC sprint01 ROSTER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: sprint01.txt
+          ns-args: --dir datasets/INRC/ -g 56 -e 0 --sp-type ROSTER -t 180
+
+      - name: NRP Instance1 ALL
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: Instance1.txt
+          ns-args: --dir datasets/nrp/ -g 607 -e 0 --sp-type ALL -t 60
+
+      - name: NRP Instance2 ROSTER
+        uses: ./ # Uses an action in the root directory
+        with:
+          instance: Instance2.txt
+          ns-args: --dir datasets/nrp/ -g 828 -e 0 --sp-type ROSTER
+
+      - name: dynamic n030w4_1_6-2-9-1
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -d -s 68-54-78-98 -g 1670-1900
-          retries: 3
-
-      - name: n030w4_1_6-7-5-3 dynamic
-        uses: ./ # Uses an action in the root directory
-        with:
-          instance: n030w4_1_6-7-5-3
-          ns-args: -d -s 50-35-70-80 -g 1815-2100
-          retries: 3
-
-      - name: n035w4_0_1-7-1-8 dynamic
-        uses: ./ # Uses an action in the root directory
-        with:
-          instance: n035w4_0_1-7-1-8
-          ns-args: -d -s 85-76-52-66 -g 1360-1750
           retries: 3

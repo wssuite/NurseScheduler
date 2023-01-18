@@ -264,14 +264,16 @@ struct MyPricer {
                                        bool after_fathom = false,
                                        bool backtracked = false) = 0;
 
-  // set pricer parameters
-  virtual void initPricerParameters(const SolverParam &parameters) {}
+  virtual void updateParameters(bool useMoreTime) = 0;
 
   virtual double getLastMinReducedCost() const = 0;
-  virtual const std::vector<double> &getLastMinReducedCosts() const = 0;
+  virtual const std::vector<double> &getLastReducedCostLBs() const = 0;
 
   // return true if all subproblems have been solved to optimality
   virtual bool isLastRunOptimal() const = 0;
+
+  // return true if all subproblems have a lower bound
+  virtual bool isLastRunLowerBounded() const = 0;
 
   // METHODS - Forbidden shifts, nurses, starting days, etc.
   //
@@ -299,7 +301,7 @@ typedef std::shared_ptr<MyNode> MyPNode;
 struct MyNode {
   MyNode() : index_(0),
              pParent_(nullptr),
-             bestLB_(XLARGE_SCORE),
+             bestLB_(-XLARGE_SCORE),
              processed_(false),
              gap_(XLARGE_SCORE),
              smallestGap_(XLARGE_SCORE),
@@ -435,25 +437,26 @@ struct MyNode {
 struct MyTree {
   explicit MyTree(double epsilon, bool printCurrentNode = true)
       : epsilon_(epsilon),
-        tree_size_(0),
-        nb_nodes_processed_(0),
-        nb_nodes_last_incumbent_(0),
+        treeSize_(0),
+        nbNodesProcessed_(0),
+        nbNodesLastIncumbent_(0),
         diveDepth_(0),
         diveLength_(LARGE_SCORE),
-        min_depth_(0),
-        nb_nodes_since_dive_(0),
+        minDepth_(0),
+        nbNodesSinceDive_(0),
         currentNode_(nullptr),
         printCurrentNode_(printCurrentNode),
-        best_lb_in_root(XLARGE_SCORE),
-        best_lb(XLARGE_SCORE),
-        best_ub(XLARGE_SCORE),
-        best_lb_min_tree_level_(0) {}
+        bestLbInRoot(-XLARGE_SCORE),
+        bestLb(-XLARGE_SCORE),
+        maxBestLb(XLARGE_SCORE),
+        bestUb(XLARGE_SCORE),
+        bestLbMinTreeLevel_(0) {}
 
   virtual ~MyTree() {}
 
-  void setRootLB(double bestLBRoot) { best_lb_in_root = bestLBRoot; }
+  void setRootLB(double bestLBRoot) { bestLbInRoot = bestLBRoot; }
 
-  double getRootLB() const { return best_lb_in_root; }
+  double getRootLB() const { return bestLbInRoot; }
 
   void setCurrentNode(const MyPNode &currentNode);
 
@@ -481,19 +484,26 @@ struct MyTree {
     return tree_[nodeIndex];
   }
 
-  double getBestLB() const { return best_lb; }
+  double getBestLB() const { return bestLb; }
 
-  int getBestLBMinTreeLevel() const { return best_lb_min_tree_level_; }
+  int getBestLBMinTreeLevel() const { return bestLbMinTreeLevel_; }
 
   void setBestUB(double ub) {
-    /* reinitialize nb_nodes_last_incumbent_ */
-    if (ub + 1 < best_ub) nb_nodes_last_incumbent_ = 0;
-    if (ub < best_ub) best_ub = ub;
+    /* reinitialize nbNodesLastIncumbent_ */
+    if (ub + 1 < bestUb) nbNodesLastIncumbent_ = 0;
+    if (ub < bestUb) bestUb = ub;
   }
 
-  double getBestUB() const { return best_ub; }
+  double getBestUB() const { return bestUb; }
 
   double getCurrentLB() const { return currentNode_->getBestLB(); }
+
+  // fix maximum value of the best LB. In general, it's due to a branch that has
+  // been cut, but should have not. It can only happen when not solving
+  // subproblems to optimality.
+  void fixMaxBestLb(double lb) {
+    if (lb < maxBestLb) maxBestLb = lb;
+  }
 
   void swapNodes(int index1, int index2) {
     std::swap(tree_[index1], tree_[index2]);
@@ -508,30 +518,31 @@ struct MyTree {
   // Reset and clear solving parameters
   virtual void reset() {
     clear();
-    best_ub = XLARGE_SCORE;
+    bestUb = XLARGE_SCORE;
     currentNode_ = nullptr;
-    tree_size_ = 0;
-    nb_nodes_processed_ = 0;
-    nb_nodes_last_incumbent_ = 0;
-    nb_nodes_since_dive_ = 0;
+    treeSize_ = 0;
+    nbNodesProcessed_ = 0;
+    nbNodesLastIncumbent_ = 0;
+    nbNodesSinceDive_ = 0;
     diveDepth_ = 0;
     diveLength_ = LARGE_SCORE;
-    best_lb_in_root = XLARGE_SCORE;
-    best_lb = XLARGE_SCORE;
+    bestLbInRoot = -XLARGE_SCORE;
+    bestLb = -XLARGE_SCORE;
+    maxBestLb = XLARGE_SCORE;
   }
 
-  int getTreeSize() const { return tree_size_; }
+  int getTreeSize() const { return treeSize_; }
 
-  int getNbNodesProcessed() const { return nb_nodes_processed_; }
+  int getNbNodesProcessed() const { return nbNodesProcessed_; }
 
-  int getNbNodesSinceLastIncumbent() const { return nb_nodes_last_incumbent_; }
+  int getNbNodesSinceLastIncumbent() const { return nbNodesLastIncumbent_; }
 
-  void resetNbNodesSinceLastDive() { nb_nodes_since_dive_ = 0; }
+  void resetNbNodesSinceLastDive() { nbNodesSinceDive_ = 0; }
 
   int getDiveLength() const { return diveLength_; }
 
   int getNbDives() const {
-    return nb_nodes_since_dive_ / diveLength_;
+    return nbNodesSinceDive_ / diveLength_;
   }
 
   double updateNodeLB(double lb);
@@ -555,19 +566,19 @@ struct MyTree {
     return false;
   }
 
-  double getObjective() const { return best_ub; }
+  double getObjective() const { return bestUb; }
 
-  double getRelaxedObjective() const { return best_lb_in_root; }
+  double getRelaxedObjective() const { return bestLbInRoot; }
 
   void createRootNode() {
     tree_.push_back(std::make_shared<MyNode>());
-    ++tree_size_;
+    ++treeSize_;
   }
 
   void pushBackNode(const MyPNode &node) {
     node->setIndex(tree_.size());
     tree_.push_back(node);
-    tree_size_++;
+    treeSize_++;
     currentNode_->pushBackChild(node);
   }
 
@@ -577,7 +588,7 @@ struct MyTree {
     return (getBestUB() - getBestLB()) / getBestLB();
   }
 
-  virtual bool is_columns_node() const { return false; }
+  virtual bool isColumnsNode() const { return false; }
 
   virtual void addForbiddenShifts(
       PLiveNurse pNurse,
@@ -602,17 +613,17 @@ struct MyTree {
   std::vector<MyPNode> tree_;
   // tree size, number of nodes since last incumbent,
   // depth of the current dive, length of a dive
-  int tree_size_, nb_nodes_processed_, nb_nodes_last_incumbent_, diveDepth_,
-      diveLength_, min_depth_, nb_nodes_since_dive_, best_lb_min_tree_level_;
+  int treeSize_, nbNodesProcessed_, nbNodesLastIncumbent_, diveDepth_,
+      diveLength_, minDepth_, nbNodesSinceDive_, bestLbMinTreeLevel_;
   // current node
   MyPNode currentNode_;
   // print current node every time it has been changed
   bool printCurrentNode_;
 
   // best lb in root and current best lb
-  double best_lb_in_root, best_lb;
+  double bestLbInRoot, bestLb, maxBestLb;
   // best current upper bound found
-  double best_ub;
+  double bestUb;
 };
 
 /* Structures to store a branching candidate and its potential children */
@@ -651,6 +662,10 @@ typedef std::shared_ptr<MyBranchingNode> MyPBranchingNode;
 
 struct MyBranchingCandidate {
   MyBranchingCandidate() = default;
+  ~MyBranchingCandidate() {
+    for (MyVar *pV : newBranchingVars_) delete pV;
+    for (MyCons *pC : newBranchingCons_) delete pC;
+  }
 
   virtual int createNewChild() {
     children_.push_back(std::make_shared<MyBranchingNode>());
@@ -1402,7 +1417,7 @@ class Modeler {
 
   std::string writeCurrentNode() const { return pTree_->writeCurrentNode(); }
 
-  bool is_columns_node() const { return pTree_->is_columns_node(); }
+  bool isColumnsNode() const { return pTree_->isColumnsNode(); }
 
   void keepFirstChild() { return pTree_->keepFirstChild(); }
 
@@ -1430,6 +1445,8 @@ class Modeler {
   std::string logfile() const { return logfile_; }
 
   const SolverParam &getParameters() const { return parameters_; }
+
+  SolverParam* getpParameters() { return &parameters_; }
 
   void setLogFile(std::string fileName) { logfile_ = fileName; }
 

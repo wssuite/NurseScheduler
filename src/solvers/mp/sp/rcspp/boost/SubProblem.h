@@ -75,13 +75,13 @@ class SubProblem : public SP {
 
   void build() override;
 
-  bool solve() override;
+  bool solve(bool initialSolve = true, bool relaxation = false) override;
 
   static const int maxSubproblemStrategyLevel_;
 
   void initSubproblemParam(int strategy);
 
-  void updateParameters(bool masterFeasible) override;
+  void updateParameters(bool useMoreTime = false) override;
 
   bool isLastRunOptimal() const override {
     return param_.strategyLevel_ == maxSubproblemStrategyLevel_;
@@ -214,7 +214,7 @@ class SubProblem : public SP {
   void resetAuthorizations() override;
 
   // FUNCTIONS -- SOLVE
-  bool solveRCGraph() override;
+  bool solveRCGraph(bool initialSolve = true, bool relaxation = false) override;
 
   // override updateArcDualCosts to take into account end work costs when going
   // to a daily sink

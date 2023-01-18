@@ -1,0 +1,52 @@
+# global options of the deterministic procedure
+solutionAlgorithm=GENCOL
+solverType=Clp
+divideIntoConnectedPositions=1
+withRollingHorizon=0
+withPrimalDual=0
+withLNS=0
+
+# complete solution options
+completeOptimalityLevel=OPTIMALITY
+
+# default branch and price solver parameters
+isStabilization=0
+isStabUpdateBoxRadius=1
+isStabUpdatePenalty=1
+nbDiveIfBranchOnColumns=1
+branchColumnDisjoint=1
+# branchColumnUntilValue=1
+weekendAdvantage=0.2
+branchBaseScore=0.2
+# number of candidate for strong branching
+nCandidates=5
+verbose=1
+
+# MIP heuristic
+performHeuristicAfterXNode=0
+heuristicMinIntegerPercent=0
+performMIPHeuristic=1
+MIPHeuristicGapLimit=.5
+MIPHeuristicUseRotations=1
+MIPHeuristicNThreads=1
+MIPHeuristicVerbose=0
+MIPHeuristicSolver=FIRST_AVAIL
+# MIPHeuristicMaxIteration=-1
+
+# subproblem
+spNbRotationsPerNurse=20
+spNbNursesToPrice=15
+spSortNursesBasedOnDuals=1
+solveRelaxationToOptimality=0
+rcsppToOptimality=0
+rcsppDssr=1
+rcsppIncrementalDssr=1
+rcsppEnumSubpaths=0
+rcsppMinCostToSinks=1
+rcsppEnumSubpathsForMinCostToSinks=0
+rcsppNbToExpand=20
+rcsppBidirectional=1
+rcsppRandomStartDay=0
+rcsspWaitBeforeStartingNextExecution=1
+rcsppResetParamAtEachIteration=1
+rcsppUseGlobalMaxLevel=0

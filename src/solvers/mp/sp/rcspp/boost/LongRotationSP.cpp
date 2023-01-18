@@ -217,9 +217,9 @@ void LongRotationSP::createArcsSourceToPrincipal() {
   int origin = g_.source();
   for (int sh = 1; sh < pScenario_->nShiftTypes(); ++sh) {
     // any shift with the right shit type
-    int s = pScenario_->shiftTypeIDToShiftID(sh).front();
+    const PShift & pS = pScenario_->pShiftsOfType(sh).front();
     std::vector<PShift> pShifts;
-    Tools::initVector(&pShifts, minConsDays_, pScenario_->pShift(s));
+    Tools::initVector(&pShifts, minConsDays_, pS);
     for (int k = CDMin_ - 1; k < nDays_; k++)
       for (int dest : principalGraphs_[sh].getDayNodes(k))
         // add one arc for each cons days available

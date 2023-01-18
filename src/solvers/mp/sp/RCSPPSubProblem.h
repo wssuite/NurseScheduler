@@ -42,16 +42,24 @@ class RCSPPSubProblem : public SubProblem {
   bool presolve() override;
 
   // reset parameters of the subproblems. Used to give a change to the solver
-  // to change their parameters. It will be used after a node has been fathomed
-  void updateParameters(bool masterFeasible) override;
+  // to change their parameters.
+  void updateParameters(bool useMoreTime = false) override;
 
   // verify that all the parameters are compatible.
   // If not, turn off some of them.
   void fixParameters();
 
-  // always solved at optimality
   bool isLastRunOptimal() const override {
     return pRcsppSolver_ && pRcsppSolver_->isLastRunOptimal();
+  }
+
+  bool hasANextExecutionAvailable() const override {
+    return pRcsppSolver_ && pRcsppSolver_->hasANextExecutionAvailable();
+  }
+
+  double minRedCostLB() const override {
+    if (pRcsppSolver_) return pRcsppSolver_->minRedCostLB();
+    return -DBL_MAX;
   }
 
   // Algorithms adapted to acyclic graphs computing the costs of the shortest
@@ -106,7 +114,7 @@ class RCSPPSubProblem : public SubProblem {
   void createResources(const PRCGraph &pRCGraph);
 
   // create the RCSPP solver
-  void createRCSPPSolver();
+  void createRCSPPSolver(int seed = -1);
 
   // modify the RCGraph if specified in the parameters, e.g., by enumerating
   // subpaths of consecutive identical shifts,
@@ -130,14 +138,15 @@ class RCSPPSubProblem : public SubProblem {
   void resetAuthorizations() override;
 
   // run the actual solution of the RCSPP once every preprocessing is done
-  bool solveRCGraph() override;
+  bool solveRCGraph(bool initialSolve = true, bool relaxation = false) override;
 
   // compute the cost of a given rcSol
   vector<PResource> computeResourcesCosts(
-      const State &initialState, RCSolution *rcSol) const;
-  vector<PResource> computeResourcesCosts(
-      const Stretch &stretch,
       const State &initialState,
+      RCSolution *rcSol) const;
+  vector<PResource> computeResourcesCosts(
+      const State &initialState,
+      const Stretch &stretch,
       std::map<CostType, double> *costsPerType);
 };
 

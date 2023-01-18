@@ -196,7 +196,7 @@ string State::toString() const {
 //-----------------------------------------------------------------------------
 
 vector2D<int> forbiddenShiftTypeSuccessors(
-    const vector2D<int> &forbiddenSuccessors,
+    const vector<PShift> &pShifts,
     const vector2D<int> &shiftTypeIDToShiftID,
     const vector<int> &shiftIDToShiftTypeID) {
   vector2D<int> forbidSuccs(shiftTypeIDToShiftID.size());
@@ -207,9 +207,11 @@ vector2D<int> forbiddenShiftTypeSuccessors(
       int nShiftToFound2 = shiftTypeIDToShiftID[st2].size();
       bool allFound = true;
       for (int s1 : shiftTypeIDToShiftID[st1]) {
+        const PShift pS1 = pShifts.at(s1);
         int n = 0;
-        for (int s2 : forbiddenSuccessors[s1])
-          n += (shiftIDToShiftTypeID[s2] == st2);
+        for (const PShift & pS2 : pShifts)
+          if (!pS2->canSucceed(*pS1) && pS2->type == st2)
+            n++;
         if (n != nShiftToFound2) {
           allFound = false;
           break;
@@ -223,29 +225,20 @@ vector2D<int> forbiddenShiftTypeSuccessors(
 
 // Constructor and destructor
 //
-Scenario::Scenario(string name,
+Scenario::Scenario(std::string name,
                    int nbWeeks,
                    int nbSkills,
-                   vector<string> intToSkill,
-                   map<string, int> skillToInt,
-                   int nbShifts,
-                   map<string, int> shiftToInt,
-                   vector<double> hoursToWork,
-                   vector<int> shiftIDToShiftTypeID,
-                   int nbShiftsType,
-                   vector<string> intToShiftType,
-                   map<string, int> shiftTypeToInt,
-                   vector2D<int> shiftTypeIDToShiftID,
-                   vector<int> minConsShiftType,
-                   vector<int> maxConsShiftType,
-                   vector<int> nbForbiddenSuccessors,
-                   vector2D<int> forbiddenSuccessors,
+                   vector<std::string> intToSkill,
+                   std::map<std::string, int> skillToInt,
                    vector<PShift> pShifts,
+                   vector<std::string> intToShiftType,
+                   vector<int> minConsShiftsType,
+                   vector<int> maxConsShiftsType,
                    int nbContracts,
                    vector<PContract> contracts,
                    int nbNurses,
-                   vector<PNurse> theNurses,
-                   map<string, int> nurseNameToInt,
+                   std::vector<PNurse> theNurses,
+                   std::map<std::string, int> nurseNameToInt,
                    PWeights weights,
                    bool isINRC,
                    bool isINRC2) :
@@ -254,29 +247,18 @@ Scenario::Scenario(string name,
     nSkills_(nbSkills),
     intToSkill_(std::move(intToSkill)),
     skillToInt_(std::move(skillToInt)),
-    nShifts_(nbShifts),
-    shiftToInt_(std::move(shiftToInt)),
-    timeDurationToWork_(std::move(hoursToWork)),
-    shiftIDToShiftTypeID_(std::move(shiftIDToShiftTypeID)),
-    nShiftTypes_(nbShiftsType),
-    intToShiftType_(std::move(intToShiftType)),
-    shiftTypeToInt_(std::move(shiftTypeToInt)),
-    shiftTypeIDToShiftID_(std::move(shiftTypeIDToShiftID)),
+    nShifts_(pShifts.size()),
     pShifts_(std::move(pShifts)),
+    shiftsFactory_(pShifts_, intToShiftType),
+    nShiftTypes_(shiftsFactory_.pAnyTypeShifts().size()),
     nContracts_(nbContracts),
     theContracts(std::move(contracts)),
     pWeights_(std::move(weights)),
     nNurses_(nbNurses),
     pNurses_(std::move(theNurses)),
     nurseNameToInt_(std::move(nurseNameToInt)),
-    minConsShiftType_(std::move(minConsShiftType)),
-    maxConsShiftType_(std::move(maxConsShiftType)),
-    nForbiddenSuccessors_(std::move(nbForbiddenSuccessors)),
-    forbiddenSuccessors_(std::move(forbiddenSuccessors)),
-    forbiddenShiftTypeSuccessors_(
-        forbiddenShiftTypeSuccessors(forbiddenSuccessors_,
-                                     shiftTypeIDToShiftID_,
-                                     shiftIDToShiftTypeID_)),
+    minConsShiftType_(std::move(minConsShiftsType)),
+    maxConsShiftType_(std::move(maxConsShiftsType)),
     pDemand_(nullptr),
     isINRC_(isINRC),
     isINRC2_(isINRC2),
@@ -284,12 +266,16 @@ Scenario::Scenario(string name,
     nShiftOnRequests_(0),
     nPositions_(0) {
   // To make sure that it is modified later when reading the history data file
-  //
   thisWeek_ = -1;
+
+  // build shiftToInt_, shiftTypeToInt_
+  for (int i=0; i < nShifts_; i++)
+    shiftToInt_[pShift(i)->name] = i;
+  for (int i=0; i < nShiftTypes_; i++)
+    shiftTypeToInt_[pAnyTypeShift(i)->name] = i;
 
   // Preprocess the vector of nurses
   // This creates the positions
-  //
   this->preprocessTheNurses();
 }
 
@@ -342,12 +328,9 @@ void Scenario::setPreferences(PPreferences pPreferences) {
 bool Scenario::isForbiddenSuccessorShift_Shift(int shNext, int shLast) const {
   if (shLast <= 0) return false;
 
-  if (std::any_of(forbiddenShiftTypeSuccessors_[shLast].begin(),
-                  forbiddenShiftTypeSuccessors_[shLast].end(),
-                  [shNext](int st){return st == shNext;}))
-    return true;
-
-  return false;
+  const PShift pSLast = pShift(shLast), pSNext = pShift(shNext);
+  pSNext->canSucceed(*pSLast);
+  return !pSNext->canSucceed(*pSLast);
 }
 
 // return true if the shiftType shTypeNext is
@@ -356,12 +339,9 @@ bool Scenario::isForbiddenSuccessorShiftType_ShiftType(int shTypeNext,
                                                        int shTypeLast) const {
   if (shTypeLast <= 0) return false;
 
-  if (std::any_of(forbiddenShiftTypeSuccessors_[shTypeLast].begin(),
-                  forbiddenShiftTypeSuccessors_[shTypeLast].end(),
-                  [shTypeNext](int st){return st == shTypeNext;}))
-    return true;
-
-  return false;
+  const vector<int> &lastSucc = pShiftsOfType(shTypeLast).front()->successors;
+  int sNext = pShiftsOfType(shTypeNext).front()->id;
+  return std::find(lastSucc.begin(), lastSucc.end(), sNext) == lastSucc.end();
 }
 
 // return the min/max consecutive shifts of the same type as the argument
@@ -369,15 +349,13 @@ bool Scenario::isForbiddenSuccessorShiftType_ShiftType(int shTypeNext,
 int Scenario::minConsShifts(int whichShift) const {
   if (minConsShiftType_.empty())
     return 0;
-  int shiftType = shiftIDToShiftTypeID_[whichShift];
-  return minConsShiftsOfType(shiftType);
+  return minConsShiftsOfType(pShift(whichShift)->type);
 }
 
 int Scenario::maxConsShifts(int whichShift) const {
   if (maxConsShiftType_.empty())
-    return 99;
-  int shiftType = shiftIDToShiftTypeID_[whichShift];
-  return maxConsShiftsOfType(shiftType);
+    return LARGE_SCORE;
+  return maxConsShiftsOfType(pShift(whichShift)->type);
 }
 
 int Scenario::minConsShiftsOfType(int whichShiftType) const {
@@ -468,14 +446,6 @@ string Scenario::toStringINRC2() const {
   }
 
   rep << "# " << std::endl;
-  rep << "# FORBIDDEN        " << std::endl;
-  for (int i = 0; i < nShiftTypes_; i++) {
-    rep << "#\t\t\t" << intToShiftType_[i] << "\t-> ";
-    for (int j = 0; j < nForbiddenSuccessors_[i]; j++) {
-      rep << intToShiftType_[forbiddenSuccessors_[i][j]] << " ";
-    }
-    rep << std::endl;
-  }
   rep << "# CONTRACTS        " << std::endl;
   for (const auto &contract : theContracts) {
     rep << "#\t\t\t" << *(contract) << std::endl;
@@ -508,7 +478,7 @@ string Scenario::toStringINRC2() const {
       rep << "#\t\t\t" << pNurses_[n]->name_ << " ";
       State s = initialState_[n];
       rep << s.totalTimeWorked_ << " " << s.totalWeekendsWorked_ << " "
-          << intToShiftType_[s.pShift_->type] << " ";
+          << pAnyTypeShift(s.pShift_->type)->name << " ";
       if (s.pShift_->isWork()) {
         rep << s.consShifts_ << " " << s.consDaysWorked_;
       } else {

@@ -61,6 +61,12 @@ BCP_lp_branching_object * BcpBranchingCandidates::selectCandidates(
     if (pCol) pCol->make_non_removable();
   }
 
+  // mark branching cons as non-removable
+  for (auto pCons : candidate_->getBranchingCons()) {
+    auto *pBCons = dynamic_cast<BcpBranchCons*>(pCons);
+    if (pBCons) pBCons->make_non_removable();
+  }
+
   // Delete whatever cols/rows we want to delete. This function also updates
   // var/cut_positions !!!
   BCP_lp_delete_cols_and_rows(*p, nullptr, 0, 0,
@@ -119,7 +125,7 @@ BCP_lp_branching_object * BcpBranchingCandidates::buildCandidate(
       index = vars.size() + *nbNewVar;
       ++*nbNewVar;
     }
-#ifdef DBG
+#ifdef NS_DEBUG
     else if (index == -1) {  // NOLINT
       Tools::throwError("Current index of var is out of date: %s.", var->name_);
     } else {
@@ -134,7 +140,7 @@ BCP_lp_branching_object * BcpBranchingCandidates::buildCandidate(
   }
 
   for (MyVar *newVar : candidate.getNewBranchingVars())
-    new_vars.push_back(dynamic_cast<BCP_var *>(newVar));
+    new_vars.push_back(new BcpColumn(*dynamic_cast<BcpColumn*>(newVar)));
 
   // bounds
   for (const MyPBranchingNode &node : candidate.getChildren()) {
@@ -161,7 +167,8 @@ BCP_lp_branching_object * BcpBranchingCandidates::buildCandidate(
   }
 
   for (MyCons *newCut : candidate.getNewBranchingCons())
-    new_cuts.push_back(dynamic_cast<BCP_cut *>(newCut));
+    new_cuts.push_back(
+        new BcpBranchCons(*dynamic_cast<BcpBranchCons*>(newCut)));
 
   // bounds
   for (const MyPBranchingNode &node : candidate.getChildren()) {
@@ -475,7 +482,7 @@ MyPBranchingCandidate BcpBranchingCandidates::BCP_lp_perform_strong_branching(
     /**
     * Start of the job definition (part run in parallel)
     */
-    Tools::Job job([&, cani, this]() {
+    Tools::Job job([&, cani, this](Tools::Job job) {
       // fetch an LP solver
       OsiSolverInterface *lp = nullptr;
       std::unique_lock<std::recursive_mutex> l(mutex_);

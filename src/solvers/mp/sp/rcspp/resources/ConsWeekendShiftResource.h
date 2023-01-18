@@ -42,7 +42,7 @@ class ConsWeekend : public ConsShift {
               DayOfWeek firstWeekendDay, DayOfWeek lastWeekendDay,
               bool endOnLastDay,
               bool cyclic) :
-      ConsShift(pShift, endOnLastDay, cyclic),
+      ConsShift(pShift, 0, endOnLastDay, cyclic),
       pR_(pR), weekend_(firstWeekendDay, lastWeekendDay) {}
 
   void computeConsumption(
@@ -138,13 +138,13 @@ class HardConsWeekendShiftResource :
       DayOfWeek lastWeekendDay = SUNDAY,
       bool endOnLastDay = true,
       bool cyclic = false) :
-      HardBoundedResource("Hard Weekend Cons "+pShift->name, lb, ub),
+      HardBoundedResource("Hard Weekend Cons " + pShift->name, lb, ub),
       ConsWeekend(pShift, this, firstWeekendDay, lastWeekendDay,
                   endOnLastDay, cyclic) {
     totalNbDays_ = totalNbDays;
   }
 
-  BaseResource* clone() const override {
+  BaseResource *clone() const override {
     return new HardConsWeekendShiftResource(
         lb_, ub_, pAShift_, totalNbDays_,
         weekend_.firstWeekendDay().getDayOfWeek(),
@@ -158,9 +158,8 @@ class HardConsWeekendShiftResource :
     return pAShift_->isAnyWork();
   }
 
-  bool dominates(const PRCLabel &pL1,
-                 const PRCLabel &pL2,
-                 double *cost) const override;
+  DominationStatus dominates(
+      RCLabel *pL1, RCLabel *pL2, double *cost) const override;
 
   bool isInRosterMaster() const override { return false; };
   bool isInRotationMaster() const override { return true; };

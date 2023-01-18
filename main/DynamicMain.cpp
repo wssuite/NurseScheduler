@@ -14,7 +14,7 @@
 #include "tools/DemandGenerator.h"
 #include "solvers/StochasticSolver.h"
 #include "tools/Tools.h"
-#include "solvers/InitializeSolver.h"
+#include "InitializeInstance.h"
 
 using std::string;
 using std::vector;
@@ -33,7 +33,7 @@ void solveOneWeek(InputPaths *pInputPaths) {
 
   // set the scenario
   logStream << "# Initialize the scenario" << std::endl;
-  PScenario pScen = initializeScenarioINRC2(*pInputPaths);
+  PScenario pScen = buildInstance(*pInputPaths);
 
   // set the options of the stochastic solver
   // (the corresponding method needs to be change manually for tests)
@@ -116,7 +116,7 @@ pair<double, int> testMultipleWeeksStochastic(
   InputPaths inputPaths(dataDir, instanceName, historyIndex, weekIndices);
 
   // initialize the scenario object of the first week
-  PScenario pScen = initializeScenarioINRC2(inputPaths);
+  PScenario pScen = buildInstance(inputPaths);
   stochasticSolverOptions.setStochasticSolverOptions(
       pScen, outdir, "", stochasticSolverOptions.totalTimeLimitSeconds_, true);
 
@@ -126,14 +126,14 @@ pair<double, int> testMultipleWeeksStochastic(
   Status solutionStatus;
 
   // whole scenario for the whole horizon
-  PScenario pWholeScen = initializeScenarioINRC2(inputPaths);
+  PScenario pWholeScen = buildInstance(inputPaths);
 
   vector<PDemand> demandHistory;
   double partialCost = 0, totalCost = 0;
   int nbSched = 0;
 
   for (int week = 0; week < nbWeeks; week++) {
-    auto rdm = Tools::getANewRandomGenerator();
+    auto rdm = Tools::getANewRandomGenerator(true);
     if (week >= seeds.size())
       seeds.emplace_back(rdm());
     Tools::initializeRandomGenerator(seeds[week]);

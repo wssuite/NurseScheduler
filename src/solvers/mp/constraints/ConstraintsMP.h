@@ -67,6 +67,8 @@ class ConstraintMP {
     return true;
   }
 
+  double maxDualValue(int nurseId) const { return maxDualValues_[nurseId]; }
+
   Modeler * pModel() const;
 
   const std::string name;
@@ -74,6 +76,12 @@ class ConstraintMP {
  protected:
   MasterProblem *pMaster_;
   PScenario pScenario_;
+  vector<double> maxDualValues_;
+
+  void resetMaxDualValues() {
+    maxDualValues_.clear();
+    maxDualValues_.resize(pScenario_->nNurses(), -XLARGE_SCORE);
+  }
 };
 
 /*
@@ -160,14 +168,15 @@ class DemandConstraint : public ConstraintMP {
   DemandConstraint(MasterProblem *pMaster,
                    bool minDemand,
                    bool soft = false,
-                   double weight = 0);
+                   double underCoverage = 0,
+                   double overCoverage = 0);
 
   // update the values of the variables and constraints based
   // on the current model values
   void update() override;
 
   const vector3D<MyVar*>& getVariables() const {
-    return slackVars_;
+    return underCovVars_;
   }
 
   const vector3D<MyCons*>& getConstraints() const {
@@ -175,21 +184,21 @@ class DemandConstraint : public ConstraintMP {
   }
 
   double getTotalCost() const override {
-    return pModel()->getTotalCost(slackVars_) +
-        pModel()->getTotalCost(feasNegVars_);
+    return pModel()->getTotalCost(underCovVars_) +
+        pModel()->getTotalCost(overCovVars_);
   }
 
  protected:
   bool minDemand_;
   std::string prefix_;
   bool soft_;
-  double weight_;
+  double underCoverage_, overCoverage_;
   // demand constraints per day, shift, skills
   vector3D<MyCons *> demandCons_;
   // slack variables for each constraint
   // if soft has a weight, if hard it's for feasibilty (it has big weight)
-  vector3D<MyVar *> slackVars_;
-  vector3D<MyVar *> feasNegVars_;  // useful for INRC
+  vector3D<MyVar *> underCovVars_;
+  vector3D<MyVar *> overCovVars_;  // useful for INRC
 
   // build the constraints
   void build();

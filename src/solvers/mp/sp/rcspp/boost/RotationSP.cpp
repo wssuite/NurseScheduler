@@ -71,10 +71,10 @@ void RotationSP::createArcsSourceToPrincipal() {
     for (int k = minConsDays_ - 1; k < nDays_; k++)
       for (int dest : principalGraphs_[sh].getDayNodes(k)) {
         std::vector<int> vec;
-        for (int s : pScenario_->shiftTypeIDToShiftID(sh))
+        for (const PShift &pS : pScenario_->pShiftsOfType(sh))
           vec.push_back(addSingleArc(
-              origin, dest, 0, startConsumption(k, {pScenario_->pShift(s)}),
-              SOURCE_TO_PRINCIPAL, k, pScenario_->pShift(s)));
+              origin, dest, 0, startConsumption(k, {pS}),
+              SOURCE_TO_PRINCIPAL, k, pS));
         arcsFromSource_[sh][k].push_back(vec);
       }
 }
@@ -174,7 +174,7 @@ double RotationSP::shiftCost(int a, const PAbstractShift &prevS) const {
 
 double RotationSP::endWorkCost(int a) const {
   const Arc_Properties &arc_prop  = g_.arc(a);
-  PShift pW = pScenario_->pAnyWorkShift();
+  PAbstractShift pW = pScenario_->shiftsFactory().pAnyWorkShift();
   double cost = shiftCost(a, pW);
   int length = arc_prop.pShifts.size(), end = arc_prop.day;
   // compute the end of the sequence of shifts
@@ -195,7 +195,7 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   /************************************************
    * Compute all the costs of a rotation:
    ************************************************/
-#ifdef DBG
+#ifdef NS_DEBUG
   double cost = rcSol->cost();
 #endif
   rcSol->resetCosts();
@@ -316,7 +316,7 @@ void RotationSP::computeCost(MasterProblem *, RCSolution *rcSol) const {
   /*
    * Compute the sum of the cost and stores it in cost_
    */
-#ifdef DBG
+#ifdef NS_DEBUG
   if (cost < DBL_MAX - 1 && std::abs(cost - rcSol->cost()) > EPSILON) {
     std::cerr << "# " << std::endl;
     std::cerr << "Bad cost: " << rcSol->cost() << " != " << cost

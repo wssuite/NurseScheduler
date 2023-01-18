@@ -27,7 +27,7 @@ using std::vector;
 class FreeDaysAfterShiftResource : public Resource {
  public:
   explicit FreeDaysAfterShiftResource(
-      PAbstractShift pAShift = std::make_shared<AnyWorkShift>(),
+      PAbstractShift pAShift,
       int nbDays = 0,
       std::string _name = "") :
       Resource(_name.empty() ?
