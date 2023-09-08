@@ -48,21 +48,9 @@ You can run the INSTALL.sh script for performing the first two steps (give as fi
   ````
 
 #### 3. Build the nurse scheduling code:
-The code can be built either with a traditional Makefile or with cmake. In both cases, the paths to boost and BCP need to be provided.
+The code is built with cmake. The paths to boost and BCP need to be provided.
 
-  - ##### From the Makefile:
-  First, add the following environment variables (you need to define only one of the last variables for BCP):
-  ````bash
-  export BOOST_DIR="/path/to/boost/directory/boost_X_XX"
-  export BCPDIROPT="/path/to/coinor/directory/Bcp-1.4/build"
-  export BCPDIRDBG="/path/to/coinor/directory/Bcp-1.4/debug"
-  ````
-  Then, go to the root directory of the nurse scheduling project and type:
-  ````bash
-  make
-  ````
-
-  - ##### From cmake:
+  -
   First, modify the CMakeDefinitionsLists.txt to provide your own paths (you need to define only one of the last variables for BCP). Also, if boost is installed in a classical path, cmake will be able to find the path automatically.
   ````bash
   set(BOOST_DIR /path/to/boost/directory/boost_X_XX)
