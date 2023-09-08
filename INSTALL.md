@@ -15,7 +15,9 @@ You can run the INSTALL.sh script for performing the first two steps (give as fi
 
 #### 2. COIN-OR BCP
 
-  1. Download the latest versions of BCP url (our published results have been found with BCP-1.4): http://www.coin-or.org/download/source/Bcp. And extract the sources in a directory of your choice /path/to/coinor/directory/.
+  1. If your distribution provides BCP (for instance coin-or-bcp in ArchLinux), install it and you can skip the rest of this section.
+
+  2. Download the latest versions of BCP url (our published results have been found with BCP-1.4): http://www.coin-or.org/download/source/Bcp. And extract the sources in a directory of your choice /path/to/coinor/directory/.
 
   Or, if svn is available, download directly the latest stable versions using the following commands in the terminal:
   ````bash
@@ -23,7 +25,7 @@ You can run the INSTALL.sh script for performing the first two steps (give as fi
   svn co https://projects.coin-or.org/svn/Bcp/stable/1.4 Bcp-1.4
   ````
 
-  2. Build BCP (https://projects.coin-or.org/BuildTools/wiki/downloadUnix):
+  3. Build BCP (https://projects.coin-or.org/BuildTools/wiki/downloadUnix):
   ````bash
   cd /path/to/coinor/directory/Bcp-1.4
   mkdir build
@@ -35,7 +37,7 @@ You can run the INSTALL.sh script for performing the first two steps (give as fi
   ````
   We add the option --with-cpx=no because some incompatibilities have been noticed between CPLEX 12.7+ and BCP 1.4. The option can be withdrawn if no recent version of CPLEX is installed.
 
-  3. For developpers: If you need to debug the code and enter BCP.
+  4. For developpers: If you need to debug the code and enter BCP.
   Build BCP once again with the following commands:
   ````bash
   cd /path/to/coinor/directory/Bcp-1.4
