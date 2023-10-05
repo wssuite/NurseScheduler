@@ -106,9 +106,7 @@ RosterMP::RosterMP(const PScenario& pScenario,
   lagrangianBoundAvail_ = true;
 }
 
-RosterMP::~RosterMP() {
-  delete assignmentConstraint_;
-}
+RosterMP::~RosterMP() {}
 
 PColumn RosterMP::getPColumn(MyVar *var) const {
   return std::make_shared<RosterColumn>(var, pScenario_);
@@ -121,14 +119,14 @@ PColumn RosterMP::getPColumn(const RCSolution &st, int nurseNum) const {
 // Main method to build the rostering problem for a given input
 void RosterMP::build(const SolverParam &param) {
   /* Roster assignment constraints */
-  assignmentConstraint_ = new RosterAssignmentConstraint(this);
+  assignmentConstraint_ = std::make_unique<RosterAssignmentConstraint>(this);
 
   /* build the rest of the model */
   MasterProblem::build(param);
 
   /* Dynamic constraints */
   if (dynamicWeights_.version() > 0)
-    dynamicConstraints_ = new DynamicConstraints(this);
+    dynamicConstraints_ = std::make_unique<DynamicConstraints>(this);
 
   /* Change the branching rule */
   auto *pRule = new RosterBranchingRule(this,

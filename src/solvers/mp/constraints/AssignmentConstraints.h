@@ -38,7 +38,7 @@ class RosterAssignmentConstraint : public ConstraintMP {
                      const Stretch &st,
                      const PAbstractShift &prevS) const override;
 
-// add a given constraint to the column
+  // add a given constraint to the column
   void addConsToCol(std::vector<MyCons *> *cons,
                     std::vector<double> *coeffs,
                     const Column &col) const override;
@@ -52,6 +52,10 @@ class RosterAssignmentConstraint : public ConstraintMP {
 
   const vector<MyCons*>& getConstraints() const {
     return assignmentCons_;
+  }
+
+  vector<MyCons*> getAllConstraints() const override {
+    return getConstraints();
   }
 
   double getTotalCost() const override {
@@ -115,6 +119,10 @@ class RotationGraphConstraint : public ConstraintMP {
 
   const vector2D<MyCons*>& getConstraints() const {
     return restCons_;
+  }
+
+  vector<MyCons*> getAllConstraints() const override {
+    return Tools::reccursiveAppendVectors(getConstraints());
   }
 
   double getTotalCost() const override {

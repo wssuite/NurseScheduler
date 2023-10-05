@@ -19,8 +19,9 @@
 Stabilization::Stabilization(Modeler *pModel) : pModel_(pModel) {}
 
 // STAB: Add stabilization variable
-void Stabilization::initAllStabVariables() {
-  for (MyCons *con : pModel_->getCoreCons()) {
+void Stabilization::initStabVariables(const std::vector<MyCons *> & cons) {
+  for (MyCons *con : cons) {
+    if (con == nullptr) continue;
     std::string name = "stab_" + std::string(con->name_);
     addStabVariables(name.c_str(), con,
                      con->getRhs() < pModel_->getInfinity(),
@@ -49,7 +50,7 @@ void Stabilization::addStabVariables(
   // The lower side of the box
   if (LECons) {
     snprintf(n, sizeof(n), "%s_minus", name);
-    pModel_->createPositiveVar(&var, n, LARGE_SCORE, {}, 0, 0);
+    pModel_->createIntVar(&var, n, param().stabPenaltyIni_, {}, 0, 0);
     pModel_->addCoefLinear(cons, var, -1);
     stabVariablesMinus_.push_back(var);
   } else {
@@ -59,7 +60,7 @@ void Stabilization::addStabVariables(
   // The  upper side of the box
   if (GECons) {
     snprintf(n, sizeof(n), "%s_plus", name);
-    pModel_->createPositiveVar(&var, n, LARGE_SCORE, {}, 0, 0);
+    pModel_->createIntVar(&var, n, param().stabPenaltyIni_, {}, 0, 0);
     pModel_->addCoefLinear(cons, var, 1);
     stabVariablesPlus_.push_back(var);
   } else {
@@ -70,86 +71,85 @@ void Stabilization::addStabVariables(
   stabBoxCenters_.push_back(0);
 }
 
-// STAB
 // Update the stabilization variables based on the dual solution
-// 1- When the dual lays inside the box:
-//     - increase the penalty of the duals (the bound for the primal)
+// 1- When all dual lays inside the box:
 //     - decrease the radius of the duals (the cost for the primal).
-// 2- When the dual lays outside the box:
+// 2- When the dual lays outside the box and column generation has ended:
 //     - decrease the penalty of the duals (the bound for the primal)
-//     - increase the radius of the duals (the cost for the primal).
-// When a dual solution (of the original problem) of better quality
-// is obtained, recenter the box.
-// The issue here is that the  dual solution is not available as the lagrangian
+// The issue here is that the dual solution is not available as the lagrangian
 // bound needs to be computed (and available) and all sub problems need to
 // have been solved to optimality.
-// Instead, the solution is recenter when asked (recenter=true).
-// Currently, the box is recentered when no more columns are generated.
-void Stabilization::stabUpdate(OsiSolverInterface *solver, bool recenter) {
+// The solution is recenter at each iteration.
+void Stabilization::stabUpdate(
+    OsiSolverInterface *solver, bool columnGenerated) {
   // stabilization variables corresponding to the cover constraints
+  std::vector<double> duals = pModel_->getDuals(stabConstraints_, true);
+  double penaltyFactor = 1;
+  // check if all duals within the box -> decrease box radius
+  if (stabCheckStoppingCriterion()) {
+    if (param().isStabUpdateBoxRadius_)
+      stabRadius_ /= param().stabBoxRadiusFactor_;
+  } else if (!columnGenerated) {
+    // otherwise, decrease penalties if column generation has ended
+    penaltyFactor /= param().stabPenaltyFactor_;
+  }
+
+  // update centers, radius and penalties
+  stabBoxCenters_ = duals;
   for (int i = 0; i < stabConstraints_.size(); ++i) {
-    MyVar *varPlus = stabVariablesPlus_[i],
-        *varMinus = stabVariablesMinus_[i];
-    double center = stabBoxCenters_[i],
-        radius = varPlus ? varPlus->getCost() - center :
-                 center + varMinus->getCost();
-    double dual = pModel_->getDual(stabConstraints_[i], true);
-    double penaltyFactor = 1;
-
-    // if dual within the box, decrease radius and increase cost
-    if (dual > center + radius + epsilon() &&
-        dual < center - radius - epsilon()) {
-      // decrease radius
-      if (param().isStabUpdateBoxRadius_)
-        radius /= param().stabBoxRadiusFactor_;
-      // increase penalty
-      if (param().isStabUpdatePenalty_)
-        penaltyFactor *= param().stabBoxRadiusFactor_;
-    } else {
-      // increase radius
-      if (param().isStabUpdateBoxRadius_)
-        radius *= param().stabPenaltyFactor_;
-      // decrease penalty
-      if (param().isStabUpdatePenalty_)
-        penaltyFactor /= param().stabPenaltyFactor_;
-    }
-
-    if (radius > param().stabBoxRadiusMax_)
-      radius = param().stabBoxRadiusMax_;
-
-    // recenter box
-    if (recenter) {
-      center = dual;
-      stabBoxCenters_[i] = dual;
-    }
-
     // update box
-    if (varPlus) updateVarCostInSolver(varPlus, solver, center + radius);
-    if (varMinus) updateVarCostInSolver(varMinus, solver, -center + radius);
+    double center = stabBoxCenters_[i];
+    MyVar *varPlus = stabVariablesPlus_[i],
+            *varMinus = stabVariablesMinus_[i];
+    if (varPlus) updateVarCostInSolver(varPlus, solver, center + stabRadius_);
+    if (varMinus)
+      updateVarCostInSolver(varMinus, solver, -center + stabRadius_);
     // update penalty
-    if (param().isStabUpdatePenalty_) {
+    if (penaltyFactor < 1 - epsilon()) {
       if (varPlus) multiplyUbInSolver(varPlus, solver, penaltyFactor);
       if (varMinus) multiplyUbInSolver(varMinus, solver, penaltyFactor);
     }
   }
 }
 
+// compute the difference between the current dual variables and
+// the previous ones
+double Stabilization::computeStabAvgDifference(
+    const std::vector<double> &duals) {
+  double stabAvgDiff = 0;
+  for (int i = 0; i < stabConstraints_.size(); ++i)
+    stabAvgDiff += std::abs(duals[i] - stabBoxCenters_[i]);
+  stabAvgDiff /= stabConstraints_.size();
+//  std::cout << "Avg stab diff: " << stabAvgDiff << std::endl;
+  return stabAvgDiff;
+}
+
+
 // STAB
 // activate the stabilization variables and center them on the current duals
 void Stabilization::stabInitializeBoundAndCost(OsiSolverInterface *solver) {
+  // check if ub is lower than 1, so no integer solution can be found
+  // with active stab variables
+  if (param().stabPenaltyIni_ < -epsilon() ||
+      param().stabPenaltyIni_ > 1 - epsilon())
+    Tools::throwError("Stabilization penalty (%.2f) should be within [0, 1[ "
+                      "such that no integer solution contains active "
+                      "stabilization variables.", param().stabPenaltyIni_);
+  // compute current duals average differences
+  std::vector<double> duals = pModel_->getDuals(stabConstraints_, true);
+  double avg = computeStabAvgDifference(duals);
+  stabRadius_ = avg / param().stabBoxRadiusIniRatio_;
+  stabBoxCenters_ = duals;
   for (int i = 0; i < stabConstraints_.size(); ++i) {
     MyVar *varPlus = stabVariablesPlus_[i],
         *varMinus = stabVariablesMinus_[i];
-    double center = pModel_->getDual(stabConstraints_[i], true);
-    stabBoxCenters_[i] = center;
+    double center = stabBoxCenters_[i];
     if (varPlus) {
-      updateVarCostInSolver(varPlus, solver,
-                            center + param().stabBoxRadiusIni_);
+      updateVarCostInSolver(varPlus, solver, center + stabRadius_);
       updateVarUbInSolver(varPlus, solver, param().stabPenaltyIni_);
     }
     if (varMinus) {
-      updateVarCostInSolver(varMinus, solver,
-                            -center + param().stabBoxRadiusIni_);
+      updateVarCostInSolver(varMinus, solver, -center + stabRadius_);
       updateVarUbInSolver(varMinus, solver, param().stabPenaltyIni_);
     }
   }
@@ -161,7 +161,6 @@ void Stabilization::stabDeactivateBoundAndCost(OsiSolverInterface *solver) {
   for (int i = 0; i < stabConstraints_.size(); ++i) {
     MyVar *varPlus = stabVariablesPlus_[i],
         *varMinus = stabVariablesMinus_[i];
-    stabBoxCenters_[i] = 0;
     if (varPlus) {
       updateVarCostInSolver(varPlus, solver, LARGE_SCORE);
       updateVarUbInSolver(varPlus, solver, 0);
@@ -212,8 +211,6 @@ void Stabilization::multiplyUbInSolver(MyVar *pVar,
   }
 
   ub *= factor;
-  if (ub > param().stabBoxBoundMax_) ub = param().stabBoxBoundMax_;
-
   solver->setColUpper(varind, ub);
   pVar->setUB(ub);
 }
@@ -230,8 +227,6 @@ void Stabilization::updateVarUbInSolver(MyVar *pVar,
     Tools::throwException("updateVarUbInSolver: the upper bound stored in the "
                           "variable is not the same as that in the solver!");
   }
-
-  if (value > param().stabBoxBoundMax_) value = param().stabBoxBoundMax_;
 
   solver->setColUpper(varind, value);
   pVar->setUB(value);
@@ -251,9 +246,6 @@ void Stabilization::updateVarCostInSolver(MyVar *pVar,
         "is not the same as that in the solver!");
   }
 
-  if (value > param().stabPenaltyMax_) value = param().stabPenaltyMax_;
-  else if (-value > param().stabPenaltyMax_) value = -param().stabPenaltyMax_;
-
   solver->setObjCoeff(varind, value);
   pVar->setCost(value);
 }
@@ -262,4 +254,5 @@ const SolverParam & Stabilization::param() const {
   return pModel_->getParameters();
 }
 
-double Stabilization::epsilon() const { return param().epsilon_; }
+// epsilon needs to be like a zero here
+double Stabilization::epsilon() const { return 1e-9; }

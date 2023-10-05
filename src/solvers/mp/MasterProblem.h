@@ -214,7 +214,7 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // get the pointer to the model
   Modeler * pModel() const {
-    return pModel_;
+    return pModel_.get();
   }
 
   MyPricer * pPricer() const {
@@ -241,7 +241,7 @@ class MasterProblem : public Solver, public PrintSolution {
     return pModel_->getBestLB();
   }
 
-  // build the, possibly fractional, roster corresponding to the solution
+  // build the possibly fractional roster corresponding to the solution
   // currently stored in the model
   vector3D<double> fractionalRoster() const override;
 
@@ -286,11 +286,6 @@ class MasterProblem : public Solver, public PrintSolution {
   bool lagrangianBoundAvailable() const { return lagrangianBoundAvail_; }
   virtual double computeLagrangianBound(double objVal) const;
 
-  // Compute an approximation of the dual UB based on the lagrangian bound
-  // It could be useful to measure the quality of a dual solution (used when
-  // stabilizing).
-  virtual double computeApproximateDualUB(double objVal) const;
-
   /*
   * Solving parameter doubles
   */
@@ -333,7 +328,7 @@ class MasterProblem : public Solver, public PrintSolution {
   }
 
  protected:
-  Modeler *pModel_;
+  std::unique_ptr<Modeler> pModel_;
   RCPricer *pRCPricer_;
   bool lagrangianBoundAvail_ = false;
 
@@ -358,9 +353,10 @@ class MasterProblem : public Solver, public PrintSolution {
   /*
   * Master Problem Constraints
   */
-  NursePositionCountConstraint *nursePositionCountConstraint_{};
-  AllocationConstraint *allocationConstraint_{};
-  DemandConstraint *minDemandConstraint_{}, *optDemandConstraint_{};
+  std::unique_ptr<NursePositionCountConstraint> nursePositionCountConstraint_;
+    std::unique_ptr<AllocationConstraint> allocationConstraint_;
+    std::unique_ptr<DemandConstraint>
+            minDemandConstraint_, optDemandConstraint_;
 
   // vector containing the constraints that are involved
   // in the column generation
@@ -373,7 +369,8 @@ class MasterProblem : public Solver, public PrintSolution {
 
   void addConstraint(ConstraintMP* pC, bool affectColumns) {
     constraints_.push_back(pC);
-    if (affectColumns) columnConstraints_.push_back(pC);
+    if (affectColumns)
+      columnConstraints_.push_back(pC);
   }
 
   // add the column to the problem

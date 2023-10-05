@@ -220,7 +220,9 @@ def run_benchmark(benchmark_file, exe, pipe=True,
             o_file = 'results/%s%s.yml' % (b_name, p_time) if pipe else None
             if o_file:
                 os.makedirs(o_file.rsplit('/', 1)[0], exist_ok=True)
+                print("Summary of the results is stored here:", o_file)
             sol_path = 'outfiles/%s%s' % (b_name, p_time)
+            print("Detailed results are stored in this directory:", sol_path)
             os.makedirs(sol_path, exist_ok=True)
             i = 0
             d_args = ''

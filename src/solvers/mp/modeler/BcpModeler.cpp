@@ -11,6 +11,7 @@
 
 #include "solvers/mp/modeler/BcpModeler.h"
 
+#include <memory>
 #include <string>
 
 #include "solvers/mp/RCPricer.h"
@@ -58,12 +59,11 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
     nbNodesSinceLastHeuristic_(0),
     nbCurrentNodeGeneratedColumns_(0),
     nbGeneratedColumns_(0),
-    nbCurrentNodeSPSolved_(0),
-    approximatedDualUB_(-XLARGE_SCORE) {
+    nbCurrentNodeSPSolved_(0) {
   const auto &param = pModel_->getParameters();
   // Initialization of nb_dives_to_wait_before_branching_on_columns_
   if (param.nbDiveIfBranchOnColumns_) {
-    for (int i = 1; i < 1000; ++i)
+    for (int i = 1; i < 300; ++i)
       nb_dives_to_wait_before_branching_on_columns_.push_back(pow(i, 2));
   }
   if (param.performMIPHeuristic_) {
@@ -97,14 +97,13 @@ BcpLpModel::BcpLpModel(BcpModeler *pModel) :
                       "(performDiveHeuristic_ and performMIPHeuristic_) "
                       "in order to run a heuristic.");
 
-  pHeuristics_ = new BcpHeuristics(
+  if (param.performHeuristicAfterXNode_ >= 0)
+    pHeuristics_ = std::make_unique<BcpHeuristics>(
       pModel, param.MIPHeuristicUseRotations_,
       param.MIPHeuristicSolver_, param.MIPHeuristicVerbose_);
 }
 
 BcpLpModel::~BcpLpModel() {
-  // delete BcpHeuristics
-  delete pHeuristics_;
   // record stats before being deleted
   pModel_->addTimeStats(getTimeStats());
   pModel_->addNbLpIterations(getNbLpIterations());
@@ -505,7 +504,7 @@ void BcpLpModel::printNodeSummaryLine(int nbChildren) const {
 
 // stop this node or BCP
 bool BcpLpModel::doStop(const BCP_vec<BCP_var *> &vars) {
-  if (pModel_->doStop(vars, pHeuristics_))
+  if (pModel_->doStop(vars, pHeuristics_.get()))
     return true;
 
   // fathom if the true lower bound greater than current upper bound
@@ -797,7 +796,6 @@ BCP_branching_decision BcpLpModel::select_branching_candidates(
   pModel_->incrementNbNodes();
   // deactivate stabilization, feasibility, and dual UB
   feasible_ = false;
-  approximatedDualUB_ = -XLARGE_SCORE;
   if (pModel_->getParameters().isStabilization_)
     pModel_->stab().stabDeactivateBoundAndCost(
         getLpProblemPointer()->lp_solver);
@@ -863,27 +861,27 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   // Also, check stopping dual stabilization criterion
   bool isStabActive = false;
   if (pModel_->getParameters().isStabilization_) {
-    double dualUB =
-        pModel_->getMaster()->computeApproximateDualUB(lpres.objval());
-
+    // check if some stabilization variables are positive
     isStabActive = !pModel_->stab().stabCheckStoppingCriterion();
     // if was infeasible at the previous iteration and not anymore:
     // activate stabilization
-    if (becomeFeasible())
+    if (becomeFeasible()) {
       pModel_->stab().stabInitializeBoundAndCost(
           getLpProblemPointer()->lp_solver);
-      // Update the stabilization variables if:
-      // feasible and the approximated dual UB has improved
-    else if (feasible_)
+    // Update the stabilization variables if:
+    // feasible and the approximated dual UB has improved
+    } else if (feasible_) {
+      // update stabilization
       pModel_->stab().stabUpdate(
-          getLpProblemPointer()->lp_solver,
-          dualUB > approximatedDualUB_ || !column_generated);
-    // update approximated dual UB.
-    // Used as a criteria to decide when we obtain a better dual solution
-    if (dualUB > approximatedDualUB_) approximatedDualUB_ = dualUB;
-    // Do not branch if some stabilization variables are positive
-    if (!column_generated && isStabActive)
-      return BCP_DoNotBranch;
+              getLpProblemPointer()->lp_solver,
+              column_generated);
+
+      if (!column_generated && isStabActive)
+        return BCP_DoNotBranch;
+    }
+  } else {
+    // update feasibility
+    becomeFeasible();
   }
 
   // STAB: compute the Lagrangian bound
@@ -923,14 +921,14 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     }
   }
 
-  // STAB:
   // Detect when the column generation is stalling
   // If stabilization is used this will determine when the stabilization costs
   // are updated
   // Otherwise, an option can be set on to stop column generation and branch
   // after a given number of degenerate iterations
   bool isStalling = false;
-  if (column_generated && getObjVariation() < pModel_->epsilon()) {
+  if (column_generated && feasible_ && !isStabActive
+      && getObjVariation() < pModel_->epsilon()) {
     isStalling = true;
     pModel_->incrementNbDegenerateIt();
     // stop column generation if not root node and too many iteration,
@@ -954,11 +952,11 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
   }
 
   // check if continue column generation
-  if (column_generated)
+  if (column_generated || isStabActive)
     return BCP_DoNotBranch;
 
   // update lower bound if not solving to optimality,
-  // and column generation not stopped ny lagrangian bound or stalling,
+  // and column generation not stopped by lagrangian bound or stalling,
   // and pricing problems were indeed solved
   if (!pModel_->isLastPricingOptimal() && !stoppedByLagBd &&
       !isStalling && pModel_->getLastNbSubProblemsSolved() > 0) {
@@ -1494,7 +1492,7 @@ BcpProblem::BcpProblem(BcpModeler * pModel):
   }
 
   // build matrix
-  matrix = pModel->buildCoinMatrix();
+  matrix = std::unique_ptr<CoinPackedMatrix>(pModel->buildCoinMatrix());
 
   // check columns size
   if (matrix->getNumCols() != colnum) {
@@ -1514,9 +1512,7 @@ BcpProblem::BcpProblem(BcpModeler * pModel):
   }
 }
 
-BcpProblem::~BcpProblem() {
-  delete matrix;
-}
+BcpProblem::~BcpProblem() {}
 
 //-----------------------------------------------------------------------------
 //
@@ -1543,13 +1539,12 @@ BcpModeler::BcpModeler(MasterProblem *pMaster,
     nbNodes_(0),
     solverType_(type),
     timerTotal_("BCP") {
-  pBcp_ = new BcpInitialize(this);
+  pBcp_ = std::make_unique<BcpInitialize>(this);
 }
 
 // destroy all the column in the solutions
 BcpModeler::~BcpModeler() {
   clear();
-  delete pBcp_;
 }
 
 void BcpModeler::clear() {
@@ -1603,7 +1598,7 @@ int BcpModeler::solve(bool relaxation) {
   timerTotal_.start();
   writeBoundsHeader();
   try {
-    value = bcp_main(0, argv, pBcp_);
+    value = bcp_main(0, argv, pBcp_.get());
     // set status to optimal if the status hasn't been set  for the moment
     // -> it implies that BCP exited normally after exploring the whole tree.
     if (getMaster()->status() == UNSOLVED)
@@ -1752,7 +1747,6 @@ void BcpModeler::setLPSol(const BCP_lp_result &lpres,
                           const BCP_vec<BCP_var *> &vars,
                           const BCP_vec<BCP_cut *> &cuts,
                           int lpIteration) {
-  obj_history_.push_back(lpres.objval());
   solHasChanged_ = false;
 
   // copy the new arrays in the vectors for the core vars
@@ -1785,6 +1779,8 @@ void BcpModeler::setLPSol(const BCP_lp_result &lpres,
   }
   // debug
   // checkActiveColumns(vars);
+  double stabCost = stab().getStabCost();
+  obj_history_.push_back(lpres.objval() - stabCost);
 }
 
 void BcpModeler::checkActiveColumns(const BCP_vec<BCP_var *> &vars) const {

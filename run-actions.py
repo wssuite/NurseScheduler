@@ -1,14 +1,17 @@
 #!/usr/bin/env python
+import os
+
 import yaml
 import subprocess
 import sys
 import argparse
 import re
+import cpplint
 
 
-def run_cmd(cmd, i=1, n=1, j=0, pipe=subprocess.PIPE):
-    retry = (", retry %d" % j) if j > 0 else ""
-    print("Run test {:2d}/{}{}: {}".format(i, n, retry, cmd))
+def run_cmd(cmd, i=1, n=1, j=0, pipe=subprocess.PIPE, name=''):
+    retry = (" (retry %d)" % j) if j > 0 else ""
+    print("Run test ({:2d}/{}) {}{}: {}".format(i, n, name, retry, cmd))
     p = subprocess.Popen(cmd.split(), stdout=pipe, stderr=pipe)
     stdout, stderr = p.communicate()
     if p.returncode:
@@ -54,21 +57,22 @@ def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE, start=0, 
                     if 'uses' in s and s['uses'] == './'])
             for j in d['jobs'].values():
                 for s in j['steps']:
+                    if 'with' not in s or 'ns-args' not in s['with']:
+                        continue
                     i += 1
                     if i < start:
                         continue
                     if end is not None and i > end:
                         break
-                    if 'with' in s and \
-                            (re.search(name, s['name'], re.IGNORECASE) or
-                             re.search(name, s['with']['ns-args'], re.IGNORECASE)):
+                    if re.search(name, s['name'], re.IGNORECASE) or \
+                       re.search(name, s['with']['ns-args'], re.IGNORECASE):
                         cmd = '-i {} {}'.format(s['with']['instance'], s['with']['ns-args'])
                         # cmd = "-i " + cmd.split('-i ')[-1]
                         k = 0
                         retries = s['with'].get('retries', 0)
                         passed = False
                         while not passed and k <= retries:
-                            passed, err = run_cmd("{} {}".format(run, cmd), i, n, k, pipe)
+                            passed, err = run_cmd("{} {}".format(run, cmd), i, n, k, pipe, name=s['name'])
                             k += 1
                         if not passed:
                             print(err)
@@ -90,7 +94,14 @@ if __name__ == "__main__":
                              '-6 means that all the tests before 6 (included) will be performed. '
                              '4-8 means that all the tests between 4 and 8 (included) will be performed'
                              'Default: all "".')
+    parser.add_argument('-l', '--lint', dest='lint', action='store_true',
+                        help='Use this flag to run cpp lint on the sources. Default: False')
+    parser.add_argument('-jl', '--just_lint', dest='just_lint', action='store_true',
+                        help='Use this flag to run cpp lint on the sources and deactivate the tests. Default: False')
     args = parser.parse_args()
+
+    if args.just_lint:
+        args.lint = True
 
     i = 0
     j = None
@@ -109,7 +120,15 @@ if __name__ == "__main__":
         raise ValueError("The end indice of the test needs to be "
                          "greater than its start.")
 
-    if args.docker:
-        run_actions(args.name, start=i, end=j)
-    else:
-        run_actions(args.name, docker=False, start=i, end=j)
+    if args.lint:
+        print("################### CPP LINT #########################")
+        os.system("python3 -m cpplint --recursive ./src/")
+        print("##################### DONE ###########################")
+
+    if not args.just_lint:
+        print("################### RUN TESTS ########################")
+        if args.docker:
+            run_actions(args.name, start=i, end=j)
+        else:
+            run_actions(args.name, docker=False, start=i, end=j)
+        print("##################### DONE ###########################")

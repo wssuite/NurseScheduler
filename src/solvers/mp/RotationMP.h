@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <set>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -139,13 +140,13 @@ class RotationMP : public MasterProblem {
       masterRotationGraphResources_;
 
   // Rotation graph
-  RotationGraphConstraint *rotationGraphConstraint_;
+  std::unique_ptr<RotationGraphConstraint> rotationGraphConstraint_;
 
   // constraints associated to resources
-  TotalShiftDurationConstraint *totalShiftDurationConstraint_;
-  TotalWeekendConstraint *totalWeekendConstraint_;
-//  ConsWeekendConstraint* consWeekendConstraints_ = nullptr;
-  DynamicConstraints *dynamicConstraints_ = nullptr;
+  std::unique_ptr<TotalShiftDurationConstraint> totalShiftDurationConstraint_;
+  std::unique_ptr<TotalWeekendConstraint> totalWeekendConstraint_;
+//  std::unique_ptr<ConsWeekendConstraint> consWeekendConstraints_;
+  std::unique_ptr<DynamicConstraints> dynamicConstraints_;
 };
 
 #endif  // SRC_SOLVERS_MP_ROTATIONMP_H_

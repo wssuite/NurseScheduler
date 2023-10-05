@@ -13,7 +13,7 @@
 
 #include <algorithm>
 #include <map>
-#include <set>
+#include <memory>
 #include <utility>
 
 #include "solvers/mp/sp/rcspp/resources/TotalShiftDurationResource.h"
@@ -189,11 +189,10 @@ bool SubProblem::solveRCGraph(bool initialSolve, bool relaxation) {
   // 1 - solve the resource constraints shortest path problem
   if (sinks.empty()) sinks = g_.sinks();
   Penalties penalties = initPenalties();
-  BoostRCSPPSolver *solver = initRCSSPSolver();
+  auto solver = std::unique_ptr<BoostRCSPPSolver>(initRCSSPSolver());
 
   std::vector<RCSolution>
       solutions = solver->solve(labels_, penalties, sinks, pScenario_);
-  delete solver;
 
   // 2 - Add back all forbidden edges
   g_.restoreForbiddenArcsToBoost(arcs_removed);

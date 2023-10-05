@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <list>
 #include <map>
+#include <memory>
 
 #include "InitializeInstance.h"
 #include "solvers/mp/modeler/BcpModeler.h"
@@ -73,10 +74,6 @@ DeterministicSolver::DeterministicSolver(const PScenario& pScenario,
 
 DeterministicSolver::~DeterministicSolver() {
   stop();
-  // delete also the reusable solvers
-  delete pCompleteSolver_;
-  delete pRollingSolver_;
-  // DBG if (pLNSSolver_) delete pLNSSolver_;
 }
 
 void DeterministicSolver::stop(bool wait) {
@@ -332,7 +329,7 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
     options_.divideIntoConnectedPositions_ = false;
     objValue_ = this->solveByConnectedPositions();
   } else {
-    // If the the scenario is divided into connected positions, the solution
+    // If the scenario is divided into connected positions, the solution
     // of the subproblems goes in the "else" below.
     // Find a good feasible solution using a rolling horizon planning or
     // solving directly the complete horizon.
@@ -383,9 +380,8 @@ double DeterministicSolver::solveCompleteHorizon(
   // Initialize solver and solve
   bool firstSolve = !pCompleteSolver_;
   if (firstSolve || pCompleteSolver_->getJob().finish()) {
-    delete pCompleteSolver_;
-    pCompleteSolver_ = newSolverWithInputAlgorithm(options_.solutionAlgorithm_,
-                                                   completeParameters_);
+    pCompleteSolver_ = std::unique_ptr<Solver>(newSolverWithInputAlgorithm(
+            options_.solutionAlgorithm_, completeParameters_));
     Tools::Job job([this, solution](Tools::Job job) {
       pCompleteSolver_->solve(completeParameters_, solution);
     });
@@ -421,11 +417,11 @@ double DeterministicSolver::solveCompleteHorizon(
 
   // store stat
   if (firstSolve)
-    updateInitialStats(pCompleteSolver_);
+    updateInitialStats(pCompleteSolver_.get());
   else
-    updateImproveStats(pCompleteSolver_);
+    updateImproveStats(pCompleteSolver_.get());
 
-  return treatResults(pCompleteSolver_);
+  return treatResults(pCompleteSolver_.get());
 }
 
 
@@ -475,7 +471,7 @@ double DeterministicSolver::solveByConnectedPositions() {
   int nbNursesToSolve = pScenario_->nNurses();
   std::list<PScenario> scenariosToSolve(scenariosPerComponent.begin(),
                                         scenariosPerComponent.end());
-  std::map<PScenario, DeterministicSolver *> solverForScenario;
+  std::map<PScenario, std::unique_ptr<DeterministicSolver>> solverForScenario;
   while (!scenariosToSolve.empty()) {
     // check if need to recompute the number of nurses to solve
     // for another phase.
@@ -512,13 +508,14 @@ double DeterministicSolver::solveByConnectedPositions() {
     auto it = solverForScenario.find(pScenario);
     if (it == solverForScenario.end()) {
       pSolver = new DeterministicSolver(pScenario, *this);
-      solverForScenario[pScenario] = pSolver;
+      solverForScenario[pScenario] =
+              std::unique_ptr<DeterministicSolver>(pSolver);
       // do not pause last component on timeout. There is no need as either:
       // it's a timeout and thus the last solve or the solver finishes properly
       if (solverForScenario.size() != scenariosPerComponent.size())
         pSolver->options_.pauseSolveOnTimeout_ = true;
     } else {
-      pSolver = it->second;
+      pSolver = it->second.get();
     }
 
     // solve the component
@@ -565,7 +562,6 @@ double DeterministicSolver::solveByConnectedPositions() {
     if (status_ == UNSOLVED || status_ == OPTIMAL)
       status_ = p.second->status(true);
     stats_.add(p.second->getGlobalStat());
-    delete p.second;
   }
 
   // update nurses' states
@@ -595,9 +591,8 @@ double DeterministicSolver::solveWithRollingHorizon(
   // rolling horizon
   //
   bool firstSolve = !pRollingSolver_;
-  delete pRollingSolver_;
-  pRollingSolver_ = newSolverWithInputAlgorithm(options_.solutionAlgorithm_,
-                                                rollingParameters_);
+  pRollingSolver_ = std::unique_ptr<Solver>(newSolverWithInputAlgorithm(
+          options_.solutionAlgorithm_, rollingParameters_));
   pRollingSolver_->solution(solution);
 
   // Solve the instance iteratively with a rolling horizon
@@ -686,11 +681,11 @@ double DeterministicSolver::solveWithRollingHorizon(
 
   // store stat
   if (firstSolve)
-    updateInitialStats(pRollingSolver_);
+    updateInitialStats(pRollingSolver_.get());
   else
-    updateImproveStats(pRollingSolver_);
+    updateImproveStats(pRollingSolver_.get());
 
-  return treatResults(pRollingSolver_);
+  return treatResults(pRollingSolver_.get());
 }
 
 // Set the optimality level of the rolling horizon solver
@@ -730,9 +725,9 @@ double DeterministicSolver::solveWithLNS(const std::vector<Roster> &solution) {
 
   // Initialize the solver that will handle the repair problems
   if (options_.withRollingHorizon_) {
-    pLNSSolver_ = pRollingSolver_;
+    pLNSSolver_ = pRollingSolver_.get();
   } else {
-    pLNSSolver_ = pCompleteSolver_;
+    pLNSSolver_ = pCompleteSolver_.get();
   }
 
   // load solution

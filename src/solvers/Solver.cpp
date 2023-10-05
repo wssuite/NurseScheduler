@@ -440,9 +440,7 @@ Solver::Solver(const PScenario& pScenario) :
   }
 }
 
-Solver::~Solver() {
-  for (auto *pS : pHeuristics_) delete pS;
-}
+Solver::~Solver() {}
 
 Solver *Solver::newSolver(
     PScenario pScenario, Algorithm algo, SPType spType, SolverType sType) {

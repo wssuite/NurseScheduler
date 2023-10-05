@@ -55,10 +55,7 @@ RCPricer::RCPricer(MasterProblem *pMaster,
 }
 
 /* Destructs the pricer object. */
-RCPricer::~RCPricer() {
-  for (auto &p : subProblems_)
-    delete p.second;
-}
+RCPricer::~RCPricer() {}
 
 /******************************************************
  * Perform pricing
@@ -505,9 +502,11 @@ SubProblem *RCPricer::retrieveSubproblem(const PLiveNurse &pNurse,
   // lock the pricer
   unique_lock<recursive_mutex> lock(m_subproblem_);
   // Each nurse has a subproblem. If null, create a new one.
-  SubProblem *&subProblem = subProblems_[pNurse];
-  if (subProblem == nullptr)
+  SubProblem *subProblem = subProblems_[pNurse].get();
+  if (subProblem == nullptr) {
     subProblem = buildSubproblem(pNurse, spParam);
+    subProblems_[pNurse] = std::unique_ptr<SubProblem>(subProblem);
+  }
   return subProblem;
 }
 

@@ -43,25 +43,18 @@ class Stabilization {
   // if primal constraint is <= -> create just minus var
   // if primal constraint is >= -> create just plus var
   // WARNING: they are inactive at the beginning
-  //
-  void initAllStabVariables();
+  void initStabVariables(const std::vector<MyCons *> &);
 
-// STAB
-// Update the stabilization variables based on the dual solution
-// 1- When the dual lays inside the box:
-//     - increase the penalty of the duals (the bound for the primal)
-//     - decrease the radius of the duals (the cost for the primal).
-// 2- When the dual lays outside the box:
-//     - decrease the penalty of the duals (the bound for the primal)
-//     - increase the radius of the duals (the cost for the primal).
-// When a dual solution (of the original problem) of better quality
-// is obtained, recenter the box.
-// The issue here is that the  dual solution is not available as the lagrangian
-// bound needs to be computed (and available) and all sub problems need to
-// have been solved to optimality.
-// Instead, the solution is recenter when asked (recenter=true).
-// Currently, the box is recentered when no more columns are generated.
-  void stabUpdate(OsiSolverInterface *solver, bool recenter = true);
+  // Update the stabilization variables based on the dual solution
+  // 1- When all dual lays inside the box:
+  //     - decrease the radius of the duals (the cost for the primal).
+  // 2- When the dual lays outside the box and column generation has ended:
+  //     - decrease the penalty of the duals (the bound for the primal)
+  // The issue here is that the dual solution is not available as the lagrangian
+  // bound needs to be computed (and available) and all sub problems need to
+  // have been solved to optimality.
+  // The solution is recenter at each iteration.
+  void stabUpdate(OsiSolverInterface *solver, bool columnGenerated = true);
 
   // STAB
   // initialize the stabilization variables and center them on the current duals
@@ -92,6 +85,7 @@ class Stabilization {
   // constraints associated with each two stab variables
   std::vector<MyCons *> stabConstraints_;
   std::vector<double> stabBoxCenters_;
+  double stabRadius_ = 0;
 
  protected:
   // STAB
@@ -109,6 +103,10 @@ class Stabilization {
   void updateVarCostInSolver(MyVar *pVar,
                              OsiSolverInterface *solver,
                              double value);
+
+  // compute the difference between the current dual variables and
+  // the previous ones
+  double computeStabAvgDifference(const std::vector<double> &duals);
 
  private:
   void addStabVariables(const char *name,

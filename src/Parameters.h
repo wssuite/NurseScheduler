@@ -457,17 +457,16 @@ class SolverParam {
   // parameters of the stabilization : initial costs and bounds of the
   // stabilization variables
   bool isStabilization_ = false;
+  // if true, add stabilization variables only on all constraints
+  // that involve generated columns, otherwise all constraints
+  bool stabJustColumnConstraints_ = true;
   // update duals' box radius / primals' cost
   bool isStabUpdateBoxRadius_ = true;
-  double stabBoxRadiusIni_ = 1e-4;
-  double stabBoxRadiusMax_ = 100;
-  double stabBoxBoundMax_ = LARGE_SCORE;
+  double stabBoxRadiusIniRatio_ = 2;
   double stabBoxRadiusFactor_ = 2;
   // update duals' penalty / primals' bounds
-  bool isStabUpdatePenalty_ = true;
-  double stabPenaltyIni_ = 1;
-  double stabPenaltyMax_ = LARGE_SCORE;
-  double stabPenaltyFactor_ = 2;
+  double stabPenaltyIni_ = .9;
+  double stabPenaltyFactor_ = 10;
 
   // other technique against degeneracy: simply stop the solution process when
   // it starts begin degenerate (not valid for the root node)

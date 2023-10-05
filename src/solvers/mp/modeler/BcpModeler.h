@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <utility>
 #include <vector>
 #include <list>
@@ -626,7 +627,7 @@ class BcpModeler : public CoinModeler {
 
   // solver that called the model
   MasterProblem *pMaster_;
-  BcpInitialize *pBcp_;
+  std::unique_ptr<BcpInitialize> pBcp_;
 
  protected:
   // mapping between the CoinTreeSiblings* and my BcpNode*
@@ -1104,7 +1105,7 @@ class BcpLpModel : public BCP_lp_user {
   bool backtracked_;
   // if heuristic has been run. To be sure to run the heuristic no more
   // than one time per node
-  BcpHeuristics *pHeuristics_;
+  std::unique_ptr<BcpHeuristics> pHeuristics_;
   int nbNodesSinceLastHeuristic_;
   // number of generated columns
   int nbCurrentNodeGeneratedColumns_, nbGeneratedColumns_;
@@ -1126,8 +1127,6 @@ class BcpLpModel : public BCP_lp_user {
     feasible_ = true;
     return true;
   }
-
-  double approximatedDualUB_;
 
   // rerun the code use to test the integer feasibility of a solution and
   // find why a solution is not feasible
@@ -1447,7 +1446,7 @@ struct BcpProblem {
   ~BcpProblem();
 
   const int rownum, colnum;
-  CoinPackedMatrix *matrix;
+  std::unique_ptr<CoinPackedMatrix> matrix;
   std::vector<double> lb, ub, obj, rhs, lhs;
   std::vector<BcpCoreVar*> vars;
   std::vector<BcpCoreCons*> cons;

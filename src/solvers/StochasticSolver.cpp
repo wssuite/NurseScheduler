@@ -81,7 +81,8 @@ StochasticSolver::StochasticSolver(PScenario pScenario,
   bestSchedule_ = -1;
 
   // initialize the log output
-  pLogStream_ = new Tools::LogOutput(options_.logfile_, true, true);
+  pLogStream_ =
+          std::make_unique<Tools::LogOutput>(options_.logfile_, true, true);
 
   if (!options_.generationParameters_.logfile_.empty()) {
     Tools::LogOutput log(options_.generationParameters_.logfile_);
@@ -89,13 +90,7 @@ StochasticSolver::StochasticSolver(PScenario pScenario,
   }
 }
 
-StochasticSolver::~StochasticSolver() {
-  // Delete the output
-  delete pLogStream_;
-
-  // delete the solver used for generation
-  delete pGenerationSolver_;
-}
+StochasticSolver::~StochasticSolver() {}
 
 //----------------------------------------------------------------------------
 //
@@ -187,7 +182,8 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   // Need to extend the current demand?
   auto pDemand = options_.nExtraDaysGenerationDemands_ > 0 ?
       generateSingleGenerationDemand() : pScenario_->pDemand();
-  pGenerationSolver_ = setGenerationSolverWithInputAlgorithm(pDemand);
+  pGenerationSolver_ = std::unique_ptr<Solver>(
+          setGenerationSolverWithInputAlgorithm(pDemand));
 
   // Need to perturb the costs?
   int endSchedule = pGenerationSolver_->pDemand()->nDays_
@@ -201,19 +197,18 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   // Solve
   (*pLogStream_) << "# Solve without evaluation\n";
   pGenerationSolver_->solve(options_.generationParameters_);
-  copySolution(pGenerationSolver_);
+  copySolution(pGenerationSolver_.get());
   solution_ = solutionAtDay(options_.withRealDemand_ ? 13 : 6);
   status_ = pGenerationSolver_->status(true);
 }
 
 // Special case of the last week
 void StochasticSolver::solveOneWeekWithoutPenalties() {
-  Solver *pSolver =
-      setGenerationSolverWithInputAlgorithm(pScenario_->pDemand());
+  auto pSolver = std::unique_ptr<Solver>(
+      setGenerationSolverWithInputAlgorithm(pScenario_->pDemand()));
   pSolver->solve(options_.generationParameters_);
-  copySolution(pSolver);
+  copySolution(pSolver.get());
   status_ = pSolver->status(true);
-  delete pSolver;
 }
 
 // Solves the problem by generation + evaluation of scenarios
@@ -261,7 +256,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation() {
       bestScore_ = newBestScore;
       if (newBestSchedule != bestSchedule_) {
         bestSchedule_ = newBestSchedule;
-        copySolution(pGenerationSolver_);
+        copySolution(pGenerationSolver_.get());
         solutionToTxt(options_.generationParameters_.outdir_);
 
         (*pLogStream_) << "# New best is schedule n°" << bestSchedule_
@@ -493,8 +488,8 @@ bool StochasticSolver::generateNewSchedule() {
   if (nGeneratedSolutions_ == 0 || !options_.withResolveForGeneration_) {
     WeightStrategy previous_strat = pGenerationSolver_ ?
         pGenerationSolver_->getDynamicWeights().getStrategy() : NO_STRAT;
-    delete pGenerationSolver_;
-    pGenerationSolver_ = setGenerationSolverWithInputAlgorithm(newDemand);
+    pGenerationSolver_ = std::unique_ptr<Solver>(
+            setGenerationSolverWithInputAlgorithm(newDemand));
     pGenerationSolver_->setDynamicWeightsStrategy(previous_strat);
   }
 
@@ -576,8 +571,8 @@ bool StochasticSolver::evaluateLastGeneratedSchedule() {
     initialStates[i].dayId_ = 0;
 
   // create evaluation solver
-  Solver *pSolver =
-      setEvaluationWithInputAlgorithm(pEvaluationDemands_[0], initialStates);
+  auto pSolver = std::unique_ptr<Solver>(
+      setEvaluationWithInputAlgorithm(pEvaluationDemands_[0], initialStates));
 
   for (int j = 0; j < options_.nEvaluationDemands_; j++) {
     double timeLeft =
@@ -587,7 +582,6 @@ bool StochasticSolver::evaluateLastGeneratedSchedule() {
                 << sched << std::endl;
       std::cout << options_.totalTimeLimitSeconds_ << "; "
                 << timerTotal_.dSinceInit() << std::endl;
-      delete pSolver;
       return false;
     }
 
@@ -629,8 +623,6 @@ bool StochasticSolver::evaluateLastGeneratedSchedule() {
                  << std::endl;
 
   updateRankingsAndScores(options_.rankingStrategy_);
-
-  delete pSolver;
 
   return true;
 }

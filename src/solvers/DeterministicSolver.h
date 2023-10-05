@@ -12,6 +12,7 @@
 #ifndef SRC_SOLVERS_DETERMINISTICSOLVER_H_
 #define SRC_SOLVERS_DETERMINISTICSOLVER_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -144,7 +145,7 @@ class DeterministicSolver : public Solver {
  private:
   // Solver that will be called to solve each sampling period in the rolling
   // horizon
-  Solver *pCompleteSolver_;
+  std::unique_ptr<Solver> pCompleteSolver_;
 
   // Parameters of the complete solution
   SolverParam completeParameters_;
@@ -169,7 +170,7 @@ class DeterministicSolver : public Solver {
  private:
   // Solver that will be called to solve each sampling period in the rolling
   // horizon.
-  Solver *pRollingSolver_;
+  std::unique_ptr<Solver> pRollingSolver_;
 
   // Parameters of the rolling horizon solver.
   SolverParam rollingParameters_;

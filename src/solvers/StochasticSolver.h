@@ -13,6 +13,7 @@
 #define SRC_SOLVERS_STOCHASTICSOLVER_H_
 
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <vector>
@@ -57,7 +58,7 @@ class StochasticSolver : public Solver {
   StochasticSolverOptions options_;
 
   // Log file that can be useful when calling the solver through simulator
-  Tools::LogOutput *pLogStream_;
+  std::unique_ptr<Tools::LogOutput> pLogStream_;
 
   //----------------------------------------------------------------------------
   //
@@ -124,7 +125,7 @@ class StochasticSolver : public Solver {
   //----------------------------------------------------------------------------
 
   // Generation Schedule
-  Solver *pGenerationSolver_;
+  std::unique_ptr<Solver> pGenerationSolver_;
   int nGeneratedSolutions_;
 
   // Return a solver with the algorithm specified for schedule GENERATION

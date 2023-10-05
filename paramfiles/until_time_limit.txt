@@ -10,9 +10,6 @@ withLNS=0
 completeOptimalityLevel=OPTIMALITY
 
 # default branch and price solver parameters
-isStabilization=0
-isStabUpdateBoxRadius=1
-isStabUpdatePenalty=1
 branchColumnDisjoint=1
 performHeuristicAfterXNode=10
 heuristicMinIntegerPercent=50

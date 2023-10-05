@@ -39,13 +39,13 @@ using std::set;
 // Dual Costs class
 // update the dual values of every constraints based on the current solution
 void DualCosts::updateDuals() {
-  for (ConstraintMP* pC : pMaster_->columnConstraints())
+  for (auto &pC : pMaster_->columnConstraints())
     pC->updateDuals();
 }
 
 // update the dual values of every constraints randomly
 void DualCosts::randomUpdateDuals(bool useInputData, int nPerturbations) {
-  for (ConstraintMP* pC : pMaster_->columnConstraints())
+  for (auto &pC : pMaster_->columnConstraints())
     pC->randomUpdateDuals(useInputData, nPerturbations);
 }
 
@@ -56,7 +56,7 @@ double DualCosts::getCost(
     const Stretch &st,
     const PAbstractShift &prevS) const {
   double d = 0;
-  for (ConstraintMP* pC : pMaster_->columnConstraints())
+  for (auto &pC : pMaster_->columnConstraints())
     d += pC->getDualCost(nurseNum, st, prevS);
   return d;
 }
@@ -65,7 +65,7 @@ vector<double> DualCosts::getMaxDualValues() const {
   vector<double> maxDuals(pMaster_->nNurses());
   for (int n=0; n < maxDuals.size(); n++) {
     double d = 0, maxD = -XLARGE_SCORE;
-    for (ConstraintMP* pC : pMaster_->columnConstraints()) {
+    for (auto &pC : pMaster_->columnConstraints()) {
       double v = pC->maxDualValue(n);
       d += v;
       if (maxD < v) maxD = v;

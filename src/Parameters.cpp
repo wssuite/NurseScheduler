@@ -65,10 +65,12 @@ bool SolverParam::setParameter(const string &field, std::fstream *file,
       ALLPARAMS(printRelaxationSol_)
     } else if (Tools::strEndsWith(field, "isStabilization")) {
       ALLPARAMS(isStabilization_)
+    } else if (Tools::strEndsWith(field, "stabJustColumnConstraints")) {
+      ALLPARAMS(stabJustColumnConstraints_)
     } else if (Tools::strEndsWith(field, "isStabUpdateBoxRadius")) {
       ALLPARAMS(isStabUpdateBoxRadius_)
-    } else if (Tools::strEndsWith(field, "isStabUpdatePenalty")) {
-      ALLPARAMS(isStabUpdatePenalty_)
+    } else if (Tools::strEndsWith(field, "stabPenaltyIni")) {
+      ALLPARAMS(stabPenaltyIni_)
     } else if (Tools::strEndsWith(field, "maxInactiveIterations")) {
       ALLPARAMS(maxInactiveIterations_)
     } else if (Tools::strEndsWith(field, "minActivityRate")) {

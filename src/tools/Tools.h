@@ -494,6 +494,29 @@ std::vector<T> appendVectors(
   return ANS;
 }
 
+template<typename T>
+std::vector<T> appendVectors(const vector2D<T> &vectors) {
+  std::vector<T> ANS;
+  for (const std::vector<T>& v : vectors)
+    ANS.insert(ANS.end(), v.begin(), v.end());
+  return ANS;
+}
+
+template<typename T>
+std::vector<T> reccursiveAppendVectors(const vector2D<T> &vectors) {
+  return appendVectors(vectors);
+}
+
+template<typename T>
+std::vector<T> reccursiveAppendVectors(const vector3D<T> &vectors) {
+  return reccursiveAppendVectors(appendVectors(vectors));
+}
+
+template<typename T>
+std::vector<T> reccursiveAppendVectors(const vector4D<T> &vectors) {
+  return reccursiveAppendVectors(appendVectors(vectors));
+}
+
 // High resolution timer class to profile the performance of the algorithms
 // Warning : the timer class of the stl to not seem to be portable I observed
 // problems on windows for instance and it requires some precompiler

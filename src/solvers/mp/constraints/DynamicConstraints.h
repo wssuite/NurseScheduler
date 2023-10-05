@@ -49,6 +49,12 @@ class DynamicConstraints : public ConstraintMP {
 
   std::string toString(int nurseNum, const Stretch &st) const override;
 
+  vector<MyCons*> getAllConstraints() const override {
+    Tools::throwError(
+            "DynamicConstraints::getAllConstraints() not implemented.");
+    return {};
+  }
+
   double getTotalCost() const override {
     return pModel()->getTotalCost(minWorkedDaysAvgVars_) +
         pModel()->getTotalCost(maxWorkedDaysAvgVars_) +

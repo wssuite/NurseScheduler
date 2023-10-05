@@ -65,6 +65,17 @@ class BoundedResourceConstraint : public ConstraintMP {
     return resourceCons_;
   }
 
+  vector<MyCons*> getAllConstraints() const override {
+    std::vector<MyCons*> cons;
+    for (const auto & v : getConstraints()) {
+      for (const auto &p : v) {
+        cons.push_back(p.second.first);
+        cons.push_back(p.second.second);
+      }
+    }
+    return cons;
+  }
+
   double getTotalCost() const override {
     return pModel()->getTotalCost(resourceVars_);
   }

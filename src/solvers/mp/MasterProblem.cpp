@@ -68,17 +68,11 @@ MasterProblem::MasterProblem(const PScenario& pScenario,
     pRCPricer_(nullptr),
     pResources_(pScenario->nNurses()) {
   // build the model
-  pModel_ = new BcpModeler(this, PB_NAME, solverType);
+  pModel_ = std::make_unique<BcpModeler>(this, PB_NAME, solverType);
   this->preprocessData();
 }
 
-MasterProblem::~MasterProblem() {
-  delete nursePositionCountConstraint_;
-  delete allocationConstraint_;
-  delete minDemandConstraint_;
-  delete optDemandConstraint_;
-  delete pModel_;
-}
+MasterProblem::~MasterProblem() {}
 
 // solve the rostering problem
 double MasterProblem::solve(const vector<Roster> &solution) {
@@ -99,7 +93,17 @@ double MasterProblem::solve(const vector<Roster> &solution, bool rebuild) {
   if (rebuild) {
     pModel_->clear();
     this->build(param_);
-    if (param_.isStabilization_) pModel_->stab().initAllStabVariables();
+    if (param_.isStabilization_) {
+      // add stabilization variables on all constraints that involve
+      // generated columns
+      if (param_.stabJustColumnConstraints_) {
+        for (auto &pC : columnConstraints_)
+          pModel_->stab().initStabVariables(pC->getAllConstraints());
+      } else {
+        // otherwise, add stabilization variables on all constraints
+        pModel_->stab().initStabVariables(pModel_->getCoreCons());
+      }
+    }
   } else {
     // reset model
     pModel_->reset();
@@ -167,6 +171,8 @@ void MasterProblem::solveWithCatch(const vector<Roster> &solution) {
       log << buff.str();
     }
     std::cerr << buff.str();
+  } catch (...) {
+      std::rethrow_exception(std::current_exception());
   }
 }
 
@@ -191,14 +197,15 @@ void MasterProblem::build(const SolverParam &param) {
   createPResources();
 
   /* Skills coverage constraints */
-  nursePositionCountConstraint_ = new NursePositionCountConstraint(this);
-  allocationConstraint_ = new AllocationConstraint(this);
+  nursePositionCountConstraint_ =
+          std::make_unique<NursePositionCountConstraint>(this);
+  allocationConstraint_ = std::make_unique<AllocationConstraint>(this);
   bool softCtr = pScenario_->weights().overCoverage >= 0;
-  minDemandConstraint_ = new DemandConstraint(
+  minDemandConstraint_ = std::make_unique<DemandConstraint>(
       this, true, softCtr,
       pScenario_->weights().underCoverage, pScenario_->weights().overCoverage);
   if (pDemand_->isOptDemand_)
-    optDemandConstraint_ = new DemandConstraint(
+    optDemandConstraint_ = std::make_unique<DemandConstraint>(
         this, false, true, pScenario_->weights().underCoverage);
 
 
@@ -896,16 +903,4 @@ double MasterProblem::computeLagrangianBound(double objVal) const {
                     "for this master problem.");
   return -XLARGE_SCORE;
 // return objVal+sumRedCost-getStabCost();
-}
-
-// Compute an approximation of the dual UB based on the lagrangian bound
-// It could be useful to measure the quality of a dual solution (used when
-// stabilizing).
-double MasterProblem::computeApproximateDualUB(double objVal) const {
-  double sumRedCost = 0, minRedCost = pPricer()->getLastMinReducedCost();
-  for (double v : pPricer()->getLastReducedCostLBs()) {
-    if (v < minRedCost) v = minRedCost;
-    sumRedCost += v;
-  }
-  return objVal + sumRedCost;
 }

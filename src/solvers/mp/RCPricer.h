@@ -14,6 +14,7 @@
 
 #include <list>
 #include <map>
+#include <memory>
 #include <set>
 #include <utility>
 #include <vector>
@@ -73,7 +74,7 @@ class RCPricer : public MyPricer {
 
   // One subproblem list per contract because the consecutive same shift
   // constraints vary by contract.
-  std::map<PLiveNurse, SubProblem*> subProblems_;
+  std::map<PLiveNurse, std::unique_ptr<SubProblem>> subProblems_;
 
   // DATA - Solutions, rotations, etc.
   std::vector<MyVar *> allNewColumns_;

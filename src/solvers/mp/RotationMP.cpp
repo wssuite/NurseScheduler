@@ -80,7 +80,7 @@ void RotationColumn::checkReducedCost(const DualCosts &dualCosts,
   double reducedCost = cost_ - dualCosts.getCost(nurseNum_, st, pRest);
 
   // Display: set to true if you want to display the details of the cost
-  if (std::fabs(reducedCost_ - reducedCost) / (1 - reducedCost) > EPSILON) {
+  if (std::abs(reducedCost_ - reducedCost) / (1 - reducedCost) > EPSILON) {
     // if do not print and not throwing an error
     if (!printBadPricing && reducedCost_ > reducedCost + EPSILON) return;
 
@@ -135,13 +135,7 @@ RotationMP::RotationMP(const PScenario& pScenario,
   setParameters(param);
 }
 
-RotationMP::~RotationMP() {
-  delete rotationGraphConstraint_;
-  delete dynamicConstraints_;
-  delete totalShiftDurationConstraint_;
-  delete totalWeekendConstraint_;
-//  delete consWeekendConstraints_;
-}
+RotationMP::~RotationMP() {}
 
 PColumn RotationMP::getPColumn(MyVar *var) const {
   return std::make_shared<RotationColumn>(var, pScenario_);
@@ -178,16 +172,17 @@ void RotationMP::build(const SolverParam &param) {
   MasterProblem::build(param);
 
   /* Rotation constraints */
-  rotationGraphConstraint_ =
-      new RotationGraphConstraint(this, masterRotationGraphResources_);
+  rotationGraphConstraint_ = std::make_unique<RotationGraphConstraint>(
+          this, masterRotationGraphResources_);
 
   /* Min/Max constraints */
   buildResourceCons(param);
 
   /* Dynamic constraints (need min/max constraints) */
   if (dynamicWeights_.version() > 0)
-    dynamicConstraints_ = new DynamicConstraints(
-        this, totalShiftDurationConstraint_, totalWeekendConstraint_);
+    dynamicConstraints_ = std::make_unique<DynamicConstraints>(
+        this, totalShiftDurationConstraint_.get(),
+        totalWeekendConstraint_.get());
 }
 
 void RotationMP::update(const PDemand& pDemand) {
@@ -365,8 +360,9 @@ MyVar *RotationMP::addColumn(int nurseNum, const RCSolution &solution) {
 }
 
 void RotationMP::buildResourceCons(const SolverParam &param) {
-  totalShiftDurationConstraint_ = new TotalShiftDurationConstraint(this);
-  totalWeekendConstraint_ = new TotalWeekendConstraint(this);
+  totalShiftDurationConstraint_ =
+          std::make_unique<TotalShiftDurationConstraint>(this);
+  totalWeekendConstraint_ = std::make_unique<TotalWeekendConstraint>(this);
 
   for (const PLiveNurse &pN : theLiveNurses_) {
     for (const PBoundedResource &pR : masterConstraintResources_[pN->num_]) {

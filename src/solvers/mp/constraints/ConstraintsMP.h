@@ -51,7 +51,7 @@ class ConstraintMP {
     return 0;
   }
 
-// add a given constraint to the column
+  // add a given constraint to the column
   virtual void addConsToCol(std::vector<MyCons *> *cons,
                             std::vector<double> *coeffs,
                             const Column &col) const {}
@@ -62,6 +62,8 @@ class ConstraintMP {
   }
 
   virtual double getTotalCost() const = 0;
+
+  virtual vector<MyCons*> getAllConstraints() const = 0;
 
   virtual bool printInSolutionCosts() const {
     return true;
@@ -104,7 +106,7 @@ class NursePositionCountConstraint : public ConstraintMP {
                      const Stretch &st,
                      const PAbstractShift &prevS) const override;
 
-// add a given constraint to the column
+  // add a given constraint to the column
   void addConsToCol(std::vector<MyCons *> *cons,
                     std::vector<double> *coeffs,
                     const Column &col) const override;
@@ -118,6 +120,10 @@ class NursePositionCountConstraint : public ConstraintMP {
 
   const vector3D<MyCons*>& getConstraints() const {
     return numberOfNursesByPositionCons_;
+  }
+
+  vector<MyCons*> getAllConstraints() const override {
+    return Tools::reccursiveAppendVectors(getConstraints());
   }
 
   double getTotalCost() const override {
@@ -147,6 +153,10 @@ class AllocationConstraint : public ConstraintMP {
 
   const vector3D<MyCons*>& getConstraints() const {
     return feasibleSkillsAllocCons_;
+  }
+
+  vector<MyCons*> getAllConstraints() const override {
+    return Tools::reccursiveAppendVectors(getConstraints());
   }
 
   double getTotalCost() const override {
@@ -181,6 +191,10 @@ class DemandConstraint : public ConstraintMP {
 
   const vector3D<MyCons*>& getConstraints() const {
     return demandCons_;
+  }
+
+  vector<MyCons*> getAllConstraints() const override {
+    return Tools::reccursiveAppendVectors(getConstraints());
   }
 
   double getTotalCost() const override {

@@ -15,9 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     name: docker tests
     steps:
-      # To use this repository's private action, you must check out the repository
-      - name: Checkout
+      - name: Checkout github repo (+ download lfs dependencies)
         uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Checkout LFS objects
+        run: git lfs checkout
 
       # run the tests
       - name: n005w4_0_1-2-3-3 PRICER

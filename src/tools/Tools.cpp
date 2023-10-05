@@ -92,12 +92,11 @@ float getResidentMemoryGB() {
 }
 
 tm *dateForDay(const tm *const startDate, const int &dayId) {
-  tm* newTime = new tm;
-  memcpy(newTime, startDate, sizeof(tm));
+  auto newTime = std::make_unique<tm>();
+  memcpy(newTime.get(), startDate, sizeof(tm));
 
   newTime->tm_mday += dayId;
-  time_t nt_seconds = mktime(newTime) - timezone;
-  delete newTime;
+  time_t nt_seconds = mktime(newTime.get()) - timezone;
 
   return gmtime(&nt_seconds);
 }

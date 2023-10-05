@@ -344,11 +344,13 @@ class Solver {
   }
 
   // add a solver that could be used to compute a solution
-  void attachHeuristic(Solver *pSolver) {
-    pHeuristics_.push_back(pSolver);
+  void moveHeuristic(std::unique_ptr<Solver> pSolver) {
+    pHeuristics_.push_back(std::move(pSolver));
   }
 
-  const std::vector<Solver*>& pHeuristics() const { return pHeuristics_; }
+  const std::vector<std::unique_ptr<Solver>>& pHeuristics() const {
+    return pHeuristics_;
+  }
 
   // Should be protected (and not private) because Solver will have subclasses
  protected:
@@ -390,7 +392,7 @@ class Solver {
   DynamicWeights dynamicWeights_;
 
   // list of solvers that will be used as heuristics
-  std::vector<Solver*> pHeuristics_;
+  std::vector<std::unique_ptr<Solver>> pHeuristics_;
 
   //-----------------------------------------------------------------------------
   // Outputs of the solver

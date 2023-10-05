@@ -15,6 +15,7 @@
 #include "MasterProblem.h"
 
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -132,8 +133,8 @@ class RosterMP : public MasterProblem {
   * Constraints
   */
   // Ensure that is nurse has a roster assigned to her
-  RosterAssignmentConstraint *assignmentConstraint_;
-  DynamicConstraints *dynamicConstraints_ = nullptr;
+  std::unique_ptr<RosterAssignmentConstraint> assignmentConstraint_;
+  std::unique_ptr<DynamicConstraints> dynamicConstraints_;
 };
 
 #endif  // SRC_SOLVERS_MP_ROSTERMP_H_

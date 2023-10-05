@@ -302,7 +302,7 @@ void displaySolutionMultipleWeeks(const string& dataDir,
   // load the solution in a new solver
   InputPaths inputPaths(dataDir, instanceName, historyIndex, weekIndices);
   PScenario pScen = buildInstance(inputPaths);
-  auto *pSolver = new Solver(pScen);
+  auto pSolver = std::make_unique<Solver>(pScen);
   pSolver->loadSolution(solution);
 
   // write the log file for all the weeks
@@ -324,7 +324,6 @@ void displaySolutionMultipleWeeks(const string& dataDir,
     Tools::LogOutput solutionStream(solutionFile, false);
     solutionStream << solutions[w];
   }
-  delete pSolver;
 }
 
 void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
@@ -349,7 +348,7 @@ void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
 
   // load the solution in a new solver
   PScenario pScen = buildInstance(inputPaths);
-  Solver *pSolver = new Solver(pScen);
+  auto pSolver = std::make_unique<Solver>(pScen);
   pSolver->loadSolution(solution);
 
   // write the log file for all the weeks
@@ -364,8 +363,6 @@ void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
     Tools::LogOutput solutionStream(solutionFile, false);
     solutionStream << solutions[w];
   }
-
-  delete pSolver;
 }
 
 /******************************************************************************

@@ -60,16 +60,19 @@ BcpHeuristics::BcpHeuristics(
     BcpModeler *pModel, bool useRotationModel, SolverType type, int verbosity):
     pModel_(pModel),
     mip_() {
-  if (useRotationModel && pModel->getParameters().spType_ == ROSTER)
-    mip_ = std::make_shared<HeuristicRotation>(
-        pModel->pMaster_, type, verbosity);
-  else
-    mip_ = std::make_shared<HeuristicMIP>(
-        pModel->pMaster_, type, verbosity);
-  if (!pModel_->pMaster_->pHeuristics().empty())
+  if (pModel->getParameters().performMIPHeuristic_) {
+    if (useRotationModel && pModel->getParameters().spType_ == ROSTER)
+      mip_ = std::make_shared<HeuristicRotation>(
+              pModel->pMaster_, type, verbosity);
+    else
+      mip_ = std::make_shared<HeuristicMIP>(
+              pModel->pMaster_, type, verbosity);
+  }
+  if (pModel->getParameters().performLNSHeuristic_ &&
+      !pModel_->pMaster_->pHeuristics().empty())
     lns_ = std::make_shared<HeuristicSolver>(
-        pModel->pMaster_, pModel_->pMaster_->pHeuristics().front(),
-        "LNS", type, verbosity);
+            pModel->pMaster_, pModel_->pMaster_->pHeuristics().front().get(),
+            "LNS", type, verbosity);
 }
 
 BcpHeuristics::~BcpHeuristics() {
