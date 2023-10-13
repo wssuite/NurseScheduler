@@ -16,9 +16,7 @@ WORKDIR /home/dantzig/ns/
 
 ## Compile the nurse scheduler
 ARG CMAKE_BUILD_TYPE=Release
-RUN echo "set(BCPDIROPT /usr/local/Bcp-1.4/build)" > CMakeDefinitionsLists.txt && \
-    echo "set(BCPDIRDBG /usr/local/Bcp-1.4/build)" >> CMakeDefinitionsLists.txt && \
-    echo "set(BOOST_DIR /usr/local/include)" >> CMakeDefinitionsLists.txt && \
+RUN echo "set(BOOST_DIR /usr/local/include)" >> CMakeDefinitionsLists.txt && \
     mkdir build && \
     cd build && \
     cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} .. && \

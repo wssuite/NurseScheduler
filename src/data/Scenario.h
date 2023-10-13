@@ -56,7 +56,6 @@ struct Weights {
       totalShifts(weightTotalShifts),
       totalWeekends(weightTotalWeekends) {}
 
-
   const double underCoverage = 30;
   const double overCoverage = -1;
   const double alternativeSkills = 20;
@@ -147,7 +146,7 @@ class State {
   // Display methods: toStringINRC2 + override operator<< (easier)
   //
   std::string toString() const;
-  friend std::ostream &operator<<(std::ostream &outs, const State& obj) {
+  friend std::ostream &operator<<(std::ostream &outs, const State &obj) {
     return outs << obj.toString();
   }
 
@@ -199,6 +198,7 @@ class Scenario {
            std::vector<PNurse> theNurses,
            std::map<std::string, int> nurseNameToInt,
            PWeights weights,
+           string header,
            bool isINRC,
            bool isINRC2);
 
@@ -206,7 +206,7 @@ class Scenario {
   // a new scenario that copies most parameters from the input scenario
   // but for only a subgroup of nurses.
   //
-  Scenario(const PScenario& pScenario,
+  Scenario(const PScenario &pScenario,
            const std::vector<PNurse> &theNurses,
            PDemand pDemand,
            PPreferences pWeekPreferences);
@@ -224,7 +224,6 @@ class Scenario {
   // name of the scenario
   //
   const std::string name_;
-
   // starting date of the horizon
   std::tm startDate_ = std::tm();
 
@@ -311,7 +310,9 @@ class Scenario {
   // From the custom file
   //------------------------------------------------
   //------------------------------------------------
+  const std::string header_;
 
+ private:
   //------------------------------------------------
   // From the preprocessing of the nurses
   //------------------------------------------------
@@ -331,8 +332,8 @@ class Scenario {
   // Getters and setters
   //------------------------------------------------
 
-  const std::tm& startDate() {return startDate_;}
-  void setStartDate(std::tm date) {startDate_ = date;}
+  const std::tm &startDate() { return startDate_; }
+  void setStartDate(std::tm date) { startDate_ = date; }
   bool isRestShift(int shift) const {
     return pShifts_.at(shift)->isRest();
   }
@@ -341,15 +342,15 @@ class Scenario {
   double maxDuration() const {
     auto it = max_element(pShifts_.begin(), pShifts_.end(),
                           [](const PShift &pS1, const PShift &pS2) {
-      return pS1->duration < pS2->duration;
-    });
+                            return pS1->duration < pS2->duration;
+                          });
     return (*it)->duration;
   }
 
   const std::string &shiftName(int i) const { return pShift(i)->name; }
   int shift(const std::string &s) const { return shiftToInt_.at(s); }
 
-  const ShiftsFactory& shiftsFactory() const { return shiftsFactory_; }
+  const ShiftsFactory &shiftsFactory() const { return shiftsFactory_; }
 
   const PShift &pShift(int s) const { return pShifts_.at(s); }
   const PShift &pShift(const std::string &s) const {
@@ -360,7 +361,6 @@ class Scenario {
   const PShift &pRestShift() const {
     return shiftsFactory_.pAnyRestShift()->pIncludedShifts().front();
   }
-
 
   const std::string &skillName(int i) const { return intToSkill_[i]; }
   int skillId(const std::string &s) const { return skillToInt_.at(s); }
@@ -379,15 +379,15 @@ class Scenario {
 
   int shiftIDToShiftTypeID(int s) const { return pShift(s)->type; }
 
-  const PAbstractShift & pAnyTypeShift(int st) const {
+  const PAbstractShift &pAnyTypeShift(int st) const {
     return shiftsFactory_.pAnyTypeShift(st);
   }
 
-  const std::vector<PShift> & pShiftsOfType(int st) const {
+  const std::vector<PShift> &pShiftsOfType(int st) const {
     return pAnyTypeShift(st)->pIncludedShifts();
   }
 
-  const std::vector<PShift> & pWorkShifts() const {
+  const std::vector<PShift> &pWorkShifts() const {
     return shiftsFactory_.pAnyWorkShift()->pIncludedShifts();
   }
 
@@ -432,7 +432,7 @@ class Scenario {
   //
   int maxConDaysWorkedInHistory() const {
     int ANS = 0;
-    for (const auto& p : initialState_) {
+    for (const auto &p : initialState_) {
       if ((p.consDaysWorked_ > ANS) && (p.pShift_->isWork()))
         ANS = p.consDaysWorked_;
     }
@@ -461,6 +461,12 @@ class Scenario {
   int maxConsShifts(int whichShift) const;
   int minConsShiftsOfType(int whichShiftType) const;
   int maxConsShiftsOfType(int whichShiftType) const;
+
+  // getter for custom file attributes
+
+  string getHeader() const {
+    return header_;
+  }
 
   // Cost function for consecutive identical shifts
   //

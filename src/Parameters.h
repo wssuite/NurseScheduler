@@ -370,13 +370,13 @@ class SolverParam {
   // the two last conditions are respected just for certain strategy.
   // If we look for optimality, we also use the last feature
   // maxRelativeLPGapToKeepChild_:
-  // if the gap between the tree best lb and the node lb is higher than
+  // if the gap between the tree's best lb and the node lb is higher than
   // this gap -> backtrack
   double optimalAbsoluteGap_ = 1;
   double absoluteGap_ = 1;
   double minRelativeGap_ = .05;
   double relativeGap_ = .1;
-  double maxRelativeLPGapToKeepChild_ = .05;
+  double maxRelativeLPGapToKeepChild_ = 0;
 
   int nbDiveIfMinGap_ = 1;
   int nbDiveIfRelGap_ = 2;

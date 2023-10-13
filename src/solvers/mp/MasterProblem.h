@@ -314,6 +314,7 @@ class MasterProblem : public Solver, public PrintSolution {
   /* Display functions */
   std::string costsConstraintsToString() const override;
   std::string costsColumnsToString() const;
+  std::map<string, double> costsConstraintsByName() const override;
   string allocationToString() const;
   string coverageToString() const;
 

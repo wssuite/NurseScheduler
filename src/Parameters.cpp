@@ -247,6 +247,8 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       solveToOptimality_ = true;
       stopAfterXSolution_ = LARGE_SCORE;
       solveRelaxationToOptimality_ = true;
+      // stop dive to explore other parts of the tree
+      maxRelativeLPGapToKeepChild_ = .05;
       break;
   }
 }

@@ -451,6 +451,8 @@ double DeterministicSolver::treatResults(Solver *pSolver) {
   else
     objValue_ = pSolver->LB();
 
+  costsConstraints_ = pSolver->costsConstraintsByName();
+
   return objValue_;
 }
 
@@ -562,6 +564,7 @@ double DeterministicSolver::solveByConnectedPositions() {
     if (status_ == UNSOLVED || status_ == OPTIMAL)
       status_ = p.second->status(true);
     stats_.add(p.second->getGlobalStat());
+    updateCostsConstraints(p.second.get());
   }
 
   // update nurses' states
@@ -954,10 +957,12 @@ void DeterministicSolver::adaptiveDestroy(NursesSelectionOperator nurseOp,
 
   // GENERATE THE DAYS THAT WILL BE DESTROYED AND FIX THE OTHERS
   // fix no day if the number of days in the scenario is small
+
   if (nbDaysDestroy < this->nDays()) {
     // draw the first day of the relaxed interval
+
     std::vector<double>
-        weightDays(pScenario_->nDays() - nbDaysDestroy - 1, 1.0);
+        weightDays(pScenario_->nDays() - nbDaysDestroy  - 1, 1.0);
     weightDays[0] = 7;
     for (int i = 1; i < std::max(nDays() - nbDaysDestroy - 1, 6); i++) {
       weightDays[i] = 0.1;

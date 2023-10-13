@@ -108,6 +108,7 @@ double StochasticSolver::solve(const vector<Roster> &initialSolution) {
   options_.nDaysEvaluation_ = std::min(options_.nDaysEvaluation_,
                                        7 * (pScenario_->nWeeks()
                                            - (pScenario_->thisWeek() + 1)));
+
   // Special case of the last week -> always to optimality with no time limit
   //
   if (pScenario_->nWeeks() - 1 == pScenario_->thisWeek()) {
@@ -142,7 +143,9 @@ double StochasticSolver::solve(const vector<Roster> &initialSolution) {
     // C. No generation-evaluation
     (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                    << "] Solving week no. " << pScenario_->thisWeek()
-                   << " with PERTURBATIONS." << std::endl;
+                   << " with"
+                   << (!options_.generationCostPerturbation_ ? "out" : "")
+                   << " PERTURBATIONS." << std::endl;
     solveOneWeekNoGenerationEvaluation();
     while (status_ == INFEASIBLE || status_ == UNSOLVED) {
       // get the time left to solve another schedule
@@ -299,7 +302,7 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
   vector<Roster> previousSolution;
   while (timeLeft > timeLastSolve && nbAddedWeeks <= maxNbAddedWeeks) {
     (*pLogStream_) << "# Solve with " << nbAddedWeeks
-                  << " additional weeks to the demand" << std::endl;
+                   << " additional weeks to the demand" << std::endl;
     (*pLogStream_) << "# Time left: " << timeLeft << std::endl;
 
     // Update the properties of the solver
@@ -311,7 +314,9 @@ void StochasticSolver::solveIterativelyWithIncreasingDemand() {
     timerSolve.start();
     (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                    << "] Solving week no. " << pScenario_->thisWeek()
-                   << " with PERTURBATIONS." << std::endl;
+                   << " with"
+                   << (!options_.generationCostPerturbation_ ? "out" : "")
+                   << " PERTURBATIONS." << std::endl;
     solveOneWeekNoGenerationEvaluation();
     if (nbAddedWeeks > 0) {
       while (status_ == INFEASIBLE || status_ == UNSOLVED) {

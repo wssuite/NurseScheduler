@@ -590,7 +590,7 @@ void MasterProblem::saveSolution() {
     // add the number of nurses only when using the default values
     // for the week indices (i.e. weekIndices_ is empty)
     displaySolutionMultipleWeeks(param_.weekIndices_.empty());
-  else
+  else if (pScenario_->isINRC_)
     solutionToXmlINRC();
 }
 
@@ -786,6 +786,30 @@ string MasterProblem::costsColumnsToString() const {
   }
 
   return rep.str();
+}
+
+map<string, double> MasterProblem::costsConstraintsByName() const {
+  map<string, double> costs;
+
+  double total = 0;
+  std::map<CostType, double> colCosts = getColumnsCosts();
+  for (const auto &p : colCosts) {
+    if (abs(p.second) < epsilon()) continue;
+    string typeName = "Rosters | " + prettyNamesByCostType.at(p.first);
+    costs[typeName] = p.second;
+    total += p.second;
+  }
+  costs["Rosters total cost"] = total;
+
+  for (auto pC : constraints_) {
+    if (!pC->printInSolutionCosts()) continue;
+    double cost = pC->getTotalCost();
+    if (abs(cost) < epsilon()) continue;
+    std::string cName = pC->name + " cost";
+    costs[cName] = cost;
+  }
+
+  return costs;
 }
 
 string MasterProblem::allocationToString() const {

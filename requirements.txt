@@ -1,17 +1,16 @@
 certifi==2022.12.7
-cpplint @ file:///home/conda/feedstock_root/build_artifacts/cpplint_1645442975583/work
-cycler @ file:///home/conda/feedstock_root/build_artifacts/cycler_1635519461629/work
-fonttools @ file:///Users/runner/miniforge3/conda-bld/fonttools_1651017805703/work
-kiwisolver @ file:///Users/runner/miniforge3/conda-bld/kiwisolver_1648854472206/work
-matplotlib @ file:///Users/runner/miniforge3/conda-bld/matplotlib-suite_1651609691413/work
+cpplint
+cycler
+fonttools
+kiwisolver
+matplotlib
 munkres==1.1.4
-numpy @ file:///Users/runner/miniforge3/conda-bld/numpy_1649806371302/work
-packaging @ file:///home/conda/feedstock_root/build_artifacts/packaging_1637239678211/work
-Pillow==9.0.1
-pyparsing @ file:///home/conda/feedstock_root/build_artifacts/pyparsing_1652235407899/work
-python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1626286286081/work
+numpy
+packaging
+pyparsing
+python-dateutil
 PyYAML==6.0
-six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
-tornado @ file:///Users/runner/miniforge3/conda-bld/tornado_1648827296753/work
-typing_extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1650370875435/work
-unicodedata2 @ file:///Users/runner/miniforge3/conda-bld/unicodedata2_1649112008529/work
+six
+tornado
+typing_extensions
+unicodedata2

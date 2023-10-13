@@ -6,9 +6,10 @@ SET(CXX_STANDARD_REQUIRED ON)
 SET(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
+
 SET(NURSE_SCHEDULER_LIB nursescheduler)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
+option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 # read user definitions
 include(CMakeDefinitionsLists.txt)
 
@@ -113,7 +114,7 @@ add_subdirectory(main)
 MESSAGE("Linked directories: ${LINK_DIRECTORIES}")
 MESSAGE("Cmake linker flags: ${CMAKE_LINKER_FLAGS}")
 
-if(DEFINED BUILD_JULIA)
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Lib_Julia")
     include_directories(lib_julia_nurse)
     add_subdirectory(lib_julia_nurse)
 endif()

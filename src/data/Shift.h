@@ -31,7 +31,7 @@ typedef shared_ptr<Shift> PShift;
 struct AbstractShift {
   friend class ShiftsFactory;
 
-  explicit AbstractShift(std::string  _name = REST_SHIFT) :
+  explicit AbstractShift(std::string _name = REST_SHIFT) :
       name(std::move(_name)) {}
   virtual ~AbstractShift() = default;
 
@@ -53,20 +53,20 @@ struct AbstractShift {
 
   virtual bool includes(const AbstractShift &) const { return false; }
 
-  virtual bool equals(const AbstractShift & s) const {
+  virtual bool equals(const AbstractShift &s) const {
     return includes(s) && s.includes(*this);
   }
 
-  const std::vector<PShift> & pIncludedShifts() const { return pShifts_; }
+  const std::vector<PShift> &pIncludedShifts() const { return pShifts_; }
 
-  const PShift & findIncludedShift(const std::vector<int> &shifts) const;
+  const PShift &findIncludedShift(const std::vector<int> &shifts) const;
 
   const string name;
 
  protected:
   std::vector<PShift> pShifts_;
 
-  void addShift(const PShift& pS) { pShifts_.push_back(pS); }
+  void addShift(const PShift &pS) { pShifts_.push_back(pS); }
 };
 
 typedef shared_ptr<AbstractShift> PAbstractShift;
@@ -179,17 +179,16 @@ struct Shift : public AbstractShift {
   vector<int> skills;
 };
 
-
 struct AnyRestShift : public AbstractShift {
   friend class ShiftsFactory;
 
   bool isRest() const override { return true; }
   bool isWork() const override { return false; }
-  bool isAnyRest() const override {return true;}
+  bool isAnyRest() const override { return true; }
   bool includes(const AbstractShift &s) const override { return s.isRest(); }
 
  private:
-  AnyRestShift(): AbstractShift("rest") {}
+  AnyRestShift() : AbstractShift("rest") {}
 };
 
 struct AnyWorkShift : public AbstractShift {
@@ -197,11 +196,11 @@ struct AnyWorkShift : public AbstractShift {
 
   bool isWork() const override { return true; }
   bool isType(int t) const override { return true; }
-  bool isAnyWork() const override {return true;}
+  bool isAnyWork() const override { return true; }
   bool includes(const AbstractShift &s) const override { return s.isWork(); }
 
  private:
-  AnyWorkShift(): AbstractShift("work") {}
+  AnyWorkShift() : AbstractShift("work") {}
 };
 
 struct NoneShift : public AbstractShift {
@@ -216,7 +215,7 @@ struct NoneShift : public AbstractShift {
   bool isSameShift(const AbstractShift &s) const override { return false; }
 
  private:
-  NoneShift(): AbstractShift("none") {}
+  NoneShift() : AbstractShift("none") {}
 };
 
 struct AnyShift : public AbstractShift {
@@ -229,10 +228,10 @@ struct AnyShift : public AbstractShift {
   bool isSameType(const AbstractShift &s) const override { return true; }
   bool isShift(int i) const override { return true; }
   bool isSameShift(const AbstractShift &s) const override { return true; }
-  bool isAnyShift() const override {return true;}
+  bool isAnyShift() const override { return true; }
 
  private:
-  AnyShift(): AbstractShift("any") {}
+  AnyShift() : AbstractShift("any") {}
 };
 
 struct AnyOfTypeShift : public AbstractShift {
@@ -247,14 +246,14 @@ struct AnyOfTypeShift : public AbstractShift {
   bool isSameType(const AbstractShift &s) const override {
     return includes(s);
   }
-  bool isAnyType() const override {return true;}
+  bool isAnyType() const override { return true; }
 
   const int type;
 
  private:
   explicit AnyOfTypeShift(int t, std::string _name = "") :
       AbstractShift(_name.empty() ?
-                    "type_"+std::to_string(t) : std::move(_name)),
+                    "type_" + std::to_string(t) : std::move(_name)),
       type(t) {}
 };
 
@@ -268,7 +267,6 @@ class ShiftsFactory {
   const PAbstractShift &pAnyRestShift() const { return pAnyRestShift_; }
   const PAbstractShift &pAnyWorkShift() const { return pAnyWorkShift_; }
   const PShift &pAnyWorkShift(const std::vector<int> &shifts) const;
-
 
   const PAbstractShift &pAnyTypeShift(int t) const {
     return pAnyTypeShifts_.at(t);
@@ -362,14 +360,14 @@ class Stretch {
   explicit Stretch(int firstDayId = -1) :
       firstDayId_(firstDayId), duration_(0) {}
 
-  Stretch(int firstDayId, const PShift& pShift) :
+  Stretch(int firstDayId, const PShift &pShift) :
       firstDayId_(firstDayId),
       pShifts_({pShift}),
       duration_(pShift->duration) {
     pDays_.push_back(std::make_shared<Day>(firstDayId));
   }
 
-  Stretch(const PDay& firstDay, const PShift& pShift) :
+  Stretch(const PDay &firstDay, const PShift &pShift) :
       pDays_({firstDay}),
       pShifts_({pShift}),
       firstDayId_(firstDay->id),
@@ -405,7 +403,7 @@ class Stretch {
     duration_ = st.duration_;
   }
 
-  void init(int firstDay, const vector<PShift>& pShifts) {
+  void init(int firstDay, const vector<PShift> &pShifts) {
     pShifts_.clear();
     pDays_.clear();
     firstDayId_ = firstDay;
@@ -424,16 +422,16 @@ class Stretch {
 
   virtual int firstDayId() const { return firstDayId_; }
   virtual int nDays() const { return pShifts_.size(); }
-  virtual int lastDayId() const { return firstDayId_+ nDays() - 1; }
-  virtual const PShift& pShift(int dayId) const {
+  virtual int lastDayId() const { return firstDayId_ + nDays() - 1; }
+  virtual const PShift &pShift(int dayId) const {
     return pShifts_.at(dayId - firstDayId());
   }
   virtual const vector<PDay> &pDays() const { return pDays_; }
   virtual const vector<PShift> &pShifts() const { return pShifts_; }
   virtual int shift(int dayId) const { return pShift(dayId)->id; }
-  virtual PDay pDay(int ind) const { return pDays_[ind];}
+  virtual PDay pDay(int ind) const { return pDays_[ind]; }
   virtual int duration() const { return duration_; }
-  int nWeekends(const Weekend& weekend) const {
+  int nWeekends(const Weekend &weekend) const {
     if (pDays_.empty()) return 0;
     return weekend.nWeekendsInInterval(*pDays_.front(), *pDays_.back());
   }
@@ -476,7 +474,7 @@ class Stretch {
   virtual void rotate(int n) {
     int length = pShifts_.size();
     auto start = pShifts_.end() - n;
-    if (n < 0)  start -= length;
+    if (n < 0) start -= length;
     vector<PShift> toInsert(start, pShifts_.end());
     pShifts_ = Tools::appendVectors(toInsert, pShifts_);
     firstDayId_ -= n;
@@ -492,7 +490,7 @@ class Stretch {
     if (firstDayId() != stretch.firstDayId()) return true;
     if (nDays() != stretch.nDays()) return true;
     if (duration() != stretch.duration()) return true;
-    for (auto it1=pShifts_.begin(), it2=stretch.pShifts_.begin();
+    for (auto it1 = pShifts_.begin(), it2 = stretch.pShifts_.begin();
          it1 != pShifts_.end(); it1++, it2++)
       if ((*it1)->id != (*it2)->id) return true;
     return false;

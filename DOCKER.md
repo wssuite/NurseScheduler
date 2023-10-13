@@ -32,3 +32,11 @@ Look at the docker-entrypoint.sh file for more details.
   docker-compose up -d
   ```
   This command will build locally the container if the field "build" is not commented, otherwise it can use the field "image". Also, all the volumes are defined in this file, you may change it according to your paths if needed.
+
+### Multiplatform build
+
+In order to build the image for several platforms as x64 or arm64, use:
+```bash
+docker buildx build --platform=linux/amd64,linux/arm64 -t legraina/nurse-scheduler --push .
+```
+For more information, please refer to: https://docs.docker.com/engine/reference/commandline/buildx_build/#platform

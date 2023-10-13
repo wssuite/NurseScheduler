@@ -44,7 +44,6 @@
 #include <condition_variable>  // NOLINT (suppress cpplint error)
 #include <cassert>
 
-
 static const int SHIFT_PAD = 3;
 static const char REST_SHIFT[] = "Rest";
 static const char REST_DISPLAY[] = " - ";  // should be of the size of pad
@@ -171,22 +170,26 @@ struct Time {
   }
 
   // number of hours elapsed since time
-  double diff(const Time& time) const {
+  double diff(const Time &time) const {
     // if time is smaller, we assume it is on the previous day
-    if (hh > time.hh || (hh == time.hh && mm >= time.mm) )
+    if (hh > time.hh || (hh == time.hh && mm >= time.mm))
       return (hh - time.hh) + (mm - time.mm) / 60.0;
     else
       return 24.0 + (hh - time.hh) + (mm - time.mm) / 60.0;
   }
+  // number of hours elapsed since time
+  bool isAfter(const Time &time) const {
+    // if time is smaller, we assume it is on the previous day
+    return (hh > time.hh || (hh == time.hh && mm >= time.mm));
+  }
 
-  bool equals(const Time& time) const {
+  bool equals(const Time &time) const {
     return (time.hh == hh) && (time.mm == mm);
   }
 
   const double hh;
   const double mm;
 };
-
 
 tm *dateForDay(const tm *startDate, const int &dayId);
 
@@ -227,20 +230,20 @@ std::vector<std::string> split(std::string sentence, std::string delimiter);
 
 // Read a dash separated date in format yyyy-mm-dd and return a tm* object
 //
-tm * readDateFromStr(const std::string& dateStr);
-
+tm *readDateFromStr(const std::string &dateStr);
+int readNbWeeksFromDate(const std::string &dateStrBeg,
+                        const std::string &dateStrEnd);
 // Read a colon separated hour in format hh:mm:ss and return a tm* object
 //
-Tools::Time readHourFromStr(const std::string& hourStr);
+Tools::Time readHourFromStr(const std::string &hourStr);
 
 // Read the parameters of a bounded resource
 //
 int readBoundedResource(std::fstream *file,
-                        int* lbOn, int* lb, int* lbCost,
-                        int* ubOn, int* ub, int* ubCost);
+                        int *lbOn, int *lb, int *lbCost,
+                        int *ubOn, int *ub, int *ubCost);
 int readUbResource(std::fstream *file,
-                        int* ubOn, int* ub, int* ubCost);
-
+                   int *ubOn, int *ub, int *ubCost);
 
 // Parse a T list written as string with a char delimiter
 //
@@ -256,7 +259,7 @@ std::vector<T> tokenize(std::string str, char delim) {
     ss >> i;
     if (ss.rdbuf()->in_avail() > 0)
       Tools::throwError("%s cannot be tokenized with the type %s",
-          str.c_str(), typeid(T).name());
+                        str.c_str(), typeid(T).name());
     Tlist.push_back(i);
   }
   if (str.back() == delim) {
@@ -274,10 +277,9 @@ std::string toLowerCase(std::string str);
 
 std::string loadOptions(
     const std::string &strOptionFile,
-    std::function<bool(const std::string&, std::fstream *file)>);
+    std::function<bool(const std::string &, std::fstream *file)>);
 
 void openFile(const std::string &fileName, std::fstream *file);
-
 
 // Create a random generator
 // the objective is to be sure to have always the same sequence of number
@@ -374,7 +376,7 @@ void insert_back(std::vector<T> *v1, const std::vector<T> &v2) {
 
 // remove an element from a list
 template<class T>
-bool erase(std::vector<T> *vec, const T& el, bool throwErrorNotFound = false) {
+bool erase(std::vector<T> *vec, const T &el, bool throwErrorNotFound = false) {
   auto it = std::find(vec->begin(), vec->end(), el);
   if (it != vec->end()) {
     vec->erase(it);
@@ -388,7 +390,8 @@ bool erase(std::vector<T> *vec, const T& el, bool throwErrorNotFound = false) {
 }
 
 // return the name for the enum from a given map of name
-template<typename T> static const std::string & getNameForEnum(
+template<typename T>
+static const std::string &getNameForEnum(
     const std::map<std::string, T> &typesByName, T type) {
   for (const auto &p : typesByName)
     if (p.second == type) return p.first;
@@ -396,7 +399,8 @@ template<typename T> static const std::string & getNameForEnum(
   return typesByName.begin()->first;
 }
 
-template<typename T> static std::map<T, std::string> buildNamesByType(
+template<typename T>
+static std::map<T, std::string> buildNamesByType(
     const std::map<std::string, T> &typesByName) {
   std::map<T, std::string> namesByType;
   for (const auto &p : typesByName)
@@ -404,7 +408,8 @@ template<typename T> static std::map<T, std::string> buildNamesByType(
   return namesByType;
 }
 
-template<typename T> static std::map<T, std::string> buildPrettyNamesByType(
+template<typename T>
+static std::map<T, std::string> buildPrettyNamesByType(
     const std::map<std::string, T> &typesByName,
     const std::string &delimiter = "_") {
   std::map<T, std::string> prettyNamesByType;
@@ -424,19 +429,20 @@ template<typename T> static std::map<T, std::string> buildPrettyNamesByType(
   return prettyNamesByType;
 }
 
-template<class T> class FixedSizeList {
+template<class T>
+class FixedSizeList {
  public:
   explicit FixedSizeList(int size) : fixedSize_(size) {}
 
   typedef typename std::list<T>::iterator iterator;
 
-  T* insert(iterator it, T v) {
+  T *insert(iterator it, T v) {
     T *v2 = &(*list_.insert(it, std::move(v)));
     if (list_.size() > fixedSize_) list_.resize(fixedSize_);
     return v2;
   }
 
-  T* push_back(T v) {
+  T *push_back(T v) {
     if (list_.size() >= fixedSize_)
       throwException("FixedSizeList has already reached its size of %s",
                      fixedSize_);
@@ -444,9 +450,9 @@ template<class T> class FixedSizeList {
     return &list_.back();
   }
 
-  const T& front() const { return list_.front(); }
+  const T &front() const { return list_.front(); }
 
-  const std::list<T>& list() const { return list_; }
+  const std::list<T> &list() const { return list_; }
 
   iterator begin() { return list_.begin(); }
 
@@ -541,7 +547,7 @@ class Timer {
   bool isStarted_;
   bool isStopped_;
 
-  double getSeconds(const std::chrono::duration<double>& d) const;
+  double getSeconds(const std::chrono::duration<double> &d) const;
 
  public:
   void start();
@@ -568,7 +574,7 @@ class Timer {
 // as far as floating numbers are concerned.
 //
 
-bool mkdirs(const std::string& directoryPath);
+bool mkdirs(const std::string &directoryPath);
 
 class LogOutput {
  private:
@@ -636,7 +642,7 @@ class LogOutput {
   }
 
   template<typename T, typename ...Args>
-  void print(const char *str, const T& arg0, Args... args) {
+  void print(const char *str, const T &arg0, Args... args) {
     char buff[999];
     snprintf(buff, sizeof(buff), str, arg0, args...);
     print(buff);
@@ -649,7 +655,7 @@ class LogOutput {
   }
 
   template<typename T, typename ...Args>
-  void printnl(const char *str, const T& arg0, Args... args) {
+  void printnl(const char *str, const T &arg0, Args... args) {
     char buff[999];
     snprintf(buff, sizeof(buff), str, arg0, args...);
     printnl(buff);
@@ -661,7 +667,7 @@ class LogOutput {
     return *this;
   }
 
-  LogOutput & addCurrentTime();
+  LogOutput &addCurrentTime();
 };
 
 // Can be used to create an output stream that writes with a
@@ -695,7 +701,8 @@ class FormattedOutput {
 class ThreadsPool;
 
 struct PThreadsPool : public std::shared_ptr<ThreadsPool> {
-  template<typename ...Args> PThreadsPool(Args... args):  // NOLINT
+  template<typename ...Args>
+  PThreadsPool(Args... args):  // NOLINT
       std::shared_ptr<ThreadsPool>(args...) {
     store();
   }
@@ -715,7 +722,7 @@ class Task {
   void run(const Job &job);
 
   // attach to the pool
-  void attach(const PThreadsPool& pThreadsPool);
+  void attach(const PThreadsPool &pThreadsPool);
 
   // detach from the pool
   void detach();
@@ -744,7 +751,6 @@ class Task {
   // wait for the task to finish
   void wait();
 
-
   int nThreads() const { return nThreads_; }
 
   void nThreads(int n) { nThreads_ = n; }
@@ -769,7 +775,7 @@ typedef std::shared_ptr<Task> PTask;
  * the class Job has not been initialized with the default constructor */
 class Job {
  public:
-  Job(): pTask_(nullptr) {}
+  Job() : pTask_(nullptr) {}
   explicit Job(std::function<void(Job)> f, int nThreads = 1) :
       pTask_(new Task(std::move(f), nThreads)) {}
 
@@ -860,7 +866,7 @@ class GlobalThreadsPool {
   void makeAvailable(Thread *pThread);
 
  private:
-  std::list<Thread*> threadsAvailable_, activeThreads;
+  std::list<Thread *> threadsAvailable_, activeThreads;
   std::mutex mutex_;
 };
 
@@ -931,7 +937,7 @@ class ThreadsPool {
   int nActivePtr_;
   std::recursive_mutex mutex_;
 
-  void store(const PThreadsPool& pT);
+  void store(const PThreadsPool &pT);
 
   void addPtr(PTask pTask);
   void removePtr();

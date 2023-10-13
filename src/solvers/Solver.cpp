@@ -109,7 +109,7 @@ LiveNurse::LiveNurse(const Nurse &nurse,
 
   // create new Resources from BaseResource
   for (const auto &pBR : pBaseResources_) {
-    auto *pR = dynamic_cast<Resource*>(pBR->clone());
+    auto *pR = dynamic_cast<Resource *>(pBR->clone());
     pResources_.emplace_back(pR);
     auto pSDR = std::dynamic_pointer_cast<SoftTotalShiftDurationResource>(
         pResources_.back());
@@ -365,7 +365,7 @@ std::pair<int, int> LiveNurse::computeMinMaxDaysNoPenaltyConsDay(
 }
 
 // Print the contract type + preferences
-void LiveNurse::printContractAndPreferences(const PScenario& pScenario) const {
+void LiveNurse::printContractAndPreferences(const PScenario &pScenario) const {
   std::cout << "# Preferences:" << std::endl;
   Preferences::toString(wishes());
   std::cout << "# Contract :   ";
@@ -387,8 +387,9 @@ void LiveNurse::printContractAndPreferences(const PScenario& pScenario) const {
 //  From a given problem (number of weeks, nurses, etc.),
 //  can compute a solution.
 //-----------------------------------------------------------------------------
-vector<PLiveNurse> createLiveNurse(const PScenario& pScenario) {
+vector<PLiveNurse> createLiveNurse(const PScenario &pScenario) {
   vector<PLiveNurse> liveNurses;
+
   for (int i = 0; i < pScenario->nNurses(); i++) {
     liveNurses.push_back(std::make_shared<LiveNurse>(
         *(pScenario->pNurse(i)),
@@ -402,13 +403,13 @@ vector<PLiveNurse> createLiveNurse(const PScenario& pScenario) {
   return liveNurses;
 }
 // Specific constructor
-Solver::Solver(const PScenario& pScenario) :
+Solver::Solver(const PScenario &pScenario) :
     pScenario_(pScenario),
     pDemand_(pScenario->pDemand()),
     pPreferences_(pScenario->pWeekPreferences()),
     pInitState_(pScenario->pInitialState()),
-    theLiveNurses_(createLiveNurse(pScenario_)),
-    dynamicWeights_(pScenario, theLiveNurses_),
+    theLiveNurses_(createLiveNurse(pScenario)),
+    dynamicWeights_(pScenario, createLiveNurse(pScenario)),
     // create the timer that records the lifetime of the solver and start it
     timerTotal_("Solver main", true),
     job_(),
@@ -448,11 +449,9 @@ Solver *Solver::newSolver(
     case GENCOL:
       switch (spType) {
         case LONG_ROTATION:
-        case ALL_ROTATION:
-          return new RotationMP(pScenario, sType);
+        case ALL_ROTATION:return new RotationMP(pScenario, sType);
           break;
-        case ROSTER:
-          return new RosterMP(pScenario, sType);
+        case ROSTER:return new RosterMP(pScenario, sType);
         default:Tools::throwError("The subproblem type is not handled yet");
       }
       break;
@@ -502,7 +501,7 @@ void Solver::preprocessTheNurses() {
     maxStaffPerSkillNoPenalty_[sk] = 0;
     maxStaffPerSkillAvgWork_[sk] = 0;
   }
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse &pNurse : theLiveNurses_) {
     // add the working maximum number of working days to the maximum staffing
     //
     maxTotalStaffNoPenalty_ +=
@@ -542,11 +541,11 @@ void Solver::preprocessTheNurses() {
 
 // Find the position of each nurse
 void Solver::specifyNursePositions() {
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse &pNurse : theLiveNurses_) {
     // the skills of the nurse need to be compared to the skills of each
     // existing position to determine the position of the nurse
     bool isPosition = true;
-    for (const auto& pPosition : pScenario_->pPositions()) {
+    for (const auto &pPosition : pScenario_->pPositions()) {
       isPosition = true;
       if (pPosition->nSkills() == pNurse->nSkills()) {
         for (int j = 0; j < pNurse->nSkills(); j++) {
@@ -620,7 +619,7 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   // if the nurse works d days, with d in [dayMin,dayMax], then there exists a
   // sequence of future stints  such that the nurse respects the bounds on
   // the total number of working days without penalty
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse &pNurse : theLiveNurses_) {
     pNurse->minWorkDaysNoPenaltyTotalDays_ =
         std::max(0, pNurse->minTotalShifts()
             - pNurse->totalTimeWorked()
@@ -635,7 +634,7 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
   // if the nurse works d days, with d in [avgMin,avgMax], then if it works
   // the same number of days every week, the nurse will respect the bounds on
   // the total number of working days without penalty
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse &pNurse : theLiveNurses_) {
     double demandMinAvgPerWeek =
         pNurse->minTotalShifts() * 1.0 / pScenario_->nWeeks();
     double demandMaxAvgPerWeek =
@@ -658,7 +657,7 @@ void Solver::computeMinMaxDaysNoPenaltyTotalDays() {
 // RqJO: this neglects the constraint of complete weekends and the
 // preferences ; they should be added later
 void Solver::computeMinMaxDaysNoPenaltyConsDays() {
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse &pNurse : theLiveNurses_) {
     auto p = pNurse->computeMinMaxDaysNoPenaltyConsDay(pNurse->pStateIni_,
                                                        pDemand_->nDays_);
     pNurse->minWorkDaysNoPenaltyConsDays_ = p.first;
@@ -679,7 +678,7 @@ void Solver::preprocessTheSkills() {
 
   for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
     nbNursesWeighted.push_back(.0);
-    for (const PLiveNurse& pNurse : theLiveNurses_)
+    for (const PLiveNurse &pNurse : theLiveNurses_)
       if (pNurse->hasSkill(sk))
         nbNursesWeighted[sk] +=
             pNurse->maxTotalShifts() * 1.0 / pow(pNurse->nSkills(), 2);
@@ -731,7 +730,7 @@ void Solver::sortShuffleTheNurses() {
   theNursesSorted_.clear();
   for (int p = 0; p < pScenario_->nPositions(); p++) {
     int id = positionsSorted[p]->id();
-    for (const auto& pN : nursePerPosition[id])
+    for (const auto &pN : nursePerPosition[id])
       theNursesSorted_.push_back(pN);
   }
 
@@ -811,7 +810,7 @@ void Solver::computeBoundsAccordingToRatio(double ratio) {
 // if their positions have the same rank, then the smaller nurse is found
 // by a lexicographic comparison of the rarity of the skills of the nurses
 //------------------------------------------------------------------------
-bool compareNurses(const PLiveNurse& n1, const PLiveNurse& n2) {
+bool compareNurses(const PLiveNurse &n1, const PLiveNurse &n2) {
   return comparePositions(n1->pPosition(), n2->pPosition());
 }
 
@@ -823,7 +822,7 @@ bool compareNurses(const PLiveNurse& n1, const PLiveNurse& n2) {
 // or the largest number of skills
 // 3) the first position to be treated is that with the smaller rank
 //------------------------------------------------------------------------
-bool comparePositions(const PPosition& p1, const PPosition& p2) {
+bool comparePositions(const PPosition &p1, const PPosition &p2) {
   if (p1->id() == p2->id()) {
     return false;
   } else if (p1->rank() == p2->rank()) {
@@ -933,9 +932,9 @@ double Solver::computeSolutionCost(int nbDays, bool payExcessImmediately) {
     // add total costs -> for INRC2 use the original cost of the problem
     if (pScenario_->isINRC2_) {
       for (int day = 0; day < nbDays; day++) {
-          totalCost += stat.costConsDays_[day] + stat.costConsDaysOff_[day] +
-              stat.costConsShifts_[day] + stat.costPref_[day]
-              + stat.costWeekEnd_[day];
+        totalCost += stat.costConsDays_[day] + stat.costConsDaysOff_[day] +
+            stat.costConsShifts_[day] + stat.costPref_[day]
+            + stat.costWeekEnd_[day];
       }
       if (reachedHorizon) {
         totalCost += stat.costTotalDays_ + stat.costTotalWeekEnds_;
@@ -1003,7 +1002,7 @@ string Solver::solutionStatisticsToString(int nbDays) {
                       pScenario_->nWeeks(),
                       0);
   int totalAssignments = 0;
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse &pNurse : theLiveNurses_) {
     int c = pNurse->pContract_->id_;
 
     unusedDays[c] = std::max(0, pNurse->maxTotalShifts()
@@ -1039,7 +1038,13 @@ vector<Roster> Solver::solutionAtDay(int k) {
   vector<Roster> ans;
   ans.reserve(solution_.size());
   int nbDays = k + 1;
-  for (const Roster& r : solution_) {
+  for (const Roster &r : solution_) {
+    // if we do not need to cut the current solution, just add it directly
+    if (r.nDays() == nbDays) {
+      ans.push_back(r);
+      continue;
+    }
+    // otherwise, build a new roster from the current solution
     int firstDay = r.firstDayId();
     vector<PShift> pShifts = r.pShifts();
     pShifts.resize(nbDays);
@@ -1071,7 +1076,7 @@ void Solver::extendSolution(vector<Roster> solutionExtension) {
 vector<State> Solver::finalStates() {
   vector<State> pFinalStates;
   int nbDays = pDemand_->nDays_;
-  for (const PLiveNurse& pNurse : theLiveNurses_) {
+  for (const PLiveNurse &pNurse : theLiveNurses_) {
     pFinalStates.push_back(pNurse->state(nbDays));
   }
 
@@ -1081,7 +1086,7 @@ vector<State> Solver::finalStates() {
 // return the states of the nurses at day k
 vector<State> Solver::statesOfDay(int k) {
   vector<State> pStatesOfDayK;
-  for (const PLiveNurse& pNurse : theLiveNurses_)
+  for (const PLiveNurse &pNurse : theLiveNurses_)
     pStatesOfDayK.push_back(pNurse->state(k));
   return pStatesOfDayK;
 }
@@ -1158,23 +1163,55 @@ void Solver::solutionToTxt(string outdir) {
   solS << solutionToString();
 }
 
+void Solver::solutionToUI(string outdir) {
+  string fileName = outdir + pScenario_->name() + ".txt";
+  Tools::LogOutput uiStream(fileName, false);
+  uiStream << pScenario_->getHeader();
+  uiStream << "ASSIGNMENTS" << std::endl;
+  for (const auto &pN : theLiveNurses_) {
+    for (int day = 0; day < pScenario_->nDays(); day++) {
+      const PShift &pS = pN->roster_.pShift(day);
+      if (pS->isWork()) {
+        uiStream << pN->nurseNum_ << ",";
+        tm *date = Tools::dateForDay(&pScenario_->startDate(), day);
+        uiStream << date->tm_year + 1900 <<
+                 "-" << date->tm_mon + 1 << "-" << date->tm_mday << ",";
+        uiStream << pS->name << ",";
+        int skillId = pN->roster_.skill(day);
+        uiStream << pN->pScenario_->skillName(skillId) << std::endl;
+      }
+    }
+  }
+
+  // Add stats to Json
+  uiStream << "REPORT" << std::endl << "{";
+  map<string, double> costs = costsConstraintsByName();
+  for (auto const &p : costs)
+    uiStream << "\"" << p.first << "\":" << p.second << "," << std::endl;
+  uiStream << R"("Total cost":)" << objValue_ << "," << std::endl;
+  uiStream << R"("Optimization status":")" << statusToString.at(status_)
+           << "\"," << std::endl;
+  uiStream << "}" << std::endl;
+}
+
 void Solver::solutionToXmlINRC(string outdir) {
   if (outdir.empty()) outdir = param_.outdir_;
   string outXml = outdir + pScenario_->name() + ".xml";
   Tools::LogOutput xmlStream(outXml, false);
 
-  xmlStream <<"<Solution>\n";
+  xmlStream << "<Solution>\n";
   xmlStream << "    <SchedulingPeriodID>" << pScenario_->name()
-      << "</SchedulingPeriodID>\n";
+            << "</SchedulingPeriodID>\n";
   xmlStream << "    <Competitor>Legrain, Omer</Competitor>\n";
-  for (const auto& pN : theLiveNurses_) {
+  for (const auto &pN : theLiveNurses_) {
     for (int day = 0; day < pScenario_->nDays(); day++) {
       const PShift &pS = pN->roster_.pShift(day);
       if (pS->isWork()) {
         xmlStream << "    <Assignment>\n";
-        tm* date = Tools::dateForDay(&pScenario_->startDate(), day);
+        tm *date = Tools::dateForDay(&pScenario_->startDate(), day);
         xmlStream << "        <Date>" << date->tm_year + 1900 <<
-            "-" << date->tm_mon + 1 << "-" << date->tm_mday << "</Date>\n";
+                  "-" << date->tm_mon + 1 << "-" << date->tm_mday
+                  << "</Date>\n";
         xmlStream << "        <Employee>" << pN->num_ << "</Employee>\n";
         xmlStream << "        <ShiftType>" << pS->name << "</ShiftType>\n";
         xmlStream << "    </Assignment>\n";
@@ -1187,9 +1224,9 @@ void Solver::solutionToXmlINRC(string outdir) {
 std::string Solver::solutionToSolINRC() {
   std::stringstream rep;
 
-  rep <<"Obj. = 100";
+  rep << "Obj. = 100";
 
-  for (const auto& pN : theLiveNurses_) {
+  for (const auto &pN : theLiveNurses_) {
     rep << "\n";
     for (int day = 0; day < pScenario_->nDays(); day++) {
       const PShift &pS = pN->roster_.pShift(day);
@@ -1213,7 +1250,7 @@ string Solver::writeResourceCostsPerNurse(bool resetInitialState) {
   int name_w = 10, shift_w = 2;
 
   double totalCost = 0, totalS = 0, totalWE = 0;
-  for (const auto& pN : theLiveNurses_) {
+  for (const auto &pN : theLiveNurses_) {
     totalCost += pN->roster_.cost();
     rep << "================================" << std::endl;
     rep << "Employee: " << pN->name_
@@ -1257,7 +1294,7 @@ string Solver::writeResourceCostsPerNurse(bool resetInitialState) {
   rep << "================================" << std::endl;
   rep << "Total shifts costs = " << totalS << std::endl;
   rep << "Total weekend costs = " << totalWE << std::endl;
-  rep << "Total invidual costs = " << totalCost << std::endl;
+  rep << "Total individual costs = " << totalCost << std::endl;
   rep << "================================" << std::endl;
 
   return rep.str();
@@ -1304,7 +1341,8 @@ string Solver::writeResourceCostsINRC2() {
     PLiveNurse pNurse = theLiveNurses_[n];
 
     costTotalDays += reachedHorizon ?
-        pNurse->statCt_.costTotalDays_ : pNurse->statCt_.costExceedingDays_;
+                     pNurse->statCt_.costTotalDays_
+                                    : pNurse->statCt_.costExceedingDays_;
     costTotalWeekEnds += pNurse->statCt_.costTotalWeekEnds_;
 
     for (int day = firstDay; day < firstDay + nbDays; day++) {

@@ -1,7 +1,8 @@
 # Nurse scheduler
 
-[![Docker tests](https://github.com/wssuite/NurseScheduler/workflows/Docker%20tests/badge.svg)](https://github.com/wssuite/NurseScheduler/actions?query=workflow%3A%22Docker+tests%22+branch%3Amaster+event%3Apush)
-[![Docker Automated build](https://img.shields.io/docker/automated/legraina/nurse-scheduler)](https://hub.docker.com/repository/docker/legraina/nurse-scheduler/)
+[![Code Analysis](https://github.com/wssuite/pNurseScheduler/actions/workflows/code-analysis.yml/badge.svg)](https://github.com/wssuite/pNurseScheduler/actions/workflows/code-analysis.yml)
+[![Docker scheduler tests](https://github.com/wssuite/pNurseScheduler/actions/workflows/docker-scheduler-tests.yml/badge.svg)](https://github.com/wssuite/pNurseScheduler/actions/workflows/docker-scheduler-tests.yml)
+[![Docker Image Version (latest semver)](https://img.shields.io/docker/v/legraina/nurse-scheduler)](https://hub.docker.com/repository/docker/legraina/nurse-scheduler/)
 [![DOI](https://zenodo.org/badge/150300357.svg)](https://zenodo.org/badge/latestdoi/150300357)
 
 
@@ -18,7 +19,7 @@ These two references can also be found in the directory ./references.
 Assumptions
 ------------------
 
-Presently, the code makes some restrictive assumptions on the input data. 
+Presently, the code makes some restrictive assumptions on the input data.
 - There is only one rest shift
 
 Guide
@@ -43,9 +44,9 @@ The following describes how to handle our code.
 	f. ./scripts : Directory including several scripts for the execution of multiple runs at once
 
 	g. ./bashfiles : Directory containing bash files that execute the solver on an instance (the files are created by the scripts)
-	
+
 	h. ./benchmark : Directory containing the different benchmark on which the code can be run in a static and dynamic version. The best obtained results are also stored there. You can edit this file and run our code on a benchmark with the python script "run-benchmark.py".
-	
+
 3. Global structure of the code:
 
 	Every source file is in the ./src directory, where header files are used to declare the classes, and methods.
@@ -53,11 +54,11 @@ The following describes how to handle our code.
 	a. The main is in "DeterministicMain.cpp" and "DynamicMain.cpp". "DeterministicMain_test.cpp" is for the definition of some unitary tests.
 
 	b. Input data and basic preprocessing methods are stored in directory "data/"
-	and correspond to the files "Nurse.h/.cpp", "Roster.h", "Scenario.h/.cpp". 
+	and correspond to the files "Nurse.h/.cpp", "Roster.h", "Scenario.h/.cpp".
 
 	c. The directory "solvers/" contains all the algorithms. In particular:
 	- "Solver.h" stores an abstract solver class and the definitions of several other classes of objects manipulated by the algorithm. In particular a LiveNurse has the constant attributes of a Nurse and other attributes that will be modified during the execution of the solution algorithm. The files "InitializeSolver.h/.cpp" runs some preprocessing actions before actually solving the problem.
-    - "DeterministicSolver.h/.cpp" contains the declaration and the structure of every algorithm described in [2] as well as all the methods involved in the large neighborhood search. 
+    - "DeterministicSolver.h/.cpp" contains the declaration and the structure of every algorithm described in [2] as well as all the methods involved in the large neighborhood search.
     - Every method that BCP needs are redefined for the branch-and-price algorithm are in "mp/modeler/BcpModeler.h/.cpp", "mp/modeler/CoinModeler.h" and in "mp/TreeManager.h/.cpp". The global structure of the column generation subproblem, including the construction of the constrained shortest path network, is in "mp/sp/Subproblem.h/.cpp", and the dynamic programming algorithm that solves the subproblems is implemented in "mp/sp/rcspp/BoostRCGraph.h/.cpp" (it is adapted from an algorithm found in the Boost library).
     - "StochasticSolver.h/.cpp" contains the declaration and the structure of the algorithm described in [3] and really close to the one submitted to INRCII.
 
@@ -92,22 +93,22 @@ The following describes how to handle our code.
 	All the results can then be found in the "outfiles/default/n030w4_1_6-2-9-1" directory (replace default with the name of the parameter file you used)
 
   b. Other options for a quicker run of the code are:
-  
+
    - run the solver with default options on the instance n005w4_1_1-6-2-9-1:
    ````bash
    ./bin/staticscheduler
    ````
-	
+
    - run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
    ```bash
    ./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
    ```
-	
+
    - run the solver on the instance n005w4_0_2-0-2-1 with default options:
    ```bash
    ./bin/staticscheduler --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
    ```
-	
+
    - run a test with name testname:
    ```bash
    ./bin/staticscheduler --test testname
@@ -120,13 +121,13 @@ The following describes how to handle our code.
    ./scripts/writeRun.sh --instance n005w4_0_2-0-2-1 --param default.txt
    ````
    You can use the option "-h" to see all the available flags.
-   
+
    - writeAllRuns.sh writes bash files that run the solver on all the instances with a specific set of parameters defined in the folder "paramfiles/". The instances to run are hard-written in the script. Example of use:
    ````bash
    ./scripts/writeAllRuns.sh --param lns_feas.txt
    ````
    You can use the option "-h" to see all the available flags (the same than writeRun.sh except --instance which is useless).
-   
+
    - runDir.sh runs all the bashfiles one after the other within the folder associated to a param folder name. Example for the bashfiles within "bashfiles/lns_repeat/":
    ````bash
    ./scripts/runDir.sh lns_repeat

@@ -21,8 +21,11 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <regex>// NOLINT [build/c++11]
 
 #include "tools/Tools.h"
+#include "tools/parseToolsUI.h"
+#include <boost/algorithm/string.hpp>
 #include "data/Scenario.h"
 #include "solvers/Solver.h"
 #include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
@@ -35,18 +38,16 @@
 #include "solvers/mp/sp/rcspp/resources/TotalWeekendsResource.h"
 #include "solvers/mp/sp/rcspp/resources/AlternativeShiftResource.h"
 
-
 using std::string;
 using std::vector;
 using std::map;
 using std::pair;
 
-
 //--------------------------------------------------------------------------
 // Method that read an NRP input files and stores the content in the
 // output scenario instance
 //
-PScenario ReadWrite::readNRPInstance(const string& fileName) {
+PScenario ReadWrite::readNRPInstance(const string &fileName) {
   std::fstream file;
   Tools::openFile(fileName, &file);
   string strTmp;
@@ -116,7 +117,7 @@ PScenario ReadWrite::readNRPInstance(const string& fileName) {
   // set forbidden successors and shift types
   for (int i = 1; i < nShifts; i++) {
     vector<int> forbiddenSuccessors;
-    for (const string & s : forbiddenShiftSuccessorsID[i-1])
+    for (const string &s : forbiddenShiftSuccessorsID[i - 1])
       forbiddenSuccessors.push_back(shiftToInt[s]);
     std::sort(forbiddenSuccessors.begin(), forbiddenSuccessors.end());
     forbiddenShiftSuccessors.push_back(forbiddenSuccessors);
@@ -324,7 +325,8 @@ PScenario ReadWrite::readNRPInstance(const string& fileName) {
     } else if (overCov != over) {
       Tools::throwError(
           "Cannot handle different over coverage weights: %d != %d.",
-          overCov, over);    }
+          overCov, over);
+    }
     // read next line
     Tools::readLine(&file, &strTmp);
   }
@@ -349,6 +351,7 @@ PScenario ReadWrite::readNRPInstance(const string& fileName) {
                                                    pNurses,
                                                    nurseNameToInt,
                                                    pWeights,
+                                                   "",
                                                    true,
                                                    false);
 
@@ -364,7 +367,7 @@ PScenario ReadWrite::readNRPInstance(const string& fileName) {
 // Method that read an INRC input files and stores the content in the
 // output scenario instance
 //
-PScenario ReadWrite::readINRCInstance(const string& fileName) {
+PScenario ReadWrite::readINRCInstance(const string &fileName) {
   std::fstream file;
   Tools::openFile(fileName, &file);
   string strTmp;
@@ -833,6 +836,7 @@ PScenario ReadWrite::readINRCInstance(const string& fileName) {
                                                    pNurses,
                                                    nurseNameToInt,
                                                    std::make_shared<Weights>(),
+                                                   "",
                                                    true,
                                                    false);
   pScenario->setStartDate(tmStart);
@@ -862,7 +866,7 @@ PScenario ReadWrite::readINRCInstance(const string& fileName) {
   // Initialize the history of every nurse to empty state
   vector<State> initialState;
   // Add a fictitious shift just for the initial state
-  const PShift & pNoneShift =
+  const PShift &pNoneShift =
       shiftsFactory.pNoneShift()->pIncludedShifts().front();
   for (int n = 0; n < nNurses; n++) {
     State nurseState(0, 0, 0, 0, 0, 0, pNoneShift);
@@ -1016,7 +1020,7 @@ void ReadWrite::readINRCPatterns(const vector<PContract> &pContracts,
 
   // below, we create different resource pointers for each contract to make
   // sure that resources are not shared among nurses with different contracts
-  for (const auto& pC : pContracts) {
+  for (const auto &pC : pContracts) {
     for (int patternId : pC->forbiddenPatternIds_) {
       SoftForbiddenPatternResource r = patternResources[patternId];
       pC->addResource(std::make_shared<SoftForbiddenPatternResource>(
@@ -1098,7 +1102,7 @@ void ReadWrite::readINRCPreferences(std::fstream *pFile,
     int dayId(tmRequest.tm_yday - tmStart.tm_yday);
     *pFile >> strTmp;
     strTmp.pop_back();
-    const PAbstractShift &pAS =  pScenario->pShift(strTmp);
+    const PAbstractShift &pAS = pScenario->pShift(strTmp);
     *pFile >> cost;
 
     pPref->addShiftOff(nurseId, dayId, pAS, cost);
@@ -1124,7 +1128,7 @@ void ReadWrite::readINRCPreferences(std::fstream *pFile,
     Tools::readUntilChar(pFile, ',', &strTmp);
     *pFile >> strTmp;
     strTmp.pop_back();
-    const PAbstractShift &pAS =  pScenario->pShift(strTmp);
+    const PAbstractShift &pAS = pScenario->pShift(strTmp);
     *pFile >> cost;
 
     pPref->addShiftOn(nurseId, dayId, pAS, cost);
@@ -1139,7 +1143,7 @@ void ReadWrite::readINRCPreferences(std::fstream *pFile,
 
 // Read the scenario file and store the content in a Scenario instance
 //
-PScenario ReadWrite::readScenarioINRC2(const string& fileName) {
+PScenario ReadWrite::readScenarioINRC2(const string &fileName) {
   std::fstream file;
   Tools::openFile(fileName, &file);
   string title;
@@ -1243,7 +1247,7 @@ PScenario ReadWrite::readScenarioINRC2(const string& fileName) {
 
   // 4.b. Forbidden successions for the shift type
   while (!file.eof() &&
-         !Tools::strEndsWith(title, "FORBIDDEN_SHIFT_TYPES_SUCCESSIONS"))
+      !Tools::strEndsWith(title, "FORBIDDEN_SHIFT_TYPES_SUCCESSIONS"))
     file >> title;
 
   if (file.eof())
@@ -1374,10 +1378,10 @@ PScenario ReadWrite::readScenarioINRC2(const string& fileName) {
     }
     int type = shiftIDToShiftTypeID[i];
     pShifts.push_back(std::make_shared<Shift>(intToShift[i],
-                                                 i,
-                                                 type,
-                                                 shiftDurations[i],
-                                                 successorList));
+                                              i,
+                                              type,
+                                              shiftDurations[i],
+                                              successorList));
   }
 
   // 5. read the contract types
@@ -1514,12 +1518,13 @@ PScenario ReadWrite::readScenarioINRC2(const string& fileName) {
                                     pNurses,
                                     nurseNameToInt,
                                     pWeights,
+                                    "",
                                     false,
                                     true);
 }
 
-PDemand ReadWrite::readINRC2Weeks(const std::vector<std::string>& strWeekFiles,
-                                  const PScenario& pScenario) {
+PDemand ReadWrite::readINRC2Weeks(const std::vector<std::string> &strWeekFiles,
+                                  const PScenario &pScenario) {
   // initialize pDemand
   PDemand pDemand;
   PPreferences pPref;
@@ -1546,13 +1551,12 @@ PDemand ReadWrite::readINRC2Weeks(const std::vector<std::string>& strWeekFiles,
 
 // Read the Week file and store the content in a Scenario instance
 //
-void ReadWrite::readWeekINRC2(const std::string& strWeekFile,
-                              const PScenario& pScenario,
+void ReadWrite::readWeekINRC2(const std::string &strWeekFile,
+                              const PScenario &pScenario,
                               PDemand *pDemand, PPreferences *pPref) {
   // open the file
   std::fstream file;
   Tools::openFile(strWeekFile, &file);
-
 
   string title;
   string strTmp;
@@ -1637,7 +1641,7 @@ void ReadWrite::readWeekINRC2(const std::string& strWeekFile,
         file >> strLevel;
         try {
           level = (PREF_LEVEL) std::stoi(strLevel);
-        } catch (const std::invalid_argument& ia) {
+        } catch (const std::invalid_argument &ia) {
           // has read the next line: strLevel contains the next nurse name
           nurseName = strLevel;
         }
@@ -1677,7 +1681,7 @@ void ReadWrite::readWeekINRC2(const std::string& strWeekFile,
         file >> strLevel;
         try {
           level = (PREF_LEVEL) std::stoi(strLevel);
-        } catch (const std::invalid_argument& ia) {
+        } catch (const std::invalid_argument &ia) {
           // has read the next line: strLevel contains the next nurse name
           nurseName = strLevel;
         }
@@ -1709,8 +1713,8 @@ void ReadWrite::readWeekINRC2(const std::string& strWeekFile,
 
 // Read the history file
 //
-void ReadWrite::readHistoryINRC2(const std::string& strHistoryFile,
-                                 const PScenario& pScenario) {
+void ReadWrite::readHistoryINRC2(const std::string &strHistoryFile,
+                                 const PScenario &pScenario) {
   if (strHistoryFile.empty()) {
     std::cout << "Cyclic option is enable, so no history file is loaded."
               << std::endl;
@@ -1792,13 +1796,12 @@ void ReadWrite::readHistoryINRC2(const std::string& strHistoryFile,
 // Store the result in a vector of historical demands and
 // return the number of treated weeks
 //
-int ReadWrite::readCustom(const string& strCustomInputFile,
-                          const PScenario& pScenario,
+int ReadWrite::readCustom(const string &strCustomInputFile,
+                          const PScenario &pScenario,
                           vector<PDemand> *demandHistory) {
   // open the file
   std::fstream file;
   Tools::openFile(strCustomInputFile, &file);
-
 
   string title;
   int nWeeks;
@@ -1828,8 +1831,8 @@ int ReadWrite::readCustom(const string& strCustomInputFile,
 }
 
 void ReadWrite::writeCustom(string strCustomOutputFile,
-                            const string& strWeekFile,
-                            const string& strCustomInputFile) {
+                            const string &strWeekFile,
+                            const string &strCustomInputFile) {
   Tools::LogOutput outStream(std::move(strCustomOutputFile));
 
   // if there is no custom input file, this is the first week
@@ -1869,11 +1872,230 @@ void ReadWrite::writeCustom(string strCustomOutputFile,
   }
 }
 
+void writeUI(const string &path, const PScenario &pScenario) {
+  string filename = path + "_ui.txt";
+  Tools::LogOutput outStream(filename);
+
+  // open the custom input file
+  // we want the content of the input custom file in the custom output file
+  std::fstream file;
+  Tools::openFile(filename, &file);
+  file << "SCHEDULING_PERIOD\n";
+  file << pScenario->name() << ",1,";
+  file << std::put_time(&pScenario->startDate(), "%Y-%m-%d") << ",";
+  auto end_date = pScenario->startDate();
+  end_date.tm_yday += pScenario->nDays();
+  mktime(&end_date);
+  file << std::put_time(&end_date, "%Y-%m-%d") << "\nEND\nSKILLS\n";
+  for (int i; i < pScenario->nSkills(); i++)
+    file << pScenario->skillName(i) << "\n";
+  file << "END\nSHIFTS\n";
+  for (int i; i < pScenario->nShifts(); i++)
+    file << pScenario->shiftName(i) << ",00:00,00:00" << std::endl;
+  file << "END\nSHIFTS_TYPES\n";
+  for (int i = 0; i < pScenario->nShiftTypes(); i++) {
+    file << pScenario->shiftType(i) << ", "
+         << (pScenario->pShiftsOfType(i)).size();
+    for (const auto &s : pScenario->pShiftsOfType(i))
+      file << "," << s->name;
+    file << std::endl;
+  }
+  file << "\nEND\nCONTRACTS\n{";
+}
+
+PScenario ReadWrite::readScenarioUI(
+    const std::string &fileName, const string &name) {
+  // declare the attributes that will initialize the Scenario instance
+  //
+  string header;
+  bool contracts_processed = false;
+  int nDays = -1, nWeeks = -1, nSkills = -1, nShifts = -1,
+      nShiftsType = -1, nContracts = -1, nNurses = -1;
+  vector<string> intToSkill, intToShift, intToShiftType;
+  map<string, int> skillToInt, shiftToInt, shiftTypeToInt, nurseNameToInt;
+  vector<int> minConsShiftType, maxConsShiftType, shiftIDToShiftTypeID;
+  vector<double> shiftDurations;
+  vector2D<int> shiftTypeIDToShiftID,
+      forbiddenShiftTypeSuccessors,
+      forbiddenShiftSuccessors;
+  vector<PShift> pShifts;
+  // "input" -> 0 if input is a shift, 1 if input is a shift type,
+  // 2 if input if a shift group
+  map<string, int> inputToShiftGenre;
+  vector<PContract> pContracts;
+  std::map<string, PContract> pContractsByName;
+  vector<PNurse> pNurses;
+  map<std::string, vector<PBaseResource>> ruleSets;
+  // default weights
+  vector<double> pref_scale{10, 50, 200, 1000};
+  PWeights pWeights = std::make_shared<Weights>(
+      10, 10, 30, 30, 10, pref_scale, 1000, 500, 500, -1);
+  PDemand pDemand;
+  PPreferences pPref;
+  vector<State> initialState;
+  PScenario pScenario;
+  std::tm startDay;
+  struct HistoryPeriod hist;
+  // open the file
+  std::fstream file;
+  std::cout << "Reading " << fileName << std::endl;
+  file.open(fileName.c_str(), std::fstream::in);
+  if (!file.is_open()) {
+    std::cout << "While trying to read the file " << fileName << std::endl;
+    std::cout << "The input file was not opened properly!" << std::endl;
+
+    throw Tools::myException("The input file was not opened properly!",
+                             __LINE__);
+  }
+  string strTmp;
+  std::string l;
+  std::string buffer;
+  // remove comments and empty lines
+  while (std::getline(file, l) && file.good()) {
+    if (l[0] == '#' || l[0] == '\n') {
+      continue;
+    } else {
+      buffer = buffer + l + "\n";
+    }
+  }
+  // Parse the buffer in meaningful blocks
+  std::regex reg("END\n");
+  std::sregex_token_iterator iter(buffer.begin(), buffer.end(), reg, -1);
+  std::sregex_token_iterator end;
+  vector<string> tokens(iter, end);
+
+  for (const string &s : tokens) {
+    std::stringstream X(s);
+    std::string line;
+    std::getline(X, line);
+    boost::trim(line);
+    if (line == "HEADERS") {
+      header = s;
+    } else if (line == "SCHEDULING_PERIOD") {
+      const struct Sched_Period t = parse_scheduling_period(s);
+      nWeeks = t.nWeeks;
+      nDays = t.nDays;
+      startDay = t.startDay;
+      header.append(s);
+    } else if (line == "SKILLS") {
+      const struct Skills_Parsed t = parse_skills(s);
+      nSkills = t.nbSkills;
+      skillToInt = t.skillToInt;
+      intToSkill = t.intToSkill;
+    } else if (line == "SHIFTS") {
+      const struct Shifts_Parsed t = parse_shifts(s);
+      nShifts = t.nbShifts;
+      shiftDurations = t.hoursInShift;
+      intToShift = t.intToShift;
+      shiftToInt = t.shiftToInt;
+    } else if (line == "SHIFT_TYPES") {
+      const struct ShiftTypes_Parsed
+          t = parse_shiftsType(s, shiftToInt, intToShift, shiftDurations);
+      inputToShiftGenre = t.inputToShiftGenre;
+      pShifts = t.pShifts;
+      nShiftsType = t.nbShiftsType;
+      intToShiftType = t.intToShiftType;
+      shiftTypeToInt = t.shiftTypeToInt;
+      shiftTypeIDToShiftID = t.shiftTypeIDToShiftID;
+      shiftIDToShiftTypeID = t.shiftIDToShiftTypeID;
+    } else if (line == "CONTRACTS") {
+      ruleSets = parse_contracts(s,
+                                 ShiftsFactory(pShifts),
+                                 inputToShiftGenre,
+                                 shiftToInt,
+                                 skillToInt,
+                                 shiftTypeToInt,
+                                 pWeights,
+                                 nDays);
+      contracts_processed = ruleSets.size();
+    } else if (line == "CONTRACT_GROUPS" && contracts_processed) {
+      ruleSets = parse_group_contracts(s, ruleSets);
+    } else if (line == "EMPLOYEES") {
+      // As I go thought the employee,
+      // I craft them contracts based on the rule Sets as needed
+      vector<int> allSkills, allShifts;
+      for (int i = 0; i < nSkills; i++) {
+        allSkills.push_back(i);
+      }
+      for (int i = 0; i < nShifts; i++) {
+        allShifts.push_back(i);
+      }
+      struct Nurses_Parsed n = parse_nurses(s,
+                                            pContractsByName,
+                                            pContracts,
+                                            ruleSets,
+                                            pNurses,
+                                            allSkills,
+                                            allShifts);
+      pContractsByName = n.pContractsByName;
+      pContracts = n.pContracts;
+      pNurses = n.pNurses;
+      nNurses = pNurses.size();
+      for (int n = 0; n < nNurses; n++) {
+        nurseNameToInt[pNurses[n]->name_] = n;
+      }
+      nContracts = pContracts.size();
+
+      pScenario = std::make_shared<Scenario>(name,
+                                             nWeeks,
+                                             nSkills,
+                                             intToSkill,
+                                             skillToInt,
+                                             pShifts,
+                                             intToShift,
+                                             vector<int>(2, nDays),
+                                             vector<int>(2, nDays),
+                                             nContracts,
+                                             pContracts,
+                                             nNurses,
+                                             pNurses,
+                                             nurseNameToInt,
+                                             pWeights,
+                                             header,
+                                             false,
+                                             false);
+
+    } else if (line == "HOSPITAL_DEMAND") {
+      pScenario->setStartDate(startDay);
+      pDemand = parse_demand(s, shiftToInt, skillToInt, nDays, startDay);
+      std::cout << pDemand->toString(true) << std::endl;
+      pScenario->linkWithDemand(pDemand);
+    } else if (line == "PREFERENCES") {
+      // parse s - line
+      parse_preferences(s, pScenario);
+    } else if (line == "HISTORY_PERIOD") {
+      hist = parse_history_period(s);
+    } else if (line == "HISTORY") {
+      initialState = parse_history(s, pScenario, hist);
+    }
+  }
+  // Initialize the history of every nurse to empty state
+  // Add a fictitious shift just for the initial state if no history given
+
+  if (initialState.empty()) {
+    const PShift &pNoneShift =
+        pScenario->shiftsFactory().pNoneShift()->pIncludedShifts().front();
+    for (int n = 0; n < nNurses; n++) {
+      State nurseState(
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          pNoneShift);
+      initialState.push_back(nurseState);
+    }
+  }
+  pScenario->setInitialState(initialState);
+  return pScenario;
+}
+
 /************************************************************************
 * Print the main characteristics of all the demands of an input directory
 * This is done to find some invariant properties among demands
 *************************************************************************/
-void ReadWrite::compareDemands(const string& inputDir, string logFile) {
+void ReadWrite::compareDemands(const string &inputDir, string logFile) {
   struct dirent *dirp;
   Tools::LogOutput logStream(std::move(logFile), 8);
 

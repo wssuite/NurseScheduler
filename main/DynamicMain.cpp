@@ -52,17 +52,22 @@ void solveOneWeek(InputPaths *pInputPaths) {
   string stochasticOptions = pathIni + "solverOptions.txt",
       generationOptions = pathIni + "generationOptions.txt",
       evaluationOptions = pathIni + "evaluationOptions.txt";
+  std::cout << "Check if one of those configuration files exists "
+               "to be loaded: " << std::endl;
+  std::cout << stochasticOptions << ", "
+            << generationOptions << ", and "
+            << evaluationOptions << std::endl;
   try {
-    logStream << "Stochastic options:" << std::endl;
+    logStream << "Load stochastic options:" << std::endl;
     options.read(stochasticOptions);
   } catch (const char *ex) {}
   try {
-    logStream << "Generation options:" << std::endl;
+    logStream << "Load generation options:" << std::endl;
     options.generationParameters_.read(generationOptions);
   } catch (const char *ex) {}
   try {
-    logStream << "Evaluation options:" << std::endl;
-    options.evaluationParameters_.read(evaluationOptions);
+    logStream << "Load evaluation options:" << std::endl;
+    options.evaluationParameters_.read(stochasticOptions);
   } catch (const char *ex) {}
 
   // get history demands by reading the custom file
@@ -105,12 +110,12 @@ void solveOneWeek(InputPaths *pInputPaths) {
 ******************************************************************************/
 
 pair<double, int> testMultipleWeeksStochastic(
-    const string& dataDir,
-    const string& instanceName,
+    const string &dataDir,
+    const string &instanceName,
     int historyIndex,
-    const vector<int>& weekIndices,
+    const vector<int> &weekIndices,
     StochasticSolverOptions stochasticSolverOptions,
-    const string& outdir,
+    const string &outdir,
     std::vector<int> seeds) {
   // build the paths of the input files
   InputPaths inputPaths(dataDir, instanceName, historyIndex, weekIndices);

@@ -40,7 +40,9 @@ int solveDeterministic(const InputPaths &inputPaths) {
   // specific solution processes are called
   //
   std::cout << "# SOLVE THE INSTANCE" << std::endl;
+
   auto *pSolver = new DeterministicSolver(pScenario, inputPaths);
+
   double objValue = pSolver->solve();
   std::cout << std::endl;
 
@@ -62,12 +64,12 @@ int solveDeterministic(const InputPaths &inputPaths) {
     std::cout << objValue;
   std::cout << std::endl;
   std::cout << "# Running time = " << std::setprecision(1) << std::fixed
-      << pSolver->getGlobalStat().timeTotal() << " sec." << std::endl;
+            << pSolver->getGlobalStat().timeTotal() << " sec." << std::endl;
   if (!noSolution) pSolver->displaySolutionMultipleWeeks();
 
   // Write the final statistics
   string statPath = inputPaths.solutionPath().empty() ?
-      "" : inputPaths.solutionPath() + "stat.txt";
+                    "" : inputPaths.solutionPath() + "stat.txt";
   Tools::LogOutput statStream(statPath);
   statStream.printnl(pSolver->getGlobalStat().toString());
 
@@ -78,15 +80,21 @@ int solveDeterministic(const InputPaths &inputPaths) {
     Tools::LogOutput lnsStatStream(lnsStatPath);
     statStream.printnl(pSolver->getGlobalStat().lnsStatsToString());
   }
-
-  // Write the solution in an xml file with INRC format
-  if (inputPaths.inrc() && !noSolution && !pSolver->solution().empty())
+  // Write the outputfile
+  if (inputPaths.ui()) {
+    pSolver->solutionToUI(inputPaths.solutionPath());
+  } else if (inputPaths.inrc() && !noSolution && !pSolver->solution().empty()) {
+    // Write the solution in an xml file with INRC format
     pSolver->solutionToXmlINRC(inputPaths.solutionPath());
+  }
 
   // display memory used
   double memGB = Tools::getResidentMemoryGB();
   std::cout << std::endl << "The program has consumed "
             << std::setprecision(3) << memGB << " GB of memory." << std::endl;
+
+
+
 
   //  release memory
   delete pSolver;

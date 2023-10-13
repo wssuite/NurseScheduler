@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "solvers/Solver.h"
 #include "tools/InputPaths.h"
@@ -108,8 +109,18 @@ class DeterministicSolver : public Solver {
   void updateInitialStats(Solver *pSolver);
   void updateImproveStats(Solver *pSolver);
 
+  std::map<string, double> costsConstraintsByName() const  override {
+    return costsConstraints_;
+  }
+
  protected:
   GlobalStats stats_;
+  std::map<string, double> costsConstraints_;
+
+  void updateCostsConstraints(Solver *pSolver) {
+    for (const auto &p : pSolver->costsConstraintsByName())
+      costsConstraints_[p.first] += p.second;
+  }
 
   //----------------------------------------------------------------------------
   //

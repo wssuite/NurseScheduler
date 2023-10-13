@@ -37,46 +37,37 @@ using std::pair;
 #include "ReadWrite.h"
 
 PScenario buildInstance(const InputPaths &inputPaths) {
-  if (REST_SHIFT_ID != 0)
-    Tools::throwError("Scenario reader works only with REST_SHIFT_ID = 0.");
+  std::cout << "Origin guessed: " << inputPaths.origin() << std::endl;
 
-  std::fstream file;
-  Tools::openFile(inputPaths.scenario(), &file);
-  string strTmp;
-  int intTmp;
-
-  while (strTmp.empty() || strTmp[0] == '#' || strTmp[0] == '/') {
-    if (!Tools::readLine(&file, &strTmp)) break;
-  }
-
-  // NRP file
-  if (Tools::strStartsWith(strTmp, "SECTION_HORIZON")) {
-    return ReadWrite::readNRPInstance(inputPaths.scenario());
-  }
-
-  // INRC file
-  if (Tools::strStartsWith(strTmp, "SCHEDULING_PERIOD")) {
-    return ReadWrite::readINRCInstance(inputPaths.scenario());
-  }
-
-  // INRC2 file
-  if (Tools::strStartsWith(strTmp, "SCENARIO")) {
+//  if (REST_SHIFT_ID != 0)
+//    Tools::throwError("Scenario reader works only with REST_SHIFT_ID = 0.");
+  // UI file
+  if (inputPaths.ui()) {
+    // Read the scenario
+    return ReadWrite::readScenarioUI(inputPaths.scenario(),
+                                     inputPaths.instance());
+  } else if (inputPaths.inrc2()) {
     // Read the scenario
     PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
     // Read the demand and preferences and link them with the scenario
     ReadWrite::readINRC2Weeks(inputPaths.weeks(), pScenario);
     // Read the history
     ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
+
     // Initialize the resources
     initializeResourcesINRC2(pScenario);
     return pScenario;
+  } else if (inputPaths.inrc()) {
+    return ReadWrite::readINRCInstance(inputPaths.scenario());
+  } else if (inputPaths.nrp()) {
+    return ReadWrite::readNRPInstance(inputPaths.scenario());
+  } else {
+    Tools::throwError("The instance file is not recognized.");
+    return nullptr;
   }
-
-  Tools::throwError("The instance file is not recognized.");
-  return nullptr;
 }
 
-void initializeResourcesINRC2(const PScenario& pScenario) {
+void initializeResourcesINRC2(const PScenario &pScenario) {
 // initialize all the resources of the nurses
   int nbDays = pScenario->nDays();
   vector<State> *pInitialState = pScenario->pInitialState();
@@ -161,7 +152,7 @@ void initializeResourcesINRC2(const PScenario& pScenario) {
 ******************************************************************************/
 
 vector<PScenario> divideScenarioIntoConnectedPositions(
-    const PScenario& pScenario) {
+    const PScenario &pScenario) {
   vector<PScenario> scenariosPerComponent;
 
   // First, identify the connected components of the rcspp of positions
@@ -177,7 +168,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(
     // component (decreasing order).
     // use a set first, because it manages duplicate skills automatically.
     std::set<int> skillsInTheComponent;
-    for (const PPosition& pPosition : positionsInTheComponent)
+    for (const PPosition &pPosition : positionsInTheComponent)
       for (int skill : pPosition->skills())
         skillsInTheComponent.insert(skill);
 
@@ -258,7 +249,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(
     vector<State> intialStatesInTheComponent;
     vector<State> *pInitialState = pScenario->pInitialState();
     intialStatesInTheComponent.reserve(nursesInTheComponent.size());
-    for (const PNurse& pNurse : nursesInTheComponent) {
+    for (const PNurse &pNurse : nursesInTheComponent) {
       intialStatesInTheComponent.push_back(pInitialState->at(pNurse->num_));
     }
     pScenarioInTheConnectedComponent->setInitialState(
@@ -276,13 +267,13 @@ vector<PScenario> divideScenarioIntoConnectedPositions(
 * When a solution of multiple consecutive weeks is available, load it in a
 * solver for all the weeks and  display the results
 ******************************************************************************/
-void displaySolutionMultipleWeeks(const string& dataDir,
-                                  const string& instanceName,
+void displaySolutionMultipleWeeks(const string &dataDir,
+                                  const string &instanceName,
                                   int historyIndex,
                                   const vector<int> &weekIndices,
                                   const vector<Roster> &solution,
                                   Status status,
-                                  const string& outDir) {
+                                  const string &outDir) {
   if (outDir.empty()) return;
 
   // initialize the log stream
@@ -314,7 +305,7 @@ void displaySolutionMultipleWeeks(const string& dataDir,
     string solutionFile = outDir;
     solutionFile += "Sol-";
     solutionFile += instanceName;
-    solutionFile +=  "-";
+    solutionFile += "-";
     solutionFile += catWeeks;
     solutionFile += "-";
     solutionFile += std::to_string(weekIndices[w]);
@@ -326,10 +317,10 @@ void displaySolutionMultipleWeeks(const string& dataDir,
   }
 }
 
-void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
+void displaySolutionMultipleWeeks(const InputPaths &inputPaths,
                                   const vector<Roster> &solution,
                                   Status status,
-                                  const string& outDir) {
+                                  const string &outDir) {
   if (outDir.empty()) return;
 
   // initialize the log stream
@@ -370,7 +361,7 @@ void displaySolutionMultipleWeeks(const InputPaths& inputPaths,
 * input directory
 ******************************************************************************/
 
-void computeStatsOnTheDemandsOfAllInstances(const string& inputDir) {
+void computeStatsOnTheDemandsOfAllInstances(const string &inputDir) {
   struct dirent *dirp;
 
   // Open the input directory
@@ -387,6 +378,6 @@ void computeStatsOnTheDemandsOfAllInstances(const string& inputDir) {
     if (filename[0] != 'n') continue;
     ReadWrite::compareDemands((string) (inputDir + filename),
                               (string) ("outfiles/statDemands/" + filename
-                                            + ".txt"));
+                                  + ".txt"));
   }
 }

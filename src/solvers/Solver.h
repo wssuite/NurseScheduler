@@ -696,8 +696,11 @@ class Solver {
   // return false if fails, true otherwise
   virtual bool storeSolution() { return false; }
   virtual std::string costsConstraintsToString() const { return ""; }
+  virtual std::map<string, double> costsConstraintsByName() const {
+    return {};
+  }
 
-  // return the final states of the nurses
+    // return the final states of the nurses
   std::vector<State> finalStates();
 
   // Returns the states(k+1) since the states start at 0
@@ -707,6 +710,7 @@ class Solver {
   // display the whole solution in the required format
   std::string solutionToString();
   void solutionToTxt(string outdir);
+  void solutionToUI(string outdir);
   void solutionToXmlINRC(string outdir = "");
   std::string solutionToSolINRC();
 

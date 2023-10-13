@@ -4,6 +4,7 @@ set(SOURCE_FILES
         GlobalStats.cpp
         InputPaths.cpp
         Tools.cpp
+        parseToolsUI.cpp
         )
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})

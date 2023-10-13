@@ -5,6 +5,10 @@ CMakeDocker/
 bin/
 obj/
 lib/
+results/
+datasets/OtherBenchmarks
+datasets/altura
+datasets/ex4
 
 .git/
 .gitignore
@@ -15,7 +19,6 @@ INSTALL.sh
 
 CMakeDefinitionsLists.txt
 build/
-cmake-build-debug/
-cmake-build-release/
+cmake-build-**
 
 docker-compose.yml

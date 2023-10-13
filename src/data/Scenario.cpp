@@ -209,7 +209,7 @@ vector2D<int> forbiddenShiftTypeSuccessors(
       for (int s1 : shiftTypeIDToShiftID[st1]) {
         const PShift pS1 = pShifts.at(s1);
         int n = 0;
-        for (const PShift & pS2 : pShifts)
+        for (const PShift &pS2 : pShifts)
           if (!pS2->canSucceed(*pS1) && pS2->type == st2)
             n++;
         if (n != nShiftToFound2) {
@@ -221,7 +221,6 @@ vector2D<int> forbiddenShiftTypeSuccessors(
     }
   return forbidSuccs;
 }
-
 
 // Constructor and destructor
 //
@@ -240,6 +239,7 @@ Scenario::Scenario(std::string name,
                    std::vector<PNurse> theNurses,
                    std::map<std::string, int> nurseNameToInt,
                    PWeights weights,
+                   string header,
                    bool isINRC,
                    bool isINRC2) :
     name_(std::move(name)),
@@ -260,6 +260,7 @@ Scenario::Scenario(std::string name,
     minConsShiftType_(std::move(minConsShiftsType)),
     maxConsShiftType_(std::move(maxConsShiftsType)),
     pDemand_(nullptr),
+    header_(header),
     isINRC_(isINRC),
     isINRC2_(isINRC2),
     nShiftOffRequests_(0),
@@ -269,9 +270,9 @@ Scenario::Scenario(std::string name,
   thisWeek_ = -1;
 
   // build shiftToInt_, shiftTypeToInt_
-  for (int i=0; i < nShifts_; i++)
+  for (int i = 0; i < nShifts_; i++)
     shiftToInt_[pShift(i)->name] = i;
-  for (int i=0; i < nShiftTypes_; i++)
+  for (int i = 0; i < nShiftTypes_; i++)
     shiftTypeToInt_[pAnyTypeShift(i)->name] = i;
 
   // Preprocess the vector of nurses
@@ -283,7 +284,7 @@ Scenario::Scenario(std::string name,
 // a new scenario that copies most parameters
 // from the input scenario but for only a subgroup of nurses
 //
-Scenario::Scenario(const PScenario& pScenario,
+Scenario::Scenario(const PScenario &pScenario,
                    const vector<PNurse> &theNurses,
                    PDemand pDemand,
                    PPreferences pPreferences) :
@@ -391,19 +392,19 @@ void Scenario::updateNewWeek(PDemand pDemand,
 void Scenario::linkWithPreferences(PPreferences pPreferences) {
   pPreferences_ = std::move(pPreferences);
   nShiftOffRequests_ = 0;
-  for (const PNurse& nurse : pNurses_)
+  for (const PNurse &nurse : pNurses_)
     nShiftOffRequests_ += pPreferences_->howManyShiftsOff(nurse->num_);
   nShiftOnRequests_ = 0;
-  for (const PNurse& nurse : pNurses_)
+  for (const PNurse &nurse : pNurses_)
     nShiftOnRequests_ += pPreferences_->howManyShiftsOn(nurse->num_);
 }
 
 void Scenario::pushBack(PDemand pDemand, PPreferences pPreferences) {
   pDemand_ = pDemand_->append(pDemand);
   pPreferences_ = pPreferences_->append(pPreferences);
-  for (const PNurse& nurse : pNurses_)
+  for (const PNurse &nurse : pNurses_)
     nShiftOffRequests_ += pPreferences->howManyShiftsOff(nurse->num_);
-  for (const PNurse& nurse : pNurses_)
+  for (const PNurse &nurse : pNurses_)
     nShiftOnRequests_ += pPreferences->howManyShiftsOn(nurse->num_);
 }
 
@@ -436,7 +437,7 @@ string Scenario::toStringINRC2() const {
   }
   rep << "# " << std::endl;
   rep << "# SHIFTS           \t= " << nShifts_ - 1 << std::endl;
-  for (const auto& pS : this->pShifts()) {
+  for (const auto &pS : this->pShifts()) {
     if (pS->isRest()) continue;
     rep << "#                  \t= ";
     rep << pS->id << ":" << pS->name;
@@ -585,7 +586,7 @@ void Scenario::preprocessTheNurses() {
     vector<PNurse> nursesInThisPosition;
     nursesPerPosition_.push_back(nursesInThisPosition);
   }
-  for (const PNurse& nurse : pNurses_) {
+  for (const PNurse &nurse : pNurses_) {
     // the skills of the nurse need to be compared to the skills of each
     // existing position to determine the position of the nurse
     bool isPosition = true;
@@ -654,11 +655,11 @@ void Scenario::computeConnectedPositions() {
   }
 
   // Get the nurses that belong to each component
-  for (const auto& component : componentsOfConnectedPositions_) {
+  for (const auto &component : componentsOfConnectedPositions_) {
     vector<PNurse> pNursesInThisComponent;
 
-    for (const PPosition& p : component)
-      for (const auto& pN : nursesPerPosition_[p->id()])
+    for (const PPosition &p : component)
+      for (const auto &pN : nursesPerPosition_[p->id()])
         pNursesInThisComponent.push_back(pN);
 
     std::stable_sort(pNursesInThisComponent.begin(),
@@ -667,3 +668,4 @@ void Scenario::computeConnectedPositions() {
     nursesPerConnectedComponentOfPositions_.push_back(pNursesInThisComponent);
   }
 }
+

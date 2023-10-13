@@ -31,7 +31,13 @@ class AlternativeShiftResource : public Resource {
       isAlternativeShift_[s] = true;
     costType_ = ALTERNATIVE_COST;
   }
-
+  // Constructor functionning for the UI input workflow
+  explicit AlternativeShiftResource(int nShifts, double cost) :
+      Resource("Alt shift"),
+      isAlternativeShift_(nShifts, false),
+      cost_(cost) {
+    costType_ = ALTERNATIVE_COST;
+  }
   int getConsumption(const State &initialState) const override { return 0; }
 
   // initialize the expander on a given arc
@@ -40,7 +46,7 @@ class AlternativeShiftResource : public Resource {
                  const shared_ptr<RCArc> &pArc,
                  int indResource) override;
 
-  BaseResource* clone() const override {
+  BaseResource *clone() const override {
     return new AlternativeShiftResource(*this);
   }
 
@@ -48,7 +54,7 @@ class AlternativeShiftResource : public Resource {
 
   // add the cost of preference violation to all the arcs of the input graph
   void preprocess(const PRCGraph &pRCGraph) override;
-  bool preprocess(const PRCArc& pA, double *cost) override;
+  bool preprocess(const PRCArc &pA, double *cost) override;
 
   bool isAlternativeShift(int s) const { return isAlternativeShift_[s]; }
   bool isAlternativeShift(const PShift &pS) const {

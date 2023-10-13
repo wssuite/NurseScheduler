@@ -21,6 +21,7 @@
 #include "data/Shift.h"
 
 class Scenario;
+
 typedef std::shared_ptr<Scenario> PScenario;
 
 class Demand;

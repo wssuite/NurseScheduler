@@ -26,7 +26,6 @@
 
 #include "data/Scenario.h"
 
-
 #ifdef WIN32
 #ifndef NAN
 const unsigned int64 nan[2]={0xffffffff, 0x7fffffff};
@@ -52,36 +51,37 @@ class ReadWrite {
   //
   // Read the scenario file and store the content in a Scenario instance
   //
-  static PScenario readScenarioINRC2(const std::string& fileName);
-
+  static PScenario readScenarioINRC2(const std::string &fileName);
+  static PScenario readScenarioUI(const std::string &fileName,
+                                  const string &name);
   // Read several week files and
   // store the content in one demand and one preference
   //
-  static PDemand readINRC2Weeks(const std::vector<std::string>& strWeekFiles,
-                                const PScenario& pScenario);
+  static PDemand readINRC2Weeks(const std::vector<std::string> &strWeekFiles,
+                                const PScenario &pScenario);
   // Read the Week file and store the content in a Scenario instance
   //
-  static void readWeekINRC2(const std::string& strWeekFile,
-                            const PScenario& pScenario,
+  static void readWeekINRC2(const std::string &strWeekFile,
+                            const PScenario &pScenario,
                             PDemand *pDemand,
                             PPreferences *pPref);
 
   // Read the history file
   //
-  static void readHistoryINRC2(const std::string& strHistoryFile,
-                               const PScenario& pScenario);
+  static void readHistoryINRC2(const std::string &strHistoryFile,
+                               const PScenario &pScenario);
 
   // Read the input custom file
   // Store the result in a vector of historical demands and
   // return the number of treated weeks
   //
-  static int readCustom(const std::string& strCustomInputFile,
-                        const PScenario& pScenario,
+  static int readCustom(const std::string &strCustomInputFile,
+                        const PScenario &pScenario,
                         std::vector<PDemand> *demandHistory);
 
   // Print the main characteristics of all the demands of an input directory
   // This is done to find some invariant properties among demands
-  static void compareDemands(const std::string& inputDir, std::string logFile);
+  static void compareDemands(const std::string &inputDir, std::string logFile);
 
   //--------------------------------------------------------------------------
 
@@ -97,9 +97,10 @@ class ReadWrite {
   // Write the output custom file from values in the scenario and the solution
   // instances
   //
+  static void writeUI(const string &path, const PScenario &pScenario);
   static void writeCustom(std::string stdCustomOutputFile,
-                          const std::string& strWeekFile,
-                          const std::string& strCustomInputFile = "");
+                          const std::string &strWeekFile,
+                          const std::string &strCustomInputFile = "");
 
   //--------------------------------------------------------------------------
   static PScenario readINRCInstance(const string &fileName);

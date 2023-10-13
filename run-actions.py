@@ -57,7 +57,7 @@ def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE, start=0, 
                     if 'uses' in s and s['uses'] == './'])
             for j in d['jobs'].values():
                 for s in j['steps']:
-                    if 'with' not in s or 'ns-args' not in s['with']:
+                    if 'uses' not in s or s['uses'] != './':
                         continue
                     i += 1
                     if i < start:
@@ -72,7 +72,7 @@ def run_actions(name='.', tag='ns', docker=True, pipe=subprocess.PIPE, start=0, 
                         retries = s['with'].get('retries', 0)
                         passed = False
                         while not passed and k <= retries:
-                            passed, err = run_cmd("{} {}".format(run, cmd), i, n, k, pipe, name=s['name'])
+                            passed, err = run_cmd("{} {}".format(run, cmd), i+1, n, k, pipe, name=s['name'])
                             k += 1
                         if not passed:
                             print(err)

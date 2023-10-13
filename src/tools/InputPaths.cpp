@@ -10,6 +10,9 @@
  */
 
 #include "tools/InputPaths.h"
+#include <iostream>
+#include <string>
+#include "tools/Tools.h"
 
 /******************************************************************************
 * The instances of InputPaths contain the paths of the input files of the
@@ -35,8 +38,10 @@ InputPaths::InputPaths(const std::string &dataDir,
                        int SPStrategy,
                        const std::string &RCSPPType,
                        int nThreads,
-                       int nCandidates) :
+                       int nCandidates,
+                       const std::string &origin) :
     instance_(instanceName),
+    scenario_(dataDir + instanceName),
     historyIndex_(historyIndex),
     weekIndices_(weekIndices),
     solutionPath_(solutionPath),
@@ -50,8 +55,13 @@ InputPaths::InputPaths(const std::string &dataDir,
     RCSPPType_(RCSPPType),
     nThreads_(nThreads),
     nCandidates_(nCandidates) {
+  if (origin.empty()) {
+    guessOrigin();
+  } else {
+    this->origin(origin);
+  }
   // if inrc2 format (should have a vector of weeks)
-  if (!weekIndices.empty()) {
+  if (inrc2()) {
     std::string instanceDir = dataDir + instanceName + "/";
     // initialize the scenario and history file names
     scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
@@ -62,8 +72,6 @@ InputPaths::InputPaths(const std::string &dataDir,
     for (int week : weekIndices)
       weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
           std::to_string(week) + ".txt");
-  } else {
-    scenario_ = dataDir + instanceName;
   }
 }
 
@@ -80,8 +88,10 @@ InputPaths::InputPaths(const std::string &dataDir,
                        int SPStrategy,
                        const std::string &RCSPPType,
                        int nThreads,
-                       int nCandidates) :
+                       int nCandidates,
+                       const std::string &origin) :
     instance_(instanceName),
+    scenario_(dataDir + instanceName),
     weekIndices_(weekIndices),
     solutionPath_(solutionPath),
     logPath_(logPath),
@@ -94,8 +104,13 @@ InputPaths::InputPaths(const std::string &dataDir,
     RCSPPType_(RCSPPType),
     nThreads_(nThreads),
     nCandidates_(nCandidates) {
+  if (origin.empty()) {
+    guessOrigin();
+  } else {
+    this->origin(origin);
+  }
   // if inrc2 format (should have a vector of weeks)
-  if (!weekIndices.empty()) {
+  if (inrc2()) {
     std::string instanceDir = dataDir + instanceName + "/";
     // initialize the scenario and history file names
     scenario_ = instanceDir + "Sc-" + instanceName + ".txt";
@@ -104,7 +119,46 @@ InputPaths::InputPaths(const std::string &dataDir,
     for (int week : weekIndices)
       weeks_.emplace_back(instanceDir + "WD-" + instanceName + "-" +
           std::to_string(week) + ".txt");
-  } else {
-    scenario_ = dataDir + instanceName;
   }
+}
+
+void InputPaths::guessOrigin() {
+  origin_ = guessOrigin(scenario_);
+}
+
+InstanceOrigin InputPaths::guessOrigin(const std::string &path) const {
+  std::size_t found = path.find_last_of('.');
+  if (found == std::string::npos) {
+    return INRCII;
+  }
+
+  std::fstream file;
+  file.open(path.c_str(), std::fstream::in);
+  if (!file.is_open()) {
+    std::cout << "While trying to read the file " << path << std::endl;
+    std::cout << "The input file was not opened properly!" << std::endl;
+    throw Tools::myException("The input file was not opened properly!",
+                             __LINE__);
+  }
+  std::string strTmp;
+  std::string l;
+  // remove comments and empty lines
+  // analyse the first meaningful line
+  while (std::getline(file, l) && file.good()) {
+    if (l.empty() || l[0] == '/' || l[0] == '#' || l[0] == '\n') {
+      continue;
+    } else {
+      if (l.find("SCENARIO") != std::string::npos)
+        return INRCII;
+      if (l.find("SCHEDULING_PERIOD;") != std::string::npos)
+        return INRC;
+      if (l.find("SECTION_HORIZON") != std::string::npos)
+        return NRP;
+      if (l.find("HEADERS") != std::string::npos)
+        return UI;
+    }
+  }
+
+  Tools::throwException("The origin of the instance has not been recognized.");
+  return UI;
 }

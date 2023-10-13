@@ -12,7 +12,6 @@
 
 #include "ParseArguments.h"
 
-#include <list>
 #include <utility>
 #include <string>
 #include <vector>
@@ -26,8 +25,7 @@ using std::string;
 * Read the arguments in non compact format
 ******************************************************************************/
 InputPaths *readNonCompactArguments(int argc, char **argv) {
-  InputPaths *pInputPaths = new InputPaths();
-
+  auto *pInputPaths = new InputPaths();
   // Read the arguments and store them in inputPaths
   //
   int narg = 1;
@@ -38,10 +36,10 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
     // the code below is here to remove these quote marks
     //
     string str(argv[narg + 1]);
-    std::size_t found = str.find("\"");
+    std::size_t found = str.find('\"');
     while (found != std::string::npos) {
       str.erase(found, 1);
-      found = str.find("\"");
+      found = str.find('\"');
     }
 
     if (!strcmp(argv[narg], "--sce")) {
@@ -89,6 +87,9 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--n-candidates")) {
       pInputPaths->nCandidates(std::stoi(str));
       narg += 2;
+    } else if (!strcmp(argv[narg], "--origin")) {
+      pInputPaths->origin(str);
+      narg += 2;
     } else {
       Tools::throwError(
           "main: the argument (%s) does not match the expected list!",
@@ -102,6 +103,9 @@ InputPaths *readNonCompactArguments(int argc, char **argv) {
         "readNonCompactArguments: A necessary file name is missing!",
         __LINE__);
   }
+
+  if (pInputPaths->origin().empty())
+    pInputPaths->guessOrigin();
 
   // Non compact format is only for the INRCII versions,
   // so no log file is required
@@ -118,7 +122,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   // Default arguments are set to enable simple call to the function without
   // argument.
   std::string dataDir, instanceName, solutionPath, logPath, paramFile,
-      SPType, RCSPPType, weeksName;
+      SPType, RCSPPType, weeksName, origin;
   int historyIndex = -1, randSeed = 0, nTreads = -1,
       SPStrategy = -1, verbose = -1, nCandidates = -1, timeOut = -1;
   std::vector<int> weekIndices;
@@ -190,6 +194,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     } else if (!strcmp(argv[narg], "--n-candidates")) {
       nCandidates = std::stoi(str);
       narg += 2;
+    } else if (!strcmp(argv[narg], "--origin")) {
+      origin = str;
+      narg += 2;
     } else {
       Tools::throwError(
           "main: the argument (%s) does not match the expected list!",
@@ -198,6 +205,8 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   }
 
   // check if short representation of INRC2 instance n005w4_0_1-2-3-4
+  // ideally an enum
+  // not the origin method since the object inputPath is not initialised yet
   if (historyIndex == -1 && weekIndices.empty()) {
     std::vector<string> inst = Tools::tokenize<string>(instanceName, '_');
     if (inst.size() == 3) {
@@ -223,7 +232,7 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     if (npos != string::npos) {
       solutionPath = "outfiles/" + instanceName.substr(0, npos) + "/";
     } else {
-      // for INRC 2 format
+      // for INRCII format
       solutionPath = "outfiles/" + instanceName + "_" +
           std::to_string(historyIndex) + "_" + weeksName + "/";
     }
@@ -254,23 +263,25 @@ InputPaths *readCompactArguments(int argc, char **argv) {
                           SPStrategy,
                           RCSPPType,
                           nTreads,
-                          nCandidates);
-
-  return new InputPaths(dataDir,
-                        instanceName,
-                        historyIndex,
-                        weekIndices,
-                        solutionPath,
-                        logPath,
-                        paramFile,
-                        timeOut,
-                        verbose,
-                        randSeed,
-                        SPType,
-                        SPStrategy,
-                        RCSPPType,
-                        nTreads,
-                        nCandidates);
+                          nCandidates,
+                          origin);
+  InputPaths *pInputPaths = new InputPaths(dataDir,
+                                           instanceName,
+                                           historyIndex,
+                                           weekIndices,
+                                           solutionPath,
+                                           logPath,
+                                           paramFile,
+                                           timeOut,
+                                           verbose,
+                                           randSeed,
+                                           SPType,
+                                           SPStrategy,
+                                           RCSPPType,
+                                           nTreads,
+                                           nCandidates,
+                                           origin);
+  return pInputPaths;
 }
 
 /******************************************************************************

@@ -188,6 +188,7 @@ PRCArc RCGraph::addSingleArc(const PRCNode& o,
   pArc->origin->outArcs.push_back(pArc);
   // add the arc to pArcsPerDayShift_ for each day/shift of the stretch
   const Stretch &st = pArc->stretch;
+
   for (int k = st.firstDayId(); k <= st.lastDayId(); k++)
     if (st.pShift(k)->id >= 0)  // not an end shift
       pArcsPerDayShift_[k][st.pShift(k)->id].push_back(pArc);

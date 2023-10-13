@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <memory>
 
-
 #include "solvers/mp/sp/rcspp/RCLabel.h"
 #include "solvers/mp/sp/rcspp/RCGraph.h"
 
@@ -32,7 +31,7 @@ using std::vector;
  */
 class TotalShiftDuration {
  public:
-  TotalShiftDuration(PAbstractShift  pShift,
+  TotalShiftDuration(PAbstractShift pShift,
                      int maxDuration,
                      int defaultDuration) :
       pAShift_(std::move(pShift)),
@@ -59,25 +58,25 @@ class SoftTotalShiftDurationResource :
     public SoftBoundedResource, public TotalShiftDuration {
  public:
   SoftTotalShiftDurationResource(int lb, int ub, double lbCost, double ubCost,
-                                 const PAbstractShift& pShift,
+                                 const PAbstractShift &pShift,
                                  int totalNbDays,
                                  int maxDuration,
                                  int defaultDuration = -1) :
-      SoftBoundedResource("Soft Total "+pShift->name,
+      SoftBoundedResource("Soft Total " + pShift->name,
                           lb, ub, lbCost, ubCost),
       TotalShiftDuration(pShift, maxDuration, defaultDuration) {
     totalNbDays_ = totalNbDays;
     costType_ = TOTAL_WORK_COST;
   }
 
-  BaseResource* clone() const override {
+  BaseResource *clone() const override {
     return new SoftTotalShiftDurationResource(
         lb_, ub_, lbCost_, ubCost_, pAShift_,
         totalNbDays_, maxDuration_, defaultDuration_);
   }
 
   void preprocess(const PRCGraph &pRCGraph) override;
-  bool preprocess(const PRCArc& pA, double *cost) override;
+  bool preprocess(const PRCArc &pA, double *cost) override;
 
   int getConsumption(const State &initialState) const override;
 
@@ -145,14 +144,13 @@ class HardTotalShiftDurationResource :
                  int indResource) override;
 };
 
-
 /**
  * Structure storing the information that is necessary to expand the labels
  * of resources on the count of the occurrences of a given abstract shift
  */
 struct SoftTotalShiftDurationExpander : public Expander {
   SoftTotalShiftDurationExpander(int indResource,
-                                 const SoftTotalShiftDurationResource& resource,
+                                 const SoftTotalShiftDurationResource &resource,
                                  int consumption,
                                  int maxDurationBefore,
                                  int maxDurationLeft,
@@ -168,7 +166,7 @@ struct SoftTotalShiftDurationExpander : public Expander {
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
 
  protected:
-  const SoftTotalShiftDurationResource& resource_;
+  const SoftTotalShiftDurationResource &resource_;
   int consumption_;
   int maxDurationBefore_;  // total duration before the start of the stretch
   int maxDurationLeft_;  // total duration left after the end of the stretch
@@ -177,7 +175,7 @@ struct SoftTotalShiftDurationExpander : public Expander {
 
 struct HardTotalShiftDurationExpander : public Expander {
   HardTotalShiftDurationExpander(int indResource,
-                                 const HardTotalShiftDurationResource& resource,
+                                 const HardTotalShiftDurationResource &resource,
                                  int consumption,
                                  int maxDurationBefore,
                                  int maxDurationLeft,
@@ -193,7 +191,7 @@ struct HardTotalShiftDurationExpander : public Expander {
   bool expandBack(const PRCLabel &pLChild, ResourceValues *vChild) override;
 
  protected:
-  const HardTotalShiftDurationResource& resource_;
+  const HardTotalShiftDurationResource &resource_;
   int consumption_;
   int maxDurationBefore_;  // total duration before the start of the stretch
   int maxDurationLeft_;  // total duration left after the end of the stretch

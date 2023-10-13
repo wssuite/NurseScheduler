@@ -11,20 +11,22 @@
 
 #include "Tools.h"
 
-#include <chrono>  // NOLINT
-#include <ctime>
+#include <chrono> // NOLINT
 #include <cmath>
 #include <cstdio>
+#include <ctime>
 #include <fstream>
-#include <streambuf>
 #include <random>
-#include <string>
 #include <stdexcept>
+#include <streambuf>
+#include <string>
 
 // necessary because OS X does not have clock_gettime, using clock_get_time
 #ifdef __MACH__
+
 #include <mach/clock.h>
 #include <mach/mach.h>
+
 #endif
 
 using std::minstd_rand;
@@ -87,9 +89,7 @@ rusage getRUsage() {
   return use;
 }
 
-float getResidentMemoryGB() {
-  return getRUsage().ru_maxrss * 10e-10;
-}
+float getResidentMemoryGB() { return getRUsage().ru_maxrss * 10e-10; }
 
 tm *dateForDay(const tm *const startDate, const int &dayId) {
   auto newTime = std::make_unique<tm>();
@@ -103,10 +103,8 @@ tm *dateForDay(const tm *const startDate, const int &dayId) {
 
 // Store the characters read until the separating character in pStrRead
 //
-char readUntilOneOfTwoChar(std::fstream *pFile,
-                           char separator1,
-                           char separator2,
-                           std::string *pStrRead) {
+char readUntilOneOfTwoChar(std::fstream *pFile, char separator1,
+                           char separator2, std::string *pStrRead) {
   char cTmp = 'A';
 
   // empty the title string if it is not
@@ -128,8 +126,7 @@ char readUntilOneOfTwoChar(std::fstream *pFile,
 }
 
 // Store the next line which is not a comment in pStrRead
-bool readLinesUntilNotAComment(std::fstream *pFile,
-                               std::string *pStrRead,
+bool readLinesUntilNotAComment(std::fstream *pFile, std::string *pStrRead,
                                bool acceptEmptyLine) {
   while (pFile->good()) {
     readLine(pFile, pStrRead);
@@ -153,7 +150,8 @@ bool readLine(std::fstream *pFile, std::string *pStrRead) {
 
 // Read a file stream until the separating character is met
 //
-bool readUntilChar(std::fstream *file, char separator, std::string *pTitle) {
+bool
+readUntilChar(std::fstream *file, char separator, std::string *pTitle) {
   char cTmp = 'A';
 
   // empty the title string if it is not
@@ -177,8 +175,8 @@ bool readUntilChar(std::fstream *file, char separator, std::string *pTitle) {
   return true;
 }
 
-bool readUntilAndWhileChar(
-    std::fstream *file, char separator, std::string *pTitle) {
+bool readUntilAndWhileChar(std::fstream *file, char separator,
+                           std::string *pTitle) {
   char cTmp = 'A';
 
   // empty the title string if it is not
@@ -207,7 +205,7 @@ bool readUntilAndWhileChar(
   return true;
 }
 
-tm * readDateFromStr(const std::string& dateStr) {
+tm *readDateFromStr(const std::string &dateStr) {
   std::stringstream ss(dateStr);
   char charTmp;
   int yyyy, mm, dd;
@@ -216,8 +214,9 @@ tm * readDateFromStr(const std::string& dateStr) {
   ss >> mm;
   ss >> charTmp;
   ss >> dd;
-  std::tm time_in = { 0, 0, 0,  // second, minute, hour
-                      dd, mm-1, yyyy - 1900 };  // 1-based day, 0-based month,
+  std::tm time_in = {0, 0, 0,            // second, minute, hour
+                     dd, mm - 1,
+                     yyyy - 1900};  // 1-based day, 0-based month,
   // year since 1900
   std::time_t time_temp = std::mktime(&time_in);
   // Note: Return value of localtime is not threadsafe, because it might be
@@ -225,21 +224,54 @@ tm * readDateFromStr(const std::string& dateStr) {
   return std::localtime(&time_temp);
 }
 
-Tools::Time readHourFromStr(const std::string& hourStr) {
+int readNbWeeksFromDate(const std::string &dateStrBeg,
+                        const std::string &dateStrEnd) {
+  std::stringstream ss(dateStrBeg);
+  char charTmp;
+  int yyyy, mm, dd;
+  ss >> yyyy;
+  ss >> charTmp;
+  ss >> mm;
+  ss >> charTmp;
+  ss >> dd;
+  std::tm time_in_beg = {
+      0, 0, 0,            // second, minute, hour
+      dd, mm - 1, yyyy - 1900};  // 1-based day, 0-based month,
+  std::stringstream ssEnd(dateStrEnd);
+  ssEnd >> yyyy;
+  ssEnd >> charTmp;
+  ssEnd >> mm;
+  ssEnd >> charTmp;
+  ssEnd >> dd;
+  std::tm time_in_end = {
+      0, 0, 0,            // second, minute, hour
+      dd, mm - 1, yyyy - 1900};  // 1-based day, 0-based month,
+  // year since 1900
+  std::time_t time_beg = std::mktime(&time_in_beg);
+  std::time_t time_end = std::mktime(&time_in_end);
+  auto duration = time_end - time_beg;
+  return ceil(duration / 604800);
+}
+
+Tools::Time readHourFromStr(const std::string &hourStr) {
   std::stringstream sstream(hourStr);
   char charTmp;
   int hh, mm, ss;
+  int d = 0;
   sstream >> hh;
+  if (hh == 24) {
+    hh = 23;
+    d = -1;
+  }
   sstream >> charTmp;
   sstream >> mm;
   sstream >> charTmp;
   sstream >> ss;
-  return Time(hh, mm);
+  return Time(hh, mm + d);
 }
 
-int readBoundedResource(std::fstream *file,
-                        int* lbOn, int* lb, int* lbCost,
-                        int* ubOn, int* ub, int* ubCost) {
+int readBoundedResource(std::fstream *file, int *lbOn, int *lb, int *lbCost,
+                        int *ubOn, int *ub, int *ubCost) {
   std::string strTmp;
   Tools::readUntilChar(file, '(', &strTmp);
   *file >> *ubOn;
@@ -256,8 +288,7 @@ int readBoundedResource(std::fstream *file,
   return 0;
 }
 
-int readUbResource(std::fstream *file,
-                   int* ubOn, int* ub, int* ubCost) {
+int readUbResource(std::fstream *file, int *ubOn, int *ub, int *ubCost) {
   std::string strTmp;
   Tools::readUntilChar(file, '(', &strTmp);
   *file >> *ubOn;
@@ -282,10 +313,10 @@ bool strStartsWith(std::string sentence, std::string word) {
 
 // Checks if the string (sentence) starts with the comment character
 bool strStartsWithComment(std::string sentence) {
-  if (sentence.empty()) return false;
+  if (sentence.empty())
+    return false;
   return sentence[0] == COMMENT_KEY;
 }
-
 
 // Checks if the string (sentence) ends with the given substring (word)
 //
@@ -299,8 +330,8 @@ bool strEndsWith(std::string sentence, std::string word) {
   return (!strcmp(word.c_str(), endOfSentence.c_str()));
 }
 
-std::vector<std::string> split(std::string sentence,
-                               std::string delimiter) {
+std::vector<std::string>
+split(std::string sentence, std::string delimiter) {
   std::vector<std::string> words;
   size_t pos = 0;
   std::string token;
@@ -327,11 +358,12 @@ std::string toLowerCase(std::string str) {
 }
 
 /************************************************************************
-* Read the options
-*************************************************************************/
-std::string loadOptions(
-    const std::string &strOptionFile,
-    std::function<bool(const std::string&, std::fstream *file)> load) {
+ * Read the options
+ *************************************************************************/
+std::string
+loadOptions(const std::string &strOptionFile,
+            std::function<bool(const std::string &,
+                               std::fstream *file)> load) {
   // open the file
   std::fstream file;
   openFile(strOptionFile, &file);
@@ -353,7 +385,8 @@ std::string loadOptions(
     } else {
       Tools::throwError(
           "Field not recognized (%s) when reading the options from file %s",
-          field.c_str(), strOptionFile.c_str());
+          field.c_str(),
+          strOptionFile.c_str());
     }
   }
 
@@ -372,10 +405,13 @@ void openFile(const std::string &fileName, std::fstream *file) {
 #endif
   file->open(fileName.c_str(), std::fstream::in);
   if (!file->is_open()) {
-    std::cout << "While trying to read the file " << fileName << std::endl;
-    std::cout << "The input file does not exist or was not opened properly!"
+    std::cout << "While trying to read the file " << fileName
               << std::endl;
-    Tools::throwError("The input file (%s) does not exist!", fileName.c_str());
+    std::cout
+        << "The input file does not exist or was not opened properly!"
+        << std::endl;
+    Tools::throwError("The input file (%s) does not exist!",
+                      fileName.c_str());
   }
 }
 
@@ -383,9 +419,7 @@ void openFile(const std::string &fileName, std::fstream *file) {
 std::minstd_rand rdm0(0);
 
 // Initialize the random generator with a given seed
-void initializeRandomGenerator() {
-  rdm0 = getANewRandomGenerator();
-}
+void initializeRandomGenerator() { rdm0 = getANewRandomGenerator(); }
 
 void initializeRandomGenerator(int rdmSeed) {
   rdm0 = getANewRandomGenerator(rdmSeed);
@@ -401,7 +435,8 @@ minstd_rand getANewRandomGenerator(bool printSeed) {
 minstd_rand getANewRandomGenerator(int rdmSeed, bool printSeed) {
   if (printSeed)
     std::cout << "The new random seed of random generator is "
-              << rdmSeed << std::endl;
+              << rdmSeed
+              << std::endl;
   minstd_rand rdm(rdmSeed);
   return rdm;
 }
@@ -429,14 +464,15 @@ int randomInt(int minVal, int maxVal) {
 // Returns a double with random value (uniform) within [minVal, maxVal]
 //
 double randomDouble(double minVal, double maxVal) {
-  return ((maxVal - minVal) * (rdm0() * 1.0 / (rdm0.max()))  + minVal);
+  return ((maxVal - minVal) * (rdm0() * 1.0 / (rdm0.max())) + minVal);
   // RAND_MAX) + minVal);
 }
 
 // Initializes a vector< double > of size m
 // with random values (uniform) within [minVal, maxVal]
 //
-std::vector<double> randomDoubleVector(int m, double minVal, double maxVal) {
+std::vector<double>
+randomDoubleVector(int m, double minVal, double maxVal) {
   std::vector<double> v1D;
   for (int i = 0; i < m; i++) {
     double a = randomDouble(minVal, maxVal);
@@ -448,11 +484,9 @@ std::vector<double> randomDoubleVector(int m, double minVal, double maxVal) {
 // Returns a vector< vector< double > > of size m x n
 // with random values (uniform) within [minVal, maxVal]
 //
-std::vector<std::vector<double> > randomDoubleVector2D(int m,
-                                                       int n,
-                                                       double minVal,
-                                                       double maxVal) {
-  std::vector<std::vector<double> > v2D;
+std::vector<std::vector<double>>
+randomDoubleVector2D(int m, int n, double minVal, double maxVal) {
+  std::vector<std::vector<double>> v2D;
   for (int i = 0; i < m; i++) {
     std::vector<double> v1D = randomDoubleVector(n, minVal, maxVal);
     v2D.push_back(v1D);
@@ -519,7 +553,7 @@ std::vector<int> drawRandomIndices(int nbInd, int indMin, int indMax) {
   return randIndVector;
 }
 
-bool mkdirs(const std::string& dirPath) {
+bool mkdirs(const std::string &dirPath) {
   // create directory if needed
 #if __cplusplus >= 201703L
   return std::filesystem::create_directories(dirPath);
@@ -528,13 +562,13 @@ bool mkdirs(const std::string& dirPath) {
 #endif
 }
 
-LogOutput::LogOutput(std::string logName, bool append, bool alwaysPrint) :
-    LogOutput(std::move(logName), 0, append, alwaysPrint) {}
+LogOutput::LogOutput(std::string logName, bool append, bool alwaysPrint)
+    : LogOutput(std::move(logName), 0, append, alwaysPrint) {}
 
-LogOutput::LogOutput(
-    std::string logName, int width, bool append, bool alwaysPrint):
-     width_(width), precision_(5), logName_(std::move(logName)),
-     pLogCout(nullptr) {
+LogOutput::LogOutput(std::string logName, int width, bool append,
+                     bool alwaysPrint)
+    : width_(width), precision_(5), logName_(std::move(logName)),
+      pLogCout(nullptr) {
   if (logName_.empty()) {
     pLogStream_ = &(std::cout);
     isStdOut_ = true;
@@ -546,15 +580,19 @@ LogOutput::LogOutput(
         mkdirs(outdir);
       }
       if (append) {
-        pLogStream_ = new std::ofstream(logName_.c_str(), std::fstream::app);
+        pLogStream_ = new std::ofstream(logName_.c_str(),
+                                        std::fstream::app);
       } else {
-        pLogStream_ = new std::ofstream(logName_.c_str(), std::fstream::out);
+        pLogStream_ = new std::ofstream(logName_.c_str(),
+                                        std::fstream::out);
       }
       isStdOut_ = false;
-      if (alwaysPrint) pLogCout = new LogOutput("", width);
+      if (alwaysPrint)
+        pLogCout = new LogOutput("", width);
     } catch (const std::exception &e) {
       std::cout << "LogOutput::LogOutput() caught an exception=: "
-                << e.what() << std::endl;
+                << e.what()
+                << std::endl;
     }
   }
 }
@@ -565,14 +603,15 @@ LogOutput::~LogOutput() {
   delete pLogCout;
 }
 
-LogOutput & LogOutput::addCurrentTime() {
+LogOutput &LogOutput::addCurrentTime() {
   auto now = std::chrono::system_clock::now();
   std::time_t current_time = std::chrono::system_clock::to_time_t(now);
-  std::tm* time_info = std::localtime(&current_time);
+  std::tm *time_info = std::localtime(&current_time);
   char buffer[128];
   strftime(buffer, sizeof(buffer), "%F %T", time_info);
   (*pLogStream_) << "[" << buffer << "]    ";
-  if (pLogCout) (*pLogCout) << "[" << buffer << "]    ";
+  if (pLogCout)
+    (*pLogCout) << "[" << buffer << "]    ";
   return *this;
 }
 
@@ -580,27 +619,26 @@ void LogOutput::close() {
   try {
     auto *pStream = dynamic_cast<std::ofstream *>(pLogStream_);
     if (pStream) {
-      if (pStream->is_open()) pStream->close();
+      if (pStream->is_open())
+        pStream->close();
     } else {
       pLogStream_ = nullptr;
     }
   } catch (const std::exception &e) {
-    std::cout << "LogOutput::close() caught an exception=: "
-              << e.what() << std::endl;
+    std::cout << "LogOutput::close() caught an exception=: " << e.what()
+              << std::endl;
   }
 }
 
 // constructor of Timer
 //
-Timer::Timer(std::string name, bool start) :
-  name_(std::move(name)),
-  cpuInit_(std::chrono::system_clock::now()),
-  cpuSinceStart_(0),
-  cpuSinceInit_(0),
-  nStop_(0),
-  isStarted_(false),
-  isStopped_(true) {
-  if (start) this->start();
+Timer::Timer(std::string name, bool start)
+    : name_(std::move(name)),
+      cpuInit_(std::chrono::system_clock::now()),
+      cpuSinceStart_(0), cpuSinceInit_(0), nStop_(0), isStarted_(false),
+      isStopped_(true) {
+  if (start)
+    this->start();
 }
 
 // start the timer
@@ -619,7 +657,8 @@ void Timer::start() {
 //
 void Timer::stop() {
   if (isStopped_)
-    throwError("Trying to stop an already stopped timer (%s) !", name_.c_str());
+    throwError("Trying to stop an already stopped timer (%s) !",
+               name_.c_str());
 
   cpuSinceStart_ = std::chrono::system_clock::now() - cpuInit_;
   cpuSinceInit_ += cpuSinceStart_;
@@ -638,7 +677,6 @@ double Timer::dSinceInit() const {
   return getSeconds(cpuCurrent);
 }  // end dSinceInit
 
-
 // Get the time spent since the last start of the timer without stopping it
 //
 double Timer::dSinceStart() {
@@ -648,9 +686,9 @@ double Timer::dSinceStart() {
   return getSeconds(cpuSinceStart_);
 }  // end dSinceStart
 
-double Timer::getSeconds(const std::chrono::duration<double>& d) const {
+double Timer::getSeconds(const std::chrono::duration<double> &d) const {
   return d.count();
-//  return std::chrono::duration_cast<std::chrono::seconds>(d).count();
+  //  return std::chrono::duration_cast<std::chrono::seconds>(d).count();
 }
 
 //
@@ -677,13 +715,11 @@ int ThreadsPool::getNGlobalThreadsAvailable() {
   return nGlobalThreadsAvailable_;
 }
 
-int ThreadsPool::getMaxGlobalThreads() {
-  return maxGlobalThreads_;
-}
+int ThreadsPool::getMaxGlobalThreads() { return maxGlobalThreads_; }
 
 int ThreadsPool::setMaxGlobalThreadsToMax(bool wait) {
-  return ThreadsPool::setMaxGlobalThreads(
-      thread::hardware_concurrency(), wait);
+  return ThreadsPool::setMaxGlobalThreads(thread::hardware_concurrency(),
+                                          wait);
 }
 
 int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
@@ -692,10 +728,9 @@ int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
   // set to true the flag resizingMaxGlobalThreads_
   // if already setting the max number of threads, print a warning and return
   if (resizingMaxGlobalThreads_) {
-    std::cerr
-        << "WARNING: another thread is already trying to "
-           "change the max number of available threads"
-        << std::endl;
+    std::cerr << "WARNING: another thread is already trying to "
+                 "change the max number of available threads"
+              << std::endl;
     return maxGlobalThreads_;
   }
   resizingMaxGlobalThreads_ = true;
@@ -706,8 +741,8 @@ int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
     std::cerr << "WARNING: the system has " << sysThreads
               << " cores, and we are trying to set the maximum threads to "
               << maxThreads
-              << ": the maximum is automatically blocked at " << sysThreads
-              << " threads." << std::endl;
+              << ": the maximum is automatically blocked at "
+              << sysThreads << " threads." << std::endl;
     maxThreads = sysThreads;
   }
 
@@ -718,16 +753,15 @@ int ThreadsPool::setMaxGlobalThreads(int maxThreads, bool wait) {
     // wait to be able to decrease totally the number of global threads
     if (wait) {
       cThreadReleased_.wait(l);  // wait until notification
-    } else {  // just decrease what is currently available
+    } else {                    // just decrease what is currently available
       diff = -nGlobalThreadsAvailable_;
-      std::cerr
-          << "WARNING: the maximum global number of threads "
-             "cannot be decreased to "
-          << maxThreads
-          << " as " << (maxGlobalThreads_ - nGlobalThreadsAvailable_)
-          << " of them are currently used."
-          << "The max has been instead set to " << (maxGlobalThreads_ + diff)
-          << "." << std::endl;
+      std::cerr << "WARNING: the maximum global number of threads "
+                   "cannot be decreased to "
+                << maxThreads << " as "
+                << (maxGlobalThreads_ - nGlobalThreadsAvailable_)
+                << " of them are currently used."
+                << "The max has been instead set to "
+                << (maxGlobalThreads_ + diff) << "." << std::endl;
     }
   }
 
@@ -755,8 +789,8 @@ void ThreadsPool::runOneJob(Job job, bool force_detach) {
 
 ThreadsPool::ThreadsPool() : ThreadsPool(maxGlobalThreads_) {}
 
-ThreadsPool::ThreadsPool(int nThreads):
-    pThreadsPool_(nullptr), nActivePtr_(0) {
+ThreadsPool::ThreadsPool(int nThreads)
+    : pThreadsPool_(nullptr), nActivePtr_(0) {
   if (nThreads <= maxGlobalThreads_) {
     maxThreads_ = nThreads;
   } else {
@@ -776,8 +810,10 @@ void ThreadsPool::run(Job job, bool force_detach) {
   if (pTask->nThreads() > maxThreads_) {
     std::cerr << "Cannot run on thread pool of " << maxThreads_
               << " threads a job needing " << pTask->nThreads()
-              << " threads." << std::endl;
-    std:: cerr << "The job number of threads is thus decreased." << std::endl;
+              << " threads."
+              << std::endl;
+    std::cerr << "The job number of threads is thus decreased."
+              << std::endl;
     pTask->nThreads(maxThreads_);
   }
   if (pTask->pThreadsPool_ != nullptr) {
@@ -786,11 +822,11 @@ void ThreadsPool::run(Job job, bool force_detach) {
     pTask->run(job);
   } else {
     reserve(pTask->nThreads());  // reserve a thread
-    addPtr(pTask);  // attach the task to the pool
+    addPtr(pTask);              // attach the task to the pool
     globalThreadsPool.run([this, job, pTask]() {
-      pTask->run(job);  // run the function
+      pTask->run(job);            // run the function
       release(pTask->nThreads());  // release the thread
-      pTask->detach();  // detach from the pool
+      pTask->detach();            // detach from the pool
     });
   }
 }
@@ -822,13 +858,12 @@ void Task::run(const Job &job) {
   try {
     func_(job);
   } catch (const std::exception &e) {
-    std::cout << "Task::run() caught an exception=: "
-              << e.what() << std::endl;
+    std::cout << "Task::run() caught an exception=: " << e.what() << std::endl;
   }
 #endif
 }
 
-void Task::attach(const PThreadsPool& pThreadsPool) {
+void Task::attach(const PThreadsPool &pThreadsPool) {
   std::unique_lock<mutex> l(mutex_);
   pThreadsPool_ = pThreadsPool;
 }
@@ -875,7 +910,8 @@ bool Task::shouldPause() {
 
 void Task::pause() {
   std::unique_lock<mutex> l(mutex_);
-  if (pThreadsPool_ == nullptr) return;
+  if (pThreadsPool_ == nullptr)
+    return;
   // release the threads
   pThreadsPool_->release(nThreads_);
   // then wait
@@ -886,7 +922,8 @@ void Task::pause() {
 
 void Task::resume() {
   std::unique_lock<mutex> l(mutex_);
-  if (pThreadsPool_ == nullptr || !paused_) return;
+  if (pThreadsPool_ == nullptr || !paused_)
+    return;
   // reserve again the threads
   pThreadsPool_->reserve(nThreads_);
   // and notify the paused thread
@@ -900,7 +937,7 @@ void Task::wait() {
     cResume_.wait(l);
 }
 
-Thread::Thread(): f_(nullptr), needStop_(false) {
+Thread::Thread() : f_(nullptr), needStop_(false) {
   t_ = std::thread([this]() {
     // run an infinite loop while not finished
     std::unique_lock<std::mutex> l(mutex_);
@@ -967,9 +1004,7 @@ void GlobalThreadsPool::makeAvailable(Thread *pThread) {
 
 // wait until all threads of the pool are available.
 // returns true if some threads were still running
-bool ThreadsPool::wait() {
-  return wait(maxThreads_);
-}
+bool ThreadsPool::wait() { return wait(maxThreads_); }
 
 bool ThreadsPool::wait(int nThreadsToWait) {
   std::unique_lock<mutex> l(mThreadMutex_);  // create a lock on the mutex
@@ -980,13 +1015,13 @@ bool ThreadsPool::wait(int nThreadsToWait) {
   int threadsAvailableTarget =
       std::min(maxThreads_, nThreadsAvailable_ + nThreadsToWait);
   cThreadReleased_.wait(l, [&]() {
-    return !resizingMaxGlobalThreads_
-        && nThreadsAvailable_ >= threadsAvailableTarget;
+    return !resizingMaxGlobalThreads_ &&
+        nThreadsAvailable_ >= threadsAvailableTarget;
   });
   return true;
 }
 
-void ThreadsPool::store(const PThreadsPool& pT) {
+void ThreadsPool::store(const PThreadsPool &pT) {
   std::lock_guard<std::recursive_mutex> l(mutex_);
   nActivePtr_++;
   pThreadsPool_ = pT;
@@ -1013,14 +1048,15 @@ void ThreadsPool::reserve(int nThreads) {
   while (!reserved) {
     // wait until one thread is available and resizingMaxGlobalThreads_ is false
     cThreadReleased_.wait(l, [this]() {
-      return nGlobalThreadsAvailable_ > 0 && nThreadsAvailable_ > 0
-          && !resizingMaxGlobalThreads_;
+      return nGlobalThreadsAvailable_ > 0 && nThreadsAvailable_ > 0 &&
+          !resizingMaxGlobalThreads_;
     });
     // try to reserve nThreads threads
     int minThreads = std::min(
-        nThreads, std::min(nGlobalThreadsAvailable_, nThreadsAvailable_));
+        nThreads,
+        std::min(nGlobalThreadsAvailable_, nThreadsAvailable_));
     nGlobalThreadsAvailable_ -= minThreads;  // reserve global threads
-    nThreadsAvailable_ -= minThreads;  // reserve local threads
+    nThreadsAvailable_ -= minThreads;       // reserve local threads
     nThreads -= minThreads;
     if (nThreads == 0)
       reserved = true;
