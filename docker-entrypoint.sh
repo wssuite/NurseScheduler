@@ -134,7 +134,7 @@ function run {
       ret=${PIPESTATUS[0]}
 
       # run the validator
-      echo ${ret}
+      echo "Exit code: ${ret}"
       if [ ${ret} -eq 0 -a ${eval} -eq 1 -a ! -z ${weeks} ]; then
           ./validator.sh ${instance} ${weeks} ${hist} ${outputDir} --verbose
       fi

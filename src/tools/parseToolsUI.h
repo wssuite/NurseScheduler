@@ -142,5 +142,5 @@ std::vector<State> parse_history(const string &s, const PScenario &pScenario);
 struct HistoryPeriod parse_history_period(const string &s);
 std::vector<State> parse_history(const string &s,
                                  const PScenario &pScenario,
-                                 struct HistoryPeriod history);
+                                 std::tm startDate);
 #endif  // SRC_TOOLS_PARSETOOLSUI_H_

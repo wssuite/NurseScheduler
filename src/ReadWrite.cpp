@@ -1955,7 +1955,7 @@ PScenario ReadWrite::readScenarioUI(
     if (l[0] == '#' || l[0] == '\n') {
       continue;
     } else {
-      buffer = buffer + l + "\n";
+      buffer += l + "\n";
     }
   }
   // Parse the buffer in meaningful blocks
@@ -1977,6 +1977,8 @@ PScenario ReadWrite::readScenarioUI(
       nDays = t.nDays;
       startDay = t.startDay;
       header.append(s);
+      Day::setFirstDayOfWeek(
+              (DayOfWeek) (startDay.tm_wday >= 0 ? startDay.tm_wday - 1 : 6));
     } else if (line == "SKILLS") {
       const struct Skills_Parsed t = parse_skills(s);
       nSkills = t.nbSkills;
@@ -2063,27 +2065,17 @@ PScenario ReadWrite::readScenarioUI(
     } else if (line == "PREFERENCES") {
       // parse s - line
       parse_preferences(s, pScenario);
-    } else if (line == "HISTORY_PERIOD") {
-      hist = parse_history_period(s);
     } else if (line == "HISTORY") {
-      initialState = parse_history(s, pScenario, hist);
+      initialState = parse_history(s, pScenario, startDay);
     }
   }
   // Initialize the history of every nurse to empty state
   // Add a fictitious shift just for the initial state if no history given
-
   if (initialState.empty()) {
     const PShift &pNoneShift =
         pScenario->shiftsFactory().pNoneShift()->pIncludedShifts().front();
     for (int n = 0; n < nNurses; n++) {
-      State nurseState(
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          pNoneShift);
+      State nurseState(0, 0, 0, 0, 0, 0, pNoneShift);
       initialState.push_back(nurseState);
     }
   }

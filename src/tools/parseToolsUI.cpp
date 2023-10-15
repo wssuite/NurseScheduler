@@ -735,29 +735,14 @@ struct HistoryPeriod parse_history_period(const string &s) {
 
 std::vector<State> parse_history(const string &s,
                                  const PScenario &pScenario,
-                                 struct HistoryPeriod history) {
+                                 std::tm startDate) {
   std::stringstream X(s);
   std::string line;
   std::getline(X, line);
   std::getline(X, line);
-  ShiftsFactory shiftFactory(pScenario->pShifts());
-  std::vector<State> initialState;
-  std::vector<std::vector<PShift>> hist;
-  const PShift &pNoneShift =
-      pScenario->shiftsFactory().pNoneShift()->pIncludedShifts().front();
-  for (int n = 0; n < pScenario->nNurses(); n++) {
-    State nurseState(
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        pNoneShift);
-    initialState.push_back(nurseState);
-    hist.push_back(std::vector<PShift>(history.nbDays_history, pNoneShift));
-  }
-  std::vector<std::vector<PShift>>();
+  // store for each day the associated shift read
+  int firstDay = startDate.tm_yday;
+  std::vector<std::map<int, PShift>> hist(pScenario->nNurses());
   while (!line.empty()) {
     std::regex reg(",");
     std::sregex_token_iterator iter(line.begin(), line.end(), reg, -1);
@@ -766,18 +751,29 @@ std::vector<State> parse_history(const string &s,
     boost::trim(tokens[0]);
     boost::trim(tokens[1]);
     boost::trim(tokens[2]);
-    const tm tmRequest(*Tools::readDateFromStr(tokens[0]));
-    int dayId = tmRequest.tm_yday - history.firstDay_history.tm_yday;
+    std::tm tmRequest(*Tools::readDateFromStr(tokens[0]));
+    int dayId = tmRequest.tm_yday;
+    if (tmRequest.tm_year < startDate.tm_year) dayId -= 365;
     int nurse_id = stoi(tokens[1]);
     int shift_id = pScenario->shiftType(tokens[2]);
     PShift shift = pScenario->shiftsFactory().pShift(shift_id);
-    hist.at(nurse_id).at(dayId) = shift;
+    hist.at(nurse_id)[dayId] = shift;
+    if (dayId <= firstDay) firstDay = dayId;
     getline(X, line);
   }
+
+  // build the initial state of each nurse
+  std::vector<State> initialState;
+  const PShift &pRestShift = pScenario->pRestShift();
+  int histLength = startDate.tm_yday - firstDay;
   for (int n = 0; n < pScenario->nNurses(); n++) {
-    for (int j = 0; j < history.nbDays_history; j++) {
-      initialState[n].addDayToState(initialState[n], hist[n][j]);
+    State nurseState(-histLength, 0, 0, 0, 0, 0, pRestShift);
+    for (int d = firstDay; d < startDate.tm_yday; ++d) {
+      auto it = hist.at(n).find(d);
+      nurseState.addDayToState(
+              nurseState, it != hist.at(n).end() ? it->second : pRestShift);
     }
+    initialState.push_back(nurseState);
   }
   return initialState;
 }
