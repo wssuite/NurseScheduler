@@ -179,8 +179,18 @@ PRCArc RCGraph::addSingleArc(const PRCNode& o,
   PRCArc pArc = findArc(o, s);
   if (pArc != nullptr) return pArc;
 
+  ArcType aType = REST_ARC;
+  if (o->type == SOURCE_NODE) {
+    aType = FROM_SOURCE;
+  } else if (d->type == SINK_NODE) {
+    aType = TO_SINK;
+  } else if (d->pAShift->isWork()) {
+    aType = d->pAShift->includes(*o->pAShift) ?
+            SHIFT_TO_SAMESHIFT : SHIFT_TO_NEWSHIFT;
+  }
+
   pArcs_.push_back(std::make_shared<RCArc>(
-      pArcs_.size(), o, d, s, cost));
+      pArcs_.size(), o, d, s, cost, aType));
   // Adding the id of the last arc created in the vector of the incident
   // arcs ids of the target node
   pArc = pArcs_.back();

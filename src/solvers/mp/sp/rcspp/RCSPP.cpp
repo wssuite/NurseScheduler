@@ -273,10 +273,10 @@ std::vector<RCSolution> RCSPPSolver::solve() {
   for (const auto &pL : pLabelsSinks) {
     RCSolution solution = createSolution(pL);
 #ifdef NS_DEBUG
-    //    if (finalSolutions.empty()) {
-    //      std::cout << "Label bound: " << maxReducedCostBound << std::endl;
-    //      createSolution(pL, pRcGraph_);
-    //    }
+//        if (finalSolutions.empty()) {
+//          std::cout << "Label bound: " << maxReducedCostBound_ << std::endl;
+//          createSolution(pL, pRcGraph_);
+//        }
 #endif
     if (pL->cost() + param_.epsilon_ < maxReducedCostBound_) {
       finalSolutions.push_back(solution);

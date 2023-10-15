@@ -34,11 +34,11 @@ RosterSP::RosterSP(PScenario pScenario,
 void RosterSP::createNodes(const PRCGraph &pRCGraph) {
   // create source
   auto pDay = pScenario_->firstDay_.previous();
-  int t = pLiveNurse_->pStateIni_->pShift_->type;
+  int initT = pLiveNurse_->pStateIni_->pShift_->type;
   // it may happen that the initial shift is a special shift, so no shift type
   // will be counted for it
-  const auto &pASSource = t >= 0 ?
-      pScenario_->pAnyTypeShift(t) :
+  const auto &pASSource = initT >= 0 ?
+      pScenario_->pAnyTypeShift(initT) :
       pLiveNurse_->pStateIni_->pShift_;
   pRCGraph->addSingleNode(SOURCE_NODE, pDay, pASSource);
 

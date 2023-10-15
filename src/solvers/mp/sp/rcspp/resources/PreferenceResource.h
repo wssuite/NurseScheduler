@@ -66,6 +66,7 @@ class PreferenceResource : public Resource {
  protected:
   const PAbstractDay pADay_;
   const Wish wish_;
+  // mark the end of a sequence
   PAbstractShift pEndShift_;
 };
 

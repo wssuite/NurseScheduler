@@ -39,10 +39,11 @@ bool PreferenceResource::preprocess(const PRCArc& pA, double *cost) {
   // check also the previous day to ensure to forbid
   // all the arcs leaving a forbidden day
   if (pADay_->includes(*pA->origin->pDay)) {
-    if (wish_.forbid(pA->origin->pAShift)) {
-      *cost += wish_.cost(pA->origin->pAShift);
-      return false;
-    }
+    for (const auto &pS : pA->origin->pAShift->pIncludedShifts())
+      if (!wish_.forbid(pS))
+        return true;
+    // all included shifts are forbidden
+    return false;
   }
 
   return true;

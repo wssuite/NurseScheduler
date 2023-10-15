@@ -222,6 +222,11 @@ vector<MyVar *> RCPricer::pricing(double bound,
       // RETRIEVE THE GENERATED ROTATIONS
       std::vector<RCSolution> solutions = subProblem->getSolutions();
 
+#ifdef NS_DEBUG
+//      for (RCSolution &sol : solutions)
+//        std::cout << sol.toString() << std::endl;
+#endif
+
 #ifdef CTR
       for (RCSolution &sol : solutions) {
         // check if any shifts are forbidden

@@ -765,7 +765,7 @@ std::vector<State> parse_history(const string &s,
   // build the initial state of each nurse
   std::vector<State> initialState;
   const PShift &pRestShift = pScenario->pRestShift();
-  int histLength = startDate.tm_yday - firstDay;
+  int histLength = startDate.tm_yday - firstDay + 1;
   for (int n = 0; n < pScenario->nNurses(); n++) {
     State nurseState(-histLength, 0, 0, 0, 0, 0, pRestShift);
     for (int d = firstDay; d < startDate.tm_yday; ++d) {
@@ -773,6 +773,7 @@ std::vector<State> parse_history(const string &s,
       nurseState.addDayToState(
               nurseState, it != hist.at(n).end() ? it->second : pRestShift);
     }
+    nurseState.resetTotal();
     initialState.push_back(nurseState);
   }
   return initialState;

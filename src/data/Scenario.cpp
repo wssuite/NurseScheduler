@@ -32,42 +32,6 @@ using std::pair;
 // Destructor
 State::~State() = default;
 
-//// Updates the state if a new day is worked on shiftType of newShiftType
-// void State::addNewDay(int newShiftType) {
-//
-//  // Total shifts worked if it is a worked day
-//  totalTimeWorked_ += (newShiftType ? 1 : 0);
-//
-//  // Total weekends worked :
-//  // +1 IF : new day is a Sunday and the nurse works on pAShift_ or newShift
-//  if (Tools::isSunday(dayId_ - 1) and (newShiftType or shiftType_))
-//    totalWeekendsWorked_++;
-//
-//  // Consecutives : +1 iff it is the same as the previous one
-//  consShifts_ = (shiftType_ == newShiftType) ? (consShifts_ + 1) : 1;
-//
-//  // Consecutive Days Worked :
-//  // +1 if the new one is worked (!=0), 0 if it is a rest (==0)
-//  consDaysWorked_ = shiftType_ ? (consDaysWorked_ + 1) : 0;
-//
-//  // Current shiftType worked : updated with the new one
-//  shiftType_ = newShiftType;
-//
-//  // increment the day index
-//  dayId_++;
-//}
-
-
-// Function that appends a new day worked on a given shift to an input state
-//
-
-// void State::addDayToState(const State& prevState, int newShift,
-// const PScenario pScenario)   {
-//   int newShiftType = pScenario->shiftIDToShiftTypeID_[newShift];
-
-//   addDayToState(prevState, newShiftType);
-// }
-
 // Function that appends a new day worked on a given shiftType to an input state
 // to update this state
 // RqJO: I slghtly modified the method to take into account the possibility to
@@ -167,6 +131,12 @@ void State::addDayToState(const State &prevState, const PShift &pS) {
   pShift_ = pS;
   // increment the day index
   dayId_ = prevState.dayId_ + 1;  // increment the day index
+}
+
+// set each total to 0. Just keep the consecutive counters
+void State::resetTotal() {
+  totalTimeWorked_ = 0;
+  totalWeekendsWorked_ = 0;
 }
 
 // Display method: toStringINRC2

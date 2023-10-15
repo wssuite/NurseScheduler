@@ -126,14 +126,12 @@ class State {
   }
 
   // Function that appends a new day worked on a given shiftType
-  // to the previous ones
-  //
-  // void addNewDay(int newShiftType);
-
-  // Function that appends a new day worked on a given shiftType
   // to an input state to update this state
   //
   void addDayToState(const State &prevState, const PShift &pS);
+
+  // set each total to 0. Just keep the consecutive counters
+  void resetTotal();
 
 
   // Function that appends a new day worked on a given shift

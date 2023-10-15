@@ -2075,7 +2075,7 @@ PScenario ReadWrite::readScenarioUI(
     const PShift &pNoneShift =
         pScenario->shiftsFactory().pNoneShift()->pIncludedShifts().front();
     for (int n = 0; n < nNurses; n++) {
-      State nurseState(0, 0, 0, 0, 0, 0, pNoneShift);
+      State nurseState(-1, 0, 0, 0, 0, 0, pNoneShift);
       initialState.push_back(nurseState);
     }
   }
