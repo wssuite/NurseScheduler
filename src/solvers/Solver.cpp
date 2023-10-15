@@ -1164,7 +1164,7 @@ void Solver::solutionToTxt(string outdir) {
 }
 
 void Solver::solutionToUI(string outdir) {
-  string fileName = outdir + pScenario_->name() + ".txt";
+  string fileName = outdir + "sol.txt";
   Tools::LogOutput uiStream(fileName, false);
   uiStream << pScenario_->getHeader();
   uiStream << "ASSIGNMENTS" << std::endl;
@@ -1191,6 +1191,8 @@ void Solver::solutionToUI(string outdir) {
   uiStream << R"("Total cost":)" << objValue_ << "," << std::endl;
   uiStream << R"("Optimization status":")" << statusToString.at(status_)
            << "\"," << std::endl;
+  uiStream << R"("Run time":")" << timerTotal().dSinceInit() / 60
+           << " min.\"," << std::endl;
   uiStream << "}" << std::endl;
 }
 

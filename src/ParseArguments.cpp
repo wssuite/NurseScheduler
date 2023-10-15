@@ -122,9 +122,9 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   // Default arguments are set to enable simple call to the function without
   // argument.
   std::string dataDir, instanceName, solutionPath, logPath, paramFile,
-      SPType, RCSPPType, weeksName, origin;
+          SPType, RCSPPType, weeksName, origin;
   int historyIndex = -1, randSeed = 0, nTreads = -1,
-      SPStrategy = -1, verbose = -1, nCandidates = -1, timeOut = -1;
+          SPStrategy = -1, verbose = -1, nCandidates = -1, timeOut = -1;
   std::vector<int> weekIndices;
   bool cyclic = false;
 
@@ -199,8 +199,8 @@ InputPaths *readCompactArguments(int argc, char **argv) {
       narg += 2;
     } else {
       Tools::throwError(
-          "main: the argument (%s) does not match the expected list!",
-          argv[narg]);
+              "main: the argument (%s) does not match the expected list!",
+              argv[narg]);
     }
   }
 
@@ -234,14 +234,14 @@ InputPaths *readCompactArguments(int argc, char **argv) {
     } else {
       // for INRCII format
       solutionPath = "outfiles/" + instanceName + "_" +
-          std::to_string(historyIndex) + "_" + weeksName + "/";
+                     std::to_string(historyIndex) + "_" + weeksName + "/";
     }
 //    std::time_t t = std::time(nullptr);
 //    solutionPath += std::to_string(t)+"/";
   }
 
   if (!logPath.empty() && logPath.back() != '/')
-    solutionPath += "/";
+    logPath += "/";
 
   if (!solutionPath.empty() && solutionPath.back() != '/')
     solutionPath += "/";
@@ -265,23 +265,22 @@ InputPaths *readCompactArguments(int argc, char **argv) {
                           nTreads,
                           nCandidates,
                           origin);
-  InputPaths *pInputPaths = new InputPaths(dataDir,
-                                           instanceName,
-                                           historyIndex,
-                                           weekIndices,
-                                           solutionPath,
-                                           logPath,
-                                           paramFile,
-                                           timeOut,
-                                           verbose,
-                                           randSeed,
-                                           SPType,
-                                           SPStrategy,
-                                           RCSPPType,
-                                           nTreads,
-                                           nCandidates,
-                                           origin);
-  return pInputPaths;
+  return new InputPaths(dataDir,
+                        instanceName,
+                        historyIndex,
+                        weekIndices,
+                        solutionPath,
+                        logPath,
+                        paramFile,
+                        timeOut,
+                        verbose,
+                        randSeed,
+                        SPType,
+                        SPStrategy,
+                        RCSPPType,
+                        nTreads,
+                        nCandidates,
+                        origin);
 }
 
 /******************************************************************************
