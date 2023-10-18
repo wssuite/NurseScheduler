@@ -33,6 +33,10 @@ constraints
 MinMaxConsecutiveShiftType,2,80,5,80,Early
 MinMaxConsecutiveShiftType,2,80,3,80,Late
 MinMaxConsecutiveShiftType,4,80,5,80,Night
+unwantedPatterns,hard,2,;Night,*;Early|Late
+unwantedPatterns,hard,2,*;Late,Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday;Early
+unwantedPatterns,hard,2,2023-01-6|2023-01-9;Night,*;Night
+unwantedPatterns,100,2,2023-01-7|2023-01-9;Early,*;Early
 }
 {
 contractName,FullTime
@@ -41,7 +45,7 @@ MinMaxNumAssignmentsInFourWeeks,10,80,15,80,Work
 MinMaxConsecutiveShiftType,3,80,5,80,Work
 MinMaxConsecutiveShiftType,2,80,3,80,Rest
 CompleteWeekends,80
-TotalWeekendsInFourWeeks,2,80,2,80,Work
+TotalWeekendsInFourWeeks,2,hard,2,80,Work
 }
 {
 contractName,PartTime
@@ -49,8 +53,14 @@ constraints
 MinMaxNumAssignmentsInFourWeeks,5,80,8,80,Work
 MinMaxConsecutiveShiftType,3,80,5,80,Work
 MinMaxConsecutiveShiftType,3,hard,5,80,Rest
-TotalWeekendsInFourWeeks,2,80,2,80,Work
+TotalWeekendsInFourWeeks,1,hard,2,80,Work
 CompleteWeekends,80
+}
+{
+contractName,Nurse
+constraints
+unwantedSkills,hard,1,HeadNurse
+AlternativeShift,hard,Late
 }
 END
 CONTRACT_GROUPS
@@ -59,7 +69,7 @@ Part,2,default,PartTime
 END
 EMPLOYEES
 0,Patrick1,0,1,Full
-1,Andrea1,0,1,Part
+1,Andrea1,1,Nurse,1,Part
 2,Stefaan1,0,1,Part
 3,Sara1,0,1,Full
 4,Nguyen1,0,1,Full
@@ -94,7 +104,7 @@ HOSPITAL_DEMAND
 2023-01-10,Night,HeadNurse,0,0,1,20
 2023-01-10,Early,Nurse,1,hard,1,20
 2023-01-10,Late,Nurse,1,hard,1,20
-2023-01-10,Night,Nurse,0,0,1,20
+2023-01-10,Night,Nurse,1,hard,1,20
 2023-01-11,Early,HeadNurse,0,0,1,20
 2023-01-11,Late,HeadNurse,1,hard,1,20
 2023-01-11,Night,HeadNurse,0,0,1,20
@@ -182,6 +192,6 @@ HISTORY
 2023-01-4,3,Late
 2023-01-4,4,Night
 2023-01-5,0,Early
-2023-01-5,1,Late
+2023-01-5,1,Early
 2023-01-5,4,Night
 END

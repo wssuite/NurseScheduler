@@ -9,6 +9,8 @@
  * full license detail.
  */
 
+#include <vector>
+
 #include "Day.h"
 
 // To get the day name from its type and vice-versa: day type 0 is for Mondays
@@ -59,6 +61,29 @@ const string& Day::toDayOfWeekName(int dayId) {
 
 const string& Day::toDayOfWeekShortName(int dayId) {
   return dayOfWeekToShortName(getDayOfWeek(dayId));
+}
+
+Days::Days(std::vector<PAbstractDay> pADays):
+        pADays_(std::move(pADays)),
+        name_(std::accumulate(
+                pADays_.begin(), pADays_.end(), string(),
+                [](const std::string &a, const PAbstractDay &pD) -> string {
+          return a + (a.empty() ? "" : "_") + pD->toString();
+        })) {}
+
+bool Days::includes(const AbstractDay &d) const {
+  for (const auto &pD : pADays_)
+    if (pD->includes(d))
+      return true;
+  return false;
+}
+
+bool Days::isWeekend(const AbstractDay& firstWeekendDay,
+               const AbstractDay& lastWeekendDay) const {
+  for (const auto &pD : pADays_)
+    if (!pD->isWeekend(firstWeekendDay, lastWeekendDay))
+      return false;
+  return true;
 }
 
 bool Weekend::isWeekend(int dayId,

@@ -17,6 +17,8 @@ void AlternativeShiftResource::preprocess(const PRCGraph &pRCGraph) {
     double cost = 0;
     preprocess(pA, &cost);
     pA->addBaseCost(cost);
+    if (cost >= LARGE_SCORE)
+      pRCGraph->forbidArc(pA);
   }
   isPreprocessed_ = true;
 }

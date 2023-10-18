@@ -179,6 +179,19 @@ struct Shift : public AbstractShift {
   vector<int> skills;
 };
 
+struct Shifts : public AbstractShift {
+    explicit Shifts(vector<PAbstractShift> pShifts);
+
+    bool isWork() const override;
+    bool isRest() const override;
+    bool isType(int t) const override;
+    bool isSameType(const AbstractShift &s) const override;
+    bool includes(const AbstractShift &) const override;
+
+ protected:
+    std::vector<PAbstractShift> pAShifts_;
+};
+
 struct AnyRestShift : public AbstractShift {
   friend class ShiftsFactory;
 

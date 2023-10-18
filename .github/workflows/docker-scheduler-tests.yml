@@ -285,4 +285,4 @@ jobs:
         uses: ./
         with:
           instance: ui_test.txt
-          ns-args: --dir datasets/ui/ -g 552 -e 0
+          ns-args: --dir datasets/ui/ -g 1684 -e 0

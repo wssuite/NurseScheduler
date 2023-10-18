@@ -9,6 +9,8 @@
  * full license detail.
  */
 
+#include <set>
+
 #include "data/Shift.h"
 
 const PShift & AbstractShift::findIncludedShift(
@@ -78,3 +80,48 @@ ShiftsFactory::ShiftsFactory(
   }
 }
 
+Shifts::Shifts(vector<PAbstractShift> pAShifts):
+        // concatenate all names
+        AbstractShift(std::accumulate(
+                pAShifts.begin(), pAShifts.end(), std::string(),
+                [](const std::string &a, const PAbstractShift &pS) {
+                    return a + (a.length() > 0 ? "_" : "") + pS->name;
+                })),
+        pAShifts_(std::move(pAShifts)) {
+  std::set<PShift> allShifts;
+  for (const auto &pAS : pAShifts_)
+    for (const auto &pS : pAS->pIncludedShifts())
+      allShifts.insert(pS);
+  // add all the included shifts
+  pShifts_ = vector<PShift>(allShifts.begin(), allShifts.end());
+}
+
+bool Shifts::isWork() const {
+  for (const auto &pS : pAShifts_)
+    if (!pS->isWork()) return false;
+  return true;
+}
+
+bool Shifts::isRest() const {
+  for (const auto &pS : pAShifts_)
+    if (!pS->isRest()) return false;
+  return true;
+}
+
+bool Shifts::isType(int t) const {
+  for (const auto &pS : pAShifts_)
+    if (!pS->isType(t)) return false;
+  return true;
+}
+
+bool Shifts::isSameType(const AbstractShift &s) const {
+  for (const auto &pS : pAShifts_)
+    if (!pS->isSameType(s)) return false;
+  return true;
+}
+
+bool Shifts::includes(const AbstractShift &s) const {
+  for (const auto &pS : pAShifts_)
+    if (pS->includes(s)) return true;
+  return false;
+}

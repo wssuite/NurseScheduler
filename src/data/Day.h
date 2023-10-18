@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "tools/Tools.h"
 
@@ -73,7 +74,7 @@ struct AbstractDay {
   virtual ~AbstractDay() = default;
 
   virtual DayOfWeek getDayOfWeek() const { return NO_DAY_OF_WEEK; }
-  virtual int getId() const {return -1;}
+  virtual int getId() const { return -1; }
   virtual bool includes(const AbstractDay &) const = 0;
   virtual bool isWeekend(const AbstractDay& firstWeekendDay,
                          const AbstractDay& lastWeekendDay) const = 0;
@@ -185,6 +186,18 @@ struct Day : public WeekDay {
 };
 
 typedef shared_ptr<Day> PDay;
+
+struct Days : public AbstractDay {
+    explicit Days(std::vector<PAbstractDay> pADays);
+
+    bool includes(const AbstractDay &) const override;
+    bool isWeekend(const AbstractDay& firstWeekendDay,
+                           const AbstractDay& lastWeekendDay) const override;
+    string toString() const override { return name_; };
+
+    const std::vector<PAbstractDay> pADays_;
+    const string name_;
+};
 
 struct Weekend {
   static bool isDayOfWeekend(DayOfWeek dayOfWeek,

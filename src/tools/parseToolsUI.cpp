@@ -209,7 +209,7 @@ std::map<std::string, vector<PBaseResource>> parse_contracts(
     std::string s, ShiftsFactory shiftFactory,
     std::map<string, int> inputToShiftGenre, std::map<string, int> shiftToInt,
     std::map<string, int> skillToInt, std::map<string, int> shiftTypeToInt,
-    const PWeights &pWeights, int nDays) {
+    const PWeights &pWeights, int nDays, const tm &startDay) {
   // Removing the first 2 lines
   s.erase(0, s.find("\n") + 1);
   s.erase(0, s.find("\n") + 1);
@@ -222,7 +222,7 @@ std::map<std::string, vector<PBaseResource>> parse_contracts(
   for (const string &block : tokens) {
     struct Single_Contract contract = parse_single_contract(
         block, shiftFactory, inputToShiftGenre, shiftToInt, skillToInt,
-        shiftTypeToInt, pWeights, nDays);
+        shiftTypeToInt, pWeights, nDays, startDay);
     ruleSets[contract.name] = contract.ressources;
     i++;
   }
@@ -232,7 +232,7 @@ struct Single_Contract parse_single_contract(
     std::string contract, ShiftsFactory shiftFactory,
     std::map<string, int> inputToShiftGenre, std::map<string, int> shiftToInt,
     std::map<string, int> skillToInt, std::map<string, int> shiftTypeToInt,
-    const PWeights &pWeights, int nDays) {
+    const PWeights &pWeights, int nDays, const tm &startDay) {
   std::vector<PBaseResource> cons;
   std::stringstream X(contract);
   bool parsing_constraints = false;
@@ -251,7 +251,7 @@ struct Single_Contract parse_single_contract(
     } else if (parsing_constraints) {
       vector<PBaseResource> new_cons = parse_contract_constraints(
           line, shiftFactory, inputToShiftGenre, shiftToInt, skillToInt,
-          shiftTypeToInt, pWeights, nDays);
+          shiftTypeToInt, pWeights, nDays, startDay);
       cons.insert(cons.end(), std::begin(new_cons), std::end(new_cons));
       nb_constraints += new_cons.size();
     }
@@ -262,7 +262,7 @@ vector<PBaseResource> parse_contract_constraints(
     std::string contract, ShiftsFactory shiftFactory,
     std::map<string, int> inputShiftToInt, std::map<string, int> shiftToInt,
     std::map<string, int> skillToInt, std::map<string, int> shiftTypeToInt,
-    const PWeights &pWeights, int nDays) {
+    const PWeights &pWeights, int nDays, const tm &startDay) {
   vector<PBaseResource> cons;
   std::regex reg(",");
   std::sregex_token_iterator iter(contract.begin(), contract.end(), reg, -1);
@@ -465,11 +465,15 @@ vector<PBaseResource> parse_contract_constraints(
     }
   } else if (tokens[0].find("unwantedPatterns") != -1) {
     double cost = XLARGE_SCORE;
-    if (tokens[1].find("hard") == -1)
+    bool hard = true;
+    if (tokens[1].find("hard") == -1) {
+      hard = false;
       cost = std::stod(tokens[1]);
+    }
     int nbPat = std::stoi(tokens[2]);
+    vector<PAbstractDay> patDays;
+    vector<PAbstractShift> patShifts;
     for (int i = 0; i < nbPat; i++) {
-      vector<PAbstractDay> days;
       vector<PAbstractShift> shifts;
 
       std::regex regPat(";");
@@ -478,46 +482,83 @@ vector<PBaseResource> parse_contract_constraints(
       std::sregex_token_iterator endPat;
       vector<string> patItems(iterPat, endPat);
 
+      // create one abstract days for all of them
       std::regex regD("\\|");
-      std::sregex_token_iterator iterD(patItems[0].begin(), patItems[0].end(),
-                                       regD, -1);
+      std::sregex_token_iterator iterD(
+              patItems[0].begin(), patItems[0].end(), regD, -1);
       std::sregex_token_iterator endD;
       vector<string> daysStr(iterD, endD);
+      // empty string or * fits all day
+      if (daysStr.size() == 1 && (daysStr[0].empty() || daysStr[0] == "*")) {
+        patDays.push_back(std::make_shared<AnyDay>());
+      } else {
+        vector<PAbstractDay> days;
+        for (const auto &d : daysStr) {
+          auto it = daysOfWeekByName.find(d);
+          if (it != daysOfWeekByName.end()) {
+            days.push_back(std::make_shared<WeekDay>(it->second));
+          } else {
+            const tm tmRequest(*Tools::readDateFromStr(d));
+            int dayId(tmRequest.tm_yday - startDay.tm_yday);
+            days.push_back(std::make_shared<Day>(dayId));
+          }
+        }
+        auto pADay = std::make_shared<Days>(days);
+        patDays.push_back(pADay);
+      }
 
-      std::sregex_token_iterator iterS(patItems[1].begin(), patItems[1].end(),
-                                       regD, -1);
+      // create one abstract shift for all shift types
+      std::sregex_token_iterator iterS(
+              patItems[1].begin(), patItems[1].end(), regD, -1);
       std::sregex_token_iterator endS;
       vector<string> shiftsStr(iterS, endS);
-      int patSiz = daysStr.size();
-      for (int j = 0; j < patSiz; j++) {
-        int shiftTypeInt;
+      for (auto s : shiftsStr) {
         PAbstractShift pAShift;
-        boost::trim(shiftsStr[j]);
-        if (inputShiftToInt.at(shiftsStr[j]) == 0) {
-          int shiftId = shiftToInt.at(shiftsStr[j]);
-          pAShift =
-              shiftFactory.pAnyTypeShift(shiftFactory.pShift(shiftId)->type);
-        } else if (inputShiftToInt.at(shiftsStr[j]) == 1) {
-          shiftTypeInt = shiftTypeToInt.at(shiftsStr[j]);
-          pAShift = shiftFactory.pAnyTypeShift(shiftTypeInt);
-        }
-        days.push_back(std::make_shared<Day>(daysOfWeekByName.at(daysStr[j])));
+        boost::trim(s);
+        int shiftTypeInt = shiftTypeToInt.at(s);
+        pAShift = shiftFactory.pAnyTypeShift(shiftTypeInt);
         shifts.push_back(pAShift);
       }
-      cons.push_back(std::make_shared<SoftForbiddenPatternResource>(
-          Pattern(shifts, days), cost));
+      auto pAShift = std::make_shared<Shifts>(shifts);
+      patShifts.push_back(pAShift);
+    }
+
+    // create the pattern and add the constraint
+    auto pat = Pattern(patShifts, patDays);
+    if (hard) {
+      cons.push_back(std::make_shared<HardForbiddenPatternResource>(pat));
+    } else {
+      cons.push_back(std::make_shared<SoftForbiddenPatternResource>(pat, cost));
     }
 
   } else if (tokens[0].find("unwantedSkills") != -1) {
+//    boost::trim(tokens[2]);
+//    double cost = XLARGE_SCORE;
+//    if (tokens[1].find("hard") == -1)
+//      cost = std::stod(tokens[1]);
+//    int nbShifts = std::stoi(tokens[2]);
+//    vector<PAbstractShift> pAShifts;
+//    for (int i = 0; i < nbShifts; i++) {
+//      int shift = shiftToInt.at(tokens[3 + i]);
+//      cons.push_back(std::make_shared<AlternativeShiftResource>(shift, cost));
+//    }
+// TODO(FL): unwanted skills need to be handled and implemented for soft ones
+    std::cout << "unwantedSkills is not handled for the moment." << std::endl;
+  } else if (tokens[0].find("AlternativeShift") != -1) {
     boost::trim(tokens[2]);
     double cost = XLARGE_SCORE;
     if (tokens[1].find("hard") == -1)
       cost = std::stod(tokens[1]);
-    int nbSkills = std::stoi(tokens[2]);
-    for (int i = 0; i < nbSkills; i++) {
-      int skill = skillToInt.at(tokens[3 + i]);
-      cons.push_back(std::make_shared<AlternativeShiftResource>(skill, cost));
+    vector<PShift> pAltShifts;
+    if (inputShiftToInt[tokens[2]] == 1) {
+      int t = shiftTypeToInt.at(tokens[2]);
+      pAltShifts = shiftFactory.pAnyTypeShift(t)->pIncludedShifts();
+    } else if (inputShiftToInt[tokens[2]] == 0) {
+      int s = shiftToInt.at(tokens[2]);
+      pAltShifts = { shiftFactory.pShift(s) };
     }
+    cons.push_back(std::make_shared<AlternativeShiftResource>(
+            shiftToInt.size(), pAltShifts, cost));
   }
   return cons;
 }

@@ -2008,7 +2008,8 @@ PScenario ReadWrite::readScenarioUI(
                                  skillToInt,
                                  shiftTypeToInt,
                                  pWeights,
-                                 nDays);
+                                 nDays,
+                                 startDay);
       contracts_processed = ruleSets.size();
     } else if (line == "CONTRACT_GROUPS" && contracts_processed) {
       ruleSets = parse_group_contracts(s, ruleSets);

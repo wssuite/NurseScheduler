@@ -94,19 +94,19 @@ std::map<std::string, std::vector<PBaseResource>> parse_contracts(
     std::string s, ShiftsFactory shiftFactory,
     std::map<string, int> inputToShiftGenre, std::map<string, int> shiftToInt,
     std::map<string, int> skillToInt, std::map<string, int> shiftTypeToInt,
-    const PWeights &pWeights, int nDays);
+    const PWeights &pWeights, int nDays, const tm &startDay);
 
 struct Single_Contract parse_single_contract(
     std::string contract, ShiftsFactory shiftFactory,
     std::map<string, int> inputToShiftGenre, std::map<string, int> shiftToInt,
     std::map<string, int> skillToInt, std::map<string, int> shiftTypeToInt,
-    const PWeights &pWeights, int nDays);
+    const PWeights &pWeights, int nDays, const tm &startDay);
 
 std::vector<PBaseResource> parse_contract_constraints(
     std::string contract, ShiftsFactory shiftFactory,
     std::map<string, int> inputShiftToInt, std::map<string, int> shiftToInt,
     std::map<string, int> skillToInt, std::map<string, int> shiftTypeToInt,
-    const PWeights &pWeights, int nDays);
+    const PWeights &pWeights, int nDays, const tm &startDay);
 
 // void make_contracts_from_groups(const std::string& s,
 // std::map<std::string,std::vector<PBaseResource>>& ruleSets,

@@ -579,8 +579,8 @@ void HardForbiddenPatternResource::preprocess(const PRCGraph &pRCGraph) {
     // as a generic preprocessing, we only want to preprocess the forbidden
     // pattern including two shifts: this requires to modify the base costs of
     // the corresponding arcs
+    double cost = 0;
     for (const PRCArc &pA : pRCGraph->pArcs()) {
-      double cost = 0;
       if (!preprocess(pA, &cost))
         pRCGraph->forbidArc(pA, true);
     }
