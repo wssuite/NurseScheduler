@@ -182,8 +182,8 @@ class LiveNurse : public Nurse {
   // and the final states are of importance
   std::vector<State> states_;
 
-  // position of the nurse: this field is deduced from the list of skills
-  PPosition pPosition_;
+  // position id of the nurse: this field is deduced from the list of skills
+  int positionId_;
 
   // vector of resources
   vector<PResource> pResources_;
@@ -214,12 +214,19 @@ class LiveNurse : public Nurse {
   double minAvgWorkDaysNoPenaltyTotalDays_, maxAvgWorkDaysNoPenaltyTotalDays_;
 
   // basic getters
-  PPosition pPosition() const { return pPosition_; }
+  [[nodiscard]] int positionId() const { return positionId_; }
   State state(int day) { return states_[day]; }
 
   // advanced getters
-  int totalTimeWorked() const { return pStateIni_->totalTimeWorked_; }
-  int totalWeekendsWorked() const { return pStateIni_->totalWeekendsWorked_; }
+  [[nodiscard]] int totalTimeWorked() const {
+    return pStateIni_->totalTimeWorked_;
+  }
+  [[nodiscard]] int totalDaysWorked() const {
+    return pStateIni_->totalDaysWorked_;
+  }
+  [[nodiscard]] int totalWeekendsWorked() const {
+    return pStateIni_->totalWeekendsWorked_;
+  }
 
   // basic setters
   void roster(const Roster &inputRoster) { roster_ = inputRoster; }
@@ -234,14 +241,16 @@ class LiveNurse : public Nurse {
   std::pair<int, int> computeMinMaxDaysNoPenaltyConsDay(
       State *pCurrentState, int lastDay);
 
+  // return the maximum gap to be optimal
+  int findMaxOptimalGap() const;
 
   //----------------------------------------------------------------------------
   // Methods that relate to the rosters of a nurse
   //----------------------------------------------------------------------------
-  const std::map<int, Wish> &wishes() const;
+  [[nodiscard]] const std::map<int, Wish> &wishes() const;
 
   // returns the cost of the nurse wish for the shift on the day
-  double wishCostOfTheShift(int day, const PShift &pShift) const;
+  [[nodiscard]] double wishCostOfTheShift(int day, const PShift &pShift) const;
 
   // returns true if the nurses reached the maximum number of consecutive worked
   // days or is resting and did not reach the minimum number of resting days yet
@@ -276,23 +285,6 @@ class LiveNurse : public Nurse {
 };
 typedef std::shared_ptr<LiveNurse> PLiveNurse;
 
-// Compare two positions to sort them
-// Three possible cases can happen
-// 1) same positions
-// 2) same rank: the first position to be treated is that with the rarest skill
-// or the largest number of skills
-// 3) the first position to be treated is that with the smaller rank
-//
-bool comparePositions(const PPosition& p1, const PPosition& p2);
-
-// Compare two nurses based on their position
-// the function is used to sort the nurses in ascending rank of their
-// position
-// if their positions have the same rank, then the smaller nurse is found
-// by a lexicographic comparison of the rarity of the skills of the nurses
-//
-bool compareNurses(const PLiveNurse& n1, const PLiveNurse& n2);
-
 //-----------------------------------------------------------------------------
 //
 // C l a s s   S o l v e r
@@ -317,29 +309,29 @@ class Solver {
 
   // Main method to solve the rostering problem for a given input and an
   // initial solution
-  virtual double solve(const std::vector<Roster> &solution = {}) {
+  [[nodiscard]] virtual double solve(const std::vector<Roster> &solution = {}) {
     return DBL_MAX;
   }
 
   // Main method to solve the rostering problem for a given input and an
   // initial solution and parameters
-  virtual double solve(const SolverParam &parameters,
+  [[nodiscard]] virtual double solve(const SolverParam &parameters,
                        const std::vector<Roster> &solution = {}) {
     param_ = parameters;
     return solve(solution);
   }
 
   // Resolve the problem with another demand and keep the same preferences
-  virtual double resolve(PDemand pDemand,
+  [[nodiscard]] virtual double resolve(vector<PDemand> pDemands,
                          const SolverParam &parameters,
                          const std::vector<Roster> &solution = {}) {
-    pDemand_ = std::move(pDemand);
+    pDemands_ = std::move(pDemands);
     return solve(parameters, solution);
   }
 
   // if a solution, always integer
   // method is virtual if storing non integer solutions
-  virtual bool isSolutionInteger() const {
+  [[nodiscard]] virtual bool isSolutionInteger() const {
     return !solution_.empty();
   }
 
@@ -348,9 +340,8 @@ class Solver {
     pHeuristics_.push_back(std::move(pSolver));
   }
 
-  const std::vector<std::unique_ptr<Solver>>& pHeuristics() const {
-    return pHeuristics_;
-  }
+  [[nodiscard]] const std::vector<std::unique_ptr<Solver>>&
+  pHeuristics() const { return pHeuristics_; }
 
   // Should be protected (and not private) because Solver will have subclasses
  protected:
@@ -361,8 +352,8 @@ class Solver {
   // Recall the "const" attributes as pointers : Scenario informations
   PScenario pScenario_;
 
-  // Minimum and optimum demand for each day, shift and skill
-  PDemand pDemand_;
+  // vector of demand for each day, shift and skill
+  vector<PDemand> pDemands_;
 
   // Preferences of the nurses (that vector must be of same length and in the
   // same order as the nurses)
@@ -408,7 +399,7 @@ class Solver {
 
   // Objective value of the current solution
   // Warning: this value may not be updated every time it should be
-  double objValue_ = XLARGE_SCORE;
+  double objValue_ = INFEAS_COST;
 
   // staffing in the solution : a 3D vector that contains the number of nurses
   //  for each triple (day,shift,skill)
@@ -424,19 +415,15 @@ class Solver {
   std::vector<PLiveNurse> theNursesSorted_;
 
  public:
-  // check the type of instance we are solving
-  bool isINRC2() { return pScenario_->isINRC2_; }
-  bool isINRC() { return pScenario_->isINRC_; }
+  [[nodiscard]] double epsilon() const { return param_.epsilon_; }
 
-  double epsilon() const { return param_.epsilon_; }
-
-  const SolverParam & parameters() const { return param_; }
+  [[nodiscard]] const SolverParam & parameters() const { return param_; }
 
   virtual void setParameters(const SolverParam &param) {
     param_ = param;
   }
 
-  const DynamicWeights& getDynamicWeights() const {
+  [[nodiscard]] const DynamicWeights& getDynamicWeights() const {
     return dynamicWeights_;
   }
 
@@ -448,7 +435,7 @@ class Solver {
     job_ = job;
   }
 
-  Tools::Job getJob() const { return job_; }
+  [[nodiscard]] Tools::Job getJob() const { return job_; }
 
   //------------------------------------------------
   // Solution with rolling horizon process
@@ -468,19 +455,20 @@ class Solver {
   std::vector<bool> isFixNurse_;
 
  public:
-  bool isPartialRelaxed() const { return isPartialRelaxDays_; }
-  bool isRelaxDay(int day) const {
+  [[nodiscard]] bool isPartialRelaxed() const { return isPartialRelaxDays_; }
+  [[nodiscard]] bool isRelaxDay(int day) const {
     return isPartialRelaxDays_ && isRelaxDay_[day];
   }
 
-  bool isPartialAvailable() const { return isPartialAvailable_; }
-  bool isNurseAvailableOnDayShift(int nurseNum, int day, int shift) const {
+  [[nodiscard]] bool isPartialAvailable() const { return isPartialAvailable_; }
+  [[nodiscard]] bool isNurseAvailableOnDayShift(
+          int nurseNum, int day, int shift) const {
     return !isPartialAvailable_ ||
            nursesAvailabilities_[nurseNum][day][shift];
   }
 
-  bool isPartialFixNurses() const { return isPartialFixNurses_; }
-  bool isFixNurse(int n) const {
+  [[nodiscard]] bool isPartialFixNurses() const { return isPartialFixNurses_; }
+  [[nodiscard]] bool isFixNurse(int n) const {
     return isPartialFixNurses_ && isFixNurse_[n];
   }
 
@@ -493,7 +481,7 @@ class Solver {
   // the current solution
   virtual void fixAvailabilityBasedOnSolution(
       const std::vector<bool> &fixDays,
-      const std::vector<Roster> &solution = {}) {
+      const std::vector<Roster> &solution) {
     Tools::throwError(
         "Solver::fixAvailabilityBasedOnSolution() not implemented");
   }
@@ -501,7 +489,7 @@ class Solver {
   // set availability for the days before fixBefore (<=) based on
   // the current solution
   virtual void fixAvailabilityBasedOnSolution(
-      int fixBefore, const std::vector<Roster> &solution = {}) {
+      int fixBefore, const std::vector<Roster> &solution) {
     std::vector<bool> fixDays(nDays(), false);
     for (int k = 0; k <= fixBefore; ++k) fixDays[k] = true;
     fixAvailabilityBasedOnSolution(fixDays, solution);
@@ -630,6 +618,9 @@ class Solver {
   // the shifts, skills, nurses
   void preprocessData();
 
+  // find the maximum gap to be optimal
+  int findMaxOptimalGap() const;
+
   //------------------------------------------------
   // Postprocess functions
   //------------------------------------------------
@@ -637,12 +628,12 @@ class Solver {
   // check the feasibility of the demand with these nurses
   virtual bool checkFeasibility();
 
-  // build the, possibly fractional, roster corresponding to the solution
+  // build the possibly fractional, roster corresponding to the solution
   // currently stored in the model
-  virtual vector3D<double> fractionalRoster() const { return {}; }
+  [[nodiscard]] virtual vector3D<double> fractionalRoster() const { return {}; }
 
   // count the fraction of current solution that is integer
-  double computeFractionOfIntegerInCurrentSolution() const;
+  [[nodiscard]] double computeFractionOfIntegerInCurrentSolution() const;
 
 // // compute the fractional penalty due to weekend that should be paid if in a
 // // model with complete plannings
@@ -653,18 +644,15 @@ class Solver {
   double computeSolutionCost(int nbDays, bool payExcessImmediately = true);
 
   double computeSolutionCost(bool payExcessImmediately = true) {
-    return computeSolutionCost(pDemand_->nDays_, payExcessImmediately);
+    return computeSolutionCost(nDays(), payExcessImmediately);
   }
-
-  // get aggregate information on the solution and write them in a string
-  std::string solutionStatisticsToString(int nbDays);
 
   //------------------------------------------------
   // Display functions
   //------------------------------------------------
 
   // return the status of the solution
-  Status status(bool removeTIME_LIMIT = false) const {
+  [[nodiscard]] Status status(bool removeTIME_LIMIT = false) const {
     if (removeTIME_LIMIT && status_ == TIME_LIMIT)
       return isSolutionInteger() ? FEASIBLE : INFEASIBLE;
     return status_;
@@ -672,6 +660,7 @@ class Solver {
   void status(Status status) { status_ = status; }
 
   // return/set solution_
+  [[nodiscard]]
   const std::vector<Roster> &solution() const { return solution_; }
   void addRosterToSolution(const Roster &roster) {
     solution_.push_back(roster);
@@ -680,10 +669,10 @@ class Solver {
     solution_ = solution;
   }
 
-  double objValue() const { return objValue_; }
+  [[nodiscard]] double objValue() const { return objValue_; }
 
   // get the timer
-  const Tools::Timer& timerTotal() const { return timerTotal_; }
+  [[nodiscard]] const Tools::Timer& timerTotal() const { return timerTotal_; }
 
   void resetTimerTotal() {
     timerTotal_.reset();
@@ -695,10 +684,13 @@ class Solver {
   // convert the internal solution of a solver into a interpretable one
   // return false if fails, true otherwise
   virtual bool storeSolution() { return false; }
-  virtual std::string costsConstraintsToString() const { return ""; }
-  virtual std::map<string, double> costsConstraintsByName() const {
-    return {};
+
+  [[nodiscard]] virtual std::string costsConstraintsToString() const {
+    return "";
   }
+
+  [[nodiscard]] virtual std::map<string, double>
+  costsConstraintsByName() const { return {}; }
 
     // return the final states of the nurses
   std::vector<State> finalStates();
@@ -726,76 +718,55 @@ class Solver {
   // information on the solution quality
   std::string writeResourceCosts();
   std::string solutionToLogString();
+  std::string coverageToString();
   // if resetInitialState, do not count previous totals in the initial state
   string writeResourceCostsPerNurse(bool resetInitialState = false);
   string writeResourceCostsINRC2();
 
-  PScenario pScenario() const { return pScenario_; }
+  [[nodiscard]] PScenario pScenario() const { return pScenario_; }
 
-  const std::vector<PLiveNurse> &pLiveNurses() const {
+  [[nodiscard]] const std::vector<PLiveNurse> &pLiveNurses() const {
     return theLiveNurses_;
   }
-  const std::vector<PLiveNurse> &sortedLiveNurses() const {
+
+  [[nodiscard]] const std::vector<PLiveNurse> &sortedLiveNurses() const {
     return theNursesSorted_;
   }
 
-  std::vector<State> *pInitialStates() const { return pInitState_; }
+  [[nodiscard]] std::vector<State> *pInitialStates() const {
+    return pInitState_;
+  }
 
  public:
   // Returns the number of days over which the solver solves the problem
-  int firstDayId() const { return pDemand_->firstDayId_; }
-  int nDays() const { return pDemand_->nDays_; }
+  [[nodiscard]] int firstDayId() const { return pDemand()->firstDayId_; }
+  [[nodiscard]] int nDays() const { return pDemand()->nDays_; }
 
   // Returns the number of nurses
-  int nNurses() const { return theLiveNurses_.size(); }
+  [[nodiscard]] int nNurses() const { return theLiveNurses_.size(); }
 
   // Returns the number of shifts
-  int nShifts() const { return pDemand_->nShifts_; }
+  [[nodiscard]] int nShifts() const { return pDemand()->nShifts_; }
 
   // Returns the demand
-  PDemand pDemand() const { return pDemand_; }
+  [[nodiscard]] PDemand pDemand(int d = 0) const { return pDemands_.at(d); }
+  [[nodiscard]] const vector<PDemand>& pDemands() const { return pDemands_; }
+  [[nodiscard]] int nDemands() const { return pDemands_.size(); }
 
-  virtual double LB() const { return -XLARGE_SCORE; }
+  [[nodiscard]] virtual double LB() const { return -INFEAS_COST; }
 
   // Extend the rosters in the solution with the days covered by the input
   // solution
   void extendSolution(std::vector<Roster> solutionExtension);
 
   // Print the current best solution
-  virtual std::string currentSolToString() const { return ""; }
+  [[nodiscard]] virtual std::string currentSolToString() const { return ""; }
 
   // When a solution of multiple consecutive weeks is available,
   // display the complete solution in the log and write the solution of
   // the weeks separately
   bool displaySolutionMultipleWeeks(bool addNumNursesInFileName = false,
                                     std::string outDir = "");
-
-  // set the function to override
-  // the default resource generation function defaultgeneratePResources
-  // in the master problem
-  void setGeneratePResourcesFunction(
-      const std::function<std::vector<PResource>(const PLiveNurse &)> &f) {
-    generatePResourcesFunc_ = f;
-    useDefaultResources_ = !f;
-  }
-
-  bool useDefaultResources() const {
-    return useDefaultResources_;
-  }
-
-  std::function<std::vector<PResource>(const PLiveNurse &)>
-      generatePResourcesFunc() const {
-    return generatePResourcesFunc_;
-  }
-
- protected:
-  bool useDefaultResources_ = true;
-
- private:
-  // Functions to generate the resources for a given nurse for the subproblem
-  // if this function is defined, it will override any default function
-  std::function<std::vector<PResource>(const PLiveNurse &)>
-      generatePResourcesFunc_ = nullptr;
 };
 
 #endif  // SRC_SOLVERS_SOLVER_H_

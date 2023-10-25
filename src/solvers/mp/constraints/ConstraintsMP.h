@@ -82,7 +82,7 @@ class ConstraintMP {
 
   void resetMaxDualValues() {
     maxDualValues_.clear();
-    maxDualValues_.resize(pScenario_->nNurses(), -XLARGE_SCORE);
+    maxDualValues_.resize(pScenario_->nNurses(), -INFEAS_COST);
   }
 };
 
@@ -175,11 +175,8 @@ class AllocationConstraint : public ConstraintMP {
 
 class DemandConstraint : public ConstraintMP {
  public:
-  DemandConstraint(MasterProblem *pMaster,
-                   bool minDemand,
-                   bool soft = false,
-                   double underCoverage = 0,
-                   double overCoverage = 0);
+  DemandConstraint(MasterProblem *pMaster, int demandIndex,
+                   const std::string &name, bool buildAll = false);
 
   // update the values of the variables and constraints based
   // on the current model values
@@ -203,10 +200,10 @@ class DemandConstraint : public ConstraintMP {
   }
 
  protected:
-  bool minDemand_;
   std::string prefix_;
-  bool soft_;
-  double underCoverage_, overCoverage_;
+  PDemand pDemand_;
+  int demandIndex_;
+  bool buildAll_;
   // demand constraints per day, shift, skills
   vector3D<MyCons *> demandCons_;
   // slack variables for each constraint
@@ -216,6 +213,7 @@ class DemandConstraint : public ConstraintMP {
 
   // build the constraints
   void build();
+  bool buildCons(int k, int s, int sk);
 
   const vector3D<int>& demand() const;
 };

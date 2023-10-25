@@ -64,7 +64,7 @@ double DualCosts::getCost(
 vector<double> DualCosts::getMaxDualValues() const {
   vector<double> maxDuals(pMaster_->nNurses());
   for (int n=0; n < maxDuals.size(); n++) {
-    double d = 0, maxD = -XLARGE_SCORE;
+    double d = 0, maxD = -INFEAS_COST;
     for (auto &pC : pMaster_->columnConstraints()) {
       double v = pC->maxDualValue(n);
       d += v;
@@ -114,8 +114,6 @@ SubProblem::SubProblem(PScenario scenario,
     timerPresolve_("SP pre-solve"),
     timerSolve_("SP solve"),
     timerPostsolve_("SP post-solve") {
-  // working everyday on the longest shift
-  maxTotalDuration_ = pScenario_->maxDuration() * nDays;
   init(*pScenario_->pInitialState());
 }
 
@@ -221,31 +219,6 @@ void SubProblem::resetSolutions() {
 // Functions for the pricing of the columns
 //
 //--------------------------------------------
-
-// Initializes some cost vectors that depend on the nurse
-void SubProblem::initStructuresForSolve() {
-  // Start and End weekend costs
-  Tools::initVector(&startWeekendCosts_, nDays_, .0);
-  Tools::initVector(&endWeekendCosts_, nDays_, .0);
-
-  if (pLiveNurse_->needCompleteWeekends()) {
-    for (int k = 0; k < nDays_; k++) {
-      if (pLiveNurse_->pContract_->isFirstWeekendDay(k))
-        endWeekendCosts_[k] = pScenario_->weights().completeWeekend;
-      else if (pLiveNurse_->pContract_->isLastWeekendDay(k))
-        startWeekendCosts_[k] = pScenario_->weights().completeWeekend;
-    }
-  }
-
-
-
-  // Preference costs.
-  Tools::initVector2D(&preferencesCosts_, nDays_, pScenario_->nShifts(), .0);
-
-  for (const auto &wish : pLiveNurse_->wishes())
-    for (const PShift &pS : pScenario_->pShifts())
-      preferencesCosts_[wish.first][pS->id] += wish.second.cost(pS);
-}
 
 // Forbids the nodes that correspond to forbidden shifts
 void SubProblem::forbid(const set<pair<int, int> > &forbiddenDayShifts) {

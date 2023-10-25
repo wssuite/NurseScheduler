@@ -266,7 +266,7 @@ class CoinModeler : public Modeler {
   virtual int nbSolutions() const { return 0; }
 
   virtual double getObjective() const { return pTree_->getBestUB(); }
-  virtual double getObjective(int index) const { return XLARGE_SCORE; }
+  virtual double getObjective(int index) const { return INFEAS_COST; }
 
   virtual int writeProblem(std::string fileName) const { return 0; }
 

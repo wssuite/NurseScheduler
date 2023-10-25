@@ -27,6 +27,8 @@ void SoftIdentWeekendResource::preprocess(const PRCGraph &pRCGraph) {
     double cost = 0;
     preprocess(pA, &cost);
     pA->addBaseCost(cost);
+    if (isInfeasibleCost(cost))
+      pRCGraph->forbidArc(pA, true);
   }
   isPreprocessed_ = true;
 }

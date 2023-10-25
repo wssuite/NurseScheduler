@@ -15,7 +15,9 @@
 #include <memory>
 #include <utility>
 
+#ifdef BOOST
 #include "solvers/mp/sp/rcspp/boost/RosterSP.h"
+#endif
 
 RosterSP::RosterSP(PScenario pScenario,
                    int firstDayId,
@@ -61,7 +63,7 @@ void RosterSP::createArcs(const PRCGraph &pRCGraph) {
 
   // arcs from source to first day
   for (auto shiftId : pLiveNurse_->pStateIni_->pShift_->successors) {
-    if (pLiveNurse_->isShiftNotAvailNorAlt(shiftId)) continue;
+    if (pLiveNurse_->isShiftNotAvail(shiftId)) continue;
     const PShift &pS = pScenario_->pShift(shiftId);
     const PRCNode &pN = pNodesPerDay_[0][pS->type];
     addSingleArc(pRCGraph, pRCGraph->pSource(0), pN, pS, 0);
@@ -73,10 +75,10 @@ void RosterSP::createArcs(const PRCGraph &pRCGraph) {
     for (const PShift &pS : pScenario_->pShifts()) {
       const PRCNode &pOrigin = pNodesPerDay_[d-1][pS->type];
       for (int succId : pS->successors) {
-        if (pLiveNurse_->isShiftNotAvailNorAlt(succId)) continue;
-        const PShift &pS = pScenario_->pShift(succId);
-        const PRCNode &pTarget = pNodesPerDay_[d][pS->type];
-        addSingleArc(pRCGraph, pOrigin, pTarget, pS, d);
+        if (pLiveNurse_->isShiftNotAvail(succId)) continue;
+        const PShift &pSSucc = pScenario_->pShift(succId);
+        const PRCNode &pTarget = pNodesPerDay_[d][pSSucc->type];
+        addSingleArc(pRCGraph, pOrigin, pTarget, pSSucc, d);
       }
     }
   }
@@ -101,7 +103,7 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   * Compute resources costs: this includes all the individual soft costs of the
    * nurse, including preferences, complete weekends, forbidden patterns, etc.
   */
-  vector<PResource> pActiveResources =
+  std::pair<vector<PResource>, PRCGraph> pActiveResources =
       computeResourcesCosts(*pLiveNurse_->pStateIni_, rcSol);
 
 #ifdef NS_DEBUG
@@ -113,23 +115,25 @@ void RosterSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
     std::cerr << rcSol->costsToString();
     std::cerr << rcSol->toString();
     std::cerr << "# " << std::endl;
-    vector<PResource> pActiveResources2 =
+    std::pair<vector<PResource>, PRCGraph> pActiveResources2 =
         computeResourcesCosts(*pLiveNurse_->pStateIni_, rcSol);
     if (rcSol->pLabel_ && pL) {
       std::cerr << "Associated rcspp label: " << std::endl;
-      std::cerr << pL->toStringRecursive(pActiveResources) << std::endl;
+      std::cerr << pL->toStringRecursive(pActiveResources.first) << std::endl;
       std::cerr << "Associated new label: " << std::endl;
-      std::cerr << rcSol->pLabel_->toStringRecursive(pActiveResources2);
+      std::cerr << rcSol->pLabel_->toStringRecursive(pActiveResources2.first);
     }
     Tools::throwError("RosterSP::computeCost does not get the same cost.");
   }
 
+#ifdef BOOST
   // check with boost if default resources
-  if (pMaster->useDefaultResources() && pMaster->isINRC2() &&
+  if (pScenario_->isWeightsDefined() &&
       pMaster->getDynamicWeights().version() > 0) {
     boostRCSPP::RosterSP sp(pScenario_, nDays(), pLiveNurse_, param_);
     sp.computeCost(nullptr, rcSol);
   }
+#endif
 
   // restore label
   rcSol->pLabel_ = pL;

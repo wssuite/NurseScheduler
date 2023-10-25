@@ -42,7 +42,7 @@ namespace boostRCSPP {
 // ResourceContainer model
 struct spp_res_cont {
   // Constructor
-  spp_res_cont() : cost(XLARGE_SCORE), postprocessCost(0) {}
+  spp_res_cont() : cost(INFEAS_COST), postprocessCost(0) {}
 
   spp_res_cont(double c, const std::vector<int> &label_values) :
       cost(c), postprocessCost(0), label_values(label_values) {}

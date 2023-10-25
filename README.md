@@ -16,6 +16,13 @@ Every information about INRC-II can be found on their website http://mobiz.vives
 
 These two references can also be found in the directory ./references.
 
+The other benchmarks INRC and NRP can be solved with this solver. 
+Here the information about all three benchmarks:
+
+1. INRC: https://nrpcompetition.kuleuven-kulak.be/
+2. INRC2: https://mobiz.vives.be/inrc2/
+3. NRP: http://www.schedulingbenchmarks.org/nrp/
+
 Assumptions
 ------------------
 
@@ -51,7 +58,7 @@ The following describes how to handle our code.
 
 	Every source file is in the ./src directory, where header files are used to declare the classes, and methods.
 
-	a. The main is in "DeterministicMain.cpp" and "DynamicMain.cpp". "DeterministicMain_test.cpp" is for the definition of some unitary tests.
+	a. In the "main/" folder, you will find "DeterministicMain.cpp", "DynamicMain.cpp", "Pricer.cpp".
 
 	b. Input data and basic preprocessing methods are stored in directory "data/"
 	and correspond to the files "Nurse.h/.cpp", "Roster.h", "Scenario.h/.cpp".
@@ -62,15 +69,17 @@ The following describes how to handle our code.
     - Every method that BCP needs are redefined for the branch-and-price algorithm are in "mp/modeler/BcpModeler.h/.cpp", "mp/modeler/CoinModeler.h" and in "mp/TreeManager.h/.cpp". The global structure of the column generation subproblem, including the construction of the constrained shortest path network, is in "mp/sp/Subproblem.h/.cpp", and the dynamic programming algorithm that solves the subproblems is implemented in "mp/sp/rcspp/BoostRCGraph.h/.cpp" (it is adapted from an algorithm found in the Boost library).
     - "StochasticSolver.h/.cpp" contains the declaration and the structure of the algorithm described in [3] and really close to the one submitted to INRCII.
 
-	d. The postprocessing/display/parsing methods are stored in the directory "tools/".
+	d. The postprocessing/display/parsing methods are stored in the directory "tools/" and "parsing/".
 	   Especially, the files "MyTools.h/.cpp" contain intermediary methods frequently used in the code.
 
 4. Execution of the deterministic solver:
 
+You can look at docker-entrypoint.sh to see some general ways of launching the solver. Below, more details.
+
 	a. A typical execution of our code is done from the root directory of the project with the following list of arguments:
 
 	```bash
-	./bin/staticscheduler --dir datasets/ --instance n030w4 --weeks 6-2-9-1 --his 1 --param paramfiles/default.txt --sol outfiles/default/n030w4_1_6-2-9-1 --timeout 780
+	./bin/staticscheduler --dir datasets/INRC2/ --instance n030w4 --weeks 6-2-9-1 --his 1 --param paramfiles/default.txt --sol outfiles/default/n030w4_1_6-2-9-1 --timeout 780
 
 	--dir is followed by the directory where the instance is stored
 	--instance is the name of the subdirectory of where the specific instance is stored
@@ -81,7 +90,7 @@ The following describes how to handle our code.
 	--timeout is the total execution time
 	```
 
-	The validator can then be run by:
+	The validator can then be run only on INRC2 instances with:
 	```bash
 	java -jar validator.jar --sce datasets/n030w4/Sc-n030w4.txt --his datasets/n030w4/H0-n030w4-1.txt --weeks datasets/n030w4/WD-n030w4-6.txt datasets/n030w4/WD-n030w4-2.txt datasets/n030w4/WD-n030w4-9.txt datasets/n030w4/WD-n030w4-1.txt --sols outfiles/default/n030w4_1_6-2-9-1/sol-week0.txt outfiles/default/n030w4_1_6-2-9-1/sol-week1.txt outfiles/default/n030w4_1_6-2-9-1/sol-week2.txt outfiles/default/n030w4_1_6-2-9-1/sol-week3.txt > outfiles/default/n030w4_1_6-2-9-1/validator.txt
 	```
@@ -101,17 +110,12 @@ The following describes how to handle our code.
 
    - run the solver on the instance n005w4_0_2-0-2-1 with options defined in paramfiles/default.txt:
    ```bash
-   ./bin/staticscheduler --dir datasets/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
+   ./bin/staticscheduler --dir datasets/INRC2/ --instance n005w4 --his 0 --weeks 2-0-2-1 --param paramfiles/default.txt
    ```
 
    - run the solver on the instance n005w4_0_2-0-2-1 with default options:
    ```bash
-   ./bin/staticscheduler --his testdatasets/n005w4/H0-n005w4-0.txt --sce testdatasets/n005w4/Sc-n005w4.txt --week testdatasets/n005w4/WD-n005w4-2.txt  --week testdatasets/n005w4/WD-n005w4-0.txt --week testdatasets/n005w4/WD-n005w4-2.txt --week testdatasets/n005w4/WD-n005w4-1.txt
-   ```
-
-   - run a test with name testname:
-   ```bash
-   ./bin/staticscheduler --test testname
+   ./bin/staticscheduler --his datasets/INRC2/n005w4/H0-n005w4-0.txt --sce datasets/INRC2/n005w4/Sc-n005w4.txt --week datasets/INRC2/n005w4/WD-n005w4-2.txt  --week datasets/INRC2/n005w4/WD-n005w4-0.txt --week datasets/INRC2/n005w4/WD-n005w4-2.txt --week datasets/INRC2/n005w4/WD-n005w4-1.txt
    ```
 
   c. Scripts located in folder "scripts/" to generate new scripts that run the determistic solver. Note that the outputs will then be written in "outfiles/param/".

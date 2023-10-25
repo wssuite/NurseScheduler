@@ -32,12 +32,10 @@ using std::vector;
  */
 class ConsShift {
  public:
-  ConsShift(const PAbstractShift &pShift,
-            int initialConsumption = 0,
+  ConsShift(int initialConsumption = 0,
             bool endOnLastDay = false,
             bool cyclic = false,
             bool enforceLBAtStart = true):
-            pAShift_(pShift),
             initialConsumption_(initialConsumption),
             lastDayEndsSequence_(endOnLastDay),
             cyclic_(cyclic),
@@ -54,19 +52,17 @@ class ConsShift {
     }
   }
 
-  const PAbstractShift &pAShift() const { return pAShift_; }
   bool lastDayEndsSequence() const { return lastDayEndsSequence_; }
   bool isCyclic() const { return cyclic_; }
   bool enforceLBAtStart() const { return enforceLBAtStart_; }
   int initialConsumption() const { return initialConsumption_; }
 
  protected:
-  const PAbstractShift pAShift_;
   // consumption of the resource in the initial state
   int initialConsumption_;
 
   // true if the last day of horizon puts an end to a sequence of shifts (and
-  // thus we need to pay LB cost if it LB is not met)
+  // thus we need to pay LB cost if its LB is not met)
   bool lastDayEndsSequence_;
 
   bool cyclic_;  // true of solving the cyclic version
@@ -90,11 +86,10 @@ class SoftConsShiftResource : public SoftBoundedResource, public ConsShift {
                         bool cyclic = false,
                         bool enforceLBAtStart = true,
                         std::string _name = "") :
-      SoftBoundedResource(_name.empty() ?
+      SoftBoundedResource(pShift, _name.empty() ?
                           "Soft Cons "+pShift->name : std::move(_name),
                           lb, ub, lbCost, ubCost),
-      ConsShift(pShift, initialConsumption, endOnLastDay,
-                cyclic, enforceLBAtStart) {
+      ConsShift(initialConsumption, endOnLastDay, cyclic, enforceLBAtStart) {
     totalNbDays_ = totalNbDays;
     costType_ = costType;
   }
@@ -156,11 +151,10 @@ class HardConsShiftResource : public HardBoundedResource, public ConsShift {
       int totalNbDays, int initialConsumption,
       bool endOnLastDay = false, bool cyclic = false,
       bool enforceLBAtStart = true, std::string _name = "") :
-      HardBoundedResource(_name.empty() ?
+      HardBoundedResource(pShift, _name.empty() ?
                           "Hard Cons " + pShift->name : std::move(_name),
                           lb, ub),
-      ConsShift(pShift, initialConsumption,
-                endOnLastDay, cyclic, enforceLBAtStart) {
+      ConsShift(initialConsumption, endOnLastDay, cyclic, enforceLBAtStart) {
     totalNbDays_ = totalNbDays;
   }
 

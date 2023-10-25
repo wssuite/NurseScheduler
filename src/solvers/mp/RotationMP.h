@@ -66,9 +66,9 @@ struct RotationColumn : public Column {
   // Moreover, there needs to be a resting day before and after each rotation,
   // so the shifts can also be forbidden on these two days
   // (if the rotation is not at an extremity of the horizon).
-  void addForbiddenShifts(std::set<std::pair<int, int> > *forbiddenShifts,
-                          int nbShifts,
-                          PDemand pDemand) const override;
+  void addForbiddenShifts(
+          std::set<std::pair<int, int> > *forbiddenShifts,
+          int firstDayId, int nDays, int nbShifts) const override;
 
   //  Compute the dual cost of a column
   void checkReducedCost(const DualCosts &dualCosts,
@@ -112,7 +112,7 @@ class RotationMP : public MasterProblem {
 
   // update the demand with a new one of the same size
   // change the rhs of the constraints minDemandCons_ and optDemandCons_
-  void update(const PDemand& pDemand) override;
+  void update(vector<PDemand> pDemands) override;
 
   // Provide an initial solution to the solver. If empty, add artificial columns
   void initializeSolution(const std::vector<Roster> &solution) override;

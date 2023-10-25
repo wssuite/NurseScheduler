@@ -47,7 +47,7 @@ int BoundedResourceConstraint<H, S>::computeConsumption(
     const Stretch &st,
     const std::pair<H*, S*> &p,
     const PAbstractShift &prevS) const {
-  auto pS = p.first ? p.first->pShift() : p.second->pShift();
+  auto pS = p.first ? p.first->pAShift() : p.second->pAShift();
   bool ready = !(prevS && pS->includes(*prevS));
   int c = p.first ? p.first->computeConsumption(st, &ready):
           p.second->computeConsumption(st, &ready);
@@ -163,7 +163,7 @@ void BoundedResourceConstraint<H, S>::build(
   vector<double> lbCoeffs;
   vector<MyVar*> lbVars;
   snprintf(name, sizeof(name), "%s_lb_N%d_slack", cName, pN.num_);
-  double cost = pSR ? pSR->getLbCost(): LARGE_SCORE;
+  double cost = pSR ? pSR->getLbCost(): INFEAS_COST;
   pModel()->createPositiveVar(&vLB, name, cost, {}, 0, slack_bounds.first);
   lbCoeffs = {1};
   lbVars = {vLB};
@@ -174,7 +174,7 @@ void BoundedResourceConstraint<H, S>::build(
   vector<double> ubCoeffs;
   vector<MyVar*> ubVars;
   snprintf(name, sizeof(name), "%s_ub_N%d_slack", cName, pN.num_);
-  cost = pSR ? pSR->getUbCost(): LARGE_SCORE;
+  cost = pSR ? pSR->getUbCost(): INFEAS_COST;
   pModel()->createPositiveVar(&vUB, name, cost, {}, 0, slack_bounds.second);
   ubCoeffs = {-1};
   ubVars = {vUB};
@@ -251,6 +251,8 @@ void TotalShiftDurationConstraint::addConstraintFor(
 // update the dual values of the constraints randomly
 void TotalShiftDurationConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
+  if (!pScenario_->isWeightsDefined())
+    Tools::throwError("Cannot use random duals if weights is not defined.");
   createRandomUpdateDuals(2*pScenario_->weights().totalShifts);
 }
 
@@ -273,6 +275,8 @@ void TotalWeekendConstraint::addConstraintFor(
 // update the dual values of the constraints randomly
 void TotalWeekendConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
+  if (!pScenario_->isWeightsDefined())
+    Tools::throwError("Cannot use random duals if weights is not defined.");
   createRandomUpdateDuals(2*pScenario_->weights().totalWeekends);
 }
 

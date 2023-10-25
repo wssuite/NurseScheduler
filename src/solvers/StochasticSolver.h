@@ -34,7 +34,7 @@ class StochasticSolver : public Solver {
  public:
   StochasticSolver(PScenario pScenario,
                    StochasticSolverOptions options,
-                   std::vector<PDemand> demandHistory,
+                   vector2D<PDemand> demandHistory,
                    double costPreviousWeeks = 0);
 
   ~StochasticSolver();
@@ -90,11 +90,11 @@ class StochasticSolver : public Solver {
   //----------------------------------------------------------------------------
 
   // History
-  std::vector<PDemand> demandHistory_;
+  vector2D<PDemand> pDemandsHistory_;
   // Vector of random demands that are used to GENERATE the schedules
-  std::vector<PDemand> pGenerationDemands_;
+  vector2D<PDemand> pGenerationDemands_;
   // Generate a new demand for generation
-  PDemand generateSingleGenerationDemand();
+  vector<PDemand> generateSingleGenerationDemands();
 
 
 
@@ -105,7 +105,7 @@ class StochasticSolver : public Solver {
   //----------------------------------------------------------------------------
 
   // Vector of random demands that are used to EVAULATE the generated schedules
-  std::vector<PDemand> pEvaluationDemands_;
+  vector2D<PDemand> pEvaluationDemands_;
   // Generate the schedules that are used for evaluation
   void generateAllEvaluationDemands();
 
@@ -129,7 +129,7 @@ class StochasticSolver : public Solver {
   int nGeneratedSolutions_;
 
   // Return a solver with the algorithm specified for schedule GENERATION
-  Solver *setGenerationSolverWithInputAlgorithm(PDemand pDemand);
+  Solver *setGenerationSolverWithInputAlgorithm(vector<PDemand> pDemands);
   // Generate a new schedule
   bool generateNewSchedule();
 
@@ -154,7 +154,7 @@ class StochasticSolver : public Solver {
 
   // Return a solver with the algorithm specified for schedule EVALUATION
   Solver *setEvaluationWithInputAlgorithm(
-      PDemand pDemand, const vector<State> &stateEndOfSchedule);
+          vector<PDemand> pDemands, const vector<State> &stateEndOfSchedule);
 
   // Evaluate the last schedule and store the corresponding detailed results
   // (returns false if time has run out)

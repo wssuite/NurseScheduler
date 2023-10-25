@@ -13,7 +13,7 @@ completeOptimalityLevel=UNTIL_FEASIBLE
 rollingSamplePeriod=7
 rollingControlHorizon=7
 rollingPredictionHorizon=56
-rollingOptimalityLevel=TWO_DIVES
+rollingOptimalityLevel=REPEATED_DIVES
 
 # lns options
 lnsMaxItWithoutImprovement=100

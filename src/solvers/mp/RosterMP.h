@@ -51,9 +51,9 @@ struct RosterColumn : public Column {
   // When branching on this column, this method add the corresponding
   // forbidden shifts to the set.
   // It will forbid any shifts on any days as the nurse already has a roster.
-  void addForbiddenShifts(std::set<std::pair<int, int> > *forbiddenShifts,
-                          int nbShifts,
-                          PDemand pDemand) const override;
+  void addForbiddenShifts(
+          std::set<std::pair<int, int> > *forbiddenShifts,
+          int firstDayId, int nDays, int nbShifts) const override;
 
   // Compute the reduced cost of a roster and compare it to the one found
   // by the subproblem

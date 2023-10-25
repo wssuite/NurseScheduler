@@ -207,17 +207,22 @@ InputPaths *readCompactArguments(int argc, char **argv) {
   // check if short representation of INRC2 instance n005w4_0_1-2-3-4
   // ideally an enum
   // not the origin method since the object inputPath is not initialised yet
-  if (historyIndex == -1 && weekIndices.empty()) {
-    std::vector<string> inst = Tools::tokenize<string>(instanceName, '_');
-    if (inst.size() == 3) {
-      try {
-        historyIndex = std::stoi(inst[1]);
-        weekIndices = Tools::tokenize<int>(inst[2], '-');
-        instanceName = inst[0];
-      } catch (...) {
-        // as an error has been raised, do not modify instanceName
-        historyIndex = -1;
-        weekIndices.clear();
+  if ((origin.empty() ||
+       Tools::toUpperCase(origin) == namesByInstanceOrigin.at(INRCII)) &&
+       historyIndex == -1 && weekIndices.empty()) {
+    // if instance name does not contain a dot
+    if (instanceName.find('.') == std::string::npos) {
+      std::vector<string> inst = Tools::tokenize<string>(instanceName, '_');
+      if (inst.size() == 3) {
+        try {
+          historyIndex = std::stoi(inst[1]);
+          weekIndices = Tools::tokenize<int>(inst[2], '-');
+          instanceName = inst[0];
+        } catch (...) {
+          // as an error has been raised, do not modify instanceName
+          historyIndex = -1;
+          weekIndices.clear();
+        }
       }
     }
   }

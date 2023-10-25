@@ -32,7 +32,7 @@
 class Roster : public Stretch {
  public:
   // Default constructor
-  Roster() : Stretch(), cost_(LARGE_SCORE) {}
+  Roster() : Stretch(), cost_(INFEAS_COST) {}
 
   // Constructor: initialize planning from an input set of shifts and skills
   Roster(int firstDay,

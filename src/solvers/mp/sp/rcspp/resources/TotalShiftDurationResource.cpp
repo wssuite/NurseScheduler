@@ -15,7 +15,7 @@ int TotalShiftDuration::computeConsumption(
     const Stretch &stretch, bool *ready) const {
   int consumption = 0;
   for (const auto &pShift : stretch.pShifts())
-    if (pAShift_->includes(*pShift))
+    if (pAShift__->includes(*pShift))
       consumption += duration(pShift);
   return consumption;
 }
@@ -152,7 +152,7 @@ DominationStatus HardTotalShiftDurationResource::dominates(
   if (c1 == c2) return DOMINATED;
   if (c1 < c2) return c1 >= lb_ ? DOMINATED : UB_DOMINATED;
   // do not work if counting rest shifts
-  if (pShift()->isRest()) return NOT_DOMINATED;
+  if (pAShift()->isRest()) return NOT_DOMINATED;
   // check if c1 could be exceeded before the end of horizon
   int day = pL1->getNode()->dayId;
   int remainingDays =
@@ -197,7 +197,7 @@ bool HardTotalShiftDurationExpander::expand(const PRCLabel &pLChild,
   if (vChild->consumption  > resource_.getUb())
     return false;
 
-  // if will reach the end while remaining lower than LB -> return false
+  // it will reach the end while remaining lower than LB -> return false
   // otherwise true
   return vChild->consumption + maxDurationLeft_ >= resource_.getLb();
 }

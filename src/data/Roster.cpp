@@ -26,7 +26,7 @@ using std::pair;
 Roster::Roster(int firstDay,
                std::vector<PShift> shifts,
                const std::vector<int> &skills) :
-    Stretch(firstDay, std::move(shifts)), cost_(LARGE_SCORE) {
+    Stretch(firstDay, std::move(shifts)), cost_(INFEAS_COST) {
   // set the skill assignment
   skills_ = skills;
   skills_.resize(nDays());
@@ -42,7 +42,7 @@ void Roster::init(
   Stretch::init(firstDay, nDays, pSDefault);
   skills_.clear();
   skills_.resize(nDays, skillDefault);
-  cost_ = LARGE_SCORE;
+  cost_ = INFEAS_COST;
   costPerType_ = initCostPerIntType();
 }
 

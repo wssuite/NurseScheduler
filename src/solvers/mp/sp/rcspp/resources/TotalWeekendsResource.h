@@ -33,10 +33,9 @@ using std::vector;
  */
 class TotalWeekend {
  public:
-  TotalWeekend(PAbstractShift  pShift,
+  TotalWeekend(const PAbstractShift &pShift,
                DayOfWeek first = SATURDAY, DayOfWeek last = SUNDAY) :
-      pAShift_(std::move(pShift)),
-      weekend_(first, last),
+      pAShift__(pShift), weekend_(first, last),
       totalNbWeekends_(0) {}
 
   virtual int computeConsumption(const Stretch &stretch,
@@ -45,27 +44,28 @@ class TotalWeekend {
   int computeBackConsumption(const Stretch &stretch,
                              bool *ready) const;
 
-  const PAbstractShift& pShift() const { return pAShift_; }
-
   const Weekend& weekend() const { return weekend_; }
 
  protected:
-  const PAbstractShift pAShift_;
   const Weekend weekend_;
 //  BoundedResource *pR_;
   int totalNbWeekends_;
+
+ private:
+  PAbstractShift pAShift__;
 };
 
 class SoftTotalWeekendsResource :
     public SoftBoundedResource, public TotalWeekend {
  public:
   SoftTotalWeekendsResource(
-      int ub, double ubCost,
+      int lb, int ub, double lbCost, double ubCost,
       const PAbstractShift &pShift,
       int totalNbDays,
       DayOfWeek firstWeekendDay = SATURDAY,
       DayOfWeek lastWeekendDay = SUNDAY) :
-      SoftBoundedResource("Soft Weekend Total work", 0, ub, 0, ubCost),
+      SoftBoundedResource(pShift, "Soft Weekend Total work",
+                          lb, ub, lbCost, ubCost),
       TotalWeekend(pShift, firstWeekendDay, lastWeekendDay) {
     totalNbDays_ = totalNbDays;
     totalNbWeekends_ = weekend_.nWeekendsInInterval(
@@ -75,7 +75,7 @@ class SoftTotalWeekendsResource :
 
   BaseResource* clone() const override {
     return new SoftTotalWeekendsResource(
-        ub_, ubCost_, pAShift_, totalNbDays_,
+        lb_, ub_, lbCost_, ubCost_, pAShift_, totalNbDays_,
         weekend_.firstWeekendDay().getDayOfWeek(),
         weekend_.lastWeekendDay().getDayOfWeek());
   }
@@ -145,19 +145,19 @@ class HardTotalWeekendsResource :
     public HardBoundedResource, public TotalWeekend {
  public:
   HardTotalWeekendsResource(
-      int ub,
+      int lb, int ub,
       const PAbstractShift &pShift,
       int totalNbDays,
       DayOfWeek firstWeekendDay = SATURDAY,
       DayOfWeek lastWeekendDay = SUNDAY) :
-      HardBoundedResource("Hard Weekend Total work", 0, ub),
+      HardBoundedResource(pShift, "Hard Weekend Total work", lb, ub),
       TotalWeekend(pShift, firstWeekendDay, lastWeekendDay) {
     totalNbDays_ = totalNbDays;
   }
 
   BaseResource* clone() const override {
     return new HardTotalWeekendsResource(
-        ub_, pAShift_, totalNbDays_,
+        lb_, ub_, pAShift_, totalNbDays_,
         weekend_.firstWeekendDay().getDayOfWeek(),
         weekend_.lastWeekendDay().getDayOfWeek());
   }

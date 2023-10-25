@@ -25,7 +25,7 @@ int TotalWeekend::computeConsumption(const Stretch &stretch,
     if (weekend_.isWeekend(pD)) {
       // check if included on this day and
       // if weekend has not been already counted
-      if (*ready && pAShift_->includes(**itShift)) {
+      if (*ready && pAShift__->includes(**itShift)) {
         consumption++;
         *ready = false;
       }
@@ -50,7 +50,7 @@ int TotalWeekend::computeBackConsumption(const Stretch &stretch,
     if (weekend_.isWeekend(i)) {
       // check if working on this day and
       // if weekend has not been already counted
-      if (*ready && pAShift_->includes(**itShift)) {
+      if (*ready && pAShift__->includes(**itShift)) {
         consumption++;
         *ready = false;
       }
@@ -148,28 +148,30 @@ bool SoftTotalWeekendsResource::merge(
 
 bool SoftTotalWeekendsExpander::expand(const PRCLabel &pLChild,
                                        ResourceValues *vChild) {
+  // update consumption
   vChild->consumption +=
-      resource_.computeConsumption(stretch_, &vChild->readyToConsume);
+          resource_.computeConsumption(stretch_, &vChild->readyToConsume);
 
-  if (vChild->consumption > resource_.getUb()) {
+  // pay for excess of consumption due to this expansion
+  if (vChild->consumption  > resource_.getUb()) {
     pLChild->addBaseCost(resource_.getUbCost(vChild->consumption));
 #ifdef NS_DEBUG
     pLChild->addTotalWeekendCost(resource_.getUbCost(vChild->consumption));
 #endif
-
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
   }
-
-  if (arcToSink_) {
+  if (arcToSink_ && vChild->consumption < resource_.getLb()) {
     pLChild->addBaseCost(resource_.getLbCost(vChild->consumption));
 #ifdef NS_DEBUG
     pLChild->addTotalWeekendCost(resource_.getLbCost(vChild->consumption));
 #endif
   }
+
   // Setting 'worst case cost'
   // if the resource is not ready to be consumed, it means that the current
   // weekend must not be counted in the potentially remaining weekends
+  vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost =
       resource_.getWorstUbCost(vChild->consumption, nWeekendsAfter_);
 
@@ -193,10 +195,12 @@ bool SoftTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
     // beware: we never need to store a consumption larger than the upper bound
     vChild->consumption = resource_.getUb();
   }
+  // check soft LB cost only when merging labels with the source label
 
   // Setting worst-case costs
   // if the resource is not ready to be consumed, it means that the current
   // weekend must not be counted in the potentially remaining weekends
+  vChild->worstLbCost = resource_.getWorstLbCost(vChild->consumption);
   vChild->worstUbCost =
       resource_.getWorstUbCost(vChild->consumption, nWeekendsBefore_);
 
@@ -219,9 +223,11 @@ PExpander HardTotalWeekendsResource::init(const AbstractShift &prevAShift,
 
 bool HardTotalWeekendsExpander::expand(const PRCLabel &pLChild,
                                        ResourceValues *vChild) {
+  // update consumption
   vChild->consumption +=
       resource_.computeConsumption(stretch_, &vChild->readyToConsume);
 
+  // if exceed UB
   if (vChild->consumption > resource_.getUb())
     return false;
 
@@ -232,6 +238,7 @@ bool HardTotalWeekendsExpander::expand(const PRCLabel &pLChild,
 
 bool HardTotalWeekendsExpander::expandBack(const PRCLabel &pLChild,
                                            ResourceValues *vChild) {
+  // update consumption
   vChild->consumption +=
       resource_.computeBackConsumption(stretch_, &vChild->readyToConsume);
 

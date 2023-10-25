@@ -546,7 +546,7 @@ double HeuristicMIP::safeComputeObjUB() {
 
 double HeuristicMIP::computeObjUB() {
   if (pMaster() == nullptr)
-    return XLARGE_SCORE;
+    return INFEAS_COST;
   auto *pModel = pMaster()->pModel();
   double ub = pModel->getObjective()
       - pModel->getParameters().absoluteGap_
@@ -749,7 +749,7 @@ void HeuristicSolver::solve(const std::vector<BcpColumn *> &columns) {
     }
     unlock();
     // solve
-    pSolver_->solve(rosters);
+    double obj = pSolver_->solve(rosters);
   } else {
     unlock();
   }

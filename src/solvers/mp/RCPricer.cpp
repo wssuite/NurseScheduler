@@ -19,8 +19,10 @@
 #include "solvers/mp/sp/RosterSP.h"
 #include "solvers/mp/sp/RotationSP.h"
 #include "solvers/mp/modeler/BcpModeler.h"
+#ifdef BOOST
 #include "solvers/mp/sp/rcspp/boost/LongRotationSP.h"
 #include "solvers/mp/sp/rcspp/boost/RosterSP.h"
+#endif
 
 
 /* namespace usage */
@@ -243,16 +245,17 @@ vector<MyVar *> RCPricer::pricing(double bound,
       if (pModel_->getParameters().rcsppType_ == LABEL_SETTING &&
           subProblem->isLastRunOptimal()) {
         SubProblemParam par2(pMaster_->pModel()->getParameters());
+        SubProblem *sub2 = nullptr;
+#ifdef BOOST
         par2.strategyLevel_ =
             boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
-        SubProblem *sub2 = nullptr;
         if (pModel_->getParameters().spType_ == ALL_ROTATION)
           sub2 =
               new boostRCSPP::RotationSP(pScenario_, nbDays_, pNurse, par2);
         else if (pModel_->getParameters().spType_ == ROSTER)
           sub2 =
               new boostRCSPP::RosterSP(pScenario_, nbDays_, pNurse, par2);
-
+#endif
 //        par2.rcsppBidirectional_ = !par2.rcsppBidirectional_;
 //        sub2 = new RosterSP(pScenario_, 0, nbDays_, pNurse,
 //                            pMaster_->getSPResources(pNurse), par2);
@@ -520,36 +523,54 @@ SubProblem *RCPricer::buildSubproblem(const PLiveNurse &pNurse,
   SubProblem *subProblem;
   switch (pModel_->getParameters().spType_) {
     case LONG_ROTATION:
-      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING)
+      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING) {
+#ifdef BOOST
         subProblem = new boostRCSPP::LongRotationSP(
-            pScenario_, nbDays_, pNurse, spParam);
-      else
+                pScenario_, nbDays_, pNurse, spParam);
+#else
+        Tools::throwError("Boost subproblems are not compiled, "
+                          "thus rcspp BOOST_LABEL_SETTING cannot be used.");
+#endif
+      } else {
         subProblem = new RotationSP(pScenario_, 0, nbDays_, pNurse,
                                     pMaster_->getSPResources(pNurse),
                                     spParam);
+      }
       break;
     case ALL_ROTATION: {
-      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING)
+      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING) {
+#ifdef BOOST
         subProblem = new boostRCSPP::RotationSP(
-            pScenario_, nbDays_, pNurse, spParam);
-      else
+                pScenario_, nbDays_, pNurse, spParam);
+#else
+        Tools::throwError("Boost subproblems are not compiled, "
+                          "thus rcspp BOOST_LABEL_SETTING cannot be used.");
+#endif
+      } else {
         subProblem = new RotationSP(pScenario_, 0, nbDays_, pNurse,
                                     pMaster_->getSPResources(pNurse),
                                     spParam);
+      }
       break;
     }
     case ROSTER: {
-      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING)
+      if (pModel_->getParameters().rcsppType_ == BOOST_LABEL_SETTING) {
+#ifdef BOOST
         subProblem = new boostRCSPP::RosterSP(
-            pScenario_, nbDays_, pNurse, spParam);
-      else if (pScenario_->isCyclic())
+                pScenario_, nbDays_, pNurse, spParam);
+#else
+        Tools::throwError("Boost subproblems are not compiled, "
+                          "thus rcspp BOOST_LABEL_SETTING cannot be used.");
+#endif
+      } else if (pScenario_->isCyclic()) {
         subProblem = new CyclicRosterSP(pScenario_, 0, nbDays_, pNurse,
                                         pMaster_->getSPResources(pNurse),
                                         spParam);
-      else
+      } else {
         subProblem = new RosterSP(pScenario_, 0, nbDays_, pNurse,
                                   pMaster_->getSPResources(pNurse),
                                   spParam);
+      }
       break;
     }
     default:
@@ -586,7 +607,7 @@ int RCPricer::addColumnsToMaster(int nurseNum,
   for (const RCSolution &sol : *solutions) {
     allNewColumns_.push_back(pMaster_->addColumn(nurseNum, sol));
 #ifdef NS_DEBUG
-//      std::cout << sol.toStringINRC2() << std::endl;
+//      std::cout << sol.toString() << std::endl;
     if (dynamic_cast<BcpColumn *>(allNewColumns_.back()) == nullptr) {
       std::cerr << "Should be a BcpColumn." << std::endl;
     }

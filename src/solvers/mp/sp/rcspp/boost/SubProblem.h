@@ -39,6 +39,7 @@ class SubProblem : public SP {
       CDMin_(pLiveNurse_->minConsDaysWork()),
       minConsDays_(1),
       maxRotationLength_(nDays),
+      maxTotalDuration_(pScenario_->maxDuration() * nDays),
       defaultStrategy_(param_.strategyLevel_) {
     // set initial strategy
     initSubproblemParam(defaultStrategy_);
@@ -76,6 +77,8 @@ class SubProblem : public SP {
   void build() override;
 
   bool solve(bool initialSolve = true, bool relaxation = false) override;
+
+  void initStructuresForSolve() override;
 
   static const int maxSubproblemStrategyLevel_;
 
@@ -169,6 +172,8 @@ class SubProblem : public SP {
   int minConsDays_;
   // MAXIMUM LENGTH OF A ROTATION (in consecutive worked days)
   int maxRotationLength_;
+  // Maximum time duration of a roster
+  int maxTotalDuration_;
 
   // Labels to take into account when solving
   std::vector<LABEL> labels_;
@@ -185,6 +190,21 @@ class SubProblem : public SP {
   std::vector<int> arcsTosink_;
 
   int defaultStrategy_;
+
+  //-----------------------
+  // THE BASE COSTS
+  //-----------------------
+  // WARNING : for those that never change, of no use also.
+
+  // For each day k (<= nDays_ - CDMin), contains completeWeekend cost if
+  // [it is a Saturday (resp. Sunday) AND the contract requires complete
+  // weekends]; 0 otherwise.
+  std::vector<double> startWeekendCosts_, endWeekendCosts_;
+  // Costs due to preferences of the nurse:
+  // for each day k (<= nDays_ - CDMin), shift s,
+  // contains WEIGHT_PREFERENCES if (k,s) is a preference of the nurse;
+  // 0 otherwise.
+  vector2D<double> preferencesCosts_;
 
   // Creates all arcs of the rcspp
   void createArcs() override;

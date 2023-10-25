@@ -8,7 +8,7 @@ set(SOURCE_FILES
         IdentWeekendResource.cpp
         PreferenceResource.cpp
         FreeDaysAfterShiftResource.cpp
-        AlternativeShiftResource.cpp)
+        UnwantedShiftResource.cpp)
 
 add_library(${LIB_NAME} STATIC ${SOURCE_FILES})
 if(DEFINED RCSPP_SHARED)

@@ -18,7 +18,6 @@
 
 #include "InitializeInstance.h"
 #include "solvers/mp/modeler/BcpModeler.h"
-#include "ReadWrite.h"
 
 
 using std::string;
@@ -46,7 +45,6 @@ DeterministicSolver::DeterministicSolver(
     pCompleteSolver_(nullptr),
     pRollingSolver_(nullptr),
     pLNSSolver_(nullptr) {
-  setGeneratePResourcesFunction(solver.generatePResourcesFunc());
   // The nurses must be preprocessed to use their positions
   if (!isPreprocessedNurses_) this->preprocessTheNurses();
 }
@@ -124,10 +122,10 @@ void DeterministicSolver::initializeOptions(const InputPaths &inputPaths) {
   lnsParameters_ = completeParameters_;
   rollingParameters_ = completeParameters_;
 
-  if (pScenario_->isINRC2_) {
-    PARAM(optimalAbsoluteGap_, 5)
-    PARAM(absoluteGap_, 5)
-  }
+  int gap = findMaxOptimalGap();
+  std::cout << "Set absolute optimality gap to " << gap << std::endl;
+  PARAM(optimalAbsoluteGap_, gap)
+  PARAM(absoluteGap_, gap)
 
   completeParameters_.optimalityLevel(OPTIMALITY);
 
@@ -316,7 +314,7 @@ void DeterministicSolver::updateImproveStats(Solver *pSolver) {
 
 // Main function
 double DeterministicSolver::solve(const std::vector<Roster> &solution) {
-  objValue_ = XLARGE_SCORE;
+  objValue_ = INFEAS_COST;
 
   // set the random seed to the same fixed value for every solution of a new
   // scenario
@@ -342,7 +340,7 @@ double DeterministicSolver::solve(const std::vector<Roster> &solution) {
 // After dividing into connected components, solve one component
 double DeterministicSolver::solveOneComponent(
     const std::vector<Roster> &solution) {
-  objValue_ = XLARGE_SCORE;
+  objValue_ = INFEAS_COST;
 
   // Always solve small problems to optimality; this can actually save time
   if (useCompleteSolverAnyway()) {
@@ -383,7 +381,7 @@ double DeterministicSolver::solveCompleteHorizon(
     pCompleteSolver_ = std::unique_ptr<Solver>(newSolverWithInputAlgorithm(
             options_.solutionAlgorithm_, completeParameters_));
     Tools::Job job([this, solution](Tools::Job job) {
-      pCompleteSolver_->solve(completeParameters_, solution);
+      double obj = pCompleteSolver_->solve(completeParameters_, solution);
     });
     pCompleteSolver_->attachJob(job);
   } else {
@@ -502,7 +500,7 @@ double DeterministicSolver::solveByConnectedPositions() {
 
     if (options_.verbose_ > 0) {
       std::cout << "COMPONENT-WISE SCENARIO" << std::endl;
-      std::cout << pScenario->toStringINRC2() << std::endl;
+      std::cout << pScenario->toString() << std::endl;
     }
 
     // fetch the pSolver if already existing or create anew one
@@ -534,7 +532,7 @@ double DeterministicSolver::solveByConnectedPositions() {
       status_ = newStatus;
       std::cout << "Solution process by connected component did not "
                    "terminate normally" << std::endl;
-      return XLARGE_SCORE;
+      return INFEAS_COST;
     }
 
     // STORE THE SOLUTION
@@ -602,22 +600,22 @@ double DeterministicSolver::solveWithRollingHorizon(
   //
   int firstDay = 0;  // first day of the current horizon
   double LB = 0;  // LB obtained on the first solve (this is only real LB)
-  while (firstDay < pDemand_->nDays_) {
+  while (firstDay < nDays()) {
     std::cout << "FIRST DAY = " << firstDay << std::endl << std::endl;
 
     // last days of the sample horizon and of the control horizon
     //
     int lastDaySample =
-        std::min(firstDay + samplePeriod - 1, pDemand_->nDays_ - 1);
+        std::min(firstDay + samplePeriod - 1, nDays() - 1);
     int lastDayControl =
-        std::min(firstDay + controlPeriod - 1, pDemand_->nDays_ - 1);
+        std::min(firstDay + controlPeriod - 1, nDays() - 1);
 
     // Relax the integrality constraints on the variables outside the horizon
     // control (and inside the prediction horizon, but at this stage the
     // prediction horizon includes the whole horizon)
     //
-    vector<bool> isRelaxDay(pDemand_->nDays_, false);
-    for (int day = lastDayControl + 1; day < pDemand_->nDays_; day++)
+    vector<bool> isRelaxDay(nDays(), false);
+    for (int day = lastDayControl + 1; day < nDays(); day++)
       isRelaxDay[day] = true;
     pRollingSolver_->relaxDays(isRelaxDay);
 
@@ -638,15 +636,14 @@ double DeterministicSolver::solveWithRollingHorizon(
       std::cout << pRollingSolver_->currentSolToString() << std::endl;
 
     // fix the days of the sample horizon to the values of the solution
-    pRollingSolver_->fixAvailabilityBasedOnSolution(lastDaySample);
+    pRollingSolver_->fixAvailabilityBasedOnSolution(lastDaySample, {});
 
     // update the first and last day of the sample period
     firstDay = firstDay + samplePeriod;
-    lastDayControl = std::min(firstDay + controlPeriod - 1,
-                              pDemand_->nDays_ - 1);
+    lastDayControl = std::min(firstDay + controlPeriod - 1, nDays() - 1);
 
     // Set back the integrality constraints for next sampling period
-    vector<bool> isUnrelaxDay(pDemand_->nDays_, false);
+    vector<bool> isUnrelaxDay(nDays(), false);
     for (int day = 0; day <= lastDayControl; day++) isUnrelaxDay[day] = true;
     pRollingSolver_->unrelaxDays(isUnrelaxDay);
 
@@ -678,7 +675,7 @@ double DeterministicSolver::solveWithRollingHorizon(
   if (pRollingSolver_->isSolutionInteger())
     pRollingSolver_->storeSolution();
   if (pRollingSolver_->status() != INFEASIBLE)
-    pRollingSolver_->costsConstraintsToString();
+    std::cout << pRollingSolver_->costsConstraintsToString() << std::endl;
 
   std::cout << "END OF ROLLING HORIZON" << std::endl << std::endl;
 
@@ -1003,13 +1000,13 @@ void DeterministicSolver::organizeTheLiveNursesByPosition() {
 
     // initialize with the first nurse
     theLiveNursesAtPosition.push_back(copyTheLiveNurses[0]);
-    const PPosition thisPosition = copyTheLiveNurses[0]->pPosition_;
+    int positionId = copyTheLiveNurses[0]->positionId();
     copyTheLiveNurses.erase(copyTheLiveNurses.begin());
 
     // search for the nurses with same position in the remaining nurses
     int nbNursesLeft = static_cast<int>(copyTheLiveNurses.size());
     for (int n = nbNursesLeft - 1; n >= 0; n--) {
-      if (copyTheLiveNurses[n]->pPosition_->id_ == thisPosition->id_) {
+      if (copyTheLiveNurses[n]->positionId() == positionId) {
         theLiveNursesAtPosition.push_back(copyTheLiveNurses[n]);
         copyTheLiveNurses.erase(copyTheLiveNurses.begin() + n);
       }
@@ -1073,9 +1070,6 @@ Solver *DeterministicSolver::newSolverWithInputAlgorithm(
   Solver *pSolver = newSolver(pScenario_, algorithm,
                               param.spType_,
                               options_.mySolverType_);
-  // override the default function if generatePResourcesFunc_
-  if (pSolver && generatePResourcesFunc())
-    pSolver->setGeneratePResourcesFunction(generatePResourcesFunc());
   // attach job if any
   pSolver->attachJob(getJob());
   return pSolver;

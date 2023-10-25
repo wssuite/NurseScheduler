@@ -75,7 +75,7 @@ void NursePositionCountConstraint::updateDuals() {
     vector2D<double> duals(pMaster_->nDays());
     for (int k = 0; k < pMaster_->nDays(); ++k) {
       duals[k] = pModel()->getDuals(
-          numberOfNursesByPositionCons_[pNurse->pPosition_->id_][k]);
+          numberOfNursesByPositionCons_[pNurse->positionId()][k]);
       for (double d : duals[k])
         if (maxDualValues_[pNurse->num_] < d) maxDualValues_[pNurse->num_] = d;
     }
@@ -87,6 +87,8 @@ void NursePositionCountConstraint::updateDuals() {
 // update the dual values of the constraints randomly
 void NursePositionCountConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
+  if (!pScenario_->isWeightsDefined())
+    Tools::throwError("Cannot use random duals if weights is not defined.");
   // TODO(JO): below, every dual cost is initialized, so I fear that they
   //  will all be used to modify arcs costs, even in the roster-based
   //  decomposition
@@ -143,7 +145,7 @@ void NursePositionCountConstraint::addConsToCol(
     std::vector<MyCons *> *cons,
     std::vector<double> *coeffs,
     const Column &col) const {
-  int p = pMaster_->pLiveNurses()[col.nurseNum()]->pPosition()->id_;
+  int p = pMaster_->pLiveNurses()[col.nurseNum()]->positionId();
   for (int k = col.firstDayId(); k <= col.lastDayId(); ++k) {
     int s = col.shift(k);
     if (s < 0) {
@@ -203,9 +205,9 @@ void AllocationConstraint::build() {
       allSkillsPerPosition;
   int p = 0;
   for (const auto &position : pScenario_->pPositions()) {
-    for (int sk : position->skills_)
+    for (int sk : position->skills())
       positionsPerSkill[sk].push_back(p);
-    for (int sk : position->alternativeSkills_)
+    for (int sk : position->altSkills())
       positionsPerAltSkill[sk].push_back(p);
     allSkillsPerPosition.push_back(position->allSkills());
     p++;
@@ -242,13 +244,14 @@ void AllocationConstraint::build() {
               &skillsAllocVars_[k][s][sk][p], nameV, 0);
         }
         for (int p : positionsPerAltSkill[sk]) {
+          double c = pScenario_->pPosition(p)->skillCost(sk);
+          if (isInfeasibleCost(c))
+            continue;
           char nameV[255];
           snprintf(nameV, sizeof(nameV),
                    "altSkillsAllocVar_%d_%d_%d_%d", k, s, sk, p);
           pModel()->createPositiveVar(
-              &skillsAllocVars_[k][s][sk][p],
-              nameV,
-              pScenario_->pPosition(p)->alternativeSkillsCost_);
+              &skillsAllocVars_[k][s][sk][p], nameV, c);
         }
       }
 
@@ -271,25 +274,46 @@ void AllocationConstraint::build() {
   }
 }
 
-DemandConstraint::DemandConstraint(
-    MasterProblem *pMaster, bool minDemand, bool soft,
-    double underCoverage, double overCoverage) :
-    ConstraintMP(pMaster, minDemand ? "Hard coverage" : "Soft coverage"),
-    minDemand_(minDemand), prefix_(minDemand ? "minDemand" : "optDemand"),
-    soft_(soft), underCoverage_(underCoverage), overCoverage_(overCoverage),
+DemandConstraint::DemandConstraint(MasterProblem *pMaster, int demandIndex,
+                                   const std::string &name, bool buildAll) :
+    ConstraintMP(pMaster, "Demand "+name),
+    pDemand_(pMaster->pDemands().at(demandIndex)),
+    demandIndex_(demandIndex),
+    buildAll_(buildAll),
     demandCons_(pMaster->nDays()) {
-  if (soft_) underCovVars_.resize(pMaster->nDays());
   build();
 }
 
 void DemandConstraint::update() {
+  PDemand pOldDemand = pDemand_;
+  pDemand_ = pMaster_->pDemands().at(demandIndex_);
+  if (pOldDemand->isGE() && !pDemand_->isGE())
+    Tools::throwError("New demand is GE while old one is not");
+  if (pOldDemand->isLE() && !pDemand_->isLE())
+    Tools::throwError("New demand is LE while old one is not");
+  if (pOldDemand->isEQ() && !pDemand_->isEQ())
+    Tools::throwError("New demand is EQ while old one is not");
+
   for (int k = 0; k < pMaster_->nDays(); k++)
     for (const PShift &pS : pScenario_->pShifts()) {
       // forget resting shift
       if (pS->isRest()) continue;
       int s = pS->id;
-      for (int sk = 0; sk < pScenario_->nSkills(); sk++)
+      for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
+        double c = pDemand_->cost(k, s, sk);
+        bool newSoft = isSoftCost(c),
+                oldSoft = isSoftCost(pOldDemand->cost(k, s, sk));
+        if (newSoft != oldSoft)
+          Tools::throwError("New demand is %s while old is {}.",
+                            newSoft ? "soft" : "hard",
+                            oldSoft ? "soft" : "hard");
+        // update constraint
         demandCons_[k][s][sk]->setLhs(demand()[k][s][sk]);
+        MyVar *v = underCovVars_[k][s][sk];
+        if (v) v->setCost(c);
+        v = overCovVars_[k][s][sk];
+        if (v) v->setCost(c);
+      }
     }
 }
 
@@ -309,78 +333,83 @@ void DemandConstraint::build() {
                                 pScenario_->nShifts(),
                                 pScenario_->nSkills(),
                                 nullptr);
-
-  const auto &skillsAllocVars = pMaster_->getSkillsAllocVars();
-
   for (int k = 0; k < pMaster_->nDays(); k++) {
     for (const PShift &pS : pScenario_->pShifts()) {
       // forget resting shift
       if (pS->isRest()) continue;
-      int s = pS->id;
-      for (int sk = 0; sk < pScenario_->nSkills(); sk++) {
-        // create slack
-        MyVar *underVar;
-        MyVar *overVar = nullptr;
-        if (soft_) {
-          char nameV[255];
-          snprintf(nameV, sizeof(nameV),
-                   "underCov%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
-          pModel()->createPositiveVar(&underVar, nameV, underCoverage_);
-          if (overCoverage_ > 1e-3) {
-            char nameV2[255];
-            snprintf(nameV2, sizeof(nameV2),
-                     "overCov%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
-            pModel()->createPositiveVar(&overVar, nameV2, overCoverage_);
-          }
-        } else {
-          char nameV[255];
-          snprintf(nameV, sizeof(nameV),
-                   "underFeas%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
-          pModel()->createPositiveFeasibilityVar(&underVar, nameV);
-          if (pScenario_->isINRC_) {
-            char nameV2[255];
-            snprintf(nameV2, sizeof(nameV2),
-                     "overFeas%sVar_%d_%d_%d", prefix_.c_str(), k, s, sk);
-            pModel()->createPositiveFeasibilityVar(&overVar, nameV2);
-          }
-        }
-        underCovVars_[k][s][sk] = underVar;
-        overCovVars_[k][s][sk] = overVar;
-
-        // adding variables and building demand constraints
-        vector<MyVar *> vars = {underVar};
-        for (MyVar *v : skillsAllocVars[k][s][sk])
-          if (v) vars.push_back(v);
-        vector<double> coeffs(vars.size(), 1);
-        if (overVar) {
-          vars.push_back(overVar);
-          coeffs.push_back(-1);
-        }
-
-        char nameC[255];
-        snprintf(nameC, sizeof(nameC),
-                 "%sCons_%d_%d_%d", prefix_.c_str(), k, s, sk);
-        if (pScenario_->isINRC_)
-          pModel()->createEQConsLinear(&demandCons_[k][s][sk],
-                                       nameC,
-                                     demand()[k][s][sk],
-                                     vars,
-                                     coeffs);
-        else
-          pModel()->createGEConsLinear(&demandCons_[k][s][sk],
-                                       nameC,
-                                       demand()[k][s][sk],
-                                       vars,
-                                       coeffs);
-      }
+      for (int sk = 0; sk < pScenario_->nSkills(); sk++)
+        buildCons(k, pS->id, sk);
     }
   }
 }
 
+bool DemandConstraint::buildCons(int k, int s, int sk) {
+  // check if need a constraint
+  int d = demand()[k][s][sk];
+  double c = pDemand_->cost(k, s, sk);
+  if (!buildAll_ &&
+      (c < pMaster_->epsilon() || (pDemand_->isGE() && d == 0)))
+    return false;
+
+  // create slack
+  MyVar *underVar = nullptr, *overVar = nullptr;
+  if (!pDemand_->isLE()) {
+    char nameV[255];
+    const char *baseV = isSoftCost(c) ? "underCov" : "underFeas";
+    snprintf(nameV, sizeof(nameV),
+             "%s%sVar_%d_%d_%d", baseV, prefix_.c_str(), k, s, sk);
+    if (isSoftCost(c)) {
+      pModel()->createPositiveVar(&underVar, nameV, c);
+    } else {
+      pModel()->createPositiveFeasibilityVar(&underVar, nameV);
+    }
+    underCovVars_[k][s][sk] = underVar;
+  }
+
+  if (!pDemand_->isGE()) {
+    char nameV[255];
+    const char *baseV = isSoftCost(c) ? "overCov" : "overFeas";
+    snprintf(nameV, sizeof(nameV),
+             "%s%sVar_%d_%d_%d", baseV, prefix_.c_str(), k, s, sk);
+    if (isSoftCost(c)) {
+      pModel()->createPositiveVar(&overVar, nameV, c);
+    } else {
+      pModel()->createPositiveFeasibilityVar(&overVar, nameV);
+    }
+    overCovVars_[k][s][sk] = overVar;
+  }
+
+  // adding variables and building demand constraints
+  vector<MyVar *> vars;
+  for (MyVar *v : pMaster_->getSkillsAllocVars()[k][s][sk])
+    if (v) vars.push_back(v);
+  vector<double> coeffs(vars.size(), 1);
+  if (underVar) {
+    vars.push_back(underVar);
+    coeffs.push_back(1);
+  }
+  if (overVar) {
+    vars.push_back(overVar);
+    coeffs.push_back(-1);
+  }
+
+  char nameC[255];
+  snprintf(nameC, sizeof(nameC),
+           "%sCons_%d_%d_%d", prefix_.c_str(), k, s, sk);
+  if (pDemand_->isLE())
+    pModel()->createLEConsLinear(
+            &demandCons_[k][s][sk], nameC, d, vars, coeffs);
+  else if (pDemand_->isGE())
+    pModel()->createGEConsLinear(
+            &demandCons_[k][s][sk], nameC, d, vars, coeffs);
+  else
+    pModel()->createEQConsLinear(
+            &demandCons_[k][s][sk], nameC, d, vars, coeffs);
+  return true;
+}
+
 const vector3D<int>& DemandConstraint::demand() const {
-  if (minDemand_)
-    return pMaster_->pDemand()->minDemand_;
-  return pMaster_->pDemand()->optDemand_;
+  return pDemand_->demand();
 }
 
 

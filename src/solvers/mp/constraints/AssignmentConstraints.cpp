@@ -34,6 +34,8 @@ void RosterAssignmentConstraint::updateDuals() {
 // update the dual values of the constraints randomly
 void RosterAssignmentConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
+  if (!pScenario_->isWeightsDefined())
+    Tools::throwError("Cannot use random duals if weights is not defined.");
   dualValues_ = Tools::randomDoubleVector(
       pMaster_->nNurses(),
       -10*pScenario_->weights().underCoverage,
@@ -137,7 +139,7 @@ void RotationGraphConstraint::updateDuals() {
     // get dual values associated to the work flow constraints,
     // i.e the firstRest node of the last day of the rotation
     // -1 corresponds to the coefficient
-    double maxE = -XLARGE_SCORE;
+    double maxE = -HARD_COST;
     for (int k = 0; k < pMaster_->nDays(); ++k) {
       endDualValues[k] = -pModel()->getDual(
           restCons_[n][firstRestNodes_[n][k]->id], true);
@@ -151,6 +153,8 @@ void RotationGraphConstraint::updateDuals() {
 // update the dual values of the constraints randomly
 void RotationGraphConstraint::randomUpdateDuals(
     bool useInputData, int nPerturbations) {
+  if (!pScenario_->isWeightsDefined())
+    Tools::throwError("Cannot use random duals if weights is not defined.");
   startWorkDualValues_ = Tools::randomDoubleVector2D(
       pMaster_->nNurses(), pMaster_->nDays(),
       0, 7*pScenario_->weights().underCoverage);
@@ -324,7 +328,7 @@ void RotationGraphConstraint::createRotationArcs(
 
     // create arc from max rest node to max rest node if
     // not first arc or not an hard UB
-    if (k == 0 || maxCons.second == LARGE_SCORE) continue;
+    if (k == 0 || isInfeasibleCost(maxCons.second)) continue;
     pOrigin = maxRestNodes[k - 1];
     PRCNode pTarget = maxRestNodes[k];
     PRCArc pArc =
@@ -334,12 +338,12 @@ void RotationGraphConstraint::createRotationArcs(
 }
 
 std::pair<int, double> RotationGraphConstraint::minConsRest(
-    const PLiveNurse &pN) {
+    const PLiveNurse &pN) const {
   double cost = 0;
   for (const auto &pR : masterRotationGraphResources_[pN->num_])
     if (pR->isHard()) {
       // Override LB if define a real hard bound
-      if (pR->getLb() > 1) return {pR->getLb(), LARGE_SCORE};
+      if (pR->getLb() > 1) return {pR->getLb(), INFEAS_COST};
     } else {
       auto pS = std::dynamic_pointer_cast<SoftBoundedResource>(pR);
       if (cost < pS->getLbCost()) cost = pS->getLbCost();
@@ -350,7 +354,7 @@ std::pair<int, double> RotationGraphConstraint::minConsRest(
 }
 
 std::pair<int, double> RotationGraphConstraint::maxConsRest(
-    const PLiveNurse &pN) {
+    const PLiveNurse &pN) const {
   int maxR = 1;
   double cost = 0;
   for (const auto &pR : masterRotationGraphResources_[pN->num_]) {
@@ -359,7 +363,7 @@ std::pair<int, double> RotationGraphConstraint::maxConsRest(
         pR->getUb() < 7 * pScenario_->nWeeks();
     if (pR->isHard()) {
       // Override UB if define a real bound
-      if (isLimited) return {pR->getUb(), LARGE_SCORE};
+      if (isLimited) return {pR->getUb(), INFEAS_COST};
       if (pR->getLb() > maxR) {
         maxR = pR->getLb();
         cost = 0;
@@ -439,14 +443,30 @@ RCSolution RotationGraphConstraint::computeCost(
     pL = std::make_shared<RCLabel>(pResources, *pN->pStateIni_);
   } else {
     const PShift &pS = pScenario_->shiftsFactory().pAnyWorkShift()
-        ->findIncludedShift(pN->availableShifts_);
-    State state(sol.firstDayId() - 1,  // day
+            ->findIncludedShift(pN->availableShifts_);
+    int maxLb = 0, maxWorkLb = 0,
+        minUb = pScenario_->nDays(), minWorkUb = minUb;
+    for (const auto &pE : pArc->expanders) {
+      const auto &pR = pResources.at(pE->indResource);
+      auto pBdR = std::dynamic_pointer_cast<BoundedResource>(pR);
+      if (pBdR == nullptr) continue;
+      if (pBdR->pAShift()->isAnyWork()) {
+        if (pBdR->getLb() > maxWorkLb) maxWorkLb = pBdR->getLb();
+        if (pBdR->getUb() < minWorkUb) minWorkUb = pBdR->getUb();
+      } else if (pBdR->pAShift()->includes(*pS)) {
+        if (pBdR->getLb() > maxLb) maxLb = pBdR->getLb();
+        if (pBdR->getUb() < minUb) minUb = pBdR->getUb();
+      }
+    }
+    State state(pS,  // pShift
+                sol.firstDayId() - 1,  // day
                 0,  // totalTimeWorked
+                0,  // totalDaysWorked
                 0,  // totalWeekendsWorked
-                pN->minConsDaysWork(),  // consDaysWorked
-                pScenario_->minConsShifts(pS->id),  // consShifts
-                0,  // consDaysOff
-                pS);  // pShift
+                // consDaysWorked
+                maxWorkLb > minWorkUb ? minWorkUb : maxWorkLb,
+                maxLb > minUb ? minUb : maxLb,  // consShifts
+                0);  // consDaysOff
     pL = std::make_shared<RCLabel>(pResources, state);
   }
 

@@ -11,7 +11,10 @@ SET(NURSE_SCHEDULER_LIB nursescheduler)
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
 # read user definitions
-include(CMakeDefinitionsLists.txt)
+if(EXISTS ${PROJECT_SOURCE_DIR}/CMakeDefinitionsLists.txt)
+    MESSAGE("Read definitions from CMakeDefinitionsLists.txt")
+    include(CMakeDefinitionsLists.txt)
+endif ()
 
 MESSAGE("Type: ${CMAKE_BUILD_TYPE} ${CMAKE_SYSTEM_PROCESSOR}")
 set(BCP_DIR ${BCPDIROPT})
@@ -34,14 +37,20 @@ endif()
 add_definitions(-pedantic -Wno-deprecated -Wno-sign-compare)
 
 # add boost
-if(DEFINED BOOST_DIR)
-    message("Boost ${BOOST_DIR}")
-    set(Boost_INCLUDE_DIRS ${BOOST_DIR})
-else()
-    FIND_PACKAGE(Boost 1.48 COMPONENTS graph REQUIRED )
-endif()
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-MESSAGE("Boost directory: ${Boost_INCLUDE_DIRS}")
+if (${USE_BOOST})
+    if(DEFINED BOOST_DIR)
+            message("Boost ${BOOST_DIR}")
+            set(Boost_INCLUDE_DIRS ${BOOST_DIR})
+    else()
+        FIND_PACKAGE(Boost 1.48 COMPONENTS graph REQUIRED )
+    endif()
+    INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+    MESSAGE("Boost directory: ${Boost_INCLUDE_DIRS}")
+    add_definitions(-DBOOST)
+else ()
+    MESSAGE("Boost flag USE_BOOST is not set to true. The code is therefore compile without boost.
+    Add SET(USE_BOOST True) to enable boost.")
+endif ()
 
 # set default BLAS and LAPACK libs
 if(NOT DEFINED BLAS_LIBS)
@@ -97,11 +106,16 @@ if(NOT PKG_CONFIG_FOUND OR NOT BCP_FOUND)
     SET(LIBS ${LIBS} CoinUtils Osi OsiClp Clp Bcp)
 endif()
 
-if(DEFINED CTR)
-    add_definitions(-DCTR)
+
+if(DEFINED USE_MBCP)
+    Message("Use modified version of BCP from the submodule.")
+    add_definitions(-DMBCP)
 endif()
 
-
+if(DEFINED CTR)
+    Message("Use the control CTR flag.")
+    add_definitions(-DCTR)
+endif()
 
 # build librar
 INCLUDE_DIRECTORIES(src)

@@ -34,7 +34,7 @@ class DemandGenerator {
   // default constructor and destructor
   DemandGenerator(int nbDemands,
                   int nbDays,
-                  std::vector<PDemand> demands,
+                  vector2D<PDemand> demands,
                   PScenario pScenario) :
       nbDemandsToGenerate_(nbDemands),
       nbDaysInGeneratedDemands_(nbDays),
@@ -49,10 +49,11 @@ class DemandGenerator {
   bool checkDemandFeasibility(PDemand pDemand);
 
   // generate nbScenarios_ through perturbations of the demand history
-  std::vector<PDemand> generatePerturbedDemands();
+  vector2D<PDemand> generatePerturbedDemands();
 
   // generate 1 demand through perturbations of the demand history
-  PDemand generateSinglePerturbatedDemand(bool checkFeasibility = true);
+  vector<PDemand> generateSinglePerturbatedDemands(
+          bool checkFeasibility = true);
 
  protected:
   // number of demand scenarios that should be generated
@@ -62,7 +63,7 @@ class DemandGenerator {
   int nbDaysInGeneratedDemands_;
 
   // demand history from which the random scenarios should be generated
-  std::vector<PDemand> demandHistory_;
+  vector2D<PDemand> demandHistory_;
 
   // nurse rostering scenario under study.
   // this attribute is necessary to check the feasibility

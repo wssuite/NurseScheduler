@@ -12,9 +12,10 @@
 #ifndef SRC_SOLVERS_MP_SP_RCSPPSUBPROBLEM_H_
 #define SRC_SOLVERS_MP_SP_RCSPPSUBPROBLEM_H_
 
-#include <memory>
-#include <vector>
 #include <map>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include "solvers/mp/sp/SubProblem.h"
 #include "solvers/mp/sp/rcspp/RCGraph.h"
@@ -141,7 +142,7 @@ class RCSPPSubProblem : public SubProblem {
   bool solveRCGraph(bool initialSolve = true, bool relaxation = false) override;
 
   // compute the cost of a given rcSol
-  vector<PResource> computeResourcesCosts(
+  std::pair<vector<PResource>, PRCGraph> computeResourcesCosts(
       const State &initialState,
       RCSolution *rcSol) const;
   vector<PResource> computeResourcesCosts(

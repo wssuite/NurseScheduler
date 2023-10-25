@@ -395,7 +395,7 @@ bool SoftConsShiftExpander::expandBack(const PRCLabel &pLChild,
     vChild->worstLbCost = 0;
   else
     vChild->worstLbCost =
-        resource_.getWorstLbCost(vChild->consumption+1);
+        resource_.getWorstLbCost(vChild->consumption + 1);
   vChild->worstUbCost =
       resource_.getWorstUbCost(vChild->consumption, nDaysBefore);
   return true;

@@ -411,12 +411,12 @@ void BcpLpModel::printSummaryLine(const BCP_vec<BCP_var *> &vars) const {
 
   double ub = pModel_->getObjective(), root = pModel_->getRootLB(),
       lb = pModel_->getBestLB(), lagLb = pModel_->getNodeLastLagLB();
-  if (ub >= XLARGE_SCORE - 1) ub = INFINITY;
-  if (root <= -XLARGE_SCORE + 1) root = -INFINITY;
-  if (lb <= -XLARGE_SCORE + 1) lb = -INFINITY;
-  if (lagLb <= -XLARGE_SCORE + 1) lagLb = -INFINITY;
+  if (isInfeasibleCost(ub)) ub = INFINITY;
+  if (isInfeasibleCost(root)) root = -INFINITY;
+  if (isInfeasibleCost(lb)) lb = -INFINITY;
+  if (isInfeasibleCost(lagLb)) lagLb = -INFINITY;
 
-  // if has some variables
+  // if it has some variables
   if (!vars.empty()) {
     std::pair<int, int> p = pModel_->getFractionalAndPositiveColumns();
 
@@ -993,10 +993,10 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
                    "in the solution" << std::endl;
       pModel_->printInfeasibleVars();
       return BCP_DoNotBranch_Fathomed;
-    } else if (lb < -LARGE_SCORE &&
+    } else if (isInfeasibleCost(lb) &&
         !pModel_->getpParameters()->spParam_.spComputeLB_) {
       // if not computing LB -> just diving
-      pModel_->getpParameters()->nbDiveIfBranchOnColumns_ = XLARGE_SCORE;
+      pModel_->getpParameters()->nbDiveIfBranchOnColumns_ = LARGE_INT;
     }
   }
 
@@ -1034,7 +1034,7 @@ BCP_branching_decision BcpLpModel::selectBranchingDecision(
     // disable computing an LB if necessary
     pModel_->getpParameters()->spParam_.spComputeLB_ = false;
     // just dive from here as we are just looking for an UB now
-    pModel_->getpParameters()->nbDiveIfBranchOnColumns_ = XLARGE_SCORE;
+    pModel_->getpParameters()->nbDiveIfBranchOnColumns_ = LARGE_INT;
     return BCP_DoNotBranch_Fathomed;
   }
 
@@ -1086,8 +1086,10 @@ BCP_branching_decision BcpLpModel::selectBranchingCandidates(
         pModel_->getNbDives()
             >= nb_dives_to_wait_before_branching_on_columns_.front()) {
       // after a given number of nodes since last dive,
-      // prepare to go for a new dive
-      nb_dives_to_wait_before_branching_on_columns_.pop_front();
+      // prepare to go for a new dive.
+      // When solving to optimality, push next dive later and later
+      if (pModel_->getParameters().solveToOptimality_)
+        nb_dives_to_wait_before_branching_on_columns_.pop_front();
       pModel_->resetNbNodesSinceLastDive();
     }
   }
@@ -1098,6 +1100,8 @@ BCP_branching_decision BcpLpModel::selectBranchingCandidates(
       find_infeasibility(lpres, vars);
       std::cerr << "Solution should be fractional as no branching candidate "
                    "has been found. Perhaps an EPSILON issue." << std::endl;
+    } else {
+      std::cout << "Fathom as relaxed solution is integer." << std::endl;
     }
     return BCP_DoNotBranch_Fathomed;
   }
@@ -1428,8 +1432,7 @@ void BcpBranchingTree::create_root(BCP_vec<BCP_var *> &added_vars,
 BCP_solution *BcpBranchingTree::unpack_feasible_solution(BCP_buffer &buf) {  // NOLINT
   BCP_solution *sol = BCP_tm_user::unpack_feasible_solution(buf);
 
-  if (pModel_->getVerbosity() >= 3 &&
-      sol->objective_value() <= XLARGE_SCORE)
+  if (pModel_->getVerbosity() >= 3 && isSoftCost(sol->objective_value()))
     std::cout << pModel_->getMaster()->costsConstraintsToString() << std::endl;
 
   // store the solution
@@ -1858,7 +1861,7 @@ void BcpModeler::addBcpSol(double objValue,
                            const std::vector<T *> &vars,
                            const std::vector<double> &values,
                            bool isInteger) {
-  if (objValue > XLARGE_SCORE) return;
+  if (isInfeasibleCost(objValue)) return;
 
   if (bcpSolutions_.empty() ||
       bcpSolutions_.back().objective_value() > objValue + epsilon()) {
@@ -1884,7 +1887,7 @@ void BcpModeler::addBcpSol(double objValue,
       } else {
         BcpCoreVar *var = getCoreVar(vars[i]);
         mySol.add_entry(var, values[i]);
-        if (var->getCost() >= XLARGE_SCORE - 1 && values[i] > epsilon()) {
+        if (isInfeasibleCost(var->getCost()) && values[i] > epsilon()) {
           isArtificialSol = true;
           break;
         }
@@ -1923,7 +1926,7 @@ void BcpModeler::addBcpSol(double objValue,
 // Get the index of the best solution in the vector of solutions of BCP
 int BcpModeler::getBestSolIndex(bool integer) const {
   int i = 0, index = -1;
-  double bestObj = XLARGE_SCORE;
+  double bestObj = INFEAS_COST;
   for (const MyBCPSolution &sol : bcpSolutions_) {
     if ((!integer || sol.isInteger_) && sol.objective_value() < bestObj) {
       bestObj = sol.objective_value();
@@ -2015,7 +2018,7 @@ const MyPNode & BcpModeler::getNode(const CoinTreeSiblings *s) {
 double BcpModeler::updateNodeLB(double lb) {
   double bestLB = getBestLB();
   double increase = Modeler::updateNodeLB(lb);
-  if ((bestLB <= -XLARGE_SCORE + 1) || (getBestLB() > bestLB + epsilon()))
+  if ((isSoftCost(bestLB)) || (getBestLB() >= bestLB + epsilon()))
     addBcpLB(getBestLB());
   if (increase < epsilon()) {
     nbDivedNodesWithoutImprovements_++;
@@ -2178,7 +2181,7 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
   Tools::LogOutput log(logfile());
 
   // check stopping criteria
-  if (pTree_->getBestLB() > -XLARGE_SCORE + 1 &&
+  if (isSoftCost(pTree_->getBestLB()) &&
       pTree_->getBestUB() - pTree_->getBestLB()
       < parameters_.absoluteGap_ - epsilon()) {
     // check if optimal gap is also verified
@@ -2222,7 +2225,7 @@ bool BcpModeler::doStop(const BCP_vec<BCP_var *> &vars, BcpHeuristics *pH) {
     }
 #endif
     log.printnl("BCP STOPPED: Time has run out after %.2f s.", dSinceStart());
-  } else if (pTree_->getBestLB() <= -XLARGE_SCORE + 1) {
+  } else if (isInfeasibleCost(pTree_->getBestLB())) {
     // continue if doesn't have a lb
     return false;
   } else if (pMaster_->getJob().shouldStop()) {
@@ -2299,7 +2302,7 @@ void BcpModeler::stop() {
 std::string BcpModeler::statsOnBounds() const {
   std::stringstream rep;
   rep << "# Upper bounds =";
-  double ub = XLARGE_SCORE;
+  double ub = INFEAS_COST;
   for (const auto &sol : bcpSolutions_)
     if (sol.objective_value() < ub - epsilon()) {
       std::string origin;
@@ -2314,7 +2317,7 @@ std::string BcpModeler::statsOnBounds() const {
   rep << std::endl;
 
   rep << "# Lower bounds =";
-  double lb = -XLARGE_SCORE;
+  double lb = -INFEAS_COST;
   for (const auto &myLB : bcpLBs_) {
     lb = myLB.lb;
     rep << " " << lb << "," << myLB.time;

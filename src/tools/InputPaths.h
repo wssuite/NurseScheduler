@@ -41,7 +41,8 @@ static std::map<InstanceOrigin, std::string> namesByInstanceOrigin =
 // problem
 class InputPaths {
  public:
-  InputPaths();
+  InputPaths() {}
+
   InputPaths(const std::string &dataDir,
              const std::string &instanceName,
              int historyIndex = -1,
@@ -77,7 +78,7 @@ class InputPaths {
 
  protected:
   std::string instance_;
-  InstanceOrigin origin_;
+  InstanceOrigin origin_ = NA;
   std::string scenario_;
   int historyIndex_;
   std::string history_;

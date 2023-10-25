@@ -175,7 +175,7 @@ void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
     pTotalDuration->setUb(0);
     // Primal-dual cost of max working days
     double w = pScenario_->weights().totalShifts / pN->maxTotalShifts() *
-        pN->pStateIni_->totalTimeWorked_;
+        pN->pStateIni_->totalDaysWorked_;
     // Must not be higher that WEIGHT
     if (w > pScenario_->weights().totalShifts)
       w = pScenario_->weights().totalShifts;
@@ -193,9 +193,9 @@ void DynamicWeights::computeWeightsTotalShiftsForPrimalDual(
     // Update average days/weekends in contract
     int p = pN->pContract_->id_;
     minTotalShiftsContractAvg_[p] +=
-        std::max(0, pN->minTotalShifts() - pN->pStateIni_->totalTimeWorked_);
+        std::max(0, pN->minTotalShifts() - pN->pStateIni_->totalDaysWorked_);
     maxTotalShiftsContractAvg_[p] +=
-        std::max(0, pN->maxTotalShifts() - pN->pStateIni_->totalTimeWorked_);
+        std::max(0, pN->maxTotalShifts() - pN->pStateIni_->totalDaysWorked_);
     maxTotalWeekendsContractAvg_[p] += std::max(
         0, pN->maxTotalWeekends() - pN->pStateIni_->totalWeekendsWorked_);
 

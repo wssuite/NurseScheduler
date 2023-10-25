@@ -17,7 +17,6 @@
 #include <set>
 #include <utility>
 
-#include "ReadWrite.h"
 #include "solvers/mp/RotationMP.h"
 #include "tools/Tools.h"
 #include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
@@ -34,7 +33,10 @@ using std::vector;
 using std::map;
 using std::pair;
 
-#include "ReadWrite.h"
+#include "parsing/ParseINRC.h"
+#include "parsing/ParseINRC2.h"
+#include "parsing/ParseNRP.h"
+#include "parsing/ParseUI.h"
 
 PScenario buildInstance(const InputPaths &inputPaths) {
   std::cout << "Origin guessed: " << inputPaths.origin() << std::endl;
@@ -44,23 +46,22 @@ PScenario buildInstance(const InputPaths &inputPaths) {
   // UI file
   if (inputPaths.ui()) {
     // Read the scenario
-    return ReadWrite::readScenarioUI(inputPaths.scenario(),
-                                     inputPaths.instance());
+    return readScenarioUI(inputPaths.scenario(), inputPaths.instance());
   } else if (inputPaths.inrc2()) {
     // Read the scenario
-    PScenario pScenario = ReadWrite::readScenarioINRC2(inputPaths.scenario());
+    PScenario pScenario = readScenarioINRC2(inputPaths.scenario());
     // Read the demand and preferences and link them with the scenario
-    ReadWrite::readINRC2Weeks(inputPaths.weeks(), pScenario);
+    readINRC2Weeks(inputPaths.weeks(), pScenario);
     // Read the history
-    ReadWrite::readHistoryINRC2(inputPaths.history(), pScenario);
+    readHistoryINRC2(inputPaths.history(), pScenario);
 
     // Initialize the resources
     initializeResourcesINRC2(pScenario);
     return pScenario;
   } else if (inputPaths.inrc()) {
-    return ReadWrite::readINRCInstance(inputPaths.scenario());
+    return readINRCInstance(inputPaths.scenario());
   } else if (inputPaths.nrp()) {
-    return ReadWrite::readNRPInstance(inputPaths.scenario());
+    return readNRPInstance(inputPaths.scenario());
   } else {
     Tools::throwError("The instance file is not recognized.");
     return nullptr;
@@ -84,6 +85,7 @@ void initializeResourcesINRC2(const PScenario &pScenario) {
             weights.totalShifts,
             pScenario->shiftsFactory().pAnyWorkShift(),
             nbDays,
+            false,
             pScenario->maxDuration()));
 
     // b. consecutive assignments
@@ -95,14 +97,13 @@ void initializeResourcesINRC2(const PScenario &pScenario) {
         pScenario->shiftsFactory().pAnyWorkShift(),
         CONS_WORK_COST,
         nbDays,
-        stateIni.consDaysWorked_,
-        false));
+        stateIni.consDaysWorked_));
 
     // c. total weekend resource; in INRC2 weekends are always on saturday and
     // sunday
     pN->addBaseResource(std::make_shared<SoftTotalWeekendsResource>(
-        std::max(0, pN->maxTotalWeekends() - stateIni.totalWeekendsWorked_),
-        weights.totalWeekends,
+        0, std::max(0, pN->maxTotalWeekends() - stateIni.totalWeekendsWorked_),
+        0, weights.totalWeekends,
         pScenario->shiftsFactory().pAnyWorkShift(),
         nbDays));
 
@@ -197,39 +198,16 @@ vector<PScenario> divideScenarioIntoConnectedPositions(
     }
 
     // create the demand that relates only to input skills
-    PDemand pDemand = pScenario->pDemand();
-
-    // erase the skills to remove from the minimum and optimal demands
-    vector3D<int> minDemand = pDemand->minDemand_;
-    for (int day = 0; day < pDemand->nDays_; day++)
-      for (int shift = 0; shift < pDemand->nShifts_; shift++)
-        for (int skill : skillsToRemove) {
-          minDemand[day][shift][skill] = 0;
-        }
-    PDemand pDemandInTheComponent;
-    if (pDemand->isOptDemand_) {
-      vector3D<int> optDemand = pDemand->optDemand_;
-      for (int day = 0; day < pDemand->nDays_; day++)
-        for (int shift = 0; shift < pDemand->nShifts_; shift++)
+    // erase the skills to remove from the demands
+    vector<PDemand> pDemandsInTheComponent;
+    for (const auto &pD : pScenario->pDemands()) {
+      auto pNewD = std::make_shared<Demand>(*pD);
+      for (int day = 0; day < pD->nDays_; day++)
+        for (int shift = 0; shift < pD->nShifts_; shift++)
           for (int skill : skillsToRemove) {
-            optDemand[day][shift][skill] = 0;
+            pNewD->demand_[day][shift][skill] = 0;
           }
-      pDemandInTheComponent =
-          std::make_shared<Demand>(pDemand->nDays_,
-                                   pDemand->firstDayId_,
-                                   pDemand->nShifts_,
-                                   pDemand->nSkills_,
-                                   pDemand->name_,
-                                   minDemand,
-                                   optDemand);
-    } else {
-      pDemandInTheComponent =
-          std::make_shared<Demand>(pDemand->nDays_,
-                                   pDemand->firstDayId_,
-                                   pDemand->nShifts_,
-                                   pDemand->nSkills_,
-                                   pDemand->name_,
-                                   minDemand);
+      pDemandsInTheComponent.push_back(pNewD);
     }
 
     // create the preferences that relate only to the nurses of the connected
@@ -241,7 +219,7 @@ vector<PScenario> divideScenarioIntoConnectedPositions(
     PScenario pScenarioInTheConnectedComponent =
         std::make_shared<Scenario>(pScenario,
                                    nursesInTheComponent,
-                                   pDemandInTheComponent,
+                                   pDemandsInTheComponent,
                                    pPreferencesInTheComponent);
 
     // create the initial states that relate only to the nurses of the connected
@@ -376,8 +354,7 @@ void computeStatsOnTheDemandsOfAllInstances(const string &inputDir) {
 
     // The instance names start with "WD"
     if (filename[0] != 'n') continue;
-    ReadWrite::compareDemands((string) (inputDir + filename),
-                              (string) ("outfiles/statDemands/" + filename
-                                  + ".txt"));
+    compareDemands((string) (inputDir + filename),
+                   (string) ("outfiles/statDemands/" + filename + ".txt"));
   }
 }

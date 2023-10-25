@@ -116,6 +116,10 @@ class SoftForbiddenPatternResource : public ForbiddenPatternResource {
 
   double getCost() const override { return cost_; }
 
+  int findMaxOptimalGap() const override {
+    return cost_;
+  }
+
   void preprocess(const PRCGraph &pRCGraph) override;
   bool preprocess(const PRCArc &pA, double *cost) override;
 
@@ -167,6 +171,10 @@ class HardForbiddenPatternResource : public ForbiddenPatternResource {
   }
 
   bool isHard() const override { return true; }
+
+  int findMaxOptimalGap() const override {
+    return 0;
+  }
 
   void preprocess(const PRCGraph &pRCGraph) override;
   bool preprocess(const PRCArc &pA, double *cost) override;

@@ -225,7 +225,7 @@ class RCBranchingCandidate : public MyBranchingCandidate {
 
 
 struct RestTree : public MyTree {
-  RestTree(PScenario pScenario, PDemand pDemand,
+  RestTree(PScenario pScenario, int firstDayId, int nDays,
            double epsilon, bool printCurrentNode);
 
   void addForbiddenShifts(PLiveNurse pNurse,
@@ -252,7 +252,7 @@ struct RestTree : public MyTree {
 
  protected:
   PScenario pScenario_;
-  PDemand pDemand_;
+  int firstDayId_, nDays_;
   // Tree statistics
   // each pair represents first the number of times of the branching and
   // second the increase of the LB

@@ -44,15 +44,23 @@
 #include <condition_variable>  // NOLINT (suppress cpplint error)
 #include <cassert>
 
+static const char COMMENT_KEY = '#';
 static const int SHIFT_PAD = 3;
 static const char REST_SHIFT[] = "Rest";
 static const char REST_DISPLAY[] = " - ";  // should be of the size of pad
 static const int DECIMALS = 3;  // precision when printing floats
 static const int NB_SHIFT_UNLIMITED = 28;
 
-static const int LARGE_SCORE = 9999;
-static const int XLARGE_SCORE = 999999;
+static const int LARGE_INT = 9999;
+static const int INFEAS_COST = 9999;
+static const int HARD_COST = 999999;
 static const int LARGE_TIME = 999999;
+
+bool isLargeNumber(double c);
+bool isInfeasibleCost(double c);
+bool isHardCost(double c);
+bool isSoftCost(double c);
+
 
 // definitions of multi-dimensional int vector types
 //
@@ -275,6 +283,15 @@ std::string toUpperCase(std::string str);
 // convert to lower case
 std::string toLowerCase(std::string str);
 
+// trim from start (in place)
+void ltrim(std::string *s);
+
+// trim from end (in place)
+void rtrim(std::string *s);
+
+// trim from both ends (in place)
+void trim(std::string *s);
+
 std::string loadOptions(
     const std::string &strOptionFile,
     std::function<bool(const std::string &, std::fstream *file)>);
@@ -296,8 +313,21 @@ void initializeRandomGenerator(int rdmSeed);
 // round with probability
 int roundWithProbability(double number);
 
+// great common divider
+int gcd(int a, int b);
+int gcd(const std::vector<int> &numbers);
+int gcd(const std::set<int> &numbers);
+
+template <class _InputIterator>
+int gcd(_InputIterator it, _InputIterator end) {
+  if (it == end) return 0;
+  int d = *(it++);
+  for (; it != end; it++)
+    d = gcd(d, *it);
+  return d;
+}
+
 // convert a number to a string
-//
 template<typename T>
 std::string itoa(T num) {
   std::stringstream stream;
@@ -387,6 +417,21 @@ bool erase(std::vector<T> *vec, const T &el, bool throwErrorNotFound = false) {
     throwError("Element to delete not found in vector.");
 #endif
   return false;
+}
+
+template<typename T>
+static inline bool includes(const std::vector<T> &vec1,
+                            const std::vector<T> &vec2) {
+  auto it1 = vec1.begin();
+  for (auto it2 = vec2.begin(); it2 != vec2.end(); it2++) {
+    while (*it1 < *it2) {
+      if (it1 == vec1.end() - 1) return false;
+      else
+        it1++;
+    }
+    if (*it1 != *it2) return false;
+  }
+  return true;
 }
 
 // return the name for the enum from a given map of name

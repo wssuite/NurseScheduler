@@ -83,7 +83,9 @@ class SoftIdentWeekendResource : public IdentWeekendResource {
         weekend_.lastWeekendDay().getDayOfWeek(), name);
   }
 
-  bool isHard() const override {return false;}
+  bool isHard() const override { return false; }
+
+  int findMaxOptimalGap() const override { return cost_; }
 
   void preprocess(const PRCGraph &pRCGraph) override;
   bool preprocess(const PRCArc& pA, double *cost) override;

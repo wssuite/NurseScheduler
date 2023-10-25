@@ -274,15 +274,21 @@ jobs:
           instance: Instance2.txt
           ns-args: --dir datasets/nrp/ -g 828 -e 0 --sp-type ROSTER
 
+      - name: UI ui_test
+        uses: ./
+        with:
+          instance: ui_test.txt
+          ns-args: --dir datasets/ui/ -g 1319 -e 0
+
+      - name: UI n005w4_0_1-2-3-3
+        uses: ./
+        with:
+          instance: n005w4_0_1-2-3-3.txt
+          ns-args: --dir datasets/INRC2/n005w4/ -g 1470 -e 0
+
       - name: dynamic n030w4_1_6-2-9-1
         uses: ./ # Uses an action in the root directory
         with:
           instance: n030w4_1_6-2-9-1
           ns-args: -d -s 68-54-78-98 -g 1670-2000
           retries: 3
-
-      - name: UI ui_test
-        uses: ./
-        with:
-          instance: ui_test.txt
-          ns-args: --dir datasets/ui/ -g 1684 -e 0

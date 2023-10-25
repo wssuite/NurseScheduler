@@ -147,7 +147,7 @@ RCSPPSolver::RCSPPSolver(PRCGraph pRcGraph,
   // if we are not solving to optimality and rcsppMinNegativeLabels_ has is
   // default value, override it based on the number of columns to generate
   if (param_.rcsppToOptimality_ && !param.rcsppRandomStartDay_) {
-    param_.rcsppMaxNegativeLabels_ = XLARGE_SCORE;
+    param_.rcsppMaxNegativeLabels_ = INFEAS_COST;
   } else {
     if (param_.rcsppMinNegativeLabels_ == -1)
       param_.rcsppMinNegativeLabels_ = static_cast<int>(round(
@@ -396,7 +396,7 @@ std::vector<RCSolution> RCSPPSolver::computeValidLB(bool relaxedLBs) {
   std::set<int> alwaysActiveResources;
   std::vector<PResource> otherResources;
   for (const auto &pR : pRcGraph_->pResources()) {
-    if (pR->isActive(LARGE_SCORE))
+    if (pR->isActive(INFEAS_COST))
       alwaysActiveResources.insert(pR->id());
     else
       otherResources.push_back(pR);
@@ -422,7 +422,7 @@ std::vector<RCSolution> RCSPPSolver::computeValidLB(bool relaxedLBs) {
   param_.rcsppToOptimality_ = true;
   param_.rcsppNbToExpand_ = 0;
   param_.rcsppDssr_ = false;
-  param_.rcsppMaxNegativeLabels_ = XLARGE_SCORE;
+  param_.rcsppMaxNegativeLabels_ = INFEAS_COST;
   dssrLvl_ = 0;
   pRcGraph_->initializeDominance(0);
   useDominateNoLb_ = relaxedLBs;
@@ -903,7 +903,7 @@ bool RCSPPSolver::prepareForNextExecution(const vector<PRCNode> &nodes) {
     bool anyHardConstraints = false, hasLB = false;
     std::set<int> alwaysActiveResources;
     for (const auto &pR : pRcGraph_->pResources()) {
-      if (pR->isActive(LARGE_SCORE))
+      if (pR->isActive(INFEAS_COST))
         alwaysActiveResources.insert(pR->id());
       if (pR->isHard())
         anyHardConstraints = true;

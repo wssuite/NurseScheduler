@@ -17,6 +17,10 @@
 
 using std::string;
 
+
+bool PrintSolution::writeXML = false;
+bool PrintSolution::writeMultiWeeks = false;
+
 //-----------------------------------------------------------------------------
 //  C l a s s   S o l v e r P a r a m
 //  Structure that gather parameters for a solver. Can be given as an input of
@@ -229,7 +233,7 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       nbDiveIfMinGap_ = 1;
       nbDiveIfRelGap_ = 2;
       solveToOptimality_ = false;
-      stopAfterXSolution_ = LARGE_SCORE;
+      stopAfterXSolution_ = LARGE_INT;
       break;
     case REPEATED_DIVES: absoluteGap_ = optimalAbsoluteGap_;
       minRelativeGap_ = 1e-4;
@@ -237,7 +241,7 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       nbDiveIfMinGap_ = 1;
       nbDiveIfRelGap_ = 4;
       solveToOptimality_ = false;
-      stopAfterXSolution_ = LARGE_SCORE;
+      stopAfterXSolution_ = LARGE_INT;
       break;
     case OPTIMALITY: absoluteGap_ = optimalAbsoluteGap_;
       minRelativeGap_ = 1e-4;
@@ -245,7 +249,7 @@ void SolverParam::optimalityLevel(OptimalityLevel level) {
       nbDiveIfMinGap_ = 1;
       nbDiveIfRelGap_ = 2;
       solveToOptimality_ = true;
-      stopAfterXSolution_ = LARGE_SCORE;
+      stopAfterXSolution_ = LARGE_INT;
       solveRelaxationToOptimality_ = true;
       // stop dive to explore other parts of the tree
       maxRelativeLPGapToKeepChild_ = .05;

@@ -250,15 +250,29 @@ void RCGraph::forbidArc(const PRCArc &pA, bool final) {
   if (!pA->forbidden) {
     pA->forbidden = true;
     if (!final) pForbiddenArcs_.insert(pA);
-  } else if (final) {
+  }
+  if (final) {
     pForbiddenArcs_.erase(pA);
+    auto itO = std::find(pA->origin->outArcs.begin(),
+                         pA->origin->outArcs.end(), pA);
+    if (itO != pA->origin->outArcs.end())
+      pA->origin->outArcs.erase(itO);
+    auto itT = std::find(pA->target->inArcs.begin(),
+                         pA->target->inArcs.end(), pA);
+    if (itT != pA->target->inArcs.end())
+      pA->target->inArcs.erase(itT);
   }
 }
 
 // Authorize a node / arc
 void RCGraph::authorizeArc(const PRCArc &pA) {
-  pA->forbidden = false;
-  pForbiddenArcs_.erase(pA);
+  if (pForbiddenArcs_.erase(pA) == 0 && pA->forbidden) {
+    std::cout << "WARNING: cannot authorize the following arc as the "
+                 "forbidden decision was final: "
+                 << pA->toString() << std::endl;
+  } else {
+    pA->forbidden = false;
+  }
 }
 
 void RCGraph::resetAuthorizationsArcs() {

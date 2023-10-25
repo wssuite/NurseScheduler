@@ -33,9 +33,14 @@ using std::minstd_rand;
 using std::mutex;
 using std::thread;
 
-namespace Tools {
 
-const char COMMENT_KEY = '#';
+bool isLargeNumber(double c) { return abs(c) >= LARGE_INT - 1e-3; }
+bool isInfeasibleCost(double c) { return abs(c) >= INFEAS_COST - 1e-3; }
+bool isHardCost(double c) { return abs(c) >= HARD_COST - 1e-3; }
+bool isSoftCost(double c) { return !isInfeasibleCost(c); }
+
+
+namespace Tools {
 
 // Compare functions to sort
 bool compareDecreasing(int i, int j) { return (i > j); }
@@ -357,6 +362,26 @@ std::string toLowerCase(std::string str) {
   return str;
 }
 
+// trim from start (in place)
+void ltrim(std::string *s) {
+  s->erase(s->begin(), std::find_if(s->begin(), s->end(), [](unsigned char ch) {
+      return !std::isspace(ch);
+  }));
+}
+
+// trim from end (in place)
+void rtrim(std::string *s) {
+  s->erase(std::find_if(s->rbegin(), s->rend(), [](unsigned char ch) {
+      return !std::isspace(ch);
+  }).base(), s->end());
+}
+
+// trim from both ends (in place)
+void trim(std::string *s) {
+  rtrim(s);
+  ltrim(s);
+}
+
 /************************************************************************
  * Read the options
  *************************************************************************/
@@ -449,6 +474,25 @@ int roundWithProbability(double number) {
     return static_cast<int>(floor(number));
   else
     return static_cast<int>(ceil(number));
+}
+
+// great common divider: euclide algorithm
+int gcd(int a, int b) {
+  int temp;
+  while (b > 0) {
+    temp = b;
+    b = a % b;
+    a = temp;
+  }
+  return a;
+}
+
+int gcd(const std::vector<int> &numbers) {
+  return gcd(numbers.begin(), numbers.end());
+}
+
+int gcd(const std::set<int> &numbers) {
+  return gcd(numbers.begin(), numbers.end());
 }
 
 // Returns an integer with random value (uniform) within [minVal, maxVal]

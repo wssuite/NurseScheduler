@@ -28,14 +28,16 @@ using std::set;
 //////////////////////////////////////////////////////////////
 
 RestTree::RestTree(PScenario pScenario,
-                   PDemand pDemand,
+                   int firstDayId,
+                   int nDays,
                    double epsilon,
                    bool printCurrentNode) :
     MyTree(epsilon, printCurrentNode),
     pScenario_(pScenario),
-    pDemand_(pDemand),
-    statsRestByDay_(pDemand_->nDays_),
-    statsWorkByDay_(pDemand_->nDays_),
+    firstDayId_(firstDayId),
+    nDays_(nDays),
+    statsRestByDay_(nDays),
+    statsWorkByDay_(nDays),
     statsRestByNurse_(pScenario->nNurses()),
     statsWorkByNurse_(pScenario->nNurses()) {}
 
@@ -80,9 +82,8 @@ void RestTree::addForbiddenShifts(PLiveNurse pNurse,
     if (columnsNode) {
       for (PColumn pCol : columnsNode->columns_)
         if (pCol->nurseNum() == pNurse->num_)
-          pCol->addForbiddenShifts(forbidenShifts,
-                                  pScenario_->nShifts(),
-                                  pDemand_);
+          pCol->addForbiddenShifts(
+                  forbidenShifts, firstDayId_, nDays_, pScenario_->nShifts());
       continue;
     }
 
@@ -140,8 +141,6 @@ string RestTree::writeBranchStats() const {
   rep << "";
 
   int nbNurses = statsRestByNurse_.size();
-  int firstDay = pDemand_->firstDayId_, nbDays = pDemand_->nDays_;
-
   rep << "Stats on Columns" << std::endl;
   char buffer0[100];
   snprintf(buffer0,
@@ -156,8 +155,8 @@ string RestTree::writeBranchStats() const {
   rep << std::endl;
   rep << "Stats by Days" << std::endl;
   rep << "\t\t  ";
-  for (int day = 0; day < nbDays; day++)
-    rep << "|  " << Day::toDayOfWeekShortName(firstDay + day).at(0)
+  for (int day = 0; day < nDays_; day++)
+    rep << "|  " << Day::toDayOfWeekShortName(firstDayId_ + day).at(0)
     << "  ";
   rep << "|" << std::endl;
   rep << writeOneStat("Rest", statsRestByDay_);
@@ -203,9 +202,9 @@ string RestTree::writeOneStat(string name,
 void RestTree::reset() {
   MyTree::reset();
   statsRestByDay_.clear();
-  statsRestByDay_.resize(pDemand_->nDays_);
+  statsRestByDay_.resize(nDays_);
   statsWorkByDay_.clear();
-  statsWorkByDay_.resize(pDemand_->nDays_);
+  statsWorkByDay_.resize(nDays_);
   statsRestByNurse_.clear();
   statsRestByNurse_.resize(pScenario_->nNurses());
   statsWorkByNurse_.clear();
@@ -449,7 +448,6 @@ void DiveBranchingRule::branchOnNumberNurses(
   // if minScore > .5, the fractional coverage is surrounded by other fractional
   double discount = .7, minScore = pModel_->epsilon();
   const vector4D<MyVar*> &skillsAllocVars = pMaster_->getSkillsAllocVars();
-  const vector3D<MyCons*> &optDemandCons = pMaster_->getOptDemandCons();
 
   // find best variable on which to branch: the closest to .5 and surrounded
   // by fractional on the same shift: the day before and after for any skill
@@ -546,19 +544,21 @@ void DiveBranchingRule::branchOnOptDemand(
     int nCandidates, std::vector<MyPBranchingCandidate> *candidates) {
   // find the variable closest to .5
   Tools::FixedSizeList<Score> bestScores(nCandidates);
-  const vector3D<MyVar *> optDemandVars = pMaster_->getOptDemandVars();
-
-  int nbDays = pMaster_->nDays(), nbShifts = pMaster_->nShifts();
-  for (int k = 0; k < nbDays; ++k)
-    for (int s = 1; s < nbShifts; ++s) {
-      for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk) {
-        double v = pModel_->getVarValue(optDemandVars[k][s][sk]);
-        Score sc0(std::min(ceil(v) - v, v - floor(v)));
-        Score *sc = addScore(sc0, &bestScores);
-        if (sc)
-          sc->var = optDemandVars[k][s][sk];
+  for (int i = 0; i < pMaster_->nDemands(); i++) {
+    const vector3D<MyVar *> demandVars = pMaster_->getDemandVars(i);
+    int nbDays = pMaster_->nDays(), nbShifts = pMaster_->nShifts();
+    for (int k = 0; k < nbDays; ++k)
+      for (int s = 1; s < nbShifts; ++s) {
+        for (int sk = 0; sk < pMaster_->pScenario()->nSkills(); ++sk) {
+          double v = pModel_->getVarValue(demandVars[k][s][sk]);
+          Score sc0(std::min(ceil(v) - v, v - floor(v)));
+          Score *sc = addScore(sc0, &bestScores);
+          if (sc)
+            sc->var = demandVars[k][s][sk];
+        }
       }
-    }
+    if (!bestScores.list().empty()) break;
+  }
 
 #ifdef NS_DEBUG
   if (bestScores.list().empty()) {

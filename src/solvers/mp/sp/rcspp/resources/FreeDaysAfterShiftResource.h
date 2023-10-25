@@ -85,6 +85,10 @@ class SoftFreeDaysAfterShiftResource : public FreeDaysAfterShiftResource {
   bool isHard() const override {return false;}
   double getCost() const {return cost_;}
 
+  int findMaxOptimalGap() const override {
+    return cost_;
+  }
+
   void enumerate(const PRCGraph &pRCGraph, bool forceEnum) override;
 
   void preprocess(const PRCGraph &pRCGraph) override;

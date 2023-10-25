@@ -11,11 +11,11 @@
 
 
 #include "ParseArguments.h"
-#include "ReadWrite.h"
-#include "tools/Tools.h"
 #include "InitializeInstance.h"
 #include "solvers/Solver.h"
 #include "solvers/DeterministicSolver.h"
+#include "tools/Tools.h"
+
 
 using std::string;
 using std::vector;
@@ -51,6 +51,7 @@ int solveDeterministic(const InputPaths &inputPaths) {
   bool noSolution =
       pSolver->status() == INFEASIBLE || pSolver->status() == UNSOLVED;
   std::cout << "# FINAL SOLUTION" << std::endl;
+  std::cout << pSolver->coverageToString() << std::endl;
   std::cout << pSolver->solutionToLogString() << std::endl;
   std::cout << pSolver->writeResourceCosts() << std::endl;
   if (!noSolution && !pSolver->solution().empty())
@@ -93,9 +94,6 @@ int solveDeterministic(const InputPaths &inputPaths) {
   std::cout << std::endl << "The program has consumed "
             << std::setprecision(3) << memGB << " GB of memory." << std::endl;
 
-
-
-
   //  release memory
   delete pSolver;
 
@@ -113,6 +111,9 @@ int main(int argc, char **argv) {
 
   // Read the arguments and store them in pInputPaths
   InputPaths *pInputPaths = readArguments(argc, argv);
+
+  if (pInputPaths->inrc2()) PrintSolution::writeMultiWeeks = true;
+  if (pInputPaths->inrc()) PrintSolution::writeXML = true;
 
   // Solve the problem
   int r = solveDeterministic(*pInputPaths);

@@ -147,8 +147,8 @@ class RotationGraphConstraint : public ConstraintMP {
 
   // compute the minimum and maximum consecutive rests based on the resources
   // LBs and UBs. Return the value of the LB and the linear cost associated.
-  std::pair<int, double> minConsRest(const PLiveNurse &pN);
-  std::pair<int, double> maxConsRest(const PLiveNurse &pN);
+  std::pair<int, double> minConsRest(const PLiveNurse &pN) const;
+  std::pair<int, double> maxConsRest(const PLiveNurse &pN) const;
 
   // PResources of the rotation graph
   vector2D<PBoundedResource> masterRotationGraphResources_;

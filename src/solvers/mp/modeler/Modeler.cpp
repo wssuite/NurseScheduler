@@ -69,7 +69,7 @@ void MyTree::setCurrentNode(const MyPNode &currentNode) {
   // this would be called once at the end of the first dive
   bool diving = currentNode->pParent_ &&
       currentNode->pParent_->children_.size() <= 1;
-  if (!diving && diveDepth_ > 0 && diveLength_ == LARGE_SCORE)
+  if (!diving && diveDepth_ > 0 && isLargeNumber(diveLength_))
     diveLength_ = 1 + diveDepth_;
 
   // update these parameters only if current node exists
@@ -112,7 +112,7 @@ void MyTree::eraseCurrentSiblings() {
                           "the parent node (" + currentNode_->pParent_->write()
                           + ") of: " + currentNode_->write());
   // update minDepth_
-  minDepth_ = LARGE_SCORE;
+  minDepth_ = LARGE_INT;
   for (const auto &p : activeTreeMapping_)
     if (p.first->getDepth() < minDepth_) minDepth_ = p.first->getDepth();
 }
@@ -285,7 +285,7 @@ void Modeler::createBinaryVar(
 void Modeler::createPositiveFeasibilityVar(
     MyVar **var, const char *var_name,
     const std::vector<double> &column, double score, double ub) {
-  createPositiveVar(var, var_name, LARGE_SCORE, column, score, ub);
+  createPositiveVar(var, var_name, INFEAS_COST, column, score, ub);
   feasibilityCoreVars_.push_back(*var);
 }
 

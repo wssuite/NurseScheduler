@@ -89,16 +89,19 @@ function run {
     # parse inputs
     # parse the input competition instance name
     echo "Instance: ${instance_description}"
-    parse=(`echo ${instance_description} | tr '_' ' ' `)
+    parse=(`echo ${instance_description} | tr '.' ' ' `)
+    parse_inrc2=(`echo ${instance_description} | tr '_' ' ' `)
     i_args="--instance ${instance_description}"
-    if [ "${#parse[@]}" -eq 3 ]; then
-      instance=${parse[0]}
-      hist=${parse[1]}
-      weeks=${parse[2]}
+    if [ "${#parse[@]}" -eq 2 ]; then
+      instance_description=${parse[0]}
+    elif [ "${#parse_inrc2[@]}" -eq 3 ]; then
+      instance=${parse_inrc2[0]}
+      hist=${parse_inrc2[1]}
+      weeks=${parse_inrc2[2]}
       i_args="--instance ${instance} --weeks ${weeks} --his ${hist}"
     else
-      parse=(`echo ${instance_description} | tr '.' ' ' `)
-      instance_description=${parse[0]}
+      echo "Format of instance not recognized: ${instance_description}"
+      exit 1;
     fi
 
     # create the root of output directory if it does not exist

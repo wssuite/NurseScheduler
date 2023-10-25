@@ -177,11 +177,14 @@ void MasterProblem::solveWithCatch(const vector<Roster> &solution) {
 }
 
 // Resolve the problem with another demand and keep the same preferences
-double MasterProblem::resolve(PDemand pDemand,
+double MasterProblem::resolve(vector<PDemand> pDemands,
                               const SolverParam &param,
                               const std::vector<Roster> &solution) {
+  if (!param_.enableResolve_)
+    Tools::throwError("Resolve was not enable at construction. "
+                      "Set enableResolve_ to true at the beginning.");
   setParameters(param);
-  update(pDemand);
+  update(std::move(pDemands));
   return solve(solution, false);
 }
 
@@ -200,14 +203,9 @@ void MasterProblem::build(const SolverParam &param) {
   nursePositionCountConstraint_ =
           std::make_unique<NursePositionCountConstraint>(this);
   allocationConstraint_ = std::make_unique<AllocationConstraint>(this);
-  bool softCtr = pScenario_->weights().overCoverage >= 0;
-  minDemandConstraint_ = std::make_unique<DemandConstraint>(
-      this, true, softCtr,
-      pScenario_->weights().underCoverage, pScenario_->weights().overCoverage);
-  if (pDemand_->isOptDemand_)
-    optDemandConstraint_ = std::make_unique<DemandConstraint>(
-        this, false, true, pScenario_->weights().underCoverage);
-
+  for (int i = 0; i < nDemands(); i++)
+    demandConstraints_.push_back(std::make_unique<DemandConstraint>(
+            this, i, std::to_string(i), param.enableResolve_));
 
   /* Initialize the objects used in the branch and price */
   /* Rotation pricer */
@@ -215,8 +213,8 @@ void MasterProblem::build(const SolverParam &param) {
   pModel_->addPricer(pRCPricer_);  // transfer ownership
 
   /* Tree */
-  RestTree *pTree =
-      new RestTree(pScenario_, pDemand_, param.epsilon_, param.verbose_ > 0);
+  RestTree *pTree = new RestTree(pScenario_, firstDayId(), nDays(),
+                                 param.epsilon_, param.verbose_ > 0);
   pModel_->addTree(pTree);
 
   /* Branching rule */
@@ -242,11 +240,11 @@ void MasterProblem::createPResources() {
 // input days
 void MasterProblem::relaxDays(const std::vector<bool> &isRelax) {
   if (isRelaxDay_.empty()) {
-    isRelaxDay_.insert(isRelaxDay_.begin(), pDemand_->nDays_, false);
+    isRelaxDay_.insert(isRelaxDay_.begin(), nDays(), false);
     isPartialRelaxDays_ = true;
   }
 
-  for (int day = 0; day < pDemand_->nDays_; day++) {
+  for (int day = 0; day < nDays(); day++) {
     isRelaxDay_[day] = isRelaxDay_[day] || isRelax[day];
   }
 }
@@ -255,7 +253,7 @@ void MasterProblem::unrelaxDays(const std::vector<bool> &isUnrelax) {
   if (isRelaxDay_.empty()) {
     isPartialRelaxDays_ = false;
   } else {
-    for (int day = 0; day < pDemand_->nDays_; day++)
+    for (int day = 0; day < nDays(); day++)
       isRelaxDay_[day] = isRelaxDay_[day] && !isUnrelax[day];
   }
 }
@@ -441,14 +439,14 @@ bool MasterProblem::storeSolution() {
   // allocation variables in the master problem
   vector4D<double> skillsAllocation;
   Tools::initVector4D(&skillsAllocation,
-                      pDemand_->nDays_,
+                      nDays(),
                       pScenario_->nShifts(),
                       pScenario_->nSkills(),
                       0,
                       .0);
 
 
-  for (int k = 0; k < pDemand_->nDays_; ++k)
+  for (int k = 0; k < nDays(); ++k)
     for (int s = 0; s < pScenario_->nShifts(); ++s)
       for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
         skillsAllocation[k][s][sk] =
@@ -496,7 +494,7 @@ bool MasterProblem::storeSolution() {
         bool assigned = false;
         double vday = v;
         for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
-          if (skillsAllocation[k][s][sk][pNurse->pPosition_->id_]
+          if (skillsAllocation[k][s][sk][pNurse->positionId()]
               > epsilon()) {
 #ifdef NS_DEBUG
             if (!pNurse->hasSkill(sk)) {
@@ -511,9 +509,9 @@ bool MasterProblem::storeSolution() {
 #endif
             assigned = true;
             pNurse->roster_.assignTask(k, pScenario_->pShift(s), sk);
-            if (skillsAllocation[k][s][sk][pNurse->pPosition_->id_] >
+            if (skillsAllocation[k][s][sk][pNurse->positionId()] >
                 vday - epsilon()) {
-              skillsAllocation[k][s][sk][pNurse->pPosition_->id_] -= vday;
+              skillsAllocation[k][s][sk][pNurse->positionId()] -= vday;
               break;
             }
             if (!fractional)
@@ -521,11 +519,11 @@ bool MasterProblem::storeSolution() {
                      "the coverage is fractional (%.9f) on day %d "
                      "on shift %d (%s) for the skill %s.\n",
                      pNurse->num_, pNurse->name_.c_str(),
-                     skillsAllocation[k][s][sk][pNurse->pPosition_->id_],
+                     skillsAllocation[k][s][sk][pNurse->positionId()],
                      k, s, pScenario_->shiftName(s).c_str(),
                      pScenario_->skillName(sk).c_str());
-            vday -= skillsAllocation[k][s][sk][pNurse->pPosition_->id_];
-            skillsAllocation[k][s][sk][pNurse->pPosition_->id_] = 0;
+            vday -= skillsAllocation[k][s][sk][pNurse->positionId()];
+            skillsAllocation[k][s][sk][pNurse->positionId()] = 0;
           }
         if (!assigned) {
           std::cout << currentSolToString() << std::endl;
@@ -542,7 +540,7 @@ bool MasterProblem::storeSolution() {
 
 #ifdef NS_DEBUG
   //
-  for (int k = 0; k < pDemand_->nDays_; ++k)
+  for (int k = 0; k < nDays(); ++k)
     for (int s = 0; s < pScenario_->nShifts(); ++s)
       for (int sk = 0; sk < pScenario_->nSkills(); ++sk)
         for (double v : skillsAllocation[k][s][sk])
@@ -586,12 +584,12 @@ void MasterProblem::computeColumnCost(Column *col) const {
 
 void MasterProblem::saveSolution() {
   if (!storeSolution()) return;
-  if (pScenario_->isINRC2_)
-    // add the number of nurses only when using the default values
-    // for the week indices (i.e. weekIndices_ is empty)
+  // add the number of nurses only when using the default values
+  // for the week indices (i.e. weekIndices_ is empty)
+  if (writeMultiWeeks)
     displaySolutionMultipleWeeks(param_.weekIndices_.empty());
-  else if (pScenario_->isINRC_)
-    solutionToXmlINRC();
+  // display xml solution
+  if (writeXML) solutionToXmlINRC();
 }
 
 std::string MasterProblem::currentSolToString() const {
@@ -622,11 +620,8 @@ std::string MasterProblem::currentSolToString() const {
 //------------------------------------------------------------------------------
 vector3D<double> MasterProblem::fractionalRoster() const {
   vector3D<double> fractionalRoster;
-  Tools::initVector3D(&fractionalRoster,
-                      nNurses(),
-                      nDays(),
-                      pDemand_->nShifts_,
-                      .0);
+  Tools::initVector3D(
+          &fractionalRoster, nNurses(), nDays(), nShifts(), .0);
 
   // Retrieve current fractional roster for each nurse
   for (MyVar *var : pModel_->getActiveColumns()) {
@@ -710,13 +705,17 @@ void MasterProblem::addConsToCol(std::vector<MyCons *> *cons,
 /******************************************************
 *Get the duals values per day for a nurse
  ******************************************************/
-void MasterProblem::update(const PDemand& pDemand) {
-  if (pDemand->nDays_ != pDemand_->nDays_)
+void MasterProblem::update(vector<PDemand> pDemands) {
+  if (pDemands.size() != pDemands_.size())
     Tools::throwError("The new demand must have the same "
-                      "size than the old one, so that's ");
+                      "size than the old one.");
+  for (auto const &pD : pDemands)
+    if (pD->nDays_ != nDays())
+      Tools::throwError("The new demand must have the same number of days "
+                        "than the old one.");
 
   // set the pointer
-  pDemand_ = pDemand;
+  pDemands_ = std::move(pDemands);
 
   // update the other constraints that may have changed
   for (ConstraintMP* pC : constraints_)
@@ -817,7 +816,7 @@ string MasterProblem::allocationToString() const {
 
   int nbNurses = pScenario_->nNurses();
   int nbShifts = pScenario_->nShifts();
-  int firstDay = pDemand_->firstDayId_, nbDays = pDemand_->nDays_;
+  int firstDay = firstDayId(), nbDays = nDays();
 
   rep << std::endl;
   rep << "Allocations of the (potentially fractional) current solution:"
@@ -873,7 +872,7 @@ string MasterProblem::coverageToString() const {
 
   int nbShifts = pScenario_->nShifts();
   int nbSkills = pScenario_->nSkills();
-  int firstDay = pDemand_->firstDayId_, nbDays = pDemand_->nDays_;
+  int firstDay = firstDayId(), nbDays = nDays();
 
   rep << std::endl;
   rep << "Coverage of the (potentially fractional) current solution:"
@@ -925,6 +924,6 @@ string MasterProblem::coverageToString() const {
 double MasterProblem::computeLagrangianBound(double objVal) const {
   Tools::throwError("Lagrangian bound not implemented "
                     "for this master problem.");
-  return -XLARGE_SCORE;
+  return -INFEAS_COST;
 // return objVal+sumRedCost-getStabCost();
 }

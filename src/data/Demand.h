@@ -15,6 +15,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "tools/Tools.h"
@@ -26,6 +27,10 @@ typedef std::shared_ptr<Scenario> PScenario;
 
 class Demand;
 typedef std::shared_ptr<Demand> PDemand;
+
+enum DemandCtr {
+    D_LE, D_EQ, D_GE
+};
 
 //-----------------------------------------------------------------------------
 //
@@ -39,11 +44,10 @@ class Demand {
  public:
   // generic constructor and destructor
   Demand() : nDays_(0), firstDayId_(0), nShifts_(0), nSkills_(0),
-             isOptDemand_(true) {}
+             ctr_(D_GE), cost_(INFEAS_COST) {}
   Demand(int nbDays, int firstDayId, int nbShifts, int nbSkills,
-         std::string name, vector3D<int> minDemand);
-  Demand(int nbDays, int firstDayId, int nbShifts, int nbSkills,
-         std::string name, vector3D<int> minDemand, vector3D<int> optDemand);
+         std::string name, vector3D<int> demand, DemandCtr ctr = D_GE,
+         double cost = INFEAS_COST);
   ~Demand();
 
   // constant attributes of the demand
@@ -61,36 +65,43 @@ class Demand {
   // number of shifts per day and number of skills to cover
   const int nShifts_, nSkills_;
 
-  // minimum and optimal demand for each day, shift and skill
-  //
-  vector3D<int> minDemand_;
-  bool isOptDemand_;
-  vector3D<int> optDemand_;
+  // demand for each day, shift and skill
+  vector3D<int> demand_;
+
+  // default cost
+  double cost_;
+
+  // cost for each day, shift and skill
+  // if empty, cost is used
+  vector3D<double> costs_;
+
+  // type
+  DemandCtr ctr_ = D_GE;
 
  public:
-  // total demand in the minimal and optimal demands
+  // total demand
   //
-  int minTotal_{}, optTotal_{};
+  int demandTotal_{};
 
   // preprocessed attributes aggregating the information of the demand
   //
   bool isPreprocessed_{};
 
-  // total demand per skill in the minimal and optimal demands
+  // total demand per skill
   //
-  std::vector<int> minPerSkill_, optPerSkill_;
+  std::vector<int> demandPerSkill_;
 
-  // total demand per shift in the minimal and optimal demands
+  // total demand per shift
   //
-  std::vector<int> minPerShift_, optPerShift_;
+  std::vector<int> demandPerShift_;
 
-  // total demand per day in the minimal and optimal demands
+  // total demand per day
   //
-  std::vector<int> minPerDay_, optPerDay_;
+  std::vector<int> demandPerDay_;
 
   // highest demands per skill over the considered period
   //
-  std::vector<int> minHighestPerSkill_, optHighestPerSkill_;
+  std::vector<int> demandHighestPerSkill_;
 
  protected:
   // modify the demand by randomly swapping the demand of nnSwaps days
@@ -113,8 +124,11 @@ class Demand {
  public:
   // compute all the potentially helpful attributes of a demand
   // this includes the total demand per skill, per shift,
-  void preprocessMinDemand();
-  void preprocessOptDemand();
+  void preprocess();
+
+  const vector3D<int> & demand() {
+    return demand_;
+  }
 
   // add another week demand at the end of the current one
   // update all the parameters
@@ -122,6 +136,9 @@ class Demand {
 
   // Returns a new demand that appends pDemand to the current one
   PDemand append(const PDemand& pDemand) const;
+
+  // return the maximum gap to be optimal for the demand
+  int findMaxOptimalGap() const;
 
   // display the demand, and include the preprocessed information if the input
   // boolean is set to true
@@ -141,13 +158,38 @@ class Demand {
   void keepFirstNDays(int nbDays);
 
   // compute the total duration needed for the associated demand
-  int getTotalMinDuration(const PScenario &pScenario) const;
-  int getTotalMinDemand() const;
-  int getTotalMinDemand(int shift) const;
-  int getTotalMinDemand(int shift, int skill) const;
+  int getTotalDuration(const PScenario &pScenario) const;
+  int getTotalDemand() const;
+  int getTotalDemand(int shift) const;
+  int getTotalDemand(int shift, int skill) const;
 
-  int getTotalDemand(
-      int shift, int skill, const vector3D<int>& demand) const;
+  bool isGE() const {
+    return ctr_ == D_GE;
+  }
+
+  bool isLE() const {
+    return ctr_ == D_LE;
+  }
+
+  bool isEQ() const {
+    return ctr_ == D_EQ;
+  }
+
+  double cost(int day, int shift, int skill) const {
+    if (costs_.empty()) return cost_;
+    return costs_.at(day).at(shift).at(skill);
+  }
+
+  void setCost(double cost) {
+    costs_.clear();
+    cost_ = cost;
+  }
+
+  void setCosts(vector3D<double> costs) {
+    costs_ = std::move(costs);
+  }
+
+  double coverageCost(int coverage, int day, int sh, int sk) const;
 };
 
 #endif  // SRC_DATA_DEMAND_H_

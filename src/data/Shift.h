@@ -272,7 +272,7 @@ struct AnyOfTypeShift : public AbstractShift {
 
 class ShiftsFactory {
  public:
-  explicit ShiftsFactory(const vector<PShift> &pShifts,
+  explicit ShiftsFactory(const vector<PShift> &pShifts = {},
                          const std::vector<string> shiftTypeNames = {});
 
   const PAbstractShift &pNoneShift() const { return pNoneShift_; }
@@ -315,7 +315,9 @@ class ShiftsFactory {
 /** comparator for shifts based on id, type, rest, work **/
 struct BaseShiftComparator {
   virtual bool equals(
-      const AbstractShift &s1, const AbstractShift &s2) const = 0;
+      const AbstractShift &s1, const AbstractShift &s2) const {
+    return s1.equals(s2);
+  }
 };
 typedef shared_ptr<BaseShiftComparator> PBaseShiftComparator;
 

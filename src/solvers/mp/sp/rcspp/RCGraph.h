@@ -19,9 +19,8 @@
 #include <utility>
 #include <vector>
 
-#include <boost/graph/adjacency_list.hpp>
-
 #include "solvers/mp/sp/rcspp/RCLabel.h"
+
 
 using std::vector;
 using std::shared_ptr;

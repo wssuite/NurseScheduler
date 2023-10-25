@@ -10,7 +10,7 @@
  */
 
 #include "ParseArguments.h"
-#include "ReadWrite.h"
+#include "parsing/ParseINRC2.h"
 #include "tools/DemandGenerator.h"
 #include "solvers/StochasticSolver.h"
 #include "tools/Tools.h"
@@ -42,7 +42,7 @@ void solveOneWeek(InputPaths *pInputPaths) {
   options.setStochasticSolverOptions(
       pScen, solPath, logPathIni, pInputPaths->timeOut());
 
-  // check if a parameters file in the the in the log path ini
+  // check if a parameters file in the log path ini
   // This files are hard coded as there are no options to give them
   // to the simulator of the INRCII
   string pathIni;
@@ -72,16 +72,14 @@ void solveOneWeek(InputPaths *pInputPaths) {
 
   // get history demands by reading the custom file
   //
-  vector<PDemand> demandHistory;
-  demandHistory.push_back(pScen->pDemand());
+  vector2D<PDemand> pDemandsHis = {pScen->pDemands()};
   if (!pInputPaths->customInputFile().empty())
-    ReadWrite::readCustom(
-        pInputPaths->customInputFile(), pScen, &demandHistory);
+    readCustom(pInputPaths->customInputFile(), pScen, &pDemandsHis);
 
-  Solver *pSolver = new StochasticSolver(pScen, options, demandHistory);
+  Solver *pSolver = new StochasticSolver(pScen, options, pDemandsHis);
 
   logStream << "# Solve the week" << std::endl;
-  pSolver->solve();
+  double obj = pSolver->solve();
   int solutionStatus = pSolver->status();
   logStream << "# Solution status = " << solutionStatus << std::endl;
 //  pSolver->solutionToTxt(solPath);
@@ -95,9 +93,9 @@ void solveOneWeek(InputPaths *pInputPaths) {
   // Write the solution in the required output format
   //
   if (!pInputPaths->customOutputFile().empty()) {
-    ReadWrite::writeCustom(pInputPaths->customOutputFile(),
-                           pInputPaths->week(0),
-                           pInputPaths->customInputFile());
+    writeCustom(pInputPaths->customOutputFile(),
+                pInputPaths->week(0),
+                pInputPaths->customInputFile());
   }
   std::cout << "Custom output file : "
             << pInputPaths->customOutputFile() << std::endl;
@@ -133,7 +131,7 @@ pair<double, int> testMultipleWeeksStochastic(
   // whole scenario for the whole horizon
   PScenario pWholeScen = buildInstance(inputPaths);
 
-  vector<PDemand> demandHistory;
+  vector2D<PDemand> pDemandsHistory;
   double partialCost = 0, totalCost = 0;
   int nbSched = 0;
 
@@ -143,13 +141,13 @@ pair<double, int> testMultipleWeeksStochastic(
       seeds.emplace_back(rdm());
     Tools::initializeRandomGenerator(seeds[week]);
 
-    demandHistory.push_back(pScen->pDemand());
+    pDemandsHistory.push_back(pScen->pDemands());
 
-    std::cout << pScen->toStringINRC2() << std::endl;
+    std::cout << pScen->toString() << std::endl;
 
     auto *pSolver = new StochasticSolver(pScen,
                                          stochasticSolverOptions,
-                                         demandHistory,
+                                         pDemandsHistory,
                                          partialCost);
 
     totalCost = pSolver->solve();
@@ -200,15 +198,12 @@ pair<double, int> testMultipleWeeksStochastic(
 
     // prepare the scenario for next week if we did not reach the last week yet
     if (week < nbWeeks - 1) {
-      // Initialize demand and preferences
-      PDemand pDemand(nullptr);
+      // Initialize preferences
       PPreferences pPref(nullptr);
 
       // Read the demand and preferences and link them with the scenario
-      ReadWrite::readWeekINRC2(inputPaths.week(week + 1),
-                               pScen,
-                               &pDemand,
-                               &pPref);
+      vector<PDemand> pDemands =
+              readWeekINRC2(inputPaths.week(week + 1), pScen, &pPref);
 
       // read the initial state of the new week from the last state of the
       // last week
@@ -219,10 +214,10 @@ pair<double, int> testMultipleWeeksStochastic(
       }
 
       // update the scenario to treat next week
-      pScen->updateNewWeek(pDemand, pPref, initialStates);
+      pScen->updateNewWeek(pDemands, pPref, initialStates);
 
       // append demand and preferences
-      pWholeScen->pushBack(pDemand, pPref);
+      pWholeScen->pushBack(pDemands, pPref);
     } else {
       std::cout << wholeSolver.writeResourceCostsPerNurse() << std::endl;
     }
@@ -292,6 +287,8 @@ int main(int argc, char **argv) {
     // Nominal behavior of the executable, as required by INRCII
     // Retrieve the file names in arguments
     InputPaths *pInputPaths = readArguments(argc, argv);
+
+    if (pInputPaths->inrc2()) PrintSolution::writeMultiWeeks = true;
 
     // Initialize the random seed
     Tools::initializeRandomGenerator(pInputPaths->randSeed());

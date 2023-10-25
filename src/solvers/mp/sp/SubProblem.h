@@ -203,29 +203,10 @@ class SubProblem {
   // Solving options.
   //
   //----------------------------------------------------------------
-
   SubProblemParam param_;
 
   // store the job running the solver if it's the case
   Tools::Job job_;
-
-  //-----------------------
-  // THE BASE COSTS
-  //-----------------------
-  // WARNING : for those that never change, of no use also.
-
-  // For each day k (<= nDays_ - CDMin), contains completeWeekend cost if
-  // [it is a Saturday (resp. Sunday) AND the contract requires complete
-  // weekends]; 0 otherwise.
-  std::vector<double> startWeekendCosts_, endWeekendCosts_;
-  // Costs due to preferences of the nurse:
-  // for each day k (<= nDays_ - CDMin), shift s,
-  // contains WEIGHT_PREFERENCES if (k,s) is a preference of the nurse;
-  // 0 otherwise.
-  vector2D<double> preferencesCosts_;
-
-  // Maximum time duration of a roster
-  int maxTotalDuration_{};
 
   // random generator
   std::minstd_rand rdm_;
@@ -252,7 +233,7 @@ class SubProblem {
       bool initialSolve = true, bool relaxation = false) = 0;
 
   // Initializes some cost vectors that depend on the nurse
-  virtual void initStructuresForSolve();
+  virtual void initStructuresForSolve() {}
 
   // Resets all solutions data (rotations, number of solutions, etc.)
   void resetSolutions();

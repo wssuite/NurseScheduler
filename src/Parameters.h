@@ -315,6 +315,8 @@ struct PrintSolution {
   virtual ~PrintSolution() = default;
   virtual void saveSolution() = 0;
   virtual std::string currentSolToString() const = 0;
+  static bool writeXML;
+  static bool writeMultiWeeks;
 };
 
 // All the parameters for a solver
@@ -414,7 +416,7 @@ class SolverParam {
   // stop the algorithm after finding X solutions
   // if 0, the algorithm computes the relaxation if the algorithm is a column
   // generation procedure
-  int stopAfterXSolution_ = LARGE_SCORE;
+  int stopAfterXSolution_ = LARGE_INT;
 
   // number of candidates to create for strong branching
   int nCandidates_ = 1;
@@ -504,6 +506,9 @@ class SolverParam {
   SPType spType_ = ROSTER;
   // type of the RCSPP solver used in the subproblem
   RCSPPType rcsppType_ = LABEL_SETTING;  // BOOST_LABEL_SETTING
+
+  // need to be set to true to be able to use resolve()
+  bool enableResolve_ = false;
 
   // Initialize all the parameters according to a small number of
   // verbose options
@@ -647,7 +652,7 @@ class StochasticSolverOptions {
   bool withResolveForGeneration_ = false;
 
   // True -> use the real demand for the nExtraDaysGenerationDemands_
-  // put the real demand in demandHistory_[0]
+  // put the real demand in pDemandsHistory_[0]
   bool withRealDemand_ = false;
 
   Algorithm generationAlgorithm_ = GENCOL;

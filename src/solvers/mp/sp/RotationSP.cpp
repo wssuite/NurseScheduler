@@ -15,7 +15,10 @@
 #include <utility>
 
 #include "solvers/mp/sp/rcspp/resources/ConsShiftResource.h"
+
+#ifdef BOOST
 #include "solvers/mp/sp/rcspp/boost/RotationSP.h"
+#endif
 
 RotationSP::RotationSP(PScenario scenario,
                        int firstDayId,
@@ -66,7 +69,7 @@ void RotationSP::createArcs(const PRCGraph &pRCGraph) {
   for (const PRCNode &pSource : pRCGraph_->pSources()) {
     for (auto shiftId : prevS->successors) {
       if (shiftId == 0) continue;  // no resting arc from the source, must work
-      if (pLiveNurse_->isShiftNotAvailNorAlt(shiftId)) continue;
+      if (pLiveNurse_->isShiftNotAvail(shiftId)) continue;
       const PShift &pS = pScenario_->pShift(shiftId);
       PRCNode pN = pNodesPerDay_[day][pS->type];
       addSingleArc(pRCGraph, pSource, pN, pS, day);
@@ -84,7 +87,7 @@ void RotationSP::createArcs(const PRCGraph &pRCGraph) {
       PRCNode pOrigin = pNodesPerDay_[d-1][pS->type];
       if (pOrigin->type ==  SINK_NODE) continue;  // rest nodes are the sinks
       for (int succId : pS->successors) {
-        if (pLiveNurse_->isShiftNotAvailNorAlt(succId)) continue;
+        if (pLiveNurse_->isShiftNotAvail(succId)) continue;
         const PShift &pS = pScenario_->pShift(succId);
         PRCNode pTarget = pNodesPerDay_[d][pS->type];
         PRCArc pArc = addSingleArc(pRCGraph, pOrigin, pTarget,
@@ -105,7 +108,8 @@ void RotationSP::createInitialLabels() {
     } else {
       // state corresponding to the min rest shift done if any
       int nCons = pLiveNurse_->minConsDaysOff();
-      State state(pS->dayId, 0, 0, 0, nCons, nCons, pScenario_->pRestShift());
+      State state(pScenario_->pRestShift(),
+                  pS->dayId, 0, 0, 0, 0, nCons, nCons);
       pL = std::make_shared<RCLabel>(pRCGraph_->pResources(), state);
     }
     pL->setNode(pS);
@@ -145,9 +149,8 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
   } else {
     // create a fake initial state
     int nCons = pLiveNurse_->minConsDaysOff();
-    state = State(
-        rcSol->firstDayId() - 1, 0, 0, 0,
-        nCons, nCons, pScenario_->pRestShift());
+    state = State(pScenario_->pRestShift(), rcSol->firstDayId() - 1,
+                  0, 0, 0, 0, nCons, nCons);
   }
 
   bool addEndShift = rcSol->pShifts().back()->isWork() &&
@@ -175,7 +178,7 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
     std::cerr << "# " << std::endl;
     if (addEndShift)
       rcSol->pushBack(pScenario_->shiftsFactory().pEndShift());
-    vector<PResource> pActiveResources2 =
+    std::pair<vector<PResource>, PRCGraph> pActiveResources2 =
         computeResourcesCosts(state, rcSol);
     if (rcSol->pLabel_ && pL) {
       std::cerr << "Associated rcspp label: " << std::endl;
@@ -185,11 +188,13 @@ void RotationSP::computeCost(MasterProblem *pMaster, RCSolution *rcSol) const {
     }
     Tools::throwError("RotationSP::computeCost does not get the same cost.");
 
+#ifdef BOOST
     // check with boost if default resources
-    if (pMaster->useDefaultResources() && pMaster->isINRC2()) {
+    if (pScenario_->isWeightsDefined()) {
       boostRCSPP::RotationSP sp(pScenario_, nDays(), pLiveNurse_, param_);
       sp.computeCost(nullptr, rcSol);
     }
+#endif
   }
 
   // restore label

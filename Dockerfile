@@ -17,6 +17,8 @@ WORKDIR /home/dantzig/ns/
 ## Compile the nurse scheduler
 ARG CMAKE_BUILD_TYPE=Release
 RUN echo "set(BOOST_DIR /usr/local/include)" >> CMakeDefinitionsLists.txt && \
+    echo "SET(USE_BOOST True)" >> CMakeDefinitionsLists.txt && \
+    echo "add_definitions(-DMBCP)" >> CMakeDefinitionsLists.txt && \
     mkdir build && \
     cd build && \
     cmake -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} .. && \

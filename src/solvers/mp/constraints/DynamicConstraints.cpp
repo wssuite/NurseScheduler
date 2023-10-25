@@ -190,12 +190,12 @@ std::pair<int, int> DynamicConstraints::getConsumptions(
     int nurseNum, const Stretch &st, const PAbstractShift &prevS) const {
   // consumption for total duration
   auto *pR = totalShiftDurationResources_[nurseNum];
-  bool ready = !(prevS && pR->pShift()->includes(*prevS));
+  bool ready = !(prevS && pR->pAShift()->includes(*prevS));
   int c = pR->computeConsumption(st, &ready);
 
   // consumption for total weekend
   auto *pR2 = totalWeekendResources_[nurseNum];
-  ready = !(prevS && pR2->pShift()->includes(*prevS));
+  ready = !(prevS && pR2->pAShift()->includes(*prevS));
   int c2 = pR2->computeConsumption(st, &ready);
 
   return {c, c2};
@@ -350,6 +350,7 @@ void DynamicConstraints::build() {
             dW.getWeightTotalShiftsAvg()[i],
             pWork,
             pMaster_->nDays(),
+            false,
             pScenario_->maxDuration());
         totalShiftDurationResourcesAvg_.push_back(pR);
         pMaster_->addNewSPResources(pN, pR);
@@ -379,8 +380,8 @@ void DynamicConstraints::build() {
             {-1, -1});
       } else {
         auto pR = std::make_shared<SoftTotalWeekendsResource>(
-            dW.getMaxTotalWeekendsAvg()[i],
-            dW.getWeightTotalWeekendsAvg()[i],
+            0, dW.getMaxTotalWeekendsAvg()[i],
+            0, dW.getWeightTotalWeekendsAvg()[i],
             pWork,
             pMaster_->nDays());
         totalWeekendResourcesAvg_.push_back(pR);

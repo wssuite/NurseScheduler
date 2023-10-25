@@ -27,7 +27,7 @@ void ConsWeekend::computeConsumption(
     if (weekend_.isWeekend(pD)) {
       // check if included on this day and
       // if weekend has not been already counted
-      if (vChild->readyToConsume && pAShift_->includes(**itShift)) {
+      if (vChild->readyToConsume && pAShift__->includes(**itShift)) {
         vChild->consumption++;
         vChild->readyToConsume = false;
       }
@@ -63,7 +63,7 @@ void ConsWeekend::computeConsumptionBack(
     if (weekend_.isWeekend(*itDay)) {
       // check if included on this day and
       // if weekend has not been already counted
-      if (vChild->readyToConsume && pAShift_->includes(**itShift)) {
+      if (vChild->readyToConsume && pAShift__->includes(**itShift)) {
         vChild->consumption++;
         vChild->readyToConsume = false;
       }

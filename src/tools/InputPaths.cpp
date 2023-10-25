@@ -10,20 +10,16 @@
  */
 
 #include "tools/InputPaths.h"
+
 #include <iostream>
 #include <string>
+
 #include "tools/Tools.h"
 
 /******************************************************************************
 * The instances of InputPaths contain the paths of the input files of the
 * problem
 *******************************************************************************/
-InputPaths::InputPaths() {
-  instance_ = "";
-  scenario_ = "";
-  history_ = "";
-}
-
 InputPaths::InputPaths(const std::string &dataDir,
                        const std::string &instanceName,
                        int historyIndex,
@@ -154,7 +150,8 @@ InstanceOrigin InputPaths::guessOrigin(const std::string &path) const {
         return INRC;
       if (l.find("SECTION_HORIZON") != std::string::npos)
         return NRP;
-      if (l.find("HEADERS") != std::string::npos)
+      if (l.find("HEADERS") != std::string::npos ||
+          l.find("SCHEDULING_PERIOD") != std::string::npos)
         return UI;
     }
   }

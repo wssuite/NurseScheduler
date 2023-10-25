@@ -74,7 +74,7 @@ void OffsetRosterSP::createArcs(const PRCGraph &pRCGraph) {
   // arcs from source to first day
   PShift pShiftIni = pLiveNurse_->pStateIni_->pShift_;
   for (auto shiftId : pShiftIni->successors) {
-    if (pLiveNurse_->isShiftNotAvailNorAlt(shiftId)) continue;
+    if (pLiveNurse_->isShiftNotAvail(shiftId)) continue;
     PRCNode pN = pNodesPerDay_[0][shiftId];
     if (pN == nullptr)
       continue;
@@ -92,7 +92,7 @@ void OffsetRosterSP::createArcs(const PRCGraph &pRCGraph) {
       if (pOrigin == nullptr)
         continue;
       for (int succId : pS->successors) {
-        if (pLiveNurse_->isShiftNotAvailNorAlt(succId)) continue;
+        if (pLiveNurse_->isShiftNotAvail(succId)) continue;
         PRCNode pTarget = pNodesPerDay_[d][succId];
         if (pTarget == nullptr)
           continue;

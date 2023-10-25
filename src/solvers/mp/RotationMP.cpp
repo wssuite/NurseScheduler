@@ -21,7 +21,7 @@
 #include "solvers/mp/modeler/BcpModeler.h"
 #include "solvers/mp/RCPricer.h"
 #include "solvers/mp/TreeManager.h"
-#include "solvers/mp/sp/rcspp/resources/AlternativeShiftResource.h"
+#include "solvers/mp/sp/rcspp/resources/UnwantedShiftResource.h"
 #include "solvers/mp/sp/rcspp/resources/ForbiddenPatternResource.h"
 #include "solvers/mp/sp/rcspp/resources/FreeDaysAfterShiftResource.h"
 
@@ -52,12 +52,12 @@ using std::endl;
 // (if the rotation is not at an extremity of the horizon).
 void RotationColumn::addForbiddenShifts(
     std::set<std::pair<int, int> > *forbiddenShifts,
-    int nbShifts, PDemand pDemand) const {
+    int firstDay, int nDays, int nbShifts) const {
   // from the previous day to the day after the end of the rotation,
   // forbid any work shifts
   for (int day = firstDayId()-1; day <= lastDayId()+1; day++) {
-    if (day < pDemand->firstDayId_) continue;
-    if (day >= pDemand->firstDayId_ + pDemand->nDays_) continue;
+    if (day < firstDay) continue;
+    if (day >= firstDay + nDays) continue;
     for (int i = 1; i < nbShifts; ++i)
       forbiddenShifts->insert(pair<int, int>(day, i));
   }
@@ -185,11 +185,11 @@ void RotationMP::build(const SolverParam &param) {
         totalWeekendConstraint_.get());
 }
 
-void RotationMP::update(const PDemand& pDemand) {
+void RotationMP::update(vector<PDemand> pDemands) {
   if (dynamicConstraints_ == nullptr && dynamicWeights_.version() > 0)
     Tools::throwError("Cannot defined new dynamic weights if none were "
                       "defined at the initial build.");
-  MasterProblem::update(pDemand);
+  MasterProblem::update(std::move(pDemands));
 }
 
 // Build the columns corresponding to the initial solution
@@ -207,7 +207,7 @@ void RotationMP::initializeSolution(const vector<Roster> &solution) {
     bool workedOnPreviousDay = false;
     std::vector<PShift> pShifts;
     // build all the successive rotation of this nurse
-    for (int k = 0; k < pDemand_->nDays_; ++k) {
+    for (int k = 0; k < nDays(); ++k) {
       // shift=0 => rest
       const PShift &pShift = roster.pShift(k);
       // if work, insert the shift in the map
@@ -264,7 +264,7 @@ void RotationMP::splitPResources() {
           continue;
         }
         // 1. Try and cast as alternative shift resource
-        auto pRAlt = std::dynamic_pointer_cast<AlternativeShiftResource>(pR);
+        auto pRAlt = std::dynamic_pointer_cast<UnwantedShiftResource>(pR);
         if (pRAlt != nullptr) {
           pRAlt->setId(static_cast<int>(pSPResources.size()));
           pSPResources.push_back(pRAlt);

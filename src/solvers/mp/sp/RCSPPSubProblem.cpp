@@ -580,22 +580,28 @@ vector<PResource> RCSPPSubProblem::computeResourcesCosts(
     const Stretch &stretch,
     std::map<CostType, double> *costsPerType) {
   RCSolution sol(stretch);
-  vector<PResource> pResources = computeResourcesCosts(initialState, &sol);
+  auto pCosts = computeResourcesCosts(initialState, &sol);
   *costsPerType = sol.costs();
-  return pResources;
+  return pCosts.first;
 }
 
-vector<PResource> RCSPPSubProblem::computeResourcesCosts(
+std::pair<vector<PResource>, PRCGraph> RCSPPSubProblem::computeResourcesCosts(
     const State &initialState, RCSolution *rcSol) const {
   // reset costs
   rcSol->resetCosts();
   // create origin, destination and arc
-  PRCNode pSource = std::make_shared<RCNode>(
-      0, SOURCE_NODE, rcSol->firstDayId() - 1, initialState.pShift_),
-      pSink = std::make_shared<RCNode>(
-      1, SINK_NODE, rcSol->lastDayId(), rcSol->pShifts().back());
-  PRCArc pArc = std::make_shared<RCArc>(
-      0, pSource, pSink, *rcSol, 0, TO_SINK);
+  PRCGraph pRCGraph = std::make_shared<RCGraph>(
+          rcSol->firstDayId() - 1,
+          rcSol->lastDayId() + 1,
+          pScenario_->nShifts(),
+          pScenario_->shiftsFactory().pAnyTypeShifts());
+  PDay pFirstD = std::make_shared<Day>(rcSol->firstDayId() - 1),
+       pLastD = std::make_shared<Day>(rcSol->lastDayId());
+  PRCNode pSource =
+          pRCGraph->addSingleNode(SOURCE_NODE, pFirstD, initialState.pShift_);
+  PRCNode pSink =
+          pRCGraph->addSingleNode(SINK_NODE, pLastD, rcSol->pShifts().back());
+  PRCArc pArc = pRCGraph->addSingleArc(pSource, pSink, *rcSol, 0);
 
   // preprocess resources for arc
   for (const auto &pR : pResources_) {
@@ -616,7 +622,9 @@ vector<PResource> RCSPPSubProblem::computeResourcesCosts(
   }
 
   // expand
-  PRCLabel pL = std::make_shared<RCLabel>(pActiveResources, initialState);
+  PRCLabel pLS = std::make_shared<RCLabel>(pActiveResources, initialState),
+          pL = std::make_shared<RCLabel>(pActiveResources);
+  pL->setAsNext(pLS, pArc);
   cost = pL->cost();
   for (const auto &pE : pArc->expanders) {
     ResourceValues &v = pL->getResourceValues(pE->indResource);
@@ -628,5 +636,5 @@ vector<PResource> RCSPPSubProblem::computeResourcesCosts(
   rcSol->pLabel_ = pL;
 #endif
 
-  return pActiveResources;
+  return {pActiveResources, pRCGraph};
 }

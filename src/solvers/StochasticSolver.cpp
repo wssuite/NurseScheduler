@@ -44,15 +44,15 @@ using std::set;
 
 StochasticSolver::StochasticSolver(PScenario pScenario,
                                    StochasticSolverOptions options,
-                                   vector<PDemand> demandHistory,
+                                   vector2D<PDemand> demandHistory,
                                    double costPreviousWeeks) :
-    Solver(pScenario),
-    options_(options),
-    demandHistory_(std::move(demandHistory)),
-    pGenerationSolver_(nullptr),
-    nGeneratedSolutions_(0),
-    costPreviousWeeks_(costPreviousWeeks) {
-  if (!pScenario_->isINRC2_)
+        Solver(pScenario),
+        options_(options),
+        pDemandsHistory_(std::move(demandHistory)),
+        pGenerationSolver_(nullptr),
+        nGeneratedSolutions_(0),
+        costPreviousWeeks_(costPreviousWeeks) {
+  if (!pScenario_->isWeightsDefined())
     Tools::throwError("StochasticSolver works only with INRC2 scenarios.");
 
   std::cout << "# New stochastic solver created!" << std::endl;
@@ -71,13 +71,25 @@ StochasticSolver::StochasticSolver(PScenario pScenario,
   options_.generationParameters_.minRelativeGap_ = 1e-6;
   options_.generationParameters_.relativeGap_ = 1e-6;
 
+  int gap = findMaxOptimalGap();
+  options_.generationParameters_.optimalAbsoluteGap_ = gap;
+  options_.evaluationParameters_.optimalAbsoluteGap_ = gap;
+  options_.generationParameters_.absoluteGap_ = gap;
+  options_.evaluationParameters_.absoluteGap_ = gap;
+
+
+  options_.generationParameters_.enableResolve_ =
+          options_.withResolveForGeneration_;
+  options_.evaluationParameters_.enableResolve_ =
+          options_.withResolveForEvaluation_;
+
   if (options_.rankingStrategy_ == RK_SCORE && options_.demandingEvaluation_) {
     options_.demandingEvaluation_ = false;
     std::cout <<"Deactivate parameter demandingEvaluation_ as it is not "
                 "compatible with the ranking strategy RK_SCORE." << std::endl;
   }
 
-  bestScore_ = XLARGE_SCORE;
+  bestScore_ = INFEAS_COST;
   bestSchedule_ = -1;
 
   // initialize the log output
@@ -183,10 +195,10 @@ double StochasticSolver::solve(const vector<Roster> &initialSolution) {
 // Does everything for the one week and only keeps the best schedule for it
 void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
   // Need to extend the current demand?
-  auto pDemand = options_.nExtraDaysGenerationDemands_ > 0 ?
-      generateSingleGenerationDemand() : pScenario_->pDemand();
+  auto pDemands = options_.nExtraDaysGenerationDemands_ > 0 ?
+      generateSingleGenerationDemands() : pScenario_->pDemands();
   pGenerationSolver_ = std::unique_ptr<Solver>(
-          setGenerationSolverWithInputAlgorithm(pDemand));
+          setGenerationSolverWithInputAlgorithm(pDemands));
 
   // Need to perturb the costs?
   int endSchedule = pGenerationSolver_->pDemand()->nDays_
@@ -199,7 +211,7 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 
   // Solve
   (*pLogStream_) << "# Solve without evaluation\n";
-  pGenerationSolver_->solve(options_.generationParameters_);
+  double obj = pGenerationSolver_->solve(options_.generationParameters_);
   copySolution(pGenerationSolver_.get());
   solution_ = solutionAtDay(options_.withRealDemand_ ? 13 : 6);
   status_ = pGenerationSolver_->status(true);
@@ -208,8 +220,8 @@ void StochasticSolver::solveOneWeekNoGenerationEvaluation() {
 // Special case of the last week
 void StochasticSolver::solveOneWeekWithoutPenalties() {
   auto pSolver = std::unique_ptr<Solver>(
-      setGenerationSolverWithInputAlgorithm(pScenario_->pDemand()));
-  pSolver->solve(options_.generationParameters_);
+      setGenerationSolverWithInputAlgorithm(pScenario_->pDemands()));
+  double obj = pSolver->solve(options_.generationParameters_);
   copySolution(pSolver.get());
   status_ = pSolver->status(true);
 }
@@ -237,7 +249,7 @@ void StochasticSolver::solveOneWeekGenerationEvaluation() {
     if (addAndSolveNewSchedule()) {
       // Get the new best schedule
       int newBestSchedule = -1;
-      double newBestScore = XLARGE_SCORE;
+      double newBestScore = INFEAS_COST;
       double bestBaseCost = 0;
       double minGap = options_.demandingEvaluation_ ?
                       pScenario_->weights().underCoverage : epsilon();
@@ -394,43 +406,53 @@ bool StochasticSolver::addAndSolveNewSchedule() {
 //----------------------------------------------------------------------------
 
 // Generate a new demand for generation
-PDemand StochasticSolver::generateSingleGenerationDemand() {
+vector<PDemand> StochasticSolver::generateSingleGenerationDemands() {
   int nDaysInDemand = options_.nExtraDaysGenerationDemands_;
   bool isFeasible = false;
-  PDemand pCompleteDemand;
+  vector<PDemand> pCompleteDemands;
 
   (*pLogStream_) << "# Generating new generation demand..." << std::endl;
 
   // use the real demand instead of generating a random one
   if (options_.withRealDemand_) {
-    pCompleteDemand = std::make_shared<Demand>(*(pScenario_->pDemand()));
-    PDemand pFutureDemand = std::make_shared<Demand>(*(demandHistory_[0]));
-    pFutureDemand->keepFirstNDays(nDaysInDemand);
-    pCompleteDemand = pCompleteDemand->append(pFutureDemand);
+    int i = 0;
+    for (const auto &pD : pScenario_->pDemands()) {
+      auto pCD = std::make_shared<Demand>(*pD);
+      PDemand pFutureDemand =
+              std::make_shared<Demand>(*(pDemandsHistory_[0][i]));
+      pFutureDemand->keepFirstNDays(nDaysInDemand);
+      pCompleteDemands.push_back(pCD->append(pFutureDemand));
+    }
   } else {
-    PDemand pSingleDemand;
     while (!isFeasible) {
-      DemandGenerator dg(1, nDaysInDemand, demandHistory_, pScenario_);
+      DemandGenerator dg(1, nDaysInDemand, pDemandsHistory_, pScenario_);
       // no feasibility check here
-      pSingleDemand = dg.generateSinglePerturbatedDemand(false);
-      pCompleteDemand = pScenario_->pDemand()->append(pSingleDemand);
-      isFeasible = dg.checkDemandFeasibility(pCompleteDemand);
-      if (!isFeasible) {
-        (*pLogStream_) << "# Demand has been regenerated because "
-                          "it was infeasible." << std::endl;
+      pCompleteDemands = dg.generateSinglePerturbatedDemands(false);
+      int i = 0;
+      isFeasible = true;
+      for (const auto &pD : pScenario_->pDemands()) {
+        pCompleteDemands[i] = pD->append(pCompleteDemands[i]);
+        if (!dg.checkDemandFeasibility(pCompleteDemands[i])) {
+          (*pLogStream_) << "# Demand " << i
+                         << " has been regenerated because it was infeasible."
+                         << std::endl;
+          isFeasible = false;
+          break;
+        }
+        i++;
       }
     }
   }
 
-  pGenerationDemands_.push_back(pCompleteDemand);
+  pGenerationDemands_.push_back(pCompleteDemands);
   (*pLogStream_) << "# [week=" << pScenario_->thisWeek()
                  << "] Generation demand no. "
                  << (pGenerationDemands_.size() - 1)
                  << " created (over "
-                 << pGenerationDemands_.back()->nDays_
+                 << pGenerationDemands_.back().front()->nDays_
                  << " days)." << std::endl;
 
-  return pCompleteDemand;
+  return pCompleteDemands;
 }
 
 
@@ -445,7 +467,7 @@ PDemand StochasticSolver::generateSingleGenerationDemand() {
 void StochasticSolver::generateAllEvaluationDemands() {
   DemandGenerator dg(options_.nEvaluationDemands_,
                      options_.nDaysEvaluation_,
-                     demandHistory_,
+                     pDemandsHistory_,
                      pScenario_);
   pEvaluationDemands_ = dg.generatePerturbedDemands();
   // Initialize structures for scores
@@ -472,9 +494,9 @@ void StochasticSolver::generateAllEvaluationDemands() {
 
 // Return a solver with the algorithm specified for schedule GENERATION
 Solver *StochasticSolver::setGenerationSolverWithInputAlgorithm(
-    PDemand pDemand) {
+    vector<PDemand> pDemands) {
   PScenario pScenario = std::make_shared<Scenario>(*pScenario_);
-  pScenario->linkWithDemand(std::move(pDemand));
+  pScenario->linkWithDemand(std::move(pDemands));
   Solver *pSolver = newSolver(pScenario, options_.generationAlgorithm_,
                               options_.generationParameters_.spType_,
                               options_.mySolverType_);
@@ -486,7 +508,7 @@ Solver *StochasticSolver::setGenerationSolverWithInputAlgorithm(
 bool StochasticSolver::generateNewSchedule() {
   // A. Generate a demand that will be concatenated to the real demand
   // for the generation
-  PDemand newDemand = generateSingleGenerationDemand();
+  vector<PDemand> pNewDemands = generateSingleGenerationDemands();
 
   // B. Solve this schedule (in a way that should be defined)
   // Create a new solver if first schedule || if RE-solve is forbidden
@@ -494,11 +516,11 @@ bool StochasticSolver::generateNewSchedule() {
     WeightStrategy previous_strat = pGenerationSolver_ ?
         pGenerationSolver_->getDynamicWeights().getStrategy() : NO_STRAT;
     pGenerationSolver_ = std::unique_ptr<Solver>(
-            setGenerationSolverWithInputAlgorithm(newDemand));
+            setGenerationSolverWithInputAlgorithm(pNewDemands));
     pGenerationSolver_->setDynamicWeightsStrategy(previous_strat);
   }
 
-  int endSchedule = 7 * pScenario_->thisWeek() + newDemand->nDays_;
+  int endSchedule = 7 * pScenario_->thisWeek() + pNewDemands.front()->nDays_;
   if (options_.generationCostPerturbation_ &&
       endSchedule < 7 * pScenario_->nWeeks())
     pGenerationSolver_->boundsAndWeights(
@@ -507,9 +529,10 @@ bool StochasticSolver::generateNewSchedule() {
   // If first || no RE-solve, solve normally.
   // Otherwise, re-solve with a new demand
   if (pGenerationSolver_->status() == UNSOLVED)
-    pGenerationSolver_->solve(options_.generationParameters_);
+    double obj = pGenerationSolver_->solve(options_.generationParameters_);
   else
-    pGenerationSolver_->resolve(newDemand, options_.generationParameters_);
+    double obj = pGenerationSolver_->resolve(
+            pNewDemands, options_.generationParameters_);
 
   if (pGenerationSolver_->status(true) != FEASIBLE
       && pGenerationSolver_->status() != OPTIMAL) {
@@ -541,7 +564,7 @@ bool StochasticSolver::generateNewSchedule() {
 
 // Return a solver with the algorithm specified for schedule EVALUATION
 Solver *StochasticSolver::setEvaluationWithInputAlgorithm(
-    PDemand pDemand, const vector<State> &stateEndOfSchedule) {
+        vector<PDemand> pDemands, const vector<State> &stateEndOfSchedule) {
   PScenario pScen = std::make_shared<Scenario>(*pScenario_);
 
   // update the scenario to treat next week
@@ -549,7 +572,7 @@ Solver *StochasticSolver::setEvaluationWithInputAlgorithm(
       pScenario_->nNurses(),
       options_.nDaysEvaluation_,
       pScenario_->nShifts());
-  pScen->updateNewWeek(std::move(pDemand), pEmptyPref, stateEndOfSchedule);
+  pScen->updateNewWeek(std::move(pDemands), pEmptyPref, stateEndOfSchedule);
 
   Solver *pSolver = newSolver(pScen, options_.evaluationAlgorithm_,
                               options_.evaluationParameters_.spType_,
@@ -599,7 +622,7 @@ bool StochasticSolver::evaluateLastGeneratedSchedule() {
     double currentCost = costPreviousWeeks_ + theBaseCosts_.back();
 
     if (pGenerationSolver_->status(true) == INFEASIBLE) {
-      currentCost += XLARGE_SCORE;
+      currentCost += INFEAS_COST;
     } else {
       // Perform the actual evaluation on demand j
       // by running the chosen algorithm

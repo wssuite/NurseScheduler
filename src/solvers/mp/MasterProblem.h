@@ -120,8 +120,7 @@ struct Column : public RCSolution {
   // this method add the corresponding forbidden shifts to the set
   virtual void addForbiddenShifts(
       std::set<std::pair<int, int> > *forbidenShifts,
-      int nbShifts,
-      PDemand pDemand) const = 0;
+      int firstDayId, int nDays, int nbShifts) const = 0;
 
   std::string toString() const override;
 
@@ -191,7 +190,7 @@ class MasterProblem : public Solver, public PrintSolution {
                const std::vector<Roster> &solution = {}) override;
 
   // Resolve the problem with another demand and keep the same preferences
-  double resolve(PDemand pDemand,
+  double resolve(vector<PDemand> pDemands,
                  const SolverParam &parameters,
                  const std::vector<Roster> &solution = {}) override;
 
@@ -262,7 +261,7 @@ class MasterProblem : public Solver, public PrintSolution {
   // the current solution
   void fixAvailabilityBasedOnSolution(
       const std::vector<bool> &fixDays,
-      const std::vector<Roster> &solution = {}) override;
+      const std::vector<Roster> &solution) override;
 
   // fix/unfix all the variables corresponding to the input vector of nurses
   void fixNurses(const std::vector<bool> &isFixNurse) override;
@@ -291,8 +290,8 @@ class MasterProblem : public Solver, public PrintSolution {
   */
   const char *PB_NAME = "GenCol";
 
-  const vector3D<MyVar *> &getOptDemandVars() const {
-    return optDemandConstraint_->getVariables();
+  const vector3D<MyVar *> &getDemandVars(int i) const {
+    return demandConstraints_.at(i)->getVariables();
   }
 
   const vector3D<MyVar *> &getNursePositionCountVars() const {
@@ -303,8 +302,8 @@ class MasterProblem : public Solver, public PrintSolution {
     return allocationConstraint_->getVariables();
   }
 
-  const vector3D<MyCons *> &getOptDemandCons() const {
-    return optDemandConstraint_->getConstraints();
+  const vector3D<MyCons *> &getDemandCons(int i) const {
+    return demandConstraints_.at(i)->getConstraints();
   }
 
   // solve a solution in the output
@@ -356,8 +355,7 @@ class MasterProblem : public Solver, public PrintSolution {
   */
   std::unique_ptr<NursePositionCountConstraint> nursePositionCountConstraint_;
     std::unique_ptr<AllocationConstraint> allocationConstraint_;
-    std::unique_ptr<DemandConstraint>
-            minDemandConstraint_, optDemandConstraint_;
+    vector<std::unique_ptr<DemandConstraint>> demandConstraints_;
 
   // vector containing the constraints that are involved
   // in the column generation
@@ -409,7 +407,7 @@ class MasterProblem : public Solver, public PrintSolution {
 
   // update the demand with a new one of the same size
   // change the rhs of the constraints minDemandCons_ and optDemandCons_
-  virtual void update(const PDemand& pDemand);
+  virtual void update(vector<PDemand> pDemands);
 };
 
 #endif  // SRC_SOLVERS_MP_MASTERPROBLEM_H_

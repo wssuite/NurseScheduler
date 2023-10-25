@@ -33,8 +33,7 @@
 // It will forbid any shifts on any days as the nurse already has a roster.
 void RosterColumn::addForbiddenShifts(
     std::set<std::pair<int, int> > *forbiddenShifts,
-    int nbShifts,
-    PDemand pDemand) const {
+    int firstDay, int nDays, int nbShifts) const {
   // from the previous day to the day after the end of the rotation, forbid any
   // work shifts
   for (int day = firstDayId(); day <= lastDayId(); day++)
@@ -200,7 +199,7 @@ double RosterMP::computeLagrangianBound(double objVal) const {
   if (!pModel_->stab().stabCheckStoppingCriterion()) {
     std::cerr << "Cannot compute a lagrangian bound when stabilization "
                  "variables are present in the solution." << std::endl;
-    return -XLARGE_SCORE;
+    return -INFEAS_COST;
   }
 
   double sumRedCost = 0;

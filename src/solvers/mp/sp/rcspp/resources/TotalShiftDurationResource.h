@@ -31,27 +31,33 @@ using std::vector;
  */
 class TotalShiftDuration {
  public:
-  TotalShiftDuration(PAbstractShift pShift,
-                     int maxDuration,
-                     int defaultDuration) :
-      pAShift_(std::move(pShift)),
-      maxDuration_(maxDuration),
-      defaultDuration_(defaultDuration) {}
+  TotalShiftDuration(const PAbstractShift &pAShift, int maxDuration,
+                     bool countAssignment) :
+      pAShift__(pAShift), maxDuration_(maxDuration),
+      countAssignment_(countAssignment) {
+    if (maxDuration == 0)
+      Tools::throwError("Cannot have a max duration of 0. "
+                        "The constraint becomes meaningless.");
+  }
 
   int computeConsumption(const Stretch &stretch, bool *ready = nullptr) const;
-
-  const PAbstractShift &pShift() const { return pAShift_; }
 
   int maxDuration() const { return maxDuration_; }
 
   int duration(const PShift &pS) const {
-    return defaultDuration_ >= 0 ? defaultDuration_ : pS->duration;
+    return countAssignment_ ? 1 : pS->duration;
+  }
+
+  bool countAssignment() const {
+    return countAssignment_;
   }
 
  protected:
-  const PAbstractShift pAShift_;
   int maxDuration_;  // maximum duration of a shift: used for the dominance
-  int defaultDuration_;  // if defined, override duration of the PShift
+  bool countAssignment_;  // if true, count assignment
+
+ private:
+  PAbstractShift pAShift__;
 };
 
 class SoftTotalShiftDurationResource :
@@ -60,11 +66,11 @@ class SoftTotalShiftDurationResource :
   SoftTotalShiftDurationResource(int lb, int ub, double lbCost, double ubCost,
                                  const PAbstractShift &pShift,
                                  int totalNbDays,
-                                 int maxDuration,
-                                 int defaultDuration = -1) :
-      SoftBoundedResource("Soft Total " + pShift->name,
+                                 bool countAssignment = true,
+                                 int maxDuration = 1) :
+      SoftBoundedResource(pShift, "Soft Total " + pShift->name,
                           lb, ub, lbCost, ubCost),
-      TotalShiftDuration(pShift, maxDuration, defaultDuration) {
+      TotalShiftDuration(pShift, maxDuration, countAssignment) {
     totalNbDays_ = totalNbDays;
     costType_ = TOTAL_WORK_COST;
   }
@@ -72,7 +78,7 @@ class SoftTotalShiftDurationResource :
   BaseResource *clone() const override {
     return new SoftTotalShiftDurationResource(
         lb_, ub_, lbCost_, ubCost_, pAShift_,
-        totalNbDays_, maxDuration_, defaultDuration_);
+        totalNbDays_, countAssignment_, maxDuration_);
   }
 
   void preprocess(const PRCGraph &pRCGraph) override;
@@ -99,10 +105,13 @@ class HardTotalShiftDurationResource :
     public HardBoundedResource, public TotalShiftDuration {
  public:
   HardTotalShiftDurationResource(
-      int lb, int ub, const PAbstractShift &pShift,
-      int totalNbDays, int maxDuration, int defaultDuration = -1) :
-      HardBoundedResource("Hard Total " + pShift->name, lb, ub),
-      TotalShiftDuration(pShift, maxDuration, defaultDuration) {
+      int lb, int ub,
+      const PAbstractShift &pShift,
+      int totalNbDays,
+      bool countAssignment = true,
+      int maxDuration = 1) :
+      HardBoundedResource(pShift, "Hard Total " + pShift->name, lb, ub),
+      TotalShiftDuration(pShift, maxDuration, countAssignment) {
     totalNbDays_ = totalNbDays;
     maxDurationForRemainingDays(totalNbDays, 1);
   }
@@ -110,7 +119,7 @@ class HardTotalShiftDurationResource :
   BaseResource *clone() const override {
     auto pR = new HardTotalShiftDurationResource(
         lb_, ub_, pAShift_,
-        totalNbDays_, maxDuration_, defaultDuration_);
+        totalNbDays_, countAssignment_, maxDuration_);
     pR->maxDurationForRemainingDays_ = maxDurationForRemainingDays_;
     return pR;
   }

@@ -37,13 +37,12 @@ using std::vector;
  */
 class ConsWeekend : public ConsShift {
  public:
-  ConsWeekend(PAbstractShift pShift,
-              BoundedResource* pR,
+  ConsWeekend(const PAbstractShift &pAShift, BoundedResource* pR,
               DayOfWeek firstWeekendDay, DayOfWeek lastWeekendDay,
               bool endOnLastDay,
               bool cyclic) :
-      ConsShift(pShift, 0, endOnLastDay, cyclic),
-      pR_(pR), weekend_(firstWeekendDay, lastWeekendDay) {}
+      ConsShift(0, endOnLastDay, cyclic),
+      pAShift__(pAShift), pR_(pR), weekend_(firstWeekendDay, lastWeekendDay) {}
 
   void computeConsumption(
       const Stretch &stretch, ResourceValues *vChild,
@@ -68,6 +67,9 @@ class ConsWeekend : public ConsShift {
  protected:
   BoundedResource *pR_;
   Weekend weekend_;
+
+ private:
+  PAbstractShift pAShift__;
 };
 /**
  * Resource corresponding to the soft min/max constraints on the number of
@@ -83,7 +85,7 @@ class SoftConsWeekendShiftResource :
       DayOfWeek lastWeekendDayId = SUNDAY,
       bool endOnLastDay = true,
       bool cyclic = false) :
-      SoftBoundedResource("Soft Weekend Cons "+ pShift->name,
+      SoftBoundedResource(pShift, "Soft Weekend Cons "+ pShift->name,
                           lb, ub, lbCost, ubCost),
       ConsWeekend(pShift, this, firstWeekendDayId, lastWeekendDayId,
                   endOnLastDay, cyclic) {
@@ -138,7 +140,7 @@ class HardConsWeekendShiftResource :
       DayOfWeek lastWeekendDay = SUNDAY,
       bool endOnLastDay = true,
       bool cyclic = false) :
-      HardBoundedResource("Hard Weekend Cons " + pShift->name, lb, ub),
+      HardBoundedResource(pShift, "Hard Weekend Cons " + pShift->name, lb, ub),
       ConsWeekend(pShift, this, firstWeekendDay, lastWeekendDay,
                   endOnLastDay, cyclic) {
     totalNbDays_ = totalNbDays;

@@ -301,25 +301,25 @@ typedef std::shared_ptr<MyNode> MyPNode;
 struct MyNode {
   MyNode() : index_(0),
              pParent_(nullptr),
-             bestLB_(-XLARGE_SCORE),
+             bestLB_(-INFEAS_COST),
              processed_(false),
-             gap_(XLARGE_SCORE),
-             smallestGap_(XLARGE_SCORE),
+             gap_(INFEAS_COST),
+             smallestGap_(INFEAS_COST),
              depth_(0),
-             bestLagLB_(-XLARGE_SCORE),
-             lastLagLB_(-XLARGE_SCORE),
-             presolvedUB_(XLARGE_SCORE) {}
+             bestLagLB_(-INFEAS_COST),
+             lastLagLB_(-INFEAS_COST),
+             presolvedUB_(INFEAS_COST) {}
   explicit MyNode(const MyPNode &pParent) :
       index_(-1),
       pParent_(pParent.get()),
       bestLB_(pParent_->bestLB_),
       processed_(false),
-      gap_(XLARGE_SCORE),
-      smallestGap_(XLARGE_SCORE),
+      gap_(INFEAS_COST),
+      smallestGap_(INFEAS_COST),
       depth_(pParent_->depth_ + 1),
       bestLagLB_(pParent_->bestLB_),
-      lastLagLB_(-XLARGE_SCORE),
-      presolvedUB_(XLARGE_SCORE) {}
+      lastLagLB_(-INFEAS_COST),
+      presolvedUB_(INFEAS_COST) {}
   virtual ~MyNode() = default;
 
   // parent
@@ -346,7 +346,7 @@ struct MyNode {
   double getHighestGap() const {
     // if root, it is the best
     if (!pParent_)
-      return XLARGE_SCORE;
+      return INFEAS_COST;
 
     // otherwise compare the current gap
     return pParent_->smallestGap_;
@@ -358,7 +358,7 @@ struct MyNode {
   double getQuality() const {
     // if root, does not apply
     if (!pParent_)
-      return XLARGE_SCORE;
+      return INFEAS_COST;
     // otherwise return parent's best LB
     return pParent_->getBestLB() + 1e-6 * depth_;
   }
@@ -428,7 +428,7 @@ struct MyNode {
   std::string getInfo() const {
     std::stringstream out;
     out << "depth=" << depth_ << ", LB=" << bestLB_;
-    if (presolvedUB_ < XLARGE_SCORE - 1)
+    if (isSoftCost(presolvedUB_))
       out << ", presolved=" << presolvedUB_;
     return out.str();
   }
@@ -441,15 +441,15 @@ struct MyTree {
         nbNodesProcessed_(0),
         nbNodesLastIncumbent_(0),
         diveDepth_(0),
-        diveLength_(LARGE_SCORE),
+        diveLength_(LARGE_INT),
         minDepth_(0),
         nbNodesSinceDive_(0),
         currentNode_(nullptr),
         printCurrentNode_(printCurrentNode),
-        bestLbInRoot(-XLARGE_SCORE),
-        bestLb(-XLARGE_SCORE),
-        maxBestLb(XLARGE_SCORE),
-        bestUb(XLARGE_SCORE),
+        bestLbInRoot(-INFEAS_COST),
+        bestLb(-INFEAS_COST),
+        maxBestLb(INFEAS_COST),
+        bestUb(INFEAS_COST),
         bestLbMinTreeLevel_(0) {}
 
   virtual ~MyTree() {}
@@ -518,17 +518,17 @@ struct MyTree {
   // Reset and clear solving parameters
   virtual void reset() {
     clear();
-    bestUb = XLARGE_SCORE;
+    bestUb = INFEAS_COST;
     currentNode_ = nullptr;
     treeSize_ = 0;
     nbNodesProcessed_ = 0;
     nbNodesLastIncumbent_ = 0;
     nbNodesSinceDive_ = 0;
     diveDepth_ = 0;
-    diveLength_ = LARGE_SCORE;
-    bestLbInRoot = -XLARGE_SCORE;
-    bestLb = -XLARGE_SCORE;
-    maxBestLb = XLARGE_SCORE;
+    diveLength_ = LARGE_INT;
+    bestLbInRoot = -INFEAS_COST;
+    bestLb = -INFEAS_COST;
+    maxBestLb = INFEAS_COST;
   }
 
   int getTreeSize() const { return treeSize_; }
@@ -908,7 +908,7 @@ class Modeler {
   }
 
   /*
-   * Store and set num for objects objects
+   * Store and set num for objects
    */
  protected:
   std::recursive_mutex mutex_;
@@ -1009,7 +1009,7 @@ class Modeler {
                                const char *var_name,
                                double objCoeff,
                                const std::vector<double> &column,
-                               double dualObj = LARGE_SCORE,
+                               double dualObj = INFEAS_COST,
                                double score = 0,
                                double ub = DBL_MAX);
 
@@ -1017,7 +1017,7 @@ class Modeler {
                           const char *var_name,
                           double objCoeff,
                           const std::vector<double> &column,
-                          double dualObj = LARGE_SCORE,
+                          double dualObj = INFEAS_COST,
                           double score = 0,
                           double ub = DBL_MAX);
 
@@ -1025,7 +1025,7 @@ class Modeler {
                              const char *var_name,
                              double objCoeff,
                              const std::vector<double> &column,
-                             double dualObj = LARGE_SCORE,
+                             double dualObj = INFEAS_COST,
                              double score = 0);
 
   /*
@@ -1382,7 +1382,7 @@ class Modeler {
 
   virtual double getBestUB() const { return pTree_->getBestUB(); }
 
-  virtual double getObjective(int index) const { return XLARGE_SCORE; }
+  virtual double getObjective(int index) const { return INFEAS_COST; }
 
   virtual double getRelaxedObjective() const { return pTree_->getRootLB(); }
 

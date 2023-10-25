@@ -107,14 +107,14 @@ if __name__ == "__main__":
     j = None
     if args.tests and args.tests != '-':
         if '-' not in args.tests:
-            i = int(args.tests)
+            i = int(args.tests) - 1
         elif args.tests.startswith('-'):
-            j = int(args.tests[1:])
+            j = int(args.tests[1:]) - 1
         else:
             s = args.tests.split('-')
-            i = int(s[0])
+            i = int(s[0]) - 1
             if s[1]:
-                j = int(s[1])
+                j = int(s[1]) - 1
 
     if j is not None and j < i:
         raise ValueError("The end indice of the test needs to be "

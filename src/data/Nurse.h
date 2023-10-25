@@ -73,13 +73,11 @@ class Contract {
   // series of night shifts
   const bool twoFreeDaysAfterNightShifts_ = false;
 
-  // true if nurses can be assigned to a skill they do not possess
-  const bool alternativeSkill_ = false;
-  const double costAlternativeSkill_ = 0;
-
-  // true if nurses can be assigned to a shift they cannot perform
-  const bool alternativeShift_ = false;
-  const double costAlternativeShift_ = 0;
+  // vector of alternative skills and their cost
+  // if the nurse posses already the skill,
+  // it won't be considered as alternative
+  const vector<int> alternativeSkills_;
+  const vector<double> costAlternativeSkills_;
 
   // vector of forbidden patterns
   vector<int> forbiddenPatternIds_;
@@ -100,15 +98,13 @@ class Contract {
            int maxTotalWeekends,
            int needCompleteWeekends,
            vector<PBaseResource> pBaseResources = {},
+           vector<int> alternativeSkills = {},
+           vector<double> costAlternativeSkills = {},
            DayOfWeek firstWeekendDayId = SATURDAY,
            DayOfWeek lastWeekendDayId = SUNDAY,
            bool identShiftTypesDuringWeekend = false,
            bool noNightShiftBeforeFreeWeekend = false,
-           bool twoFreeDaysAfterNightShifts = false,
-           bool alternativeSkill = false,
-           double costAlternativeSkill = 0,
-           bool alternativeShift = false,
-           double costAlternativeShift = 0) :
+           bool twoFreeDaysAfterNightShifts = false) :
       id_(id),
       name_(std::move(name)),
       minTotalShifts_(minTotalShifts),
@@ -123,29 +119,23 @@ class Contract {
       identShiftTypesDuringWeekend_(identShiftTypesDuringWeekend),
       noNightShiftBeforeFreeWeekend_(noNightShiftBeforeFreeWeekend),
       twoFreeDaysAfterNightShifts_(twoFreeDaysAfterNightShifts),
-      alternativeSkill_(alternativeSkill),
-      costAlternativeSkill_(costAlternativeSkill),
-      alternativeShift_(alternativeShift),
-      costAlternativeShift_(costAlternativeShift),
+      alternativeSkills_(std::move(alternativeSkills)),
+      costAlternativeSkills_(std::move(costAlternativeSkills)),
       pBaseResources_(std::move(pBaseResources)) {}
 
   Contract(int id,
            std::string name,
            vector<PBaseResource> pBaseResources = {},
+           vector<int> alternativeSkills = {},
+           vector<double> costAlternativeSkills = {},
            DayOfWeek firstWeekendDayId = SATURDAY,
            DayOfWeek lastWeekendDayId = SUNDAY,
-           vector<int> patternIds = {},
-           bool alternativeSkill = false,
-           double costAlternativeSkill = 0,
-           bool alternativeShift = false,
-           double costAlternativeShift = 0) :
+           vector<int> patternIds = {}) :
       id_(id),
       name_(std::move(name)),
       weekend_(firstWeekendDayId, lastWeekendDayId),
-      alternativeSkill_(alternativeSkill),
-      costAlternativeSkill_(costAlternativeSkill),
-      alternativeShift_(alternativeShift),
-      costAlternativeShift_(costAlternativeShift),
+      alternativeSkills_(std::move(alternativeSkills)),
+      costAlternativeSkills_(std::move(costAlternativeSkills)),
       forbiddenPatternIds_(std::move(patternIds)),
       pBaseResources_(std::move(pBaseResources)) {}
 
@@ -170,18 +160,78 @@ class Contract {
   // consecutive or total assignments
   double consDaysCost(int ndays) const;
   double consDaysOffCost(int ndays) const;
-  double totalShiftCost(int ndays) const;
-  double totalWeekendCost(int ndays) const;
 
   // Add a resource to the vector of PResources
   void addResource(const PBaseResource& pR) { pBaseResources_.push_back(pR); }
 
-  // Display methods: toStringINRC2 + override operator<< (easier)
+  // Display methods: toString + override operator<< (easier)
   //
   std::string toString();
   friend std::ostream &operator<<(std::ostream &outs, Contract obj) {
     return outs << obj.toString();
   }
+};
+
+
+//-----------------------------------------------------------------------------
+//
+//  C l a s s   S k i l l s
+//
+//  A position (job) is a set of skills that a nurse may possess
+//
+//-----------------------------------------------------------------------------
+class SkillsSet {
+ public:
+    SkillsSet(int nSkills, std::vector<int> skills, const Contract &contract);
+
+    int nSkills() const { return skills_.size(); }
+    int nAltSkills() const { return alternativeSkills_.size(); }
+    int nAllSkills() const { return allSkills_.size(); }
+
+    int skill(int i) const { return skills_[i]; }
+    int altSkill(int i) const { return alternativeSkills_[i]; }
+
+    const std::vector<int> &skills() const { return skills_; }
+    const std::vector<int> &altSkills() const { return alternativeSkills_; }
+    const std::vector<int> &allSkills() const { return allSkills_; }
+
+    bool hasSkill(int skill) const {
+      return hasSkill_[skill];
+    }
+
+    bool operator==(const SkillsSet &skillsSet) const;
+
+    double skillCost(int sk) const {
+      // alternative skill
+      for (int i = 0; i < alternativeSkills_.size(); ++i)
+        if (alternativeSkills_[i] == sk)
+          return alternativeSkillsCosts_[i];
+
+      // if skill does not belong to the skills, return HARD_COST
+      if (std::find(skills_.begin(), skills_.end(), sk) == skills_.end())
+        return HARD_COST;
+
+      // authorize skill
+      return 0;
+    }
+
+    // return the greatest common divider
+    int findMaxOptimalGap() const {
+      vector<int> costs;
+      for (double c : alternativeSkillsCosts_)
+        if (c >= 1e-3 && isSoftCost(c))
+          costs.push_back(c);
+      return Tools::gcd(costs);
+    }
+
+ private:
+    // Vector of skills for this position.
+    // For simplicity, the skill indices are sorted.
+    std::vector<int> skills_;
+    std::vector<int> alternativeSkills_;
+    std::vector<double> alternativeSkillsCosts_;
+    std::vector<bool> hasSkill_;
+    std::vector<int> allSkills_;
 };
 
 //-----------------------------------------------------------------------------
@@ -193,20 +243,15 @@ class Contract {
 //-----------------------------------------------------------------------------
 class Nurse;
 
-class Position {
+class Position: public SkillsSet {
  public:
   // Constructor and Destructor
-  //
   Position(int index,
+           int nSkills,
            std::vector<int> skills,
-           std::vector<int> alternativeSkills = {},
-           double alternativeSkillsCost = 0);
-  Position(int index,
-           std::vector<int> skills,
-           bool addOtherSkillsAsAlternative,
-           double alternativeSkillsCost,
-           int nSkills);
-  Position(int index, const Nurse &nurse);
+           const Contract &contract);
+
+  Position(int index, SkillsSet skillsSet);
 
   ~Position() = default;
 
@@ -215,17 +260,7 @@ class Position {
   //
   const int id_;
 
-  // Vector of skills for this position.
-  // For simplicity, the skill indices are sorted.
-  //
-  const std::vector<int> skills_;
-  const std::vector<int> alternativeSkills_;
-  const double alternativeSkillsCost_;
-
  private:
-  // union of the sklls and alternative skills
-  std::vector<int> allSkills_;
-
   // Positions that are below and above this one in the hierarchy
   // this is deduced from the dominance criterion implemented in compare()
   //
@@ -242,18 +277,13 @@ class Position {
   //
   int rank_;
 
-  // initalize rarity and check if skills are sorted
+  // initialize rarity and check if skills are sorted
   void init();
 
  public:
   // basic getters
   //
   int id() const { return id_; }
-  int nSkills() const { return skills_.size(); }
-  int skill(int sk) const { return skills_[sk]; }
-  const std::vector<int> &skills() const { return skills_; }
-  int nAltSkills() const { return alternativeSkills_.size(); }
-  const std::vector<int> &allSkills() const { return allSkills_; }
   int nBelow() const { return positionsBelow_.size(); }
   int nAbove() const { return positionsAbove_.size(); }
   PPosition positionsBelow(int i) const { return positionsBelow_[i]; }
@@ -265,7 +295,7 @@ class Position {
   //
   void rank(int i) { rank_ = i; }
 
-  // Display method: toStringINRC2
+  // Display method: toString
   //
   std::string toString() const;
 
@@ -286,11 +316,9 @@ class Position {
   bool shareSkill(const Position &p) const;
 
   // return true  if this position corresponds to the one of the nurse
-  //
   bool isNursePosition(const Nurse &nurse);
 
   // set positions above and below
-  //
   void addBelow(const PPosition& pPosition);
   void addAbove(const PPosition& pPosition);
 
@@ -307,7 +335,14 @@ class Position {
   void updateRarities(std::vector<double> allRarities);
 };
 
-
+// Compare two positions to sort them
+// Three possible cases can happen
+// 1) same positions
+// 2) same rank: the first position to be treated is that with the rarest skill
+// or the largest number of skills
+// 3) the first position to be treated is that with the smaller rank
+//
+bool comparePositions(const Position& p1, const Position& p2);
 
 //-----------------------------------------------------------------------------
 //
@@ -317,32 +352,13 @@ class Position {
 //  the planning of each nurse
 //
 //-----------------------------------------------------------------------------
-class Nurse {
+class Nurse: public SkillsSet {
  public:
   // Constructor and destructor
   Nurse(int id,
         std::string name,
-        int nShifts,
         int nSkills,
         std::vector<int> skills,
-        std::vector<int> availableShifts,
-        PContract contract);
-
-  Nurse(int id,
-        std::string name,
-        int nShifts,
-        int nSkills,
-        std::vector<int> skills,
-        std::vector<int> alternativeSkills,
-        std::vector<int> availableShifts,
-        PContract contract);
-
-  Nurse(int id,
-        std::string name,
-        int nShifts,
-        int nSkills,
-        std::vector<int> skills,
-        bool addOtherSkillsAsAlternative,
         std::vector<int> availableShifts,
         PContract contract);
 
@@ -364,14 +380,8 @@ class Nurse {
   //
   const std::string name_;
 
-  // number of skills and vector of the skills indices
-  // for simplicity, the vector of skills is sorted
-  //
-  const std::vector<int> skills_;
-  const std::vector<int> alternativeSkills_;
-
   // available shifts and alternative ones
-  const std::vector<int> availableShifts_, alternativeShifts_;
+  const std::vector<int> availableShifts_;
 
   // Their contract type
   PContract pContract_;
@@ -382,11 +392,12 @@ class Nurse {
   // constructor
   // (only getters for these fields)
   //-----------------------------------------------------------------------------
-  std::vector<bool> hasSkill_, isAvailOrAltShift_;
 
   // Resources of the nurse
-  //
   vector<PBaseResource> pBaseResources_;
+
+  // store if shifts are available for the nurse
+  vector<bool> isShiftAvail_;
 
   // initialize vectors and checked they are sorted
   void init();
@@ -394,9 +405,6 @@ class Nurse {
 
  public:
   // Basic getters
-  //
-  int nSkills() const { return skills_.size(); }
-  int nAltSkills() const { return alternativeSkills_.size(); }
   int minTotalShifts() const { return pContract_->minTotalShifts_; }
   int maxTotalShifts() const { return pContract_->maxTotalShifts_; }
   int minConsDaysWork() const { return pContract_->minConsDaysWork_; }
@@ -406,36 +414,27 @@ class Nurse {
   int maxTotalWeekends() const { return pContract_->maxTotalWeekends_; }
   bool needCompleteWeekends() const {
     return  pContract_->needCompleteWeekends_; }
-  bool alternativeSkillCategory() const {
-    return pContract_->alternativeSkill_; }
-  bool identShiftTypesDuringWeekend() const {
-    return pContract_->identShiftTypesDuringWeekend_;  }
-  bool noNightShiftBeforeFreeWeekEnd_() const {
-    return pContract_->noNightShiftBeforeFreeWeekend_; }
-  bool twoFreeDaysAfterNightShifts() const {
-    return pContract_->twoFreeDaysAfterNightShifts_; }
 
   double consDaysCost(int n) const { return pContract_->consDaysCost(n); }
   double consDaysOffCost(int n) const { return pContract_->consDaysOffCost(n); }
-  double totalShiftCost(int n) const { return pContract_->totalShiftCost(n); }
-  double totalWeekendCost(int n) const {
-    return pContract_->totalWeekendCost(n);
-  }
   PContract pContract() const { return pContract_; }
 
-  // Avanced getters
-  //
-  bool hasSkill(int skill) const;
+  bool isShiftAvail(int id) const {
+    return id < isShiftAvail_.size() && isShiftAvail_[id];
+  }
+
+  bool isShiftNotAvail(int id) const {
+    return !isShiftAvail(id);
+  }
+
+  // Advanced getters
   int contractId() const { return pContract_->id_; }
   std::string contractName() const { return pContract_->name_; }
-  bool isShiftAvailOrAlt(int s) const { return isAvailOrAltShift_[s]; }
-  bool isShiftNotAvailNorAlt(int s) const { return !isShiftAvailOrAlt(s); }
 
   // Add a resource to the vector
   void addBaseResource(const PBaseResource& pR);
 
-  // Display methods: toStringINRC2
-  //
+  // Display methods: toString
   std::string toString() const;
 };
 
@@ -461,14 +460,14 @@ class Wish {
 
  public:
   Wish() = default;
-  Wish(PAbstractShift pAS, bool off, double cost = LARGE_SCORE) {
+  Wish(PAbstractShift pAS, bool off, double cost = HARD_COST) {
     if (off) {
       pAShiftsOff_.push_back(std::move(pAS));
-      hardOff_.push_back(cost == LARGE_SCORE);
+      hardOff_.push_back(isHardCost(cost));
       costsOff_.push_back(cost);
     } else {
       pAShiftsOn_.push_back(std::move(pAS));
-      hardOn_.push_back(cost == LARGE_SCORE);
+      hardOn_.push_back(isHardCost(cost));
       costsOn_.push_back(cost);
     }
   }
@@ -532,6 +531,18 @@ class Wish {
       ++itC;
     }
     return cost;
+  }
+
+  // return greatest common divider
+  int findMaxOptimalGap() const {
+    vector<int> costs;
+    for (double c : costsOn_)
+      if (c >= 1e-3 && isSoftCost(c))
+        costs.push_back(c);
+    for (double c : costsOff_)
+      if (c >= 1e-3 && isSoftCost(c))
+        costs.push_back(c);
+    return Tools::gcd(costs);
   }
 
   std::string toString() const {
@@ -603,10 +614,10 @@ class Preferences {
 
   const Wish& addShiftOff(
       int nurse, int day, const PAbstractShift &pShift,
-      double cost = LARGE_SCORE);
+      double cost = HARD_COST);
   const Wish& addShiftOn(
       int nurse, int day, const PAbstractShift &pShift,
-      double cost = LARGE_SCORE);
+      double cost = HARD_COST);
 
   const std::map<int, Wish> &nurseWishes(int id) const {
     return wishes_.at(id);
@@ -643,7 +654,7 @@ class Preferences {
   // Remove the preferences relative to the nbDays first days
   PPreferences removeNFirstDays(int nbDays);
 
-  // Display methods: toStringINRC2 + override operator<< (easier)
+  // Display methods: toString + override operator<< (easier)
   //
   std::string toString() const;
   friend std::ostream &operator<<(std::ostream &outs,

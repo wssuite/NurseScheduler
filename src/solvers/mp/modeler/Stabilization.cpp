@@ -162,11 +162,11 @@ void Stabilization::stabDeactivateBoundAndCost(OsiSolverInterface *solver) {
     MyVar *varPlus = stabVariablesPlus_[i],
         *varMinus = stabVariablesMinus_[i];
     if (varPlus) {
-      updateVarCostInSolver(varPlus, solver, LARGE_SCORE);
+      updateVarCostInSolver(varPlus, solver, INFEAS_COST);
       updateVarUbInSolver(varPlus, solver, 0);
     }
     if (varMinus) {
-      updateVarCostInSolver(varMinus, solver, LARGE_SCORE);
+      updateVarCostInSolver(varMinus, solver, INFEAS_COST);
       updateVarUbInSolver(varMinus, solver, 0);
     }
   }

@@ -46,7 +46,7 @@ enum CostType {
   IDENT_WEEKEND_COST,  // cost of not working a complete weekend
   FORBIDDEN_PATTERN_COST,
   PREFERENCE_COST,  // cost of not respecting nurses' preferences
-  ALTERNATIVE_COST,  // cost of using an alternative skill or shift
+  UNWANTED_SHIFT_COST,  // cost of using an alternative skill or shift
   REST_AFTER_SHIFT_COST,
   CONS_REST_COST,  // consecutive rest shifts constraint
   TOTAL_WORK_COST,  // total shifts' duration
@@ -55,19 +55,19 @@ enum CostType {
 };
 
 static const std::map<std::string, CostType> costTypesByName = {
-    {"CONS_SHIFTS_COST", CONS_SHIFTS_COST},
-    {"CONS_WORK_COST", CONS_WORK_COST},
-    {"CONS_REST_COST", CONS_REST_COST},
+    {"CONS_SHIFTS_COST",         CONS_SHIFTS_COST},
+    {"CONS_WORK_COST",           CONS_WORK_COST},
+    {"CONS_REST_COST",           CONS_REST_COST},
     {"CONS_WEEKEND_SHIFTS_COST", CONS_WEEKEND_SHIFTS_COST},
-    {"IDENT_WEEKEND_COST", IDENT_WEEKEND_COST},
-    {"FORBIDDEN_PATTERN_COST", FORBIDDEN_PATTERN_COST},
-    {"PREFERENCE_COST", PREFERENCE_COST},
-    {"ALTERNATIVE_COST", ALTERNATIVE_COST},
-    {"REST_AFTER_SHIFT_COST", REST_AFTER_SHIFT_COST},
-    {"TOTAL_WORK_COST", TOTAL_WORK_COST},
-    {"TOTAL_WEEKEND_COST", TOTAL_WEEKEND_COST},
-    {"ANY_COST", ANY_COST},
-    {"NO_COST", NO_COST}
+    {"IDENT_WEEKEND_COST",       IDENT_WEEKEND_COST},
+    {"FORBIDDEN_PATTERN_COST",   FORBIDDEN_PATTERN_COST},
+    {"PREFERENCE_COST",          PREFERENCE_COST},
+    {"UNWANTED_SHIFT_COST",      UNWANTED_SHIFT_COST},
+    {"REST_AFTER_SHIFT_COST",    REST_AFTER_SHIFT_COST},
+    {"TOTAL_WORK_COST",          TOTAL_WORK_COST},
+    {"TOTAL_WEEKEND_COST",       TOTAL_WEEKEND_COST},
+    {"ANY_COST",                 ANY_COST},
+    {"NO_COST",                  NO_COST}
 };
 
 static const std::map<CostType, std::string> namesByCostType =
@@ -517,6 +517,10 @@ class Resource : public BaseResource {
 
   CostType costType() const { return costType_; }
 
+  // return the max optimal gap of the rounded cost
+  // if hard resource, return 0
+  virtual int findMaxOptimalGap() const = 0;
+
   // these two methods are used to split the resources between the master and
   // subproblem of each decomposition
   virtual bool isInRosterMaster() const = 0;
@@ -544,8 +548,9 @@ class Resource : public BaseResource {
 class BoundedResource : public Resource {
  public:
   // Constructor
-  BoundedResource(std::string _name, double lb, double ub) :
-      Resource(std::move(_name)) {
+  BoundedResource(
+          PAbstractShift pAShift, std::string _name, double lb, double ub) :
+      Resource(std::move(_name)), pAShift_(std::move(pAShift)) {
     if (lb > ub)
       Tools::throwError("LB cannot be greater than the UB for "
                         "BoundedResource: %d > %d", lb, ub);
@@ -577,7 +582,10 @@ class BoundedResource : public Resource {
     return 1;
   }
 
+  const PAbstractShift &pAShift() const { return pAShift_; }
+
  protected:
+  const PAbstractShift pAShift_;
   int lb_;
   int ub_;
 };
@@ -590,8 +598,9 @@ class SoftBoundedResource : public BoundedResource {
  public:
   // Constructor
   SoftBoundedResource(
-      std::string _name, int lb, int ub, double lbCost, double ubCost) :
-      BoundedResource(std::move(_name), lb, ub),
+          PAbstractShift pAShift, std::string _name,
+          int lb, int ub, double lbCost, double ubCost) :
+      BoundedResource(std::move(pAShift), std::move(_name), lb, ub),
       lbCost_(lbCost),
       ubCost_(ubCost) {}
 
@@ -650,6 +659,12 @@ class SoftBoundedResource : public BoundedResource {
     return getUbCost(consumption + nLeft);
   }
 
+  int findMaxOptimalGap() const override {
+    if (lbCost_ < 1e-3) return ubCost_;
+    if (ubCost_ < 1e-3) return lbCost_;
+    return Tools::gcd( static_cast<int>(lbCost_),  static_cast<int>(ubCost_));
+  }
+
  protected:
   // costs
   double lbCost_ = 0.0;
@@ -667,14 +682,19 @@ class SoftBoundedResource : public BoundedResource {
 class HardBoundedResource : public BoundedResource {
  public:
   // Constructor
-  HardBoundedResource(std::string _name, int lb, int ub) :
-      BoundedResource(std::move(_name), lb, ub) {
+  HardBoundedResource(
+          PAbstractShift pAShift, std::string _name, int lb, int ub) :
+      BoundedResource(std::move(pAShift), std::move(_name), lb, ub) {
     costType_ = NO_COST;
   }
 
   // return true. If soft, should be overridden
   bool isHard() const override {
     return true;
+  }
+
+  int findMaxOptimalGap() const override {
+    return 0;
   }
 
   bool merge(const ResourceValues &vForward,

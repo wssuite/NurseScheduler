@@ -43,10 +43,8 @@ struct Weights {
           std::vector<double> weightPreferences,
           const double weightCompleteWeekend,
           const double weightTotalShifts,
-          const double weightTotalWeekends,
-          double overCoverage = -1) :
+          const double weightTotalWeekends) :
       underCoverage(underCoverage),
-      overCoverage(overCoverage),
       alternativeSkills(weightAlternativeSkills),
       consShifts(weightConsShifts),
       consDaysWork(weightConsDaysWork),
@@ -57,7 +55,6 @@ struct Weights {
       totalWeekends(weightTotalWeekends) {}
 
   const double underCoverage = 30;
-  const double overCoverage = -1;
   const double alternativeSkills = 20;
   const double consShifts = 15;
   const double consDaysWork = 30;
@@ -92,28 +89,20 @@ typedef std::shared_ptr<Preferences> PPreferences;
 //  is already counted in this total
 class State {
  public:
-  // Constructor and Destructor
-  State() : dayId_(0),
-            totalTimeWorked_(0),
-            totalWeekendsWorked_(0),
-            consDaysWorked_(0),
-            consShifts_(0),
-            consDaysOff_(0),
-            consWeekendWorked_(0),
-            consWeekendOff_(0),
-            pShift_(nullptr) {}
-  ~State();
+  static State noneState(const ShiftsFactory &sF, int d = -1);
 
-  // Constructor with attributes
-  State(int dayId,
-        int totalTimeWorked,
-        int totalWeekendsWorked,
-        int consDaysWorked,
-        int consShifts,
-        int consDaysOff,
-        PShift pShift) :
+  // Constructor and Destructor
+  State(PShift pShift = nullptr,
+        int dayId = 0,
+        int totalTimeWorked = 0,
+        int totalDaysWorked = 0,
+        int totalWeekendsWorked = 0,
+        int consDaysWorked = 0,
+        int consShifts = 0,
+        int consDaysOff = 0) :
       dayId_(dayId),
       totalTimeWorked_(totalTimeWorked),
+      totalDaysWorked_(totalDaysWorked),
       totalWeekendsWorked_(totalWeekendsWorked),
       consDaysWorked_(consDaysWorked),
       consShifts_(consShifts),
@@ -124,6 +113,8 @@ class State {
         we.nWeekendsInInterval(dayId - consDaysWorked + 1, dayId);
     consWeekendOff_ = we.nWeekendsInInterval(dayId - consDaysOff + 1, dayId);
   }
+
+  ~State();
 
   // Function that appends a new day worked on a given shiftType
   // to an input state to update this state
@@ -141,9 +132,10 @@ class State {
   // const PScenario pScenario);
 
 
-  // Display methods: toStringINRC2 + override operator<< (easier)
+  // Display methods: toString + override operator<< (easier)
   //
-  std::string toString() const;
+  std::string toString(const string &shiftType = "") const;
+  std::string toString(const ShiftsFactory& shiftsFactory) const;
   friend std::ostream &operator<<(std::ostream &outs, const State &obj) {
     return outs << obj.toString();
   }
@@ -157,7 +149,7 @@ class State {
   int dayId_;
 
   // Total number of days and weekends worked
-  int totalTimeWorked_, totalWeekendsWorked_;
+  int totalTimeWorked_, totalDaysWorked_, totalWeekendsWorked_;
 
   // number of consecutive days worked
   int consDaysWorked_, consShifts_, consDaysOff_,
@@ -183,40 +175,39 @@ class Scenario {
   //
   Scenario(std::string name,
            int nbWeeks,
-           int nbSkills,
            vector<std::string> intToSkill,
            std::map<std::string, int> skillToInt,
            vector<PShift> pShifts,
            vector<std::string> intToShiftType,
            vector<int> minConsShiftsType,
            vector<int> maxConsShiftsType,
-           int nbContracts,
            vector<PContract> contracts,
-           int nbNurses,
            std::vector<PNurse> theNurses,
-           std::map<std::string, int> nurseNameToInt,
            PWeights weights,
-           string header,
-           bool isINRC,
-           bool isINRC2);
+           bool isINRC2 = false);
+
+    Scenario(std::string name,
+             int nbWeeks,
+             vector<std::string> intToSkill,
+             std::map<std::string, int> skillToInt,
+             vector<PShift> pShifts,
+             vector<std::string> intToShiftType,
+             vector<PContract> contracts,
+             std::vector<PNurse> theNurses,
+             string header = "");
 
   // Hybrid copy constructor : this is only called when constructing
   // a new scenario that copies most parameters from the input scenario
   // but for only a subgroup of nurses.
-  //
   Scenario(const PScenario &pScenario,
            const std::vector<PNurse> &theNurses,
-           PDemand pDemand,
+           vector<PDemand> pDemands,
            PPreferences pWeekPreferences);
 
   ~Scenario();
 
   // first day of the horizon and
   const Day firstDay_ = Day(0);
-
-  // type of instance
-  const bool isINRC2_ = true;
-  const bool isINRC_ = false;
 
  private:
   // name of the scenario
@@ -230,13 +221,11 @@ class Scenario {
 
   // number of skills, a std::map and a std::vector matching the name
   // of each skill to an index and reversely
-  const int nSkills_;
   const std::vector<std::string> intToSkill_;
   const std::map<std::string, int> skillToInt_;
 
   // number of shifts, a std::map and a std::vector matching the name
   // of each shift to an index and reversely
-  const int nShifts_;
   std::map<std::string, int> shiftToInt_;
   const vector<PShift> pShifts_;
 
@@ -247,19 +236,15 @@ class Scenario {
   // each type shift to an index and,
   // reversely minimum and maximum number consecutive assignments
   // for each shift, and penalty for violations of these bounds.
-  int nShiftTypes_;
   std::map<std::string, int> shiftTypeToInt_;
 
   // std::vector of possible contract types
-  //
-  const int nContracts_;
   const std::vector<PContract> theContracts;
 
   // weights of the cost functions
-  const PWeights pWeights_;
+  PWeights pWeights_;
 
   // number of nurses, and std::vector of all the nurses
-  int nNurses_;
   std::vector<PNurse> pNurses_;
   std::map<std::string, int> nurseNameToInt_;
 
@@ -269,10 +254,10 @@ class Scenario {
   // From the Week data file
   //------------------------------------------------
   // Name of the week
-  std::string weekName_;
+  std::string demandName_;
   // Current week demand for each DAY, SHIFT, and SKILL
   //
-  PDemand pDemand_ = nullptr;
+  vector<PDemand> pDemands_;
 
   // Shift off requests : Preferences for each nurse :
   // which (day,shift) do they want off ?
@@ -302,28 +287,24 @@ class Scenario {
   int thisWeek_;
 
   //------------------------------------------------
-
-
-  //------------------------------------------------
   // From the custom file
   //------------------------------------------------
   //------------------------------------------------
   const std::string header_;
 
- private:
   //------------------------------------------------
   // From the preprocessing of the nurses
   //------------------------------------------------
   // std::vector of existing positions
   //
-  int nPositions_;
   std::vector<PPosition> pPositions_;
   vector2D<PNurse> nursesPerPosition_;
   vector2D<PPosition> componentsOfConnectedPositions_;
   vector2D<PNurse> nursesPerConnectedComponentOfPositions_;
 
-
   //------------------------------------------------
+  // initialize the scenario
+  void init();
 
  public:
   //------------------------------------------------
@@ -394,20 +375,20 @@ class Scenario {
   const std::string &name() const { return name_; }
   int nWeeks() const { return nWeeks_; }
   int thisWeek() const { return thisWeek_; }
-  const std::string &weekName() const { return weekName_; }
-  PDemand pDemand() { return pDemand_; }
-  int nShifts() const { return nShifts_; }
-  int nShiftTypes() const { return nShiftTypes_; }
+  const std::string &demandName() const { return demandName_; }
+  const vector<PDemand>& pDemands() { return pDemands_; }
+  int nShifts() const { return pShifts_.size(); }
+  int nShiftTypes() const { return shiftTypeToInt_.size(); }
   int nShiftOffRequests() const { return nShiftOffRequests_; }
   int nShiftOnRequests() const { return nShiftOnRequests_; }
   PPreferences pWeekPreferences() { return pPreferences_; }
   std::vector<State> *pInitialState() { return &initialState_; }
-  int nSkills() const { return nSkills_; }
-  int nContracts() const { return nContracts_; }
-  int nPositions() const { return nPositions_; }
+  int nSkills() const { return skillToInt_.size(); }
+  int nContracts() const { return theContracts.size(); }
+  int nPositions() const { return pPositions_.size(); }
   const std::vector<PPosition> &pPositions() const { return pPositions_; }
   PPosition pPosition(int p) const { return pPositions_[p]; }
-  int nNurses() const { return nNurses_; }
+  int nNurses() const { return pNurses_.size(); }
   const PNurse &pNurse(int nurseNum) { return pNurses_[nurseNum]; }
   const vector<PNurse> &pNurses() { return pNurses_; }
   int nurse(const std::string &name) const {
@@ -423,7 +404,16 @@ class Scenario {
   nursesInConnectedComponentOfPositions(int c) const {
     return nursesPerConnectedComponentOfPositions_[c];
   }
-  const Weights &weights() const { return *pWeights_; }
+
+  bool isWeightsDefined() const { return pWeights_ != nullptr; }
+
+  const Weights &weights() const {
+    if (pWeights_ == nullptr)
+      Tools::throwError("Weights have not been initialized in Scenario.");
+    return *pWeights_;
+  }
+
+  void deletePWeights() { pWeights_ = nullptr; }
 
   // getter for the maximum number of consecutive worked days
   // before the planning horizon
@@ -438,7 +428,7 @@ class Scenario {
   }
 
   void enableCyclic() {
-    initialState_.resize(nNurses_);
+    initialState_.resize(nNurses());
     cyclic_ = true;
   }
 
@@ -469,6 +459,8 @@ class Scenario {
   // Cost function for consecutive identical shifts
   //
   double consShiftCost(int sh, int n) const {
+    if (pWeights_ == nullptr)
+      Tools::throwError("Weights have not been initialized in Scenario.");
     if (minConsShifts(sh) - n > 0)
       return (pWeights_->consShifts * (minConsShifts(sh) - n));
     if (n - maxConsShifts(sh) > 0)
@@ -477,6 +469,8 @@ class Scenario {
   }
 
   double consShiftTypeCost(int sh, int n) const {
+    if (pWeights_ == nullptr)
+      Tools::throwError("Weights have not been initialized in Scenario.");
     if (minConsShiftsOfType(sh) - n > 0)
       return (pWeights_->consShifts * (minConsShiftsOfType(sh) - n));
     if (n - maxConsShiftsOfType(sh) > 0)
@@ -486,16 +480,15 @@ class Scenario {
 
   // getters for the attribute of the demand
   //
-  int firstDayIdOfDemand() const { return pDemand_->firstDayId_; }
-  int nDays() const { return pDemand_->nDays_; }
+  int firstDayIdOfDemand() const { return pDemands_.front()->firstDayId_; }
+  int nDays() const { return pDemands_.front()->nDays_; }
 
   // Setters to class attributes
 
   // when reading the week file (Demand and preferences)
   //
-  void setWeekName(std::string weekName) { weekName_ = std::move(weekName); }
-  void setDemand(PDemand pDemand) {
-    pDemand_ = std::move(pDemand);
+  void setDemands(vector<PDemand> pDemands) {
+    pDemands_ = std::move(pDemands);
   }
   void setTNbShiftOffRequests(int nbShiftOffRequests) {
     nShiftOffRequests_ = nbShiftOffRequests;
@@ -520,20 +513,20 @@ class Scenario {
 
   // update the scenario to treat a new week
   //
-  void updateNewWeek(PDemand pDemand,
+  void updateNewWeek(vector<PDemand> pDemands,
                      PPreferences pPreferences,
                      const std::vector<State> &initialStates);
 
   // Link the scenario with the Demand and the Preferences
   //
-  void linkWithDemand(PDemand pDemand) {
-    weekName_ = pDemand->name_;
-    pDemand_ = pDemand;
+  void linkWithDemand(vector<PDemand> pDemands) {
+    demandName_ = pDemands.front()->name_;
+    pDemands_ = std::move(pDemands);
   }
 
   void linkWithPreferences(PPreferences pPreferences);
 
-  void pushBack(PDemand pDemand, PPreferences pPreferences);
+  void pushBack(const vector<PDemand> &pDemands, PPreferences pPreferences);
 
   //------------------------------------------------
   // Display functions
@@ -541,7 +534,7 @@ class Scenario {
 
   // display the whole scenario
   //
-  std::string toStringINRC2() const;
+  std::string toString() const;
 
   //------------------------------------------------
   // Preprocess functions

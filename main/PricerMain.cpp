@@ -11,13 +11,16 @@
 
 #include "solvers/mp/sp/RosterSP.h"
 #include "solvers/mp/sp/RotationSP.h"
-#include "solvers/mp/sp/rcspp/boost/RosterSP.h"
-#include "solvers/mp/sp/rcspp/boost/RotationSP.h"
 #include "InitializeInstance.h"
 #include "solvers/mp/sp/SubProblem.h"
 #include "solvers/mp/RosterMP.h"
 #include "solvers/mp/RotationMP.h"
 #include "data/Shift.h"
+
+#ifdef BOOST
+#include "solvers/mp/sp/rcspp/boost/RosterSP.h"
+#include "solvers/mp/sp/rcspp/boost/RotationSP.h"
+#endif
 
 std::pair<float, float> comparePricing(MasterProblem *pMaster,
                                        SubProblem *mSP,
@@ -93,29 +96,38 @@ float comparePricing(
       std::cout << "Solve subproblem for nurse " << pNurse->name_ << std::endl;
     // create param
     SubProblemParam spParam(pMaster->parameters());
-    spParam.strategyLevel_ =
-        boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
     // retrieve a boost subproblem
     SubProblem *mSP, *pSP2;
     SubProblemParam spParam2 = spParam;
+#ifndef BOOST
+    if (compareToBoost)
+      std::cout << "Cannot compare to boost subproblem as the code has been "
+                   "compiled without it." << std::endl;
+#endif
     if (!compareToBoost)
       spParam2.rcsppImprovedDomination_ = false;
     if (pMaster->parameters().spType_ == ROSTER) {
       mSP = new RosterSP(pScenario, 0, pScenario->nDays(), pNurse,
                          pMaster->getSPResources(pNurse), spParam);
+#ifdef BOOST
+      spParam2.strategyLevel_ =
+              boostRCSPP::SubProblem::maxSubproblemStrategyLevel_;
       if (compareToBoost)
         pSP2 = new boostRCSPP::RosterSP(
             pScenario, pScenario->nDays(), pNurse, spParam2);
       else
+#endif
         pSP2 = new RosterSP(pScenario, 0, pScenario->nDays(), pNurse,
                             pMaster->getSPResources(pNurse), spParam2);
     } else {
       mSP = new RotationSP(pScenario, 0, pScenario->nDays(), pNurse,
                            pMaster->getSPResources(pNurse), spParam);
+#ifdef BOOST
       if (compareToBoost)
         pSP2 = new boostRCSPP::RotationSP(
             pScenario, pScenario->nDays(), pNurse, spParam2);
       else
+#endif
         pSP2 = new RotationSP(pScenario, 0, pScenario->nDays(), pNurse,
                               pMaster->getSPResources(pNurse), spParam2);
     }
