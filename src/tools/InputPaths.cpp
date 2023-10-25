@@ -122,8 +122,13 @@ void InputPaths::guessOrigin() {
   origin_ = guessOrigin(scenario_);
 }
 
-InstanceOrigin InputPaths::guessOrigin(const std::string &path) const {
-  std::size_t found = path.find_last_of('.');
+InstanceOrigin InputPaths::guessOrigin(
+        const std::string &path, size_t extensionSize) const {
+  // extract the extension to see if any
+  std::size_t extPos =
+          path.size() <= extensionSize ? 0 : path.size() - extensionSize;
+  std::string extPart = path.substr(extPos);
+  std::size_t found = extPart.find_last_of('.');
   if (found == std::string::npos) {
     return INRCII;
   }

@@ -117,7 +117,8 @@ class InputPaths {
   }
 
   void guessOrigin();
-  InstanceOrigin guessOrigin(const std::string &path) const;
+  InstanceOrigin guessOrigin(const std::string &path,
+                             size_t extensionSize = 6) const;
 
   int historyIndex() const { return historyIndex_; }
   const std::string &history() const { return history_; }
